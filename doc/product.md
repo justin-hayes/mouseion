@@ -1,0 +1,192 @@
+# mouseion — Product Specification
+
+> Working title for the self-hosted reading environment for advanced foreign-language reading. This document consolidates the reading-app concept from the Obsidian 2026-08-17 braindump and the Vocabulary Acquisition Tool sessions (2026-07-19/20, 2026-08-18), which describe the fuller server-side web application. It follows the same document structure as the Vocabulary Acquisition Tool spec.
+
+---
+
+# Problem Statement
+
+Reading at an advanced level in a foreign language means encountering many words that are worth learning. Most readers have to stop, look words up, and manually build study material — a slow, manual pipeline that competes with actual reading time.
+
+`mouseion` is a self-hosted reading environment that automates that pipeline: it analyzes the books you already want to read, surfaces the vocabulary worth studying (ranked by frequency, each word tied to a representative example from the text), lets you curate the result, and exports it to an SRS such as Anki.
+
+The goal is to minimize time spent managing vocabulary and maximize time spent reading authentic material.
+
+---
+
+# Design Goals
+
+The application should:
+
+- work from authentic reading material browsed from a self-hosted library (Calibre-Web over OPDS)
+- analyze books in the background and return vocabulary ranked by frequency, each item with an example sentence chosen from the text
+- keep the learner in control: mark words as known, choose between multiple example sentences, omit or add items
+- export the curated result to Anki
+- support multiple languages of study with pluggable NLP
+- be self-hostable on a home lab
+- implement as much as possible in Go, calling a Python service only where NLP genuinely requires it
+- keep the processing pipeline independent of the interface, so a CLI and a web UI can both use the same core
+
+---
+
+# Non-Goals
+
+The first version will not attempt to:
+
+- replace Anki or teach grammar
+- automatically determine whether the learner truly knows a word
+- generate complete language courses
+- be a general-purpose ebook reader (reading aids beyond vocabulary are a roadmap item)
+- (roadmap) KOReader progress sync, corpus-wide concordance, and a full in-text reading environment are explicitly out of scope for v1
+
+---
+
+# User Workflow
+
+A typical workflow is:
+
+1. Register / configure a profile for a language of study.
+2. Upload (or reference) word lists of known vocabulary.
+3. Configure a connection to an OPDS server.
+4. Browse the library and choose a book for analysis (EPUB for now).
+5. Analysis runs in the background.
+6. Receive the text's vocabulary sorted by frequency, each word with a representative example chosen from the text.
+7. Customize the list: mark words as known to omit them, change which sentence is representative if several exist, etc.
+8. Download the edited list as an Anki deck.
+
+---
+
+# Inputs
+
+## Corpus
+
+One or more EPUBs from an OPDS library. Future: other formats (PDF, plain text, OCR output, HTML).
+
+## Known Vocabulary
+
+Per language-of-study word lists of words already considered learned. Sources: manually maintained lists, exports from previous runs, Anki decks, CEFR/priority lists.
+
+## OPDS / Library Connection
+
+Configuration pointing at a self-hosted Calibre-Web OPDS server for browsing and ingestion.
+
+---
+
+# Processing Pipeline
+
+## Ingest & Linguistic Analysis
+
+Each book is analyzed using language-specific NLP tools (tokenization, lemmatization, POS tagging, morphology, sentence segmentation, optional named-entity detection). Output is a normalized corpus persisted for downstream use.
+
+## Vocabulary Selection & Ranking
+
+Words are selected and ranked according to configurable rules (e.g. appears at least N times, belongs to a priority list, part of speech, exclude proper nouns), excluding known vocabulary and previously handled items.
+
+## Enrichment
+
+Remaining candidates are enriched with external information — translation, gloss, frequency, morphology, pronunciation. LLMs may be used where appropriate but should not be required for every enrichment task.
+
+## Sentence Selection
+
+For each item, choose the most useful example sentence from the text (understandable from context, not excessively long, representative usage).
+
+## Review / Curation
+
+The learner reviews candidates: accept, omit, or edit the example sentence. The curated state persists so future runs avoid duplicating work.
+
+## Export
+
+Produce an Anki-compatible deck of the accepted, curated vocabulary.
+
+---
+
+# Outputs
+
+## Anki Deck
+
+CSV compatible with Anki (front: source sentence / cloze / hint; back: full sentence, translation, target word, lemma, POS, morphology, source document, notes).
+
+## Vocabulary Database
+
+Persist known vocabulary, generated cards, and processing history so future runs accumulate rather than reset.
+
+---
+
+# Architecture (Initial)
+
+The first implementation is **core-first**: a shared Go application core with a coarse, ingest-time Python NLP producer, per the architecture ADR. A thin Go CLI is the first client; the web application is a second client over the same Go libraries.
+
+## Component Boundaries
+
+- **Core library (Go):** corpus models, linguistic-analysis contracts, normalization, candidate selection and ranking, vocabulary state, persistence (SQLite), enrichment, card export.
+- **NLP producer (Python):** batch, ingest-time NLP only (Stanza), producing a typed, versioned normalized-corpus artifact (Protobuf) consumed by the Go core.
+- **Import adapters:** EPUB extraction, known-vocabulary imports (CSV, Anki), priority-list imports.
+- **One-off scripts:** personal migrations and cleanup, kept out of the stable library API.
+
+## Initial Processing Model
+
+```text
+OPDS library → choose book → ingest EPUB
+   ↓
+background NLP analysis (Python) → normalized corpus
+   ↓
+candidate selection & ranking
+   ↓
+review / curation (learner)
+   ↓
+Anki deck export
+```
+
+## Implementation Stack
+
+- **Go** for the core, persistence (SQLite), and the CLI/server.
+- **Python** (Stanza) for ingest-time NLP only, behind a project-defined language-analyzer interface.
+- **Protobuf** as the typed, versioned contract between Go and Python.
+- **Web UI (later):** server-side rendered with JavaScript enhancement (HTMX, Alpine); if requirements demand a full client-side app, prefer Svelte.
+
+---
+
+# Decision Register
+
+This register identifies decisions stable enough to promote to repository documentation and, where noted, to record as ADRs. The repository ADRs explain context, decision, alternatives, and consequences; this table is the planning index.
+
+| Decision | Status | Rationale | ADR candidate |
+| --- | --- | --- | --- |
+| Core-first: shared Go core used by CLI and web app | Accepted; ADR written | One core, multiple clients; CLI validates core before UI work. | `0001` |
+| Python is an ingest-time NLP producer, not a runtime dependency | Accepted; ADR written | Stanza has no viable Go binding; confined to raw NLP at ingest time. | `0001` |
+| Coarse, typed, versioned contract between Go and Python (Protobuf) | Accepted; ADR written | One schema defines RPC messages and the persisted corpus format. | `0001` |
+| Thin Go CLI first; web app layered on later | Accepted; ADR written | Validates the core on real corpora before front-loading auth and UI. | `0001` |
+| Service API is async-capable (jobs) and profile-based from day one | Accepted; ADR written | Defers auth and background queueing while keeping the pipeline web-ready. | `0001` |
+| Persist vocabulary state across corpora | Accepted | The learner model accumulates over months/years. | Yes |
+| Separate candidate generation/review from card generation | Accepted | Learner review prevents low-value cards. | Yes |
+| Use SQLite for initial persistence | Accepted | Local, portable, inspectable. | Yes |
+| Use Stanza as the initial NLP backend behind a project-defined interface | Accepted; revisit after evaluation | Multilingual; Python exists only for Stanza. | Yes |
+| Preserve source spelling while matching canonical, locale-aware lemmas | Accepted | Avoids duplicates without altering source or conflating lexemes. | Yes |
+| Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
+| v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
+| Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Proposed | Second client over the same Go core. | Yes |
+
+---
+
+# Open Questions
+
+Resolve these before treating the affected behavior as a stable repository contract. Materially architectural answers should be promoted to ADRs.
+
+1. **Relationship to schwab-edition.** Both projects serve advanced German reading. Is schwab-edition a separate scholarly infrastructure (its own eXist-db/TEI app), or should mouseion eventually consume it as a corpus/annotation source? This affects scoping and should be decided early.
+2. **Vocabulary identity and state.** What uniquely identifies an entry (language, canonical lemma, POS), and how are homographs, senses, and inflected forms handled? Which states (`candidate`, `accepted`, `generated`, `ignored`, `known`) are required?
+3. **Candidate ranking.** What is the initial ranking formula and threshold? How do frequency, priority-list membership, cross-text recurrence, POS, and proper-noun exclusions interact?
+4. **Review workflow.** Terminal UI, exported review file, or web UI in v1? Which decisions must the learner be able to record?
+5. **Anki contract.** Exact Anki note/CSV format; which known-vocabulary inputs are supported first?
+6. **Enrichment policy.** Which data is local/deterministic vs. external/LLM? How are external results cached, reviewed, and privacy-protected?
+7. **Normalization profiles.** Which German locale/spelling-reform profiles first? How are rules versioned and applied to persisted data?
+8. **Source-text handling.** What source-location metadata must be retained for reproducible sentence selection? Policy on storing excerpts from copyrighted EPUBs?
+9. **Go/Python contract details.** Exact Protobuf schema; HTTP vs. gRPC transport; is enrichment inline in Go or itself job-based?
+10. **Auth.** Do we need user registration, or do per-language profiles in shared persistence suffice for a personal tool? (ADR 0001 assumes profiles-only in v1.)
+
+---
+
+# Related
+
+- [README](../README.md)
+- [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md)
+- Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump)
