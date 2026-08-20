@@ -45,14 +45,15 @@ The first version will not attempt to:
 
 A typical workflow is:
 
-1. Register / configure a profile for a language of study.
-2. Upload (or reference) word lists of known vocabulary.
-3. Configure a connection to an OPDS server.
-4. Browse the library and choose a book for analysis (EPUB for now).
-5. Analysis runs in the background.
-6. Receive the text's vocabulary sorted by frequency, each word with a representative example chosen from the text.
-7. Customize the list: mark words as known to omit them, change which sentence is representative if several exist, etc.
-8. Download the edited list as an Anki deck.
+1. Register an account (admins additionally manage global resources such as language frequency data).
+2. Configure a profile for a language of study.
+3. Upload (or reference) word lists of known vocabulary.
+4. Configure a connection to an OPDS server.
+5. Browse the library and choose a book for analysis (EPUB for now).
+6. Analysis runs in the background.
+7. Receive the text's vocabulary sorted by frequency, each word with a representative example chosen from the text.
+8. Customize the list: mark words as known to omit them, change which sentence is representative if several exist, etc.
+9. Download the edited list as an Anki deck.
 
 ---
 
@@ -64,7 +65,11 @@ One or more EPUBs from an OPDS library. Future: other formats (PDF, plain text, 
 
 ## Known Vocabulary
 
-Per language-of-study word lists of words already considered learned. Sources: manually maintained lists, exports from previous runs, Anki decks, CEFR/priority lists.
+Per language-of-study word lists of words already considered learned. Sources: manually maintained lists, exports from previous runs, Anki decks, CEFR/priority lists. Scoped per user.
+
+## Global Reference Data (admin-managed)
+
+Frequency and priority resources that apply across **all** users of a language, managed by an admin rather than individual users. Concrete example: word frequency data derived from the DWDS German corpus. From the most frequent words a language's core vocabulary is understood; users can see how much core vocabulary they already know and how much a given book would expose them to, and can generate study cards for high-frequency vocabulary even when a word appears rarely in a specific book.
 
 ## OPDS / Library Connection
 
@@ -80,7 +85,7 @@ Each book is analyzed using language-specific NLP tools (tokenization, lemmatiza
 
 ## Vocabulary Selection & Ranking
 
-Words are selected and ranked according to configurable rules (e.g. appears at least N times, belongs to a priority list, part of speech, exclude proper nouns), excluding known vocabulary and previously handled items.
+Words are selected and ranked according to configurable rules (e.g. appears at least N times, belongs to a priority list, part of speech, exclude proper nouns), excluding known vocabulary and previously handled items. Global reference data (e.g. DWDS frequency) supplies a language-frequency signal so a word highly frequent in the language can be surfaced for study even when it appears rarely in a given book.
 
 ## Enrichment
 
@@ -116,9 +121,11 @@ Persist known vocabulary, generated cards, and processing history so future runs
 
 The first implementation is **core-first**: a shared Go application core with a coarse, ingest-time Python NLP producer, per the architecture ADR. A thin Go CLI is the first client; the web application is a second client over the same Go libraries.
 
+The product uses a **multi-user account model**: learning state (corpus, known vocabulary, curated/generated vocabulary, decks) is scoped per user, while an **admin role** manages global, language-scoped reference resources (frequency datasets, shared priority lists). See the architecture ADRs.
+
 ## Component Boundaries
 
-- **Core library (Go):** corpus models, linguistic-analysis contracts, normalization, candidate selection and ranking, vocabulary state, persistence (SQLite), enrichment, card export.
+- **Core library (Go):** corpus models, linguistic-analysis contracts, normalization, candidate selection and ranking, vocabulary state, persistence (SQLite), enrichment, card export. Includes the user/ownership dimension on learning state and admin-managed global reference resources.
 - **NLP producer (Python):** batch, ingest-time NLP only (Stanza), producing a typed, versioned normalized-corpus artifact (Protobuf) consumed by the Go core.
 - **Import adapters:** EPUB extraction, known-vocabulary imports (CSV, Anki), priority-list imports.
 - **One-off scripts:** personal migrations and cleanup, kept out of the stable library API.
@@ -156,7 +163,9 @@ This register identifies decisions stable enough to promote to repository docume
 | Python is an ingest-time NLP producer, not a runtime dependency | Accepted; ADR written | Stanza has no viable Go binding; confined to raw NLP at ingest time. | `0001` |
 | Coarse, typed, versioned contract between Go and Python (Protobuf) | Accepted; ADR written | One schema defines RPC messages and the persisted corpus format. | `0001` |
 | Thin Go CLI first; web app layered on later | Accepted; ADR written | Validates the core on real corpora before front-loading auth and UI. | `0001` |
-| Service API is async-capable (jobs) and profile-based from day one | Accepted; ADR written | Defers auth and background queueing while keeping the pipeline web-ready. | `0001` |
+| Service API is async-capable (jobs) from day one | Accepted; ADR written | Designed around jobs with IDs/status; CLI waits on a job. | `0001` |
+| Multi-user accounts with per-user learning state | Accepted; ADR written | Two real users (author + spouse) need cleanly separated corpus, known words, and decks. | `0002` |
+| Admin-managed global reference resources (frequency data) | Accepted; ADR written | Global language data (e.g. DWDS frequency) shared across all users; admin uploads, users consume. | `0002` |
 | Persist vocabulary state across corpora | Accepted | The learner model accumulates over months/years. | Yes |
 | Separate candidate generation/review from card generation | Accepted | Learner review prevents low-value cards. | Yes |
 | Use SQLite for initial persistence | Accepted | Local, portable, inspectable. | Yes |
@@ -181,7 +190,8 @@ Resolve these before treating the affected behavior as a stable repository contr
 7. **Normalization profiles.** Which German locale/spelling-reform profiles first? How are rules versioned and applied to persisted data?
 8. **Source-text handling.** What source-location metadata must be retained for reproducible sentence selection? Policy on storing excerpts from copyrighted EPUBs?
 9. **Go/Python contract details.** Exact Protobuf schema; HTTP vs. gRPC transport; is enrichment inline in Go or itself job-based?
-10. **Auth.** Do we need user registration, or do per-language profiles in shared persistence suffice for a personal tool? (ADR 0001 assumes profiles-only in v1.)
+10. **Auth (resolved).** Do we need user registration, or do per-language profiles suffice? **Resolved by [ADR 0002](adr/0002-multi-user-accounts.md):** multi-user accounts with per-user learning state and an admin role managing global resources. Remaining detail: the exact auth mechanism and credential storage in a self-hosted home-lab deployment (local accounts vs. an external identity provider).
+11. **Frequency data source & format.** Which DWDS (or other) frequency data source(s) are supported first, and in what upload format? How are they versioned and refreshed?
 
 ---
 
@@ -189,4 +199,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 
 - [README](../README.md)
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md)
-- Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump)
+- [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md)
+- Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
