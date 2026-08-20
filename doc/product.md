@@ -198,6 +198,7 @@ Resolve these before treating the affected behavior as a stable repository contr
 # Related
 
 - [README](../README.md)
+- [Documentation governance](documentation-governance.md) — how the vault and repo divide documentation.
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md)
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
