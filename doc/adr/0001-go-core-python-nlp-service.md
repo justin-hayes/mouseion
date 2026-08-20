@@ -48,7 +48,7 @@ Use **Protobuf** so the same `.proto` defines both the RPC messages and the pers
 ### 4. Service contract is async-capable and profile-based from day one
 
 - **Async-capable:** the service API is designed around jobs with IDs and status, even though the CLI calls synchronously. The CLI waits on a job instead of polling.
-- **Profile-based, not account-based:** languages, word lists, and OPDS config are modeled as a "profile" in shared persistence. The CLI uses one; the web manages many. This defers the auth/registration question entirely — no accounts in v1.
+- **Profile-based, not account-based:** languages, word lists, and OPDS config are modeled as a "profile" in shared persistence. The CLI uses one; the web manages many. This defers the auth/registration question entirely — no accounts in v1. *(Superseded by [ADR 0002](0002-multi-user-accounts.md), which adopts a multi-user account model with an admin role; see the 2026-08-20 session.)*
 
 ### 5. Build order
 
@@ -73,7 +73,7 @@ Use **Protobuf** so the same `.proto` defines both the RPC messages and the pers
 
 ## Open questions to resolve before finalizing
 
-- Whether "user registration" is genuinely needed or whether profiles suffice for a personal tool. Default: profiles only in v1.
+- Whether "user registration" is genuinely needed or whether profiles suffice for a personal tool. Default was profiles only in v1; **resolved by [ADR 0002](0002-multi-user-accounts.md)** in favor of user accounts with an admin role.
 - Exact Protobuf schema shape for the normalized corpus.
 - Whether enrichment runs inline in Go or is itself job-based.
 
