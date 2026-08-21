@@ -31,7 +31,7 @@ lint: go-tmp
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 
 gen:
-	mkdir -p gen/go gen/python
+	mkdir -p gen/go gen/python $(GOTMPDIR)
 	test "$$($(PROTOC_GEN_GO_GRPC) --version 2>/dev/null)" = "protoc-gen-go-grpc 1.5.1" || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	test -x $(VENV_BIN)/python || $(PYTHON) -m venv $(VENV)
 	$(VENV_BIN)/python -c 'import importlib.metadata; assert importlib.metadata.version("grpcio-tools") == "1.71.2"' || $(VENV_BIN)/python -m pip install --disable-pip-version-check grpcio-tools==1.71.2
