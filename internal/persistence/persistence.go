@@ -3,8 +3,14 @@ package persistence
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -19,6 +25,7 @@ import (
 )
 
 var ErrNotFound = errors.New("persistence: not found")
+var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
 
 type Store interface {
 	Ping(context.Context) error
@@ -74,6 +81,105 @@ func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx
 func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
 func missing(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// Passwords are encrypted with AES-256-GCM. The key is derived from the
+// deployment's MOUSEION_SECRET; changing it makes existing credentials unreadable.
+func credentialAEAD() (cipher.AEAD, error) {
+	secret := os.Getenv("MOUSEION_SECRET")
+	if secret == "" {
+		return nil, ErrSecretRequired
+	}
+	key := sha256.Sum256([]byte(secret))
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(block)
+}
+func encryptCredential(value string) ([]byte, error) {
+	if value == "" {
+		return []byte{}, nil
+	}
+	aead, err := credentialAEAD()
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, fmt.Errorf("generate credential nonce: %w", err)
+	}
+	return aead.Seal(nonce, nonce, []byte(value), nil), nil
+}
+func decryptCredential(value []byte) (string, error) {
+	if len(value) == 0 {
+		return "", nil
+	}
+	aead, err := credentialAEAD()
+	if err != nil {
+		return "", err
+	}
+	if len(value) < aead.NonceSize() {
+		return "", errors.New("persistence: invalid encrypted OPDS credential")
+	}
+	plain, err := aead.Open(nil, value[:aead.NonceSize()], value[aead.NonceSize():], nil)
+	if err != nil {
+		return "", fmt.Errorf("decrypt OPDS credential: %w", err)
+	}
+	return string(plain), nil
+}
+
+const opdsColumns = `id,owner_id,name,url,username,password_encrypted,language,created_at,updated_at`
+
+func scanOpds(row pgx.Row) (v domain.OpdsConnection, err error) {
+	var encrypted []byte
+	err = row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.URL, &v.Username, &encrypted, &v.Language, &v.CreatedAt, &v.UpdatedAt)
+	if err != nil {
+		return v, missing(err)
+	}
+	v.Password, err = decryptCredential(encrypted)
+	return v, err
+}
+
+func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, v domain.OpdsConnection) (domain.OpdsConnection, error) {
+	encrypted, err := encryptCredential(v.Password)
+	if err != nil {
+		return domain.OpdsConnection{}, err
+	}
+	return scanOpds(s.pool.QueryRow(ctx, `INSERT INTO opds_connections(owner_id,name,url,username,password_encrypted,language) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+opdsColumns, v.OwnerID, v.Name, v.URL, v.Username, encrypted, v.Language))
+}
+func (s *PostgresStore) GetOpdsConnection(ctx context.Context, owner, id string) (domain.OpdsConnection, error) {
+	return scanOpds(s.pool.QueryRow(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 AND id=$2`, owner, id))
+}
+func (s *PostgresStore) ListOpdsConnections(ctx context.Context, owner string) ([]domain.OpdsConnection, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 ORDER BY name,id`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.OpdsConnection
+	for rows.Next() {
+		v, err := scanOpds(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, owner string, v domain.OpdsConnection) (domain.OpdsConnection, error) {
+	encrypted, err := encryptCredential(v.Password)
+	if err != nil {
+		return domain.OpdsConnection{}, err
+	}
+	return scanOpds(s.pool.QueryRow(ctx, `UPDATE opds_connections SET name=$3,url=$4,username=$5,password_encrypted=$6,language=$7,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+opdsColumns, owner, v.ID, v.Name, v.URL, v.Username, encrypted, v.Language))
+}
+func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, owner, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM opds_connections WHERE owner_id=$1 AND id=$2`, owner, id)
+	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
 	return err
