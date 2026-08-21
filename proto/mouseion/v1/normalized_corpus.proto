@@ -4,6 +4,19 @@ package mouseion.v1;
 
 option go_package = "github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1";
 
+service AnalyzerService {
+  rpc Analyze(AnalyzeRequest) returns (NormalizedCorpus);
+}
+
+// AnalyzeRequest carries one complete source document across the analyzer RPC
+// boundary. Request fields use the 100-series block to remain distinct from
+// the persisted corpus messages below.
+message AnalyzeRequest {
+  string language = 101;
+  string document_text = 102;
+  SourceDocument source_document = 103;
+}
+
 // NormalizedCorpus is the single contract used both for analysis messages at
 // the Go/Python boundary and for persisted normalized-corpus artifacts.
 //

@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/migrations"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 )
 
 var ErrNotFound = errors.New("persistence: not found")
@@ -23,6 +25,10 @@ type Store interface {
 	Close() error
 }
 type PostgresStore struct{ pool *pgxpool.Pool }
+
+// Pool exposes the shared pgx pool to infrastructure packages that need to
+// participate in the same transaction (notably River job insertion).
+func (s *PostgresStore) Pool() *pgxpool.Pool { return s.pool }
 
 func Open(ctx context.Context, databaseURL string) (*PostgresStore, error) {
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -48,6 +54,19 @@ func Migrate(databaseURL string) error {
 	defer m.Close()
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("apply migrations: %w", err)
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("open postgres for River migrations: %w", err)
+	}
+	defer pool.Close()
+	riverMigrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
+	if err != nil {
+		return fmt.Errorf("initialize River migrations: %w", err)
+	}
+	if _, err = riverMigrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
+		return fmt.Errorf("apply River migrations: %w", err)
 	}
 	return nil
 }
