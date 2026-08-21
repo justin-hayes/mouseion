@@ -171,6 +171,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Use PostgreSQL for initial persistence | Accepted; ADR written | Native concurrency, job primitives (SKIP LOCKED, LISTEN/NOTIFY), growth path for multi-user + background jobs; supersedes the earlier SQLite choice. | `0003` |
 | Use Stanza as the initial NLP backend behind a project-defined interface | Accepted; revisit after evaluation | Multilingual; Python exists only for Stanza. | Yes |
 | Preserve source spelling while matching canonical, locale-aware lemmas | Accepted | Avoids duplicates without altering source or conflating lexemes. | Yes |
+| Vocabulary identity, normalization profiles, ranking defaults (sense-agnostic, global-first) | Accepted; ADR written | Identity `(lang, canon lemma, POS)`, sense-agnostic; one conservative versioned German profile; global-first ranking blend. | `0005` |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
 | v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
 | Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Accepted; ADR written | Sole v1 client over the shared Go core; no standalone CLI in v1. | `0004` |
@@ -182,12 +183,12 @@ This register identifies decisions stable enough to promote to repository docume
 Resolve these before treating the affected behavior as a stable repository contract. Materially architectural answers should be promoted to ADRs.
 
 1. **Relationship to schwab-edition.** Both projects serve advanced German reading. Is schwab-edition a separate scholarly infrastructure (its own eXist-db/TEI app), or should mouseion eventually consume it as a corpus/annotation source? This affects scoping and should be decided early.
-2. **Vocabulary identity and state.** What uniquely identifies an entry (language, canonical lemma, POS), and how are homographs, senses, and inflected forms handled? Which states (`candidate`, `accepted`, `generated`, `ignored`, `known`) are required?
-3. **Candidate ranking.** What is the initial ranking formula and threshold? How do frequency, priority-list membership, cross-text recurrence, POS, and proper-noun exclusions interact?
+2. **Vocabulary identity and state.** What uniquely identifies an entry (language, canonical lemma, POS), and how are homographs, senses, and inflected forms handled? Which states (`candidate`, `accepted`, `generated`, `ignored`, `known`) are required? **Resolved by [ADR 0005](adr/0005-vocabulary-identity-normalization-ranking.md):** identity is `(language, canonical lemma, POS)`, sense-agnostic in v1 (senses handled via multiple example sentences at review); lifecycle states `candidate → accepted → generated` plus `ignored` and `known`, all reversible.
+3. **Candidate ranking.** What is the initial ranking formula and threshold? How do frequency, priority-list membership, cross-text recurrence, POS, and proper-noun exclusions interact? **Resolved by [ADR 0005](adr/0005-vocabulary-identity-normalization-ranking.md):** global-first weighted blend (`0.6·global + 0.3·in-corpus + 0.1·priority + 0.05·(cross−1)`); selection = ≥2 in corpus OR priority OR top-5% global; content words, proper nouns excluded (tunable).
 4. **Review workflow.** Terminal UI, exported review file, or web UI in v1? Which decisions must the learner be able to record? **Resolved toward the web UI by [ADR 0004](adr/0004-web-only-v1-client.md)** (the web app is the sole v1 client); remaining detail is the concrete review UX, tracked as an issue.
 5. **Anki contract.** Exact Anki note/CSV format; which known-vocabulary inputs are supported first?
 6. **Enrichment policy.** Which data is local/deterministic vs. external/LLM? How are external results cached, reviewed, and privacy-protected?
-7. **Normalization profiles.** Which German locale/spelling-reform profiles first? How are rules versioned and applied to persisted data?
+7. **Normalization profiles.** Which German locale/spelling-reform profiles first? How are rules versioned and applied to persisted data? **Resolved by [ADR 0005](adr/0005-vocabulary-identity-normalization-ranking.md):** one conservative, deterministic, versioned German standard-orthography (post-1996) profile; canonical lemma is a derived field, applied to new items, with explicit re-normalize migrations for persisted data.
 8. **Source-text handling.** What source-location metadata must be retained for reproducible sentence selection? Policy on storing excerpts from copyrighted EPUBs?
 9. **Go/Python contract details.** Exact Protobuf schema; HTTP vs. gRPC transport; is enrichment inline in Go or itself job-based?
 10. **Auth (resolved).** Do we need user registration, or do per-language profiles suffice? **Resolved by [ADR 0002](adr/0002-multi-user-accounts.md):** multi-user accounts with per-user learning state and an admin role managing global resources. Remaining detail: the exact auth mechanism and credential storage in a self-hosted home-lab deployment (local accounts vs. an external identity provider).
@@ -203,4 +204,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md)
 - [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md)
 - [ADR 0004: Web application as the sole v1 client (no standalone CLI)](adr/0004-web-only-v1-client.md)
+- [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
