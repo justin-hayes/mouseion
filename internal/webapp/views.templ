@@ -10,7 +10,19 @@ import (
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
-	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" defer></script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" defer></script><script>
+window.escapeHtml = function (s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+};
+document.addEventListener('htmx:responseError', function (evt) {
+  var target = evt.detail.target;
+  if (!target) return;
+  var text = (evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed';
+  target.innerHTML = '<p role="alert"><strong>Error:</strong> ' + window.escapeHtml(text) + '</p>';
+});
+</script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalogs</a></li><li><a href="/jobs">Jobs</a></li>
 		<li><a href="/review">Review</a></li><li><a href="/deck">Deck</a></li>
