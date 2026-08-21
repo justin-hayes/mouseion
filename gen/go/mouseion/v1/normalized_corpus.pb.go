@@ -21,15 +21,26 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// NormalizedCorpus is the versioned artifact exchanged at the Go/Python boundary.
-// Issue #5 will expand this placeholder contract.
+// NormalizedCorpus is the single contract used both for analysis messages at
+// the Go/Python boundary and for persisted normalized-corpus artifacts.
+//
+// schema_version uses semantic versions (for example, "1.0.0"). Consumers
+// must reject unsupported major versions. Minor and patch releases are
+// backward-compatible, additive changes. Once released, field numbers are
+// frozen and must never be reused; incompatible changes require a new major
+// schema version and an explicit artifact migration.
 type NormalizedCorpus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SchemaVersion string                 `protobuf:"bytes,1,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
-	Language      string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
-	Sentences     []*Sentence            `protobuf:"bytes,3,rep,name=sentences,proto3" json:"sentences,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// language is an ISO 639 language code, optionally with a BCP 47 region.
+	Language string `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
+	// Sentences are stored in source order.
+	Sentences            []*Sentence           `protobuf:"bytes,3,rep,name=sentences,proto3" json:"sentences,omitempty"`
+	SourceDocuments      []*SourceDocument     `protobuf:"bytes,4,rep,name=source_documents,json=sourceDocuments,proto3" json:"source_documents,omitempty"`
+	Analysis             *AnalysisProvenance   `protobuf:"bytes,5,opt,name=analysis,proto3" json:"analysis,omitempty"`
+	NormalizationProfile *NormalizationProfile `protobuf:"bytes,6,opt,name=normalization_profile,json=normalizationProfile,proto3" json:"normalization_profile,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *NormalizedCorpus) Reset() {
@@ -83,10 +94,33 @@ func (x *NormalizedCorpus) GetSentences() []*Sentence {
 	return nil
 }
 
+func (x *NormalizedCorpus) GetSourceDocuments() []*SourceDocument {
+	if x != nil {
+		return x.SourceDocuments
+	}
+	return nil
+}
+
+func (x *NormalizedCorpus) GetAnalysis() *AnalysisProvenance {
+	if x != nil {
+		return x.Analysis
+	}
+	return nil
+}
+
+func (x *NormalizedCorpus) GetNormalizationProfile() *NormalizationProfile {
+	if x != nil {
+		return x.NormalizationProfile
+	}
+	return nil
+}
+
 type Sentence struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
-	Tokens        []*Token               `protobuf:"bytes,2,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Text  string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	// Tokens are stored in sentence order.
+	Tokens        []*Token        `protobuf:"bytes,2,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	Location      *SourceLocation `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -135,13 +169,28 @@ func (x *Sentence) GetTokens() []*Token {
 	return nil
 }
 
+func (x *Sentence) GetLocation() *SourceLocation {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
 type Token struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Surface       string                 `protobuf:"bytes,1,opt,name=surface,proto3" json:"surface,omitempty"`
-	RawLemma      string                 `protobuf:"bytes,2,opt,name=raw_lemma,json=rawLemma,proto3" json:"raw_lemma,omitempty"`
-	PartOfSpeech  string                 `protobuf:"bytes,3,opt,name=part_of_speech,json=partOfSpeech,proto3" json:"part_of_speech,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// surface is preserved exactly as it appeared in the source.
+	Surface string `protobuf:"bytes,1,opt,name=surface,proto3" json:"surface,omitempty"`
+	// raw_lemma is preserved exactly as returned by the analyzer.
+	RawLemma string `protobuf:"bytes,2,opt,name=raw_lemma,json=rawLemma,proto3" json:"raw_lemma,omitempty"`
+	// pos is the analyzer's coarse Universal POS (UPOS) tag.
+	Pos string `protobuf:"bytes,3,opt,name=pos,proto3" json:"pos,omitempty"`
+	// canonical_lemma is derived using NormalizedCorpus.normalization_profile.
+	CanonicalLemma string            `protobuf:"bytes,4,opt,name=canonical_lemma,json=canonicalLemma,proto3" json:"canonical_lemma,omitempty"`
+	Morphology     map[string]string `protobuf:"bytes,5,rep,name=morphology,proto3" json:"morphology,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NamedEntity    *string           `protobuf:"bytes,6,opt,name=named_entity,json=namedEntity,proto3,oneof" json:"named_entity,omitempty"`
+	Location       *SourceLocation   `protobuf:"bytes,7,opt,name=location,proto3" json:"location,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Token) Reset() {
@@ -188,29 +237,353 @@ func (x *Token) GetRawLemma() string {
 	return ""
 }
 
-func (x *Token) GetPartOfSpeech() string {
+func (x *Token) GetPos() string {
 	if x != nil {
-		return x.PartOfSpeech
+		return x.Pos
 	}
 	return ""
+}
+
+func (x *Token) GetCanonicalLemma() string {
+	if x != nil {
+		return x.CanonicalLemma
+	}
+	return ""
+}
+
+func (x *Token) GetMorphology() map[string]string {
+	if x != nil {
+		return x.Morphology
+	}
+	return nil
+}
+
+func (x *Token) GetNamedEntity() string {
+	if x != nil && x.NamedEntity != nil {
+		return *x.NamedEntity
+	}
+	return ""
+}
+
+func (x *Token) GetLocation() *SourceLocation {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+type SourceDocument struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id is stable within the corpus and is referenced by SourceLocation.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// source_identifier is the upstream identifier, such as an OPDS entry ID.
+	SourceIdentifier string `protobuf:"bytes,2,opt,name=source_identifier,json=sourceIdentifier,proto3" json:"source_identifier,omitempty"`
+	Title            string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SourceDocument) Reset() {
+	*x = SourceDocument{}
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceDocument) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceDocument) ProtoMessage() {}
+
+func (x *SourceDocument) ProtoReflect() protoreflect.Message {
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceDocument.ProtoReflect.Descriptor instead.
+func (*SourceDocument) Descriptor() ([]byte, []int) {
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SourceDocument) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SourceDocument) GetSourceIdentifier() string {
+	if x != nil {
+		return x.SourceIdentifier
+	}
+	return ""
+}
+
+func (x *SourceDocument) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+type AnalysisProvenance struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	RunId string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// analyzed_at is an RFC 3339 timestamp in UTC.
+	AnalyzedAt      string `protobuf:"bytes,2,opt,name=analyzed_at,json=analyzedAt,proto3" json:"analyzed_at,omitempty"`
+	AnalyzerName    string `protobuf:"bytes,3,opt,name=analyzer_name,json=analyzerName,proto3" json:"analyzer_name,omitempty"`
+	AnalyzerVersion string `protobuf:"bytes,4,opt,name=analyzer_version,json=analyzerVersion,proto3" json:"analyzer_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AnalysisProvenance) Reset() {
+	*x = AnalysisProvenance{}
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AnalysisProvenance) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AnalysisProvenance) ProtoMessage() {}
+
+func (x *AnalysisProvenance) ProtoReflect() protoreflect.Message {
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AnalysisProvenance.ProtoReflect.Descriptor instead.
+func (*AnalysisProvenance) Descriptor() ([]byte, []int) {
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AnalysisProvenance) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *AnalysisProvenance) GetAnalyzedAt() string {
+	if x != nil {
+		return x.AnalyzedAt
+	}
+	return ""
+}
+
+func (x *AnalysisProvenance) GetAnalyzerName() string {
+	if x != nil {
+		return x.AnalyzerName
+	}
+	return ""
+}
+
+func (x *AnalysisProvenance) GetAnalyzerVersion() string {
+	if x != nil {
+		return x.AnalyzerVersion
+	}
+	return ""
+}
+
+type NormalizationProfile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NormalizationProfile) Reset() {
+	*x = NormalizationProfile{}
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NormalizationProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NormalizationProfile) ProtoMessage() {}
+
+func (x *NormalizationProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NormalizationProfile.ProtoReflect.Descriptor instead.
+func (*NormalizationProfile) Descriptor() ([]byte, []int) {
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *NormalizationProfile) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NormalizationProfile) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+// SourceLocation identifies a reproducible half-open span [start_offset,
+// end_offset) in Unicode code points within the source document's extracted
+// text. chapter and section retain human-readable structural provenance.
+type SourceLocation struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SourceDocumentId string                 `protobuf:"bytes,1,opt,name=source_document_id,json=sourceDocumentId,proto3" json:"source_document_id,omitempty"`
+	Chapter          string                 `protobuf:"bytes,2,opt,name=chapter,proto3" json:"chapter,omitempty"`
+	Section          string                 `protobuf:"bytes,3,opt,name=section,proto3" json:"section,omitempty"`
+	StartOffset      uint64                 `protobuf:"varint,4,opt,name=start_offset,json=startOffset,proto3" json:"start_offset,omitempty"`
+	EndOffset        uint64                 `protobuf:"varint,5,opt,name=end_offset,json=endOffset,proto3" json:"end_offset,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SourceLocation) Reset() {
+	*x = SourceLocation{}
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceLocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceLocation) ProtoMessage() {}
+
+func (x *SourceLocation) ProtoReflect() protoreflect.Message {
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceLocation.ProtoReflect.Descriptor instead.
+func (*SourceLocation) Descriptor() ([]byte, []int) {
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SourceLocation) GetSourceDocumentId() string {
+	if x != nil {
+		return x.SourceDocumentId
+	}
+	return ""
+}
+
+func (x *SourceLocation) GetChapter() string {
+	if x != nil {
+		return x.Chapter
+	}
+	return ""
+}
+
+func (x *SourceLocation) GetSection() string {
+	if x != nil {
+		return x.Section
+	}
+	return ""
+}
+
+func (x *SourceLocation) GetStartOffset() uint64 {
+	if x != nil {
+		return x.StartOffset
+	}
+	return 0
+}
+
+func (x *SourceLocation) GetEndOffset() uint64 {
+	if x != nil {
+		return x.EndOffset
+	}
+	return 0
 }
 
 var File_mouseion_v1_normalized_corpus_proto protoreflect.FileDescriptor
 
 const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"\n" +
-	"#mouseion/v1/normalized_corpus.proto\x12\vmouseion.v1\"\x8a\x01\n" +
+	"#mouseion/v1/normalized_corpus.proto\x12\vmouseion.v1\"\xe7\x02\n" +
 	"\x10NormalizedCorpus\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\tR\rschemaVersion\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x123\n" +
-	"\tsentences\x18\x03 \x03(\v2\x15.mouseion.v1.SentenceR\tsentences\"J\n" +
+	"\tsentences\x18\x03 \x03(\v2\x15.mouseion.v1.SentenceR\tsentences\x12F\n" +
+	"\x10source_documents\x18\x04 \x03(\v2\x1b.mouseion.v1.SourceDocumentR\x0fsourceDocuments\x12;\n" +
+	"\banalysis\x18\x05 \x01(\v2\x1f.mouseion.v1.AnalysisProvenanceR\banalysis\x12V\n" +
+	"\x15normalization_profile\x18\x06 \x01(\v2!.mouseion.v1.NormalizationProfileR\x14normalizationProfile\"\x83\x01\n" +
 	"\bSentence\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12*\n" +
-	"\x06tokens\x18\x02 \x03(\v2\x12.mouseion.v1.TokenR\x06tokens\"d\n" +
+	"\x06tokens\x18\x02 \x03(\v2\x12.mouseion.v1.TokenR\x06tokens\x127\n" +
+	"\blocation\x18\x03 \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\"\xee\x02\n" +
 	"\x05Token\x12\x18\n" +
 	"\asurface\x18\x01 \x01(\tR\asurface\x12\x1b\n" +
-	"\traw_lemma\x18\x02 \x01(\tR\brawLemma\x12$\n" +
-	"\x0epart_of_speech\x18\x03 \x01(\tR\fpartOfSpeechB@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3"
+	"\traw_lemma\x18\x02 \x01(\tR\brawLemma\x12\x10\n" +
+	"\x03pos\x18\x03 \x01(\tR\x03pos\x12'\n" +
+	"\x0fcanonical_lemma\x18\x04 \x01(\tR\x0ecanonicalLemma\x12B\n" +
+	"\n" +
+	"morphology\x18\x05 \x03(\v2\".mouseion.v1.Token.MorphologyEntryR\n" +
+	"morphology\x12&\n" +
+	"\fnamed_entity\x18\x06 \x01(\tH\x00R\vnamedEntity\x88\x01\x01\x127\n" +
+	"\blocation\x18\a \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\x1a=\n" +
+	"\x0fMorphologyEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0f\n" +
+	"\r_named_entity\"c\n" +
+	"\x0eSourceDocument\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12+\n" +
+	"\x11source_identifier\x18\x02 \x01(\tR\x10sourceIdentifier\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\"\x9c\x01\n" +
+	"\x12AnalysisProvenance\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1f\n" +
+	"\vanalyzed_at\x18\x02 \x01(\tR\n" +
+	"analyzedAt\x12#\n" +
+	"\ranalyzer_name\x18\x03 \x01(\tR\fanalyzerName\x12)\n" +
+	"\x10analyzer_version\x18\x04 \x01(\tR\x0fanalyzerVersion\"D\n" +
+	"\x14NormalizationProfile\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\"\xb4\x01\n" +
+	"\x0eSourceLocation\x12,\n" +
+	"\x12source_document_id\x18\x01 \x01(\tR\x10sourceDocumentId\x12\x18\n" +
+	"\achapter\x18\x02 \x01(\tR\achapter\x12\x18\n" +
+	"\asection\x18\x03 \x01(\tR\asection\x12!\n" +
+	"\fstart_offset\x18\x04 \x01(\x04R\vstartOffset\x12\x1d\n" +
+	"\n" +
+	"end_offset\x18\x05 \x01(\x04R\tendOffsetB@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3"
 
 var (
 	file_mouseion_v1_normalized_corpus_proto_rawDescOnce sync.Once
@@ -224,20 +597,31 @@ func file_mouseion_v1_normalized_corpus_proto_rawDescGZIP() []byte {
 	return file_mouseion_v1_normalized_corpus_proto_rawDescData
 }
 
-var file_mouseion_v1_normalized_corpus_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_mouseion_v1_normalized_corpus_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_mouseion_v1_normalized_corpus_proto_goTypes = []any{
-	(*NormalizedCorpus)(nil), // 0: mouseion.v1.NormalizedCorpus
-	(*Sentence)(nil),         // 1: mouseion.v1.Sentence
-	(*Token)(nil),            // 2: mouseion.v1.Token
+	(*NormalizedCorpus)(nil),     // 0: mouseion.v1.NormalizedCorpus
+	(*Sentence)(nil),             // 1: mouseion.v1.Sentence
+	(*Token)(nil),                // 2: mouseion.v1.Token
+	(*SourceDocument)(nil),       // 3: mouseion.v1.SourceDocument
+	(*AnalysisProvenance)(nil),   // 4: mouseion.v1.AnalysisProvenance
+	(*NormalizationProfile)(nil), // 5: mouseion.v1.NormalizationProfile
+	(*SourceLocation)(nil),       // 6: mouseion.v1.SourceLocation
+	nil,                          // 7: mouseion.v1.Token.MorphologyEntry
 }
 var file_mouseion_v1_normalized_corpus_proto_depIdxs = []int32{
 	1, // 0: mouseion.v1.NormalizedCorpus.sentences:type_name -> mouseion.v1.Sentence
-	2, // 1: mouseion.v1.Sentence.tokens:type_name -> mouseion.v1.Token
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3, // 1: mouseion.v1.NormalizedCorpus.source_documents:type_name -> mouseion.v1.SourceDocument
+	4, // 2: mouseion.v1.NormalizedCorpus.analysis:type_name -> mouseion.v1.AnalysisProvenance
+	5, // 3: mouseion.v1.NormalizedCorpus.normalization_profile:type_name -> mouseion.v1.NormalizationProfile
+	2, // 4: mouseion.v1.Sentence.tokens:type_name -> mouseion.v1.Token
+	6, // 5: mouseion.v1.Sentence.location:type_name -> mouseion.v1.SourceLocation
+	7, // 6: mouseion.v1.Token.morphology:type_name -> mouseion.v1.Token.MorphologyEntry
+	6, // 7: mouseion.v1.Token.location:type_name -> mouseion.v1.SourceLocation
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_mouseion_v1_normalized_corpus_proto_init() }
@@ -245,13 +629,14 @@ func file_mouseion_v1_normalized_corpus_proto_init() {
 	if File_mouseion_v1_normalized_corpus_proto != nil {
 		return
 	}
+	file_mouseion_v1_normalized_corpus_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mouseion_v1_normalized_corpus_proto_rawDesc), len(file_mouseion_v1_normalized_corpus_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

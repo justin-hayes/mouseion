@@ -1,18 +1,19 @@
 """Coarse, batch-oriented NLP producer boundary."""
 
+from mouseion.v1 import normalized_corpus_pb2
+
 
 class Producer:
     """Placeholder producer to be backed by Stanza in a later issue."""
 
-    def analyze(self, text: str, language: str) -> dict[str, object]:
+    def analyze(self, text: str, language: str) -> normalized_corpus_pb2.NormalizedCorpus:
         """Return a minimal normalized artifact for pipeline wiring.
 
-        The returned shape mirrors the v1 `NormalizedCorpus` protobuf contract
-        (`proto/mouseion/v1/normalized_corpus.proto`): `sentences` is a list of
-        `Sentence`-shaped dicts with `text` and `tokens`.
+        A later issue will replace this placeholder analysis with Stanza while
+        retaining this generated Protobuf message as the producer contract.
         """
-        return {
-            "schema_version": "v1",
-            "language": language,
-            "sentences": [{"text": text, "tokens": []}],
-        }
+        return normalized_corpus_pb2.NormalizedCorpus(
+            schema_version="1.0.0",
+            language=language,
+            sentences=[normalized_corpus_pb2.Sentence(text=text)],
+        )

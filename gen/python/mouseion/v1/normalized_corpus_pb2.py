@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#mouseion/v1/normalized_corpus.proto\x12\x0bmouseion.v1\"f\n\x10NormalizedCorpus\x12\x16\n\x0eschema_version\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12(\n\tsentences\x18\x03 \x03(\x0b\x32\x15.mouseion.v1.Sentence\"<\n\x08Sentence\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\"\n\x06tokens\x18\x02 \x03(\x0b\x32\x12.mouseion.v1.Token\"C\n\x05Token\x12\x0f\n\x07surface\x18\x01 \x01(\t\x12\x11\n\traw_lemma\x18\x02 \x01(\t\x12\x16\n\x0epart_of_speech\x18\x03 \x01(\tB@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#mouseion/v1/normalized_corpus.proto\x12\x0bmouseion.v1\"\x92\x02\n\x10NormalizedCorpus\x12\x16\n\x0eschema_version\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12(\n\tsentences\x18\x03 \x03(\x0b\x32\x15.mouseion.v1.Sentence\x12\x35\n\x10source_documents\x18\x04 \x03(\x0b\x32\x1b.mouseion.v1.SourceDocument\x12\x31\n\x08\x61nalysis\x18\x05 \x01(\x0b\x32\x1f.mouseion.v1.AnalysisProvenance\x12@\n\x15normalization_profile\x18\x06 \x01(\x0b\x32!.mouseion.v1.NormalizationProfile\"k\n\x08Sentence\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\"\n\x06tokens\x18\x02 \x03(\x0b\x32\x12.mouseion.v1.Token\x12-\n\x08location\x18\x03 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\"\x97\x02\n\x05Token\x12\x0f\n\x07surface\x18\x01 \x01(\t\x12\x11\n\traw_lemma\x18\x02 \x01(\t\x12\x0b\n\x03pos\x18\x03 \x01(\t\x12\x17\n\x0f\x63\x61nonical_lemma\x18\x04 \x01(\t\x12\x36\n\nmorphology\x18\x05 \x03(\x0b\x32\".mouseion.v1.Token.MorphologyEntry\x12\x19\n\x0cnamed_entity\x18\x06 \x01(\tH\x00\x88\x01\x01\x12-\n\x08location\x18\x07 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\x1a\x31\n\x0fMorphologyEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0f\n\r_named_entity\"F\n\x0eSourceDocument\x12\n\n\x02id\x18\x01 \x01(\t\x12\x19\n\x11source_identifier\x18\x02 \x01(\t\x12\r\n\x05title\x18\x03 \x01(\t\"j\n\x12\x41nalysisProvenance\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x13\n\x0b\x61nalyzed_at\x18\x02 \x01(\t\x12\x15\n\ranalyzer_name\x18\x03 \x01(\t\x12\x18\n\x10\x61nalyzer_version\x18\x04 \x01(\t\"5\n\x14NormalizationProfile\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"x\n\x0eSourceLocation\x12\x1a\n\x12source_document_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63hapter\x18\x02 \x01(\t\x12\x0f\n\x07section\x18\x03 \x01(\t\x12\x14\n\x0cstart_offset\x18\x04 \x01(\x04\x12\x12\n\nend_offset\x18\x05 \x01(\x04\x42@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,10 +32,22 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mouseion.v1.normalized_corp
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1'
-  _globals['_NORMALIZEDCORPUS']._serialized_start=52
-  _globals['_NORMALIZEDCORPUS']._serialized_end=154
-  _globals['_SENTENCE']._serialized_start=156
-  _globals['_SENTENCE']._serialized_end=216
-  _globals['_TOKEN']._serialized_start=218
-  _globals['_TOKEN']._serialized_end=285
+  _globals['_TOKEN_MORPHOLOGYENTRY']._loaded_options = None
+  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_options = b'8\001'
+  _globals['_NORMALIZEDCORPUS']._serialized_start=53
+  _globals['_NORMALIZEDCORPUS']._serialized_end=327
+  _globals['_SENTENCE']._serialized_start=329
+  _globals['_SENTENCE']._serialized_end=436
+  _globals['_TOKEN']._serialized_start=439
+  _globals['_TOKEN']._serialized_end=718
+  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_start=652
+  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_end=701
+  _globals['_SOURCEDOCUMENT']._serialized_start=720
+  _globals['_SOURCEDOCUMENT']._serialized_end=790
+  _globals['_ANALYSISPROVENANCE']._serialized_start=792
+  _globals['_ANALYSISPROVENANCE']._serialized_end=898
+  _globals['_NORMALIZATIONPROFILE']._serialized_start=900
+  _globals['_NORMALIZATIONPROFILE']._serialized_end=953
+  _globals['_SOURCELOCATION']._serialized_start=955
+  _globals['_SOURCELOCATION']._serialized_end=1075
 # @@protoc_insertion_point(module_scope)
