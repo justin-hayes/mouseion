@@ -58,6 +58,14 @@ class Producer:
         self.normalization_version = normalization_version
         self._pipeline_factory = pipeline_factory
 
+    def warmup(self, language: str) -> None:
+        """Load (and, on first run, download) the Stanza pipeline for a language.
+
+        Delegates to the (lru-cached) pipeline factory so a subsequent analyze()
+        for the same language reuses the warmed pipeline.
+        """
+        self._pipeline_factory(language, self.enable_ner)
+
     def analyze(
         self,
         text: str,

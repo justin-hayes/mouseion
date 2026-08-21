@@ -18,6 +18,15 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
     def __init__(self, producer: Producer | None = None) -> None:
         self._producer = producer or Producer()
 
+    def warmup(self, language: str) -> None:
+        """Load (and, on first run, download) the Stanza pipeline for a language.
+
+        Called at server startup so the slow model download/load happens before
+        the server accepts analysis requests, instead of on the first Analyze
+        call (which could otherwise exceed the caller's RPC deadline).
+        """
+        self._producer.warmup(language)
+
     def Analyze(self, request, context):  # noqa: N802
         source = request.source_document
         try:
@@ -36,10 +45,10 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
 
 def create_server(producer: Producer | None = None) -> grpc.Server:
     """Create a server with an injectable producer for tests."""
+    servicer = AnalyzerServicer(producer)
     server = grpc.server(futures.ThreadPoolExecutor())
-    normalized_corpus_pb2_grpc.add_AnalyzerServiceServicer_to_server(
-        AnalyzerServicer(producer), server
-    )
+    normalized_corpus_pb2_grpc.add_AnalyzerServiceServicer_to_server(servicer, server)
+    server._servicer = servicer  # keep a reference for warmup
     return server
 
 
@@ -47,12 +56,20 @@ def serve(address: str | None = None) -> NoReturn:
     """Serve until terminated, using MOUSEION_NLP_ADDR when set."""
     bind_address = address or os.getenv("MOUSEION_NLP_ADDR", "[::]:50051")
     server = create_server()
+    # Pre-warm the Stanza pipeline (downloads the model on first run and loads it
+    # into memory) BEFORE the server accepts analysis requests. Otherwise the
+    # first Analyze call pays the download+load cost and can exceed the caller's
+    # RPC deadline (observed as `DeadlineExceeded`).
+    warm_language = os.getenv("MOUSEION_NLP_WARM_LANGUAGE", "de")
+    print(f"warming Stanza pipeline for language '{warm_language}'…", flush=True)
+    server._servicer.warmup(warm_language)
+    print("Stanza pipeline warm", flush=True)
     port = server.add_insecure_port(bind_address)
     if port == 0:
         raise RuntimeError(f"could not bind NLP gRPC server to {bind_address}")
     server.start()
     display_address = bind_address
-    if bind_address.endswith(":0"):
+    if display_address.endswith(":0"):
         display_address = f"{bind_address[:-1]}{port}"
     print(f"mouseion NLP gRPC server listening on {display_address}", flush=True)
     server.wait_for_termination()

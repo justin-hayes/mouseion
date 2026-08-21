@@ -94,3 +94,24 @@ def test_normalized_corpus_round_trip() -> None:
         )
         == artifact
     )
+
+
+def test_warmup_loads_the_pipeline_for_a_language() -> None:
+    loaded: list[str] = []
+
+    def factory(language: str, enable_ner: bool):
+        loaded.append(language)
+
+        def pipeline(text: str):
+            return text
+
+        return pipeline
+
+    producer = Producer(pipeline_factory=factory)
+    assert loaded == []
+    producer.warmup("de")
+    assert loaded == ["de"]
+    # the default factory is lru-cached; an injected one is not, but warmup
+    # still loads the pipeline for the given language
+    producer.warmup("de")
+    assert loaded == ["de", "de"]
