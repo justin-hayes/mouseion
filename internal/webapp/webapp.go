@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -539,6 +540,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/admin/users?message=User+registered")
 }
 func fail(w http.ResponseWriter, err error) {
+	log.Printf("mouseion: %v", err)
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
