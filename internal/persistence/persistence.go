@@ -256,6 +256,40 @@ func (s *PostgresStore) PutLanguageProfile(ctx context.Context, owner, language,
 	err = s.pool.QueryRow(ctx, `INSERT INTO language_profiles(owner_id,language,display_name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language) DO UPDATE SET display_name=excluded.display_name RETURNING id,owner_id,language,display_name,created_at`, owner, language, name).Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt)
 	return
 }
+
+func (s *PostgresStore) ListLanguageProfiles(ctx context.Context, owner string) ([]domain.LanguageProfile, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,language,display_name,created_at FROM language_profiles WHERE owner_id=$1 ORDER BY display_name,language`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.LanguageProfile
+	for rows.Next() {
+		var p domain.LanguageProfile
+		if err := rows.Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
+	rows, err := s.pool.Query(ctx, `SELECT river_job_id,owner_id,source_material_id,content_hash,COALESCE(corpus_id::text,''),progress,error,created_at,updated_at FROM analysis_jobs WHERE owner_id=$1 ORDER BY created_at DESC LIMIT 100`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.AnalysisJob
+	for rows.Next() {
+		var job domain.AnalysisJob
+		if err := rows.Scan(&job.ID, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, job)
+	}
+	return out, rows.Err()
+}
 func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMaterial) (out domain.SourceMaterial, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET title=excluded.title,media_type=excluded.media_type,content_hash=excluded.content_hash,content=excluded.content,full_text=excluded.full_text RETURNING id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at`, v.OwnerID, v.Language, v.SourceIdentifier, v.Title, v.MediaType, v.ContentHash, v.Content, v.FullText).Scan(&out.ID, &out.OwnerID, &out.Language, &out.SourceIdentifier, &out.Title, &out.MediaType, &out.ContentHash, &out.Content, &out.FullText, &out.CreatedAt)
 	return
