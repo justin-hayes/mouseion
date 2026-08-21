@@ -24,3 +24,18 @@ Backend tests should invoke `analyzertest.RunContract` with an implementation
 factory. `analyzertest.Fake` is available to core package tests that need a
 deterministic analyzer without Python, a model download, a server, or a
 database.
+
+## Python/Stanza subprocess bridge
+
+`PythonStanzaAnalyzer` is the production bridge used by analysis workers. It
+starts the configured `MOUSEION_PYTHON` executable (default `python`) once per
+complete document, with `PYTHONPATH=nlp/src:gen/python`. The subprocess reads a
+single JSON object from stdin:
+
+```json
+{"language":"de","text":"...","document":{"id":"...","source_identifier":"...","title":"..."}}
+```
+
+It writes only the base64 encoding of a serialized `NormalizedCorpus` protobuf
+to stdout; diagnostics belong on stderr. This coarse contract keeps Python out
+of the serving process and avoids token-by-token process calls.
