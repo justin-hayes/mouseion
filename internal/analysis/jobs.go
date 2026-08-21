@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/ranking"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
@@ -179,6 +181,8 @@ type Worker struct {
 	river.WorkerDefaults[JobArgs]
 	Pool          *pgxpool.Pool
 	Analyzer      analyzer.Analyzer
+	Selection     *selection.Service
+	Ranking       *ranking.Service
 	MaxChunkChars int
 }
 
@@ -257,7 +261,29 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,error='',updated_at=now() WHERE river_job_id=$1 AND owner_id=$3`, job.ID, corpusID, a.OwnerID); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// Candidate generation is deliberately best-effort. The corpus and analysis
+	// status have already been committed, so a downstream selection or ranking
+	// failure is surfaced in processing history without retrying or losing the
+	// successful analysis.
+	candidates, err := w.Selection.Select(ctx, a.OwnerID, result, selection.DefaultConfig(corpusID))
+	if err != nil {
+		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "selection", err)
+		return nil
+	}
+	if _, err = w.Ranking.Rank(ctx, a.OwnerID, candidates, ranking.DefaultConfig(corpusID)); err != nil {
+		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "ranking", err)
+	}
+	return nil
+}
+
+func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, corpusID string, jobID int64, stage string, cause error) {
+	details, _ := json.Marshal(map[string]any{"river_job_id": jobID, "stage": stage, "error": cause.Error()})
+	failureCtx := context.WithoutCancel(ctx)
+	_, _ = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','failed',$3,now())`, owner, corpusID, details)
 }
 
 func offsetResultLocations(result *analyzer.Result, offset uint64) {
@@ -298,13 +324,16 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	return out
 }
 
-func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer) (*river.Client[pgx.Tx], error) {
+func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, rankingService *ranking.Service) (*river.Client[pgx.Tx], error) {
+	if pool == nil || a == nil || selectionService == nil || rankingService == nil {
+		return nil, errors.New("analysis client requires pool, analyzer, selection, and ranking services")
+	}
 	jobTimeout, err := configuredJobTimeout()
 	if err != nil {
 		return nil, err
 	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a})
+	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Selection: selectionService, Ranking: rankingService})
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 
