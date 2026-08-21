@@ -72,6 +72,13 @@ type ProcessingHistory struct {
 	CompletedAt                              *time.Time
 }
 type FrequencyDataset struct {
-	ID, Language, Name, Version string
-	CreatedAt                   time.Time
+	ID, Language, Name, Version, SourceURL, License, Attribution string
+	Active                                                       bool
+	CreatedAt                                                    time.Time
+}
+type FrequencyEntry struct {
+	DatasetID, Language, CanonicalLemma, UPOS string
+	Rank                                      int64
+	FrequencyClass                            int
+	Percentile                                float64
 }
