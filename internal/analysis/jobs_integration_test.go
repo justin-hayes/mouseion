@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,10 +57,15 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	alice, _ := store.CreateUser(ctx, "jobs-alice", false)
 	bob, _ := store.CreateUser(ctx, "jobs-bob", false)
-	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-source", Title: "Job", MediaType: "text/plain", ContentHash: "sha256:job-success", Content: []byte("Häuser"), FullText: "Häuser"})
+	fullText := strings.Repeat("Häuser. ", 13_000)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-source", Title: "Job", MediaType: "text/plain", ContentHash: "sha256:job-success", Content: []byte(fullText), FullText: fullText})
 	if err != nil {
 		t.Fatal(err)
 	}
+	var (
+		analyzedChunksMu sync.Mutex
+		analyzedChunks   []string
+	)
 	fake := &analyzertest.Fake{AnalyzeFunc: func(analyzeCtx context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		if req.Document.Text == "fail" {
 			return analyzer.Result{}, fmt.Errorf("stanza failed")
@@ -66,6 +73,11 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		if req.Document.Text == "cancel" {
 			<-analyzeCtx.Done()
 			return analyzer.Result{}, analyzeCtx.Err()
+		}
+		if req.Document.SourceIdentifier == "job-source" {
+			analyzedChunksMu.Lock()
+			analyzedChunks = append(analyzedChunks, req.Document.Text)
+			analyzedChunksMu.Unlock()
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}}}}}}, nil
 	}}
@@ -102,6 +114,19 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if status.State != rivertype.JobStateCompleted || status.Progress != 100 {
 		t.Fatalf("status = %+v", status)
 	}
+	analyzedChunksMu.Lock()
+	if len(analyzedChunks) != 2 {
+		t.Fatalf("Analyze() call count = %d, want 2", len(analyzedChunks))
+	}
+	for i, chunk := range analyzedChunks {
+		if len([]rune(chunk)) > DefaultMaxChunkChars {
+			t.Fatalf("analyzed chunk %d length = %d, exceeds %d", i, len([]rune(chunk)), DefaultMaxChunkChars)
+		}
+	}
+	if got := strings.Join(analyzedChunks, ""); got != fullText {
+		t.Fatal("analyzed chunks do not reconstruct source text")
+	}
+	analyzedChunksMu.Unlock()
 	corpus, err := service.Result(ctx, alice.ID, handle.ID)
 	if err != nil {
 		t.Fatal(err)

@@ -13,3 +13,19 @@ func TestAggregateLemmasIsIdempotent(t *testing.T) {
 		t.Fatalf("lemmas = %+v", lemmas)
 	}
 }
+
+func TestOffsetResultLocations(t *testing.T) {
+	result := analyzer.Result{Sentences: []analyzer.Sentence{{
+		Location: analyzer.SourceLocation{StartOffset: 0, EndOffset: 8},
+		Tokens:   []analyzer.Token{{Location: analyzer.SourceLocation{StartOffset: 1, EndOffset: 6}}},
+	}}}
+
+	offsetResultLocations(&result, 100_000)
+
+	if got := result.Sentences[0].Location; got.StartOffset != 100_000 || got.EndOffset != 100_008 {
+		t.Fatalf("sentence location = %+v", got)
+	}
+	if got := result.Sentences[0].Tokens[0].Location; got.StartOffset != 100_001 || got.EndOffset != 100_006 {
+		t.Fatalf("token location = %+v", got)
+	}
+}
