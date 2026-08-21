@@ -174,6 +174,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Vocabulary identity, normalization profiles, ranking defaults (sense-agnostic, global-first) | Accepted; ADR written | Identity `(lang, canon lemma, POS)`, sense-agnostic; one conservative versioned German profile; global-first ranking blend. | `0005` |
 | Anki export + known-vocab import contracts (TSV, custom Cloze note type, lemma-list import) | Accepted; ADR written | UTF-8 TSV; identity-based dedup key first field; v1 import = per-language lemma list. | `0006` |
 | Enrichment providers, caching, privacy (translation external, rest local; inline in Go) | Accepted; ADR written | Only translation is external (LLM default, optional); cached by identity+provider; inline in Go. | `0007` |
+| Global frequency dataset source + import contract (DWDS Lemmadatenbank, CC BY-SA 4.0) | Accepted; ADR written | DWDS CSV snapshot; stores Häufigkeitsklasse, derives percentile; versioned, language-scoped. | `0008` |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
 | v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
 | Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Accepted; ADR written | Sole v1 client over the shared Go core; no standalone CLI in v1. | `0004` |
@@ -194,7 +195,7 @@ Resolve these before treating the affected behavior as a stable repository contr
 8. **Source-text handling.** What source-location metadata must be retained for reproducible sentence selection? Policy on storing excerpts from copyrighted EPUBs?
 9. **Go/Python contract details.** Exact Protobuf schema; HTTP vs. gRPC transport; is enrichment inline in Go or itself job-based? **Enrichment execution resolved by [ADR 0007](adr/0007-enrichment-providers-caching-privacy.md):** enrichment runs inline in Go (not job-based); the job abstraction remains for ingest-time NLP. The Protobuf schema and HTTP/gRPC transport remain open (tracked by #5).
 10. **Auth (resolved).** Do we need user registration, or do per-language profiles suffice? **Resolved by [ADR 0002](adr/0002-multi-user-accounts.md):** multi-user accounts with per-user learning state and an admin role managing global resources. Remaining detail: the exact auth mechanism and credential storage in a self-hosted home-lab deployment (local accounts vs. an external identity provider).
-11. **Frequency data source & format.** Which DWDS (or other) frequency data source(s) are supported first, and in what upload format? How are they versioned and refreshed?
+11. **Frequency data source & format.** Which DWDS (or other) frequency data source(s) are supported first, and in what upload format? How are they versioned and refreshed? **Resolved by [ADR 0008](adr/0008-global-frequency-dataset-source-import.md):** the DWDS Lemmadatenbank (CSV snapshot, CC BY-SA 4.0), imported as a versioned, language-scoped table; stores the raw Häufigkeitsklasse and derives `global_freq_percentile` at import; supports membership + numeric lookup, refresh by version, rollback.
 
 ---
 
@@ -209,4 +210,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md)
 - [ADR 0006: Anki export and known-vocabulary import contracts](adr/0006-anki-export-import-contracts.md)
 - [ADR 0007: Enrichment providers, caching, and privacy policy](adr/0007-enrichment-providers-caching-privacy.md)
+- [ADR 0008: Global frequency dataset source and import contract](adr/0008-global-frequency-dataset-source-import.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
