@@ -13,7 +13,8 @@ COPY gen/ ./gen/
 COPY migrations/ ./migrations/
 # Generate templ views at build time (avoids committing drift surprises in the image)
 COPY internal/webapp/*.templ ./internal/webapp/
-RUN go install github.com/a-h/templ/cmd/templ@v0.3.1020 && \
+# Pin templ to the version in go.mod (v0.3.977); newer versions require Go >= 1.25.
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.977 && \
     export PATH="$PATH:$(go env GOPATH)/bin" && \
     templ generate && \
     CGO_ENABLED=0 go build -o /out/mouseion-server ./cmd/server
