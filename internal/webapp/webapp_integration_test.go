@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,11 +21,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/review"
+	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/justin-hayes/mouseion/internal/webworkflow"
+	"github.com/riverqueue/river/rivertype"
 )
 
 type recordingAnalysis struct{ owner, source string }
@@ -32,6 +39,12 @@ type recordingAnalysis struct{ owner, source string }
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
 	r.owner, r.source = owner, source
 	return analysis.Handle{ID: 42}, nil
+}
+func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
+	if owner != r.owner || id != 42 {
+		return analysis.Status{}, analysis.ErrNotFound
+	}
+	return analysis.Status{ID: 42, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
 }
 
 func integrationDatabaseURL() string {
@@ -137,6 +150,112 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if recorder.owner != alice.ID || recorder.source == "" {
 		t.Fatalf("analysis wiring owner=%q source=%q", recorder.owner, recorder.source)
 	}
+	jobPage := perform(t, h, "GET", "/jobs/42", nil, cookies)
+	if jobPage.Code != 200 || !strings.Contains(jobPage.Body.String(), "Succeeded") {
+		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
+	}
+
+	// Seed the completed pipeline boundary and exercise the shared review/export
+	// services through the authenticated web workflow.
+	artifactHash := "web-workflow-artifact"
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','test','1','test','1')`, artifactHash); err != nil {
+		t.Fatal(err)
+	}
+	corpus, err := store.PutCorpus(ctx, alice.ID, recorder.source, artifactHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance,ranking_global_pct,ranking_corpus_pct,ranking_priority,ranking_cross_text,ranking_score) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}',0.9,1,true,1,1.0)`, alice.ID, corpus.ID); err != nil {
+		t.Fatal(err)
+	}
+	examples := []domain.ExampleSentence{{SentenceKey: "haus:1", Text: "Das Haus ist heute sehr ruhig.", SourceLocation: []byte(`{"source_document_id":"book-1","start_offset":0,"end_offset":4}`), SelectionReasons: []byte(`["preferred length"]`), SelectionRank: 1, SelectionScore: 90, Chosen: true}}
+	if err = store.ReplaceSelectedSentences(ctx, alice.ID, corpus.ID, "de", "haus", "NOUN", examples); err != nil {
+		t.Fatal(err)
+	}
+	workflow := webworkflow.NewReview(store.Pool(), review.NewService(vocabulary.NewLifecycle(store), store))
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	reviewPage := perform(t, h, "GET", "/review", nil, cookies)
+	if reviewPage.Code != 200 || !strings.Contains(reviewPage.Body.String(), "haus") {
+		t.Fatalf("review=%d %s", reviewPage.Code, reviewPage.Body.String())
+	}
+	edit := perform(t, h, "POST", "/review/edit", url.Values{"csrf_token": {csrf}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}, "sentence": {"Das Haus ist heute ganz ruhig."}}, cookies)
+	if edit.Code != http.StatusSeeOther {
+		t.Fatalf("edit=%d %s", edit.Code, edit.Body.String())
+	}
+	accept := perform(t, h, "POST", "/review/accept", url.Values{"csrf_token": {csrf}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, cookies)
+	if accept.Code != http.StatusSeeOther {
+		t.Fatalf("accept=%d %s", accept.Code, accept.Body.String())
+	}
+	exported := perform(t, h, "GET", "/deck/download?name=German", nil, cookies)
+	if exported.Code != 200 || !strings.Contains(exported.Header().Get("Content-Disposition"), "attachment") || !strings.Contains(exported.Body.String(), "{{c1::Haus") {
+		t.Fatalf("export=%d headers=%v body=%s", exported.Code, exported.Header(), exported.Body.String())
+	}
+
+	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("bob read alice job: %d", got.Code)
+	}
+	if got := perform(t, h, "GET", "/review", nil, bobCookies); got.Code != 200 || strings.Contains(got.Body.String(), "haus") {
+		t.Fatalf("bob review leaked: %d %s", got.Code, got.Body.String())
+	}
+	if got := perform(t, h, "POST", "/review/ignore", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, bobCookies); got.Code == 200 || got.Code == http.StatusSeeOther {
+		t.Fatalf("bob acted on alice item: %d", got.Code)
+	}
+	if got := perform(t, h, "GET", "/admin/frequency?language=de", nil, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("non-admin frequency=%d", got.Code)
+	}
+	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
+	upload := multipartUpload(t, h, "/admin/frequency", adminCookies, map[string]string{"csrf_token": adminCSRF, "language": "de", "version": "web-v1", "replace": "on"}, "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n")
+	if upload.Code != http.StatusSeeOther {
+		t.Fatalf("admin upload=%d %s", upload.Code, upload.Body.String())
+	}
+	adminPage := perform(t, h, "GET", "/admin/frequency?language=de", nil, adminCookies)
+	if adminPage.Code != 200 || !strings.Contains(adminPage.Body.String(), "web-v1") || !strings.Contains(adminPage.Body.String(), "Active") {
+		t.Fatalf("admin frequency=%d %s", adminPage.Code, adminPage.Body.String())
+	}
+}
+
+func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
+	page := perform(t, h, "GET", "/login", nil, nil)
+	token := hiddenToken(t, page.Body.String())
+	csrfCookieValue := cookieNamed(t, page.Result().Cookies(), csrfCookie)
+	response := perform(t, h, "POST", "/login", url.Values{"csrf_token": {token}, "username": {username}, "password": {password}}, []*http.Cookie{csrfCookieValue})
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("login %s=%d %s", username, response.Code, response.Body.String())
+	}
+	csrfCookieValue = cookieNamed(t, response.Result().Cookies(), csrfCookie)
+	return []*http.Cookie{csrfCookieValue, cookieNamed(t, response.Result().Cookies(), webauth.CookieName)}, csrfCookieValue.Value
+}
+func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.Cookie, fields map[string]string, content string) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	part, err := writer.CreateFormFile("dataset", "frequency.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = io.WriteString(part, content); err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("POST", path, &body)
+	r.Header.Set("Content-Type", writer.FormDataContentType())
+	for _, c := range cookies {
+		r.AddCookie(c)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
 }
 
 func perform(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
