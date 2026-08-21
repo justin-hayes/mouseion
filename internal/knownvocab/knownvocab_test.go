@@ -1,0 +1,112 @@
+package knownvocab
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+func TestParseReportsMalformedRows(t *testing.T) {
+	input := strings.NewReader("Haus\ngehen\tverb\n\nzu\tviele\tSpalten\nungueltig\tWHAT\n")
+	got, err := Parse(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Entries) != 2 || got.Entries[0].RawLemma != "Haus" || got.Entries[0].UPOS != "" || got.Entries[1].UPOS != "VERB" {
+		t.Fatalf("entries = %+v", got.Entries)
+	}
+	if len(got.Rejected) != 3 || got.Rejected[0].Row != 3 || got.Rejected[1].Row != 4 || got.Rejected[2].Row != 5 {
+		t.Fatalf("rejections = %+v", got.Rejected)
+	}
+}
+
+func TestParseRejectsInvalidUTF8(t *testing.T) {
+	got, err := Parse(strings.NewReader("Haus\n" + string([]byte{0xff, '\n'}) + "gehen\tVERB\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Entries) != 2 || len(got.Rejected) != 1 || got.Rejected[0].Row != 2 || got.Rejected[0].Error != "invalid UTF-8" {
+		t.Fatalf("result = %+v", got)
+	}
+}
+
+type memoryStore struct {
+	known map[string]domain.KnownVocabulary
+	state map[string]domain.VocabularyState
+}
+
+func newMemoryStore() *memoryStore {
+	return &memoryStore{known: map[string]domain.KnownVocabulary{}, state: map[string]domain.VocabularyState{}}
+}
+
+func importKey(owner, language, lemma, upos string) string {
+	return owner + "\x00" + language + "\x00" + lemma + "\x00" + upos
+}
+
+func (s *memoryStore) IsKnownVocabularyIdentity(_ context.Context, owner, language, lemma, upos string) (bool, error) {
+	_, exact := s.known[importKey(owner, language, lemma, upos)]
+	_, wildcard := s.known[importKey(owner, language, lemma, "")]
+	return exact || wildcard, nil
+}
+
+func (s *memoryStore) PutKnownVocabulary(_ context.Context, owner, language, lemma, upos string) (domain.KnownVocabulary, error) {
+	key := importKey(owner, language, lemma, upos)
+	value, ok := s.known[key]
+	if !ok {
+		value = domain.KnownVocabulary{ID: key, OwnerID: owner, Language: language, CanonicalLemma: lemma, UPOS: upos, CreatedAt: time.Now()}
+		s.known[key] = value
+	}
+	return value, nil
+}
+
+func (s *memoryStore) PutVocabularyState(_ context.Context, owner, language, lemma, upos, state string) (domain.VocabularyState, error) {
+	key := importKey(owner, language, lemma, upos)
+	value := domain.VocabularyState{ID: key, OwnerID: owner, Language: language, CanonicalLemma: lemma, UPOS: upos, State: state}
+	s.state[key] = value
+	return value, nil
+}
+
+func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
+	store := newMemoryStore()
+	service := NewService(store)
+	input := " Daß \tSCONJ\nHaus\ninvalid\tNOPE\n"
+
+	first, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Imported != 2 || first.AlreadyKnown != 0 || len(first.Rejected) != 1 {
+		t.Fatalf("first = %+v", first)
+	}
+	if got := first.Entries[0]; got.Original != " Daß \tSCONJ" || got.RawLemma != "Daß" || got.CanonicalLemma != "dass" || got.ProfileName == "" || got.ProfileVersion == "" {
+		t.Fatalf("normalized entry = %+v", got)
+	}
+	if store.state[importKey("alice", "de", "dass", "SCONJ")].State != "known" || store.state[importKey("alice", "de", "haus", "")].State != "known" {
+		t.Fatalf("states = %+v", store.state)
+	}
+
+	second, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Imported != 0 || second.AlreadyKnown != 2 || len(store.known) != 2 {
+		t.Fatalf("second = %+v, known = %+v", second, store.known)
+	}
+}
+
+func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
+	service := NewService(newMemoryStore())
+	for _, tc := range []struct{ owner, language string }{{"", "de"}, {"alice", ""}} {
+		if _, err := service.Import(context.Background(), tc.owner, tc.language, strings.NewReader("Haus\n")); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("Import(%q, %q) error = %v", tc.owner, tc.language, err)
+		}
+	}
+	got, err := service.Import(context.Background(), "alice", "zz", strings.NewReader("word\n"))
+	if err != nil || len(got.Rejected) != 1 || !strings.Contains(got.Rejected[0].Error, "unsupported language") {
+		t.Fatalf("unsupported profile result=%+v err=%v", got, err)
+	}
+}
