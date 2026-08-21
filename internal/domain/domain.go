@@ -50,7 +50,10 @@ type VocabularyState struct {
 }
 type ExampleSentence struct {
 	ID, OwnerID, CorpusID, SentenceKey, Text string
-	SourceLocation                           []byte
+	Language, CanonicalLemma, UPOS           string
+	SourceLocation, SelectionReasons         []byte
+	SelectionRank, SelectionScore            int
+	Chosen                                   bool
 	CreatedAt                                time.Time
 }
 type CuratedSentence struct {
