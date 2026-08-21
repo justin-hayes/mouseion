@@ -1,0 +1,10 @@
+.git
+.venv
+bin
+*.test
+.tmp
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+nlp/src/mouseion_nlp.egg-info
