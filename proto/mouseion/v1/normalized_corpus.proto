@@ -4,21 +4,74 @@ package mouseion.v1;
 
 option go_package = "github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1";
 
-// NormalizedCorpus is the versioned artifact exchanged at the Go/Python boundary.
-// Issue #5 will expand this placeholder contract.
+// NormalizedCorpus is the single contract used both for analysis messages at
+// the Go/Python boundary and for persisted normalized-corpus artifacts.
+//
+// schema_version uses semantic versions (for example, "1.0.0"). Consumers
+// must reject unsupported major versions. Minor and patch releases are
+// backward-compatible, additive changes. Once released, field numbers are
+// frozen and must never be reused; incompatible changes require a new major
+// schema version and an explicit artifact migration.
 message NormalizedCorpus {
   string schema_version = 1;
+  // language is an ISO 639 language code, optionally with a BCP 47 region.
   string language = 2;
+  // Sentences are stored in source order.
   repeated Sentence sentences = 3;
+  repeated SourceDocument source_documents = 4;
+  AnalysisProvenance analysis = 5;
+  NormalizationProfile normalization_profile = 6;
 }
 
 message Sentence {
   string text = 1;
+  // Tokens are stored in sentence order.
   repeated Token tokens = 2;
+  SourceLocation location = 3;
 }
 
 message Token {
+  // surface is preserved exactly as it appeared in the source.
   string surface = 1;
+  // raw_lemma is preserved exactly as returned by the analyzer.
   string raw_lemma = 2;
-  string part_of_speech = 3;
+  // pos is the analyzer's coarse Universal POS (UPOS) tag.
+  string pos = 3;
+  // canonical_lemma is derived using NormalizedCorpus.normalization_profile.
+  string canonical_lemma = 4;
+  map<string, string> morphology = 5;
+  optional string named_entity = 6;
+  SourceLocation location = 7;
+}
+
+message SourceDocument {
+  // id is stable within the corpus and is referenced by SourceLocation.
+  string id = 1;
+  // source_identifier is the upstream identifier, such as an OPDS entry ID.
+  string source_identifier = 2;
+  string title = 3;
+}
+
+message AnalysisProvenance {
+  string run_id = 1;
+  // analyzed_at is an RFC 3339 timestamp in UTC.
+  string analyzed_at = 2;
+  string analyzer_name = 3;
+  string analyzer_version = 4;
+}
+
+message NormalizationProfile {
+  string name = 1;
+  string version = 2;
+}
+
+// SourceLocation identifies a reproducible half-open span [start_offset,
+// end_offset) in Unicode code points within the source document's extracted
+// text. chapter and section retain human-readable structural provenance.
+message SourceLocation {
+  string source_document_id = 1;
+  string chapter = 2;
+  string section = 3;
+  uint64 start_offset = 4;
+  uint64 end_offset = 5;
 }
