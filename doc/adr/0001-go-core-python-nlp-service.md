@@ -68,7 +68,7 @@ Use **Protobuf** so the same `.proto` defines both the RPC messages and the pers
 - Two runtimes, two build systems, two deploy models, and a contract to keep in sync — the accepted cost of Stanza. Mitigated by keeping the boundary coarse (whole-book batch jobs, never per-word calls).
 - Python is not needed at runtime by the web server, which keeps home-lab operations simple.
 - The CLI remains useful as a scriptable client even after the web app exists; the web UI becomes the interactive review surface.
-- Defers auth, background job *queueing* (build the job abstraction, use a synchronous local runner for v1), and the OPDS *browsing UI* (OPDS as a corpus source is worth having early; the browser is web-only).
+- Defers auth, background job *queueing* (build the job abstraction, use a synchronous local runner for v1), and the OPDS *browsing UI* (OPDS as a corpus source is worth having early; the browser is web-only). *(The sync local runner is superseded by [ADR 0010](0010-river-job-queue.md), which adopts River as the job queue; OPDS browsing remains web-only.)*
 - Roadmap items (KOReader sync for encounter-count metrics, cross-text concordance, reading environment) are out of v1 scope.
 
 ## Open questions to resolve before finalizing
