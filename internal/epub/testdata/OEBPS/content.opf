@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:isbn:9780000000014</dc:identifier><dc:title>Die Prüfung</dc:title>
+  </metadata>
+  <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="second" href="second.xhtml" media-type="application/xhtml+xml"/>
+    <item id="first" href="first.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="first"/><itemref idref="nav"/><itemref idref="second"/></spine>
+</package>
