@@ -11,14 +11,19 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/review"
+	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -40,6 +45,16 @@ type OPDS interface {
 }
 type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
+	Get(context.Context, string, int64) (analysis.Status, error)
+}
+type Review interface {
+	Present(context.Context, string) ([]review.Item, error)
+	Accept(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
+	Ignore(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
+	MarkKnown(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
+	Reset(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
+	EditExample(context.Context, string, vocabulary.Identity, string) (domain.CuratedSentence, error)
+	ChooseAlternate(context.Context, string, vocabulary.Identity, int) (domain.CuratedSentence, error)
 }
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
@@ -49,6 +64,9 @@ type Services struct {
 	Store           Store
 	OPDS            OPDS
 	Analysis        Analysis
+	Review          Review
+	Frequency       *frequency.Service
+	CardExport      *cardexport.Service
 	SecureCookies   bool
 	SessionLifetime time.Duration
 }
@@ -79,8 +97,17 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /opds/search", h.user(http.HandlerFunc(h.search)))
 	h.mux.Handle("POST /opds/acquire", h.user(http.HandlerFunc(h.acquire)))
 	h.mux.Handle("GET /jobs", h.user(http.HandlerFunc(h.jobs)))
+	h.mux.Handle("GET /jobs/{id}", h.user(http.HandlerFunc(h.job)))
+	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
+	h.mux.Handle("GET /review", h.user(http.HandlerFunc(h.reviewPage)))
+	h.mux.Handle("POST /review/{action}", h.user(http.HandlerFunc(h.reviewAction)))
+	h.mux.Handle("GET /deck", h.user(http.HandlerFunc(h.deck)))
+	h.mux.Handle("GET /deck/download", h.user(http.HandlerFunc(h.downloadDeck)))
 	h.mux.Handle("GET /admin/users", h.user(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.user(http.HandlerFunc(h.createUser)))
+	h.mux.Handle("GET /admin/frequency", h.user(http.HandlerFunc(h.adminFrequency)))
+	h.mux.Handle("POST /admin/frequency", h.user(http.HandlerFunc(h.createFrequency)))
+	h.mux.Handle("POST /admin/frequency/{id}/{action}", h.user(http.HandlerFunc(h.frequencyAction)))
 	return h
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
@@ -307,6 +334,178 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	}
 	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message")))
 }
+func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	status, ok := h.loadJob(w, r, u.ID)
+	if !ok {
+		return
+	}
+	render(w, r, JobPage(u, h.csrf(w, r), status))
+}
+func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
+	status, ok := h.loadJob(w, r, user(r).ID)
+	if !ok {
+		return
+	}
+	render(w, r, JobStatus(status))
+}
+func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) (analysis.Status, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return analysis.Status{}, false
+	}
+	status, err := h.services.Analysis.Get(r.Context(), owner, id)
+	if errors.Is(err, analysis.ErrNotFound) {
+		http.NotFound(w, r)
+		return analysis.Status{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return analysis.Status{}, false
+	}
+	return status, true
+}
+func (h *Handler) reviewPage(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	items, err := h.services.Review.Present(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, ReviewPage(u, h.csrf(w, r), items, r.URL.Query().Get("message")))
+}
+func reviewIdentity(r *http.Request) vocabulary.Identity {
+	return vocabulary.Identity{Language: strings.TrimSpace(r.FormValue("language")), CanonicalLemma: strings.TrimSpace(r.FormValue("lemma")), UPOS: strings.TrimSpace(r.FormValue("upos"))}
+}
+func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u, id, action := user(r), reviewIdentity(r), r.PathValue("action")
+	var err error
+	switch action {
+	case "accept":
+		_, err = h.services.Review.Accept(r.Context(), u.ID, id)
+	case "ignore":
+		_, err = h.services.Review.Ignore(r.Context(), u.ID, id)
+	case "known":
+		_, err = h.services.Review.MarkKnown(r.Context(), u.ID, id)
+	case "reset":
+		_, err = h.services.Review.Reset(r.Context(), u.ID, id)
+	case "edit":
+		_, err = h.services.Review.EditExample(r.Context(), u.ID, id, r.FormValue("sentence"))
+	case "alternate":
+		index, parseErr := strconv.Atoi(r.FormValue("alternate"))
+		if parseErr != nil {
+			err = parseErr
+		} else {
+			_, err = h.services.Review.ChooseAlternate(r.Context(), u.ID, id, index)
+		}
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/review?message=Review+saved")
+}
+func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
+	render(w, r, DeckPage(user(r), h.csrf(w, r)))
+}
+func (h *Handler) downloadDeck(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		name = "Mouseion"
+	}
+	artifact, err := h.services.CardExport.Export(r.Context(), user(r).ID, name)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/tab-separated-values; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="mouseion-anki.tsv"`)
+	w.Header().Set("X-Mouseion-Note-Type", base64.RawURLEncoding.EncodeToString([]byte(artifact.NoteType)))
+	_, _ = io.WriteString(w, artifact.TSV)
+}
+func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) (domain.User, bool) {
+	u := user(r)
+	if !u.IsAdmin {
+		http.Error(w, "administrator required", http.StatusForbidden)
+		return u, false
+	}
+	return u, true
+}
+func (h *Handler) adminFrequency(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	datasets, err := h.services.Frequency.List(r.Context(), strings.TrimSpace(r.URL.Query().Get("language")))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, AdminFrequencyPage(u, h.csrf(w, r), datasets, r.URL.Query().Get("language"), r.URL.Query().Get("message")))
+}
+func (h *Handler) createFrequency(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "invalid upload", 400)
+		return
+	}
+	file, _, err := r.FormFile("dataset")
+	if err != nil {
+		http.Error(w, "dataset file required", 400)
+		return
+	}
+	defer file.Close()
+	language, version := strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("version"))
+	if r.FormValue("replace") == "on" {
+		_, _, err = h.services.Frequency.Replace(r.Context(), u.ID, language, version, file)
+	} else {
+		_, _, err = h.services.Frequency.Create(r.Context(), u.ID, language, version, file)
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/admin/frequency?language="+url.QueryEscape(language)+"&message=Dataset+uploaded")
+}
+func (h *Handler) frequencyAction(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	var err error
+	switch r.PathValue("action") {
+	case "activate":
+		err = h.services.Frequency.Activate(r.Context(), u.ID, r.PathValue("id"))
+	case "deactivate":
+		err = h.services.Frequency.Deactivate(r.Context(), u.ID, r.PathValue("id"))
+	case "remove":
+		err = h.services.Frequency.Remove(r.Context(), u.ID, r.PathValue("id"))
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/admin/frequency?message=Dataset+updated")
+}
 func (h *Handler) adminUsers(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	if !u.IsAdmin {
@@ -359,3 +558,24 @@ func acquisitionLink(e opds.Entry) *opds.Link {
 	return nil
 }
 func queryEscape(value string) string { return url.QueryEscape(value) }
+func jobRunning(status analysis.Status) bool {
+	return status.State == "available" || status.State == "pending" || status.State == "running" || status.State == "retryable" || status.State == "scheduled"
+}
+func jobState(status analysis.Status) string {
+	switch status.State {
+	case "completed":
+		return "Succeeded"
+	case "discarded", "cancelled":
+		return "Failed"
+	case "running":
+		return "Running"
+	default:
+		return strings.Title(string(status.State))
+	}
+}
+func frequencyStatus(dataset domain.FrequencyDataset) string {
+	if dataset.Active {
+		return "Active"
+	}
+	return "Inactive"
+}

@@ -2,16 +2,20 @@ package webapp
 
 import (
 	"fmt"
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/review"
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" defer></script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalogs</a></li><li><a href="/jobs">Jobs</a></li>
+		<li><a href="/review">Review</a></li><li><a href="/deck">Deck</a></li>
 		if user.IsAdmin {
-			<li><a href="/admin/users">Users</a></li>
+			<li><a href="/admin/users">Users</a></li><li><a href="/admin/frequency">Frequency</a></li>
 		}
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
@@ -95,11 +99,92 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	if len(jobs) > 0 {
 	<table><thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 	for _, job := range jobs {
-		<tr><td>{ fmt.Sprintf("#%d", job.ID) }</td><td><progress value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+		<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.ID) }</a></td><td><progress value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 	}
 	</tbody></table>
 	} }
 }
+templ JobPage(user domain.User, csrf string, status analysis.Status) {
+	@Layout(fmt.Sprintf("Job #%d", status.ID), &user, csrf) { <h1>{ fmt.Sprintf("Analysis job #%d", status.ID) }</h1><div id="job-status">@JobStatus(status)</div> }
+}
+templ JobStatus(status analysis.Status) {
+	<article
+		if jobRunning(status) {
+			hx-get={ fmt.Sprintf("/jobs/%d/status", status.ID) }
+			hx-trigger="every 2s"
+			hx-swap="outerHTML"
+		}
+		id="job-status"><h2>{ jobState(status) }</h2><progress value={ fmt.Sprintf("%d", status.Progress) } max="100"></progress><p>{ fmt.Sprintf("%d%% complete · attempt %d", status.Progress, status.Attempt) }</p>
+		if status.Error != "" {
+			<p role="alert"><strong>Action needed:</strong> { status.Error } <a href="/connections">Check the source catalog and try importing again.</a></p>
+		}
+		if status.CorpusID != "" {
+			<p>Analysis complete. <a href="/review">Continue to vocabulary review</a>.</p>
+		}
+	</article>
+}
+templ ReviewPage(user domain.User, csrf string, items []review.Item, message string) {
+	@Layout("Review", &user, csrf) { <h1>Vocabulary review</h1><p>Ranked candidates resume where you left off.</p>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	if len(items) == 0 {
+		<article><p>No actionable candidates are ready.</p></article>
+	}
+	for _, item := range items {
+		@ReviewItem(csrf, item)
+	}
+	}
+}
+templ ReviewItem(csrf string, item review.Item) {
+	<article id={ "candidate-"+item.Candidate.Candidate.Identity.CanonicalLemma }><header><h2>{ item.Candidate.Candidate.Identity.CanonicalLemma } <small>{ item.Candidate.Candidate.Identity.UPOS }</small></h2><p>{ fmt.Sprintf("Rank score %.3f · global %.2f · corpus %.2f · across %d text(s)", item.Candidate.Components.Score, item.Candidate.Components.GlobalPercentile, item.Candidate.Components.CorpusPercentile, item.Candidate.Components.CrossText) }</p></header>
+	if item.Enrichment.Translation.Available {
+		<p><strong>Translation:</strong> { item.Enrichment.Translation.Value }</p>
+	}
+	if item.Enrichment.Gloss.Available {
+		<p><strong>Gloss:</strong> { item.Enrichment.Gloss.Value }</p>
+	}
+	if item.Enrichment.Pronunciation.Available {
+		<p><strong>Pronunciation:</strong> { item.Enrichment.Pronunciation.Value }</p>
+	}
+	if item.Sentences.Chosen != nil {
+		<blockquote>{ item.Sentences.Chosen.Text }</blockquote><form method="post" action="/review/edit"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<label>Edit example<input name="sentence" value={ item.Sentences.Chosen.Text } required/></label><button class="outline">Save example</button></form>
+	}
+	if len(item.Sentences.Alternatives) > 0 {
+		<details><summary>Alternate sentences</summary>
+		for i, alternate := range item.Sentences.Alternatives {
+			<form method="post" action="/review/alternate"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<input type="hidden" name="alternate" value={ fmt.Sprintf("%d", i) }/><button class="outline">{ alternate.Text }</button></form>
+		}
+		</details>
+	}
+	<footer><div class="grid">
+		@ReviewAction(csrf, item, "accept", "Accept") @ReviewAction(csrf, item, "ignore", "Ignore") @ReviewAction(csrf, item, "known", "Mark known") @ReviewAction(csrf, item, "reset", "Reset")
+	</div></footer></article>
+}
+templ ReviewIdentity(item review.Item) { <input type="hidden" name="language" value={ item.Candidate.Candidate.Identity.Language }/><input type="hidden" name="lemma" value={ item.Candidate.Candidate.Identity.CanonicalLemma }/><input type="hidden" name="upos" value={ item.Candidate.Candidate.Identity.UPOS }/> }
+templ ReviewAction(csrf string, item review.Item, action, label string) { <form method="post" action={ templ.SafeURL("/review/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<button>{ label }</button></form> }
+templ DeckPage(user domain.User, csrf string) { @Layout("Deck", &user, csrf) { <h1>Anki deck</h1><p>Download accepted, curated vocabulary as UTF-8 tab-separated notes.</p><form method="get" action="/deck/download"><label>Deck name<input name="name" value="Mouseion" required/></label><button>Download Anki TSV</button></form><details><summary>Note type setup</summary><pre>{ cardexport.NoteTypeDefinition() }</pre></details> } }
+templ AdminFrequencyPage(user domain.User, csrf string, datasets []domain.FrequencyDataset, language, message string) {
+	@Layout("Frequency resources", &user, csrf) { <h1>Frequency resources</h1>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<article><h2>Upload DWDS dataset</h2><form method="post" action="/admin/frequency" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Language<input name="language" value={ language } placeholder="de" required/></label><label>Version<input name="version" required/></label></div><label>Dataset<input type="file" name="dataset" required/></label><label><input type="checkbox" name="replace"/> Activate this version after import</label><button>Upload</button></form></article>
+	<form method="get" action="/admin/frequency"><label>Filter language<input name="language" value={ language } placeholder="de"/></label><button class="outline">List datasets</button></form>
+	<table><thead><tr><th>Language</th><th>Version</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+	for _, dataset := range datasets {
+		<tr><td>{ dataset.Language }</td><td>{ dataset.Version }</td><td>{ frequencyStatus(dataset) }</td><td><div class="grid">
+		if dataset.Active {
+			@FrequencyAction(csrf, dataset.ID, "deactivate", "Deactivate")
+		} else {
+			@FrequencyAction(csrf, dataset.ID, "activate", "Activate")
+		}
+		@FrequencyAction(csrf, dataset.ID, "remove", "Remove")
+		</div></td></tr>
+	}
+	</tbody></table> }
+}
+templ FrequencyAction(csrf, id, action, label string) { <form method="post" action={ templ.SafeURL("/admin/frequency/"+id+"/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ label }</button></form> }
 templ AdminUsersPage(user domain.User, csrf, message string) {
 	@Layout("Users", &user, csrf) { <h1>User registration</h1><p>Only administrators can register additional local accounts.</p>
 	if message != "" {
