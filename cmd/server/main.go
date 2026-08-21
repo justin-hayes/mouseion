@@ -18,7 +18,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/ranking"
 	"github.com/justin-hayes/mouseion/internal/review"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -57,7 +59,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer nlp.Close()
-	riverClient, err := analysis.NewClient(store.Pool(), nlp)
+	frequencyService := frequency.NewService(store)
+	selectionService := selection.NewService(store, frequencyService)
+	rankingService := ranking.NewService(store, frequencyService)
+	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, rankingService)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +75,6 @@ func main() {
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
-	frequencyService := frequency.NewService(store)
 	reviewService := review.NewService(vocabulary.NewLifecycle(store), store)
 	reviewWorkflow := webworkflow.NewReview(store.Pool(), reviewService)
 	exportService := cardexport.NewService(store)
