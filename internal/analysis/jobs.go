@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -18,7 +19,11 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-const Queue = "analysis"
+const (
+	Queue             = "analysis"
+	jobTimeoutEnv     = "MOUSEION_ANALYSIS_JOB_TIMEOUT"
+	defaultJobTimeout = 30 * time.Minute
+)
 
 var ErrNotFound = errors.New("analysis job: not found")
 
@@ -294,9 +299,25 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 }
 
 func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer) (*river.Client[pgx.Tx], error) {
+	jobTimeout, err := configuredJobTimeout()
+	if err != nil {
+		return nil, err
+	}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a})
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+}
+
+func configuredJobTimeout() (time.Duration, error) {
+	value, ok := os.LookupEnv(jobTimeoutEnv)
+	if !ok {
+		return defaultJobTimeout, nil
+	}
+	timeout, err := time.ParseDuration(value)
+	if err != nil || timeout <= 0 {
+		return 0, fmt.Errorf("%s must be a positive Go duration: %q", jobTimeoutEnv, value)
+	}
+	return timeout, nil
 }
 
 func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {

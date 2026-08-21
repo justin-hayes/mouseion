@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -17,7 +18,11 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-const Queue = "enrichment"
+const (
+	Queue             = "enrichment"
+	jobTimeoutEnv     = "MOUSEION_ENRICHMENT_JOB_TIMEOUT"
+	defaultJobTimeout = 30 * time.Minute
+)
 
 var ErrNotFound = errors.New("enrichment job: not found")
 var ErrMixedLanguages = errors.New("enrichment job: candidates must share one language")
@@ -167,7 +172,23 @@ func (w *Worker) updateProgress(ctx context.Context, id int64, completed, total 
 }
 
 func NewClient(pool *pgxpool.Pool, enrich *enrichment.Service) (*river.Client[pgx.Tx], error) {
+	jobTimeout, err := configuredJobTimeout()
+	if err != nil {
+		return nil, err
+	}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &Worker{Pool: pool, Enrichment: enrich})
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+}
+
+func configuredJobTimeout() (time.Duration, error) {
+	value, ok := os.LookupEnv(jobTimeoutEnv)
+	if !ok {
+		return defaultJobTimeout, nil
+	}
+	timeout, err := time.ParseDuration(value)
+	if err != nil || timeout <= 0 {
+		return 0, fmt.Errorf("%s must be a positive Go duration: %q", jobTimeoutEnv, value)
+	}
+	return timeout, nil
 }
