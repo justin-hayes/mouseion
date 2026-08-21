@@ -141,6 +141,11 @@ func (s *PostgresStore) GetVocabularyState(ctx context.Context, owner, id string
 	err = missing(err)
 	return
 }
+func (s *PostgresStore) GetVocabularyStateByIdentity(ctx context.Context, owner, lang, lemma, upos string) (v domain.VocabularyState, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,state,updated_at FROM vocabulary_states WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.State, &v.UpdatedAt)
+	err = missing(err)
+	return
+}
 func (s *PostgresStore) DeleteVocabularyState(ctx context.Context, owner, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM vocabulary_states WHERE owner_id=$1 AND id=$2`, owner, id)
 	if err == nil && tag.RowsAffected() == 0 {
@@ -171,4 +176,28 @@ func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.Proce
 	}
 	err = s.pool.QueryRow(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,owner_id,COALESCE(corpus_id::text,''),operation,status,details,started_at,completed_at`, v.OwnerID, corpus, v.Operation, v.Status, v.Details, v.CompletedAt).Scan(&out.ID, &out.OwnerID, &out.CorpusID, &out.Operation, &out.Status, &out.Details, &out.StartedAt, &out.CompletedAt)
 	return
+}
+
+// PutVocabularyTransition persists a lifecycle state and its audit record atomically.
+// Transition validation remains the responsibility of the vocabulary domain service.
+func (s *PostgresStore) PutVocabularyTransition(ctx context.Context, owner, lang, lemma, upos, state string, history domain.ProcessingHistory) (v domain.VocabularyState, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(ctx)
+	err = tx.QueryRow(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now() RETURNING id,owner_id,language,canonical_lemma,upos,state,updated_at`, owner, lang, lemma, upos, state).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.State, &v.UpdatedAt)
+	if err != nil {
+		return v, err
+	}
+	var corpus any = history.CorpusID
+	if history.CorpusID == "" {
+		corpus = nil
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,$3,$4,$5,$6)`, history.OwnerID, corpus, history.Operation, history.Status, history.Details, history.CompletedAt)
+	if err != nil {
+		return v, err
+	}
+	err = tx.Commit(ctx)
+	return v, err
 }

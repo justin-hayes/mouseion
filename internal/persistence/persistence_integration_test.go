@@ -32,9 +32,33 @@ func resetDatabase(t *testing.T, ctx context.Context, url string) {
 	}
 }
 
+func lockIntegrationDatabase(t *testing.T, ctx context.Context, url string) {
+	t.Helper()
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		pool.Close()
+		t.Fatal(err)
+	}
+	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
+		conn.Release()
+		pool.Close()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
+		conn.Release()
+		pool.Close()
+	})
+}
+
 func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	ctx := context.Background()
 	url := integrationURL()
+	lockIntegrationDatabase(t, ctx, url)
 	resetDatabase(t, ctx, url)
 	if err := Migrate(url); err != nil {
 		t.Fatal(err)
