@@ -1,5 +1,5 @@
 """Ingest-time NLP producer for Mouseion."""
 
-from .producer import Producer
+from .producer import Producer, SourceDocument
 
-__all__ = ["Producer"]
+__all__ = ["Producer", "SourceDocument"]

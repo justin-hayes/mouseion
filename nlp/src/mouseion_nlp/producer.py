@@ -1,19 +1,150 @@
-"""Coarse, batch-oriented NLP producer boundary."""
+"""Coarse, batch-oriented Stanza NLP producer boundary."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from functools import lru_cache
+from typing import Any, Callable
+from uuid import uuid4
+
+import stanza
 from mouseion.v1 import normalized_corpus_pb2
 
 
+@dataclass(frozen=True)
+class SourceDocument:
+    """Metadata and structural provenance for one analyzed document."""
+
+    id: str = "document"
+    source_identifier: str = ""
+    title: str = ""
+    chapter: str = ""
+    section: str = ""
+
+
+PipelineFactory = Callable[[str, bool], Any]
+
+
+@lru_cache(maxsize=None)
+def _stanza_pipeline(language: str, enable_ner: bool) -> Any:
+    processors = "tokenize,pos,lemma,ner" if enable_ner else "tokenize,pos,lemma"
+    return stanza.Pipeline(lang=language, processors=processors, verbose=False)
+
+
+def _default_pipeline_factory(language: str, enable_ner: bool) -> Any:
+    return _stanza_pipeline(language, enable_ner)
+
+
+def _morphology(feats: str | None) -> dict[str, str]:
+    if not feats:
+        return {}
+    return dict(part.split("=", 1) for part in feats.split("|") if "=" in part)
+
+
 class Producer:
-    """Placeholder producer to be backed by Stanza in a later issue."""
+    """Run Stanza once per complete document and emit the protobuf contract."""
 
-    def analyze(self, text: str, language: str) -> normalized_corpus_pb2.NormalizedCorpus:
-        """Return a minimal normalized artifact for pipeline wiring.
+    def __init__(
+        self,
+        *,
+        enable_ner: bool = False,
+        normalization_profile: str = "unicode-casefold",
+        normalization_version: str = "1.0.0",
+        pipeline_factory: PipelineFactory = _default_pipeline_factory,
+    ) -> None:
+        self.enable_ner = enable_ner
+        self.normalization_profile = normalization_profile
+        self.normalization_version = normalization_version
+        self._pipeline_factory = pipeline_factory
 
-        A later issue will replace this placeholder analysis with Stanza while
-        retaining this generated Protobuf message as the producer contract.
+    def analyze(
+        self,
+        text: str,
+        language: str,
+        document: SourceDocument | None = None,
+        *,
+        run_id: str | None = None,
+        analyzed_at: datetime | None = None,
+    ) -> normalized_corpus_pb2.NormalizedCorpus:
+        """Analyze a whole document in one Stanza pipeline invocation.
+
+        Stanza character offsets are copied as half-open Unicode code-point
+        offsets. Sentence offsets use their first and last token.
         """
+        source = document or SourceDocument()
+        analyzed = analyzed_at or datetime.now(timezone.utc)
+        stanza_document = self._pipeline_factory(language, self.enable_ner)(text)
+        sentences = [self._map_sentence(sentence, source) for sentence in stanza_document.sentences]
+
         return normalized_corpus_pb2.NormalizedCorpus(
             schema_version="1.0.0",
             language=language,
-            sentences=[normalized_corpus_pb2.Sentence(text=text)],
+            sentences=sentences,
+            source_documents=[
+                normalized_corpus_pb2.SourceDocument(
+                    id=source.id, source_identifier=source.source_identifier, title=source.title
+                )
+            ],
+            analysis=normalized_corpus_pb2.AnalysisProvenance(
+                run_id=run_id or str(uuid4()),
+                analyzed_at=analyzed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                analyzer_name="stanza",
+                analyzer_version=stanza.__version__,
+            ),
+            normalization_profile=normalized_corpus_pb2.NormalizationProfile(
+                name=self.normalization_profile, version=self.normalization_version
+            ),
+        )
+
+    def _map_sentence(self, sentence: Any, source: SourceDocument) -> Any:
+        entities = getattr(sentence, "ents", ()) if self.enable_ner else ()
+        tokens = []
+        for token in sentence.tokens:
+            for word in token.words:
+                start = getattr(word, "start_char", None)
+                end = getattr(word, "end_char", None)
+                if start is None:
+                    start = getattr(token, "start_char", 0)
+                if end is None:
+                    end = getattr(token, "end_char", start + len(word.text))
+                ner = getattr(token, "ner", None) if self.enable_ner else None
+                if not ner:
+                    ner = next(
+                        (
+                            entity.type
+                            for entity in entities
+                            if entity.start_char <= start and end <= entity.end_char
+                        ),
+                        None,
+                    )
+                lemma = word.lemma or word.text
+                value = normalized_corpus_pb2.Token(
+                    surface=word.text,
+                    raw_lemma=lemma,
+                    canonical_lemma=lemma.casefold(),
+                    pos=word.upos or "",
+                    morphology=_morphology(word.feats),
+                    location=self._location(source, start, end),
+                )
+                if ner and ner != "O":
+                    value.named_entity = ner
+                tokens.append(value)
+
+        start = tokens[0].location.start_offset if tokens else 0
+        end = tokens[-1].location.end_offset if tokens else start
+        return normalized_corpus_pb2.Sentence(
+            text=sentence.text,
+            tokens=tokens,
+            location=self._location(source, start, end),
+        )
+
+    @staticmethod
+    def _location(source: SourceDocument, start: int, end: int) -> Any:
+        return normalized_corpus_pb2.SourceLocation(
+            source_document_id=source.id,
+            chapter=source.chapter,
+            section=source.section,
+            start_offset=start,
+            end_offset=end,
         )
