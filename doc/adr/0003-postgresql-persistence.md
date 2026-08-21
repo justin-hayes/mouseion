@@ -53,9 +53,9 @@ Postgres handles concurrent connections and row-level locking natively, matching
 
 ## Open questions to resolve before finalizing
 
-- **CLI local operation:** must the CLI always reach a Postgres instance, or should a personal/offline mode support an embedded local backend (e.g. SQLite) for scripted one-off use? This affects ADR 0001's "thin CLI as first client" story.
-- **Concrete home-lab deployment:** containerized Postgres vs. native; backup/restore strategy; whether the frequency/reference datasets suggest any Postgres extensions (e.g. `pg_trgm` for later fuzzy matching).
-- **Migration tooling:** which migration framework/strategy the Go core uses (e.g. `golang-migrate`, embedded migrations, or a hand-rolled forward-only runner).
+- **CLI local operation — resolved.** ADR 0004 makes the web application the sole v1 client, so there is no standalone CLI in v1 and no CLI-specific local/offline persistence mode. If a CLI is ever added, the library boundary in ADR 0004 preserves the option to revisit this.
+- **Concrete home-lab deployment — resolved: containerized PostgreSQL.** PostgreSQL runs as a container (docker-compose) in the home lab, alongside the app and Calibre-Web, with a **named volume** for `PGDATA` (not a bind mount into the container filesystem) so data survives container recreation. A scheduled `pg_dump` (host cron or an automated backup task) snapshots to a file for restore. Pin a specific Postgres major version for reproducibility.
+- **Migration tooling — resolved: golang-migrate.** Use **golang-migrate** with SQL-based, forward/backward migrations embedded into the Go core for a self-hosted deployment. Reference/reference-data seeding (e.g. DWDS frequency datasets) is a separate seed mechanism, not migrations.
 
 ---
 

@@ -25,7 +25,7 @@ The application should:
 - support multiple languages of study with pluggable NLP
 - be self-hostable on a home lab
 - implement as much as possible in Go, calling a Python service only where NLP genuinely requires it
-- keep the processing pipeline independent of the interface, so a CLI and a web UI can both use the same core
+- keep the processing pipeline independent of the interface, so the same core can serve the web app and, later, other clients
 
 ---
 
@@ -119,7 +119,7 @@ Persist known vocabulary, generated cards, and processing history so future runs
 
 # Architecture (Initial)
 
-The first implementation is **core-first**: a shared Go application core with a coarse, ingest-time Python NLP producer, per the architecture ADR. A thin Go CLI is the first client; the web application is a second client over the same Go libraries.
+The first implementation is **core-first**: a shared Go application core with a coarse, ingest-time Python NLP producer, per the architecture ADR. The **web application is the sole v1 client** over the same Go core; no standalone CLI is built in v1 (see the architecture ADRs).
 
 The product uses a **multi-user account model**: learning state (corpus, known vocabulary, curated/generated vocabulary, decks) is scoped per user, while an **admin role** manages global, language-scoped reference resources (frequency datasets, shared priority lists). See the architecture ADRs.
 
@@ -146,10 +146,10 @@ Anki deck export
 
 ## Implementation Stack
 
-- **Go** for the core, persistence (PostgreSQL), and the CLI/server.
+- **Go** for the core, persistence (PostgreSQL), and the web server.
 - **Python** (Stanza) for ingest-time NLP only, behind a project-defined language-analyzer interface.
 - **Protobuf** as the typed, versioned contract between Go and Python.
-- **Web UI (later):** server-side rendered with JavaScript enhancement (HTMX, Alpine); if requirements demand a full client-side app, prefer Svelte.
+- **Web UI (v1):** the sole client — server-side rendered with JavaScript enhancement (HTMX, Alpine); if requirements demand a full client-side app, prefer Svelte.
 
 ---
 
@@ -159,11 +159,11 @@ This register identifies decisions stable enough to promote to repository docume
 
 | Decision | Status | Rationale | ADR candidate |
 | --- | --- | --- | --- |
-| Core-first: shared Go core used by CLI and web app | Accepted; ADR written | One core, multiple clients; CLI validates core before UI work. | `0001` |
+| Core-first: shared Go core used by all clients | Accepted; ADR written | One core, multiple clients; web app (v1) and any future CLI share the same Go libraries. | `0001` |
 | Python is an ingest-time NLP producer, not a runtime dependency | Accepted; ADR written | Stanza has no viable Go binding; confined to raw NLP at ingest time. | `0001` |
 | Coarse, typed, versioned contract between Go and Python (Protobuf) | Accepted; ADR written | One schema defines RPC messages and the persisted corpus format. | `0001` |
-| Thin Go CLI first; web app layered on later | Accepted; ADR written | Validates the core on real corpora before front-loading auth and UI. | `0001` |
-| Service API is async-capable (jobs) from day one | Accepted; ADR written | Designed around jobs with IDs/status; CLI waits on a job. | `0001` |
+| Thin Go CLI first; web app layered on later | Superseded by ADR 0004 | No standalone CLI in v1; the web app is the sole client over the shared Go core. | `0004` |
+| Service API is async-capable (jobs) from day one | Accepted; ADR written | Designed around jobs with IDs/status; the web client tracks job state. | `0001` |
 | Multi-user accounts with per-user learning state | Accepted; ADR written | Two real users (author + spouse) need cleanly separated corpus, known words, and decks. | `0002` |
 | Admin-managed global reference resources (frequency data) | Accepted; ADR written | Global language data (e.g. DWDS frequency) shared across all users; admin uploads, users consume. | `0002` |
 | Persist vocabulary state across corpora | Accepted | The learner model accumulates over months/years. | Yes |
@@ -173,7 +173,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Preserve source spelling while matching canonical, locale-aware lemmas | Accepted | Avoids duplicates without altering source or conflating lexemes. | Yes |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
 | v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
-| Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Proposed | Second client over the same Go core. | Yes |
+| Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Accepted; ADR written | Sole v1 client over the shared Go core; no standalone CLI in v1. | `0004` |
 
 ---
 
@@ -184,7 +184,7 @@ Resolve these before treating the affected behavior as a stable repository contr
 1. **Relationship to schwab-edition.** Both projects serve advanced German reading. Is schwab-edition a separate scholarly infrastructure (its own eXist-db/TEI app), or should mouseion eventually consume it as a corpus/annotation source? This affects scoping and should be decided early.
 2. **Vocabulary identity and state.** What uniquely identifies an entry (language, canonical lemma, POS), and how are homographs, senses, and inflected forms handled? Which states (`candidate`, `accepted`, `generated`, `ignored`, `known`) are required?
 3. **Candidate ranking.** What is the initial ranking formula and threshold? How do frequency, priority-list membership, cross-text recurrence, POS, and proper-noun exclusions interact?
-4. **Review workflow.** Terminal UI, exported review file, or web UI in v1? Which decisions must the learner be able to record?
+4. **Review workflow.** Terminal UI, exported review file, or web UI in v1? Which decisions must the learner be able to record? **Resolved toward the web UI by [ADR 0004](adr/0004-web-only-v1-client.md)** (the web app is the sole v1 client); remaining detail is the concrete review UX, tracked as an issue.
 5. **Anki contract.** Exact Anki note/CSV format; which known-vocabulary inputs are supported first?
 6. **Enrichment policy.** Which data is local/deterministic vs. external/LLM? How are external results cached, reviewed, and privacy-protected?
 7. **Normalization profiles.** Which German locale/spelling-reform profiles first? How are rules versioned and applied to persisted data?
@@ -202,4 +202,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md)
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md)
 - [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md)
+- [ADR 0004: Web application as the sole v1 client (no standalone CLI)](adr/0004-web-only-v1-client.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).

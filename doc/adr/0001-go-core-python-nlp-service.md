@@ -15,7 +15,7 @@ These questions were already resolved for the closely related Vocabulary Acquisi
 
 ## Decision
 
-**Adopt a core-first architecture: a shared Go application core, with Python confined to a coarse, ingest-time NLP producer. Build a thin Go CLI as the first client; lay the web application on top later.**
+**Adopt a core-first architecture: a shared Go application core, with Python confined to a coarse, ingest-time NLP producer. Build a thin Go CLI as the first client; lay the web application on top later.** *(The "thin Go CLI as the first client" and the §5 build order are superseded by [ADR 0004](0004-web-only-v1-client.md), which makes the web application the sole v1 client while keeping the Go core a shared library.)*
 
 ### 1. Shared Go libraries
 
@@ -53,8 +53,8 @@ Use **Protobuf** so the same `.proto` defines both the RPC messages and the pers
 ### 5. Build order
 
 1. Python NLP service + shared data layer (the hard, durable part).
-2. Go CLI as a thin client over it: `analyze` → `review` → `generate`, mapped to service calls. Validate on a real corpus.
-3. Web layer later: a second client over the same Go libraries, adding OPDS-browsing UI, background jobs, and deck download.
+2. Web application as the sole first client over the shared Go core: OPDS browsing, background jobs, review/curation, and deck download. *(Changed from "Go CLI as a thin client" by [ADR 0004](0004-web-only-v1-client.md).)*
+3. A CLI may be added later only if scriptable automation is needed, reusing the same Go libraries.
 
 ## Alternatives considered
 
