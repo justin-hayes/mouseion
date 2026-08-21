@@ -119,6 +119,16 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 	}
 	return true, nil
 }
+
+// PutRankingComponents records an explainable score only on the selected
+// candidate owned by owner. The full identity prevents cross-language updates.
+func (s *PostgresStore) PutRankingComponents(ctx context.Context, owner, corpusID, language, lemma, upos string, c domain.RankingComponents) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE selection_candidates SET ranking_global_pct=$6,ranking_corpus_pct=$7,ranking_priority=$8,ranking_cross_text=$9,ranking_score=$10,ranked_at=now() WHERE owner_id=$1 AND corpus_id=$2 AND language=$3 AND canonical_lemma=$4 AND upos=$5`, owner, corpusID, language, lemma, upos, c.GlobalPercentile, c.CorpusPercentile, c.Priority, c.CrossText, c.Score)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
 func missing(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

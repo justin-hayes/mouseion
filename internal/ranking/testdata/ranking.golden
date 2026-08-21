@@ -1,0 +1,5 @@
+de/priority/ADJ global=0.960 corpus=0.200 priority=true cross=2 score=0.786
+de/global/NOUN global=0.990 corpus=0.100 priority=false cross=1 score=0.624
+it/globale/NOUN global=0.980 corpus=0.100 priority=false cross=1 score=0.618
+de/corpus/NOUN global=0.000 corpus=1.000 priority=false cross=1 score=0.300
+de/missing/VERB global=0.000 corpus=0.500 priority=false cross=1 score=0.150

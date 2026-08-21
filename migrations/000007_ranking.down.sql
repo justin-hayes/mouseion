@@ -1,0 +1,10 @@
+ALTER TABLE selection_candidates
+ DROP CONSTRAINT selection_candidates_ranking_cross_text_check,
+ DROP CONSTRAINT selection_candidates_ranking_corpus_pct_check,
+ DROP CONSTRAINT selection_candidates_ranking_global_pct_check,
+ DROP COLUMN ranked_at,
+ DROP COLUMN ranking_score,
+ DROP COLUMN ranking_cross_text,
+ DROP COLUMN ranking_priority,
+ DROP COLUMN ranking_corpus_pct,
+ DROP COLUMN ranking_global_pct;
