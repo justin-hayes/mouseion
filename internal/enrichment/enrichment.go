@@ -82,6 +82,7 @@ type EnrichmentConfig struct {
 	ExternalEnabled, UserOptIn bool
 	ContextMode                ContextMode
 	MaxAttempts                int
+	RetryBaseDelay             time.Duration
 }
 
 // Config is retained as the concise constructor-facing name.
@@ -102,6 +103,9 @@ func NewService(config Config, frequency FrequencyProvider, morphology Morpholog
 	}
 	if config.ContextMode == "" {
 		config.ContextMode = SentenceContext
+	}
+	if config.RetryBaseDelay <= 0 {
+		config.RetryBaseDelay = 100 * time.Millisecond
 	}
 	return &Service{config: config, frequency: frequency, morphology: morphology, pronunciation: pronunciation, translation: translation, cache: cache, now: time.Now}
 }
@@ -141,17 +145,47 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 			r.Pronunciation = Field[string]{v, true, local(s.pronunciation.Name(), s.pronunciation.Version())}
 		}
 	}
-	if !s.config.ExternalEnabled || !s.config.UserOptIn || s.translation == nil {
+	external, err := s.enrichExternal(ctx, c, false)
+	if err != nil {
+		r.Warnings = append(r.Warnings, "translation: "+err.Error())
 		return r
+	}
+	r.Translation, r.Gloss = external.Translation, external.Gloss
+	r.Warnings = append(r.Warnings, external.Warnings...)
+	return r
+}
+
+// ExternalConfigured reports whether admin configuration, user consent, and a
+// provider are all present. Callers use it to avoid enqueueing no-op work.
+func (s *Service) ExternalConfigured() bool {
+	return s.config.ExternalEnabled && s.config.UserOptIn && s.translation != nil
+}
+
+// EnrichExternal performs only the cache-backed external translation portion
+// of enrichment. It is shared by the inline compatibility path and River jobs.
+func (s *Service) EnrichExternal(ctx context.Context, c Candidate) (Result, error) {
+	return s.enrichExternal(ctx, c, true)
+}
+
+func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache bool) (Result, error) {
+	r := Result{Candidate: c}
+	if !s.ExternalConfigured() {
+		return r, nil
+	}
+	if requireCache && s.cache == nil {
+		return r, errors.New("external enrichment cache is required")
 	}
 	key := CacheKey{c.Language, c.CanonicalLemma, strings.ToUpper(c.UPOS), s.translation.Name(), s.translation.Version()}
 	if s.cache != nil {
 		entry, ok, err := s.cache.Get(ctx, key)
 		if err != nil {
+			if requireCache {
+				return r, fmt.Errorf("translation cache get: %w", err)
+			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
 		} else if ok {
 			s.setExternal(&r, entry)
-			return r
+			return r, nil
 		}
 	}
 	req := TranslationRequest{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
@@ -166,25 +200,36 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 			break
 		}
 		if ctx.Err() != nil {
-			err = ctx.Err()
-			break
+			return r, ctx.Err()
+		}
+		if attempt+1 < s.config.MaxAttempts {
+			delay := s.config.RetryBaseDelay << attempt
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return r, ctx.Err()
+			case <-timer.C:
+			}
 		}
 	}
 	if err != nil {
-		r.Warnings = append(r.Warnings, "translation: "+err.Error())
-		return r
+		return r, err
 	}
 	entry := CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, CachedAt: s.now().UTC()}
 	if s.cache != nil {
 		stored, putErr := s.cache.Put(ctx, entry)
 		if putErr != nil {
+			if requireCache {
+				return r, fmt.Errorf("translation cache put: %w", putErr)
+			}
 			r.Warnings = append(r.Warnings, "translation cache: "+putErr.Error())
 		} else {
 			entry = stored
 		}
 	}
 	s.setExternal(&r, entry)
-	return r
+	return r, nil
 }
 
 func (s *Service) setExternal(r *Result, e CacheEntry) {
