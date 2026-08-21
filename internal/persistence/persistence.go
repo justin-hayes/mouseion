@@ -1,10 +1,174 @@
-// Package persistence defines PostgreSQL-backed core storage boundaries.
+// Package persistence provides PostgreSQL repositories with explicit ownership boundaries.
 package persistence
 
-import "context"
+import (
+	"context"
+	"errors"
+	"fmt"
 
-// Store is the minimal lifecycle shared by persistence implementations.
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/migrations"
+)
+
+var ErrNotFound = errors.New("persistence: not found")
+
 type Store interface {
 	Ping(context.Context) error
 	Close() error
+}
+type PostgresStore struct{ pool *pgxpool.Pool }
+
+func Open(ctx context.Context, databaseURL string) (*PostgresStore, error) {
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("open postgres: %w", err)
+	}
+	s := &PostgresStore{pool: pool}
+	if err := s.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return s, nil
+}
+func Migrate(databaseURL string) error {
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return fmt.Errorf("open embedded migrations: %w", err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
+	if err != nil {
+		return fmt.Errorf("initialize migrations: %w", err)
+	}
+	defer m.Close()
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("apply migrations: %w", err)
+	}
+	return nil
+}
+func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
+func missing(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
+}
+
+func (s *PostgresStore) CreateUser(ctx context.Context, username string, admin bool) (u domain.User, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO users(username,is_admin) VALUES($1,$2) RETURNING id,username,is_admin,created_at`, username, admin).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutLanguageProfile(ctx context.Context, owner, language, name string) (p domain.LanguageProfile, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO language_profiles(owner_id,language,display_name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language) DO UPDATE SET display_name=excluded.display_name RETURNING id,owner_id,language,display_name,created_at`, owner, language, name).Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMaterial) (out domain.SourceMaterial, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET title=excluded.title,media_type=excluded.media_type,content_hash=excluded.content_hash,content=excluded.content,full_text=excluded.full_text RETURNING id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at`, v.OwnerID, v.Language, v.SourceIdentifier, v.Title, v.MediaType, v.ContentHash, v.Content, v.FullText).Scan(&out.ID, &out.OwnerID, &out.Language, &out.SourceIdentifier, &out.Title, &out.MediaType, &out.ContentHash, &out.Content, &out.FullText, &out.CreatedAt)
+	return
+}
+func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string) (v domain.SourceMaterial, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.Content, &v.FullText, &v.CreatedAt)
+	err = missing(err)
+	return
+}
+
+func (s *PostgresStore) PutArtifact(ctx context.Context, a domain.NormalizedArtifact, lemmas []domain.SharedLemma) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(content_hash) DO NOTHING`, a.ContentHash, a.Language, a.SchemaVersion, a.NormalizationProfile, a.NormalizationVersion, a.AnalyzerName, a.AnalyzerVersion)
+	if err != nil {
+		return err
+	}
+	for _, l := range lemmas {
+		_, err = tx.Exec(ctx, `INSERT INTO shared_lemmas(content_hash,language,canonical_lemma,upos,morphology,frequency) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(content_hash,canonical_lemma,upos,morphology) DO UPDATE SET frequency=excluded.frequency`, a.ContentHash, a.Language, l.CanonicalLemma, l.UPOS, l.Morphology, l.Frequency)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+func (s *PostgresStore) GetArtifact(ctx context.Context, hash string) (a domain.NormalizedArtifact, ls []domain.SharedLemma, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version,created_at FROM normalized_corpus_artifacts WHERE content_hash=$1`, hash).Scan(&a.ContentHash, &a.Language, &a.SchemaVersion, &a.NormalizationProfile, &a.NormalizationVersion, &a.AnalyzerName, &a.AnalyzerVersion, &a.CreatedAt)
+	if err != nil {
+		return a, nil, missing(err)
+	}
+	rows, err := s.pool.Query(ctx, `SELECT content_hash,language,canonical_lemma,upos,morphology,frequency FROM shared_lemmas WHERE content_hash=$1 ORDER BY id`, hash)
+	if err != nil {
+		return a, nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var l domain.SharedLemma
+		if err = rows.Scan(&l.ContentHash, &l.Language, &l.CanonicalLemma, &l.UPOS, &l.Morphology, &l.Frequency); err != nil {
+			return a, nil, err
+		}
+		ls = append(ls, l)
+	}
+	return a, ls, rows.Err()
+}
+func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash string) (v domain.Corpus, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash) VALUES($1,$2,$3) ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash RETURNING id,owner_id,source_material_id,artifact_hash,status,created_at`, owner, sourceID, hash).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	return
+}
+func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v domain.Corpus, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET canonical_lemma=excluded.canonical_lemma RETURNING id,owner_id,language,canonical_lemma,upos,created_at`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
+	return
+}
+func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now() RETURNING id,owner_id,language,canonical_lemma,upos,state,updated_at`, owner, lang, lemma, upos, state).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.State, &v.UpdatedAt)
+	return
+}
+func (s *PostgresStore) GetVocabularyState(ctx context.Context, owner, id string) (v domain.VocabularyState, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,state,updated_at FROM vocabulary_states WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.State, &v.UpdatedAt)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) DeleteVocabularyState(ctx context.Context, owner, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM vocabulary_states WHERE owner_id=$1 AND id=$2`, owner, id)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, key, sentence string, loc []byte) (v domain.ExampleSentence, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO example_sentences(owner_id,corpus_id,sentence_key,sentence_text,source_location) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,corpus_id,sentence_key) DO UPDATE SET sentence_text=excluded.sentence_text,source_location=excluded.source_location RETURNING id,owner_id,corpus_id,sentence_key,sentence_text,source_location,created_at`, owner, corpus, key, sentence, loc).Scan(&v.ID, &v.OwnerID, &v.CorpusID, &v.SentenceKey, &v.Text, &v.SourceLocation, &v.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, lang, lemma, upos, notes string) (v domain.CuratedSentence, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO curated_sentences(owner_id,example_sentence_id,language,canonical_lemma,upos,notes) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET example_sentence_id=excluded.example_sentence_id,notes=excluded.notes RETURNING id,owner_id,example_sentence_id,language,canonical_lemma,upos,notes,created_at`, owner, example, lang, lemma, upos, notes).Scan(&v.ID, &v.OwnerID, &v.ExampleSentenceID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Notes, &v.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutDeck(ctx context.Context, owner, lang, name string) (v domain.Deck, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language,name) DO UPDATE SET name=excluded.name RETURNING id,owner_id,language,name,created_at`, owner, lang, name).Scan(&v.ID, &v.OwnerID, &v.Language, &v.Name, &v.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutCard(ctx context.Context, v domain.Card) (out domain.Card, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_id,dedup_key) DO UPDATE SET front=excluded.front,back=excluded.back RETURNING id,owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back,created_at`, v.OwnerID, v.DeckID, v.DedupKey, v.CanonicalLemma, v.UPOS, v.Front, v.Back).Scan(&out.ID, &out.OwnerID, &out.DeckID, &out.DedupKey, &out.CanonicalLemma, &out.UPOS, &out.Front, &out.Back, &out.CreatedAt)
+	return
+}
+func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.ProcessingHistory) (out domain.ProcessingHistory, err error) {
+	var corpus any = v.CorpusID
+	if v.CorpusID == "" {
+		corpus = nil
+	}
+	err = s.pool.QueryRow(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,owner_id,COALESCE(corpus_id::text,''),operation,status,details,started_at,completed_at`, v.OwnerID, corpus, v.Operation, v.Status, v.Details, v.CompletedAt).Scan(&out.ID, &out.OwnerID, &out.CorpusID, &out.Operation, &out.Status, &out.Details, &out.StartedAt, &out.CompletedAt)
+	return
 }

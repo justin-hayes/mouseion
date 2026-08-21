@@ -4,7 +4,7 @@ VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test lint gen dev clean go-tmp
+.PHONY: setup build test test-integration lint gen dev clean go-tmp
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -21,6 +21,9 @@ build: go-tmp
 test: go-tmp
 	go test ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
+
+test-integration: go-tmp
+	go test -tags=integration ./internal/persistence/...
 
 lint: go-tmp
 	go vet ./...
