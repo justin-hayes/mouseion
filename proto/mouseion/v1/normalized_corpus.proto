@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package mouseion.v1;
+
+option go_package = "github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1";
+
+// NormalizedCorpus is the versioned artifact exchanged at the Go/Python boundary.
+// Issue #5 will expand this placeholder contract.
+message NormalizedCorpus {
+  string schema_version = 1;
+  string language = 2;
+  repeated Sentence sentences = 3;
+}
+
+message Sentence {
+  string text = 1;
+  repeated Token tokens = 2;
+}
+
+message Token {
+  string surface = 1;
+  string raw_lemma = 2;
+  string part_of_speech = 3;
+}
