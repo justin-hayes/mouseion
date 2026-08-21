@@ -484,6 +484,58 @@ func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, 
 	err = s.pool.QueryRow(ctx, `INSERT INTO curated_sentences(owner_id,example_sentence_id,language,canonical_lemma,upos,notes) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET example_sentence_id=excluded.example_sentence_id,notes=excluded.notes RETURNING id,owner_id,example_sentence_id,language,canonical_lemma,upos,notes,created_at`, owner, example, lang, lemma, upos, notes).Scan(&v.ID, &v.OwnerID, &v.ExampleSentenceID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Notes, &v.CreatedAt)
 	return
 }
+
+// ListReviewSentences returns the persisted sentence choices for an owner's
+// vocabulary identity. The initially selected sentence is first, followed by
+// alternatives in deterministic rank order.
+func (s *PostgresStore) ListReviewSentences(ctx context.Context, owner, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
+	rows, err := s.pool.Query(ctx, `WITH latest AS (SELECT corpus_id FROM example_sentences WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 GROUP BY corpus_id ORDER BY max(created_at) DESC,corpus_id DESC LIMIT 1) SELECT id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at FROM example_sentences WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 AND corpus_id=(SELECT corpus_id FROM latest) ORDER BY is_chosen DESC,selection_rank,id`, owner, lang, lemma, upos)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.ExampleSentence
+	for rows.Next() {
+		var example domain.ExampleSentence
+		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, example)
+	}
+	return out, rows.Err()
+}
+
+// CurateReviewSentence atomically applies an optional owner-scoped text edit,
+// records the curated choice, and appends its audit provenance.
+func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, exampleID, lang, lemma, upos, editedText, notes string, history domain.ProcessingHistory) (v domain.CuratedSentence, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(ctx)
+	var exists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM example_sentences WHERE id=$1 AND owner_id=$2 AND language=$3 AND canonical_lemma=$4 AND upos=$5)`, exampleID, owner, lang, lemma, upos).Scan(&exists); err != nil {
+		return v, err
+	}
+	if !exists {
+		return v, ErrNotFound
+	}
+	if editedText != "" {
+		if _, err = tx.Exec(ctx, `UPDATE example_sentences SET sentence_text=$1 WHERE id=$2 AND owner_id=$3`, editedText, exampleID, owner); err != nil {
+			return v, err
+		}
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO curated_sentences(owner_id,example_sentence_id,language,canonical_lemma,upos,notes) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET example_sentence_id=excluded.example_sentence_id,notes=excluded.notes,created_at=now() RETURNING id,owner_id,example_sentence_id,language,canonical_lemma,upos,notes,created_at`, owner, exampleID, lang, lemma, upos, notes).Scan(&v.ID, &v.OwnerID, &v.ExampleSentenceID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Notes, &v.CreatedAt)
+	if err != nil {
+		return v, err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,$2,$3,$4,$5)`, history.OwnerID, history.Operation, history.Status, history.Details, history.CompletedAt)
+	if err != nil {
+		return v, err
+	}
+	err = tx.Commit(ctx)
+	return v, err
+}
 func (s *PostgresStore) PutDeck(ctx context.Context, owner, lang, name string) (v domain.Deck, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language,name) DO UPDATE SET name=excluded.name RETURNING id,owner_id,language,name,created_at`, owner, lang, name).Scan(&v.ID, &v.OwnerID, &v.Language, &v.Name, &v.CreatedAt)
 	return
