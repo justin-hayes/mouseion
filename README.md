@@ -14,7 +14,7 @@ The workspace supports Go 1.24 and Python 3.11. It also requires Protobuf
 `nlp/requirements-dev.txt`.
 
 ```sh
-export PATH="$PATH:/usr/local/go/bin:/root/go/bin"
+export PATH="$PATH:$(go env GOBIN 2>/dev/null || echo "$HOME/go/bin"):/usr/local/go/bin"
 make setup
 make gen
 make build
