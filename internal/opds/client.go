@@ -2,6 +2,7 @@
 package opds
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"errors"
@@ -165,8 +166,25 @@ func (c *Client) fetchFeed(ctx context.Context, feedURL string) (Feed, error) {
 	if err := statusError(resp); err != nil {
 		return Feed{}, err
 	}
+	// Read a bounded prefix so we can (a) detect HTML responses that are not
+	// OPDS feeds and (b) still feed the full body to the XML decoder.
+	prefix, err := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
+	if err != nil {
+		return Feed{}, fmt.Errorf("opds: read feed: %w", err)
+	}
+	body := prefix
+	if len(body) == 16<<10 { // not truncated in practice; append reader rest if present
+		rest, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return Feed{}, fmt.Errorf("opds: read feed: %w", err)
+		}
+		body = append(body, rest...)
+	}
+	if looksLikeHTML(body) {
+		return Feed{}, errors.New("opds: server returned an HTML page, not an OPDS Atom feed — check the catalog URL and that it points at the OPDS endpoint (e.g. /opds), and that authentication is configured")
+	}
 	var raw atomFeed
-	if err := xml.NewDecoder(io.LimitReader(resp.Body, 10<<20)).Decode(&raw); err != nil {
+	if err := xml.NewDecoder(bytes.NewReader(body)).Decode(&raw); err != nil {
 		return Feed{}, fmt.Errorf("opds: parse Atom feed: %w", err)
 	}
 	base := resp.Request.URL
@@ -175,6 +193,19 @@ func (c *Client) fetchFeed(ctx context.Context, feedURL string) (Feed, error) {
 		feed.Entries = append(feed.Entries, Entry{ID: strings.TrimSpace(item.ID), Title: strings.TrimSpace(item.Title), Links: resolveLinks(base, item.Links)})
 	}
 	return feed, nil
+}
+
+// looksLikeHTML reports whether the bytes look like an HTML document rather
+// than an Atom/XML feed. Calibre-Web and other servers return an HTML login or
+// wrapper page for some OPDS URLs; feeding that to the XML decoder yields an
+// unhelpful "element <link> closed by </head>" error.
+func looksLikeHTML(body []byte) bool {
+	head := strings.ToLower(string(body[:min(len(body), 2048)]))
+	if strings.Contains(head, "<!doctype html") || strings.Contains(head, "<html") || strings.Contains(head, "<head>") {
+		return true
+	}
+	// XHTML served with an HTML root (e.g. a login page) also trips the parser.
+	return strings.Contains(head, "<body") && !strings.Contains(head, "<feed")
 }
 
 func (c *Client) fetchSearchTemplate(ctx context.Context, descriptionURL string) (string, error) {

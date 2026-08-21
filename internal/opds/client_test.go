@@ -120,3 +120,36 @@ func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFetchFeedHTMLResponseYieldsActionableError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head><link rel="stylesheet" href="/style.css"></head><body><p>Please log in</p></body></html>`))
+	}))
+	defer server.Close()
+	c := NewClient(nil, Auth{})
+	_, err := c.List(context.Background(), server.URL)
+	if err == nil {
+		t.Fatal("expected error for HTML response")
+	}
+	if !strings.Contains(err.Error(), "HTML page, not an OPDS Atom feed") {
+		t.Fatalf("unhelpful error: %v", err)
+	}
+}
+
+func TestFetchFeedCleanAtomParses(t *testing.T) {
+	feed := `<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Cat</title><entry><title>Alphabetical Books</title><link href="/opds/books" type="application/atom+xml;profile=opds-catalog"/><id>/opds/books</id><updated>2026-08-21T22:16:14Z</updated><content type="text">Books</content></entry></feed>`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/atom+xml")
+		_, _ = w.Write([]byte(feed))
+	}))
+	defer server.Close()
+	c := NewClient(nil, Auth{})
+	f, err := c.List(context.Background(), server.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.Title != "Cat" || len(f.Entries) != 1 || f.Entries[0].Title != "Alphabetical Books" {
+		t.Fatalf("bad parse: %+v", f)
+	}
+}
