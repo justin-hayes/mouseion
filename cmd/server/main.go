@@ -10,8 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -37,7 +42,31 @@ func main() {
 		_, _ = fmt.Fprintln(w, "ok")
 	})
 	secureCookies := strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true")
-	mux.Handle("/", webauth.New(auth.New(store, 24*time.Hour), secureCookies, 24*time.Hour))
+	lifetime := 24 * time.Hour
+	authService := auth.New(store, lifetime)
+	authHandler := webauth.New(authService, secureCookies, lifetime)
+	epubService := epub.NewService(store)
+	opdsService := opds.NewService(store, epubService, nil)
+	nlp, err := analyzer.NewGRPCAnalyzer("")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nlp.Close()
+	riverClient, err := analysis.NewClient(store.Pool(), nlp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = riverClient.Start(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := riverClient.Stop(context.Background()); err != nil {
+			log.Printf("stop analysis workers: %v", err)
+		}
+	}()
+	analysisService := analysis.NewService(store.Pool(), riverClient)
+	mux.Handle("/static/", webapp.StaticHandler())
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

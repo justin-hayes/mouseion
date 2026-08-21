@@ -1,0 +1,109 @@
+package webapp
+
+import (
+	"fmt"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/opds"
+)
+
+templ Layout(title string, user *domain.User, csrf string) {
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" defer></script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	if user != nil {
+		<ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalogs</a></li><li><a href="/jobs">Jobs</a></li>
+		if user.IsAdmin {
+			<li><a href="/admin/users">Users</a></li>
+		}
+		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
+	}
+	</nav></header><main class="container">{ children... }</main></body></html>
+}
+
+templ LoginPage(csrf, message string) {
+	@Layout("Sign in", nil, csrf) { <article class="narrow"><h1>Sign in</h1>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form><hr/><p>First run? <a href="/register">Register the administrator</a>.</p></article> }
+}
+templ RegisterPage(csrf, message string) {
+	@Layout("Register", nil, csrf) { <article class="narrow"><h1>Register administrator</h1><p>This one-time registration is disabled after the first administrator is created.</p>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<form method="post" action="/register"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><button>Create administrator</button></form></article> }
+}
+templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
+	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Browse books</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
+}
+templ LanguagesPage(user domain.User, csrf string, profiles []domain.LanguageProfile, message string) {
+	@Layout("Languages", &user, csrf) { <h1>Study languages</h1>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<article><form method="post" action="/languages"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Language code<input name="language" placeholder="de" required/></label><label>Display name<input name="display_name" placeholder="German" required/></label></div><button>Save language</button></form></article><section>
+	if len(profiles) == 0 {
+		<p>No study language configured yet.</p>
+	}
+	if len(profiles) > 0 {
+	<table><thead><tr><th>Name</th><th>Code</th></tr></thead><tbody>
+	for _, p := range profiles {
+		<tr><td>{ p.DisplayName }</td><td><code>{ p.Language }</code></td></tr>
+	}
+	</tbody></table>
+	}
+	</section> }
+}
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
+	@Layout("Catalogs", &user, csrf) { <h1>OPDS catalogs</h1>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<article><h2>Add connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required/></label><label>Language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username<input name="username" autocomplete="off"/></label><label>Password<input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article><div class="catalog-list">
+	for _, c := range connections {
+		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse</a><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+	}
+	</div> }
+}
+templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection) {
+	@Layout(connection.Name, &user, csrf) { <h1>{ connection.Name }</h1><form hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connection.ID }/><label>Search catalog<input type="search" name="q" required/></label></form><div id="catalog-results" hx-get={ "/opds/browse?connection="+connection.ID } hx-trigger="load" hx-swap="innerHTML"><p aria-busy="true">Loading catalog…</p></div> }
+}
+templ FeedFragment(csrf, connectionID string, feed opds.Feed) {
+	<section><h2>{ feed.Title }</h2><div class="catalog-grid">
+	for _, entry := range feed.Entries {
+		@EntryCard(csrf, connectionID, entry)
+	}
+	</div></section>
+}
+templ EntryCard(csrf, connectionID string, entry opds.Entry) {
+	<article><h3>{ entry.Title }</h3>
+	if href := navigationLink(entry); href != "" {
+		<button class="outline" hx-get={ "/opds/browse?connection="+connectionID+"&url="+queryEscape(href) } hx-target="#catalog-results" hx-swap="innerHTML">Open</button>
+	}
+	if epubLink := acquisitionLink(entry); epubLink != nil {
+		<form method="post" action="/opds/acquire"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="entry_id" value={ entry.ID }/><input type="hidden" name="title" value={ entry.Title }/><input type="hidden" name="href" value={ epubLink.Href }/><button>Import &amp; analyze</button></form>
+	}
+	</article>
+}
+templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
+	@Layout("Jobs", &user, csrf) { <h1>Analysis jobs</h1>
+	if message != "" {
+		<p>{ message }</p>
+	}
+	if len(jobs) == 0 {
+		<p>No books have been submitted.</p>
+	}
+	if len(jobs) > 0 {
+	<table><thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+	for _, job := range jobs {
+		<tr><td>{ fmt.Sprintf("#%d", job.ID) }</td><td><progress value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+	}
+	</tbody></table>
+	} }
+}
+templ AdminUsersPage(user domain.User, csrf, message string) {
+	@Layout("Users", &user, csrf) { <h1>User registration</h1><p>Only administrators can register additional local accounts.</p>
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	<article><form method="post" action="/admin/users"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><label><input type="checkbox" name="is_admin"/> Administrator</label><button>Register user</button></form></article> }
+}

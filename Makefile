@@ -5,7 +5,7 @@ PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration lint gen dev clean go-tmp
+.PHONY: setup build test test-integration lint gen templ dev clean go-tmp
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -24,13 +24,16 @@ test: go-tmp
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
 
 test-integration: go-tmp
-	go test -tags=integration ./internal/persistence/...
+	go test -tags=integration ./internal/...
 
 lint: go-tmp
 	go vet ./...
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 
-gen:
+templ:
+	templ generate
+
+gen: templ
 	mkdir -p gen/go gen/python $(GOTMPDIR)
 	test "$$($(PROTOC_GEN_GO_GRPC) --version 2>/dev/null)" = "protoc-gen-go-grpc 1.5.1" || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	test -x $(VENV_BIN)/python || $(PYTHON) -m venv $(VENV)

@@ -25,6 +25,12 @@ type Corpus struct {
 	ID, OwnerID, SourceMaterialID, ArtifactHash, Status string
 	CreatedAt                                           time.Time
 }
+type AnalysisJob struct {
+	ID                                                      int64
+	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
+	Progress                                                int
+	CreatedAt, UpdatedAt                                    time.Time
+}
 type NormalizedArtifact struct {
 	ContentHash, Language, SchemaVersion, NormalizationProfile, NormalizationVersion, AnalyzerName, AnalyzerVersion string
 	CreatedAt                                                                                                       time.Time

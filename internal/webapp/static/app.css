@@ -1,0 +1,9 @@
+.narrow { max-width: 38rem; margin-inline: auto; }
+.inline { display: inline; margin: 0; }
+.inline button { width: auto; margin: 0; }
+.right { float: right; }
+.break { overflow-wrap: anywhere; }
+.catalog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.catalog-grid article { display: flex; flex-direction: column; gap: .75rem; }
+.catalog-grid form, .catalog-grid button { margin-top: auto; }
+[role="alert"] { color: var(--pico-del-color); }
