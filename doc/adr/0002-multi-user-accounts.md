@@ -1,6 +1,6 @@
 # ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources
 
-Status: **Proposed** · Date: 2026-08-20 · Author: Justin + Hermes
+Status: **Accepted** · Date: 2026-08-20 · Author: Justin + Hermes
 
 ## Context
 
