@@ -52,10 +52,11 @@ The constraints that shape the decision:
 - **External providers are opt-in, per-user, admin-configured.** An admin enables a provider and supplies credentials; each user can enable/disable translation. Provider privacy policies are surfaced where relevant.
 - **A no-external-provider configuration is fully supported** (see §2): the entire pipeline runs with translation off, frequency/morphology/pronunciation all local.
 
-### 5. Execution — inline in Go, not job-based
+### 5. Execution — local providers inline; external translation via River
 
-- Enrichment runs **inline in Go** as part of the core's candidate-processing path, **not** through the async job API (resolves Open Question 9).
-- Rationale: enrichment consumes the finite, accepted candidate set from a review pass; it is **cached** (so retries are cheap and idempotent); and it is **bounded**. The async job abstraction remains for the genuinely slow, per-book **corpus analysis** step (Stanza, ingest-time).
+- **Local providers** (frequency, morphology, pronunciation) run **inline in Go** as part of the core's candidate-processing path.
+- **External translation** of a bulk candidate set runs as a **River background job** (retries, progress, cancellation), per [ADR 0012](0012-enrichment-execution-via-river.md). This amends the earlier "all inline, not job-based" stance for the external-translation path.
+- Rationale: local providers are instant/deterministic; external translation is slow and failure-prone (one call per candidate), better served by the job abstraction (ADR 0010).
 
 ## Alternatives considered
 
