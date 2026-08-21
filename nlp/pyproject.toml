@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mouseion-nlp"
+version = "0.0.0"
+description = "Mouseion ingest-time NLP producer"
+requires-python = ">=3.11,<3.12"
+dependencies = ["protobuf==5.29.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
