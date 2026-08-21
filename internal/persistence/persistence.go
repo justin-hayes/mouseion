@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -62,6 +63,69 @@ func missing(err error) error {
 func (s *PostgresStore) CreateUser(ctx context.Context, username string, admin bool) (u domain.User, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO users(username,is_admin) VALUES($1,$2) RETURNING id,username,is_admin,created_at`, username, admin).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
 	return
+}
+func (s *PostgresStore) CreateUserWithPassword(ctx context.Context, username, passwordHash string, admin bool) (u domain.User, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES($1,$2,$3) RETURNING id,username,is_admin,created_at`, username, passwordHash, admin).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+	return
+}
+func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) (u domain.User, passwordHash string, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,username,is_admin,created_at,COALESCE(password_hash,'') FROM users WHERE username=$1`, username).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &passwordHash)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (u domain.User, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,username,is_admin,created_at FROM users WHERE id=$1`, id).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) SetUserPassword(ctx context.Context, userID, passwordHash string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE users SET password_hash=$2 WHERE id=$1`, userID, passwordHash)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+func (s *PostgresStore) BootstrapAdmin(ctx context.Context, username, passwordHash string) (u domain.User, created bool, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return u, false, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(110011)`); err != nil {
+		return u, false, err
+	}
+	var exists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE is_admin)`).Scan(&exists); err != nil {
+		return u, false, err
+	}
+	if exists {
+		return u, false, nil
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES($1,$2,true) RETURNING id,username,is_admin,created_at`, username, passwordHash).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt)
+	if err != nil {
+		return u, false, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return u, false, err
+	}
+	return u, true, nil
+}
+func (s *PostgresStore) CreateSession(ctx context.Context, userID, tokenHash string, expiresAt time.Time) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO sessions(user_id,token_hash,expires_at) VALUES($1,$2,$3)`, userID, tokenHash, expiresAt)
+	return err
+}
+func (s *PostgresStore) GetSession(ctx context.Context, tokenHash string) (u domain.User, expiresAt time.Time, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT u.id,u.username,u.is_admin,u.created_at,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()`, tokenHash).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &expiresAt)
+	err = missing(err)
+	return
+}
+func (s *PostgresStore) DeleteSession(ctx context.Context, tokenHash string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE token_hash=$1`, tokenHash)
+	return err
+}
+func (s *PostgresStore) DeleteUserSessions(ctx context.Context, userID string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, userID)
+	return err
 }
 func (s *PostgresStore) PutLanguageProfile(ctx context.Context, owner, language, name string) (p domain.LanguageProfile, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO language_profiles(owner_id,language,display_name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language) DO UPDATE SET display_name=excluded.display_name RETURNING id,owner_id,language,display_name,created_at`, owner, language, name).Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt)
