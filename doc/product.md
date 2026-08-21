@@ -178,6 +178,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Home-lab auth + corpus-artifact isolation (local accounts, argon2id; lemma-level sharing) | Accepted; ADR written | Local admin-provisioned accounts; source/EPUBs per-user private, lemma-level data shared; Tailscale-only v1. | `0009` |
 | Background-job queue: adopt River (Postgres-native) | Accepted; ADR written | Replaces the sync local runner; Postgres-native, no broker; retries, scheduling, unique jobs. | `0010` |
 | gRPC as the Go↔Python NLP transport | Accepted; ADR written | Long-lived Python gRPC service; River worker calls it; replaces the subprocess bridge. | `0011` |
+| Enrichment execution: local inline, external translation via River | Accepted; ADR written | Local providers inline; bulk external translation as a River job with progress/retries. | `0012` |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
 | v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
 | Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Accepted; ADR written | Sole v1 client over the shared Go core; no standalone CLI in v1. | `0004` |
@@ -217,4 +218,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0009: Home-lab authentication and corpus-artifact isolation](adr/0009-home-lab-auth-corpus-isolation.md)
 - [ADR 0010: Adopt River as the background-job queue](adr/0010-river-job-queue.md)
 - [ADR 0011: gRPC as the Go↔Python transport for the NLP service](adr/0011-grpc-go-python-transport.md)
+- [ADR 0012: Enrichment execution — local inline, external translation via River](adr/0012-enrichment-execution-via-river.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
