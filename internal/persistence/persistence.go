@@ -407,7 +407,7 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 }
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
 	var known bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4)`, owner, lang, lemma, upos).Scan(&known)
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
 	return known, err
 }
 func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {
