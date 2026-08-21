@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.4'
+          cache: true
+      - run: go build ./...
+      - run: go test ./...
+      - run: go vet ./...
+
+  python:
+    name: Python build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: nlp/requirements-dev.txt
+      - run: make setup
+      - name: Build
+        run: PYTHONPATH=nlp/src:gen/python .venv/bin/python -m compileall -q nlp/src gen/python
+      - name: Test
+        run: PYTHONPATH=nlp/src:gen/python .venv/bin/pytest -q nlp/tests
+      - name: Lint
+        run: .venv/bin/ruff check nlp/src nlp/tests
+
+  generated:
+    name: Protobuf generated code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '29.3'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.4'
+      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+      - run: make gen
+      - run: git diff --exit-code
