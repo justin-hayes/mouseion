@@ -79,6 +79,46 @@ func Migrate(databaseURL string) error {
 }
 func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
+
+// PutSelectionCandidate atomically respects suppressing lifecycle states,
+// creates an initial candidate state, and records corpus-specific provenance.
+func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate domain.SelectionCandidate) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	var state string
+	err = tx.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 FOR UPDATE`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&state)
+	stateMissing := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+	if err == nil && (state == "known" || state == "ignored" || state == "generated") {
+		return false, nil
+	}
+	var known bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4)`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&known); err != nil {
+		return false, err
+	}
+	if known {
+		return false, nil
+	}
+	if stateMissing {
+		_, err = tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,'candidate') ON CONFLICT DO NOTHING`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS)
+		if err != nil {
+			return false, err
+		}
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(owner_id,corpus_id,language,canonical_lemma,upos) DO UPDATE SET occurrence_count=excluded.occurrence_count,observed_forms=excluded.observed_forms,eligible_sentence_refs=excluded.eligible_sentence_refs,provenance=excluded.provenance,selected_at=now()`, candidate.OwnerID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.OccurrenceCount, candidate.ObservedForms, candidate.SentenceReferences, candidate.Provenance)
+	if err != nil {
+		return false, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
 func missing(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -354,6 +394,11 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
 	err = missing(err)
 	return
+}
+func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
+	var known bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4)`, owner, lang, lemma, upos).Scan(&known)
+	return known, err
 }
 func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now() RETURNING id,owner_id,language,canonical_lemma,upos,state,updated_at`, owner, lang, lemma, upos, state).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.State, &v.UpdatedAt)
