@@ -33,7 +33,7 @@ lint: go-tmp
 templ:
 	templ generate
 
-gen: templ
+gen:
 	mkdir -p gen/go gen/python $(GOTMPDIR)
 	test "$$($(PROTOC_GEN_GO_GRPC) --version 2>/dev/null)" = "protoc-gen-go-grpc 1.5.1" || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	test -x $(VENV_BIN)/python || $(PYTHON) -m venv $(VENV)
