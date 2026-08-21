@@ -17,6 +17,10 @@ type SourceMaterial struct {
 	Content                                                                          []byte
 	CreatedAt                                                                        time.Time
 }
+type OpdsConnection struct {
+	ID, OwnerID, Name, URL, Username, Password, Language string
+	CreatedAt, UpdatedAt                                 time.Time
+}
 type Corpus struct {
 	ID, OwnerID, SourceMaterialID, ArtifactHash, Status string
 	CreatedAt                                           time.Time
