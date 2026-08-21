@@ -435,6 +435,51 @@ func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, k
 	err = s.pool.QueryRow(ctx, `INSERT INTO example_sentences(owner_id,corpus_id,sentence_key,sentence_text,source_location) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,corpus_id,sentence_key) DO UPDATE SET sentence_text=excluded.sentence_text,source_location=excluded.source_location RETURNING id,owner_id,corpus_id,sentence_key,sentence_text,source_location,created_at`, owner, corpus, key, sentence, loc).Scan(&v.ID, &v.OwnerID, &v.CorpusID, &v.SentenceKey, &v.Text, &v.SourceLocation, &v.CreatedAt)
 	return
 }
+
+// ReplaceSelectedSentences atomically replaces one owner's ranked examples for
+// a vocabulary identity. The owner/corpus foreign key rejects references to a
+// different owner's corpus.
+func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string, examples []domain.ExampleSentence) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var ownsCorpus bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM corpora WHERE owner_id=$1 AND id=$2)`, owner, corpus).Scan(&ownsCorpus); err != nil {
+		return err
+	}
+	if !ownsCorpus {
+		return ErrNotFound
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM example_sentences WHERE owner_id=$1 AND corpus_id=$2 AND language=$3 AND canonical_lemma=$4 AND upos=$5`, owner, corpus, language, lemma, upos); err != nil {
+		return err
+	}
+	for _, example := range examples {
+		_, err = tx.Exec(ctx, `INSERT INTO example_sentences(owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, owner, corpus, example.SentenceKey, example.Text, example.SourceLocation, language, lemma, upos, example.SelectionRank, example.SelectionScore, example.SelectionReasons, example.Chosen)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *PostgresStore) ListSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string) ([]domain.ExampleSentence, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at FROM example_sentences WHERE owner_id=$1 AND corpus_id=$2 AND language=$3 AND canonical_lemma=$4 AND upos=$5 ORDER BY selection_rank`, owner, corpus, language, lemma, upos)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.ExampleSentence
+	for rows.Next() {
+		var example domain.ExampleSentence
+		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, example)
+	}
+	return out, rows.Err()
+}
 func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, lang, lemma, upos, notes string) (v domain.CuratedSentence, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO curated_sentences(owner_id,example_sentence_id,language,canonical_lemma,upos,notes) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET example_sentence_id=excluded.example_sentence_id,notes=excluded.notes RETURNING id,owner_id,example_sentence_id,language,canonical_lemma,upos,notes,created_at`, owner, example, lang, lemma, upos, notes).Scan(&v.ID, &v.OwnerID, &v.ExampleSentenceID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Notes, &v.CreatedAt)
 	return
