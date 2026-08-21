@@ -5,9 +5,9 @@ WORKDIR /src
 COPY nlp/ ./nlp/
 COPY proto/ ./proto/
 COPY gen/python/ ./gen/python/
-# Copy the shared protobuf bindings into the installable package path
+# Copy the shared protobuf bindings so `from mouseion.v1 import ...` resolves.
 RUN python -m pip install --no-cache-dir -e ./nlp && \
-    cp -r ./gen/python/mouseion /src/ 2>/dev/null || true
+    cp -r ./gen/python/mouseion /src/
 ENV PYTHONPATH=/src:/src/nlp/src:/src/gen/python
 EXPOSE 50051
 # Run the long-lived gRPC analyzer server

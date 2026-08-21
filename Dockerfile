@@ -12,7 +12,6 @@ COPY proto/ ./proto/
 COPY gen/ ./gen/
 COPY migrations/ ./migrations/
 # Generate templ views at build time (avoids committing drift surprises in the image)
-COPY .templ* . 2>/dev/null || true
 COPY internal/webapp/*.templ ./internal/webapp/
 RUN go install github.com/a-h/templ/cmd/templ@v0.3.1020 && \
     export PATH="$PATH:$(go env GOPATH)/bin" && \
