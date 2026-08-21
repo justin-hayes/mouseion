@@ -82,3 +82,9 @@ type FrequencyEntry struct {
 	FrequencyClass                            int
 	Percentile                                float64
 }
+type SelectionCandidate struct {
+	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
+	OccurrenceCount                                   int
+	ObservedForms, SentenceReferences, Provenance     []byte
+	SelectedAt                                        time.Time
+}
