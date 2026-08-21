@@ -22,7 +22,7 @@ These questions were already resolved for the closely related Vocabulary Acquisi
 Put the application's business logic in Go libraries imported by **both** the CLI and the future web application:
 
 - domain: corpus models, candidate selection, ranking, deduplication, filtering, vocabulary state
-- persistence: SQLite
+- persistence: PostgreSQL *(was SQLite; amended by [ADR 0003](0003-postgresql-persistence.md))*
 - canonicalization: language/locale normalization profiles (e.g. `daß` → `dass`), applied to the *raw* lemma returned by Python
 - enrichment: translation, gloss, frequency lookups, LLM calls where appropriate
 - card export: Anki-compatible CSV

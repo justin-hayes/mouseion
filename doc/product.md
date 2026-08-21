@@ -125,7 +125,7 @@ The product uses a **multi-user account model**: learning state (corpus, known v
 
 ## Component Boundaries
 
-- **Core library (Go):** corpus models, linguistic-analysis contracts, normalization, candidate selection and ranking, vocabulary state, persistence (SQLite), enrichment, card export. Includes the user/ownership dimension on learning state and admin-managed global reference resources.
+- **Core library (Go):** corpus models, linguistic-analysis contracts, normalization, candidate selection and ranking, vocabulary state, persistence (PostgreSQL), enrichment, card export. Includes the user/ownership dimension on learning state and admin-managed global reference resources.
 - **NLP producer (Python):** batch, ingest-time NLP only (Stanza), producing a typed, versioned normalized-corpus artifact (Protobuf) consumed by the Go core.
 - **Import adapters:** EPUB extraction, known-vocabulary imports (CSV, Anki), priority-list imports.
 - **One-off scripts:** personal migrations and cleanup, kept out of the stable library API.
@@ -146,7 +146,7 @@ Anki deck export
 
 ## Implementation Stack
 
-- **Go** for the core, persistence (SQLite), and the CLI/server.
+- **Go** for the core, persistence (PostgreSQL), and the CLI/server.
 - **Python** (Stanza) for ingest-time NLP only, behind a project-defined language-analyzer interface.
 - **Protobuf** as the typed, versioned contract between Go and Python.
 - **Web UI (later):** server-side rendered with JavaScript enhancement (HTMX, Alpine); if requirements demand a full client-side app, prefer Svelte.
@@ -168,7 +168,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Admin-managed global reference resources (frequency data) | Accepted; ADR written | Global language data (e.g. DWDS frequency) shared across all users; admin uploads, users consume. | `0002` |
 | Persist vocabulary state across corpora | Accepted | The learner model accumulates over months/years. | Yes |
 | Separate candidate generation/review from card generation | Accepted | Learner review prevents low-value cards. | Yes |
-| Use SQLite for initial persistence | Accepted | Local, portable, inspectable. | Yes |
+| Use PostgreSQL for initial persistence | Accepted; ADR written | Native concurrency, job primitives (SKIP LOCKED, LISTEN/NOTIFY), growth path for multi-user + background jobs; supersedes the earlier SQLite choice. | `0003` |
 | Use Stanza as the initial NLP backend behind a project-defined interface | Accepted; revisit after evaluation | Multilingual; Python exists only for Stanza. | Yes |
 | Preserve source spelling while matching canonical, locale-aware lemmas | Accepted | Avoids duplicates without altering source or conflating lexemes. | Yes |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
@@ -201,4 +201,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [Documentation governance](documentation-governance.md) — how the vault and repo divide documentation.
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md)
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md)
+- [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
