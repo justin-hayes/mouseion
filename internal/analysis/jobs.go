@@ -172,8 +172,9 @@ func (s *Service) Wait(ctx context.Context, owner string, id int64) (Status, err
 
 type Worker struct {
 	river.WorkerDefaults[JobArgs]
-	Pool     *pgxpool.Pool
-	Analyzer analyzer.Analyzer
+	Pool          *pgxpool.Pool
+	Analyzer      analyzer.Analyzer
+	MaxChunkChars int
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
@@ -196,10 +197,32 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 		return fmt.Errorf("verify analysis ownership: source not owned or changed")
 	}
-	result, err := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: a.SourceMaterialID, SourceIdentifier: a.SourceIdentifier, Title: a.Title, Text: a.Text}})
-	if err != nil {
-		return fmt.Errorf("analyze source: %w", err)
+	// Analyze the source in size-based chunks (ADR 0013). Each chunk is a
+	// separate Analyze RPC so no single call exceeds the deadline or the gRPC
+	// message-size limit. Results are merged into one corpus.
+	chunks := chunkText(a.Text, w.MaxChunkChars)
+	var merged analyzer.Result
+	var chunkStartOffset uint64
+	for i, chunk := range chunks {
+		chunkResult, err := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: a.SourceMaterialID, SourceIdentifier: a.SourceIdentifier, Title: a.Title, Text: chunk}})
+		if err != nil {
+			return fmt.Errorf("analyze source chunk %d/%d: %w", i+1, len(chunks), err)
+		}
+		if i == 0 {
+			// Carry the schema/analysis/profile from the first chunk.
+			merged = chunkResult
+			merged.Sentences = nil
+		}
+		offsetResultLocations(&chunkResult, chunkStartOffset)
+		merged.Sentences = append(merged.Sentences, chunkResult.Sentences...)
+		chunkStartOffset += uint64(len([]rune(chunk)))
+		// Report per-chunk progress: 10% (started) → 90% (last chunk done).
+		progress := 10 + (i+1)*80/len(chunks)
+		if _, err := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE river_job_id=$1 AND owner_id=$3`, job.ID, progress, a.OwnerID); err != nil {
+			return fmt.Errorf("update progress after analysis chunk %d/%d: %w", i+1, len(chunks), err)
+		}
 	}
+	result := merged
 	lemmas := aggregateLemmas(a.ContentHash, result)
 	artifact := domain.NormalizedArtifact{ContentHash: a.ContentHash, Language: result.Language, SchemaVersion: result.SchemaVersion, NormalizationProfile: result.NormalizationProfile.Name, NormalizationVersion: result.NormalizationProfile.Version, AnalyzerName: result.Analysis.AnalyzerName, AnalyzerVersion: result.Analysis.AnalyzerVersion}
 	tx, err := w.Pool.Begin(ctx)
@@ -230,6 +253,20 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func offsetResultLocations(result *analyzer.Result, offset uint64) {
+	if offset == 0 {
+		return
+	}
+	for i := range result.Sentences {
+		result.Sentences[i].Location.StartOffset += offset
+		result.Sentences[i].Location.EndOffset += offset
+		for j := range result.Sentences[i].Tokens {
+			result.Sentences[i].Tokens[j].Location.StartOffset += offset
+			result.Sentences[i].Tokens[j].Location.EndOffset += offset
+		}
+	}
 }
 
 func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
