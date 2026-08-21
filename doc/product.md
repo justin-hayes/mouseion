@@ -163,7 +163,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Python is an ingest-time NLP producer, not a runtime dependency | Accepted; ADR written | Stanza has no viable Go binding; confined to raw NLP at ingest time. | `0001` |
 | Coarse, typed, versioned contract between Go and Python (Protobuf) | Accepted; ADR written | One schema defines RPC messages and the persisted corpus format. | `0001` |
 | Thin Go CLI first; web app layered on later | Superseded by ADR 0004 | No standalone CLI in v1; the web app is the sole client over the shared Go core. | `0004` |
-| Service API is async-capable (jobs) from day one | Accepted; ADR written | Designed around jobs with IDs/status; the web client tracks job state. | `0001` |
+| Service API is async-capable (jobs) from day one | Accepted; ADR written; job backend superseded by ADR 0010 | Designed around jobs with IDs/status; the web client tracks job state; now backed by River. | `0001` |
 | Multi-user accounts with per-user learning state | Accepted; ADR written | Two real users (author + spouse) need cleanly separated corpus, known words, and decks. | `0002` |
 | Admin-managed global reference resources (frequency data) | Accepted; ADR written | Global language data (e.g. DWDS frequency) shared across all users; admin uploads, users consume. | `0002` |
 | Persist vocabulary state across corpora | Accepted | The learner model accumulates over months/years. | Yes |
@@ -176,6 +176,7 @@ This register identifies decisions stable enough to promote to repository docume
 | Enrichment providers, caching, privacy (translation external, rest local; inline in Go) | Accepted; ADR written | Only translation is external (LLM default, optional); cached by identity+provider; inline in Go. | `0007` |
 | Global frequency dataset source + import contract (DWDS Lemmadatenbank, CC BY-SA 4.0) | Accepted; ADR written | DWDS CSV snapshot; stores Häufigkeitsklasse, derives percentile; versioned, language-scoped. | `0008` |
 | Home-lab auth + corpus-artifact isolation (local accounts, argon2id; lemma-level sharing) | Accepted; ADR written | Local admin-provisioned accounts; source/EPUBs per-user private, lemma-level data shared; Tailscale-only v1. | `0009` |
+| Background-job queue: adopt River (Postgres-native) | Accepted; ADR written | Replaces the sync local runner; Postgres-native, no broker; retries, scheduling, unique jobs. | `0010` |
 | Use Calibre-Web / OPDS as a corpus source | Proposed | Reuses home-lab infrastructure as a browseable source. | Possibly |
 | v1 is German-first behind the pluggable NLP boundary | Proposed | Keeps v1 scope tight; examples are German. | Usually no |
 | Web app as the primary interactive surface (server-side rendered, HTMX/Alpine, Svelte fallback) | Accepted; ADR written | Sole v1 client over the shared Go core; no standalone CLI in v1. | `0004` |
@@ -213,4 +214,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0007: Enrichment providers, caching, and privacy policy](adr/0007-enrichment-providers-caching-privacy.md)
 - [ADR 0008: Global frequency dataset source and import contract](adr/0008-global-frequency-dataset-source-import.md)
 - [ADR 0009: Home-lab authentication and corpus-artifact isolation](adr/0009-home-lab-auth-corpus-isolation.md)
+- [ADR 0010: Adopt River as the background-job queue](adr/0010-river-job-queue.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
