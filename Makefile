@@ -31,7 +31,8 @@ lint: go-tmp
 
 gen:
 	mkdir -p gen/go gen/python
-	protoc -I proto --go_out=gen/go --go_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
+	protoc -I proto --go_out=gen/go --go_opt=paths=source_relative --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
+	$(VENV_BIN)/python -m grpc_tools.protoc -I proto --grpc_python_out=gen/python $(PROTO_FILE)
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
 
 dev: go-tmp

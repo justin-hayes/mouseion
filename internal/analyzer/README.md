@@ -25,17 +25,17 @@ factory. `analyzertest.Fake` is available to core package tests that need a
 deterministic analyzer without Python, a model download, a server, or a
 database.
 
-## Python/Stanza subprocess bridge
+## Python/Stanza gRPC service
 
-`PythonStanzaAnalyzer` is the production bridge used by analysis workers. It
-starts the configured `MOUSEION_PYTHON` executable (default `python`) once per
-complete document, with `PYTHONPATH=nlp/src:gen/python`. The subprocess reads a
-single JSON object from stdin:
+`GRPCAnalyzer` is the production transport used by analysis workers. It keeps
+a reusable connection to `MOUSEION_NLP_ADDR` (default `localhost:50051`) and
+sends one `AnalyzeRequest` per complete document. The River client continues to
+depend only on `Analyzer`, so tests can inject `analyzertest.Fake` while runtime
+wiring passes a `GRPCAnalyzer` to `analysis.NewClient`.
 
-```json
-{"language":"de","text":"...","document":{"id":"...","source_identifier":"...","title":"..."}}
-```
-
-It writes only the base64 encoding of a serialized `NormalizedCorpus` protobuf
-to stdout; diagnostics belong on stderr. This coarse contract keeps Python out
-of the serving process and avoids token-by-token process calls.
+Run the long-lived Python service with
+`PYTHONPATH=nlp/src:gen/python python -m mouseion_nlp.server`. It binds to
+`MOUSEION_NLP_ADDR` (default `[::]:50051`) and owns one `Producer`; Stanza
+pipelines are cached by language and NER configuration, so models stay warm
+across jobs. The service returns the same `NormalizedCorpus` protobuf used for
+persisted artifacts.
