@@ -88,3 +88,8 @@ type SelectionCandidate struct {
 	ObservedForms, SentenceReferences, Provenance     []byte
 	SelectedAt                                        time.Time
 }
+type RankingComponents struct {
+	GlobalPercentile, CorpusPercentile, Score float64
+	Priority                                  bool
+	CrossText                                 int
+}
