@@ -2,6 +2,7 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -22,6 +23,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/frequency"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/review"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
@@ -39,6 +41,7 @@ type Store interface {
 	DeleteOpdsConnection(context.Context, string, string) error
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
+	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
@@ -68,6 +71,7 @@ type Services struct {
 	Analysis        Analysis
 	Review          Review
 	Frequency       *frequency.Service
+	KnownVocab      *knownvocab.Service
 	CardExport      *cardexport.Service
 	SecureCookies   bool
 	SessionLifetime time.Duration
@@ -107,6 +111,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /review", h.user(http.HandlerFunc(h.reviewPage)))
 	h.mux.Handle("POST /review/{action}", h.user(http.HandlerFunc(h.reviewAction)))
 	h.mux.Handle("GET /deck", h.user(http.HandlerFunc(h.deck)))
+	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
+	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /deck/download", h.user(http.HandlerFunc(h.downloadDeck)))
 	h.mux.Handle("GET /admin/users", h.user(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.user(http.HandlerFunc(h.createUser)))
@@ -450,6 +456,101 @@ func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
 	render(w, r, DeckPage(user(r), h.csrf(w, r)))
 }
+
+func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	language := strings.TrimSpace(r.URL.Query().Get("language"))
+	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if language == "" && len(profiles) > 0 {
+		language = profiles[0].Language
+	}
+	known, err := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, KnownVocabPage(u, h.csrf(w, r), profiles, language, known))
+}
+
+func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	if err := r.ParseMultipartForm(4 << 20); err != nil {
+		h.renderKnownVocabResult(w, r, "", nil, nil, "The import is too large or could not be read.")
+		return
+	}
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	language := strings.TrimSpace(r.FormValue("language"))
+	var input bytes.Buffer
+	if pasted := r.FormValue("vocabulary"); pasted != "" {
+		_, _ = input.WriteString(pasted)
+	}
+	file, _, err := r.FormFile("vocabulary_file")
+	if err == nil {
+		defer file.Close()
+		if input.Len() > 0 {
+			_ = input.WriteByte('\n')
+		}
+		if _, err = io.Copy(&input, file); err != nil {
+			h.renderKnownVocabResult(w, r, language, nil, nil, "The uploaded file could not be read.")
+			return
+		}
+	} else if !errors.Is(err, http.ErrMissingFile) {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "The uploaded file could not be read.")
+		return
+	}
+	if language == "" {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language before importing.")
+		return
+	}
+	if len(bytes.TrimSpace(input.Bytes())) == 0 {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Paste vocabulary or choose a file to import.")
+		return
+	}
+	if h.services.KnownVocab == nil {
+		fail(w, errors.New("known vocabulary service is unavailable"))
+		return
+	}
+	result, err := h.services.KnownVocab.Import(r.Context(), u.ID, language, &input)
+	if err != nil {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Import failed: "+err.Error())
+		return
+	}
+	known, err := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	h.renderKnownVocabResult(w, r, language, &result, known, "")
+}
+
+func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	if known == nil && language != "" {
+		var err error
+		known, err = h.services.Store.ListKnownVocabulary(r.Context(), user(r).ID, language)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	if r.Header.Get("HX-Request") == "true" {
+		render(w, r, KnownVocabResult(language, result, known, message))
+		return
+	}
+	u := user(r)
+	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
+}
 func (h *Handler) downloadDeck(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
 	if name == "" {
@@ -616,6 +717,12 @@ func frequencyStatus(dataset domain.FrequencyDataset) string {
 	return "Inactive"
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
+func knownVocabUPOS(upos string) string {
+	if upos == "" {
+		return "Any"
+	}
+	return upos
+}
 func analyzeLabel(status string) string {
 	if status == "not analyzed" {
 		return "Submit to analysis"

@@ -70,6 +70,16 @@ func (s *memoryStore) PutVocabularyState(_ context.Context, owner, language, lem
 	return value, nil
 }
 
+func (s *memoryStore) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
+	var result []domain.KnownVocabulary
+	for _, value := range s.known {
+		if value.OwnerID == owner && value.Language == language {
+			result = append(result, value)
+		}
+	}
+	return result, nil
+}
+
 func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	store := newMemoryStore()
 	service := NewService(store)

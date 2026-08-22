@@ -25,6 +25,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/frequency"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/review"
@@ -121,7 +122,7 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	recorder := &recordingAnalysis{}
 	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
 	webAuth := webauth.New(authService, false, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownvocab.NewService(store), SessionLifetime: time.Hour})
 	loginPage := perform(t, h, "GET", "/login", nil, nil)
 	csrf := hiddenToken(t, loginPage.Body.String())
 	csrfCookieValue := cookieNamed(t, loginPage.Result().Cookies(), csrfCookie)
@@ -199,7 +200,18 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	workflow := webworkflow.NewReview(store.Pool(), review.NewService(vocabulary.NewLifecycle(store), store))
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	knownPage := perform(t, h, "GET", "/known-vocab?language=de", nil, cookies)
+	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") {
+		t.Fatalf("known vocab page=%d %s", knownPage.Code, knownPage.Body.String())
+	}
+	if got := perform(t, h, "POST", "/known-vocab/import", url.Values{"language": {"de"}, "vocabulary": {"Daß\tSCONJ\nbad\tNOPE"}}, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("known vocab without csrf=%d", got.Code)
+	}
+	importedKnown := perform(t, h, "POST", "/known-vocab/import", url.Values{"csrf_token": {csrf}, "language": {"de"}, "vocabulary": {"Daß\tSCONJ\nbad\tNOPE"}}, cookies)
+	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "1 imported") || !strings.Contains(importedKnown.Body.String(), "invalid UPOS") || !strings.Contains(importedKnown.Body.String(), "dass") {
+		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
+	}
 	reviewPage := perform(t, h, "GET", "/review", nil, cookies)
 	if reviewPage.Code != 200 || !strings.Contains(reviewPage.Body.String(), "haus") {
 		t.Fatalf("review=%d %s", reviewPage.Code, reviewPage.Body.String())
@@ -218,6 +230,9 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	}
 
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+	if got := perform(t, h, "GET", "/known-vocab?language=de", nil, bobCookies); got.Code != 200 || strings.Contains(got.Body.String(), "dass") {
+		t.Fatalf("bob known vocabulary leaked: %d %s", got.Code, got.Body.String())
+	}
 	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice book: %d", got.Code)
 	}

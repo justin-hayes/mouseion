@@ -100,6 +100,7 @@ type Store interface {
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
 	PutKnownVocabulary(context.Context, string, string, string, string) (domain.KnownVocabulary, error)
 	PutVocabularyState(context.Context, string, string, string, string, string) (domain.VocabularyState, error)
+	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 }
 
 type Service struct{ store Store }

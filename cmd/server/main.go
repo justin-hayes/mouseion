@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/frequency"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/ranking"
@@ -78,8 +79,9 @@ func main() {
 	reviewService := review.NewService(vocabulary.NewLifecycle(store), store)
 	reviewWorkflow := webworkflow.NewReview(store.Pool(), reviewService)
 	exportService := cardexport.NewService(store)
+	knownVocabService := knownvocab.NewService(store)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, Review: reviewWorkflow, Frequency: frequencyService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, Review: reviewWorkflow, Frequency: frequencyService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

@@ -434,6 +434,22 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	err = missing(err)
 	return
 }
+func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND language=$2 ORDER BY canonical_lemma,upos,id`, owner, lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.KnownVocabulary
+	for rows.Next() {
+		var value domain.KnownVocabulary
+		if err := rows.Scan(&value.ID, &value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.CreatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
 	var known bool
 	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
