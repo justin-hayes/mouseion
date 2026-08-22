@@ -33,7 +33,7 @@ document.addEventListener('submit', function (evt) {
 	if user != nil {
 		<ul><li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/known-vocab">Known words</a></li>
 		if user.IsAdmin {
-			<li><details class="dropdown"><summary>Admin</summary><ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalog connections</a></li><li><a href="/admin/users">Users</a></li><li><a href="/admin/frequency">Frequency</a></li></ul></details></li>
+			<li><a href="/admin">Admin</a></li>
 		}
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
@@ -102,7 +102,7 @@ templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile
 	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Browse books</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
 templ LanguagesPage(user domain.User, csrf string, profiles []domain.LanguageProfile, message string) {
-	@Layout("Languages", &user, csrf) { <h1>Study languages</h1>
+	@Layout("Languages", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Supported languages</h1><p>Configure the languages available for study. Learners choose from this administrator-managed set in the study workflow.</p>
 	if message != "" {
 		<p role="alert">{ message }</p>
 	}
@@ -311,7 +311,7 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 	}
 }
 templ AdminFrequencyPage(user domain.User, csrf string, datasets []domain.FrequencyDataset, language, message string) {
-	@Layout("Frequency resources", &user, csrf) { <h1>Frequency resources</h1>
+	@Layout("Frequency resources", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Frequency resources</h1>
 	if message != "" {
 		<p role="alert">{ message }</p>
 	}
@@ -332,9 +332,18 @@ templ AdminFrequencyPage(user domain.User, csrf string, datasets []domain.Freque
 }
 templ FrequencyAction(csrf, id, action, label string) { <form method="post" action={ templ.SafeURL("/admin/frequency/"+id+"/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ label }</button></form> }
 templ AdminUsersPage(user domain.User, csrf, message string) {
-	@Layout("Users", &user, csrf) { <h1>User registration</h1><p>Only administrators can register additional local accounts.</p>
+	@Layout("Users", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>User registration</h1><p>Register non-admin learner accounts.</p>
 	if message != "" {
 		<p role="alert">{ message }</p>
 	}
-	<article><form method="post" action="/admin/users"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><label><input type="checkbox" name="is_admin"/> Administrator</label><button>Register user</button></form></article> }
+	<article><form method="post" action="/admin/users"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><button>Register learner</button></form></article> }
+}
+
+templ AdminPage(user domain.User, csrf string) {
+	@Layout("Administration", &user, csrf) { <header class="page-heading"><div><h1>Administration</h1><p>Server configuration and account management.</p></div></header><div class="admin-grid">
+		<article><h2>Users</h2><p>Create and manage non-admin learner accounts.</p><a role="button" class="outline" href="/admin/users">Manage users</a></article>
+		<article><h2>Languages</h2><p>Configure the languages learners can choose for study.</p><a role="button" class="outline" href="/languages">Configure languages</a></article>
+		<article><h2>Frequency data</h2><p>Upload and activate language frequency datasets.</p><a role="button" class="outline" href="/admin/frequency">Manage frequency data</a></article>
+		<article><h2>OPDS connections</h2><p>Configure catalog connections used to find books.</p><a role="button" class="outline" href="/connections">Configure connections</a></article>
+	</div> }
 }

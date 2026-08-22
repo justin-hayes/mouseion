@@ -248,7 +248,19 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "GET", "/admin/frequency?language=de", nil, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("non-admin frequency=%d", got.Code)
 	}
+	for _, path := range []string{"/admin", "/admin/users", "/languages"} {
+		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusForbidden {
+			t.Fatalf("non-admin %s=%d", path, got.Code)
+		}
+	}
+	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("non-admin language update=%d", got.Code)
+	}
 	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
+	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
+	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || !strings.Contains(adminHub.Body.String(), "My Library") {
+		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
+	}
 	upload := multipartUpload(t, h, "/admin/frequency", adminCookies, map[string]string{"csrf_token": adminCSRF, "language": "de", "version": "web-v1", "replace": "on"}, "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n")
 	if upload.Code != http.StatusSeeOther {
 		t.Fatalf("admin upload=%d %s", upload.Code, upload.Body.String())

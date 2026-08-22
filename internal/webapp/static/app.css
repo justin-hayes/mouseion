@@ -15,5 +15,8 @@
 .status-analyzed { color: var(--pico-ins-color); }
 .status-analyzing { color: var(--pico-primary); }
 .book-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.admin-grid article { display: flex; flex-direction: column; }
+.admin-grid article a[role="button"] { margin-top: auto; }
 .book-actions article { display: flex; flex-direction: column; }
 .book-actions article > :last-child { margin-top: auto; }
