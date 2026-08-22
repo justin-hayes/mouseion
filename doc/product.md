@@ -221,4 +221,5 @@ Resolve these before treating the affected behavior as a stable repository contr
 - [ADR 0011: gRPC as the Go↔Python transport for the NLP service](adr/0011-grpc-go-python-transport.md)
 - [ADR 0012: Enrichment execution — local inline, external translation via River](adr/0012-enrichment-execution-via-river.md)
 - [ADR 0013: Size-based NLP analysis chunking](adr/0013-size-based-nlp-chunking.md)
+- [Milestone 2: Feedback-driven polish (v1 → v2)](milestone-2.md)
 - Obsidian: Vocabulary Acquisition Tool spec and ADRs; Journal 2026-08-17 (reading-app braindump); session 2026-08-20 (accounts + DWDS frequency data).
