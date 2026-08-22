@@ -350,6 +350,35 @@ func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string)
 	return
 }
 
+// ListSourceMaterials returns an owner's library with analysis state. A corpus
+// is authoritative for completion; otherwise a non-failed job is analyzing.
+func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,s.content_hash,s.created_at,
+		       CASE WHEN c.id IS NOT NULL THEN 'analyzed'
+		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
+		            ELSE 'not analyzed' END,
+		       COALESCE(c.id::text,''),COALESCE(j.river_job_id,0)
+		FROM source_materials s
+		LEFT JOIN corpora c ON c.owner_id=s.owner_id AND c.source_material_id=s.id
+		LEFT JOIN analysis_jobs j ON j.owner_id=s.owner_id AND j.source_material_id=s.id
+		WHERE s.owner_id=$1
+		ORDER BY s.created_at DESC,s.title,s.id`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.SourceMaterialSummary
+	for rows.Next() {
+		var item domain.SourceMaterialSummary
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.AnalysisJobID); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *PostgresStore) PutArtifact(ctx context.Context, a domain.NormalizedArtifact, lemmas []domain.SharedLemma) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

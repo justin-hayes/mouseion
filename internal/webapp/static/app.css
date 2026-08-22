@@ -7,3 +7,13 @@
 .catalog-grid article { display: flex; flex-direction: column; gap: .75rem; }
 .catalog-grid form, .catalog-grid button { margin-top: auto; }
 [role="alert"] { color: var(--pico-del-color); }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.page-heading h1 { margin-bottom: .25rem; }
+.library-list article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.library-list h2 { margin-bottom: .25rem; }
+.status { border-radius: 999px; padding: .25rem .65rem; white-space: nowrap; background: var(--pico-muted-border-color); }
+.status-analyzed { color: var(--pico-ins-color); }
+.status-analyzing { color: var(--pico-primary); }
+.book-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.book-actions article { display: flex; flex-direction: column; }
+.book-actions article > :last-child { margin-top: auto; }

@@ -17,6 +17,15 @@ type SourceMaterial struct {
 	Content                                                                          []byte
 	CreatedAt                                                                        time.Time
 }
+
+// SourceMaterialSummary adds the learner-facing state derived from the latest
+// analysis job and corpus without loading the book's content.
+type SourceMaterialSummary struct {
+	Source         SourceMaterial
+	AnalysisStatus string
+	CorpusID       string
+	AnalysisJobID  int64
+}
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password, Language string
 	CreatedAt, UpdatedAt                                 time.Time

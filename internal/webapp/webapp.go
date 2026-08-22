@@ -37,6 +37,7 @@ type Store interface {
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	DeleteOpdsConnection(context.Context, string, string) error
+	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 }
 type OPDS interface {
@@ -87,6 +88,9 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /logout-all", s.WebAuth)
 	h.mux.Handle("POST /admin/users/{id}/reset-password", s.WebAuth)
 	h.mux.Handle("GET /", h.user(http.HandlerFunc(h.dashboard)))
+	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
+	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
+	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /languages", h.user(http.HandlerFunc(h.languages)))
 	h.mux.Handle("POST /languages", h.user(http.HandlerFunc(h.saveLanguage)))
@@ -210,23 +214,53 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/login")
 }
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
+	redirect(w, r, "/library")
+}
+func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	p, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
+	books, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
 		return
 	}
-	c, e := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
+	render(w, r, LibraryPage(u, h.csrf(w, r), books, r.URL.Query().Get("message")))
+}
+func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	summary, ok := h.loadBook(w, r, u.ID)
+	if !ok {
 		return
 	}
-	j, e := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
+	render(w, r, BookPage(u, h.csrf(w, r), summary, r.URL.Query().Get("message")))
+}
+func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
-	render(w, r, Dashboard(u, h.csrf(w, r), p, c, j))
+	u := user(r)
+	if _, ok := h.loadBook(w, r, u.ID); !ok {
+		return
+	}
+	handle, err := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, r.PathValue("id"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.ID))
+}
+func (h *Handler) loadBook(w http.ResponseWriter, r *http.Request, owner string) (domain.SourceMaterialSummary, bool) {
+	books, err := h.services.Store.ListSourceMaterials(r.Context(), owner)
+	if err != nil {
+		fail(w, err)
+		return domain.SourceMaterialSummary{}, false
+	}
+	for _, book := range books {
+		if book.Source.ID == r.PathValue("id") {
+			return book, true
+		}
+	}
+	http.NotFound(w, r)
+	return domain.SourceMaterialSummary{}, false
 }
 func (h *Handler) languages(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -324,7 +358,7 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/jobs?message=Submitted+analysis+job+%d", handle.ID))
+	redirect(w, r, fmt.Sprintf("/books/%s?message=Imported+to+My+Library+and+submitted+analysis+job+%d", result.Source.ID, handle.ID))
 }
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -580,4 +614,11 @@ func frequencyStatus(dataset domain.FrequencyDataset) string {
 		return "Active"
 	}
 	return "Inactive"
+}
+func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
+func analyzeLabel(status string) string {
+	if status == "not analyzed" {
+		return "Submit to analysis"
+	}
+	return "Re-analyze"
 }
