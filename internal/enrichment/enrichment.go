@@ -202,6 +202,10 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		if ctx.Err() != nil {
 			return r, ctx.Err()
 		}
+		var retryable interface{ Temporary() bool }
+		if errors.As(err, &retryable) && !retryable.Temporary() {
+			break
+		}
 		if attempt+1 < s.config.MaxAttempts {
 			delay := s.config.RetryBaseDelay << attempt
 			timer := time.NewTimer(delay)
