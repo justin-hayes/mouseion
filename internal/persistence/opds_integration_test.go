@@ -14,12 +14,7 @@ import (
 func TestOpdsConnectionCRUDEncryptionAndOwnership(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	ctx := context.Background()
-	databaseURL := integrationURL()
-	lockIntegrationDatabase(t, ctx, databaseURL)
-	resetDatabase(t, ctx, databaseURL)
-	if err := Migrate(databaseURL); err != nil {
-		t.Fatal(err)
-	}
+	databaseURL := integrationDatabase(t, ctx)
 	store, err := Open(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
