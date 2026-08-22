@@ -76,13 +76,41 @@ func TestParseDWDSNormalizedGzipAndDuplicateResolution(t *testing.T) {
 }
 
 func TestParseDWDSRejectsMalformedRowsActionably(t *testing.T) {
-	_, err := ParseDWDS(strings.NewReader("lemma,wortklasse,frequenzklasse\nHaus,Substantiv,9\nleer,,2\n"), "de", "v1")
-	if err == nil || !strings.Contains(err.Error(), "row 2") || !strings.Contains(err.Error(), "integer 0-6") || !strings.Contains(err.Error(), "row 3") {
+	got, err := ParseDWDS(strings.NewReader("lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\nleer,,2\n"), "de", "v1")
+	if err != nil || len(got.Entries) != 1 || len(got.MissingWordClass) != 1 || got.MissingWordClass[0].Row != 3 {
+		t.Fatalf("empty word class result = %+v, error = %v", got, err)
+	}
+
+	_, err = ParseDWDS(strings.NewReader("lemma,wortklasse,frequenzklasse\nHaus,Substantiv,9\n,Substantiv,2\n"), "de", "v1")
+	if err == nil || !strings.Contains(err.Error(), "row 2") || !strings.Contains(err.Error(), "integer 0-6") || !strings.Contains(err.Error(), "row 3") || !strings.Contains(err.Error(), "lemma must be non-empty") {
 		t.Fatalf("error = %v", err)
 	}
 	_, err = ParseDWDS(strings.NewReader("lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n"), "fr", "v1")
 	if err == nil || !strings.Contains(err.Error(), "unsupported language") {
 		t.Fatalf("unsupported language error = %v", err)
+	}
+}
+
+func TestParseDWDSRealShapeSkipsUnavailableDataAndRejectsBadRows(t *testing.T) {
+	input := "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,6\nAbandon,,2\nohne,Präposition,n/a\n"
+	got, err := ParseDWDS(strings.NewReader(input), "de", "v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Entries) != 1 || got.Entries[0].CanonicalLemma != "haus" {
+		t.Fatalf("entries = %+v", got.Entries)
+	}
+	if len(got.MissingWordClass) != 1 || got.MissingWordClass[0].Row != 3 || got.MissingWordClass[0].Message != "word class is unavailable" {
+		t.Fatalf("missing word class = %+v", got.MissingWordClass)
+	}
+	if len(got.MissingFrequency) != 1 || got.MissingFrequency[0].Row != 4 {
+		t.Fatalf("missing frequency = %+v", got.MissingFrequency)
+	}
+
+	input += "kaputt,Substantiv,9\n"
+	_, err = ParseDWDS(strings.NewReader(input), "de", "v1")
+	if err == nil || !strings.Contains(err.Error(), "row 5") || !strings.Contains(err.Error(), "integer 0-6") {
+		t.Fatalf("bad frequency error = %v", err)
 	}
 }
 

@@ -44,6 +44,9 @@ type Duplicate struct {
 type ParseResult struct {
 	Entries          []domain.FrequencyEntry
 	MissingFrequency []RowIssue
+	// MissingWordClass reports otherwise usable rows skipped because DWDS did
+	// not provide a wortklasse/upos value.
+	MissingWordClass []RowIssue
 	Duplicates       []Duplicate
 }
 
@@ -148,6 +151,10 @@ func ParseDWDS(input io.Reader, language, sourceVersion string) (ParseResult, er
 		lemma := strings.TrimSpace(record[lemmaCol])
 		wordClass := strings.TrimSpace(record[uposCol])
 		classText := strings.TrimSpace(record[classCol])
+		if lemma == "" {
+			malformed = append(malformed, RowIssue{rowNum, "lemma must be non-empty"})
+			continue
+		}
 		if classText == "" || strings.EqualFold(classText, "n/a") {
 			result.MissingFrequency = append(result.MissingFrequency, RowIssue{rowNum, "frequency class is unavailable"})
 			continue
@@ -157,8 +164,8 @@ func ParseDWDS(input io.Reader, language, sourceVersion string) (ParseResult, er
 			malformed = append(malformed, RowIssue{rowNum, fmt.Sprintf("invalid frequency class %q (want integer 0-6)", classText)})
 			continue
 		}
-		if lemma == "" || wordClass == "" {
-			malformed = append(malformed, RowIssue{rowNum, "lemma and word class must be non-empty"})
+		if wordClass == "" {
+			result.MissingWordClass = append(result.MissingWordClass, RowIssue{rowNum, "word class is unavailable"})
 			continue
 		}
 		if hasVersion && strings.TrimSpace(record[versionCol]) != sourceVersion {
