@@ -182,11 +182,11 @@ func decryptCredential(value []byte) (string, error) {
 	return string(plain), nil
 }
 
-const opdsColumns = `id,owner_id,name,url,username,password_encrypted,language,created_at,updated_at`
+const opdsColumns = `id,name,url,username,password_encrypted,language,created_at,updated_at`
 
 func scanOpds(row pgx.Row) (v domain.OpdsConnection, err error) {
 	var encrypted []byte
-	err = row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.URL, &v.Username, &encrypted, &v.Language, &v.CreatedAt, &v.UpdatedAt)
+	err = row.Scan(&v.ID, &v.Name, &v.URL, &v.Username, &encrypted, &v.Language, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return v, missing(err)
 	}
@@ -199,13 +199,13 @@ func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, v domain.OpdsC
 	if err != nil {
 		return domain.OpdsConnection{}, err
 	}
-	return scanOpds(s.pool.QueryRow(ctx, `INSERT INTO opds_connections(owner_id,name,url,username,password_encrypted,language) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+opdsColumns, v.OwnerID, v.Name, v.URL, v.Username, encrypted, v.Language))
+	return scanOpds(s.pool.QueryRow(ctx, `INSERT INTO opds_connections(name,url,username,password_encrypted,language) VALUES($1,$2,$3,$4,$5) RETURNING `+opdsColumns, v.Name, v.URL, v.Username, encrypted, v.Language))
 }
-func (s *PostgresStore) GetOpdsConnection(ctx context.Context, owner, id string) (domain.OpdsConnection, error) {
-	return scanOpds(s.pool.QueryRow(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 AND id=$2`, owner, id))
+func (s *PostgresStore) GetOpdsConnection(ctx context.Context, id string) (domain.OpdsConnection, error) {
+	return scanOpds(s.pool.QueryRow(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE id=$1`, id))
 }
-func (s *PostgresStore) ListOpdsConnections(ctx context.Context, owner string) ([]domain.OpdsConnection, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 ORDER BY name,id`, owner)
+func (s *PostgresStore) ListOpdsConnections(ctx context.Context) ([]domain.OpdsConnection, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+opdsColumns+` FROM opds_connections ORDER BY name,id`)
 	if err != nil {
 		return nil, err
 	}
@@ -220,15 +220,15 @@ func (s *PostgresStore) ListOpdsConnections(ctx context.Context, owner string) (
 	}
 	return out, rows.Err()
 }
-func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, owner string, v domain.OpdsConnection) (domain.OpdsConnection, error) {
+func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, v domain.OpdsConnection) (domain.OpdsConnection, error) {
 	encrypted, err := encryptCredential(v.Password)
 	if err != nil {
 		return domain.OpdsConnection{}, err
 	}
-	return scanOpds(s.pool.QueryRow(ctx, `UPDATE opds_connections SET name=$3,url=$4,username=$5,password_encrypted=$6,language=$7,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+opdsColumns, owner, v.ID, v.Name, v.URL, v.Username, encrypted, v.Language))
+	return scanOpds(s.pool.QueryRow(ctx, `UPDATE opds_connections SET name=$2,url=$3,username=$4,password_encrypted=$5,language=$6,updated_at=now() WHERE id=$1 RETURNING `+opdsColumns, v.ID, v.Name, v.URL, v.Username, encrypted, v.Language))
 }
-func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, owner, id string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM opds_connections WHERE owner_id=$1 AND id=$2`, owner, id)
+func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM opds_connections WHERE id=$1`, id)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}

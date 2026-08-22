@@ -12,13 +12,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -29,6 +27,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/review"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/justin-hayes/mouseion/internal/webworkflow"
@@ -48,37 +47,10 @@ func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (anal
 	return analysis.Status{ID: 42, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
 }
 
-func integrationDatabaseURL() string {
-	if v := os.Getenv("MOUSEION_TEST_DATABASE_URL"); v != "" {
-		return v
-	}
-	return "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-}
-
-func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
+func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "webapp-integration-secret")
 	ctx := context.Background()
-	databaseURL := integrationDatabaseURL()
-	pool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Release()
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(databaseURL); err != nil {
-		t.Fatal(err)
-	}
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +65,7 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bob, err := authService.CreateUser(ctx, admin.ID, "bob", "bob-password", false)
+	_, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,11 +83,11 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 		}
 	}))
 	defer catalog.Close()
-	connection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{OwnerID: alice.ID, Name: "Library", URL: catalog.URL + "/opds", Language: "de"})
+	connection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds", Language: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobConnection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{OwnerID: bob.ID, Name: "Private", URL: catalog.URL + "/opds", Language: "de"})
+	bobConnection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds", Language: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,9 +115,9 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if browse.Code != 200 || !strings.Contains(browse.Body.String(), "Test Book") {
 		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
 	}
-	denied := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
-	if denied.Code == 200 {
-		t.Fatal("Alice browsed Bob's connection")
+	shared := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
+	if shared.Code != 200 || !strings.Contains(shared.Body.String(), "Test Book") {
+		t.Fatalf("shared browse=%d %s", shared.Code, shared.Body.String())
 	}
 	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
 	acquired := perform(t, h, "POST", "/opds/acquire", acquireForm, cookies)
@@ -205,10 +177,10 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") {
 		t.Fatalf("known vocab page=%d %s", knownPage.Code, knownPage.Body.String())
 	}
-	if got := perform(t, h, "POST", "/known-vocab/import", url.Values{"language": {"de"}, "vocabulary": {"Daß\tSCONJ\nbad\tNOPE"}}, cookies); got.Code != http.StatusForbidden {
+	if got := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"language": "de", "vocabulary": "Daß\tSCONJ\nbad\tNOPE"}, ""); got.Code != http.StatusForbidden {
 		t.Fatalf("known vocab without csrf=%d", got.Code)
 	}
-	importedKnown := perform(t, h, "POST", "/known-vocab/import", url.Values{"csrf_token": {csrf}, "language": {"de"}, "vocabulary": {"Daß\tSCONJ\nbad\tNOPE"}}, cookies)
+	importedKnown := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de", "vocabulary": "Daß\tSCONJ\nbad\tNOPE"}, "")
 	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "1 imported") || !strings.Contains(importedKnown.Body.String(), "invalid UPOS") || !strings.Contains(importedKnown.Body.String(), "dass") {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
 	}
@@ -268,10 +240,20 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("non-admin language update=%d", got.Code)
 	}
+	if got := perform(t, h, "GET", "/admin/connections", nil, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("non-admin connection management=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Denied"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("non-admin connection create=%d", got.Code)
+	}
 	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
 	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || !strings.Contains(adminHub.Body.String(), "My Library") {
 		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
+	}
+	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
+	if adminConnections.Code != http.StatusOK || !strings.Contains(adminConnections.Body.String(), "Library") || !strings.Contains(adminConnections.Body.String(), "Add connection") {
+		t.Fatalf("admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
 	}
 	upload := multipartUpload(t, h, "/admin/frequency", adminCookies, map[string]string{"csrf_token": adminCSRF, "language": "de", "version": "web-v1", "replace": "on"}, "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n")
 	if upload.Code != http.StatusSeeOther {
