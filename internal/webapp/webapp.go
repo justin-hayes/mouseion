@@ -116,6 +116,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /deck/download", h.user(http.HandlerFunc(h.downloadDeck)))
+	h.mux.Handle("GET /admin", h.user(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.user(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.user(http.HandlerFunc(h.createUser)))
 	h.mux.Handle("GET /admin/frequency", h.user(http.HandlerFunc(h.adminFrequency)))
@@ -271,7 +272,10 @@ func (h *Handler) loadBook(w http.ResponseWriter, r *http.Request, owner string)
 	return domain.SourceMaterialSummary{}, false
 }
 func (h *Handler) languages(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
 	p, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
@@ -283,7 +287,10 @@ func (h *Handler) saveLanguage(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
 	_, e := h.services.Store.PutLanguageProfile(r.Context(), u.ID, strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("display_name")))
 	if e != nil {
 		fail(w, e)
@@ -611,6 +618,13 @@ func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) (domain.U
 	}
 	return u, true
 }
+func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	render(w, r, AdminPage(u, h.csrf(w, r)))
+}
 func (h *Handler) adminFrequency(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.requireAdmin(w, r)
 	if !ok {
@@ -680,9 +694,8 @@ func (h *Handler) frequencyAction(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/admin/frequency?message=Dataset+updated")
 }
 func (h *Handler) adminUsers(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	if !u.IsAdmin {
-		http.Error(w, "administrator required", http.StatusForbidden)
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
 	render(w, r, AdminUsersPage(u, h.csrf(w, r), r.URL.Query().Get("message")))
@@ -695,12 +708,11 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
-	if !u.IsAdmin {
-		http.Error(w, "administrator required", http.StatusForbidden)
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-	_, e := h.services.Auth.CreateUser(r.Context(), u.ID, r.FormValue("username"), r.FormValue("password"), r.FormValue("is_admin") == "on")
+	_, e := h.services.Auth.CreateUser(r.Context(), u.ID, r.FormValue("username"), r.FormValue("password"), false)
 	if errors.Is(e, auth.ErrForbidden) {
 		http.Error(w, "administrator required", 403)
 		return
