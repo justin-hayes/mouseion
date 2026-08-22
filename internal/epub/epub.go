@@ -18,6 +18,34 @@ const mediaType = "application/epub+zip"
 
 var ErrInvalidEPUB = errors.New("epub: invalid EPUB")
 
+// xhtmlEntityReplacer covers the HTML named entities most commonly emitted by
+// ebook authoring tools. Numeric references remain XML-compatible, while the
+// five XML entities are deliberately absent so valid text such as &amp; is not
+// decoded and then mistaken for markup.
+var xhtmlEntityReplacer = strings.NewReplacer(
+	"&nbsp;", "&#160;", "&iexcl;", "&#161;", "&cent;", "&#162;", "&pound;", "&#163;",
+	"&yen;", "&#165;", "&copy;", "&#169;", "&laquo;", "&#171;", "&reg;", "&#174;",
+	"&deg;", "&#176;", "&plusmn;", "&#177;", "&middot;", "&#183;", "&raquo;", "&#187;",
+	"&iquest;", "&#191;", "&Agrave;", "&#192;", "&Aacute;", "&#193;", "&Acirc;", "&#194;",
+	"&Atilde;", "&#195;", "&Auml;", "&#196;", "&Aring;", "&#197;", "&AElig;", "&#198;",
+	"&Ccedil;", "&#199;", "&Egrave;", "&#200;", "&Eacute;", "&#201;", "&Ecirc;", "&#202;",
+	"&Euml;", "&#203;", "&Igrave;", "&#204;", "&Iacute;", "&#205;", "&Icirc;", "&#206;",
+	"&Iuml;", "&#207;", "&Ntilde;", "&#209;", "&Ograve;", "&#210;", "&Oacute;", "&#211;",
+	"&Ocirc;", "&#212;", "&Otilde;", "&#213;", "&Ouml;", "&#214;", "&Oslash;", "&#216;",
+	"&Ugrave;", "&#217;", "&Uacute;", "&#218;", "&Ucirc;", "&#219;", "&Uuml;", "&#220;",
+	"&Yacute;", "&#221;", "&szlig;", "&#223;", "&agrave;", "&#224;", "&aacute;", "&#225;",
+	"&acirc;", "&#226;", "&atilde;", "&#227;", "&auml;", "&#228;", "&aring;", "&#229;",
+	"&aelig;", "&#230;", "&ccedil;", "&#231;", "&egrave;", "&#232;", "&eacute;", "&#233;",
+	"&ecirc;", "&#234;", "&euml;", "&#235;", "&igrave;", "&#236;", "&iacute;", "&#237;",
+	"&icirc;", "&#238;", "&iuml;", "&#239;", "&ntilde;", "&#241;", "&ograve;", "&#242;",
+	"&oacute;", "&#243;", "&ocirc;", "&#244;", "&otilde;", "&#245;", "&ouml;", "&#246;",
+	"&oslash;", "&#248;", "&ugrave;", "&#249;", "&uacute;", "&#250;", "&ucirc;", "&#251;",
+	"&uuml;", "&#252;", "&yacute;", "&#253;", "&yuml;", "&#255;", "&shy;", "&#173;",
+	"&ndash;", "&#8211;", "&mdash;", "&#8212;", "&lsquo;", "&#8216;", "&rsquo;", "&#8217;",
+	"&ldquo;", "&#8220;", "&rdquo;", "&#8221;", "&bull;", "&#8226;", "&hellip;", "&#8230;",
+	"&trade;", "&#8482;", "&euro;", "&#8364;",
+)
+
 type Location struct {
 	SourceDocumentID string `json:"source_document_id"`
 	Chapter          string `json:"chapter"`
@@ -174,7 +202,11 @@ func extractXHTML(f *zip.File) (string, string, error) {
 		return "", "", err
 	}
 	defer r.Close()
-	d := xml.NewDecoder(r)
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return "", "", err
+	}
+	d := xml.NewDecoder(strings.NewReader(xhtmlEntityReplacer.Replace(string(data))))
 	var blocks []string
 	var current strings.Builder
 	var title string
