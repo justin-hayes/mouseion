@@ -38,6 +38,7 @@ type Store interface {
 	CreateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
+	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	DeleteOpdsConnection(context.Context, string, string) error
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
@@ -100,6 +101,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /languages", h.user(http.HandlerFunc(h.saveLanguage)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.connections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
+	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("GET /catalog", h.user(http.HandlerFunc(h.catalog)))
 	h.mux.Handle("GET /opds/browse", h.user(http.HandlerFunc(h.browse)))
@@ -310,6 +312,27 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect(w, r, "/connections?message=Catalog+added")
 }
+func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	current, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.PathValue("id"))
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	password := r.FormValue("password")
+	if password == "" {
+		password = current.Password
+	}
+	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, OwnerID: u.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
+	if e != nil {
+		fail(w, e)
+		return
+	}
+	redirect(w, r, "/connections?message=Catalog+updated")
+}
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -334,19 +357,33 @@ func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	feed, e := h.services.OPDS.Browse(r.Context(), u.ID, r.URL.Query().Get("connection"), r.URL.Query().Get("url"))
 	if e != nil {
-		fail(w, e)
+		opdsFail(w, e)
 		return
 	}
-	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed))
+	trail := decodeTrail(r.URL.Query()["trail"])
+	currentURL := r.URL.Query().Get("url")
+	if currentURL != "" {
+		trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
+	}
+	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail, currentURL == ""))
 }
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	feed, e := h.services.OPDS.Search(r.Context(), u.ID, r.URL.Query().Get("connection"), r.URL.Query().Get("q"))
-	if e != nil {
-		fail(w, e)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		render(w, r, CatalogNotice("Enter a title or author to search this catalog."))
 		return
 	}
-	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed))
+	u := user(r)
+	feed, e := h.services.OPDS.Search(r.Context(), u.ID, r.URL.Query().Get("connection"), query)
+	if e != nil {
+		if errors.Is(e, opds.ErrSearchUnavailable) {
+			render(w, r, CatalogNotice("Search is not available for this catalog. Browse its collections instead."))
+			return
+		}
+		opdsFail(w, e)
+		return
+	}
+	render(w, r, SearchResults(h.csrf(w, r), r.URL.Query().Get("connection"), query, feed))
 }
 func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -356,7 +393,7 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	entry := opds.Entry{ID: r.FormValue("entry_id"), Title: r.FormValue("title"), Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: r.FormValue("href")}}}
 	result, e := h.services.OPDS.Acquire(r.Context(), u.ID, r.FormValue("connection"), entry)
 	if e != nil {
-		fail(w, e)
+		opdsFail(w, e)
 		return
 	}
 	handle, e := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, result.Source.ID)
@@ -364,7 +401,7 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/books/%s?message=Imported+to+My+Library+and+submitted+analysis+job+%d", result.Source.ID, handle.ID))
+	redirect(w, r, fmt.Sprintf("/books/%s?message=%s", result.Source.ID, url.QueryEscape(fmt.Sprintf("Imported to My Library. Analysis job #%d is queued — follow its progress below.", handle.ID))))
 }
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -679,6 +716,46 @@ func fail(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
+func opdsFail(w http.ResponseWriter, err error) {
+	log.Printf("mouseion: OPDS: %v", err)
+	message := "The catalog request failed. Check the connection and try again."
+	lower := strings.ToLower(err.Error())
+	switch {
+	case errors.Is(err, opds.ErrNoEPUB), strings.Contains(lower, "incompatible media type"):
+		message = "This book is not available as an EPUB. Choose another edition or format."
+	case strings.Contains(lower, "401"), strings.Contains(lower, "403"):
+		message = "The catalog rejected the credentials. Update the connection username and password."
+	case strings.Contains(lower, "parse atom"), strings.Contains(lower, "html"):
+		message = "The catalog returned a web page instead of an OPDS feed. Check the catalog URL."
+	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
+		message = "The catalog could not be reached. Check its URL and network availability, then try again."
+	}
+	http.Error(w, message, http.StatusBadGateway)
+}
+
+type CatalogCrumb struct{ Title, URL string }
+
+func decodeTrail(values []string) []CatalogCrumb {
+	trail := make([]CatalogCrumb, 0, len(values))
+	for _, value := range values {
+		parts := strings.SplitN(value, "\x1f", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			trail = append(trail, CatalogCrumb{Title: parts[0], URL: parts[1]})
+		}
+	}
+	return trail
+}
+func browseURL(connectionID, target string, trail []CatalogCrumb) string {
+	values := url.Values{"connection": {connectionID}}
+	if target != "" {
+		values.Set("url", target)
+	}
+	for _, crumb := range trail {
+		values.Add("trail", crumb.Title+"\x1f"+crumb.URL)
+	}
+	return "/opds/browse?" + values.Encode()
+}
+
 func navigationLink(e opds.Entry) string {
 	for _, l := range e.Links {
 		if l.Rel == "subsection" || l.Rel == "alternate" || (l.Type == "application/atom+xml" && len(opds.FindEPUBs(e)) == 0) {
@@ -694,7 +771,12 @@ func acquisitionLink(e opds.Entry) *opds.Link {
 	}
 	return nil
 }
-func queryEscape(value string) string { return url.QueryEscape(value) }
+func credentialSummary(connection domain.OpdsConnection) string {
+	if connection.Username != "" {
+		return "Credentials saved securely for " + connection.Username + "."
+	}
+	return "No credentials configured."
+}
 func jobRunning(status analysis.Status) bool {
 	return status.State == "available" || status.State == "pending" || status.State == "running" || status.State == "retryable" || status.State == "scheduled"
 }

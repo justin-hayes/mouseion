@@ -20,8 +20,14 @@ window.escapeHtml = function (s) {
 document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
-  var text = (evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed';
-  target.innerHTML = '<p role="alert"><strong>Error:</strong> ' + window.escapeHtml(text) + '</p>';
+  var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
+  target.innerHTML = '<article role="alert"><strong>Catalog error:</strong> ' + window.escapeHtml(text) + '<p><small>Review the catalog connection or try again.</small></p></article>';
+});
+document.addEventListener('submit', function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-acquire]');
+  if (!form) return;
+  var button = form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Importing & analyzing…'; }
 });
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
@@ -116,31 +122,72 @@ templ LanguagesPage(user domain.User, csrf string, profiles []domain.LanguagePro
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
 	@Layout("Catalogs", &user, csrf) { <h1>OPDS catalogs</h1>
 	if message != "" {
-		<p role="alert">{ message }</p>
+		<p role="status">{ message }</p>
 	}
-	<article><h2>Add connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required/></label><label>Language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username<input name="username" autocomplete="off"/></label><label>Password<input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article><div class="catalog-list">
+	<p>Connect an OPDS catalog, then browse its collections and add EPUB books to My Library.</p>
+	<article><h2>Add connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label><label>Book language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+	if len(connections) == 0 {
+		<article><h2>No catalogs connected</h2><p>Add your library’s OPDS URL above. Credentials are only needed for private catalogs.</p></article>
+	}
+	<div class="catalog-list">
 	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse</a><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
 	}
 	</div> }
 }
 templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection) {
-	@Layout(connection.Name, &user, csrf) { <h1>{ connection.Name }</h1><form hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connection.ID }/><label>Search catalog<input type="search" name="q" required/></label></form><div id="catalog-results" hx-get={ "/opds/browse?connection="+connection.ID } hx-trigger="load" hx-swap="innerHTML"><p aria-busy="true">Loading catalog…</p></div> }
+	@Layout(connection.Name, &user, csrf) { <p><a href="/connections">← Catalog connections</a></p><header class="page-heading"><div><h1>{ connection.Name }</h1><p>Browse collections or search for a book to import and analyze.</p></div></header><div id="catalog-results" hx-get={ "/opds/browse?connection="+connection.ID } hx-trigger="load" hx-swap="innerHTML"><p aria-busy="true">Loading catalog…</p></div> }
 }
-templ FeedFragment(csrf, connectionID string, feed opds.Feed) {
-	<section><h2>{ feed.Title }</h2><div class="catalog-grid">
+templ FeedFragment(csrf, connectionID string, feed opds.Feed, trail []CatalogCrumb, root bool) {
+	<section>
+	if root {
+		if opds.SupportsSearch(feed) {
+			<form role="search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connectionID }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
+		} else {
+			<p><small>Search is not available for this catalog. Browse its collections below.</small></p>
+		}
+	}
+	<nav aria-label="Catalog breadcrumb"><a hx-get={ browseURL(connectionID, "", nil) } hx-target="#catalog-results" hx-swap="innerHTML" href={ templ.URL(browseURL(connectionID, "", nil)) }>Catalog root</a>
+	for i, crumb := range trail {
+		<span> / </span>
+		if i < len(trail)-1 {
+			<a hx-get={ browseURL(connectionID, crumb.URL, trail[:i]) } hx-target="#catalog-results" hx-swap="innerHTML" href={ templ.URL(browseURL(connectionID, crumb.URL, trail[:i])) }>{ crumb.Title }</a>
+		} else {
+			<span aria-current="page">{ crumb.Title }</span>
+		}
+	}
+	</nav><h2>{ feed.Title }</h2>
+	if len(feed.Entries) == 0 {
+		<article><p>No books or collections were found here.</p></article>
+	}
+	<div class="catalog-grid">
 	for _, entry := range feed.Entries {
-		@EntryCard(csrf, connectionID, entry)
+		@EntryCard(csrf, connectionID, entry, trail)
 	}
 	</div></section>
 }
-templ EntryCard(csrf, connectionID string, entry opds.Entry) {
+templ SearchResults(csrf, connectionID, query string, feed opds.Feed) {
+	<section><button class="outline" hx-get={ browseURL(connectionID, "", nil) } hx-target="#catalog-results" hx-swap="innerHTML">← Back to catalog</button><h2>Results for “{ query }”</h2>
+	if len(feed.Entries) == 0 {
+		<article><p>No matching books were found. Try another title or author.</p></article>
+	}
+	<div class="catalog-grid">
+	for _, entry := range feed.Entries {
+		@EntryCard(csrf, connectionID, entry, nil)
+	}
+	</div></section>
+}
+templ CatalogNotice(message string) { <article role="status"><p>{ message }</p></article> }
+templ EntryCard(csrf, connectionID string, entry opds.Entry, trail []CatalogCrumb) {
 	<article><h3>{ entry.Title }</h3>
 	if href := navigationLink(entry); href != "" {
-		<button class="outline" hx-get={ "/opds/browse?connection="+connectionID+"&url="+queryEscape(href) } hx-target="#catalog-results" hx-swap="innerHTML">Open</button>
+		<a role="button" class="outline" href={ templ.URL(browseURL(connectionID, href, trail)) } hx-get={ browseURL(connectionID, href, trail) } hx-target="#catalog-results" hx-swap="innerHTML">Open collection</a>
 	}
 	if epubLink := acquisitionLink(entry); epubLink != nil {
-		<form method="post" action="/opds/acquire"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="entry_id" value={ entry.ID }/><input type="hidden" name="title" value={ entry.Title }/><input type="hidden" name="href" value={ epubLink.Href }/><button>Import &amp; analyze</button></form>
+		<form method="post" action="/opds/acquire" data-acquire><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="entry_id" value={ entry.ID }/><input type="hidden" name="title" value={ entry.Title }/><input type="hidden" name="href" value={ epubLink.Href }/><button type="submit">Import &amp; analyze</button><small>Downloads the EPUB to My Library and queues analysis.</small></form>
+	}
+	if navigationLink(entry) == "" && acquisitionLink(entry) == nil {
+		<p><small>No compatible EPUB is available for this entry.</small></p>
 	}
 	</article>
 }
