@@ -65,6 +65,24 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 	}
 }
 
+func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>No search</title></feed>`))
+	}))
+	defer server.Close()
+	client := NewClient(server.Client(), Auth{})
+	feed, err := client.ListRoot(context.Background(), server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if SupportsSearch(feed) {
+		t.Fatal("feed without a search link reported search support")
+	}
+	if _, err = client.Search(context.Background(), server.URL, "book"); !errors.Is(err, ErrSearchUnavailable) {
+		t.Fatalf("search error=%v", err)
+	}
+}
+
 func TestDownloadErrorsAndMediaType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

@@ -20,7 +20,10 @@ const (
 	maxResponse    = 100 << 20
 )
 
-var ErrNoEPUB = errors.New("opds: entry has no EPUB acquisition link")
+var (
+	ErrNoEPUB            = errors.New("opds: entry has no EPUB acquisition link")
+	ErrSearchUnavailable = errors.New("opds: catalog does not advertise search")
+)
 
 type Auth struct {
 	Username, Password string
@@ -107,7 +110,7 @@ func (c *Client) Search(ctx context.Context, catalogURL, query string) (Feed, er
 	}
 	search := findLink(root.Links, "search")
 	if search == nil {
-		return Feed{}, errors.New("opds: catalog does not advertise search")
+		return Feed{}, ErrSearchUnavailable
 	}
 	template := search.Href
 	if strings.Contains(strings.ToLower(search.Type), "opensearchdescription") {
@@ -132,6 +135,9 @@ func FindEPUBs(entry Entry) []Link {
 	}
 	return out
 }
+
+// SupportsSearch reports whether a feed advertises an OpenSearch endpoint.
+func SupportsSearch(feed Feed) bool { return findLink(feed.Links, "search") != nil }
 
 func (c *Client) Download(ctx context.Context, downloadURL string) ([]byte, error) {
 	resp, err := c.get(ctx, downloadURL)
