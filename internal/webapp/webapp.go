@@ -116,6 +116,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /deck/download", h.user(http.HandlerFunc(h.downloadDeck)))
+	h.mux.Handle("POST /deck/download", h.user(http.HandlerFunc(h.downloadDeck)))
 	h.mux.Handle("GET /admin", h.user(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.user(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.user(http.HandlerFunc(h.createUser)))
@@ -258,13 +259,20 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.ID))
 }
 func (h *Handler) loadBook(w http.ResponseWriter, r *http.Request, owner string) (domain.SourceMaterialSummary, bool) {
+	return h.loadBookID(w, r, owner, r.PathValue("id"))
+}
+func (h *Handler) loadBookID(w http.ResponseWriter, r *http.Request, owner, id string) (domain.SourceMaterialSummary, bool) {
+	if strings.TrimSpace(id) == "" {
+		http.NotFound(w, r)
+		return domain.SourceMaterialSummary{}, false
+	}
 	books, err := h.services.Store.ListSourceMaterials(r.Context(), owner)
 	if err != nil {
 		fail(w, err)
 		return domain.SourceMaterialSummary{}, false
 	}
 	for _, book := range books {
-		if book.Source.ID == r.PathValue("id") {
+		if book.Source.ID == id {
 			return book, true
 		}
 	}
@@ -498,7 +506,12 @@ func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/review?message=Review+saved")
 }
 func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
-	render(w, r, DeckPage(user(r), h.csrf(w, r)))
+	u := user(r)
+	book, ok := h.loadBookID(w, r, u.ID, strings.TrimSpace(r.URL.Query().Get("book")))
+	if !ok {
+		return
+	}
+	render(w, r, DeckPage(u, h.csrf(w, r), book))
 }
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
@@ -596,11 +609,42 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
 }
 func (h *Handler) downloadDeck(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && !h.checkCSRF(w, r) {
+		return
+	}
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if r.Method == http.MethodPost {
+		name = strings.TrimSpace(r.FormValue("name"))
+	}
 	if name == "" {
 		name = "Mouseion"
 	}
-	artifact, err := h.services.CardExport.Export(r.Context(), user(r).ID, name)
+	u := user(r)
+	bookID := strings.TrimSpace(r.FormValue("book"))
+	var artifact cardexport.Artifact
+	var err error
+	if bookID == "" {
+		artifact, err = h.services.CardExport.Export(r.Context(), u.ID, name)
+	} else {
+		book, ok := h.loadBookID(w, r, u.ID, bookID)
+		if !ok {
+			return
+		}
+		filterKnown := r.FormValue("filter_known") == "true"
+		var known []cardexport.KnownWord
+		if filterKnown {
+			words, listErr := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, book.Source.Language)
+			if listErr != nil {
+				fail(w, listErr)
+				return
+			}
+			known = make([]cardexport.KnownWord, 0, len(words))
+			for _, word := range words {
+				known = append(known, cardexport.KnownWord{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS})
+			}
+		}
+		artifact, err = h.services.CardExport.ExportConfigured(r.Context(), u.ID, name, cardexport.ExportConfig{BookID: bookID, FilterKnown: filterKnown, Ranking: cardexport.RankingChoice(r.FormValue("ranking")), KnownWords: known})
+	}
 	if err != nil {
 		fail(w, err)
 		return

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 var ErrInvalidInput = errors.New("cardexport: invalid input")
@@ -19,6 +21,25 @@ type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS string
 	Sentence, Translation, TargetWord       string
 	Morphology, SourceDocument, Notes       string
+	Ranking                                 domain.RankingComponents
+}
+
+type RankingChoice string
+
+const (
+	RankingDefault  RankingChoice = "default"
+	RankingBook     RankingChoice = "book"
+	RankingGlobal   RankingChoice = "global"
+	RankingBalanced RankingChoice = "balanced"
+)
+
+type KnownWord struct{ Language, CanonicalLemma, UPOS string }
+
+type ExportConfig struct {
+	BookID      string
+	FilterKnown bool
+	Ranking     RankingChoice
+	KnownWords  []KnownWord
 }
 
 type Note struct {
@@ -34,6 +55,10 @@ type Artifact struct {
 type Store interface {
 	ListAcceptedCurated(context.Context, string) ([]Entry, error)
 	RecordGenerated(context.Context, string, string, Entry, Note) error
+}
+
+type configuredStore interface {
+	ListAcceptedCuratedForBook(context.Context, string, string) ([]Entry, error)
 }
 
 type Service struct{ store Store }
@@ -112,15 +137,45 @@ func NoteTypeDefinition() string {
 }
 
 func (s *Service) Export(ctx context.Context, owner, deckName string) (Artifact, error) {
+	return s.export(ctx, owner, deckName, ExportConfig{})
+}
+
+// ExportConfigured limits an export to one of the owner's books, optionally
+// removes their known vocabulary, and orders cards using ADR 0005 components.
+func (s *Service) ExportConfigured(ctx context.Context, owner, deckName string, cfg ExportConfig) (Artifact, error) {
+	if strings.TrimSpace(cfg.BookID) == "" || !validRanking(cfg.Ranking) {
+		return Artifact{}, ErrInvalidInput
+	}
+	return s.export(ctx, owner, deckName, cfg)
+}
+
+func (s *Service) export(ctx context.Context, owner, deckName string, cfg ExportConfig) (Artifact, error) {
 	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckName) == "" {
 		return Artifact{}, ErrInvalidInput
 	}
-	entries, err := s.store.ListAcceptedCurated(ctx, owner)
+	var entries []Entry
+	var err error
+	if cfg.BookID == "" {
+		entries, err = s.store.ListAcceptedCurated(ctx, owner)
+	} else if store, ok := s.store.(configuredStore); ok {
+		entries, err = store.ListAcceptedCuratedForBook(ctx, owner, cfg.BookID)
+	} else {
+		return Artifact{}, errors.New("cardexport: configured exports are unsupported by the store")
+	}
 	if err != nil {
 		return Artifact{}, fmt.Errorf("list accepted curated entries: %w", err)
 	}
-	sort.Slice(entries, func(i, j int) bool {
+	if cfg.FilterKnown {
+		entries = filterKnown(entries, cfg.KnownWords)
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
 		a, b := entries[i], entries[j]
+		if cfg.Ranking != "" && cfg.Ranking != RankingDefault {
+			aScore, bScore := rankingScore(a.Ranking, cfg.Ranking), rankingScore(b.Ranking, cfg.Ranking)
+			if aScore != bScore {
+				return aScore > bScore
+			}
+		}
 		return a.Language+"\x00"+a.CanonicalLemma+"\x00"+a.UPOS < b.Language+"\x00"+b.CanonicalLemma+"\x00"+b.UPOS
 	})
 	notes := make([]Note, 0, len(entries))
@@ -136,4 +191,40 @@ func (s *Service) Export(ctx context.Context, owner, deckName string) (Artifact,
 	}
 	tsv, err := RenderTSV(notes)
 	return Artifact{TSV: tsv, NoteType: NoteTypeDefinition(), Count: len(notes)}, err
+}
+
+func validRanking(choice RankingChoice) bool {
+	return choice == "" || choice == RankingDefault || choice == RankingBook || choice == RankingGlobal || choice == RankingBalanced
+}
+
+func rankingScore(c domain.RankingComponents, choice RankingChoice) float64 {
+	switch choice {
+	case RankingBook:
+		return c.CorpusPercentile
+	case RankingGlobal:
+		return c.GlobalPercentile
+	default:
+		priority := 0.0
+		if c.Priority {
+			priority = 1
+		}
+		crossText := max(1, min(c.CrossText, 5))
+		return .6*c.GlobalPercentile + .3*c.CorpusPercentile + .1*priority + .05*float64(crossText-1)
+	}
+}
+
+func filterKnown(entries []Entry, known []KnownWord) []Entry {
+	isKnown := make(map[string]bool, len(known))
+	for _, word := range known {
+		isKnown[word.Language+"\x00"+word.CanonicalLemma+"\x00"+word.UPOS] = true
+	}
+	result := entries[:0]
+	for _, entry := range entries {
+		exact := entry.Language + "\x00" + entry.CanonicalLemma + "\x00" + entry.UPOS
+		wildcard := entry.Language + "\x00" + entry.CanonicalLemma + "\x00"
+		if !isKnown[exact] && !isKnown[wildcard] {
+			result = append(result, entry)
+		}
+	}
+	return result
 }
