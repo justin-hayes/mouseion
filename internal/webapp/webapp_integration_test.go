@@ -224,7 +224,16 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if accept.Code != http.StatusSeeOther {
 		t.Fatalf("accept=%d %s", accept.Code, accept.Body.String())
 	}
-	exported := perform(t, h, "GET", "/deck/download?name=German", nil, cookies)
+	deckPage := perform(t, h, "GET", "/deck?book="+recorder.source, nil, cookies)
+	if deckPage.Code != 200 || !strings.Contains(deckPage.Body.String(), "Filter known words") || !strings.Contains(deckPage.Body.String(), "Frequency in this book") {
+		t.Fatalf("deck config=%d %s", deckPage.Code, deckPage.Body.String())
+	}
+	configured := url.Values{"book": {recorder.source}, "name": {"German"}, "filter_known": {"true"}, "ranking": {"balanced"}}
+	if got := perform(t, h, "POST", "/deck/download", configured, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("deck export without csrf=%d", got.Code)
+	}
+	configured.Set("csrf_token", csrf)
+	exported := perform(t, h, "POST", "/deck/download", configured, cookies)
 	if exported.Code != 200 || !strings.Contains(exported.Header().Get("Content-Disposition"), "attachment") || !strings.Contains(exported.Body.String(), "{{c1::Haus") {
 		t.Fatalf("export=%d headers=%v body=%s", exported.Code, exported.Header(), exported.Body.String())
 	}
@@ -235,6 +244,9 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	}
 	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice book: %d", got.Code)
+	}
+	if got := perform(t, h, "GET", "/deck?book="+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("bob configured alice deck: %d", got.Code)
 	}
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)

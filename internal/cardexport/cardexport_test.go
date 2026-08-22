@@ -3,14 +3,18 @@ package cardexport
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 type memoryStore struct {
 	entries   []Entry
 	generated []Note
+	bookID    string
 }
 
 func (m *memoryStore) ListAcceptedCurated(_ context.Context, owner string) ([]Entry, error) {
@@ -21,6 +25,12 @@ func (m *memoryStore) ListAcceptedCurated(_ context.Context, owner string) ([]En
 		}
 	}
 	return out, nil
+}
+func (m *memoryStore) ListAcceptedCuratedForBook(_ context.Context, owner, bookID string) ([]Entry, error) {
+	if bookID != m.bookID {
+		return nil, nil
+	}
+	return m.ListAcceptedCurated(context.Background(), owner)
 }
 func (m *memoryStore) RecordGenerated(_ context.Context, owner, _ string, e Entry, n Note) error {
 	if owner != e.OwnerID {
@@ -88,5 +98,33 @@ func TestGoldenExport(t *testing.T) {
 	}
 	if artifact.Count != 1 || len(store.generated) != 1 || !strings.Contains(artifact.NoteType, "Key, Text, Back Extra, Tags") {
 		t.Fatalf("artifact=%+v generated=%d", artifact, len(store.generated))
+	}
+}
+
+func TestConfiguredExportFiltersKnownAndRanks(t *testing.T) {
+	store := &memoryStore{bookID: "book-1", entries: []Entry{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "bekannt", UPOS: "ADJ", Sentence: "Das ist bekannt.", TargetWord: "bekannt", Ranking: domain.RankingComponents{GlobalPercentile: .99, CorpusPercentile: .1, CrossText: 1}},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "häufig", UPOS: "ADJ", Sentence: "Das ist häufig.", TargetWord: "häufig", Ranking: domain.RankingComponents{GlobalPercentile: .2, CorpusPercentile: 1, CrossText: 1}},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "weltweit", UPOS: "ADV", Sentence: "Das gilt weltweit.", TargetWord: "weltweit", Ranking: domain.RankingComponents{GlobalPercentile: .9, CorpusPercentile: .3, CrossText: 1}},
+		{OwnerID: "bob", Language: "de", CanonicalLemma: "privat", UPOS: "ADJ", Sentence: "Das ist privat.", TargetWord: "privat"},
+	}}
+	artifact, err := NewService(store).ExportConfigured(context.Background(), "alice", "German", ExportConfig{BookID: "book-1", FilterKnown: true, Ranking: RankingBook, KnownWords: []KnownWord{{Language: "de", CanonicalLemma: "bekannt"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 2 || strings.Contains(artifact.TSV, "bekannt") || strings.Contains(artifact.TSV, "privat") {
+		t.Fatalf("unexpected filtered export: count=%d TSV=%q", artifact.Count, artifact.TSV)
+	}
+	if strings.Index(artifact.TSV, "häufig") > strings.Index(artifact.TSV, "weltweit") {
+		t.Fatalf("book ranking was not applied: %q", artifact.TSV)
+	}
+}
+
+func TestConfiguredExportRejectsInvalidInput(t *testing.T) {
+	service := NewService(&memoryStore{})
+	for _, cfg := range []ExportConfig{{}, {BookID: "book", Ranking: "unknown"}} {
+		if _, err := service.ExportConfigured(context.Background(), "alice", "German", cfg); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("config=%+v err=%v", cfg, err)
+		}
 	}
 }
