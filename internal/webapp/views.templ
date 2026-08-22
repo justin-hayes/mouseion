@@ -24,14 +24,57 @@ document.addEventListener('htmx:responseError', function (evt) {
 });
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
-		<ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalogs</a></li><li><a href="/jobs">Jobs</a></li>
-		<li><a href="/review">Review</a></li><li><a href="/deck">Deck</a></li>
+		<ul><li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li>
 		if user.IsAdmin {
-			<li><a href="/admin/users">Users</a></li><li><a href="/admin/frequency">Frequency</a></li>
+			<li><details class="dropdown"><summary>Admin</summary><ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalog connections</a></li><li><a href="/admin/users">Users</a></li><li><a href="/admin/frequency">Frequency</a></li></ul></details></li>
 		}
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main class="container">{ children... }</main></body></html>
+}
+templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
+	@Layout("My Library", &user, csrf) { <header class="page-heading"><div><h1>My Library</h1><p>Your books, ready for pre-learning.</p></div><a role="button" href="/connections">Add a book</a></header>
+	if message != "" {
+		<p role="status">{ message }</p>
+	}
+	if len(books) == 0 {
+		<article><h2>Your library is empty</h2><p>Browse a catalog and import a book to begin.</p><a href="/connections">Browse catalogs</a></article>
+	}
+	if len(books) > 0 {
+		<div class="library-list">
+		for _, book := range books {
+			<article><div><h2><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2><p><code>{ book.Source.Language }</code> · imported { book.Source.CreatedAt.Format("2006-01-02") }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></article>
+		}
+		</div>
+	}
+	}
+}
+templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, message string) {
+	@Layout(book.Source.Title, &user, csrf) { <p><a href="/library">← My Library</a></p><header class="page-heading"><div><h1>{ book.Source.Title }</h1><p><code>{ book.Source.Language }</code> · { book.Source.MediaType }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></header>
+	if message != "" {
+		<p role="status">{ message }</p>
+	}
+	<div class="book-actions"><article><h2>Analysis</h2>
+		if book.AnalysisJobID > 0 {
+			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
+		}
+		if book.AnalysisJobID == 0 {
+			<p>Analyze the text to prepare vocabulary candidates.</p>
+		}
+		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button></form>
+	</article><article><h2>Review vocabulary</h2><p>Review and curate vocabulary from this book.</p>
+		if book.AnalysisStatus == "analyzed" {
+			<a role="button" href={ templ.URL("/review?book="+book.Source.ID) }>Start review</a>
+		} else {
+			<button disabled>Available after analysis</button>
+		}
+	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck.</p>
+		if book.AnalysisStatus == "analyzed" {
+			<a role="button" href={ templ.URL("/deck?book="+book.Source.ID) }>Configure deck</a>
+		} else {
+			<button disabled>Available after analysis</button>
+		}
+	</article></div> }
 }
 
 templ LoginPage(csrf, message string) {

@@ -96,9 +96,28 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	if _, err = store.GetSourceMaterial(ctx, bob.ID, source.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob read alice source: %v", err)
 	}
+	library, err := store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "not analyzed" {
+		t.Fatalf("alice library before analysis: books=%v err=%v", library, err)
+	}
+	bobLibrary, err := store.ListSourceMaterials(ctx, bob.ID)
+	if err != nil || len(bobLibrary) != 0 {
+		t.Fatalf("bob library leaked alice source: books=%v err=%v", bobLibrary, err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash) VALUES(84001,$1,$2,$3)`, alice.ID, source.ID, source.ContentHash); err != nil {
+		t.Fatal(err)
+	}
+	library, err = store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzing" || library[0].AnalysisJobID != 84001 {
+		t.Fatalf("alice library during analysis: books=%v err=%v", library, err)
+	}
 	corpus, err := store.PutCorpus(ctx, alice.ID, source.ID, artifact.ContentHash)
 	if err != nil {
 		t.Fatal(err)
+	}
+	library, err = store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzed" || library[0].CorpusID != corpus.ID {
+		t.Fatalf("alice library after analysis: books=%v err=%v", library, err)
 	}
 	if _, err = store.GetCorpus(ctx, bob.ID, corpus.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob read alice corpus: %v", err)

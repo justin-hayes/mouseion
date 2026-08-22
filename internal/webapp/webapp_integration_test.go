@@ -134,6 +134,10 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	csrfCookieValue = cookieNamed(t, login.Result().Cookies(), csrfCookie)
 	csrf = csrfCookieValue.Value
 	cookies := []*http.Cookie{csrfCookieValue, session}
+	home := perform(t, h, "GET", "/", nil, cookies)
+	if home.Code != http.StatusSeeOther || home.Header().Get("Location") != "/library" {
+		t.Fatalf("home=%d location=%q", home.Code, home.Header().Get("Location"))
+	}
 	browse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID, nil, cookies)
 	if browse.Code != 200 || !strings.Contains(browse.Body.String(), "Test Book") {
 		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
@@ -150,6 +154,21 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	if recorder.owner != alice.ID || recorder.source == "" {
 		t.Fatalf("analysis wiring owner=%q source=%q", recorder.owner, recorder.source)
 	}
+	library := perform(t, h, "GET", "/library", nil, cookies)
+	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "not analyzed") {
+		t.Fatalf("library=%d %s", library.Code, library.Body.String())
+	}
+	bookPage := perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
+	if bookPage.Code != 200 || !strings.Contains(bookPage.Body.String(), "Submit to analysis") {
+		t.Fatalf("book=%d %s", bookPage.Code, bookPage.Body.String())
+	}
+	if got := perform(t, h, "POST", "/books/"+recorder.source+"/analyze", nil, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("analysis without csrf=%d", got.Code)
+	}
+	resubmitted := perform(t, h, "POST", "/books/"+recorder.source+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if resubmitted.Code != http.StatusSeeOther || recorder.owner != alice.ID || recorder.source == "" {
+		t.Fatalf("resubmit=%d owner=%q source=%q", resubmitted.Code, recorder.owner, recorder.source)
+	}
 	jobPage := perform(t, h, "GET", "/jobs/42", nil, cookies)
 	if jobPage.Code != 200 || !strings.Contains(jobPage.Body.String(), "Succeeded") {
 		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
@@ -164,6 +183,10 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	corpus, err := store.PutCorpus(ctx, alice.ID, recorder.source, artifactHash)
 	if err != nil {
 		t.Fatal(err)
+	}
+	library = perform(t, h, "GET", "/library", nil, cookies)
+	if library.Code != 200 || !strings.Contains(library.Body.String(), "analyzed") {
+		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
 	}
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, alice.ID); err != nil {
 		t.Fatal(err)
@@ -195,6 +218,9 @@ func TestLoginBrowseAcquireAndOwnerScoping(t *testing.T) {
 	}
 
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("bob read alice book: %d", got.Code)
+	}
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)
 	}
