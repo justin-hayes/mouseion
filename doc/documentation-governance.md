@@ -11,22 +11,22 @@ The vault and the repo serve different roles and are **not** kept in sync. Diver
 
 The flow is **vault → repo, at promotion events only.** Content is never copied repo → vault. The vault accumulates and is messy; the repo reflects current truth.
 
-## ADRs live only in the repo
+## ADRs live only in the GitHub repo
 
-Architecture Decision Records are the canonical record of "we decided X." They live with the code they describe, so they belong **only** in this repository (`doc/adr/`). They are never duplicated in the vault.
+Architecture Decision Records are the canonical record of "we decided X." They live with the code they describe, so they belong **only** in this repository (`doc/adr/`). They are **never duplicated in the vault** — and the vault does **not** keep ADR pointers either. All ADR references (pointers, links, index notes) live in the GitHub repos; the Obsidian vault is a place for raw thinking and session write-ups, not for ADRs or pointers to them.
 
-In the vault, keep a **pointer**, not a copy: the session or index note records *that* a decision was made and *where* it lives (e.g. "Decision X → promoted; see mouseion ADR 0002"). It never re-states the decision.
+If a decision's existence needs to be referenced outside the repo, point at the GitHub repo/ADR URL directly rather than maintaining a mirror in the vault.
 
 ## The Decision Register
 
-The repo's Decision Register is authoritative. The vault may carry a working/planning register as a roadmap of what is still undecided, but once a decision is accepted and promoted, its vault row becomes a status + pointer to the repo ADR — not a restatement.
+The repo's Decision Register is authoritative. The vault may carry a working/planning register as a roadmap of what is still undecided, but once a decision is accepted and promoted, it is referenced **only** by the repo ADR — the vault does not restate it or hold a pointer to it.
 
 ## Practical rules
 
 1. New sessions and brainstorming go in the vault as-is. Do not also write them to the repo.
-2. When a requirement or decision stabilizes, **promote** a simplified version to the repo (product.md, an ADR, or both). Update the originating vault note to a pointer.
+2. When a requirement or decision stabilizes, **promote** a simplified version to the repo (product.md, an ADR, or both). The vault note that originated it needs no ADR pointer — leave it as raw thinking, or link to the repo ADR URL if a link is helpful.
 3. Never edit an ADR in the vault. ADRs are edited only in the repo; a superseded decision gets a new ADR that amends it.
-4. If you find the same decision documented in both places, the repo is authoritative — fix the vault to a pointer, not the repo to match the vault.
+4. If you find the same decision documented in both places, the repo is authoritative — remove or ignore the vault copy, do not try to keep them in sync.
 5. When unsure whether something belongs in the vault or the repo, ask: *is it stable and implementable, or still being worked out?* Stable → repo. Working → vault.
 
 ## Rationale
