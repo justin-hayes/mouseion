@@ -5,6 +5,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/review"
 )
@@ -24,7 +25,7 @@ document.addEventListener('htmx:responseError', function (evt) {
 });
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
-		<ul><li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li>
+		<ul><li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/known-vocab">Known words</a></li>
 		if user.IsAdmin {
 			<li><details class="dropdown"><summary>Admin</summary><ul><li><a href="/languages">Languages</a></li><li><a href="/connections">Catalog connections</a></li><li><a href="/admin/users">Users</a></li><li><a href="/admin/frequency">Frequency</a></li></ul></details></li>
 		}
@@ -68,7 +69,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		} else {
 			<button disabled>Available after analysis</button>
 		}
-	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck.</p>
+	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck. Import words you already know so the deck contains only new vocabulary.</p><p><a href={ templ.URL("/known-vocab?language="+book.Source.Language) }>Import known words</a></p>
 		if book.AnalysisStatus == "analyzed" {
 			<a role="button" href={ templ.URL("/deck?book="+book.Source.ID) }>Configure deck</a>
 		} else {
@@ -219,6 +220,49 @@ templ ReviewItem(csrf string, item review.Item) {
 templ ReviewIdentity(item review.Item) { <input type="hidden" name="language" value={ item.Candidate.Candidate.Identity.Language }/><input type="hidden" name="lemma" value={ item.Candidate.Candidate.Identity.CanonicalLemma }/><input type="hidden" name="upos" value={ item.Candidate.Candidate.Identity.UPOS }/> }
 templ ReviewAction(csrf string, item review.Item, action, label string) { <form method="post" action={ templ.SafeURL("/review/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<button>{ label }</button></form> }
 templ DeckPage(user domain.User, csrf string) { @Layout("Deck", &user, csrf) { <h1>Anki deck</h1><p>Download accepted, curated vocabulary as UTF-8 tab-separated notes.</p><form method="get" action="/deck/download"><label>Deck name<input name="name" value="Mouseion" required/></label><button>Download Anki TSV</button></form><details><summary>Note type setup</summary><pre>{ cardexport.NoteTypeDefinition() }</pre></details> } }
+templ KnownVocabPage(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, known []domain.KnownVocabulary) {
+	@KnownVocabPageWithResult(user, csrf, profiles, language, nil, known, "")
+}
+templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	@Layout("Known vocabulary", &user, csrf) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
+	<article><form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-target="#known-vocab-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>Language code<input name="language" value={ language } list="study-languages" placeholder="de" required/></label><datalist id="study-languages">
+	for _, profile := range profiles {
+		<option value={ profile.Language }>{ profile.DisplayName }</option>
+	}
+	</datalist><label>Paste lemma list<textarea name="vocabulary" rows="10" placeholder={ "Haus\ngehen\tVERB" }></textarea></label><label>Or upload a UTF-8 text file<input type="file" name="vocabulary_file" accept="text/plain,.txt,.tsv"/></label><small>One lemma per line, optionally followed by a tab and Universal POS tag.</small><button>Import known words</button></form></article><section id="known-vocab-results">@KnownVocabResult(language, result, known, message)</section> }
+}
+templ KnownVocabResult(language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	if message != "" {
+		<p role="alert">{ message }</p>
+	}
+	if result != nil {
+		<article><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d imported", result.Imported) }</strong> · { fmt.Sprintf("%d already known", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
+		if len(result.Rejected) > 0 {
+			<h3>Rejected rows</h3><table><thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
+			for _, rejection := range result.Rejected {
+				<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+			}
+			</tbody></table>
+		}
+		</article>
+	}
+	<h2>Previously imported
+	if language != "" {
+		<small> · { language }</small>
+	}
+	</h2>
+	if language == "" {
+		<p>Choose a language to view known vocabulary.</p>
+	} else if len(known) == 0 {
+		<p>No known vocabulary imported for this language yet.</p>
+	} else {
+		<table><thead><tr><th>Lemma</th><th>Part of speech</th><th>Imported</th></tr></thead><tbody>
+		for _, entry := range known {
+			<tr><td>{ entry.CanonicalLemma }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
+		}
+		</tbody></table>
+	}
+}
 templ AdminFrequencyPage(user domain.User, csrf string, datasets []domain.FrequencyDataset, language, message string) {
 	@Layout("Frequency resources", &user, csrf) { <h1>Frequency resources</h1>
 	if message != "" {
