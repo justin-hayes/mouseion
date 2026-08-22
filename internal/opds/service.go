@@ -10,10 +10,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 )
 
-var ErrUnauthenticated = errors.New("opds: authenticated owner is required")
+var ErrUnauthenticated = errors.New("opds: authenticated user is required")
 
 type ConnectionStore interface {
-	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
+	GetOpdsConnection(context.Context, string) (domain.OpdsConnection, error)
 }
 type Importer interface {
 	Import(context.Context, string, string, []byte) (epub.ImportResult, error)
@@ -28,7 +28,7 @@ func NewService(store ConnectionStore, importer Importer, httpClient *http.Clien
 	return &Service{store: store, importer: importer, http: httpClient}
 }
 func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL string) (Feed, error) {
-	connection, client, err := s.client(ctx, ownerID, connectionID)
+	connection, client, err := s.client(ctx, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -38,14 +38,17 @@ func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL str
 	return client.List(ctx, feedURL)
 }
 func (s *Service) Search(ctx context.Context, ownerID, connectionID, query string) (Feed, error) {
-	connection, client, err := s.client(ctx, ownerID, connectionID)
+	connection, client, err := s.client(ctx, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
 	return client.Search(ctx, connection.URL, query)
 }
 func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, entry Entry) (epub.ImportResult, error) {
-	connection, client, err := s.client(ctx, ownerID, connectionID)
+	if ownerID == "" {
+		return epub.ImportResult{}, ErrUnauthenticated
+	}
+	connection, client, err := s.client(ctx, connectionID)
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
@@ -63,13 +66,10 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, ent
 	}
 	return result, nil
 }
-func (s *Service) client(ctx context.Context, ownerID, connectionID string) (domain.OpdsConnection, *Client, error) {
-	if ownerID == "" {
-		return domain.OpdsConnection{}, nil, ErrUnauthenticated
-	}
-	connection, err := s.store.GetOpdsConnection(ctx, ownerID, connectionID)
+func (s *Service) client(ctx context.Context, connectionID string) (domain.OpdsConnection, *Client, error) {
+	connection, err := s.store.GetOpdsConnection(ctx, connectionID)
 	if err != nil {
-		return domain.OpdsConnection{}, nil, fmt.Errorf("opds: load owner connection: %w", err)
+		return domain.OpdsConnection{}, nil, fmt.Errorf("opds: load connection: %w", err)
 	}
 	client := NewClient(s.http, Auth{Username: connection.Username, Password: connection.Password, Origin: connection.URL})
 	return connection, client, nil

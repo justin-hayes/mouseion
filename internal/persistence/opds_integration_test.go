@@ -11,7 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func TestOpdsConnectionCRUDEncryptionAndOwnership(t *testing.T) {
+func TestOpdsConnectionCRUDEncryptionAndSharedAccess(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	ctx := context.Background()
 	databaseURL := integrationDatabase(t, ctx)
@@ -20,19 +20,11 @@ func TestOpdsConnectionCRUDEncryptionAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	alice, err := store.CreateUser(ctx, "opds-alice", false)
+	created, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{Name: "Home library", URL: "https://books.example/opds", Username: "reader", Password: "plain-password-must-not-be-stored", Language: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bob, err := store.CreateUser(ctx, "opds-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	created, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{OwnerID: alice.ID, Name: "Home library", URL: "https://books.example/opds", Username: "reader", Password: "plain-password-must-not-be-stored", Language: "de"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if created.OwnerID != alice.ID || created.Password != "plain-password-must-not-be-stored" {
+	if created.Password != "plain-password-must-not-be-stored" {
 		t.Fatalf("created=%+v", created)
 	}
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -47,34 +39,24 @@ func TestOpdsConnectionCRUDEncryptionAndOwnership(t *testing.T) {
 	if string(encrypted) == created.Password || len(encrypted) <= len(created.Password) {
 		t.Fatalf("credential not encrypted: %q", encrypted)
 	}
-	got, err := store.GetOpdsConnection(ctx, alice.ID, created.ID)
+	got, err := store.GetOpdsConnection(ctx, created.ID)
 	if err != nil || got.Password != created.Password {
 		t.Fatalf("round trip=%+v err=%v", got, err)
 	}
-	if _, err = store.GetOpdsConnection(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Bob read Alice connection: %v", err)
-	}
-	if listed, err := store.ListOpdsConnections(ctx, bob.ID); err != nil || len(listed) != 0 {
-		t.Fatalf("Bob list=%+v err=%v", listed, err)
+	if listed, err := store.ListOpdsConnections(ctx); err != nil || len(listed) != 1 || listed[0].ID != created.ID {
+		t.Fatalf("shared list=%+v err=%v", listed, err)
 	}
 	created.Name = "Updated"
 	created.URL = "https://books.example/new-opds"
 	created.Password = "new-password"
-	updated, err := store.UpdateOpdsConnection(ctx, alice.ID, created)
+	updated, err := store.UpdateOpdsConnection(ctx, created)
 	if err != nil || updated.Name != "Updated" || updated.Password != "new-password" || !updated.UpdatedAt.After(updated.CreatedAt) {
 		t.Fatalf("updated=%+v err=%v", updated, err)
 	}
-	created.Name = "Stolen"
-	if _, err = store.UpdateOpdsConnection(ctx, bob.ID, created); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Bob updated Alice connection: %v", err)
-	}
-	if err = store.DeleteOpdsConnection(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Bob deleted Alice connection: %v", err)
-	}
-	if err = store.DeleteOpdsConnection(ctx, alice.ID, created.ID); err != nil {
+	if err = store.DeleteOpdsConnection(ctx, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.GetOpdsConnection(ctx, alice.ID, created.ID); !errors.Is(err, ErrNotFound) {
+	if _, err = store.GetOpdsConnection(ctx, created.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted connection read: %v", err)
 	}
 }

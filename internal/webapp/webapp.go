@@ -36,10 +36,10 @@ type Store interface {
 	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
 	CreateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
-	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
-	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
-	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
-	DeleteOpdsConnection(context.Context, string, string) error
+	GetOpdsConnection(context.Context, string) (domain.OpdsConnection, error)
+	ListOpdsConnections(context.Context) ([]domain.OpdsConnection, error)
+	UpdateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
+	DeleteOpdsConnection(context.Context, string) error
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
@@ -100,9 +100,13 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /languages", h.user(http.HandlerFunc(h.languages)))
 	h.mux.Handle("POST /languages", h.user(http.HandlerFunc(h.saveLanguage)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.connections)))
+	h.mux.Handle("GET /admin/connections", h.user(http.HandlerFunc(h.adminConnections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
+	h.mux.Handle("POST /admin/connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
+	h.mux.Handle("POST /admin/connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
+	h.mux.Handle("POST /admin/connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("GET /catalog", h.user(http.HandlerFunc(h.catalog)))
 	h.mux.Handle("GET /opds/browse", h.user(http.HandlerFunc(h.browse)))
 	h.mux.Handle("GET /opds/search", h.user(http.HandlerFunc(h.search)))
@@ -308,31 +312,47 @@ func (h *Handler) saveLanguage(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	c, e := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
+	c, e := h.services.Store.ListOpdsConnections(r.Context())
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	render(w, r, ConnectionsPage(u, h.csrf(w, r), c, r.URL.Query().Get("message")))
+	render(w, r, ConnectionsPage(u, h.csrf(w, r), c))
+}
+func (h *Handler) adminConnections(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	c, e := h.services.Store.ListOpdsConnections(r.Context())
+	if e != nil {
+		fail(w, e)
+		return
+	}
+	render(w, r, AdminConnectionsPage(u, h.csrf(w, r), c, r.URL.Query().Get("message")))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
-	_, e := h.services.Store.CreateOpdsConnection(r.Context(), domain.OpdsConnection{OwnerID: u.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password"), Language: strings.TrimSpace(r.FormValue("language"))})
+	if _, ok := h.requireAdmin(w, r); !ok {
+		return
+	}
+	_, e := h.services.Store.CreateOpdsConnection(r.Context(), domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password"), Language: strings.TrimSpace(r.FormValue("language"))})
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/connections?message=Catalog+added")
+	redirect(w, r, "/admin/connections?message=Catalog+added")
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
-	current, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.PathValue("id"))
+	if _, ok := h.requireAdmin(w, r); !ok {
+		return
+	}
+	current, e := h.services.Store.GetOpdsConnection(r.Context(), r.PathValue("id"))
 	if e != nil {
 		http.NotFound(w, r)
 		return
@@ -341,27 +361,29 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if password == "" {
 		password = current.Password
 	}
-	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, OwnerID: u.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
+	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/connections?message=Catalog+updated")
+	redirect(w, r, "/admin/connections?message=Catalog+updated")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
-	if e := h.services.Store.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
+	if _, ok := h.requireAdmin(w, r); !ok {
+		return
+	}
+	if e := h.services.Store.DeleteOpdsConnection(r.Context(), r.PathValue("id")); e != nil {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/connections?message=Catalog+deleted")
+	redirect(w, r, "/admin/connections?message=Catalog+deleted")
 }
 func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	c, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.URL.Query().Get("connection"))
+	c, e := h.services.Store.GetOpdsConnection(r.Context(), r.URL.Query().Get("connection"))
 	if e != nil {
 		http.NotFound(w, r)
 		return
