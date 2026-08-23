@@ -22,10 +22,46 @@ document.addEventListener('htmx:responseError', function (evt) {
   target.innerHTML = '<article role="alert"><strong>Catalog error:</strong> ' + window.escapeHtml(text) + '<p><small>Review the catalog connection or try again.</small></p></article>';
 });
 document.addEventListener('submit', function (evt) {
-  var form = evt.target.closest && evt.target.closest('form[data-acquire], form[data-generate-deck]');
+  var form = evt.target.closest && evt.target.closest('form[data-acquire]');
   if (!form) return;
   var button = form.querySelector('button[type="submit"]');
-  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = form.hasAttribute('data-generate-deck') ? 'Generating deck…' : 'Importing & analyzing…'; }
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Importing & analyzing…'; }
+});
+document.addEventListener('submit', async function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-generate-deck]');
+  if (!form) return;
+  evt.preventDefault();
+  var button = form.querySelector('button[type="submit"]');
+  var originalText = button ? button.textContent : 'Generate deck';
+  var previousError = form.querySelector('[data-deck-error]');
+  if (previousError) previousError.remove();
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Generating deck…'; }
+  try {
+    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin'});
+    if (!response.ok) {
+      var detail = (await response.text()).trim();
+      throw new Error(detail || ('Request failed with status ' + response.status));
+    }
+    var blob = await response.blob();
+    var disposition = response.headers.get('Content-Disposition') || '';
+    var match = disposition.match(/filename="?([^";]+)"?/i);
+    var link = document.createElement('a');
+    var objectURL = URL.createObjectURL(blob);
+    link.href = objectURL;
+    link.download = match ? match[1] : 'mouseion-anki.tsv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(objectURL); }, 0);
+  } catch (error) {
+    var alert = document.createElement('p');
+    alert.setAttribute('role', 'alert');
+    alert.setAttribute('data-deck-error', '');
+    alert.textContent = 'Deck generation failed: ' + (error && error.message ? error.message : 'Please try again.');
+    form.appendChild(alert);
+  } finally {
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = originalText; }
+  }
 });
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
