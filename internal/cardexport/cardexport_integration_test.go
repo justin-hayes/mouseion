@@ -45,6 +45,7 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 		return source.ID
 	}
 	aliceBook := seed(alice, "export-a", "Haus", "Das Haus ist groß.")
+	aliceSecondBook := seed(alice, "export-a-second", "Haus", "Dieses Haus ist klein.")
 	seed(bob, "export-b", "Baum", "Der Baum ist groß.")
 	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBook)
 	if err != nil {
@@ -74,6 +75,13 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits)
 	if cards != 1 || audits != 1 {
 		t.Fatalf("idempotence cards=%d audits=%d", cards, audits)
+	}
+	secondBook, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceSecondBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secondBook.Count != 0 || contains(secondBook.TSV, "Haus") {
+		t.Fatalf("generated vocabulary leaked into second book: %+v", secondBook)
 	}
 }
 
