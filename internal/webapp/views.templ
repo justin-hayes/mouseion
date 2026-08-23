@@ -71,15 +71,9 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			<p>Analyze the text to prepare vocabulary candidates.</p>
 		}
 		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button></form>
-	</article><article><h2>Review vocabulary</h2><p>Review and curate vocabulary from this book.</p>
+	</article><article><h2>Review and export vocabulary</h2><p>Decide which words from this book belong in your Anki deck, then export the included words.</p>
 		if book.AnalysisStatus == "analyzed" {
 			<a role="button" href={ templ.URL("/review?book="+book.Source.ID) }>Start review</a>
-		} else {
-			<button disabled>Available after analysis</button>
-		}
-	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck. Known vocabulary from your account settings is excluded when filtering is enabled.</p><p><a href={ templ.URL("/settings?language="+book.Source.Language) }>Manage known words in settings</a></p>
-		if book.AnalysisStatus == "analyzed" {
-			<a role="button" href={ templ.URL("/deck?book="+book.Source.ID) }>Configure deck</a>
 		} else {
 			<button disabled>Available after analysis</button>
 		}
@@ -285,25 +279,37 @@ templ JobStatus(status analysis.Status) {
 			<p role="alert"><strong>Action needed:</strong> { status.Error } <a href="/connections">Check the source catalog and try importing again.</a></p>
 		}
 		if status.CorpusID != "" {
-			<p>Analysis complete. <a href="/review">Continue to vocabulary review</a>.</p>
+			<p>Analysis complete. <a href="/library">Choose the book in My Library to review its vocabulary.</a></p>
 		}
 	</article>
 }
-templ ReviewPage(user domain.User, csrf string, items []review.Item, message string) {
-	@Layout("Review", &user, csrf) { <h1>Vocabulary review</h1><p>Ranked candidates resume where you left off.</p>
+templ ReviewPage(user domain.User, csrf string, book domain.SourceMaterialSummary, query review.Query, page review.Page, message string) {
+	@Layout("Review", &user, csrf) { <p><a href={ templ.SafeURL("/books/"+book.Source.ID) }>← { book.Source.Title }</a></p><h1>Choose words for { book.Source.Title }</h1><p>Include words in this book's Anki deck, add familiar words to your known vocabulary, or ignore words without a useful example.</p>
 	if message != "" {
-		<p role="alert">{ message }</p>
+		<p role="status">{ message }</p>
 	}
-	if len(items) == 0 {
-		<article><p>No actionable candidates are ready.</p></article>
+	<article><form method="get" action="/review"><input type="hidden" name="book" value={ book.Source.ID }/><div class="grid"><label>Lemma<input type="search" name="lemma" value={ query.Lemma } placeholder="Filter words"/></label><label>Part of speech<input name="upos" value={ query.UPOS } placeholder="e.g. NOUN"/></label><label>Decision<select name="decision"><option value="" selected?={ query.Decision == "" }>All</option><option value="candidate" selected?={ query.Decision == "candidate" }>Undecided</option><option value="accepted" selected?={ query.Decision == "accepted" }>Included</option><option value="known" selected?={ query.Decision == "known" }>Known</option><option value="ignored" selected?={ query.Decision == "ignored" }>Ignored</option></select></label><label>Sort<select name="sort"><option value="encounter" selected?={ query.Sort == "" || query.Sort == "encounter" }>First encounter</option><option value="book" selected?={ query.Sort == "book" }>Frequency in book</option><option value="global" selected?={ query.Sort == "global" }>Corpus frequency</option><option value="lemma" selected?={ query.Sort == "lemma" }>Lemma</option></select></label></div><button class="outline">Apply</button></form></article>
+	<p>{ fmt.Sprintf("Showing %d word(s) · page %d of %d", page.Total, page.Page, reviewPageCount(page)) }</p>
+	if len(page.Items) == 0 {
+		<article><p>No words match these filters.</p></article>
 	}
-	for _, item := range items {
-		@ReviewItem(csrf, item)
+	for _, item := range page.Items {
+		@ReviewItem(csrf, book.Source.ID, reviewURL(book.Source.ID, query, page.Page), item)
 	}
+	<nav aria-label="Review pages"><ul>
+	if page.Page > 1 {
+		<li><a href={ templ.URL(reviewURL(book.Source.ID, query, page.Page-1)) }>← Previous</a></li>
+	}
+	if page.Page < reviewPageCount(page) {
+		<li><a href={ templ.URL(reviewURL(book.Source.ID, query, page.Page+1)) }>Next →</a></li>
+	}
+	</ul></nav>
+	<article><h2>Ready to export?</h2><p>The deck contains only words marked Included; known and ignored words are excluded.</p><form method="post" action="/deck/download"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="book" value={ book.Source.ID }/><input type="hidden" name="ranking" value="encounter"/><input type="hidden" name="filter_known" value="true"/><label>Deck name<input name="name" value={ book.Source.Title } required/></label><button>Download included words</button></form><details><summary>Anki note type setup</summary><pre>{ cardexport.NoteTypeDefinition() }</pre></details></article>
 	}
 }
-templ ReviewItem(csrf string, item review.Item) {
+templ ReviewItem(csrf, bookID, returnTo string, item review.Item) {
 	<article id={ "candidate-"+item.Candidate.Candidate.Identity.CanonicalLemma }><header><h2>{ item.Candidate.Candidate.Identity.CanonicalLemma } <small>{ item.Candidate.Candidate.Identity.UPOS }</small></h2><p>{ fmt.Sprintf("Rank score %.3f · global %.2f · corpus %.2f · across %d text(s)", item.Candidate.Components.Score, item.Candidate.Components.GlobalPercentile, item.Candidate.Components.CorpusPercentile, item.Candidate.Components.CrossText) }</p></header>
+	<p><strong>Decision:</strong> { decisionLabel(item.State) } · { fmt.Sprintf("%d occurrence(s) · first offset %d", item.Candidate.Candidate.OccurrenceCount, item.FirstEncounter) }</p>
 	if item.Enrichment.Translation.Available {
 		<p><strong>Translation:</strong> { item.Enrichment.Translation.Value }</p>
 	}
@@ -314,21 +320,22 @@ templ ReviewItem(csrf string, item review.Item) {
 		<p><strong>Pronunciation:</strong> { item.Enrichment.Pronunciation.Value }</p>
 	}
 	if item.Sentences.Chosen != nil {
-		<blockquote>{ item.Sentences.Chosen.Text }</blockquote><form method="post" action="/review/edit"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<label>Edit example<input name="sentence" value={ item.Sentences.Chosen.Text } required/></label><button class="outline">Save example</button></form>
+		<blockquote>{ item.Sentences.Chosen.Text }</blockquote><form method="post" action="/review/edit"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewContext(bookID, returnTo) @ReviewIdentity(item)<label>Edit example<input name="sentence" value={ item.Sentences.Chosen.Text } required/></label><button class="outline">Save example</button></form>
 	}
 	if len(item.Sentences.Alternatives) > 0 {
 		<details><summary>Alternate sentences</summary>
 		for i, alternate := range item.Sentences.Alternatives {
-			<form method="post" action="/review/alternate"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<input type="hidden" name="alternate" value={ fmt.Sprintf("%d", i) }/><button class="outline">{ alternate.Text }</button></form>
+			<form method="post" action="/review/alternate"><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewContext(bookID, returnTo) @ReviewIdentity(item)<input type="hidden" name="alternate" value={ fmt.Sprintf("%d", i) }/><button class="outline">{ alternate.Text }</button></form>
 		}
 		</details>
 	}
 	<footer><div class="grid">
-		@ReviewAction(csrf, item, "accept", "Accept") @ReviewAction(csrf, item, "ignore", "Ignore") @ReviewAction(csrf, item, "known", "Mark known") @ReviewAction(csrf, item, "reset", "Reset")
+		@ReviewAction(csrf, bookID, returnTo, item, "accept", "Include") @ReviewAction(csrf, bookID, returnTo, item, "known", "Known") @ReviewAction(csrf, bookID, returnTo, item, "ignore", "Ignore") @ReviewAction(csrf, bookID, returnTo, item, "reset", "Undecided")
 	</div></footer></article>
 }
 templ ReviewIdentity(item review.Item) { <input type="hidden" name="language" value={ item.Candidate.Candidate.Identity.Language }/><input type="hidden" name="lemma" value={ item.Candidate.Candidate.Identity.CanonicalLemma }/><input type="hidden" name="upos" value={ item.Candidate.Candidate.Identity.UPOS }/> }
-templ ReviewAction(csrf string, item review.Item, action, label string) { <form method="post" action={ templ.SafeURL("/review/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewIdentity(item)<button>{ label }</button></form> }
+templ ReviewContext(bookID, returnTo string) { <input type="hidden" name="book" value={ bookID }/><input type="hidden" name="return_to" value={ returnTo }/> }
+templ ReviewAction(csrf, bookID, returnTo string, item review.Item, action, label string) { <form method="post" action={ templ.SafeURL("/review/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/>@ReviewContext(bookID, returnTo) @ReviewIdentity(item)<button>{ label }</button></form> }
 templ DeckPage(user domain.User, csrf string, book domain.SourceMaterialSummary) { @Layout("Deck", &user, csrf) { <p><a href={ templ.SafeURL("/books/"+book.Source.ID) }>← { book.Source.Title }</a></p><h1>Configure Anki deck</h1><p>Choose which accepted vocabulary from this book to include and how to prioritize it.</p><article><form method="post" action="/deck/download"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="book" value={ book.Source.ID }/><label>Deck name<input name="name" value={ book.Source.Title } required/></label><fieldset><label><input type="checkbox" name="filter_known" value="true" checked/> Filter known words</label><small>Exclude lemmas in your { book.Source.Language } known-word list, including entries that apply to every part of speech.</small></fieldset><fieldset><legend>Ordering</legend><label><input type="radio" name="ranking" value="encounter" checked/> First encounter</label><small>Study words in the order they first appear as you read this book.</small><label><input type="radio" name="ranking" value="balanced"/> Balanced ranking</label><small>60% broader language-corpus frequency, 30% frequency in this book, plus priority and cross-text signals.</small><label><input type="radio" name="ranking" value="book"/> Frequency in this book</label><label><input type="radio" name="ranking" value="global"/> Broader language-corpus frequency</label></fieldset><button>Download Anki TSV</button></form></article><details><summary>Note type setup</summary><pre>{ cardexport.NoteTypeDefinition() }</pre></details> } }
 templ KnownVocabPage(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, known []domain.KnownVocabulary) {
 	@KnownVocabPageWithResult(user, csrf, profiles, language, nil, known, "")

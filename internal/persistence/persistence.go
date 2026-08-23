@@ -580,6 +580,25 @@ func (s *PostgresStore) ListReviewSentences(ctx context.Context, owner, lang, le
 	return out, rows.Err()
 }
 
+// ListReviewSentencesForBook binds curation to the source material currently
+// being reviewed, even when the same vocabulary identity occurs in other books.
+func (s *PostgresStore) ListReviewSentencesForBook(ctx context.Context, owner, bookID, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
+	rows, err := s.pool.Query(ctx, `SELECT e.id,e.owner_id,e.corpus_id,e.sentence_key,e.sentence_text,e.source_location,e.language,e.canonical_lemma,e.upos,e.selection_rank,e.selection_score,e.selection_reasons,e.is_chosen,e.created_at FROM example_sentences e JOIN corpora c ON c.owner_id=e.owner_id AND c.id=e.corpus_id WHERE e.owner_id=$1 AND c.source_material_id=$2 AND e.language=$3 AND e.canonical_lemma=$4 AND e.upos=$5 ORDER BY e.is_chosen DESC,e.selection_rank,e.id`, owner, bookID, lang, lemma, upos)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.ExampleSentence
+	for rows.Next() {
+		var example domain.ExampleSentence
+		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, example)
+	}
+	return out, rows.Err()
+}
+
 // CurateReviewSentence atomically applies an optional owner-scoped text edit,
 // records the curated choice, and appends its audit provenance.
 func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, exampleID, lang, lemma, upos, editedText, notes string, history domain.ProcessingHistory) (v domain.CuratedSentence, err error) {
