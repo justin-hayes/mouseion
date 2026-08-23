@@ -36,6 +36,16 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 }
 
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {
+	return s.recordGenerated(ctx, owner, "", deckName, entry, note)
+}
+
+// RecordGeneratedForBook atomically persists the exported card and its first
+// generated-vocabulary provenance for the source material that produced it.
+func (s *PostgresStore) RecordGeneratedForBook(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
+	return s.recordGenerated(ctx, owner, bookID, deckName, entry, note)
+}
+
+func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -59,6 +69,13 @@ func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName str
 	if _, err = tx.Exec(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_id,dedup_key) DO UPDATE SET deck_id=excluded.deck_id,front=excluded.front,back=excluded.back`, owner, deckID, note.Key, entry.CanonicalLemma, entry.UPOS, note.Text, note.BackExtra); err != nil {
 		return err
 	}
+	var sourceMaterialID *string
+	if bookID != "" {
+		sourceMaterialID = &bookID
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS, deckID, sourceMaterialID); err != nil {
+		return err
+	}
 	if state != "generated" {
 		if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET state='generated',updated_at=now() WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
 			return err
@@ -70,4 +87,37 @@ func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName str
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// RecordGeneratedVocabulary records first provenance for an owner-scoped
+// vocabulary identity. Repeated records intentionally preserve the first row.
+func (s *PostgresStore) RecordGeneratedVocabulary(ctx context.Context, value domain.GeneratedVocabulary) (domain.GeneratedVocabulary, error) {
+	_, err := s.pool.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS, value.FirstDeckID, value.FirstSourceMaterialID)
+	if err != nil {
+		return domain.GeneratedVocabulary{}, err
+	}
+	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS)
+}
+
+func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, language, lemma, upos string) (value domain.GeneratedVocabulary, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT owner_id::text,language,canonical_lemma,upos,first_deck_id::text,first_source_material_id::text,first_generated_at FROM generated_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, language, lemma, upos).Scan(&value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.FirstDeckID, &value.FirstSourceMaterialID, &value.FirstGeneratedAt)
+	err = missing(err)
+	return
+}
+
+func (s *PostgresStore) ListGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,language,canonical_lemma,upos,first_deck_id::text,first_source_material_id::text,first_generated_at FROM generated_vocabulary WHERE owner_id=$1 AND language=$2 ORDER BY canonical_lemma,upos`, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.GeneratedVocabulary
+	for rows.Next() {
+		var value domain.GeneratedVocabulary
+		if err := rows.Scan(&value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.FirstDeckID, &value.FirstSourceMaterialID, &value.FirstGeneratedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
 }

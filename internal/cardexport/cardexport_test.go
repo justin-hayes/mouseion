@@ -42,8 +42,11 @@ func (m *memoryStore) GetCoverageEntryForBook(_ context.Context, owner, _ string
 	return Entry{}, errors.New("missing entry")
 }
 
-func (m *memoryStore) RecordGenerated(_ context.Context, owner, _ string, e Entry, n Note) error {
+func (m *memoryStore) RecordGeneratedForBook(_ context.Context, owner, bookID, _ string, e Entry, n Note) error {
 	if owner != e.OwnerID {
+		return ErrInvalidInput
+	}
+	if bookID != m.bookID {
 		return ErrInvalidInput
 	}
 	m.generated = append(m.generated, n)
