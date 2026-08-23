@@ -110,3 +110,34 @@ func TestOPDSErrorsAreActionable(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateDeckFormHasReliableDownloadStateHandling(t *testing.T) {
+	var output bytes.Buffer
+	book := domain.SourceMaterialSummary{
+		Source:         domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"},
+		AnalysisStatus: "analyzed",
+	}
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{
+		`form[data-generate-deck]`,
+		`evt.preventDefault()`,
+		`await fetch(form.action`,
+		`if (!response.ok)`,
+		`await response.blob()`,
+		`link.download`,
+		`data-deck-error`,
+		`} finally {`,
+		`button.disabled = false`,
+		`button.removeAttribute('aria-busy')`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("deck page missing client behavior %q", want)
+		}
+	}
+	if strings.Contains(html, `form[data-acquire], form[data-generate-deck]`) {
+		t.Error("deck form still shares the acquisition submit handler")
+	}
+}
