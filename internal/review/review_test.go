@@ -17,12 +17,13 @@ import (
 type fakeStore struct {
 	states   map[string]domain.VocabularyState
 	examples map[string][]domain.ExampleSentence
+	analysis map[string]domain.ExampleSentence
 	curated  []domain.CuratedSentence
 	history  []domain.ProcessingHistory
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{states: map[string]domain.VocabularyState{}, examples: map[string][]domain.ExampleSentence{}}
+	return &fakeStore{states: map[string]domain.VocabularyState{}, examples: map[string][]domain.ExampleSentence{}, analysis: map[string]domain.ExampleSentence{}}
 }
 func fakeKey(owner, lang, lemma, upos string) string {
 	return owner + ":" + lang + ":" + lemma + ":" + upos
@@ -36,6 +37,15 @@ func (s *fakeStore) GetVocabularyStateByIdentity(_ context.Context, owner, lang,
 }
 func (s *fakeStore) ListReviewSentences(_ context.Context, owner, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
 	return append([]domain.ExampleSentence(nil), s.examples[fakeKey(owner, lang, lemma, upos)]...), nil
+}
+func (s *fakeStore) PersistReviewSentenceFromAnalysis(_ context.Context, owner, _ string, lang, lemma, upos string) (domain.ExampleSentence, error) {
+	key := fakeKey(owner, lang, lemma, upos)
+	example, ok := s.analysis[key]
+	if !ok || example.Text == "" {
+		return domain.ExampleSentence{}, persistence.ErrNotFound
+	}
+	s.examples[key] = []domain.ExampleSentence{example}
+	return example, nil
 }
 func (s *fakeStore) CurateReviewSentence(_ context.Context, owner, example, lang, lemma, upos, edited, notes string, history domain.ProcessingHistory) (domain.CuratedSentence, error) {
 	key := fakeKey(owner, lang, lemma, upos)
@@ -137,6 +147,32 @@ func TestLifecycleReviewOperations(t *testing.T) {
 	}
 	if _, err := service.Accept(ctx, "", id); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("invalid owner: %v", err)
+	}
+}
+
+func TestAcceptFallsBackToAnalysisExample(t *testing.T) {
+	ctx := context.Background()
+	store := newFakeStore()
+	service := NewService(fakeLifecycle{store}, store)
+	id := vocabulary.Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	key := fakeKey("alice", "de", "Haus", "NOUN")
+	store.states[key] = domain.VocabularyState{OwnerID: "alice", State: "candidate"}
+	store.analysis[key] = domain.ExampleSentence{ID: "analysis", OwnerID: "alice", Text: "Das Haus ist alt.", Chosen: true}
+
+	got, err := service.Accept(ctx, "alice", id)
+	if err != nil || got.State != "accepted" || len(store.curated) != 1 || store.curated[0].ExampleSentenceID != "analysis" {
+		t.Fatalf("accept=%+v curated=%+v err=%v", got, store.curated, err)
+	}
+}
+
+func TestAcceptReturnsClearErrorWithoutAnyExample(t *testing.T) {
+	store := newFakeStore()
+	id := vocabulary.Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	store.states[fakeKey("alice", "de", "Haus", "NOUN")] = domain.VocabularyState{OwnerID: "alice", State: "candidate"}
+
+	_, err := NewService(fakeLifecycle{store}, store).Accept(context.Background(), "alice", id)
+	if !errors.Is(err, ErrNoAnalysisExample) {
+		t.Fatalf("accept error=%v", err)
 	}
 }
 

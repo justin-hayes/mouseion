@@ -7,10 +7,12 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -597,6 +599,55 @@ func (s *PostgresStore) ListReviewSentencesForBook(ctx context.Context, owner, b
 		out = append(out, example)
 	}
 	return out, rows.Err()
+}
+
+// PersistReviewSentenceFromAnalysis materializes the first sentence retained by
+// selection so review can curate it when sentence ranking persisted no choices.
+func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, owner, bookID, lang, lemma, upos string) (v domain.ExampleSentence, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(ctx)
+	var corpusID string
+	var refs []byte
+	query := `SELECT sc.corpus_id,sc.eligible_sentence_refs FROM selection_candidates sc JOIN corpora c ON c.owner_id=sc.owner_id AND c.id::text=sc.corpus_id WHERE sc.owner_id=$1 AND sc.language=$2 AND sc.canonical_lemma=$3 AND sc.upos=$4`
+	args := []any{owner, lang, lemma, upos}
+	if strings.TrimSpace(bookID) != "" {
+		query += ` AND c.source_material_id=$5`
+		args = append(args, bookID)
+	}
+	query += ` ORDER BY sc.selected_at DESC,sc.corpus_id DESC LIMIT 1`
+	if err = tx.QueryRow(ctx, query, args...).Scan(&corpusID, &refs); err != nil {
+		return v, missing(err)
+	}
+	var candidates []struct {
+		SentenceIndex int             `json:"sentence_index"`
+		Text          string          `json:"text"`
+		Location      json.RawMessage `json:"location"`
+	}
+	if err = json.Unmarshal(refs, &candidates); err != nil {
+		return v, err
+	}
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.Text) == "" {
+			continue
+		}
+		location := candidate.Location
+		if len(location) == 0 || string(location) == "null" {
+			location = json.RawMessage(`{}`)
+		}
+		sentenceKey := fmt.Sprintf("analysis:%d", candidate.SentenceIndex)
+		err = tx.QueryRow(ctx, `INSERT INTO example_sentences(owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,0,'[]',true) ON CONFLICT(owner_id,corpus_id,sentence_key) DO UPDATE SET sentence_text=excluded.sentence_text,source_location=excluded.source_location,language=excluded.language,canonical_lemma=excluded.canonical_lemma,upos=excluded.upos,selection_rank=excluded.selection_rank,selection_score=excluded.selection_score,selection_reasons=excluded.selection_reasons,is_chosen=true RETURNING id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at`, owner, corpusID, sentenceKey, candidate.Text, location, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.CorpusID, &v.SentenceKey, &v.Text, &v.SourceLocation, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.SelectionRank, &v.SelectionScore, &v.SelectionReasons, &v.Chosen, &v.CreatedAt)
+		if err != nil {
+			return v, err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return v, err
+		}
+		return v, nil
+	}
+	return v, ErrNotFound
 }
 
 // CurateReviewSentence atomically applies an optional owner-scoped text edit,

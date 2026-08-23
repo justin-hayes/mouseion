@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	ErrInvalidInput     = errors.New("review: invalid input")
-	ErrNoExample        = errors.New("review: no persisted example sentence")
-	ErrInvalidAlternate = errors.New("review: invalid alternate index")
+	ErrInvalidInput      = errors.New("review: invalid input")
+	ErrNoExample         = errors.New("review: no persisted example sentence")
+	ErrNoAnalysisExample = errors.New("review: no example sentence found in analysis result")
+	ErrInvalidAlternate  = errors.New("review: invalid alternate index")
 )
 
 // Item is the complete aggregate consumed by a review UI.
@@ -65,6 +66,9 @@ type Store interface {
 type scopedSentenceStore interface {
 	ListReviewSentencesForBook(context.Context, string, string, string, string, string) ([]domain.ExampleSentence, error)
 }
+type analysisSentenceStore interface {
+	PersistReviewSentenceFromAnalysis(context.Context, string, string, string, string, string) (domain.ExampleSentence, error)
+}
 
 type Service struct {
 	lifecycle Lifecycle
@@ -106,7 +110,21 @@ func (s *Service) Accept(ctx context.Context, owner string, id vocabulary.Identi
 func (s *Service) AcceptForBook(ctx context.Context, owner, bookID string, id vocabulary.Identity) (domain.VocabularyState, error) {
 	examples, err := s.examplesForBook(ctx, owner, bookID, id)
 	if err != nil {
-		return domain.VocabularyState{}, err
+		if !errors.Is(err, ErrNoExample) {
+			return domain.VocabularyState{}, err
+		}
+		store, ok := s.store.(analysisSentenceStore)
+		if !ok {
+			return domain.VocabularyState{}, ErrNoAnalysisExample
+		}
+		example, fallbackErr := store.PersistReviewSentenceFromAnalysis(ctx, owner, bookID, id.Language, id.CanonicalLemma, id.UPOS)
+		if fallbackErr != nil {
+			if errors.Is(fallbackErr, persistence.ErrNotFound) {
+				return domain.VocabularyState{}, ErrNoAnalysisExample
+			}
+			return domain.VocabularyState{}, fmt.Errorf("persist analysis example sentence: %w", fallbackErr)
+		}
+		examples = []domain.ExampleSentence{example}
 	}
 	if _, err = s.curate(ctx, owner, id, examples[0].ID, "", "chosen", "review.include"); err != nil {
 		return domain.VocabularyState{}, err
