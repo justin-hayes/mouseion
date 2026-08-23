@@ -106,6 +106,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /library", h.learner(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
+	h.mux.Handle("POST /books/{id}/deck", h.learner(http.HandlerFunc(h.generateDeck)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /languages", h.adminOnly(http.HandlerFunc(h.languages)))
 	h.mux.Handle("POST /languages", h.adminOnly(http.HandlerFunc(h.saveLanguage)))
@@ -130,11 +131,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /jobs/{id}/status", h.learner(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("GET /review", h.learner(http.HandlerFunc(h.reviewPage)))
 	h.mux.Handle("POST /review/{action}", h.learner(http.HandlerFunc(h.reviewAction)))
-	h.mux.Handle("GET /deck", h.learner(http.HandlerFunc(h.deck)))
 	h.mux.Handle("GET /known-vocab", h.learner(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.learner(http.HandlerFunc(h.importKnownVocab)))
-	h.mux.Handle("GET /deck/download", h.learner(http.HandlerFunc(h.downloadDeck)))
-	h.mux.Handle("POST /deck/download", h.learner(http.HandlerFunc(h.downloadDeck)))
 	h.mux.Handle("GET /admin", h.adminOnly(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.adminOnly(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.adminOnly(http.HandlerFunc(h.createUser)))
@@ -613,56 +611,10 @@ func (h *Handler) reviewPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pageNumber, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	query := review.Query{BookID: book.Source.ID, Lemma: r.URL.Query().Get("lemma"), UPOS: r.URL.Query().Get("upos"), Decision: r.URL.Query().Get("decision"), Sort: r.URL.Query().Get("sort"), Page: pageNumber, PageSize: 25}
-	page, err := h.services.Review.Present(r.Context(), u.ID, query)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, ReviewPage(u, h.csrf(w, r), book, query, page, r.URL.Query().Get("message")))
+	redirect(w, r, "/books/"+book.Source.ID)
 }
 func reviewIdentity(r *http.Request) vocabulary.Identity {
 	return vocabulary.Identity{Language: strings.TrimSpace(r.FormValue("language")), CanonicalLemma: strings.TrimSpace(r.FormValue("lemma")), UPOS: strings.TrimSpace(r.FormValue("upos"))}
-}
-func reviewPageCount(page review.Page) int {
-	if page.PageSize < 1 || page.Total == 0 {
-		return 1
-	}
-	return (page.Total + page.PageSize - 1) / page.PageSize
-}
-func reviewURL(bookID string, query review.Query, page int) string {
-	values := url.Values{"book": {bookID}}
-	if query.Lemma != "" {
-		values.Set("lemma", query.Lemma)
-	}
-	if query.UPOS != "" {
-		values.Set("upos", query.UPOS)
-	}
-	if query.Decision != "" {
-		values.Set("decision", query.Decision)
-	}
-	if query.Sort != "" {
-		values.Set("sort", query.Sort)
-	}
-	if page > 1 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	return "/review?" + values.Encode()
-}
-func decisionLabel(state vocabulary.State) string {
-	switch state {
-	case vocabulary.Accepted:
-		return "Included"
-	case vocabulary.Known:
-		return "Known"
-	case vocabulary.Ignored:
-		return "Ignored"
-	case vocabulary.Generated:
-		return "Exported"
-	default:
-		return "Undecided"
-	}
 }
 func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -729,15 +681,6 @@ func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect(w, r, returnTo+separator+"message=Decision+saved")
 }
-func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	book, ok := h.loadBookID(w, r, u.ID, strings.TrimSpace(r.URL.Query().Get("book")))
-	if !ok {
-		return
-	}
-	render(w, r, DeckPage(u, h.csrf(w, r), book))
-}
-
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	requestedLanguage := strings.TrimSpace(r.URL.Query().Get("language"))
@@ -855,43 +798,16 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	}
 	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
 }
-func (h *Handler) downloadDeck(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost && !h.checkCSRF(w, r) {
+func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
-	name := strings.TrimSpace(r.URL.Query().Get("name"))
-	if r.Method == http.MethodPost {
-		name = strings.TrimSpace(r.FormValue("name"))
-	}
-	if name == "" {
-		name = "Mouseion"
-	}
 	u := user(r)
-	bookID := strings.TrimSpace(r.FormValue("book"))
-	var artifact cardexport.Artifact
-	var err error
-	if bookID == "" {
-		artifact, err = h.services.CardExport.Export(r.Context(), u.ID, name)
-	} else {
-		book, ok := h.loadBookID(w, r, u.ID, bookID)
-		if !ok {
-			return
-		}
-		filterKnown := r.FormValue("filter_known") == "true"
-		var known []cardexport.KnownWord
-		if filterKnown {
-			words, listErr := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, book.Source.Language)
-			if listErr != nil {
-				fail(w, listErr)
-				return
-			}
-			known = make([]cardexport.KnownWord, 0, len(words))
-			for _, word := range words {
-				known = append(known, cardexport.KnownWord{Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS})
-			}
-		}
-		artifact, err = h.services.CardExport.ExportConfigured(r.Context(), u.ID, name, cardexport.ExportConfig{BookID: bookID, FilterKnown: filterKnown, Ranking: cardexport.RankingChoice(r.FormValue("ranking")), KnownWords: known})
+	book, ok := h.loadBook(w, r, u.ID)
+	if !ok {
+		return
 	}
+	artifact, err := h.services.CardExport.ExportCoverage(r.Context(), u.ID, book.Source.ID)
 	if err != nil {
 		fail(w, err)
 		return

@@ -211,8 +211,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
 	}
 	reviewPage := perform(t, h, "GET", "/review?book="+recorder.source, nil, cookies)
-	if reviewPage.Code != 200 || !strings.Contains(reviewPage.Body.String(), "haus") || !strings.Contains(reviewPage.Body.String(), "Download included words") {
-		t.Fatalf("review=%d %s", reviewPage.Code, reviewPage.Body.String())
+	if reviewPage.Code != http.StatusSeeOther || reviewPage.Header().Get("Location") != "/books/"+recorder.source {
+		t.Fatalf("review redirect=%d location=%q", reviewPage.Code, reviewPage.Header().Get("Location"))
 	}
 	edit := perform(t, h, "POST", "/review/edit", url.Values{"csrf_token": {csrf}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}, "sentence": {"Das Haus ist heute ganz ruhig."}}, cookies)
 	if edit.Code != http.StatusSeeOther {
@@ -222,20 +222,19 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if accept.Code != http.StatusSeeOther {
 		t.Fatalf("accept=%d %s", accept.Code, accept.Body.String())
 	}
-	deckPage := perform(t, h, "GET", "/deck?book="+recorder.source, nil, cookies)
-	if deckPage.Code != 200 || !strings.Contains(deckPage.Body.String(), "Filter known words") || !strings.Contains(deckPage.Body.String(), "First encounter") || !strings.Contains(deckPage.Body.String(), "Frequency in this book") {
-		t.Fatalf("deck config=%d %s", deckPage.Code, deckPage.Body.String())
+	if deckPage := perform(t, h, "GET", "/deck?book="+recorder.source, nil, cookies); deckPage.Code == http.StatusOK || strings.Contains(deckPage.Body.String(), "Configure Anki deck") {
+		t.Fatalf("removed deck config still available=%d %s", deckPage.Code, deckPage.Body.String())
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "Review and export vocabulary") || strings.Contains(bookPage.Body.String(), "/deck?book=") {
-		t.Fatalf("book review and export flow not unified: %s", bookPage.Body.String())
+	if !strings.Contains(bookPage.Body.String(), "Generate deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck") || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
+		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
 	}
-	configured := url.Values{"book": {recorder.source}, "name": {"German"}, "filter_known": {"true"}, "ranking": {"encounter"}}
-	if got := perform(t, h, "POST", "/deck/download", configured, cookies); got.Code != http.StatusForbidden {
+	generate := url.Values{}
+	if got := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("deck export without csrf=%d", got.Code)
 	}
-	configured.Set("csrf_token", csrf)
-	exported := perform(t, h, "POST", "/deck/download", configured, cookies)
+	generate.Set("csrf_token", csrf)
+	exported := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
 	if exported.Code != 200 || !strings.Contains(exported.Header().Get("Content-Disposition"), "attachment") || !strings.Contains(exported.Body.String(), "{{c1::Haus") {
 		t.Fatalf("export=%d headers=%v body=%s", exported.Code, exported.Header(), exported.Body.String())
 	}
@@ -247,7 +246,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID).Scan(&knownCount); err != nil || knownCount != 1 {
 		t.Fatalf("known decision persisted=%d err=%v", knownCount, err)
 	}
-	excluded := perform(t, h, "POST", "/deck/download", configured, cookies)
+	excluded := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
 	if excluded.Code != http.StatusOK || excluded.Body.Len() != 0 {
 		t.Fatalf("known word exported=%d %q", excluded.Code, excluded.Body.String())
 	}
@@ -271,8 +270,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice book: %d", got.Code)
 	}
-	if got := perform(t, h, "GET", "/deck?book="+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("bob configured alice deck: %d", got.Code)
+	if got := perform(t, h, "POST", "/books/"+recorder.source+"/deck", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("bob generated alice deck: %d", got.Code)
 	}
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)
@@ -309,7 +308,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/admin" {
 		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
 	}
-	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings", "/review", "/deck"} {
+	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings", "/review"} {
 		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code != http.StatusForbidden {
 			t.Fatalf("admin learner route %s=%d", path, got.Code)
 		}
