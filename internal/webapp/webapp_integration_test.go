@@ -61,11 +61,11 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	alice, err := authService.CreateUser(ctx, admin.ID, "alice", "alice-password", false)
+	alice, err := authService.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", false)
+	_, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,8 +250,17 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
-	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || !strings.Contains(adminHub.Body.String(), "My Library") {
+	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
 		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
+	}
+	adminHome := perform(t, h, "GET", "/", nil, adminCookies)
+	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/admin" {
+		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
+	}
+	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/review", "/deck"} {
+		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code != http.StatusForbidden {
+			t.Fatalf("admin learner route %s=%d", path, got.Code)
+		}
 	}
 	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
 	if adminConnections.Code != http.StatusOK || !strings.Contains(adminConnections.Body.String(), "Library") || !strings.Contains(adminConnections.Body.String(), "Add connection") {

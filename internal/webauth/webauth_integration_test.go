@@ -80,11 +80,11 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	if _, err = s.BootstrapAdmin(ctx, "second", "password"); err == nil {
 		t.Fatal("second bootstrap succeeded")
 	}
-	alice, err := s.CreateUser(ctx, admin.ID, "alice", "alice-password", false)
+	alice, err := s.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bob, err := s.CreateUser(ctx, admin.ID, "bob", "bob-password", false)
+	bob, err := s.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}

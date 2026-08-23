@@ -131,15 +131,18 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		IsAdmin  bool   `json:"is_admin"`
+		Username string    `json:"username"`
+		Password string    `json:"password"`
+		Role     auth.Role `json:"role"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
 	caller, _ := UserFromContext(r.Context())
-	u, err := h.auth.CreateUser(r.Context(), caller.ID, in.Username, in.Password, in.IsAdmin)
+	if in.Role == "" {
+		in.Role = auth.RoleUser
+	}
+	u, err := h.auth.CreateUser(r.Context(), caller.ID, in.Username, in.Password, in.Role)
 	if errors.Is(err, auth.ErrForbidden) {
 		http.Error(w, "administrator required", http.StatusForbidden)
 		return
