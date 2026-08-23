@@ -76,6 +76,8 @@ func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deck
 	if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS, deckID, sourceMaterialID); err != nil {
 		return err
 	}
+	// Keep the generated lifecycle state as legacy bookkeeping for compatibility.
+	// Cross-book exclusion is driven exclusively by generated_vocabulary above.
 	if state != "generated" {
 		if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET state='generated',updated_at=now() WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
 			return err
