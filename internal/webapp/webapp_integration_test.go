@@ -69,6 +69,12 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
 	epubBytes := testEPUB(t)
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -175,6 +181,10 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	workflow := webworkflow.NewReview(store.Pool(), review.NewService(vocabulary.NewLifecycle(store), store))
 	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
+	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
+		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
+	}
 	knownPage := perform(t, h, "GET", "/known-vocab?language=de", nil, cookies)
 	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") {
 		t.Fatalf("known vocab page=%d %s", knownPage.Code, knownPage.Body.String())
@@ -202,6 +212,10 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if deckPage.Code != 200 || !strings.Contains(deckPage.Body.String(), "Filter known words") || !strings.Contains(deckPage.Body.String(), "First encounter") || !strings.Contains(deckPage.Body.String(), "Frequency in this book") {
 		t.Fatalf("deck config=%d %s", deckPage.Code, deckPage.Body.String())
 	}
+	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
+	if !strings.Contains(bookPage.Body.String(), "/settings?language=de") || strings.Contains(bookPage.Body.String(), "/known-vocab?language=de") {
+		t.Fatalf("book known-vocabulary link not relocated: %s", bookPage.Body.String())
+	}
 	configured := url.Values{"book": {recorder.source}, "name": {"German"}, "filter_known": {"true"}, "ranking": {"encounter"}}
 	if got := perform(t, h, "POST", "/deck/download", configured, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("deck export without csrf=%d", got.Code)
@@ -213,6 +227,18 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+	if got := perform(t, h, "POST", "/settings/languages", url.Values{"language": {"de"}}, bobCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("study language without csrf=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {bobCSRF}, "language": {"zz"}}, bobCookies); got.Code != http.StatusBadRequest {
+		t.Fatalf("unsupported study language=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}}, bobCookies); got.Code != http.StatusSeeOther {
+		t.Fatalf("add study language=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/settings/languages/remove", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}}, bobCookies); got.Code != http.StatusSeeOther {
+		t.Fatalf("remove study language=%d", got.Code)
+	}
 	if got := perform(t, h, "GET", "/known-vocab?language=de", nil, bobCookies); got.Code != 200 || strings.Contains(got.Body.String(), "dass") {
 		t.Fatalf("bob known vocabulary leaked: %d %s", got.Code, got.Body.String())
 	}
@@ -257,7 +283,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/admin" {
 		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
 	}
-	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/review", "/deck"} {
+	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings", "/review", "/deck"} {
 		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code != http.StatusForbidden {
 			t.Fatalf("admin learner route %s=%d", path, got.Code)
 		}

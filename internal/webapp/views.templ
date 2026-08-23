@@ -35,7 +35,7 @@ document.addEventListener('submit', function (evt) {
 		if user.IsAdmin {
 			<li><a href="/admin">Administration</a></li>
 		} else {
-			<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/known-vocab">Known words</a></li>
+			<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
 		}
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
@@ -77,7 +77,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		} else {
 			<button disabled>Available after analysis</button>
 		}
-	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck. Import words you already know so the deck contains only new vocabulary.</p><p><a href={ templ.URL("/known-vocab?language="+book.Source.Language) }>Import known words</a></p>
+	</article><article><h2>Anki deck</h2><p>Configure and generate a pre-learning deck. Known vocabulary from your account settings is excluded when filtering is enabled.</p><p><a href={ templ.URL("/settings?language="+book.Source.Language) }>Manage known words in settings</a></p>
 		if book.AnalysisStatus == "analyzed" {
 			<a role="button" href={ templ.URL("/deck?book="+book.Source.ID) }>Configure deck</a>
 		} else {
@@ -103,7 +103,7 @@ templ RegisterPage(csrf, message string) {
 templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
 	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Browse books</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
-templ LanguagesPage(user domain.User, csrf string, profiles []domain.LanguageProfile, message string) {
+templ LanguagesPage(user domain.User, csrf string, profiles []domain.SupportedLanguage, message string) {
 	@Layout("Languages", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Supported languages</h1><p>Configure the languages available for study. Learners choose from this administrator-managed set in the study workflow.</p>
 	if message != "" {
 		<p role="alert">{ message }</p>
@@ -120,6 +120,36 @@ templ LanguagesPage(user domain.User, csrf string, profiles []domain.LanguagePro
 	</tbody></table>
 	}
 	</section> }
+}
+templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	@Layout("Settings", &user, csrf) { <h1>Account settings</h1><p>Choose the languages you study and optionally import words you already know for each one.</p>
+	if message != "" {
+		<p role="status">{ message }</p>
+	}
+	<article><h2>Study languages</h2>
+		if len(supported) == 0 {
+			<p>No languages are available yet. Ask an administrator to configure a supported language.</p>
+		}
+		if len(supported) > 0 {
+			<form method="post" action="/settings/languages"><input type="hidden" name="csrf_token" value={ csrf }/><label>Add a supported language<select name="language" required><option value="">Choose a language</option>
+			for _, candidate := range supported {
+				<option value={ candidate.Language }>{ candidate.DisplayName } ({ candidate.Language })</option>
+			}
+			</select></label><button>Add study language</button></form>
+		}
+	</article>
+	if len(profiles) == 0 {
+		<article><p>Select at least one study language to manage known vocabulary.</p></article>
+	}
+	for _, profile := range profiles {
+		<article><header class="page-heading"><div><h2>{ profile.DisplayName } <code>{ profile.Language }</code></h2><p>Known vocabulary is private to your account and used to filter generated decks.</p></div><form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Remove</button></form></header>
+		<form method="post" action="/known-vocab/import" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ profile.Language }/><label>Paste lemma list<textarea name="vocabulary" rows="6" placeholder={ "Haus\ngehen\tVERB" }></textarea></label><label>Or upload a UTF-8 text file<input type="file" name="vocabulary_file" accept="text/plain,.txt,.tsv"/></label><small>One lemma per line, optionally followed by a tab and Universal POS tag.</small><button>Import known words</button></form>
+		if language == profile.Language {
+			<section>@KnownVocabResult(language, result, known, "")</section>
+		}
+		</article>
+	}
+	}
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection) {
 	@Layout("Add books", &user, csrf) { <h1>Add books</h1>

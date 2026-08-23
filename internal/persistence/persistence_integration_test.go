@@ -34,6 +34,9 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
