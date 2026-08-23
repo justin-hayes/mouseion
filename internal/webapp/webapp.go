@@ -611,6 +611,46 @@ func (h *Handler) reviewPage(w http.ResponseWriter, r *http.Request) {
 func reviewIdentity(r *http.Request) vocabulary.Identity {
 	return vocabulary.Identity{Language: strings.TrimSpace(r.FormValue("language")), CanonicalLemma: strings.TrimSpace(r.FormValue("lemma")), UPOS: strings.TrimSpace(r.FormValue("upos"))}
 }
+func reviewPageCount(page review.Page) int {
+	if page.PageSize < 1 || page.Total == 0 {
+		return 1
+	}
+	return (page.Total + page.PageSize - 1) / page.PageSize
+}
+func reviewURL(bookID string, query review.Query, page int) string {
+	values := url.Values{"book": {bookID}}
+	if query.Lemma != "" {
+		values.Set("lemma", query.Lemma)
+	}
+	if query.UPOS != "" {
+		values.Set("upos", query.UPOS)
+	}
+	if query.Decision != "" {
+		values.Set("decision", query.Decision)
+	}
+	if query.Sort != "" {
+		values.Set("sort", query.Sort)
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	return "/review?" + values.Encode()
+}
+func decisionLabel(state vocabulary.State) string {
+	switch state {
+	case vocabulary.Accepted:
+		return "Included"
+	case vocabulary.Known:
+		return "Known"
+	case vocabulary.Ignored:
+		return "Ignored"
+	case vocabulary.Generated:
+		return "Exported"
+	default:
+		return "Undecided"
+	}
+}
+
 func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
