@@ -509,10 +509,12 @@ func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	}
 	trail := decodeTrail(r.URL.Query()["trail"])
 	currentURL := r.URL.Query().Get("url")
-	if currentURL != "" {
-		trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
+	if currentURL == "" {
+		render(w, r, CatalogRootFragment(r.URL.Query().Get("connection"), feed))
+		return
 	}
-	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail, currentURL == ""))
+	trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
+	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail))
 }
 func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
 	languageID := strings.TrimSpace(r.URL.Query().Get("language"))

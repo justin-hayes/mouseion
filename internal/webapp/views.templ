@@ -184,15 +184,17 @@ templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnectio
 	}
 	<div id="catalog-results" hx-get={ "/opds/browse?connection="+connection.ID } hx-trigger="load" hx-swap="innerHTML"><p aria-busy="true">Loading catalog…</p></div> }
 }
-templ FeedFragment(csrf, connectionID string, feed opds.Feed, trail []CatalogCrumb, root bool) {
+templ CatalogRootFragment(connectionID string, feed opds.Feed) {
 	<section>
-	if root {
-		if opds.SupportsSearch(feed) {
-			<form role="search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connectionID }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
-		} else {
-			<p><small>Search is not available for this catalog. Browse its collections below.</small></p>
-		}
+	if opds.SupportsSearch(feed) {
+		<form role="search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connectionID }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
+	} else {
+		<p><small>Search is not available for this catalog.</small></p>
 	}
+	</section>
+}
+templ FeedFragment(csrf, connectionID string, feed opds.Feed, trail []CatalogCrumb) {
+	<section>
 	<nav aria-label="Catalog breadcrumb"><a hx-get={ browseURL(connectionID, "", nil) } hx-target="#catalog-results" hx-swap="innerHTML" href={ templ.URL(browseURL(connectionID, "", nil)) }>Catalog root</a>
 	for i, crumb := range trail {
 		<span> / </span>
