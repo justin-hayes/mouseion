@@ -12,6 +12,13 @@ type LanguageProfile struct {
 	ID, OwnerID, Language, DisplayName string
 	CreatedAt                          time.Time
 }
+
+// SupportedLanguage is server-wide reference data managed by administrators.
+// LanguageProfile remains an owner-scoped learner study-language selection.
+type SupportedLanguage struct {
+	Language, DisplayName string
+	CreatedAt             time.Time
+}
 type SourceMaterial struct {
 	ID, OwnerID, Language, SourceIdentifier, Title, MediaType, ContentHash, FullText string
 	Content                                                                          []byte

@@ -35,6 +35,9 @@ const csrfCookie = "mouseion_csrf"
 type Store interface {
 	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
+	DeleteLanguageProfile(context.Context, string, string) error
+	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
+	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	CreateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context) ([]domain.OpdsConnection, error)
@@ -99,6 +102,9 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /languages", h.adminOnly(http.HandlerFunc(h.languages)))
 	h.mux.Handle("POST /languages", h.adminOnly(http.HandlerFunc(h.saveLanguage)))
+	h.mux.Handle("GET /settings", h.learner(http.HandlerFunc(h.settings)))
+	h.mux.Handle("POST /settings/languages", h.learner(http.HandlerFunc(h.addStudyLanguage)))
+	h.mux.Handle("POST /settings/languages/remove", h.learner(http.HandlerFunc(h.removeStudyLanguage)))
 	h.mux.Handle("GET /connections", h.learner(http.HandlerFunc(h.connections)))
 	h.mux.Handle("GET /admin/connections", h.adminOnly(http.HandlerFunc(h.adminConnections)))
 	h.mux.Handle("POST /connections", h.adminOnly(http.HandlerFunc(h.createConnection)))
@@ -310,7 +316,7 @@ func (h *Handler) languages(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	p, e := h.services.Store.ListSupportedLanguages(r.Context())
 	if e != nil {
 		fail(w, e)
 		return
@@ -321,16 +327,80 @@ func (h *Handler) saveLanguage(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u, ok := h.requireAdmin(w, r)
+	_, ok := h.requireAdmin(w, r)
 	if !ok {
 		return
 	}
-	_, e := h.services.Store.PutLanguageProfile(r.Context(), u.ID, strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("display_name")))
+	_, e := h.services.Store.PutSupportedLanguage(r.Context(), strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("display_name")))
 	if e != nil {
 		fail(w, e)
 		return
 	}
 	redirect(w, r, "/languages?message=Language+saved")
+}
+
+func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
+	h.renderSettings(w, r, nil, nil, r.URL.Query().Get("message"))
+}
+
+func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	language := strings.TrimSpace(r.FormValue("language"))
+	supported, err := h.services.Store.ListSupportedLanguages(r.Context())
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	for _, candidate := range supported {
+		if candidate.Language == language {
+			if _, err = h.services.Store.PutLanguageProfile(r.Context(), user(r).ID, candidate.Language, candidate.DisplayName); err != nil {
+				fail(w, err)
+				return
+			}
+			redirect(w, r, "/settings?message=Study+language+added")
+			return
+		}
+	}
+	http.Error(w, "unsupported study language", http.StatusBadRequest)
+}
+
+func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if err := h.services.Store.DeleteLanguageProfile(r.Context(), user(r).ID, strings.TrimSpace(r.FormValue("language"))); err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/settings?message=Study+language+removed")
+}
+
+func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	u := user(r)
+	supported, err := h.services.Store.ListSupportedLanguages(r.Context())
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	language := strings.TrimSpace(r.FormValue("language"))
+	if language == "" {
+		language = strings.TrimSpace(r.URL.Query().Get("language"))
+	}
+	if known == nil && language != "" {
+		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, language, result, known, message))
 }
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -560,11 +630,17 @@ func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	language := strings.TrimSpace(r.URL.Query().Get("language"))
+	requestedLanguage := strings.TrimSpace(r.URL.Query().Get("language"))
 	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
+	}
+	language := ""
+	for _, profile := range profiles {
+		if requestedLanguage == profile.Language {
+			language = requestedLanguage
+		}
 	}
 	if language == "" && len(profiles) > 0 {
 		language = profiles[0].Language
@@ -610,6 +686,19 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language before importing.")
 		return
 	}
+	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	selected := false
+	for _, profile := range profiles {
+		selected = selected || profile.Language == language
+	}
+	if !selected {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose one of your study languages before importing.")
+		return
+	}
 	if len(bytes.TrimSpace(input.Bytes())) == 0 {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Paste vocabulary or choose a file to import.")
 		return
@@ -642,6 +731,10 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	}
 	if r.Header.Get("HX-Request") == "true" {
 		render(w, r, KnownVocabResult(language, result, known, message))
+		return
+	}
+	if r.FormValue("return_to") == "settings" {
+		h.renderSettings(w, r, result, known, message)
 		return
 	}
 	u := user(r)

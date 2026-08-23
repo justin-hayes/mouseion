@@ -307,8 +307,38 @@ func (s *PostgresStore) PutLanguageProfile(ctx context.Context, owner, language,
 	return
 }
 
+func (s *PostgresStore) DeleteLanguageProfile(ctx context.Context, owner, language string) error {
+	result, err := s.pool.Exec(ctx, `DELETE FROM language_profiles WHERE owner_id=$1 AND language=$2`, owner, language)
+	if err == nil && result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name string) (v domain.SupportedLanguage, err error) {
+	err = s.pool.QueryRow(ctx, `INSERT INTO supported_languages(language,display_name) VALUES($1,$2) ON CONFLICT(language) DO UPDATE SET display_name=excluded.display_name RETURNING language,display_name,created_at`, language, name).Scan(&v.Language, &v.DisplayName, &v.CreatedAt)
+	return
+}
+
+func (s *PostgresStore) ListSupportedLanguages(ctx context.Context) ([]domain.SupportedLanguage, error) {
+	rows, err := s.pool.Query(ctx, `SELECT language,display_name,created_at FROM supported_languages ORDER BY display_name,language`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.SupportedLanguage
+	for rows.Next() {
+		var language domain.SupportedLanguage
+		if err := rows.Scan(&language.Language, &language.DisplayName, &language.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, language)
+	}
+	return out, rows.Err()
+}
+
 func (s *PostgresStore) ListLanguageProfiles(ctx context.Context, owner string) ([]domain.LanguageProfile, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,language,display_name,created_at FROM language_profiles WHERE owner_id=$1 ORDER BY display_name,language`, owner)
+	rows, err := s.pool.Query(ctx, `SELECT p.id,p.owner_id,p.language,s.display_name,p.created_at FROM language_profiles p JOIN supported_languages s ON s.language=p.language WHERE p.owner_id=$1 ORDER BY s.display_name,p.language`, owner)
 	if err != nil {
 		return nil, err
 	}
