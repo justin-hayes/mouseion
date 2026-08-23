@@ -21,16 +21,18 @@ type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS string
 	Sentence, Translation, TargetWord       string
 	Morphology, SourceDocument, Notes       string
+	FirstEncounter                          int64
 	Ranking                                 domain.RankingComponents
 }
 
 type RankingChoice string
 
 const (
-	RankingDefault  RankingChoice = "default"
-	RankingBook     RankingChoice = "book"
-	RankingGlobal   RankingChoice = "global"
-	RankingBalanced RankingChoice = "balanced"
+	RankingDefault   RankingChoice = "default"
+	RankingEncounter RankingChoice = "encounter"
+	RankingBook      RankingChoice = "book"
+	RankingGlobal    RankingChoice = "global"
+	RankingBalanced  RankingChoice = "balanced"
 )
 
 type KnownWord struct{ Language, CanonicalLemma, UPOS string }
@@ -170,7 +172,11 @@ func (s *Service) export(ctx context.Context, owner, deckName string, cfg Export
 	}
 	sort.SliceStable(entries, func(i, j int) bool {
 		a, b := entries[i], entries[j]
-		if cfg.Ranking != "" && cfg.Ranking != RankingDefault {
+		if cfg.BookID != "" && (cfg.Ranking == "" || cfg.Ranking == RankingDefault || cfg.Ranking == RankingEncounter) {
+			if a.FirstEncounter != b.FirstEncounter {
+				return a.FirstEncounter < b.FirstEncounter
+			}
+		} else if cfg.Ranking != "" && cfg.Ranking != RankingDefault {
 			aScore, bScore := rankingScore(a.Ranking, cfg.Ranking), rankingScore(b.Ranking, cfg.Ranking)
 			if aScore != bScore {
 				return aScore > bScore
@@ -194,7 +200,7 @@ func (s *Service) export(ctx context.Context, owner, deckName string, cfg Export
 }
 
 func validRanking(choice RankingChoice) bool {
-	return choice == "" || choice == RankingDefault || choice == RankingBook || choice == RankingGlobal || choice == RankingBalanced
+	return choice == "" || choice == RankingDefault || choice == RankingEncounter || choice == RankingBook || choice == RankingGlobal || choice == RankingBalanced
 }
 
 func rankingScore(c domain.RankingComponents, choice RankingChoice) float64 {
