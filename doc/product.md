@@ -8,10 +8,12 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 
 1. **Ingest** — import an EPUB directly or from an admin-configured OPDS catalog.
 2. **Analysis** — extract text and send size-bounded chunks to the Python/Stanza NLP service, producing a normalized corpus.
-3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, function words, and imported known vocabulary.
-4. **Coverage selection** — sort unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of all unknown-lemma tokens.
+3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, and function words.
+4. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
 5. **Sentence selection** — use an example from the learner's source text for each selected lemma.
 6. **Anki export** — a single **Generate deck** action emits UTF-8 tab-separated Anki notes ordered by each lemma's first encounter in the book.
+
+Generated-deck history and mastery are deliberately separate. Generating a card records that the owner was assigned the lemma, with its first book/deck provenance, but never adds it to `known_vocabulary`. Re-generating the same book is safe and does not duplicate cards or provenance; marking a word mastered/known remains an explicit learner action.
 
 ## Current stack
 

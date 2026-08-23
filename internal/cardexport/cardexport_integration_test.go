@@ -4,6 +4,8 @@ package cardexport_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -13,7 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/migrations"
 )
 
-func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.T) {
+func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
@@ -23,13 +25,22 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	defer store.Close()
 	alice, _ := store.CreateUser(ctx, "export-alice", false)
 	bob, _ := store.CreateUser(ctx, "export-bob", false)
-	seed := func(owner domain.User, hash, lemma, sentence string) string {
+	type fixtureCandidate struct {
+		lemma, sentence string
+		occurrences     int
+		firstEncounter  int
+	}
+	seedBook := func(owner domain.User, hash, title string, candidates ...fixtureCandidate) string {
 		t.Helper()
 		artifact := domain.NormalizedArtifact{ContentHash: hash, Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
-		if err := store.PutArtifact(ctx, artifact, []domain.SharedLemma{{CanonicalLemma: lemma, UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut"}`), Frequency: 1}}); err != nil {
+		lemmas := make([]domain.SharedLemma, 0, len(candidates))
+		for _, candidate := range candidates {
+			lemmas = append(lemmas, domain.SharedLemma{CanonicalLemma: candidate.lemma, UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut"}`), Frequency: int64(candidate.occurrences)})
+		}
+		if err := store.PutArtifact(ctx, artifact, lemmas); err != nil {
 			t.Fatal(err)
 		}
-		source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: hash, Title: "Test Book", MediaType: "text/plain", ContentHash: hash, Content: []byte(sentence), FullText: sentence})
+		source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: hash, Title: title, MediaType: "text/plain", ContentHash: hash, Content: []byte(title), FullText: title})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -37,18 +48,31 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = store.ReplaceSelectedSentences(ctx, owner.ID, corpus.ID, "de", lemma, "NOUN", []domain.ExampleSentence{{SentenceKey: "s1", Text: sentence, SourceLocation: []byte(`{"start_offset":0}`), SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 1, ObservedForms: []byte(`["` + lemma + `"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":1,"occurrence_count":1}`)}); err != nil {
-			t.Fatal(err)
+		for index, candidate := range candidates {
+			location := []byte(fmt.Sprintf(`{"start_offset":%d}`, candidate.firstEncounter))
+			if err = store.ReplaceSelectedSentences(ctx, owner.ID, corpus.ID, "de", candidate.lemma, "NOUN", []domain.ExampleSentence{{SentenceKey: fmt.Sprintf("s%d", index), Text: candidate.sentence, SourceLocation: location, SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
+				t.Fatal(err)
+			}
+			references := []byte(fmt.Sprintf(`[{"location":{"start_offset":%d},"text":%q}]`, candidate.firstEncounter, candidate.sentence))
+			if _, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: candidate.lemma, UPOS: "NOUN", OccurrenceCount: candidate.occurrences, ObservedForms: []byte(`["` + candidate.lemma + `"]`), SentenceReferences: references, Provenance: []byte(fmt.Sprintf(`{"min_occurrences":1,"occurrence_count":%d}`, candidate.occurrences))}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		return source.ID
 	}
-	aliceBook := seed(alice, "export-a", "Haus", "Das Haus ist groß.")
-	aliceSecondBook := seed(alice, "export-a-second", "Haus", "Dieses Haus ist klein.")
-	seed(bob, "export-b", "Baum", "Der Baum ist groß.")
-	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBook)
+	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das Haus ist groß.", 1, 10})
+	aliceBookB := seedBook(alice, "export-b", "Book B",
+		fixtureCandidate{"Haus", "Dieses Haus ist alt.", 100, 10},
+		fixtureCandidate{"Welt", "Die Welt ist groß.", 100, 20},
+		fixtureCandidate{"Baum", "Der Baum ist grün.", 96, 40},
+		fixtureCandidate{"Weg", "Der Weg ist lang.", 4, 30},
+	)
+	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs Haus ist neu.", 1, 10})
+	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN"); err != nil {
+		t.Fatal(err)
+	}
+
+	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,12 +87,16 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM decks WHERE owner_id=$1`, alice.ID).Scan(&decks)
 	_ = pool.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&state)
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, alice.ID, aliceBook).Scan(&generated)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, alice.ID, aliceBookA).Scan(&generated)
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&known)
-	if cards != 1 || decks != 1 || state != "generated" || audits != 1 || generated != 1 || known != 0 {
+	if cards != 1 || decks != 1 || state != "generated" || audits != 1 || generated != 1 || known != 1 {
 		t.Fatalf("cards=%d decks=%d state=%s audits=%d generated=%d known=%d", cards, decks, state, audits, generated, known)
 	}
-	again, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBook)
+	var firstDeck, firstGeneratedAt string
+	if err = pool.QueryRow(ctx, `SELECT first_deck_id::text,first_generated_at::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&firstDeck, &firstGeneratedAt); err != nil {
+		t.Fatal(err)
+	}
+	again, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
 	if err != nil || again.Count != 1 {
 		t.Fatalf("again=%+v err=%v", again, err)
 	}
@@ -77,12 +105,40 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	if cards != 1 || audits != 1 {
 		t.Fatalf("idempotence cards=%d audits=%d", cards, audits)
 	}
-	secondBook, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceSecondBook)
+	var stableDeck, stableGeneratedAt string
+	_ = pool.QueryRow(ctx, `SELECT first_deck_id::text,first_generated_at::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&stableDeck, &stableGeneratedAt)
+	if stableDeck != firstDeck || stableGeneratedAt != firstGeneratedAt {
+		t.Fatalf("generated provenance changed: deck %s -> %s, time %s -> %s", firstDeck, stableDeck, firstGeneratedAt, stableGeneratedAt)
+	}
+
+	secondBook, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookB)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secondBook.Count != 0 || contains(secondBook.TSV, "Haus") {
-		t.Fatalf("generated vocabulary leaked into second book: %+v", secondBook)
+	if secondBook.Count != 2 || contains(secondBook.TSV, "Haus") || contains(secondBook.TSV, "Welt") || !contains(secondBook.TSV, "Baum") || !contains(secondBook.TSV, "Weg") {
+		t.Fatalf("book B exclusions or 97%% selection incorrect: %+v", secondBook)
+	}
+	if strings.Index(secondBook.TSV, "Weg") > strings.Index(secondBook.TSV, "Baum") {
+		t.Fatalf("book B TSV is not in first-encounter order: %s", secondBook.TSV)
+	}
+	var bookBGenerated, aliceKnown int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2 AND canonical_lemma IN ('Baum','Weg')`, alice.ID, aliceBookB).Scan(&bookBGenerated)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Welt'`, alice.ID).Scan(&aliceKnown)
+	if bookBGenerated != 2 || aliceKnown != 0 {
+		t.Fatalf("book B provenance=%d generated-known=%d", bookBGenerated, aliceKnown)
+	}
+
+	bobArtifact, err := cardexport.NewService(store).ExportCoverage(ctx, bob.ID, bobBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bobArtifact.Count != 1 || !contains(bobArtifact.TSV, "Haus") {
+		t.Fatalf("Alice's generated history affected Bob: %+v", bobArtifact)
+	}
+	var bobGenerated int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, bob.ID, bobBook).Scan(&bobGenerated)
+	if bobGenerated != 1 {
+		t.Fatalf("Bob generated provenance=%d", bobGenerated)
 	}
 }
 

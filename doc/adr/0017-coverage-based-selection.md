@@ -44,3 +44,6 @@ DWDS/corpus-frequency ranking is discarded entirely.
 - The deck export config page (`/deck?book=`) with filter-known + ranking
   options is replaced by a single "Generate deck" button on the book detail
   page.
+- **ADR 0019** amends this selection policy: explicit known vocabulary and
+  owner-scoped vocabulary generated for other books are removed before the
+  fixed 97% denominator is calculated.
