@@ -16,9 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/ranking"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -84,8 +82,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}}}}}}, nil
 	}}
-	frequencyService := frequency.NewService(store)
-	client, err := NewClient(store.Pool(), fake, selection.NewService(store, frequencyService), ranking.NewService(store, frequencyService))
+	client, err := NewClient(store.Pool(), fake, selection.NewService(store))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,12 +135,12 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if corpus.OwnerID != alice.ID || corpus.ArtifactHash != source.ContentHash {
 		t.Fatalf("corpus = %+v", corpus)
 	}
-	var candidateCount, rankedCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*),count(ranking_score) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount, &rankedCount); err != nil {
+	var candidateCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount); err != nil {
 		t.Fatal(err)
 	}
-	if candidateCount != 1 || rankedCount != candidateCount {
-		t.Fatalf("candidates = %d, ranked = %d", candidateCount, rankedCount)
+	if candidateCount != 1 {
+		t.Fatalf("candidates = %d", candidateCount)
 	}
 	var bobCandidateCount int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCandidateCount); err != nil {

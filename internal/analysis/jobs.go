@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/ranking"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -182,7 +181,6 @@ type Worker struct {
 	Pool          *pgxpool.Pool
 	Analyzer      analyzer.Analyzer
 	Selection     *selection.Service
-	Ranking       *ranking.Service
 	MaxChunkChars int
 }
 
@@ -266,16 +264,13 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 
 	// Candidate generation is deliberately best-effort. The corpus and analysis
-	// status have already been committed, so a downstream selection or ranking
+	// status have already been committed, so a downstream selection
 	// failure is surfaced in processing history without retrying or losing the
 	// successful analysis.
-	candidates, err := w.Selection.Select(ctx, a.OwnerID, result, selection.DefaultConfig(corpusID))
+	_, err = w.Selection.Select(ctx, a.OwnerID, result, selection.DefaultConfig(corpusID))
 	if err != nil {
 		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "selection", err)
 		return nil
-	}
-	if _, err = w.Ranking.Rank(ctx, a.OwnerID, candidates, ranking.DefaultConfig(corpusID)); err != nil {
-		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "ranking", err)
 	}
 	return nil
 }
@@ -324,16 +319,16 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	return out
 }
 
-func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, rankingService *ranking.Service) (*river.Client[pgx.Tx], error) {
-	if pool == nil || a == nil || selectionService == nil || rankingService == nil {
-		return nil, errors.New("analysis client requires pool, analyzer, selection, and ranking services")
+func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service) (*river.Client[pgx.Tx], error) {
+	if pool == nil || a == nil || selectionService == nil {
+		return nil, errors.New("analysis client requires pool, analyzer, and selection service")
 	}
 	jobTimeout, err := configuredJobTimeout()
 	if err != nil {
 		return nil, err
 	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Selection: selectionService, Ranking: rankingService})
+	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Selection: selectionService})
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 

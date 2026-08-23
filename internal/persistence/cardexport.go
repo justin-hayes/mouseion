@@ -35,40 +35,6 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 	return entry, missing(err)
 }
 
-func (s *PostgresStore) ListAcceptedCurated(ctx context.Context, owner string) ([]cardexport.Entry, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.owner_id::text,c.language,c.canonical_lemma,c.upos,e.sentence_text,COALESCE(en.translation,''),c.canonical_lemma,COALESCE(sl.morphology::text,'{}'),sm.title,c.notes FROM curated_sentences c JOIN vocabulary_states v ON v.owner_id=c.owner_id AND v.language=c.language AND v.canonical_lemma=c.canonical_lemma AND v.upos=c.upos AND v.state='accepted' JOIN example_sentences e ON e.owner_id=c.owner_id AND e.id=c.example_sentence_id JOIN corpora co ON co.owner_id=e.owner_id AND co.id=e.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=c.language AND canonical_lemma=c.canonical_lemma AND upos=upper(c.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=c.language AND canonical_lemma=c.canonical_lemma AND upos=c.upos ORDER BY id LIMIT 1) sl ON true WHERE c.owner_id=$1 ORDER BY c.language,c.canonical_lemma,c.upos`, owner)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var entries []cardexport.Entry
-	for rows.Next() {
-		var e cardexport.Entry
-		if err := rows.Scan(&e.OwnerID, &e.Language, &e.CanonicalLemma, &e.UPOS, &e.Sentence, &e.Translation, &e.TargetWord, &e.Morphology, &e.SourceDocument, &e.Notes); err != nil {
-			return nil, err
-		}
-		entries = append(entries, e)
-	}
-	return entries, rows.Err()
-}
-
-func (s *PostgresStore) ListAcceptedCuratedForBook(ctx context.Context, owner, bookID string) ([]cardexport.Entry, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.owner_id::text,c.language,c.canonical_lemma,c.upos,e.sentence_text,COALESCE(en.translation,''),c.canonical_lemma,COALESCE(sl.morphology::text,'{}'),sm.title,c.notes,COALESCE(first_seen.start_offset,9223372036854775807),COALESCE(sc.ranking_global_pct,0),COALESCE(sc.ranking_corpus_pct,0),COALESCE(sc.ranking_priority,false),COALESCE(sc.ranking_cross_text,1) FROM curated_sentences c JOIN vocabulary_states v ON v.owner_id=c.owner_id AND v.language=c.language AND v.canonical_lemma=c.canonical_lemma AND v.upos=c.upos AND v.state='accepted' JOIN example_sentences e ON e.owner_id=c.owner_id AND e.id=c.example_sentence_id JOIN corpora co ON co.owner_id=e.owner_id AND co.id=e.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN selection_candidates sc ON sc.owner_id=co.owner_id AND sc.corpus_id=co.id::text AND sc.language=c.language AND sc.canonical_lemma=c.canonical_lemma AND sc.upos=c.upos LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=c.language AND canonical_lemma=c.canonical_lemma AND upos=upper(c.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=c.language AND canonical_lemma=c.canonical_lemma AND upos=c.upos ORDER BY id LIMIT 1) sl ON true WHERE c.owner_id=$1 AND sm.id=$2 ORDER BY c.language,c.canonical_lemma,c.upos`, owner, bookID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var entries []cardexport.Entry
-	for rows.Next() {
-		var e cardexport.Entry
-		if err := rows.Scan(&e.OwnerID, &e.Language, &e.CanonicalLemma, &e.UPOS, &e.Sentence, &e.Translation, &e.TargetWord, &e.Morphology, &e.SourceDocument, &e.Notes, &e.FirstEncounter, &e.Ranking.GlobalPercentile, &e.Ranking.CorpusPercentile, &e.Ranking.Priority, &e.Ranking.CrossText); err != nil {
-			return nil, err
-		}
-		entries = append(entries, e)
-	}
-	return entries, rows.Err()
-}
-
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

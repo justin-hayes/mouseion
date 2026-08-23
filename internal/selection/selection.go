@@ -16,9 +16,6 @@ import (
 
 var ErrInvalidConfig = errors.New("selection: invalid configuration")
 
-type FrequencyLookup interface {
-	IsTopPercentile(context.Context, string, string, string, float64) (bool, bool, error)
-}
 type Store interface {
 	GetVocabularyStateByIdentity(context.Context, string, string, string, string) (domain.VocabularyState, error)
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
@@ -31,11 +28,8 @@ type SentenceReference struct {
 	Location      analyzer.SourceLocation `json:"location"`
 }
 type Provenance struct {
-	MinOccurrences  int     `json:"min_occurrences"`
-	OccurrenceCount int     `json:"occurrence_count"`
-	Priority        bool    `json:"priority,omitempty"`
-	GlobalFrequency bool    `json:"global_frequency,omitempty"`
-	FrequencyCutoff float64 `json:"frequency_cutoff"`
+	MinOccurrences  int `json:"min_occurrences"`
+	OccurrenceCount int `json:"occurrence_count"`
 }
 type Candidate struct {
 	Identity           Identity
@@ -48,23 +42,18 @@ type Candidate struct {
 type SelectionConfig struct {
 	CorpusID             string
 	MinOccurrences       int
-	FrequencyCutoff      float64
 	AllowedPOS           map[string]bool
 	IncludeNamedEntities bool
-	PriorityIdentities   map[Identity]bool
 }
 
 func DefaultConfig(corpusID string) SelectionConfig {
-	return SelectionConfig{CorpusID: corpusID, MinOccurrences: 2, FrequencyCutoff: .05,
-		AllowedPOS: map[string]bool{"NOUN": true, "VERB": true, "ADJ": true, "ADV": true}, PriorityIdentities: map[Identity]bool{}}
+	return SelectionConfig{CorpusID: corpusID, MinOccurrences: 1,
+		AllowedPOS: map[string]bool{"NOUN": true, "VERB": true, "ADJ": true, "ADV": true}}
 }
 
-type Service struct {
-	store     Store
-	frequency FrequencyLookup
-}
+type Service struct{ store Store }
 
-func NewService(store Store, frequency FrequencyLookup) *Service { return &Service{store, frequency} }
+func NewService(store Store) *Service { return &Service{store: store} }
 
 type aggregate struct {
 	count int
@@ -73,7 +62,7 @@ type aggregate struct {
 }
 
 func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Result, cfg SelectionConfig) ([]Candidate, error) {
-	if owner == "" || corpus.Language == "" || cfg.CorpusID == "" || cfg.MinOccurrences < 1 || cfg.FrequencyCutoff < 0 || cfg.FrequencyCutoff > 1 || cfg.AllowedPOS == nil {
+	if owner == "" || corpus.Language == "" || cfg.CorpusID == "" || cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil {
 		return nil, ErrInvalidConfig
 	}
 	aggs := map[Identity]*aggregate{}
@@ -106,14 +95,7 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 	out := make([]Candidate, 0)
 	for _, id := range ids {
 		a := aggs[id]
-		priority := cfg.PriorityIdentities[id]
-		// frequency percentiles increase with frequency; a top-N share therefore
-		// starts at percentile 1-N (the configured value remains the transparent share).
-		top, _, err := s.frequency.IsTopPercentile(ctx, id.Language, id.CanonicalLemma, id.UPOS, 1-cfg.FrequencyCutoff)
-		if err != nil {
-			return nil, fmt.Errorf("frequency lookup %s/%s: %w", id.CanonicalLemma, id.UPOS, err)
-		}
-		if a.count < cfg.MinOccurrences && !priority && !top {
+		if a.count < cfg.MinOccurrences {
 			continue
 		}
 		state, err := s.store.GetVocabularyStateByIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
@@ -135,7 +117,7 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 			forms = append(forms, form)
 		}
 		sort.Strings(forms)
-		p := Provenance{cfg.MinOccurrences, a.count, priority, top, cfg.FrequencyCutoff}
+		p := Provenance{cfg.MinOccurrences, a.count}
 		c := Candidate{id, a.count, forms, a.refs, p}
 		formsJSON, _ := json.Marshal(forms)
 		refsJSON, _ := json.Marshal(a.refs)

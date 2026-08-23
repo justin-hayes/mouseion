@@ -90,26 +90,10 @@ type ProcessingHistory struct {
 	StartedAt                                time.Time
 	CompletedAt                              *time.Time
 }
-type FrequencyDataset struct {
-	ID, Language, Name, Version, SourceURL, License, Attribution string
-	Active                                                       bool
-	CreatedAt                                                    time.Time
-}
-type FrequencyEntry struct {
-	DatasetID, Language, CanonicalLemma, UPOS string
-	Rank                                      int64
-	FrequencyClass                            int
-	Percentile                                float64
-}
 type SelectionCandidate struct {
 	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
 	OccurrenceCount                                   int
 	FirstEncounter                                    int64
 	ObservedForms, SentenceReferences, Provenance     []byte
 	SelectedAt                                        time.Time
-}
-type RankingComponents struct {
-	GlobalPercentile, CorpusPercentile, Score float64
-	Priority                                  bool
-	CrossText                                 int
 }

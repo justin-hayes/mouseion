@@ -22,15 +22,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/review"
 	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webauth"
-	"github.com/justin-hayes/mouseion/internal/webworkflow"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -167,8 +163,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
 	}
 
-	// Seed the completed pipeline boundary and exercise the shared review/export
-	// services through the authenticated web workflow.
+	// Seed the completed pipeline boundary and exercise coverage export through
+	// the authenticated one-button workflow.
 	artifactHash := "web-workflow-artifact"
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','test','1','test','1')`, artifactHash); err != nil {
 		t.Fatal(err)
@@ -184,17 +180,14 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, alice.ID); err != nil {
 		t.Fatal(err)
 	}
-	// Ranking is populated asynchronously after selection. Leave ranking columns
-	// NULL to verify that review is available at this pipeline boundary.
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[{"Location":{"StartOffset":0}}]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}')`, alice.ID, corpus.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',1,'["Haus"]','[{"Location":{"StartOffset":0},"Text":"Das Haus ist heute sehr ruhig."}]','{"min_occurrences":1,"occurrence_count":1}')`, alice.ID, corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	examples := []domain.ExampleSentence{{SentenceKey: "haus:1", Text: "Das Haus ist heute sehr ruhig.", SourceLocation: []byte(`{"source_document_id":"book-1","start_offset":0,"end_offset":4}`), SelectionReasons: []byte(`["preferred length"]`), SelectionRank: 1, SelectionScore: 90, Chosen: true}}
 	if err = store.ReplaceSelectedSentences(ctx, alice.ID, corpus.ID, "de", "haus", "NOUN", examples); err != nil {
 		t.Fatal(err)
 	}
-	workflow := webworkflow.NewReview(store.Pool(), review.NewService(vocabulary.NewLifecycle(store), store))
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -210,20 +203,10 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "1 imported") || !strings.Contains(importedKnown.Body.String(), "invalid UPOS") || !strings.Contains(importedKnown.Body.String(), "dass") {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
 	}
-	reviewPage := perform(t, h, "GET", "/review?book="+recorder.source, nil, cookies)
-	if reviewPage.Code != http.StatusSeeOther || reviewPage.Header().Get("Location") != "/books/"+recorder.source {
-		t.Fatalf("review redirect=%d location=%q", reviewPage.Code, reviewPage.Header().Get("Location"))
-	}
-	edit := perform(t, h, "POST", "/review/edit", url.Values{"csrf_token": {csrf}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}, "sentence": {"Das Haus ist heute ganz ruhig."}}, cookies)
-	if edit.Code != http.StatusSeeOther {
-		t.Fatalf("edit=%d %s", edit.Code, edit.Body.String())
-	}
-	accept := perform(t, h, "POST", "/review/accept", url.Values{"csrf_token": {csrf}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, cookies)
-	if accept.Code != http.StatusSeeOther {
-		t.Fatalf("accept=%d %s", accept.Code, accept.Body.String())
-	}
-	if deckPage := perform(t, h, "GET", "/deck?book="+recorder.source, nil, cookies); deckPage.Code == http.StatusOK || strings.Contains(deckPage.Body.String(), "Configure Anki deck") {
-		t.Fatalf("removed deck config still available=%d %s", deckPage.Code, deckPage.Body.String())
+	for _, route := range []struct{ method, path string }{{"GET", "/review?book=" + recorder.source}, {"POST", "/review/accept"}, {"GET", "/deck?book=" + recorder.source}, {"GET", "/deck/download"}, {"GET", "/admin/frequency"}} {
+		if got := perform(t, h, route.method, route.path, nil, cookies); got.Code != http.StatusNotFound {
+			t.Fatalf("removed route %s %s=%d", route.method, route.path, got.Code)
+		}
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
 	if !strings.Contains(bookPage.Body.String(), "Generate deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck") || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
@@ -238,19 +221,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if exported.Code != 200 || !strings.Contains(exported.Header().Get("Content-Disposition"), "attachment") || !strings.Contains(exported.Body.String(), "{{c1::Haus") {
 		t.Fatalf("export=%d headers=%v body=%s", exported.Code, exported.Header(), exported.Body.String())
 	}
-	knownDecision := perform(t, h, "POST", "/review/known", url.Values{"csrf_token": {csrf}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, cookies)
-	if knownDecision.Code != http.StatusSeeOther {
-		t.Fatalf("known decision=%d %s", knownDecision.Code, knownDecision.Body.String())
-	}
-	var knownCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID).Scan(&knownCount); err != nil || knownCount != 1 {
-		t.Fatalf("known decision persisted=%d err=%v", knownCount, err)
-	}
-	excluded := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
-	if excluded.Code != http.StatusOK || excluded.Body.Len() != 0 {
-		t.Fatalf("known word exported=%d %q", excluded.Code, excluded.Body.String())
-	}
-
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 	if got := perform(t, h, "POST", "/settings/languages", url.Values{"language": {"de"}}, bobCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("study language without csrf=%d", got.Code)
@@ -276,15 +246,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)
 	}
-	if got := perform(t, h, "GET", "/review?book="+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound || strings.Contains(got.Body.String(), "haus") {
-		t.Fatalf("bob review leaked: %d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/review/ignore", url.Values{"csrf_token": {bobCSRF}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, bobCookies); got.Code == 200 || got.Code == http.StatusSeeOther {
-		t.Fatalf("bob acted on alice item: %d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/admin/frequency?language=de", nil, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("non-admin frequency=%d", got.Code)
-	}
 	for _, path := range []string{"/admin", "/admin/users", "/languages"} {
 		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusForbidden {
 			t.Fatalf("non-admin %s=%d", path, got.Code)
@@ -299,7 +260,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Denied"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("non-admin connection create=%d", got.Code)
 	}
-	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
+	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
 	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
 		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
@@ -308,7 +269,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/admin" {
 		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
 	}
-	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings", "/review"} {
+	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings"} {
 		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code != http.StatusForbidden {
 			t.Fatalf("admin learner route %s=%d", path, got.Code)
 		}
@@ -317,13 +278,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if adminConnections.Code != http.StatusOK || !strings.Contains(adminConnections.Body.String(), "Library") || !strings.Contains(adminConnections.Body.String(), "Add connection") {
 		t.Fatalf("admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
 	}
-	upload := multipartUpload(t, h, "/admin/frequency", adminCookies, map[string]string{"csrf_token": adminCSRF, "language": "de", "version": "web-v1", "replace": "on"}, "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n")
-	if upload.Code != http.StatusSeeOther {
-		t.Fatalf("admin upload=%d %s", upload.Code, upload.Body.String())
-	}
-	adminPage := perform(t, h, "GET", "/admin/frequency?language=de", nil, adminCookies)
-	if adminPage.Code != 200 || !strings.Contains(adminPage.Body.String(), "web-v1") || !strings.Contains(adminPage.Body.String(), "Active") {
-		t.Fatalf("admin frequency=%d %s", adminPage.Code, adminPage.Body.String())
+	if got := perform(t, h, "GET", "/admin/frequency", nil, adminCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("removed admin frequency route=%d", got.Code)
 	}
 }
 

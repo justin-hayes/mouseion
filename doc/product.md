@@ -2,22 +2,20 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, ranks useful vocabulary, supports learner review, and exports curated study material to Anki. It is multi-user: learning state belongs to each learner, while server configuration and shared language resources are administered centrally.
+Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, and generates Anki study material for the unknown words needed to reach 97% book coverage. It is multi-user: books, known vocabulary, and generated cards belong to each learner, while server configuration is administered centrally.
 
 ## Current pipeline
 
 1. **Ingest** — import an EPUB directly or from an admin-configured OPDS catalog.
 2. **Analysis** — extract text and send size-bounded chunks to the Python/Stanza NLP service, producing a normalized corpus.
-3. **Selection** — identify vocabulary candidates and exclude known or previously handled items.
-4. **Ranking** — rank candidates using corpus evidence and global, language-scoped frequency data.
-5. **Enrichment** — add local morphology, frequency, and pronunciation data; external translation work can run through River.
-6. **Sentence selection** — choose useful examples from the learner's source text.
-7. **Review** — let the learner accept, ignore, edit, or otherwise curate candidates.
-8. **Anki export** — export accepted vocabulary as UTF-8 tab-separated Anki notes.
+3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, function words, and imported known vocabulary.
+4. **Coverage selection** — sort unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of all unknown-lemma tokens.
+5. **Sentence selection** — use an example from the learner's source text for each selected lemma.
+6. **Anki export** — a single **Generate deck** action emits UTF-8 tab-separated Anki notes ordered by each lemma's first encounter in the book.
 
 ## Current stack
 
-- **Go core:** domain logic, PostgreSQL persistence, imports, ranking, enrichment, review, Anki export, and the web/River worker process.
+- **Go core:** domain logic, PostgreSQL persistence, imports, coverage selection, sentence selection, Anki export, and the web/River worker process.
 - **Python/Stanza gRPC service:** long-lived, ingest-time linguistic analysis behind a versioned Protobuf contract.
 - **PostgreSQL:** application data, per-user learning state, shared language resources, and River jobs.
 - **Web application:** server-rendered Templ views enhanced with HTMX and styled with Pico CSS.
@@ -29,10 +27,10 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 2. [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md) — separates learner-owned state from shared language resources.
 3. [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md) — uses PostgreSQL for concurrent multi-user persistence and job infrastructure.
 4. [ADR 0004: Web application as the sole v1 client](adr/0004-web-only-v1-client.md) — makes the web app the v1 interface while preserving shared core boundaries.
-5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity, German normalization, lifecycle, selection, and ranking.
+5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; its ranking and review decisions are superseded by ADR 0017.
 6. [ADR 0006: Anki export and known-vocabulary import contracts](adr/0006-anki-export-import-contracts.md) — specifies TSV export, note identity, and lemma-list import.
 7. [ADR 0007: Enrichment providers, caching, and privacy policy](adr/0007-enrichment-providers-caching-privacy.md) — keeps most enrichment local and bounds external translation data.
-8. [ADR 0008: Global frequency dataset source and import contract](adr/0008-global-frequency-dataset-source-import.md) — standardizes the DWDS dataset and versioned import model.
+8. [ADR 0008: Global frequency dataset source and import contract](adr/0008-global-frequency-dataset-source-import.md) — historical DWDS contract, superseded by ADR 0018.
 9. [ADR 0009: Home-lab authentication and corpus-artifact isolation](adr/0009-home-lab-auth-corpus-isolation.md) — defines local accounts, private source artifacts, and Tailscale-only v1 access.
 10. [ADR 0010: Adopt River as the background-job queue](adr/0010-river-job-queue.md) — runs durable background work in PostgreSQL without another broker.
 11. [ADR 0011: gRPC as the Go↔Python transport for the NLP service](adr/0011-grpc-go-python-transport.md) — uses a long-lived typed gRPC boundary for analysis.

@@ -279,7 +279,7 @@ templ JobStatus(status analysis.Status) {
 			<p role="alert"><strong>Action needed:</strong> { status.Error } <a href="/connections">Check the source catalog and try importing again.</a></p>
 		}
 		if status.CorpusID != "" {
-			<p>Analysis complete. <a href="/library">Choose the book in My Library to review its vocabulary.</a></p>
+			<p>Analysis complete. <a href="/library">Choose the book in My Library to generate its deck.</a></p>
 		}
 	</article>
 }
@@ -326,27 +326,6 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 		</tbody></table>
 	}
 }
-templ AdminFrequencyPage(user domain.User, csrf string, datasets []domain.FrequencyDataset, language, message string) {
-	@Layout("Frequency resources", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Frequency resources</h1>
-	if message != "" {
-		<p role="alert">{ message }</p>
-	}
-	<article><h2>Upload DWDS dataset</h2><form method="post" action="/admin/frequency" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Language<input name="language" value={ language } placeholder="de" required/></label><label>Version<input name="version" required/></label></div><label>Dataset<input type="file" name="dataset" required/></label><label><input type="checkbox" name="replace"/> Activate this version after import</label><button>Upload</button></form></article>
-	<form method="get" action="/admin/frequency"><label>Filter language<input name="language" value={ language } placeholder="de"/></label><button class="outline">List datasets</button></form>
-	<table><thead><tr><th>Language</th><th>Version</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-	for _, dataset := range datasets {
-		<tr><td>{ dataset.Language }</td><td>{ dataset.Version }</td><td>{ frequencyStatus(dataset) }</td><td><div class="grid">
-		if dataset.Active {
-			@FrequencyAction(csrf, dataset.ID, "deactivate", "Deactivate")
-		} else {
-			@FrequencyAction(csrf, dataset.ID, "activate", "Activate")
-		}
-		@FrequencyAction(csrf, dataset.ID, "remove", "Remove")
-		</div></td></tr>
-	}
-	</tbody></table> }
-}
-templ FrequencyAction(csrf, id, action, label string) { <form method="post" action={ templ.SafeURL("/admin/frequency/"+id+"/"+action) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ label }</button></form> }
 templ AdminUsersPage(user domain.User, csrf, message string) {
 	@Layout("Users", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>User registration</h1><p>Register non-admin learner accounts.</p>
 	if message != "" {
@@ -359,7 +338,6 @@ templ AdminPage(user domain.User, csrf string) {
 	@Layout("Administration", &user, csrf) { <header class="page-heading"><div><h1>Administration</h1><p>Server configuration and account management.</p></div></header><div class="admin-grid">
 		<article><h2>Users</h2><p>Create and manage non-admin learner accounts.</p><a role="button" class="outline" href="/admin/users">Manage users</a></article>
 		<article><h2>Languages</h2><p>Configure the languages learners can choose for study.</p><a role="button" class="outline" href="/languages">Configure languages</a></article>
-		<article><h2>Frequency data</h2><p>Upload and activate language frequency datasets.</p><a role="button" class="outline" href="/admin/frequency">Manage frequency data</a></article>
 		<article><h2>OPDS connections</h2><p>Configure catalog connections used to find books.</p><a role="button" class="outline" href="/admin/connections">Configure connections</a></article>
 	</div> }
 }
