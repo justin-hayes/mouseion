@@ -55,14 +55,17 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if _, err = store.PutVocabularyState(ctx, alice.ID, "de", "alt", "ADJ", "ignored"); err != nil {
 		t.Fatal(err)
 	}
-	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "NOUN", false), tok("alt", "alt", "ADJ", false), tok("alt", "alt", "ADJ", false))
+	if _, err = store.PutVocabularyState(ctx, alice.ID, "de", "legacy", "NOUN", "generated"); err != nil {
+		t.Fatal(err)
+	}
+	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "NOUN", false), tok("alt", "alt", "ADJ", false), tok("alt", "alt", "ADJ", false), tok("legacy", "legacy", "NOUN", false))
 	svc := NewService(store)
 	got, err := svc.Select(ctx, alice.ID, corpus, DefaultConfig("book-a"))
-	if err != nil || len(got) != 1 {
+	if err != nil || len(got) != 2 {
 		t.Fatalf("alice candidates=%+v err=%v", got, err)
 	}
 	got, err = svc.Select(ctx, bob.ID, corpus, DefaultConfig("book-b"))
-	if err != nil || len(got) != 2 {
+	if err != nil || len(got) != 3 {
 		t.Fatalf("bob candidates=%+v err=%v", got, err)
 	}
 	var aliceCount, bobCount int
@@ -72,7 +75,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if err = conn.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCount); err != nil {
 		t.Fatal(err)
 	}
-	if aliceCount != 1 || bobCount != 2 {
+	if aliceCount != 2 || bobCount != 3 {
 		t.Fatalf("persisted alice=%d bob=%d", aliceCount, bobCount)
 	}
 	var occurrences int

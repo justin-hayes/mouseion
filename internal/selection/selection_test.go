@@ -85,19 +85,29 @@ func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
 
 func TestOwnerScopedExclusions(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
-	for _, state := range []string{"known", "ignored", "generated"} {
+	for _, state := range []string{"known", "ignored"} {
 		store.states[store.key("alice", "de", state, "NOUN")] = state
 	}
 	store.known[store.key("alice", "de", "importiert", "NOUN")] = true
 	corpus := fixture(tok("known", "known", "NOUN", false), tok("known", "known", "NOUN", false), tok("ignored", "ignored", "NOUN", false), tok("ignored", "ignored", "NOUN", false), tok("generated", "generated", "NOUN", false), tok("generated", "generated", "NOUN", false), tok("importiert", "importiert", "NOUN", false), tok("importiert", "importiert", "NOUN", false))
 	svc := NewService(store)
 	alice, err := svc.Select(context.Background(), "alice", corpus, DefaultConfig("a"))
-	if err != nil || len(alice) != 0 {
+	if err != nil || len(alice) != 1 || alice[0].Identity.CanonicalLemma != "generated" {
 		t.Fatalf("alice=%+v err=%v", alice, err)
 	}
 	bob, err := svc.Select(context.Background(), "bob", corpus, DefaultConfig("b"))
 	if err != nil || len(bob) != 4 {
 		t.Fatalf("bob=%+v err=%v", bob, err)
+	}
+}
+
+func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
+	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
+	store.states[store.key("alice", "de", "Haus", "NOUN")] = "generated"
+
+	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Haus", "Haus", "NOUN", false)), DefaultConfig("book"))
+	if err != nil || len(got) != 1 || len(store.saved) != 1 {
+		t.Fatalf("candidates=%+v saved=%+v err=%v", got, store.saved, err)
 	}
 }
 

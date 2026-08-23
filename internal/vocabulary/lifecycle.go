@@ -17,6 +17,8 @@ type State string
 const (
 	Candidate State = "candidate"
 	Accepted  State = "accepted"
+	// Generated is retained as legacy lifecycle bookkeeping. Export exclusion
+	// uses the explicit generated_vocabulary record instead.
 	Generated State = "generated"
 	Ignored   State = "ignored"
 	Known     State = "known"
