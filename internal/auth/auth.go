@@ -31,6 +31,14 @@ var (
 	ErrForbidden           = errors.New("auth: forbidden")
 	ErrBootstrapComplete   = errors.New("auth: an administrator already exists")
 	ErrInvalidPasswordHash = errors.New("auth: invalid password hash")
+	ErrInvalidRole         = errors.New("auth: invalid account role")
+)
+
+type Role string
+
+const (
+	RoleUser  Role = "user"
+	RoleAdmin Role = "admin"
 )
 
 type Store interface {
@@ -158,15 +166,18 @@ func (s *Service) BootstrapAdmin(ctx context.Context, username, password string)
 	}
 	return u, nil
 }
-func (s *Service) CreateUser(ctx context.Context, adminID, username, password string, isAdmin bool) (domain.User, error) {
+func (s *Service) CreateUser(ctx context.Context, adminID, username, password string, role Role) (domain.User, error) {
 	if err := s.requireAdmin(ctx, adminID); err != nil {
 		return domain.User{}, err
+	}
+	if role != RoleUser && role != RoleAdmin {
+		return domain.User{}, ErrInvalidRole
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
 		return domain.User{}, err
 	}
-	return s.store.CreateUserWithPassword(ctx, username, hash, isAdmin)
+	return s.store.CreateUserWithPassword(ctx, username, hash, role == RoleAdmin)
 }
 func (s *Service) ResetPassword(ctx context.Context, adminID, targetID, newPassword string) error {
 	if err := s.requireAdmin(ctx, adminID); err != nil {

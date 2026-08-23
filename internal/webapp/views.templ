@@ -31,9 +31,11 @@ document.addEventListener('submit', function (evt) {
 });
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
-		<ul><li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/known-vocab">Known words</a></li>
+		<ul>
 		if user.IsAdmin {
-			<li><a href="/admin">Admin</a></li>
+			<li><a href="/admin">Administration</a></li>
+		} else {
+			<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/known-vocab">Known words</a></li>
 		}
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
@@ -142,7 +144,7 @@ templ AdminConnectionsPage(user domain.User, csrf string, connections []domain.O
 	}
 	<div class="catalog-list">
 	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/admin/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/admin/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/admin/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/admin/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
 	}
 	</div> }
 }

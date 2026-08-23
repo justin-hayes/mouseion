@@ -40,6 +40,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 13. [ADR 0013: Size-based NLP analysis chunking](adr/0013-size-based-nlp-chunking.md) — bounds analysis requests and aggregates chunk results deterministically.
 14. [ADR 0014: Admin and learner roles are orthogonal](adr/0014-admin-learner-roles.md) — allows one account to administer the server and participate fully as a learner.
 15. [ADR 0015: OPDS connections are admin-configured; browsing and import are user-level](adr/0015-opds-connection-admin-browse-user.md) — centralizes catalog credentials while keeping book choice in the learner workflow.
+16. [ADR 0016: Separate admin and user account roles](adr/0016-separate-admin-user-roles.md) — makes server administration and learner workflows mutually exclusive account types.
 
 ## Deployment and operations
 

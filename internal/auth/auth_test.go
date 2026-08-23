@@ -104,11 +104,21 @@ func TestServiceLifecycleAndAuthorization(t *testing.T) {
 	if _, err = service.BootstrapAdmin(ctx, "other", "secret"); !errors.Is(err, ErrBootstrapComplete) {
 		t.Fatalf("second bootstrap: %v", err)
 	}
-	alice, err := service.CreateUser(ctx, admin.ID, "alice", "password", false)
+	alice, err := service.CreateUser(ctx, admin.ID, "alice", "password", RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.CreateUser(ctx, alice.ID, "bob", "password", false); !errors.Is(err, ErrForbidden) {
+	if alice.IsAdmin {
+		t.Fatal("user role created an administrator")
+	}
+	operator, err := service.CreateUser(ctx, admin.ID, "operator", "password", RoleAdmin)
+	if err != nil || !operator.IsAdmin {
+		t.Fatalf("admin role: %+v %v", operator, err)
+	}
+	if _, err = service.CreateUser(ctx, admin.ID, "invalid", "password", Role("admin,user")); !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("combined role: %v", err)
+	}
+	if _, err = service.CreateUser(ctx, alice.ID, "bob", "password", RoleUser); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("non-admin create: %v", err)
 	}
 	token, err := service.Login(ctx, "alice", "password")
