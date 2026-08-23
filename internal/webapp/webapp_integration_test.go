@@ -166,7 +166,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	// Ranking is populated asynchronously after selection. Leave ranking columns
 	// NULL to verify that review is available at this pipeline boundary.
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}')`, alice.ID, corpus.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[{"Location":{"StartOffset":0}}]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}')`, alice.ID, corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	examples := []domain.ExampleSentence{{SentenceKey: "haus:1", Text: "Das Haus ist heute sehr ruhig.", SourceLocation: []byte(`{"source_document_id":"book-1","start_offset":0,"end_offset":4}`), SelectionReasons: []byte(`["preferred length"]`), SelectionRank: 1, SelectionScore: 90, Chosen: true}}
@@ -199,10 +199,10 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("accept=%d %s", accept.Code, accept.Body.String())
 	}
 	deckPage := perform(t, h, "GET", "/deck?book="+recorder.source, nil, cookies)
-	if deckPage.Code != 200 || !strings.Contains(deckPage.Body.String(), "Filter known words") || !strings.Contains(deckPage.Body.String(), "Frequency in this book") {
+	if deckPage.Code != 200 || !strings.Contains(deckPage.Body.String(), "Filter known words") || !strings.Contains(deckPage.Body.String(), "First encounter") || !strings.Contains(deckPage.Body.String(), "Frequency in this book") {
 		t.Fatalf("deck config=%d %s", deckPage.Code, deckPage.Body.String())
 	}
-	configured := url.Values{"book": {recorder.source}, "name": {"German"}, "filter_known": {"true"}, "ranking": {"balanced"}}
+	configured := url.Values{"book": {recorder.source}, "name": {"German"}, "filter_known": {"true"}, "ranking": {"encounter"}}
 	if got := perform(t, h, "POST", "/deck/download", configured, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("deck export without csrf=%d", got.Code)
 	}

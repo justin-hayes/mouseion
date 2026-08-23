@@ -120,6 +120,34 @@ func TestConfiguredExportFiltersKnownAndRanks(t *testing.T) {
 	}
 }
 
+func TestConfiguredExportDefaultsToFirstEncounter(t *testing.T) {
+	store := &memoryStore{bookID: "book-1", entries: []Entry{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "anfang", UPOS: "NOUN", Sentence: "Der Anfang ist hier.", TargetWord: "Anfang", FirstEncounter: 5},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "zuerst", UPOS: "ADV", Sentence: "Zuerst kommt dieses Wort.", TargetWord: "Zuerst", FirstEncounter: 1},
+	}}
+	artifact, err := NewService(store).ExportConfigured(context.Background(), "alice", "German", ExportConfig{BookID: "book-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Index(artifact.TSV, "Zuerst") > strings.Index(artifact.TSV, "Anfang") {
+		t.Fatalf("first-encounter ordering was not applied: %q", artifact.TSV)
+	}
+}
+
+func TestLegacyExportKeepsAlphabeticalOrder(t *testing.T) {
+	store := &memoryStore{entries: []Entry{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "zuerst", UPOS: "ADV", Sentence: "Zuerst kommt dieses Wort.", TargetWord: "Zuerst", FirstEncounter: 1},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "anfang", UPOS: "NOUN", Sentence: "Der Anfang ist hier.", TargetWord: "Anfang", FirstEncounter: 5},
+	}}
+	artifact, err := NewService(store).Export(context.Background(), "alice", "German")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Index(artifact.TSV, "Anfang") > strings.Index(artifact.TSV, "Zuerst") {
+		t.Fatalf("legacy alphabetical ordering changed: %q", artifact.TSV)
+	}
+}
+
 func TestConfiguredExportRejectsInvalidInput(t *testing.T) {
 	service := NewService(&memoryStore{})
 	for _, cfg := range []ExportConfig{{}, {BookID: "book", Ranking: "unknown"}} {

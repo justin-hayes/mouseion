@@ -2869,14 +2869,14 @@ func DeckPage(user domain.User, csrf string, book domain.SourceMaterialSummary) 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 226, " known-word list, including entries that apply to every part of speech.</small></fieldset><fieldset><legend>Ranking</legend><label><input type=\"radio\" name=\"ranking\" value=\"balanced\" checked> Balanced</label><small>ADR 0005 default: 60% broader language-corpus frequency, 30% frequency in this book, plus priority and cross-text signals.</small><label><input type=\"radio\" name=\"ranking\" value=\"book\"> Frequency in this book</label><label><input type=\"radio\" name=\"ranking\" value=\"global\"> Broader language-corpus frequency</label></fieldset><button>Download Anki TSV</button></form></article><details><summary>Note type setup</summary><pre>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 226, " known-word list, including entries that apply to every part of speech.</small></fieldset><fieldset><legend>Ordering</legend><label><input type=\"radio\" name=\"ranking\" value=\"encounter\" checked> First encounter</label><small>Study words in the order they first appear as you read this book.</small><label><input type=\"radio\" name=\"ranking\" value=\"balanced\"> Balanced ranking</label><small>60% broader language-corpus frequency, 30% frequency in this book, plus priority and cross-text signals.</small><label><input type=\"radio\" name=\"ranking\" value=\"book\"> Frequency in this book</label><label><input type=\"radio\" name=\"ranking\" value=\"global\"> Broader language-corpus frequency</label></fieldset><button>Download Anki TSV</button></form></article><details><summary>Note type setup</summary><pre>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var151 string
 			templ_7745c5c3_Var151, templ_7745c5c3_Err = templ.JoinStringErrs(cardexport.NoteTypeDefinition())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 1408}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 1564}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var151))
 			if templ_7745c5c3_Err != nil {
