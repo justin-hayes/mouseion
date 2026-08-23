@@ -81,7 +81,7 @@ func main() {
 	exportService := cardexport.NewService(store)
 	knownVocabService := knownvocab.NewService(store)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, Review: reviewWorkflow, Frequency: frequencyService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, Review: reviewWorkflow, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/review"
@@ -81,7 +80,6 @@ type Services struct {
 	OPDS            OPDS
 	Analysis        Analysis
 	Review          Review
-	Frequency       *frequency.Service
 	KnownVocab      *knownvocab.Service
 	CardExport      *cardexport.Service
 	SecureCookies   bool
@@ -136,9 +134,6 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /admin", h.adminOnly(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.adminOnly(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.adminOnly(http.HandlerFunc(h.createUser)))
-	h.mux.Handle("GET /admin/frequency", h.adminOnly(http.HandlerFunc(h.adminFrequency)))
-	h.mux.Handle("POST /admin/frequency", h.adminOnly(http.HandlerFunc(h.createFrequency)))
-	h.mux.Handle("POST /admin/frequency/{id}/{action}", h.adminOnly(http.HandlerFunc(h.frequencyAction)))
 	return h
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
@@ -832,74 +827,6 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 	}
 	render(w, r, AdminPage(u, h.csrf(w, r)))
 }
-func (h *Handler) adminFrequency(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	datasets, err := h.services.Frequency.List(r.Context(), strings.TrimSpace(r.URL.Query().Get("language")))
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, AdminFrequencyPage(u, h.csrf(w, r), datasets, r.URL.Query().Get("language"), r.URL.Query().Get("message")))
-}
-func (h *Handler) createFrequency(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, "invalid upload", 400)
-		return
-	}
-	file, _, err := r.FormFile("dataset")
-	if err != nil {
-		http.Error(w, "dataset file required", 400)
-		return
-	}
-	defer file.Close()
-	language, version := strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("version"))
-	if r.FormValue("replace") == "on" {
-		_, _, err = h.services.Frequency.Replace(r.Context(), u.ID, language, version, file)
-	} else {
-		_, _, err = h.services.Frequency.Create(r.Context(), u.ID, language, version, file)
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	redirect(w, r, "/admin/frequency?language="+url.QueryEscape(language)+"&message=Dataset+uploaded")
-}
-func (h *Handler) frequencyAction(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	var err error
-	switch r.PathValue("action") {
-	case "activate":
-		err = h.services.Frequency.Activate(r.Context(), u.ID, r.PathValue("id"))
-	case "deactivate":
-		err = h.services.Frequency.Deactivate(r.Context(), u.ID, r.PathValue("id"))
-	case "remove":
-		err = h.services.Frequency.Remove(r.Context(), u.ID, r.PathValue("id"))
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	redirect(w, r, "/admin/frequency?message=Dataset+updated")
-}
 func (h *Handler) adminUsers(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.requireAdmin(w, r)
 	if !ok {
@@ -1052,12 +979,6 @@ func jobState(status analysis.Status) string {
 	default:
 		return strings.Title(string(status.State))
 	}
-}
-func frequencyStatus(dataset domain.FrequencyDataset) string {
-	if dataset.Active {
-		return "Active"
-	}
-	return "Inactive"
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
 func knownVocabUPOS(upos string) string {

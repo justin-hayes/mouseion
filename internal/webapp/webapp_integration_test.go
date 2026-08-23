@@ -22,7 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -194,7 +193,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	workflow := webworkflow.NewReview(store.Pool(), review.NewService(vocabulary.NewLifecycle(store), store))
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, Frequency: frequency.NewService(store), KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, Review: workflow, KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -282,9 +281,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/review/ignore", url.Values{"csrf_token": {bobCSRF}, "book": {recorder.source}, "language": {"de"}, "lemma": {"haus"}, "upos": {"NOUN"}}, bobCookies); got.Code == 200 || got.Code == http.StatusSeeOther {
 		t.Fatalf("bob acted on alice item: %d", got.Code)
 	}
-	if got := perform(t, h, "GET", "/admin/frequency?language=de", nil, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("non-admin frequency=%d", got.Code)
-	}
 	for _, path := range []string{"/admin", "/admin/users", "/languages"} {
 		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusForbidden {
 			t.Fatalf("non-admin %s=%d", path, got.Code)
@@ -299,7 +295,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Denied"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("non-admin connection create=%d", got.Code)
 	}
-	adminCookies, adminCSRF := loginCookies(t, h, "admin", "admin-password")
+	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
 	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
 		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
@@ -316,14 +312,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
 	if adminConnections.Code != http.StatusOK || !strings.Contains(adminConnections.Body.String(), "Library") || !strings.Contains(adminConnections.Body.String(), "Add connection") {
 		t.Fatalf("admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
-	}
-	upload := multipartUpload(t, h, "/admin/frequency", adminCookies, map[string]string{"csrf_token": adminCSRF, "language": "de", "version": "web-v1", "replace": "on"}, "lemma,wortklasse,frequenzklasse\nHaus,Substantiv,2\n")
-	if upload.Code != http.StatusSeeOther {
-		t.Fatalf("admin upload=%d %s", upload.Code, upload.Body.String())
-	}
-	adminPage := perform(t, h, "GET", "/admin/frequency?language=de", nil, adminCookies)
-	if adminPage.Code != 200 || !strings.Contains(adminPage.Body.String(), "web-v1") || !strings.Contains(adminPage.Body.String(), "Active") {
-		t.Fatalf("admin frequency=%d %s", adminPage.Code, adminPage.Body.String())
 	}
 }
 
