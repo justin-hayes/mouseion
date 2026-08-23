@@ -60,6 +60,12 @@ type KnownVocabulary struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS string
 	CreatedAt                                   time.Time
 }
+type GeneratedVocabulary struct {
+	OwnerID, Language, CanonicalLemma, UPOS string
+	FirstDeckID                             string
+	FirstSourceMaterialID                   *string
+	FirstGeneratedAt                        time.Time
+}
 type VocabularyState struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS, State string
 	UpdatedAt                                          time.Time

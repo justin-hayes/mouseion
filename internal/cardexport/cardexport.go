@@ -39,7 +39,7 @@ type Store interface {
 	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-	RecordGenerated(context.Context, string, string, Entry, Note) error
+	RecordGeneratedForBook(context.Context, string, string, string, Entry, Note) error
 }
 
 type Service struct{ store Store }
@@ -151,7 +151,7 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 			deckName = entry.SourceDocument
 		}
 	}
-	return s.renderAndRecord(ctx, owner, deckName, entries)
+	return s.renderAndRecord(ctx, owner, bookID, deckName, entries)
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
@@ -210,14 +210,14 @@ func candidateKey(candidate domain.SelectionCandidate) string {
 	return candidate.Language + "\x00" + candidate.CanonicalLemma + "\x00" + candidate.UPOS
 }
 
-func (s *Service) renderAndRecord(ctx context.Context, owner, deckName string, entries []Entry) (Artifact, error) {
+func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName string, entries []Entry) (Artifact, error) {
 	notes := make([]Note, 0, len(entries))
 	for _, entry := range entries {
 		n, err := makeNote(owner, entry)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
-		if err := s.store.RecordGenerated(ctx, owner, deckName, entry, n); err != nil {
+		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, deckName, entry, n); err != nil {
 			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 		notes = append(notes, n)
