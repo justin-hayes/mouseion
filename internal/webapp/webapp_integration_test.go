@@ -81,6 +81,12 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		case "/opds":
 			w.Header().Set("Content-Type", "application/atom+xml")
 			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Library</title><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry></feed>`, opds.AcquisitionRel, opds.EPUBMediaType)
+		case "/opds/language":
+			w.Header().Set("Content-Type", "application/atom+xml")
+			_, _ = w.Write([]byte(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/1</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/opds/language/1"/></entry></feed>`))
+		case "/opds/language/1":
+			w.Header().Set("Content-Type", "application/atom+xml")
+			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>book-pdf</id><title>PDF Book</title><link rel="%s" type="application/pdf" href="/book.pdf"/></entry><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry></feed>`, opds.AcquisitionRel, opds.AcquisitionRel, opds.EPUBMediaType)
 		case "/book.epub":
 			w.Header().Set("Content-Type", opds.EPUBMediaType)
 			_, _ = w.Write(epubBytes)
@@ -124,6 +130,14 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	shared := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
 	if shared.Code != 200 || !strings.Contains(shared.Body.String(), "Test Book") {
 		t.Fatalf("shared browse=%d %s", shared.Code, shared.Body.String())
+	}
+	catalogPage := perform(t, h, "GET", "/catalog?connection="+connection.ID, nil, cookies)
+	if catalogPage.Code != 200 || !strings.Contains(catalogPage.Body.String(), "German — study language") {
+		t.Fatalf("catalog=%d %s", catalogPage.Code, catalogPage.Body.String())
+	}
+	languageBooks := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=1", nil, cookies)
+	if languageBooks.Code != 200 || !strings.Contains(languageBooks.Body.String(), "Test Book") || strings.Contains(languageBooks.Body.String(), "PDF Book") {
+		t.Fatalf("language browse=%d %s", languageBooks.Code, languageBooks.Body.String())
 	}
 	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
 	acquired := perform(t, h, "POST", "/opds/acquire", acquireForm, cookies)

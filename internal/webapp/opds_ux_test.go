@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
@@ -21,6 +22,40 @@ func TestBrowseURLRoundTripsBreadcrumbTrail(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("trail[%d]=%+v want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestLanguageOptionsPutStudyLanguagesFirst(t *testing.T) {
+	profiles := []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}
+	feed := opds.Feed{Entries: []opds.Entry{
+		{Title: "Spanish", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/4"}}},
+		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/7"}}},
+	}}
+	options := languageOptions(profiles, feed)
+	if len(options) != 2 || options[0].ID != "7" || !options[0].Study || options[1].Study {
+		t.Fatalf("options=%+v", options)
+	}
+	var output bytes.Buffer
+	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Library"}, options).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Browse EPUBs by language", "German — study language", `value="7"`, "/opds/language"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("catalog page missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
+	feed := opds.Feed{Title: "German", Entries: []opds.Entry{{ID: "book", Title: "Book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}
+	var output bytes.Buffer
+	if err := LanguageResults("csrf", "connection-1", feed).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Import &amp; analyze"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("language results missing %q: %s", want, output.String())
 		}
 	}
 }
