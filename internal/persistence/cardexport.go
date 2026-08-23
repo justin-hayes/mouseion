@@ -9,7 +9,31 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
+
+func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
+	rows, err := s.pool.Query(ctx, `SELECT sc.owner_id::text,sc.corpus_id,sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,sc.selected_at,COALESCE(first_seen.start_offset,9223372036854775807) FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'location'->>'StartOffset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true WHERE sc.owner_id=$1 AND co.source_material_id=$2 ORDER BY sc.language,sc.canonical_lemma,sc.upos`, owner, bookID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var candidates []domain.SelectionCandidate
+	for rows.Next() {
+		var candidate domain.SelectionCandidate
+		if err := rows.Scan(&candidate.OwnerID, &candidate.CorpusID, &candidate.Language, &candidate.CanonicalLemma, &candidate.UPOS, &candidate.OccurrenceCount, &candidate.ObservedForms, &candidate.SentenceReferences, &candidate.Provenance, &candidate.SelectedAt, &candidate.FirstEncounter); err != nil {
+			return nil, err
+		}
+		candidates = append(candidates, candidate)
+	}
+	return candidates, rows.Err()
+}
+
+func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	var entry cardexport.Entry
+	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,ref.text),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',COALESCE((e.source_location->>'start_offset')::bigint,(e.source_location->>'StartOffset')::bigint,ref.start_offset,$7) FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT r->>'text' AS text,COALESCE(r->'location'->>'start_offset',r->'location'->>'StartOffset',r->'Location'->>'StartOffset')::bigint AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) r ORDER BY COALESCE(r->'location'->>'start_offset',r->'location'->>'StartOffset',r->'Location'->>'StartOffset')::bigint LIMIT 1) ref ON true LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6 AND COALESCE(e.sentence_text,ref.text) IS NOT NULL`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
+	return entry, missing(err)
+}
 
 func (s *PostgresStore) ListAcceptedCurated(ctx context.Context, owner string) ([]cardexport.Entry, error) {
 	rows, err := s.pool.Query(ctx, `SELECT c.owner_id::text,c.language,c.canonical_lemma,c.upos,e.sentence_text,COALESCE(en.translation,''),c.canonical_lemma,COALESCE(sl.morphology::text,'{}'),sm.title,c.notes FROM curated_sentences c JOIN vocabulary_states v ON v.owner_id=c.owner_id AND v.language=c.language AND v.canonical_lemma=c.canonical_lemma AND v.upos=c.upos AND v.state='accepted' JOIN example_sentences e ON e.owner_id=c.owner_id AND e.id=c.example_sentence_id JOIN corpora co ON co.owner_id=e.owner_id AND co.id=e.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=c.language AND canonical_lemma=c.canonical_lemma AND upos=upper(c.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=c.language AND canonical_lemma=c.canonical_lemma AND upos=c.upos ORDER BY id LIMIT 1) sl ON true WHERE c.owner_id=$1 ORDER BY c.language,c.canonical_lemma,c.upos`, owner)
@@ -59,7 +83,7 @@ func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName str
 	if err != nil {
 		return err
 	}
-	if state != "accepted" && state != "generated" {
+	if state != "candidate" && state != "accepted" && state != "generated" {
 		return fmt.Errorf("cardexport: vocabulary state is %s", state)
 	}
 	var deckID string
@@ -69,11 +93,11 @@ func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName str
 	if _, err = tx.Exec(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_id,dedup_key) DO UPDATE SET deck_id=excluded.deck_id,front=excluded.front,back=excluded.back`, owner, deckID, note.Key, entry.CanonicalLemma, entry.UPOS, note.Text, note.BackExtra); err != nil {
 		return err
 	}
-	if state == "accepted" {
+	if state != "generated" {
 		if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET state='generated',updated_at=now() WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
 			return err
 		}
-		details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": "accepted", "to": "generated"})
+		details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": state, "to": "generated"})
 		completed := time.Now().UTC()
 		if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'vocabulary.transition','completed',$2,$3)`, owner, details, completed); err != nil {
 			return err

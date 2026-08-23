@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -56,6 +57,9 @@ type Artifact struct {
 
 type Store interface {
 	ListAcceptedCurated(context.Context, string) ([]Entry, error)
+	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
+	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
+	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
 	RecordGenerated(context.Context, string, string, Entry, Note) error
 }
 
@@ -151,6 +155,99 @@ func (s *Service) ExportConfigured(ctx context.Context, owner, deckName string, 
 	return s.export(ctx, owner, deckName, cfg)
 }
 
+// ExportCoverage exports the smallest set of unknown lemmas accounting for at
+// least 97 percent of the book's unknown lemma tokens, in reading order.
+func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+		return Artifact{}, ErrInvalidInput
+	}
+	candidates, err := s.store.ListSelectionCandidatesForBook(ctx, owner, bookID)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("list selection candidates: %w", err)
+	}
+	selected, err := s.coverageCandidates(ctx, owner, candidates)
+	if err != nil {
+		return Artifact{}, err
+	}
+	sort.SliceStable(selected, func(i, j int) bool {
+		if selected[i].FirstEncounter != selected[j].FirstEncounter {
+			return selected[i].FirstEncounter < selected[j].FirstEncounter
+		}
+		return candidateKey(selected[i]) < candidateKey(selected[j])
+	})
+
+	entries := make([]Entry, 0, len(selected))
+	deckName := bookID
+	for _, candidate := range selected {
+		entry, err := s.store.GetCoverageEntryForBook(ctx, owner, bookID, candidate)
+		if err != nil {
+			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
+		}
+		entry.TargetWord = targetWord(entry.Sentence, candidate)
+		entries = append(entries, entry)
+		if strings.TrimSpace(entry.SourceDocument) != "" {
+			deckName = entry.SourceDocument
+		}
+	}
+	return s.renderAndRecord(ctx, owner, deckName, entries)
+}
+
+func targetWord(sentence string, candidate domain.SelectionCandidate) string {
+	var forms []string
+	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
+		for _, form := range forms {
+			if strings.Contains(strings.ToLower(sentence), strings.ToLower(form)) {
+				return form
+			}
+		}
+	}
+	return candidate.CanonicalLemma
+}
+
+const coveragePercent = 97
+
+func (s *Service) coverageCandidates(ctx context.Context, owner string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
+	knownByLanguage := make(map[string]map[string]bool)
+	unknown := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		known, ok := knownByLanguage[candidate.Language]
+		if !ok {
+			words, err := s.store.ListKnownVocabulary(ctx, owner, candidate.Language)
+			if err != nil {
+				return nil, fmt.Errorf("list known vocabulary for %s: %w", candidate.Language, err)
+			}
+			known = make(map[string]bool, len(words))
+			for _, word := range words {
+				known[word.CanonicalLemma+"\x00"+word.UPOS] = true
+			}
+			knownByLanguage[candidate.Language] = known
+		}
+		if !known[candidate.CanonicalLemma+"\x00"+candidate.UPOS] && !known[candidate.CanonicalLemma+"\x00"] {
+			unknown = append(unknown, candidate)
+		}
+	}
+	sort.SliceStable(unknown, func(i, j int) bool {
+		if unknown[i].OccurrenceCount != unknown[j].OccurrenceCount {
+			return unknown[i].OccurrenceCount > unknown[j].OccurrenceCount
+		}
+		return candidateKey(unknown[i]) < candidateKey(unknown[j])
+	})
+	total := 0
+	for _, candidate := range unknown {
+		total += candidate.OccurrenceCount
+	}
+	cumulative, count := 0, 0
+	for count < len(unknown) && cumulative*100 < total*coveragePercent {
+		cumulative += unknown[count].OccurrenceCount
+		count++
+	}
+	return unknown[:count], nil
+}
+
+func candidateKey(candidate domain.SelectionCandidate) string {
+	return candidate.Language + "\x00" + candidate.CanonicalLemma + "\x00" + candidate.UPOS
+}
+
 func (s *Service) export(ctx context.Context, owner, deckName string, cfg ExportConfig) (Artifact, error) {
 	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckName) == "" {
 		return Artifact{}, ErrInvalidInput
@@ -184,6 +281,10 @@ func (s *Service) export(ctx context.Context, owner, deckName string, cfg Export
 		}
 		return a.Language+"\x00"+a.CanonicalLemma+"\x00"+a.UPOS < b.Language+"\x00"+b.CanonicalLemma+"\x00"+b.UPOS
 	})
+	return s.renderAndRecord(ctx, owner, deckName, entries)
+}
+
+func (s *Service) renderAndRecord(ctx context.Context, owner, deckName string, entries []Entry) (Artifact, error) {
 	notes := make([]Note, 0, len(entries))
 	for _, entry := range entries {
 		n, err := makeNote(owner, entry)

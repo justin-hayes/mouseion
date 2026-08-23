@@ -104,6 +104,7 @@ type FrequencyEntry struct {
 type SelectionCandidate struct {
 	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
 	OccurrenceCount                                   int
+	FirstEncounter                                    int64
 	ObservedForms, SentenceReferences, Provenance     []byte
 	SelectedAt                                        time.Time
 }
