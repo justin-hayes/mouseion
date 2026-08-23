@@ -41,6 +41,8 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 14. [ADR 0014: Admin and learner roles are orthogonal](adr/0014-admin-learner-roles.md) — allows one account to administer the server and participate fully as a learner.
 15. [ADR 0015: OPDS connections are admin-configured; browsing and import are user-level](adr/0015-opds-connection-admin-browse-user.md) — centralizes catalog credentials while keeping book choice in the learner workflow.
 16. [ADR 0016: Separate admin and user account roles](adr/0016-separate-admin-user-roles.md) — makes server administration and learner workflows mutually exclusive account types.
+17. [ADR 0017: Replace frequency-based ranking with coverage-based selection](adr/0017-coverage-based-selection.md) — selects the minimal unknown-lemma set needed for ≥97% text coverage, ordered by first encounter.
+18. [ADR 0018: Remove global frequency dataset (DWDS) import](adr/0018-remove-dwds-frequency.md) — supersedes the DWDS import contract; coverage-based selection does not need corpus-frequency data.
 
 ## Deployment and operations
 
