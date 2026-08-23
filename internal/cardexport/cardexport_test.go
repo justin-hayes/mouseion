@@ -12,9 +12,35 @@ import (
 )
 
 type memoryStore struct {
-	entries   []Entry
-	generated []Note
-	bookID    string
+	entries    []Entry
+	candidates []domain.SelectionCandidate
+	known      []domain.KnownVocabulary
+	generated  []Note
+	bookID     string
+}
+
+func (m *memoryStore) ListSelectionCandidatesForBook(_ context.Context, _ string, bookID string) ([]domain.SelectionCandidate, error) {
+	if bookID != m.bookID {
+		return nil, nil
+	}
+	return append([]domain.SelectionCandidate(nil), m.candidates...), nil
+}
+func (m *memoryStore) ListKnownVocabulary(_ context.Context, _ string, language string) ([]domain.KnownVocabulary, error) {
+	var out []domain.KnownVocabulary
+	for _, word := range m.known {
+		if word.Language == language {
+			out = append(out, word)
+		}
+	}
+	return out, nil
+}
+func (m *memoryStore) GetCoverageEntryForBook(_ context.Context, owner, _ string, candidate domain.SelectionCandidate) (Entry, error) {
+	for _, entry := range m.entries {
+		if entry.OwnerID == owner && entry.Language == candidate.Language && entry.CanonicalLemma == candidate.CanonicalLemma && entry.UPOS == candidate.UPOS {
+			return entry, nil
+		}
+	}
+	return Entry{}, errors.New("missing entry")
 }
 
 func (m *memoryStore) ListAcceptedCurated(_ context.Context, owner string) ([]Entry, error) {
@@ -154,5 +180,22 @@ func TestConfiguredExportRejectsInvalidInput(t *testing.T) {
 		if _, err := service.ExportConfigured(context.Background(), "alice", "German", cfg); !errors.Is(err, ErrInvalidInput) {
 			t.Fatalf("config=%+v err=%v", cfg, err)
 		}
+	}
+}
+
+func TestCoverageCandidatesExcludesKnownAndStopsAt97Percent(t *testing.T) {
+	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}}}
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 100},
+		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 50},
+		{Language: "de", CanonicalLemma: "two", UPOS: "NOUN", OccurrenceCount: 47},
+		{Language: "de", CanonicalLemma: "three", UPOS: "NOUN", OccurrenceCount: 3},
+	}
+	got, err := NewService(store).coverageCandidates(context.Background(), "alice", candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].CanonicalLemma != "one" || got[1].CanonicalLemma != "two" {
+		t.Fatalf("coverage candidates = %#v", got)
 	}
 }
