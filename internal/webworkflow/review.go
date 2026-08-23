@@ -28,7 +28,7 @@ func NewReview(pool *pgxpool.Pool, core *review.Service) *Review {
 }
 
 func (r *Review) Present(ctx context.Context, owner string) ([]review.Item, error) {
-	rows, err := r.pool.Query(ctx, `SELECT sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,sc.ranking_global_pct,sc.ranking_corpus_pct,sc.ranking_priority,sc.ranking_cross_text,sc.ranking_score,COALESCE(ec.translation,''),COALESCE(ec.gloss,'') FROM selection_candidates sc LEFT JOIN LATERAL (SELECT translation,gloss FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) ec ON true WHERE sc.owner_id=$1 ORDER BY sc.ranking_score DESC NULLS LAST,sc.language,sc.canonical_lemma,sc.upos`, owner)
+	rows, err := r.pool.Query(ctx, `SELECT sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,COALESCE(sc.ranking_global_pct,0),COALESCE(sc.ranking_corpus_pct,0),COALESCE(sc.ranking_priority,false),COALESCE(sc.ranking_cross_text,0),COALESCE(sc.ranking_score,0),COALESCE(ec.translation,''),COALESCE(ec.gloss,'') FROM selection_candidates sc LEFT JOIN LATERAL (SELECT translation,gloss FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) ec ON true WHERE sc.owner_id=$1 ORDER BY sc.ranking_score DESC NULLS LAST,sc.language,sc.canonical_lemma,sc.upos`, owner)
 	if err != nil {
 		return nil, err
 	}

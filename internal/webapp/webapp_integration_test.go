@@ -164,7 +164,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, alice.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance,ranking_global_pct,ranking_corpus_pct,ranking_priority,ranking_cross_text,ranking_score) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}',0.9,1,true,1,1.0)`, alice.ID, corpus.ID); err != nil {
+	// Ranking is populated asynchronously after selection. Leave ranking columns
+	// NULL to verify that review is available at this pipeline boundary.
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',2,'["Haus"]','[]','{"min_occurrences":2,"occurrence_count":2,"frequency_cutoff":0.05}')`, alice.ID, corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	examples := []domain.ExampleSentence{{SentenceKey: "haus:1", Text: "Das Haus ist heute sehr ruhig.", SourceLocation: []byte(`{"source_document_id":"book-1","start_offset":0,"end_offset":4}`), SelectionReasons: []byte(`["preferred length"]`), SelectionRank: 1, SelectionScore: 90, Chosen: true}}
