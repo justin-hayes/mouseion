@@ -38,6 +38,7 @@ type Artifact struct {
 type Store interface {
 	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
+	ListGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
 	RecordGeneratedForBook(context.Context, string, string, string, Entry, Note) error
 }
@@ -127,7 +128,7 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 	if err != nil {
 		return Artifact{}, fmt.Errorf("list selection candidates: %w", err)
 	}
-	selected, err := s.coverageCandidates(ctx, owner, candidates)
+	selected, err := s.coverageCandidates(ctx, owner, bookID, candidates)
 	if err != nil {
 		return Artifact{}, err
 	}
@@ -168,8 +169,9 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 
 const coveragePercent = 97
 
-func (s *Service) coverageCandidates(ctx context.Context, owner string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
+func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
 	knownByLanguage := make(map[string]map[string]bool)
+	generatedByLanguage := make(map[string]map[string]bool)
 	unknown := make([]domain.SelectionCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		known, ok := knownByLanguage[candidate.Language]
@@ -184,7 +186,24 @@ func (s *Service) coverageCandidates(ctx context.Context, owner string, candidat
 			}
 			knownByLanguage[candidate.Language] = known
 		}
-		if !known[candidate.CanonicalLemma+"\x00"+candidate.UPOS] && !known[candidate.CanonicalLemma+"\x00"] {
+		generated, ok := generatedByLanguage[candidate.Language]
+		if !ok {
+			words, err := s.store.ListGeneratedVocabulary(ctx, owner, candidate.Language)
+			if err != nil {
+				return nil, fmt.Errorf("list generated vocabulary for %s: %w", candidate.Language, err)
+			}
+			generated = make(map[string]bool, len(words))
+			for _, word := range words {
+				// Unknown provenance is excluded conservatively. Explicit provenance
+				// for this book remains eligible so repeating an export is idempotent.
+				if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != bookID {
+					generated[word.CanonicalLemma+"\x00"+word.UPOS] = true
+				}
+			}
+			generatedByLanguage[candidate.Language] = generated
+		}
+		identity := candidate.CanonicalLemma + "\x00" + candidate.UPOS
+		if !known[identity] && !known[candidate.CanonicalLemma+"\x00"] && !generated[identity] {
 			unknown = append(unknown, candidate)
 		}
 	}

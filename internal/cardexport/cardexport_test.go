@@ -11,11 +11,27 @@ import (
 )
 
 type memoryStore struct {
-	entries    []Entry
-	candidates []domain.SelectionCandidate
-	known      []domain.KnownVocabulary
-	generated  []Note
-	bookID     string
+	entries      []Entry
+	candidates   []domain.SelectionCandidate
+	known        []domain.KnownVocabulary
+	history      []domain.GeneratedVocabulary
+	generated    []Note
+	bookID       string
+	historyCalls map[string]int
+}
+
+func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	if m.historyCalls == nil {
+		m.historyCalls = make(map[string]int)
+	}
+	m.historyCalls[language]++
+	var out []domain.GeneratedVocabulary
+	for _, word := range m.history {
+		if word.OwnerID == owner && word.Language == language {
+			out = append(out, word)
+		}
+	}
+	return out, nil
 }
 
 func (m *memoryStore) ListSelectionCandidatesForBook(_ context.Context, _ string, bookID string) ([]domain.SelectionCandidate, error) {
@@ -96,21 +112,65 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	}
 }
 
-func TestCoverageCandidatesExcludesKnownAndStopsAt97Percent(t *testing.T) {
+func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
+	otherBook := "other-book"
 	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}}}
+	store.history = []domain.GeneratedVocabulary{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", FirstSourceMaterialID: &otherBook},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN"},
+	}
 	candidates := []domain.SelectionCandidate{
 		{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 100},
+		{Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", OccurrenceCount: 100},
+		{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 100},
 		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 96},
 		{Language: "de", CanonicalLemma: "singleton-a", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "singleton-b", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "singleton-c", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "singleton-d", UPOS: "NOUN", OccurrenceCount: 1},
 	}
-	got, err := NewService(store).coverageCandidates(context.Background(), "alice", candidates)
+	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "current-book", candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 2 || got[0].CanonicalLemma != "one" || got[1].CanonicalLemma != "singleton-a" {
+		t.Fatalf("coverage candidates = %#v", got)
+	}
+	if store.historyCalls["de"] != 1 {
+		t.Fatalf("generated vocabulary loaded %d times", store.historyCalls["de"])
+	}
+}
+
+func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
+	currentBook := "current-book"
+	store := &memoryStore{history: []domain.GeneratedVocabulary{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "same", UPOS: "NOUN", FirstSourceMaterialID: &currentBook},
+		{OwnerID: "bob", Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN"},
+	}}
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "same", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN", OccurrenceCount: 1},
+	}
+	got, err := NewService(store).coverageCandidates(context.Background(), "alice", currentBook, candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("coverage candidates = %#v", got)
+	}
+}
+
+func TestCoverageCandidatesKnownLemmaWildcardAndSingleton(t *testing.T) {
+	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known"}}}
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "known", UPOS: "VERB", OccurrenceCount: 10},
+		{Language: "de", CanonicalLemma: "only", UPOS: "NOUN", OccurrenceCount: 1},
+	}
+	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "book", candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].CanonicalLemma != "only" {
 		t.Fatalf("coverage candidates = %#v", got)
 	}
 }
