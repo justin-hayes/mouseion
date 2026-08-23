@@ -26,10 +26,23 @@ var (
 
 // Item is the complete aggregate consumed by a review UI.
 type Item struct {
-	Candidate  ranking.RankedCandidate
-	Enrichment enrichment.Result
-	Sentences  sentences.Result
-	State      vocabulary.State
+	Candidate      ranking.RankedCandidate
+	Enrichment     enrichment.Result
+	Sentences      sentences.Result
+	State          vocabulary.State
+	FirstEncounter int64
+}
+
+type Query struct {
+	BookID, Lemma, UPOS, Decision, Sort string
+	Page, PageSize                      int
+}
+
+type Page struct {
+	Items    []Item
+	Page     int
+	PageSize int
+	Total    int
 }
 
 // Input groups the independently produced pipeline results for one identity.
@@ -49,6 +62,9 @@ type Store interface {
 	ListReviewSentences(context.Context, string, string, string, string) ([]domain.ExampleSentence, error)
 	CurateReviewSentence(context.Context, string, string, string, string, string, string, string, domain.ProcessingHistory) (domain.CuratedSentence, error)
 }
+type scopedSentenceStore interface {
+	ListReviewSentencesForBook(context.Context, string, string, string, string, string) ([]domain.ExampleSentence, error)
+}
 
 type Service struct {
 	lifecycle Lifecycle
@@ -60,8 +76,8 @@ func NewService(lifecycle Lifecycle, store Store) *Service {
 	return &Service{lifecycle: lifecycle, store: store, now: time.Now}
 }
 
-// Present assembles only actionable candidate and accepted items. Handled
-// ignored, known, and generated identities therefore do not reappear.
+// Present assembles the complete decision list. A per-book workflow needs to
+// keep handled words visible so learners can inspect or change a decision.
 func (s *Service) Present(ctx context.Context, owner string, inputs []Input) ([]Item, error) {
 	if strings.TrimSpace(owner) == "" {
 		return nil, ErrInvalidInput
@@ -79,14 +95,22 @@ func (s *Service) Present(ctx context.Context, owner string, inputs []Input) ([]
 			}
 			return nil, fmt.Errorf("get review state: %w", err)
 		}
-		if state.State == string(vocabulary.Candidate) || state.State == string(vocabulary.Accepted) {
-			items = append(items, Item{Candidate: input.Candidate, Enrichment: input.Enrichment, Sentences: input.Sentences, State: vocabulary.State(state.State)})
-		}
+		items = append(items, Item{Candidate: input.Candidate, Enrichment: input.Enrichment, Sentences: input.Sentences, State: vocabulary.State(state.State)})
 	}
 	return items, nil
 }
 
 func (s *Service) Accept(ctx context.Context, owner string, id vocabulary.Identity) (domain.VocabularyState, error) {
+	return s.AcceptForBook(ctx, owner, "", id)
+}
+func (s *Service) AcceptForBook(ctx context.Context, owner, bookID string, id vocabulary.Identity) (domain.VocabularyState, error) {
+	examples, err := s.examplesForBook(ctx, owner, bookID, id)
+	if err != nil {
+		return domain.VocabularyState{}, err
+	}
+	if _, err = s.curate(ctx, owner, id, examples[0].ID, "", "chosen", "review.include"); err != nil {
+		return domain.VocabularyState{}, err
+	}
 	return s.transition(ctx, owner, id, vocabulary.Accepted)
 }
 func (s *Service) Ignore(ctx context.Context, owner string, id vocabulary.Identity) (domain.VocabularyState, error) {
@@ -110,10 +134,13 @@ func (s *Service) transition(ctx context.Context, owner string, id vocabulary.Id
 }
 
 func (s *Service) EditExample(ctx context.Context, owner string, id vocabulary.Identity, newSentence string) (domain.CuratedSentence, error) {
+	return s.EditExampleForBook(ctx, owner, "", id, newSentence)
+}
+func (s *Service) EditExampleForBook(ctx context.Context, owner, bookID string, id vocabulary.Identity, newSentence string) (domain.CuratedSentence, error) {
 	if strings.TrimSpace(newSentence) == "" {
 		return domain.CuratedSentence{}, ErrInvalidInput
 	}
-	examples, err := s.examples(ctx, owner, id)
+	examples, err := s.examplesForBook(ctx, owner, bookID, id)
 	if err != nil {
 		return domain.CuratedSentence{}, err
 	}
@@ -121,7 +148,10 @@ func (s *Service) EditExample(ctx context.Context, owner string, id vocabulary.I
 }
 
 func (s *Service) ChooseAlternate(ctx context.Context, owner string, id vocabulary.Identity, alternateIndex int) (domain.CuratedSentence, error) {
-	examples, err := s.examples(ctx, owner, id)
+	return s.ChooseAlternateForBook(ctx, owner, "", id, alternateIndex)
+}
+func (s *Service) ChooseAlternateForBook(ctx context.Context, owner, bookID string, id vocabulary.Identity, alternateIndex int) (domain.CuratedSentence, error) {
+	examples, err := s.examplesForBook(ctx, owner, bookID, id)
 	if err != nil {
 		return domain.CuratedSentence{}, err
 	}
@@ -130,6 +160,26 @@ func (s *Service) ChooseAlternate(ctx context.Context, owner string, id vocabula
 		return domain.CuratedSentence{}, ErrInvalidAlternate
 	}
 	return s.curate(ctx, owner, id, examples[index].ID, "", fmt.Sprintf("alternate:%d", alternateIndex), "review.choose_alternate")
+}
+
+func (s *Service) examplesForBook(ctx context.Context, owner, bookID string, id vocabulary.Identity) ([]domain.ExampleSentence, error) {
+	if strings.TrimSpace(bookID) != "" {
+		if store, ok := s.store.(scopedSentenceStore); ok {
+			if !valid(owner, id) {
+				return nil, ErrInvalidInput
+			}
+			examples, err := store.ListReviewSentencesForBook(ctx, owner, bookID, id.Language, id.CanonicalLemma, id.UPOS)
+			if err != nil {
+				return nil, fmt.Errorf("list review sentences for book: %w", err)
+			}
+			if len(examples) == 0 {
+				return nil, ErrNoExample
+			}
+			return examples, nil
+		}
+		return nil, ErrInvalidInput
+	}
+	return s.examples(ctx, owner, id)
 }
 
 func (s *Service) examples(ctx context.Context, owner string, id vocabulary.Identity) ([]domain.ExampleSentence, error) {

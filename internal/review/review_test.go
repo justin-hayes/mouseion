@@ -93,7 +93,7 @@ func aggregate(id vocabulary.Identity) Input {
 	}
 }
 
-func TestPresentAssemblesActionableItemsAndSuppressesHandled(t *testing.T) {
+func TestPresentAssemblesCompleteDecisionList(t *testing.T) {
 	ctx := context.Background()
 	store := newFakeStore()
 	service := NewService(fakeLifecycle{store}, store)
@@ -107,7 +107,7 @@ func TestPresentAssemblesActionableItemsAndSuppressesHandled(t *testing.T) {
 	store.states[fakeKey("alice", "de", "wissen", "VERB")] = domain.VocabularyState{State: "known"}
 	inputs := []Input{aggregate(ids[0]), aggregate(ids[1]), aggregate(ids[2])}
 	items, err := service.Present(ctx, "alice", inputs)
-	if err != nil || len(items) != 2 || items[0].Candidate.Components.Score != .82 || items[0].Enrichment.Translation.Value != "house" || items[0].Sentences.Chosen.Text == "" {
+	if err != nil || len(items) != 3 || items[2].State != vocabulary.Known || items[0].Candidate.Components.Score != .82 || items[0].Enrichment.Translation.Value != "house" || items[0].Sentences.Chosen.Text == "" {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}
 	if bob, err := service.Present(ctx, "bob", inputs); err != nil || len(bob) != 0 {
@@ -122,7 +122,8 @@ func TestLifecycleReviewOperations(t *testing.T) {
 	id := vocabulary.Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}
 	key := fakeKey("alice", "de", "Haus", "NOUN")
 	store.states[key] = domain.VocabularyState{OwnerID: "alice", State: "candidate"}
-	if got, err := service.Accept(ctx, "alice", id); err != nil || got.State != "accepted" {
+	store.examples[key] = []domain.ExampleSentence{{ID: "chosen", OwnerID: "alice", Chosen: true, Text: "Das Haus ist alt."}}
+	if got, err := service.Accept(ctx, "alice", id); err != nil || got.State != "accepted" || len(store.curated) != 1 {
 		t.Fatalf("accept=%+v %v", got, err)
 	}
 	if got, err := service.Ignore(ctx, "alice", id); err != nil || got.State != "ignored" {

@@ -61,13 +61,16 @@ type Analysis interface {
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
 type Review interface {
-	Present(context.Context, string) ([]review.Item, error)
+	Present(context.Context, string, review.Query) (review.Page, error)
 	Accept(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
+	AcceptForBook(context.Context, string, string, vocabulary.Identity) (domain.VocabularyState, error)
 	Ignore(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
 	MarkKnown(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
 	Reset(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
 	EditExample(context.Context, string, vocabulary.Identity, string) (domain.CuratedSentence, error)
+	EditExampleForBook(context.Context, string, string, vocabulary.Identity, string) (domain.CuratedSentence, error)
 	ChooseAlternate(context.Context, string, vocabulary.Identity, int) (domain.CuratedSentence, error)
+	ChooseAlternateForBook(context.Context, string, string, vocabulary.Identity, int) (domain.CuratedSentence, error)
 }
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
@@ -604,39 +607,107 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 }
 func (h *Handler) reviewPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	items, err := h.services.Review.Present(r.Context(), u.ID)
+	book, ok := h.loadBookID(w, r, u.ID, strings.TrimSpace(r.URL.Query().Get("book")))
+	if !ok {
+		return
+	}
+	pageNumber, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	query := review.Query{BookID: book.Source.ID, Lemma: r.URL.Query().Get("lemma"), UPOS: r.URL.Query().Get("upos"), Decision: r.URL.Query().Get("decision"), Sort: r.URL.Query().Get("sort"), Page: pageNumber, PageSize: 25}
+	page, err := h.services.Review.Present(r.Context(), u.ID, query)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, ReviewPage(u, h.csrf(w, r), items, r.URL.Query().Get("message")))
+	render(w, r, ReviewPage(u, h.csrf(w, r), book, query, page, r.URL.Query().Get("message")))
 }
 func reviewIdentity(r *http.Request) vocabulary.Identity {
 	return vocabulary.Identity{Language: strings.TrimSpace(r.FormValue("language")), CanonicalLemma: strings.TrimSpace(r.FormValue("lemma")), UPOS: strings.TrimSpace(r.FormValue("upos"))}
+}
+func reviewPageCount(page review.Page) int {
+	if page.PageSize < 1 || page.Total == 0 {
+		return 1
+	}
+	return (page.Total + page.PageSize - 1) / page.PageSize
+}
+func reviewURL(bookID string, query review.Query, page int) string {
+	values := url.Values{"book": {bookID}}
+	if query.Lemma != "" {
+		values.Set("lemma", query.Lemma)
+	}
+	if query.UPOS != "" {
+		values.Set("upos", query.UPOS)
+	}
+	if query.Decision != "" {
+		values.Set("decision", query.Decision)
+	}
+	if query.Sort != "" {
+		values.Set("sort", query.Sort)
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	return "/review?" + values.Encode()
+}
+func decisionLabel(state vocabulary.State) string {
+	switch state {
+	case vocabulary.Accepted:
+		return "Included"
+	case vocabulary.Known:
+		return "Known"
+	case vocabulary.Ignored:
+		return "Ignored"
+	case vocabulary.Generated:
+		return "Exported"
+	default:
+		return "Undecided"
+	}
 }
 func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	u, id, action := user(r), reviewIdentity(r), r.PathValue("action")
-	var err error
+	bookID := strings.TrimSpace(r.FormValue("book"))
+	if _, ok := h.loadBookID(w, r, u.ID, bookID); !ok {
+		return
+	}
+	candidates, err := h.services.Review.Present(r.Context(), u.ID, review.Query{BookID: bookID, Lemma: id.CanonicalLemma, UPOS: id.UPOS, Page: 1, PageSize: 100})
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	found := false
+	for _, item := range candidates.Items {
+		candidate := item.Candidate.Candidate.Identity
+		if candidate.Language == id.Language && candidate.CanonicalLemma == id.CanonicalLemma && candidate.UPOS == id.UPOS {
+			found = true
+			break
+		}
+	}
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
 	switch action {
 	case "accept":
-		_, err = h.services.Review.Accept(r.Context(), u.ID, id)
+		_, err = h.services.Review.AcceptForBook(r.Context(), u.ID, bookID, id)
 	case "ignore":
 		_, err = h.services.Review.Ignore(r.Context(), u.ID, id)
 	case "known":
 		_, err = h.services.Review.MarkKnown(r.Context(), u.ID, id)
+		if err == nil {
+			_, err = h.services.KnownVocab.Import(r.Context(), u.ID, id.Language, strings.NewReader(id.CanonicalLemma+"\t"+id.UPOS))
+		}
 	case "reset":
 		_, err = h.services.Review.Reset(r.Context(), u.ID, id)
 	case "edit":
-		_, err = h.services.Review.EditExample(r.Context(), u.ID, id, r.FormValue("sentence"))
+		_, err = h.services.Review.EditExampleForBook(r.Context(), u.ID, bookID, id, r.FormValue("sentence"))
 	case "alternate":
 		index, parseErr := strconv.Atoi(r.FormValue("alternate"))
 		if parseErr != nil {
 			err = parseErr
 		} else {
-			_, err = h.services.Review.ChooseAlternate(r.Context(), u.ID, id, index)
+			_, err = h.services.Review.ChooseAlternateForBook(r.Context(), u.ID, bookID, id, index)
 		}
 	default:
 		http.NotFound(w, r)
@@ -646,7 +717,15 @@ func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/review?message=Review+saved")
+	returnTo := strings.TrimSpace(r.FormValue("return_to"))
+	if !strings.HasPrefix(returnTo, "/review?book="+url.QueryEscape(bookID)) {
+		returnTo = "/review?book=" + url.QueryEscape(bookID)
+	}
+	separator := "&"
+	if !strings.Contains(returnTo, "?") {
+		separator = "?"
+	}
+	redirect(w, r, returnTo+separator+"message=Decision+saved")
 }
 func (h *Handler) deck(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
