@@ -37,6 +37,24 @@ func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL str
 	}
 	return client.List(ctx, feedURL)
 }
+func (s *Service) Languages(ctx context.Context, ownerID, connectionID string) (Feed, error) {
+	connection, client, err := s.client(ctx, connectionID)
+	if err != nil {
+		return Feed{}, err
+	}
+	return client.ListLanguages(ctx, connection.URL)
+}
+func (s *Service) BrowseLanguage(ctx context.Context, ownerID, connectionID, languageID string) (Feed, error) {
+	connection, client, err := s.client(ctx, connectionID)
+	if err != nil {
+		return Feed{}, err
+	}
+	feed, err := client.ListLanguage(ctx, connection.URL, languageID)
+	if err != nil {
+		return Feed{}, err
+	}
+	return FilterEPUBEntries(feed), nil
+}
 func (s *Service) Search(ctx context.Context, ownerID, connectionID, query string) (Feed, error) {
 	connection, client, err := s.client(ctx, connectionID)
 	if err != nil {

@@ -65,6 +65,44 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 	}
 }
 
+func TestLanguageEndpointsFollowPagination(t *testing.T) {
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/atom+xml")
+		switch r.URL.RequestURI() {
+		case "/calibre/opds/language":
+			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/7</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/calibre/opds/language/7"/></entry></feed>`))
+		case "/calibre/opds/language/7":
+			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><link rel="next" href="?offset=1"/><entry><id>epub-1</id><title>EPUB one</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/one.epub"/></entry></feed>`))
+		case "/calibre/opds/language/7?offset=1":
+			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf-1</id><title>PDF only</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/one.pdf"/></entry><entry><id>epub-2</id><title>EPUB two</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/two.epub"/></entry></feed>`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClient(server.Client(), Auth{})
+	languages, err := client.ListLanguages(context.Background(), server.URL+"/calibre/opds?ignored=yes")
+	if err != nil || len(languages.Entries) != 1 || languages.Entries[0].Title != "German" {
+		t.Fatalf("languages=%+v err=%v", languages, err)
+	}
+	books, err := client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "7")
+	if err != nil || len(books.Entries) != 3 {
+		t.Fatalf("books=%+v err=%v", books, err)
+	}
+	filtered := FilterEPUBEntries(books)
+	if len(filtered.Entries) != 2 || filtered.Entries[1].ID != "epub-2" {
+		t.Fatalf("filtered=%+v", filtered)
+	}
+	if len(requests) != 3 {
+		t.Fatalf("requests=%v", requests)
+	}
+	if _, err = client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "../authors"); err == nil {
+		t.Fatal("invalid language id accepted")
+	}
+}
+
 func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>No search</title></feed>`))

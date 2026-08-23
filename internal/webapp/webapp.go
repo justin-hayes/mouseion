@@ -13,6 +13,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +51,8 @@ type Store interface {
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
+	Languages(context.Context, string, string) (opds.Feed, error)
+	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
 	Search(context.Context, string, string, string) (opds.Feed, error)
 	Acquire(context.Context, string, string, opds.Entry) (epub.ImportResult, error)
 }
@@ -115,6 +119,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /admin/connections/{id}/delete", h.adminOnly(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("GET /catalog", h.learner(http.HandlerFunc(h.catalog)))
 	h.mux.Handle("GET /opds/browse", h.learner(http.HandlerFunc(h.browse)))
+	h.mux.Handle("GET /opds/language", h.learner(http.HandlerFunc(h.browseLanguage)))
 	h.mux.Handle("GET /opds/search", h.learner(http.HandlerFunc(h.search)))
 	h.mux.Handle("POST /opds/acquire", h.learner(http.HandlerFunc(h.acquire)))
 	h.mux.Handle("GET /jobs", h.learner(http.HandlerFunc(h.jobs)))
@@ -480,7 +485,17 @@ func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	render(w, r, CatalogPage(u, h.csrf(w, r), c))
+	profiles, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if e != nil {
+		fail(w, e)
+		return
+	}
+	languages, e := h.services.OPDS.Languages(r.Context(), u.ID, c.ID)
+	if e != nil {
+		opdsFail(w, e)
+		return
+	}
+	render(w, r, CatalogPage(u, h.csrf(w, r), c, languageOptions(profiles, languages)))
 }
 func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -495,6 +510,20 @@ func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 		trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
 	}
 	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail, currentURL == ""))
+}
+func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
+	languageID := strings.TrimSpace(r.URL.Query().Get("language"))
+	if languageID == "" {
+		render(w, r, CatalogNotice("Choose a language to browse its EPUB books."))
+		return
+	}
+	u := user(r)
+	feed, e := h.services.OPDS.BrowseLanguage(r.Context(), u.ID, r.URL.Query().Get("connection"), languageID)
+	if e != nil {
+		opdsFail(w, e)
+		return
+	}
+	render(w, r, LanguageResults(h.csrf(w, r), r.URL.Query().Get("connection"), feed))
 }
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -927,6 +956,48 @@ func opdsFail(w http.ResponseWriter, err error) {
 }
 
 type CatalogCrumb struct{ Title, URL string }
+
+type CatalogLanguage struct {
+	ID, Name string
+	Study    bool
+}
+
+func studyLanguageLabel(language CatalogLanguage) string {
+	if language.Study {
+		return " — study language"
+	}
+	return ""
+}
+
+func languageOptions(profiles []domain.LanguageProfile, feed opds.Feed) []CatalogLanguage {
+	study := make(map[string]bool, len(profiles)*2)
+	for _, profile := range profiles {
+		study[strings.ToLower(strings.TrimSpace(profile.Language))] = true
+		study[strings.ToLower(strings.TrimSpace(profile.DisplayName))] = true
+	}
+	options := make([]CatalogLanguage, 0, len(feed.Entries))
+	for _, entry := range feed.Entries {
+		href := navigationLink(entry)
+		parsed, err := url.Parse(href)
+		if err != nil || href == "" {
+			continue
+		}
+		id, err := url.PathUnescape(strings.TrimPrefix(path.Base(strings.TrimRight(parsed.Path, "/")), "/"))
+		languageID, idErr := strconv.Atoi(id)
+		if err != nil || idErr != nil || languageID < 1 {
+			continue
+		}
+		name := strings.TrimSpace(entry.Title)
+		options = append(options, CatalogLanguage{ID: id, Name: name, Study: study[strings.ToLower(name)] || study[strings.ToLower(id)]})
+	}
+	sort.SliceStable(options, func(i, j int) bool {
+		if options[i].Study != options[j].Study {
+			return options[i].Study
+		}
+		return strings.ToLower(options[i].Name) < strings.ToLower(options[j].Name)
+	})
+	return options
+}
 
 func decodeTrail(values []string) []CatalogCrumb {
 	trail := make([]CatalogCrumb, 0, len(values))

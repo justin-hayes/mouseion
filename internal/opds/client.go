@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -77,6 +78,19 @@ func (c *Client) ListRoot(ctx context.Context, catalogURL string) (Feed, error) 
 	return c.List(ctx, catalogURL)
 }
 
+// ListLanguages returns the Calibre-Web language navigation feed.
+func (c *Client) ListLanguages(ctx context.Context, catalogURL string) (Feed, error) {
+	return c.List(ctx, catalogEndpoint(catalogURL, "language"))
+}
+
+// ListLanguage returns every page of books in a Calibre-Web language feed.
+func (c *Client) ListLanguage(ctx context.Context, catalogURL, languageID string) (Feed, error) {
+	if id, err := strconv.Atoi(languageID); err != nil || id < 1 {
+		return Feed{}, errors.New("opds: invalid Calibre-Web language id")
+	}
+	return c.List(ctx, catalogEndpoint(catalogURL, "language", languageID))
+}
+
 // List follows rel=next links and returns one combined feed.
 func (c *Client) List(ctx context.Context, feedURL string) (Feed, error) {
 	var combined Feed
@@ -134,6 +148,19 @@ func FindEPUBs(entry Entry) []Link {
 		}
 	}
 	return out
+}
+
+// FilterEPUBEntries removes catalog entries that do not offer an EPUB.
+// Calibre-Web's language endpoint filters by language but not by file format.
+func FilterEPUBEntries(feed Feed) Feed {
+	entries := make([]Entry, 0, len(feed.Entries))
+	for _, entry := range feed.Entries {
+		if len(FindEPUBs(entry)) > 0 {
+			entries = append(entries, entry)
+		}
+	}
+	feed.Entries = entries
+	return feed
 }
 
 // SupportsSearch reports whether a feed advertises an OpenSearch endpoint.
@@ -237,6 +264,17 @@ func resolveLinks(base *url.URL, links []atomLink) []Link {
 		out = append(out, Link{Rel: item.Rel, Href: resolveURL(base, item.Href), Type: item.Type, Title: item.Title})
 	}
 	return out
+}
+func catalogEndpoint(catalogURL string, segments ...string) string {
+	parsed, err := url.Parse(catalogURL)
+	if err != nil {
+		return catalogURL
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/" + strings.Join(segments, "/")
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }
 func resolveURL(base *url.URL, href string) string {
 	reference, err := url.Parse(href)

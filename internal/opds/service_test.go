@@ -64,3 +64,18 @@ func TestAcquireRejectsEntryWithoutEPUB(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
+
+func TestBrowseLanguageFiltersNonEPUBFormats(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/opds/language/3" {
+			t.Fatalf("path=%q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf</id><title>PDF</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/book.pdf"/></entry><entry><id>epub</id><title>EPUB</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/book.epub"/></entry></feed>`))
+	}))
+	defer server.Close()
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
+	feed, err := NewService(store, &importerStub{}, server.Client()).BrowseLanguage(context.Background(), "owner", "connection", "3")
+	if err != nil || len(feed.Entries) != 1 || feed.Entries[0].ID != "epub" {
+		t.Fatalf("feed=%+v err=%v", feed, err)
+	}
+}
