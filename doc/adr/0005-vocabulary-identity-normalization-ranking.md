@@ -1,6 +1,8 @@
 # ADR 0005: Vocabulary identity, normalization, and initial ranking defaults
 
-Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
+Status: **Partially superseded by [ADR 0017](0017-coverage-based-selection.md)** · Date: 2026-08-21 · Author: Justin + Hermes
+
+> **Supersession notice:** ADR 0017 replaces this ADR's selection, ranking, and learner-review decisions with fixed 97% coverage selection and one-button deck generation. The vocabulary identity and normalization decisions remain authoritative.
 
 ## Context
 

@@ -15,17 +15,12 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/ranking"
-	"github.com/justin-hayes/mouseion/internal/review"
 	"github.com/justin-hayes/mouseion/internal/selection"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
-	"github.com/justin-hayes/mouseion/internal/webworkflow"
 )
 
 func main() {
@@ -60,10 +55,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer nlp.Close()
-	frequencyService := frequency.NewService(store)
-	selectionService := selection.NewService(store, frequencyService)
-	rankingService := ranking.NewService(store, frequencyService)
-	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, rankingService)
+	selectionService := selection.NewService(store)
+	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,12 +69,10 @@ func main() {
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
-	reviewService := review.NewService(vocabulary.NewLifecycle(store), store)
-	reviewWorkflow := webworkflow.NewReview(store.Pool(), reviewService)
 	exportService := cardexport.NewService(store)
 	knownVocabService := knownvocab.NewService(store)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, Review: reviewWorkflow, Frequency: frequencyService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

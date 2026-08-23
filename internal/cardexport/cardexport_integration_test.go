@@ -11,7 +11,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 )
 
 func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.T) {
@@ -49,7 +48,7 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	defer store.Close()
 	alice, _ := store.CreateUser(ctx, "export-alice", false)
 	bob, _ := store.CreateUser(ctx, "export-bob", false)
-	seed := func(owner domain.User, hash, lemma, sentence string) {
+	seed := func(owner domain.User, hash, lemma, sentence string) string {
 		t.Helper()
 		artifact := domain.NormalizedArtifact{ContentHash: hash, Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
 		if err := store.PutArtifact(ctx, artifact, []domain.SharedLemma{{CanonicalLemma: lemma, UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut"}`), Frequency: 1}}); err != nil {
@@ -63,28 +62,17 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = store.ReplaceSelectedSentences(ctx, owner.ID, corpus.ID, "de", lemma, "NOUN", []domain.ExampleSentence{{SentenceKey: "s1", Text: sentence, SourceLocation: []byte(`{}`), SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
+		if err = store.ReplaceSelectedSentences(ctx, owner.ID, corpus.ID, "de", lemma, "NOUN", []domain.ExampleSentence{{SentenceKey: "s1", Text: sentence, SourceLocation: []byte(`{"start_offset":0}`), SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
 			t.Fatal(err)
 		}
-		examples, err := store.ListReviewSentences(ctx, owner.ID, "de", lemma, "NOUN")
-		if err != nil {
+		if _, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 1, ObservedForms: []byte(`["` + lemma + `"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":1,"occurrence_count":1}`)}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = store.PutCuratedSentence(ctx, owner.ID, examples[0].ID, "de", lemma, "NOUN", "note"); err != nil {
-			t.Fatal(err)
-		}
-		life := vocabulary.NewLifecycle(store)
-		id := vocabulary.Identity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}
-		if _, err = life.Transition(ctx, owner.ID, id, vocabulary.Candidate); err != nil {
-			t.Fatal(err)
-		}
-		if _, err = life.Transition(ctx, owner.ID, id, vocabulary.Accepted); err != nil {
-			t.Fatal(err)
-		}
+		return source.ID
 	}
-	seed(alice, "export-a", "Haus", "Das Haus ist groß.")
+	aliceBook := seed(alice, "export-a", "Haus", "Das Haus ist groß.")
 	seed(bob, "export-b", "Baum", "Der Baum ist groß.")
-	artifact, err := cardexport.NewService(store).Export(ctx, alice.ID, "German")
+	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBook)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +90,8 @@ func TestExportPersistsOwnerScopedCardsAndGeneratedStateIdempotently(t *testing.
 	if cards != 1 || decks != 1 || state != "generated" || audits != 1 {
 		t.Fatalf("cards=%d decks=%d state=%s audits=%d", cards, decks, state, audits)
 	}
-	again, err := cardexport.NewService(store).Export(ctx, alice.ID, "German")
-	if err != nil || again.Count != 0 {
+	again, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBook)
+	if err != nil || again.Count != 1 {
 		t.Fatalf("again=%+v err=%v", again, err)
 	}
 	_ = conn.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards)

@@ -56,7 +56,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 		t.Fatal(err)
 	}
 	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "NOUN", false), tok("alt", "alt", "ADJ", false), tok("alt", "alt", "ADJ", false))
-	svc := NewService(store, &fakeFrequency{top: map[string]bool{}})
+	svc := NewService(store)
 	got, err := svc.Select(ctx, alice.ID, corpus, DefaultConfig("book-a"))
 	if err != nil || len(got) != 1 {
 		t.Fatalf("alice candidates=%+v err=%v", got, err)

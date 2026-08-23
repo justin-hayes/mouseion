@@ -1,6 +1,8 @@
 # ADR 0008: Global frequency dataset source and import contract
 
-Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
+Status: **Superseded by [ADR 0018](0018-remove-dwds-frequency.md)** · Date: 2026-08-21 · Author: Justin + Hermes
+
+> **Supersession notice:** The application no longer imports or consumes DWDS frequency data. Existing physical frequency tables are retained temporarily to avoid a destructive migration, as specified by ADR 0018.
 
 ## Context
 

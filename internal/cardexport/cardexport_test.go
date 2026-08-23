@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -43,21 +42,6 @@ func (m *memoryStore) GetCoverageEntryForBook(_ context.Context, owner, _ string
 	return Entry{}, errors.New("missing entry")
 }
 
-func (m *memoryStore) ListAcceptedCurated(_ context.Context, owner string) ([]Entry, error) {
-	var out []Entry
-	for _, e := range m.entries {
-		if e.OwnerID == owner {
-			out = append(out, e)
-		}
-	}
-	return out, nil
-}
-func (m *memoryStore) ListAcceptedCuratedForBook(_ context.Context, owner, bookID string) ([]Entry, error) {
-	if bookID != m.bookID {
-		return nil, nil
-	}
-	return m.ListAcceptedCurated(context.Background(), owner)
-}
 func (m *memoryStore) RecordGenerated(_ context.Context, owner, _ string, e Entry, n Note) error {
 	if owner != e.OwnerID {
 		return ErrInvalidInput
@@ -109,93 +93,21 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	}
 }
 
-func TestGoldenExport(t *testing.T) {
-	store := &memoryStore{entries: []Entry{{OwnerID: "user-123", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das Haus ist groß.", Translation: "house", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Der Zauberberg", Notes: "chapter\t1\nimportant"}}}
-	artifact, err := NewService(store).Export(context.Background(), "user-123", "German")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := os.ReadFile("testdata/anki_export.golden.tsv")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.TSV != string(want) {
-		t.Fatalf("golden mismatch\nwant: %q\n got: %q", string(want), artifact.TSV)
-	}
-	if artifact.Count != 1 || len(store.generated) != 1 || !strings.Contains(artifact.NoteType, "Key, Text, Back Extra, Tags") {
-		t.Fatalf("artifact=%+v generated=%d", artifact, len(store.generated))
-	}
-}
-
-func TestConfiguredExportFiltersKnownAndRanks(t *testing.T) {
-	store := &memoryStore{bookID: "book-1", entries: []Entry{
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "bekannt", UPOS: "ADJ", Sentence: "Das ist bekannt.", TargetWord: "bekannt", Ranking: domain.RankingComponents{GlobalPercentile: .99, CorpusPercentile: .1, CrossText: 1}},
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "häufig", UPOS: "ADJ", Sentence: "Das ist häufig.", TargetWord: "häufig", Ranking: domain.RankingComponents{GlobalPercentile: .2, CorpusPercentile: 1, CrossText: 1}},
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "weltweit", UPOS: "ADV", Sentence: "Das gilt weltweit.", TargetWord: "weltweit", Ranking: domain.RankingComponents{GlobalPercentile: .9, CorpusPercentile: .3, CrossText: 1}},
-		{OwnerID: "bob", Language: "de", CanonicalLemma: "privat", UPOS: "ADJ", Sentence: "Das ist privat.", TargetWord: "privat"},
-	}}
-	artifact, err := NewService(store).ExportConfigured(context.Background(), "alice", "German", ExportConfig{BookID: "book-1", FilterKnown: true, Ranking: RankingBook, KnownWords: []KnownWord{{Language: "de", CanonicalLemma: "bekannt"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 2 || strings.Contains(artifact.TSV, "bekannt") || strings.Contains(artifact.TSV, "privat") {
-		t.Fatalf("unexpected filtered export: count=%d TSV=%q", artifact.Count, artifact.TSV)
-	}
-	if strings.Index(artifact.TSV, "häufig") > strings.Index(artifact.TSV, "weltweit") {
-		t.Fatalf("book ranking was not applied: %q", artifact.TSV)
-	}
-}
-
-func TestConfiguredExportDefaultsToFirstEncounter(t *testing.T) {
-	store := &memoryStore{bookID: "book-1", entries: []Entry{
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "anfang", UPOS: "NOUN", Sentence: "Der Anfang ist hier.", TargetWord: "Anfang", FirstEncounter: 5},
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "zuerst", UPOS: "ADV", Sentence: "Zuerst kommt dieses Wort.", TargetWord: "Zuerst", FirstEncounter: 1},
-	}}
-	artifact, err := NewService(store).ExportConfigured(context.Background(), "alice", "German", ExportConfig{BookID: "book-1"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Index(artifact.TSV, "Zuerst") > strings.Index(artifact.TSV, "Anfang") {
-		t.Fatalf("first-encounter ordering was not applied: %q", artifact.TSV)
-	}
-}
-
-func TestLegacyExportKeepsAlphabeticalOrder(t *testing.T) {
-	store := &memoryStore{entries: []Entry{
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "zuerst", UPOS: "ADV", Sentence: "Zuerst kommt dieses Wort.", TargetWord: "Zuerst", FirstEncounter: 1},
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "anfang", UPOS: "NOUN", Sentence: "Der Anfang ist hier.", TargetWord: "Anfang", FirstEncounter: 5},
-	}}
-	artifact, err := NewService(store).Export(context.Background(), "alice", "German")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Index(artifact.TSV, "Anfang") > strings.Index(artifact.TSV, "Zuerst") {
-		t.Fatalf("legacy alphabetical ordering changed: %q", artifact.TSV)
-	}
-}
-
-func TestConfiguredExportRejectsInvalidInput(t *testing.T) {
-	service := NewService(&memoryStore{})
-	for _, cfg := range []ExportConfig{{}, {BookID: "book", Ranking: "unknown"}} {
-		if _, err := service.ExportConfigured(context.Background(), "alice", "German", cfg); !errors.Is(err, ErrInvalidInput) {
-			t.Fatalf("config=%+v err=%v", cfg, err)
-		}
-	}
-}
-
 func TestCoverageCandidatesExcludesKnownAndStopsAt97Percent(t *testing.T) {
 	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}}}
 	candidates := []domain.SelectionCandidate{
 		{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 100},
-		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 50},
-		{Language: "de", CanonicalLemma: "two", UPOS: "NOUN", OccurrenceCount: 47},
-		{Language: "de", CanonicalLemma: "three", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 96},
+		{Language: "de", CanonicalLemma: "singleton-a", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "singleton-b", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "singleton-c", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "singleton-d", UPOS: "NOUN", OccurrenceCount: 1},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || got[0].CanonicalLemma != "one" || got[1].CanonicalLemma != "two" {
+	if len(got) != 2 || got[0].CanonicalLemma != "one" || got[1].CanonicalLemma != "singleton-a" {
 		t.Fatalf("coverage candidates = %#v", got)
 	}
 }

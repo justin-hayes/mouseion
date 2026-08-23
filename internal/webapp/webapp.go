@@ -24,11 +24,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/frequency"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/review"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -60,18 +57,6 @@ type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
-type Review interface {
-	Present(context.Context, string, review.Query) (review.Page, error)
-	Accept(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
-	AcceptForBook(context.Context, string, string, vocabulary.Identity) (domain.VocabularyState, error)
-	Ignore(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
-	MarkKnown(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
-	Reset(context.Context, string, vocabulary.Identity) (domain.VocabularyState, error)
-	EditExample(context.Context, string, vocabulary.Identity, string) (domain.CuratedSentence, error)
-	EditExampleForBook(context.Context, string, string, vocabulary.Identity, string) (domain.CuratedSentence, error)
-	ChooseAlternate(context.Context, string, vocabulary.Identity, int) (domain.CuratedSentence, error)
-	ChooseAlternateForBook(context.Context, string, string, vocabulary.Identity, int) (domain.CuratedSentence, error)
-}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -80,8 +65,6 @@ type Services struct {
 	Store           Store
 	OPDS            OPDS
 	Analysis        Analysis
-	Review          Review
-	Frequency       *frequency.Service
 	KnownVocab      *knownvocab.Service
 	CardExport      *cardexport.Service
 	SecureCookies   bool
@@ -102,7 +85,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /admin/bootstrap", s.WebAuth)
 	h.mux.Handle("POST /logout-all", s.WebAuth)
 	h.mux.Handle("POST /admin/users/{id}/reset-password", s.WebAuth)
-	h.mux.Handle("GET /", h.user(http.HandlerFunc(h.dashboard)))
+	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.learner(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
@@ -129,16 +112,11 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /jobs", h.learner(http.HandlerFunc(h.jobs)))
 	h.mux.Handle("GET /jobs/{id}", h.learner(http.HandlerFunc(h.job)))
 	h.mux.Handle("GET /jobs/{id}/status", h.learner(http.HandlerFunc(h.jobStatus)))
-	h.mux.Handle("GET /review", h.learner(http.HandlerFunc(h.reviewPage)))
-	h.mux.Handle("POST /review/{action}", h.learner(http.HandlerFunc(h.reviewAction)))
 	h.mux.Handle("GET /known-vocab", h.learner(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.learner(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /admin", h.adminOnly(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.adminOnly(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.adminOnly(http.HandlerFunc(h.createUser)))
-	h.mux.Handle("GET /admin/frequency", h.adminOnly(http.HandlerFunc(h.adminFrequency)))
-	h.mux.Handle("POST /admin/frequency", h.adminOnly(http.HandlerFunc(h.createFrequency)))
-	h.mux.Handle("POST /admin/frequency/{id}/{action}", h.adminOnly(http.HandlerFunc(h.frequencyAction)))
 	return h
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
@@ -605,82 +583,6 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 	}
 	return status, true
 }
-func (h *Handler) reviewPage(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	book, ok := h.loadBookID(w, r, u.ID, strings.TrimSpace(r.URL.Query().Get("book")))
-	if !ok {
-		return
-	}
-	redirect(w, r, "/books/"+book.Source.ID)
-}
-func reviewIdentity(r *http.Request) vocabulary.Identity {
-	return vocabulary.Identity{Language: strings.TrimSpace(r.FormValue("language")), CanonicalLemma: strings.TrimSpace(r.FormValue("lemma")), UPOS: strings.TrimSpace(r.FormValue("upos"))}
-}
-func (h *Handler) reviewAction(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, id, action := user(r), reviewIdentity(r), r.PathValue("action")
-	bookID := strings.TrimSpace(r.FormValue("book"))
-	if _, ok := h.loadBookID(w, r, u.ID, bookID); !ok {
-		return
-	}
-	candidates, err := h.services.Review.Present(r.Context(), u.ID, review.Query{BookID: bookID, Lemma: id.CanonicalLemma, UPOS: id.UPOS, Page: 1, PageSize: 100})
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	found := false
-	for _, item := range candidates.Items {
-		candidate := item.Candidate.Candidate.Identity
-		if candidate.Language == id.Language && candidate.CanonicalLemma == id.CanonicalLemma && candidate.UPOS == id.UPOS {
-			found = true
-			break
-		}
-	}
-	if !found {
-		http.NotFound(w, r)
-		return
-	}
-	switch action {
-	case "accept":
-		_, err = h.services.Review.AcceptForBook(r.Context(), u.ID, bookID, id)
-	case "ignore":
-		_, err = h.services.Review.Ignore(r.Context(), u.ID, id)
-	case "known":
-		_, err = h.services.Review.MarkKnown(r.Context(), u.ID, id)
-		if err == nil {
-			_, err = h.services.KnownVocab.Import(r.Context(), u.ID, id.Language, strings.NewReader(id.CanonicalLemma+"\t"+id.UPOS))
-		}
-	case "reset":
-		_, err = h.services.Review.Reset(r.Context(), u.ID, id)
-	case "edit":
-		_, err = h.services.Review.EditExampleForBook(r.Context(), u.ID, bookID, id, r.FormValue("sentence"))
-	case "alternate":
-		index, parseErr := strconv.Atoi(r.FormValue("alternate"))
-		if parseErr != nil {
-			err = parseErr
-		} else {
-			_, err = h.services.Review.ChooseAlternateForBook(r.Context(), u.ID, bookID, id, index)
-		}
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	returnTo := strings.TrimSpace(r.FormValue("return_to"))
-	if !strings.HasPrefix(returnTo, "/review?book="+url.QueryEscape(bookID)) {
-		returnTo = "/review?book=" + url.QueryEscape(bookID)
-	}
-	separator := "&"
-	if !strings.Contains(returnTo, "?") {
-		separator = "?"
-	}
-	redirect(w, r, returnTo+separator+"message=Decision+saved")
-}
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	requestedLanguage := strings.TrimSpace(r.URL.Query().Get("language"))
@@ -831,74 +733,6 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, AdminPage(u, h.csrf(w, r)))
-}
-func (h *Handler) adminFrequency(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	datasets, err := h.services.Frequency.List(r.Context(), strings.TrimSpace(r.URL.Query().Get("language")))
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, AdminFrequencyPage(u, h.csrf(w, r), datasets, r.URL.Query().Get("language"), r.URL.Query().Get("message")))
-}
-func (h *Handler) createFrequency(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, "invalid upload", 400)
-		return
-	}
-	file, _, err := r.FormFile("dataset")
-	if err != nil {
-		http.Error(w, "dataset file required", 400)
-		return
-	}
-	defer file.Close()
-	language, version := strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("version"))
-	if r.FormValue("replace") == "on" {
-		_, _, err = h.services.Frequency.Replace(r.Context(), u.ID, language, version, file)
-	} else {
-		_, _, err = h.services.Frequency.Create(r.Context(), u.ID, language, version, file)
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	redirect(w, r, "/admin/frequency?language="+url.QueryEscape(language)+"&message=Dataset+uploaded")
-}
-func (h *Handler) frequencyAction(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	var err error
-	switch r.PathValue("action") {
-	case "activate":
-		err = h.services.Frequency.Activate(r.Context(), u.ID, r.PathValue("id"))
-	case "deactivate":
-		err = h.services.Frequency.Deactivate(r.Context(), u.ID, r.PathValue("id"))
-	case "remove":
-		err = h.services.Frequency.Remove(r.Context(), u.ID, r.PathValue("id"))
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	redirect(w, r, "/admin/frequency?message=Dataset+updated")
 }
 func (h *Handler) adminUsers(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.requireAdmin(w, r)
@@ -1052,12 +886,6 @@ func jobState(status analysis.Status) string {
 	default:
 		return strings.Title(string(status.State))
 	}
-}
-func frequencyStatus(dataset domain.FrequencyDataset) string {
-	if dataset.Active {
-		return "Active"
-	}
-	return "Inactive"
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
 func knownVocabUPOS(upos string) string {
