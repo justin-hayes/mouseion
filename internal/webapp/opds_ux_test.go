@@ -60,15 +60,32 @@ func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 	}
 }
 
-func TestFeedFragmentShowsSearchBreadcrumbsAndEmptyState(t *testing.T) {
-	feed := opds.Feed{Title: "A–C", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}}
-	trail := []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}, {Title: "A–C", URL: "https://catalog.example/a-c"}}
+func TestCatalogRootFragmentShowsSearchWithoutCategories(t *testing.T) {
+	feed := opds.Feed{Title: "Catalog", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}, Entries: []opds.Entry{{Title: "Authors"}, {Title: "Newest books"}}}
 	var output bytes.Buffer
-	if err := FeedFragment("csrf", "connection-1", feed, trail, true).Render(context.Background(), &output); err != nil {
+	if err := CatalogRootFragment("connection-1", feed).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Search this catalog", "Catalog root", "Authors", `aria-current="page"`, "No books or collections were found here"} {
+	if !strings.Contains(html, "Search this catalog") {
+		t.Errorf("root fragment missing search: %s", html)
+	}
+	for _, unwanted := range []string{"Catalog root", "Authors", "Newest books"} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("root fragment unexpectedly contains %q: %s", unwanted, html)
+		}
+	}
+}
+
+func TestFeedFragmentShowsBreadcrumbsAndEmptyState(t *testing.T) {
+	feed := opds.Feed{Title: "A–C", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}}
+	trail := []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}, {Title: "A–C", URL: "https://catalog.example/a-c"}}
+	var output bytes.Buffer
+	if err := FeedFragment("csrf", "connection-1", feed, trail).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Catalog root", "Authors", `aria-current="page"`, "No books or collections were found here"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered fragment missing %q: %s", want, html)
 		}

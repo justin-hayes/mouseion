@@ -124,11 +124,11 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("home=%d location=%q", home.Code, home.Header().Get("Location"))
 	}
 	browse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID, nil, cookies)
-	if browse.Code != 200 || !strings.Contains(browse.Body.String(), "Test Book") {
+	if browse.Code != 200 || strings.Contains(browse.Body.String(), "Test Book") || !strings.Contains(browse.Body.String(), "Search is not available") {
 		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
 	}
 	shared := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
-	if shared.Code != 200 || !strings.Contains(shared.Body.String(), "Test Book") {
+	if shared.Code != 200 || strings.Contains(shared.Body.String(), "Test Book") || !strings.Contains(shared.Body.String(), "Search is not available") {
 		t.Fatalf("shared browse=%d %s", shared.Code, shared.Body.String())
 	}
 	catalogPage := perform(t, h, "GET", "/catalog?connection="+connection.ID, nil, cookies)
