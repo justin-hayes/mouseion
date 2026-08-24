@@ -112,6 +112,23 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	}
 }
 
+func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Die Häuser sind alt.", TargetWord: "Häuser",
+	}
+	note, err := makeNote("alice", entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(note.Text, "{{c1::Häuser}}") || !strings.Contains(note.BackExtra, "Target: Häuser\nLemma: Haus\n") {
+		t.Fatalf("note = %#v", note)
+	}
+	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {
+		t.Fatalf("note key = %q, want canonical identity key %q", note.Key, want)
+	}
+}
+
 func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
 	otherBook := "other-book"
 	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}}}
