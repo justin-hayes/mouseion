@@ -22,7 +22,7 @@ func testURL() string {
 	}
 	return "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
 }
-func setup(t *testing.T) (*auth.Service, http.Handler) {
+func setup(t *testing.T) (*persistence.PostgresStore, *auth.Service, http.Handler) {
 	t.Helper()
 	ctx := context.Background()
 	url := testURL()
@@ -54,7 +54,7 @@ func setup(t *testing.T) (*auth.Service, http.Handler) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	s := auth.New(store, time.Hour)
-	return s, New(s, false, time.Hour)
+	return store, s, New(s, false, time.Hour)
 }
 func request(t *testing.T, h http.Handler, method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
@@ -68,23 +68,26 @@ func request(t *testing.T, h http.Handler, method, path, body string, cookie *ht
 	return w
 }
 func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
-	s, h := setup(t)
+	store, s, h := setup(t)
 	ctx := context.Background()
-	if w := request(t, h, "POST", "/admin/users", `{"username":"x","password":"x"}`, nil); w.Code != http.StatusUnauthorized {
-		t.Fatalf("unauthenticated status=%d", w.Code)
+	for _, path := range []string{"/admin/bootstrap", "/admin/users", "/admin/users/someone/reset-password"} {
+		if w := request(t, h, "POST", path, `{}`, nil); w.Code != http.StatusNotFound {
+			t.Fatalf("removed route %s status=%d", path, w.Code)
+		}
 	}
-	admin, err := s.BootstrapAdmin(ctx, "admin", "admin-password")
+	aliceHash, err := auth.HashPassword("alice-password")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.BootstrapAdmin(ctx, "second", "password"); err == nil {
-		t.Fatal("second bootstrap succeeded")
-	}
-	alice, err := s.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser)
+	alice, err := store.CreateUserWithPassword(ctx, "alice", aliceHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bob, err := s.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
+	bobHash, err := auth.HashPassword("bob-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := store.CreateUserWithPassword(ctx, "bob", bobHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,18 +105,12 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	if !cookie.HttpOnly || cookie.MaxAge <= 0 {
 		t.Fatalf("unsafe cookie: %+v", cookie)
 	}
-	if w = request(t, h, "POST", "/admin/users", `{"username":"mallory","password":"password"}`, cookie); w.Code != http.StatusForbidden {
-		t.Fatalf("non-admin status=%d body=%s", w.Code, w.Body.String())
-	}
 	raw, err := s.Login(ctx, "bob", "bob-password")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.ResetPassword(ctx, admin.ID, bob.ID, "new-password"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = s.Authenticate(ctx, raw); err == nil {
-		t.Fatal("password reset did not invalidate sessions")
+	if got, err := s.Authenticate(ctx, raw); err != nil || got.ID != bob.ID {
+		t.Fatalf("bob authenticate: %+v %v", got, err)
 	}
 	raw, err = s.Login(ctx, "alice", "alice-password")
 	if err != nil {

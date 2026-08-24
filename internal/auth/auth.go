@@ -29,24 +29,11 @@ var (
 	ErrInvalidCredentials  = errors.New("auth: invalid credentials")
 	ErrUnauthenticated     = errors.New("auth: unauthenticated")
 	ErrForbidden           = errors.New("auth: forbidden")
-	ErrBootstrapComplete   = errors.New("auth: an administrator already exists")
 	ErrInvalidPasswordHash = errors.New("auth: invalid password hash")
-	ErrInvalidRole         = errors.New("auth: invalid account role")
-)
-
-type Role string
-
-const (
-	RoleUser  Role = "user"
-	RoleAdmin Role = "admin"
 )
 
 type Store interface {
-	CreateUserWithPassword(context.Context, string, string, bool) (domain.User, error)
-	BootstrapAdmin(context.Context, string, string) (domain.User, bool, error)
 	GetUserByUsername(context.Context, string) (domain.User, string, error)
-	GetUserByID(context.Context, string) (domain.User, error)
-	SetUserPassword(context.Context, string, string) error
 	CreateSession(context.Context, string, string, time.Time) error
 	GetSession(context.Context, string) (domain.User, time.Time, error)
 	DeleteSession(context.Context, string) error
@@ -152,56 +139,6 @@ func (s *Service) LogoutEverywhere(ctx context.Context, userID string) error {
 	return s.store.DeleteUserSessions(ctx, userID)
 }
 
-func (s *Service) BootstrapAdmin(ctx context.Context, username, password string) (domain.User, error) {
-	hash, err := HashPassword(password)
-	if err != nil {
-		return domain.User{}, err
-	}
-	u, created, err := s.store.BootstrapAdmin(ctx, username, hash)
-	if err != nil {
-		return domain.User{}, err
-	}
-	if !created {
-		return domain.User{}, ErrBootstrapComplete
-	}
-	return u, nil
-}
-func (s *Service) CreateUser(ctx context.Context, adminID, username, password string, role Role) (domain.User, error) {
-	if err := s.requireAdmin(ctx, adminID); err != nil {
-		return domain.User{}, err
-	}
-	if role != RoleUser && role != RoleAdmin {
-		return domain.User{}, ErrInvalidRole
-	}
-	hash, err := HashPassword(password)
-	if err != nil {
-		return domain.User{}, err
-	}
-	return s.store.CreateUserWithPassword(ctx, username, hash, role == RoleAdmin)
-}
-func (s *Service) ResetPassword(ctx context.Context, adminID, targetID, newPassword string) error {
-	if err := s.requireAdmin(ctx, adminID); err != nil {
-		return err
-	}
-	if _, err := s.store.GetUserByID(ctx, targetID); err != nil {
-		return err
-	}
-	hash, err := HashPassword(newPassword)
-	if err != nil {
-		return err
-	}
-	if err = s.store.SetUserPassword(ctx, targetID, hash); err != nil {
-		return err
-	}
-	return s.store.DeleteUserSessions(ctx, targetID)
-}
-func (s *Service) requireAdmin(ctx context.Context, id string) error {
-	u, err := s.store.GetUserByID(ctx, id)
-	if err != nil || !u.IsAdmin {
-		return ErrForbidden
-	}
-	return nil
-}
 func AuthorizeOwner(user domain.User, ownerID string) error {
 	if user.ID != ownerID {
 		return ErrForbidden

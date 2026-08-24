@@ -43,9 +43,9 @@ docker compose up -d --build
 - `nlp` — the Stanza gRPC service on `:50051`
 - `web` — the Go server on `http://localhost:8080`
 
-Open `http://<host>:8080` and bootstrap the admin account. Per ADR 0009 the app
-is meant to be reachable only over your tailnet (plain HTTP over WireGuard); do
-not expose `:8080` publicly.
+Open `http://<host>:8080` and sign in with an existing account. First-account
+onboarding is tracked separately in issue #175. The app is meant to be reachable
+only over your tailnet (plain HTTP over WireGuard); do not expose `:8080` publicly.
 
 ### Option B — run the three processes manually
 
@@ -64,4 +64,3 @@ make dev
 ```
 
 Then open `http://localhost:8080`.
-

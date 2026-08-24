@@ -47,6 +47,19 @@ func readyGerman() staticCapabilities {
 	return staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
 }
 
+func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string, legacyAdmin bool) domain.User {
+	t.Helper()
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := store.CreateUserWithPassword(ctx, username, hash, legacyAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
 type recordingKnownVocab struct {
 	service *knownvocab.Service
 	status  knownvocab.Status
@@ -177,21 +190,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
-	admin, err := authService.BootstrapAdmin(ctx, "admin", "admin-password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	alice, err := authService.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bob, err := authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
+	createAccount(t, ctx, store, "admin", "admin-password", true)
+	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	bob := createAccount(t, ctx, store, "bob", "bob-password", false)
 	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
@@ -385,13 +386,13 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)
 	}
-	for _, path := range []string{"/admin", "/admin/users", "/languages"} {
-		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusForbidden {
-			t.Fatalf("non-admin %s=%d", path, got.Code)
+	for _, path := range []string{"/admin", "/admin/users", "/languages", "/register"} {
+		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusNotFound {
+			t.Fatalf("removed route %s=%d", path, got.Code)
 		}
 	}
-	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("non-admin language update=%d", got.Code)
+	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("removed language update=%d", got.Code)
 	}
 	if got := perform(t, h, "GET", "/admin/connections", nil, cookies); got.Code != http.StatusNotFound {
 		t.Fatalf("removed admin connection management=%d", got.Code)
@@ -401,16 +402,16 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
-	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
-		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
+	if adminHub.Code != http.StatusNotFound {
+		t.Fatalf("removed admin hub=%d %s", adminHub.Code, adminHub.Body.String())
 	}
 	adminHome := perform(t, h, "GET", "/", nil, adminCookies)
-	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/admin" {
+	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/library" {
 		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
 	}
 	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings"} {
-		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code != http.StatusForbidden {
-			t.Fatalf("admin learner route %s=%d", path, got.Code)
+		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code == http.StatusForbidden {
+			t.Fatalf("legacy admin denied learner route %s", path)
 		}
 	}
 	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
@@ -432,16 +433,8 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	}
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
-	admin, err := authService.BootstrapAdmin(ctx, "admin", "admin-password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = authService.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser); err != nil {
-		t.Fatal(err)
-	}
+	createAccount(t, ctx, store, "alice", "alice-password", false)
+	createAccount(t, ctx, store, "bob", "bob-password", false)
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")

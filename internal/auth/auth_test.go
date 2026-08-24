@@ -18,11 +18,11 @@ type memoryStore struct {
 func newMemoryStore() *memoryStore {
 	return &memoryStore{users: map[string]domain.User{}, hashes: map[string]string{}, sessions: map[string]string{}}
 }
-func (m *memoryStore) CreateUserWithPassword(_ context.Context, n, h string, a bool) (domain.User, error) {
+func (m *memoryStore) createUser(n, h string) (domain.User, error) {
 	if _, ok := m.users[n]; ok {
 		return domain.User{}, errors.New("duplicate")
 	}
-	u := domain.User{ID: n, Username: n, IsAdmin: a}
+	u := domain.User{ID: n, Username: n}
 	m.users[n] = u
 	m.hashes[n] = h
 	return u, nil
@@ -33,26 +33,6 @@ func (m *memoryStore) GetUserByUsername(_ context.Context, n string) (domain.Use
 		return u, "", errors.New("missing")
 	}
 	return u, m.hashes[n], nil
-}
-func (m *memoryStore) GetUserByID(_ context.Context, id string) (domain.User, error) {
-	u, ok := m.users[id]
-	if !ok {
-		return u, errors.New("missing")
-	}
-	return u, nil
-}
-func (m *memoryStore) SetUserPassword(_ context.Context, id, h string) error {
-	m.hashes[id] = h
-	return nil
-}
-func (m *memoryStore) BootstrapAdmin(ctx context.Context, n, h string) (domain.User, bool, error) {
-	for _, u := range m.users {
-		if u.IsAdmin {
-			return domain.User{}, false, nil
-		}
-	}
-	u, err := m.CreateUserWithPassword(ctx, n, h, true)
-	return u, err == nil, err
 }
 func (m *memoryStore) CreateSession(_ context.Context, id, h string, _ time.Time) error {
 	m.sessions[h] = id
@@ -93,33 +73,17 @@ func TestPasswordHashAndVerify(t *testing.T) {
 		t.Fatalf("malformed hash: %v", err)
 	}
 }
-func TestServiceLifecycleAndAuthorization(t *testing.T) {
+func TestServiceLifecycle(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryStore()
 	service := New(store, time.Hour)
-	admin, err := service.BootstrapAdmin(ctx, "admin", "secret")
+	hash, err := HashPassword("password")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.BootstrapAdmin(ctx, "other", "secret"); !errors.Is(err, ErrBootstrapComplete) {
-		t.Fatalf("second bootstrap: %v", err)
-	}
-	alice, err := service.CreateUser(ctx, admin.ID, "alice", "password", RoleUser)
+	alice, err := store.createUser("alice", hash)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if alice.IsAdmin {
-		t.Fatal("user role created an administrator")
-	}
-	operator, err := service.CreateUser(ctx, admin.ID, "operator", "password", RoleAdmin)
-	if err != nil || !operator.IsAdmin {
-		t.Fatalf("admin role: %+v %v", operator, err)
-	}
-	if _, err = service.CreateUser(ctx, admin.ID, "invalid", "password", Role("admin,user")); !errors.Is(err, ErrInvalidRole) {
-		t.Fatalf("combined role: %v", err)
-	}
-	if _, err = service.CreateUser(ctx, alice.ID, "bob", "password", RoleUser); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("non-admin create: %v", err)
 	}
 	token, err := service.Login(ctx, "alice", "password")
 	if err != nil {
