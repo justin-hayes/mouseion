@@ -86,7 +86,10 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 			eligible = append(eligible, lemma)
 		}
 	}
-	result.UnknownTokenCount = result.AnalyzableTokenCount - result.KnownTokenCount
+	// Persisted statistics are authoritative. Clamp learner-derived values so
+	// malformed legacy rows can never produce impossible coverage output.
+	result.KnownTokenCount = min(result.KnownTokenCount, result.AnalyzableTokenCount)
+	result.UnknownTokenCount = max(result.AnalyzableTokenCount-result.KnownTokenCount, 0)
 
 	sort.Slice(eligible, func(i, j int) bool {
 		if eligible[i].OccurrenceCount != eligible[j].OccurrenceCount {
@@ -100,34 +103,39 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	}
 	topUnknownCount := min(topUnknownLimit, len(eligible))
 	result.TopUnknownLemmas = append([]domain.LemmaOccurrence(nil), eligible[:topUnknownCount]...)
-	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount)
+	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
 	result.Projections = make([]domain.CoverageProjection, 0, len(projectionSizes))
 	for _, size := range projectionSizes {
-		result.Projections = append(result.Projections, projection(eligible, size, eligibleTokens, result.KnownTokenCount))
+		result.Projections = append(result.Projections, projection(eligible, size, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount))
 	}
 	result.Thresholds = make([]domain.CoverageThreshold, 0, len(thresholdTargets))
 	for _, target := range thresholdTargets {
 		threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
 		for _, lemma := range eligible {
-			if threshold.OccurrenceCount*100 >= eligibleTokens*int64(target) {
+			if reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target) {
 				break
 			}
 			threshold.LemmaCount++
 			threshold.OccurrenceCount += lemma.OccurrenceCount
 		}
+		threshold.Reachable = reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target)
 		result.Thresholds = append(result.Thresholds, threshold)
 	}
 	return result, nil
 }
 
-func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens int64) domain.CoverageProjection {
+func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens, analyzableTokens int64) domain.CoverageProjection {
 	result := domain.CoverageProjection{TopLemmaCount: size, EligibleTokenCount: eligibleTokens, ProjectedTokenCount: knownTokens}
 	for i := 0; i < len(eligible) && int64(i) < size; i++ {
 		result.SelectedLemmaCount++
 		result.OccurrenceCount += eligible[i].OccurrenceCount
 	}
-	result.ProjectedTokenCount += result.OccurrenceCount
+	result.ProjectedTokenCount = min(result.ProjectedTokenCount+result.OccurrenceCount, analyzableTokens)
 	return result
+}
+
+func reachesThreshold(knownTokens, selectedTokens, analyzableTokens int64, target int) bool {
+	return (knownTokens+selectedTokens)*100 >= analyzableTokens*int64(target)
 }
 
 func identity(lemma, upos string) string { return lemma + "\x00" + upos }

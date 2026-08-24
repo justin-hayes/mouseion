@@ -163,10 +163,14 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 				<article><strong>{ fmt.Sprintf("%d", coverage.DistinctLemmaCount) }</strong><span>distinct lemmas</span></article>
 			</div>
 			<p>Your explicitly known vocabulary covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
-			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to cover each share of the eligible unknown-token pool:</p>
+			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each whole-book analyzable-token coverage target:</p>
 			<div class="coverage-thresholds">
 				for _, threshold := range coverage.Thresholds {
-					<article><strong>{ fmt.Sprintf("%d", threshold.LemmaCount) }</strong><span>{ fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent) }</span></article>
+					if threshold.Reachable {
+						<article><strong>{ fmt.Sprintf("%d", threshold.LemmaCount) }</strong><span>{ fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent) }</span></article>
+					} else {
+						<article><strong>Unavailable</strong><span>{ fmt.Sprintf("%d%% cannot be reached with deck-eligible vocabulary", threshold.TargetPercent) }</span></article>
+					}
 				}
 			</div>
 			if len(coverage.TopUnknownLemmas) > 0 {
@@ -186,7 +190,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 					}
 				</div>
 			}
-			<details><summary>How these metrics work</summary><p><strong>Current token coverage</strong> is the share of analyzable token occurrences matched by vocabulary you explicitly marked known. Analyzable tokens exclude punctuation, proper names, and stop words. Distinct lemmas count lemma and part-of-speech identities.</p><p><strong>Previously generated vocabulary</strong> means words Mouseion assigned to another deck. It is not counted as explicitly known. It is excluded from a new deck, while unknown words not already generated are <strong>deck-eligible vocabulary</strong>. The 95%, 97%, and 99% estimates use that eligible pool, so their denominator differs from current token coverage.</p></details>
+			<details><summary>How these metrics work</summary><p><strong>Current token coverage</strong> is the share of analyzable token occurrences matched by vocabulary you explicitly marked known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p><strong>Previously generated vocabulary</strong> means words Mouseion assigned to another deck. It is not counted as explicitly known. It is excluded from a new deck, while unknown words not already generated are <strong>deck-eligible vocabulary</strong>. The 95%, 97%, and 99% estimates use the same full analyzable-token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
 		</section>
 	}
 	if statisticsUnavailable {
@@ -213,7 +217,7 @@ func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {
 		return 0
 	}
-	return float64(coverage.KnownTokenCount) * 100 / float64(coverage.AnalyzableTokenCount)
+	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
 func concentrationPercent(projection domain.CoverageProjection) float64 {
@@ -227,7 +231,7 @@ func projectedCoveragePercent(projection domain.CoverageProjection, analyzableTo
 	if analyzableTokens == 0 {
 		return 0
 	}
-	return float64(projection.ProjectedTokenCount) * 100 / float64(analyzableTokens)
+	return min(float64(projection.ProjectedTokenCount)*100/float64(analyzableTokens), 100)
 }
 
 func longSentencePercent(profile domain.TextProfile) float64 {

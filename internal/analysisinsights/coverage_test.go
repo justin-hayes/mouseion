@@ -76,9 +76,9 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 		t.Fatalf("text profile = %+v, want persisted profile", got.TextProfile)
 	}
 	want := []domain.CoverageThreshold{
-		{TargetPercent: 95, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30},
-		{TargetPercent: 97, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30},
-		{TargetPercent: 99, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30},
+		{TargetPercent: 95, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
+		{TargetPercent: 97, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
+		{TargetPercent: 99, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
 	}
 	if !reflect.DeepEqual(got.Thresholds, want) {
 		t.Fatalf("thresholds = %+v, want %+v", got.Thresholds, want)
@@ -116,7 +116,7 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 	wantCounts := []int64{2, 3, 5}
 	wantOccurrences := []int64{96, 97, 99}
 	for i := range got.Thresholds {
-		if got.Thresholds[i].LemmaCount != wantCounts[i] || got.Thresholds[i].OccurrenceCount != wantOccurrences[i] {
+		if got.Thresholds[i].LemmaCount != wantCounts[i] || got.Thresholds[i].OccurrenceCount != wantOccurrences[i] || !got.Thresholds[i].Reachable {
 			t.Fatalf("threshold %d = %+v", i, got.Thresholds[i])
 		}
 	}
@@ -125,6 +125,53 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 		if got.TopUnknownLemmas[i].CanonicalLemma != want {
 			t.Fatalf("top unknown order = %+v", got.TopUnknownLemmas)
 		}
+	}
+}
+
+func TestCoverageThresholdUsesWholeBookDenominatorRatherThanDeckPool(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 4}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "book", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 90},
+			{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 5},
+			{Language: "de", CanonicalLemma: "two", UPOS: "VERB", OccurrenceCount: 3},
+			{Language: "de", CanonicalLemma: "three", UPOS: "ADJ", OccurrenceCount: 2},
+		}},
+		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	threshold97 := got.Thresholds[1]
+	if !threshold97.Reachable || threshold97.LemmaCount != 2 || threshold97.OccurrenceCount != 8 {
+		t.Fatalf("97%% whole-book threshold = %+v, want two lemmas (the deck pool's 97%% prefix would require all three)", threshold97)
+	}
+}
+
+func TestCoverageClampsKnownOverflowAndProjectedCoverage(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 10, DistinctLemmaCount: 2}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "book", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 12},
+			{Language: "de", CanonicalLemma: "unknown", UPOS: "VERB", OccurrenceCount: 4},
+		}},
+		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.KnownTokenCount != 10 || got.UnknownTokenCount != 0 {
+		t.Fatalf("coverage counts = known %d unknown %d", got.KnownTokenCount, got.UnknownTokenCount)
+	}
+	for _, projection := range got.Projections {
+		if projection.ProjectedTokenCount <= got.AnalyzableTokenCount {
+			continue
+		}
+		t.Fatalf("projection exceeds denominator: %+v", projection)
 	}
 }
 

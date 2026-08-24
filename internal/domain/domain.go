@@ -116,6 +116,7 @@ type CoverageThreshold struct {
 	LemmaCount         int64
 	OccurrenceCount    int64
 	EligibleTokenCount int64
+	Reachable          bool
 }
 
 // CoverageProjection describes the effect of learning a frequency-ranked prefix
