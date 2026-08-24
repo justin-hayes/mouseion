@@ -106,6 +106,16 @@ type CoverageThreshold struct {
 	EligibleTokenCount int64
 }
 
+// CoverageProjection describes the effect of learning a frequency-ranked prefix
+// of the deck-eligible unknown vocabulary.
+type CoverageProjection struct {
+	TopLemmaCount       int64
+	SelectedLemmaCount  int64
+	OccurrenceCount     int64
+	EligibleTokenCount  int64
+	ProjectedTokenCount int64
+}
+
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
 	AnalyzableTokenCount int64
@@ -114,6 +124,9 @@ type AnalysisCoverage struct {
 	KnownLemmaCount      int64
 	UnknownTokenCount    int64
 	UnknownLemmaCount    int64
+	TopUnknownLemmas     []LemmaOccurrence
+	UnknownConcentration CoverageProjection
+	Projections          []CoverageProjection
 	Thresholds           []CoverageThreshold
 }
 type AnalysisJob struct {

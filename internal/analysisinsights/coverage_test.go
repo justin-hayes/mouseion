@@ -79,6 +79,20 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	if !reflect.DeepEqual(got.Thresholds, want) {
 		t.Fatalf("thresholds = %+v, want %+v", got.Thresholds, want)
 	}
+	wantTop := []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "repeat", UPOS: "NOUN", OccurrenceCount: 20},
+		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 5},
+		{Language: "de", CanonicalLemma: "beta", UPOS: "NOUN", OccurrenceCount: 5},
+	}
+	if !reflect.DeepEqual(got.TopUnknownLemmas, wantTop) {
+		t.Fatalf("top unknown = %+v, want %+v", got.TopUnknownLemmas, wantTop)
+	}
+	if got.UnknownConcentration != (domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, ProjectedTokenCount: 140}) {
+		t.Fatalf("concentration = %+v", got.UnknownConcentration)
+	}
+	if len(got.Projections) != 3 || got.Projections[0].ProjectedTokenCount != 140 || got.Projections[1].TopLemmaCount != 25 || got.Projections[2].TopLemmaCount != 50 {
+		t.Fatalf("projections = %+v", got.Projections)
+	}
 }
 
 func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
@@ -100,6 +114,12 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 	for i := range got.Thresholds {
 		if got.Thresholds[i].LemmaCount != wantCounts[i] || got.Thresholds[i].OccurrenceCount != wantOccurrences[i] {
 			t.Fatalf("threshold %d = %+v", i, got.Thresholds[i])
+		}
+	}
+	wantOrder := []string{"eins", "zwei", "alpha", "beta", "drei"}
+	for i, want := range wantOrder {
+		if got.TopUnknownLemmas[i].CanonicalLemma != want {
+			t.Fatalf("top unknown order = %+v", got.TopUnknownLemmas)
 		}
 	}
 }

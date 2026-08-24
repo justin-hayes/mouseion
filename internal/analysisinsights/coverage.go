@@ -13,6 +13,12 @@ import (
 var ErrStatisticsUnavailable = errors.New("analysis insights: corpus statistics unavailable")
 
 var thresholdTargets = [...]int{95, 97, 99}
+var projectionSizes = [...]int64{10, 25, 50}
+
+const (
+	topUnknownLimit   = 5
+	concentrationSize = int64(10)
+)
 
 type Store interface {
 	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
@@ -91,6 +97,13 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	for _, lemma := range eligible {
 		eligibleTokens += lemma.OccurrenceCount
 	}
+	topUnknownCount := min(topUnknownLimit, len(eligible))
+	result.TopUnknownLemmas = append([]domain.LemmaOccurrence(nil), eligible[:topUnknownCount]...)
+	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount)
+	result.Projections = make([]domain.CoverageProjection, 0, len(projectionSizes))
+	for _, size := range projectionSizes {
+		result.Projections = append(result.Projections, projection(eligible, size, eligibleTokens, result.KnownTokenCount))
+	}
 	result.Thresholds = make([]domain.CoverageThreshold, 0, len(thresholdTargets))
 	for _, target := range thresholdTargets {
 		threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
@@ -104,6 +117,16 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 		result.Thresholds = append(result.Thresholds, threshold)
 	}
 	return result, nil
+}
+
+func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens int64) domain.CoverageProjection {
+	result := domain.CoverageProjection{TopLemmaCount: size, EligibleTokenCount: eligibleTokens, ProjectedTokenCount: knownTokens}
+	for i := 0; i < len(eligible) && int64(i) < size; i++ {
+		result.SelectedLemmaCount++
+		result.OccurrenceCount += eligible[i].OccurrenceCount
+	}
+	result.ProjectedTokenCount += result.OccurrenceCount
+	return result
 }
 
 func identity(lemma, upos string) string { return lemma + "\x00" + upos }

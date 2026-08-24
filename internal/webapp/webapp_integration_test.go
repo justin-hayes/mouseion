@@ -495,14 +495,17 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	externalJobs := &recordingEnrichment{}
 	insights := &recordingAnalysisInsights{coverage: domain.AnalysisCoverage{
 		AnalyzableTokenCount: 200, DistinctLemmaCount: 8, KnownTokenCount: 110, KnownLemmaCount: 3, UnknownTokenCount: 90, UnknownLemmaCount: 5,
-		Thresholds: []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
+		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 30}},
+		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170},
+		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 25, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 50, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}},
+		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
 	}}
 	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, AnalysisInsights: insights, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
 	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
 		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
 	}
-	for _, want := range []string{"55.0%", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "explicitly known vocabulary", "Previously generated vocabulary", "deck-eligible vocabulary", "Prepare deck"} {
+	for _, want := range []string{"55.0%", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "explicitly known vocabulary", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "Prepare deck"} {
 		if !strings.Contains(bookPage.Body.String(), want) {
 			t.Errorf("coverage page missing %q", want)
 		}
