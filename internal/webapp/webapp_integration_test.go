@@ -215,11 +215,11 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}))
 	defer catalog.Close()
-	connection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds", Language: "de"})
+	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds", Language: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobConnection, err := store.CreateOpdsConnection(ctx, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds", Language: "de"})
+	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds", Language: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,9 +248,21 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if browse.Code != 200 || strings.Contains(browse.Body.String(), "Test Book") || !strings.Contains(browse.Body.String(), "Search is not available") {
 		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
 	}
-	shared := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
-	if shared.Code != 200 || strings.Contains(shared.Body.String(), "Test Book") || !strings.Contains(shared.Body.String(), "Search is not available") {
-		t.Fatalf("shared browse=%d %s", shared.Code, shared.Body.String())
+	crossOwner := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
+	if crossOwner.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner browse=%d %s", crossOwner.Code, crossOwner.Body.String())
+	}
+	if got := perform(t, h, "GET", "/catalog?connection="+bobConnection.ID, nil, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner catalog=%d %s", got.Code, got.Body.String())
+	}
+	if got := perform(t, h, "POST", "/connections/"+bobConnection.ID, url.Values{"csrf_token": {csrf}, "name": {"Stolen"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner update=%d %s", got.Code, got.Body.String())
+	}
+	if got := perform(t, h, "POST", "/connections/"+bobConnection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner delete=%d %s", got.Code, got.Body.String())
+	}
+	if got := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {bobConnection.ID}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner acquire=%d %s", got.Code, got.Body.String())
 	}
 	catalogPage := perform(t, h, "GET", "/catalog?connection="+connection.ID, nil, cookies)
 	if catalogPage.Code != 200 || !strings.Contains(catalogPage.Body.String(), "German — study language") {
@@ -381,15 +393,15 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("non-admin language update=%d", got.Code)
 	}
-	if got := perform(t, h, "GET", "/admin/connections", nil, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("non-admin connection management=%d", got.Code)
+	if got := perform(t, h, "GET", "/admin/connections", nil, cookies); got.Code != http.StatusNotFound {
+		t.Fatalf("removed admin connection management=%d", got.Code)
 	}
-	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Denied"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("non-admin connection create=%d", got.Code)
+	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Personal"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
+		t.Fatalf("learner connection create=%d", got.Code)
 	}
 	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
-	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || !strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
+	if adminHub.Code != http.StatusOK || !strings.Contains(adminHub.Body.String(), "Configure languages") || strings.Contains(adminHub.Body.String(), "Configure connections") || strings.Contains(adminHub.Body.String(), "My Library") {
 		t.Fatalf("admin hub=%d %s", adminHub.Code, adminHub.Body.String())
 	}
 	adminHome := perform(t, h, "GET", "/", nil, adminCookies)
@@ -402,8 +414,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
-	if adminConnections.Code != http.StatusOK || !strings.Contains(adminConnections.Body.String(), "Library") || !strings.Contains(adminConnections.Body.String(), "Add connection") {
-		t.Fatalf("admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
+	if adminConnections.Code != http.StatusNotFound {
+		t.Fatalf("removed admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
 	}
 	if got := perform(t, h, "GET", "/admin/frequency", nil, adminCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("removed admin frequency route=%d", got.Code)

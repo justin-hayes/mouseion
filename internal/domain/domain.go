@@ -71,8 +71,8 @@ type SourceMaterialSummary struct {
 	AnalysisJobID  int64
 }
 type OpdsConnection struct {
-	ID, Name, URL, Username, Password, Language string
-	CreatedAt, UpdatedAt                        time.Time
+	ID, OwnerID, Name, URL, Username, Password, Language string
+	CreatedAt, UpdatedAt                                 time.Time
 }
 type Corpus struct {
 	ID, OwnerID, SourceMaterialID, ArtifactHash, Status string

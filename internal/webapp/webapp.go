@@ -44,11 +44,11 @@ type Store interface {
 	DeleteLanguageProfile(context.Context, string, string) error
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
-	CreateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
-	GetOpdsConnection(context.Context, string) (domain.OpdsConnection, error)
-	ListOpdsConnections(context.Context) ([]domain.OpdsConnection, error)
-	UpdateOpdsConnection(context.Context, domain.OpdsConnection) (domain.OpdsConnection, error)
-	DeleteOpdsConnection(context.Context, string) error
+	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
+	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
+	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	DeleteOpdsConnection(context.Context, string, string) error
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
@@ -128,13 +128,9 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /settings/languages", h.learner(http.HandlerFunc(h.addStudyLanguage)))
 	h.mux.Handle("POST /settings/languages/remove", h.learner(http.HandlerFunc(h.removeStudyLanguage)))
 	h.mux.Handle("GET /connections", h.learner(http.HandlerFunc(h.connections)))
-	h.mux.Handle("GET /admin/connections", h.adminOnly(http.HandlerFunc(h.adminConnections)))
-	h.mux.Handle("POST /connections", h.adminOnly(http.HandlerFunc(h.createConnection)))
-	h.mux.Handle("POST /admin/connections", h.adminOnly(http.HandlerFunc(h.createConnection)))
-	h.mux.Handle("POST /connections/{id}", h.adminOnly(http.HandlerFunc(h.updateConnection)))
-	h.mux.Handle("POST /admin/connections/{id}", h.adminOnly(http.HandlerFunc(h.updateConnection)))
-	h.mux.Handle("POST /connections/{id}/delete", h.adminOnly(http.HandlerFunc(h.deleteConnection)))
-	h.mux.Handle("POST /admin/connections/{id}/delete", h.adminOnly(http.HandlerFunc(h.deleteConnection)))
+	h.mux.Handle("POST /connections", h.learner(http.HandlerFunc(h.createConnection)))
+	h.mux.Handle("POST /connections/{id}", h.learner(http.HandlerFunc(h.updateConnection)))
+	h.mux.Handle("POST /connections/{id}/delete", h.learner(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("GET /catalog", h.learner(http.HandlerFunc(h.catalog)))
 	h.mux.Handle("GET /opds/browse", h.learner(http.HandlerFunc(h.browse)))
 	h.mux.Handle("GET /opds/language", h.learner(http.HandlerFunc(h.browseLanguage)))
@@ -434,47 +430,31 @@ func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage,
 }
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	c, e := h.services.Store.ListOpdsConnections(r.Context())
+	c, e := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	render(w, r, ConnectionsPage(u, h.csrf(w, r), c))
-}
-func (h *Handler) adminConnections(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	c, e := h.services.Store.ListOpdsConnections(r.Context())
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	render(w, r, AdminConnectionsPage(u, h.csrf(w, r), c, r.URL.Query().Get("message")))
+	render(w, r, ConnectionsPage(u, h.csrf(w, r), c, r.URL.Query().Get("message")))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	if _, ok := h.requireAdmin(w, r); !ok {
-		return
-	}
-	_, e := h.services.Store.CreateOpdsConnection(r.Context(), domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password"), Language: strings.TrimSpace(r.FormValue("language"))})
+	u := user(r)
+	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password"), Language: strings.TrimSpace(r.FormValue("language"))})
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/admin/connections?message=Catalog+added")
+	redirect(w, r, "/connections?message=Catalog+added")
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	if _, ok := h.requireAdmin(w, r); !ok {
-		return
-	}
-	current, e := h.services.Store.GetOpdsConnection(r.Context(), r.PathValue("id"))
+	u := user(r)
+	current, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.PathValue("id"))
 	if e != nil {
 		http.NotFound(w, r)
 		return
@@ -483,29 +463,31 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if password == "" {
 		password = current.Password
 	}
-	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
+	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
 	if e != nil {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/admin/connections?message=Catalog+updated")
+	redirect(w, r, "/connections?message=Catalog+updated")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	if _, ok := h.requireAdmin(w, r); !ok {
-		return
-	}
-	if e := h.services.Store.DeleteOpdsConnection(r.Context(), r.PathValue("id")); e != nil {
+	u := user(r)
+	if e := h.services.Store.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
+		if errors.Is(e, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/admin/connections?message=Catalog+deleted")
+	redirect(w, r, "/connections?message=Catalog+deleted")
 }
 func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	c, e := h.services.Store.GetOpdsConnection(r.Context(), r.URL.Query().Get("connection"))
+	c, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.URL.Query().Get("connection"))
 	if e != nil {
 		http.NotFound(w, r)
 		return
@@ -984,6 +966,10 @@ func fail(w http.ResponseWriter, err error) {
 
 func opdsFail(w http.ResponseWriter, err error) {
 	log.Printf("mouseion: OPDS: %v", err)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.Error(w, "catalog not found", http.StatusNotFound)
+		return
+	}
 	message := "The catalog request failed. Check the connection and try again."
 	lower := strings.ToLower(err.Error())
 	switch {
