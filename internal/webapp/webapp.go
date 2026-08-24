@@ -27,6 +27,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/riverqueue/river/rivertype"
 )
 
 const csrfCookie = "mouseion_csrf"
@@ -57,6 +58,10 @@ type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
+type KnownVocabulary interface {
+	Submit(context.Context, string, string, string) (knownvocab.Handle, error)
+	Get(context.Context, string, int64) (knownvocab.Status, error)
+}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -65,7 +70,7 @@ type Services struct {
 	Store           Store
 	OPDS            OPDS
 	Analysis        Analysis
-	KnownVocab      *knownvocab.Service
+	KnownVocab      KnownVocabulary
 	CardExport      *cardexport.Service
 	SecureCookies   bool
 	SessionLifetime time.Duration
@@ -114,6 +119,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /jobs/{id}/status", h.learner(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("GET /known-vocab", h.learner(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.learner(http.HandlerFunc(h.importKnownVocab)))
+	h.mux.Handle("GET /known-vocab/imports/{id}/status", h.learner(http.HandlerFunc(h.knownVocabImportStatus)))
 	h.mux.Handle("GET /admin", h.adminOnly(http.HandlerFunc(h.admin)))
 	h.mux.Handle("GET /admin/users", h.adminOnly(http.HandlerFunc(h.adminUsers)))
 	h.mux.Handle("POST /admin/users", h.adminOnly(http.HandlerFunc(h.createUser)))
@@ -662,17 +668,34 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		fail(w, errors.New("known vocabulary service is unavailable"))
 		return
 	}
-	result, err := h.services.KnownVocab.Import(r.Context(), u.ID, language, &input)
+	handle, err := h.services.KnownVocab.Submit(r.Context(), u.ID, language, input.String())
 	if err != nil {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Import failed: "+err.Error())
 		return
 	}
-	known, err := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+	if r.Header.Get("HX-Request") == "true" {
+		render(w, r, KnownVocabImportStatus(knownvocab.Status{ID: handle.ID, Language: language, State: rivertype.JobStateAvailable}))
+		return
+	}
+	redirect(w, r, fmt.Sprintf("/known-vocab/imports/%d/status", handle.ID))
+}
+
+func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	status, err := h.services.KnownVocab.Get(r.Context(), user(r).ID, id)
+	if errors.Is(err, knownvocab.ErrJobNotFound) {
+		http.NotFound(w, r)
+		return
+	}
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	h.renderKnownVocabResult(w, r, language, &result, known, "")
+	render(w, r, KnownVocabImportStatus(status))
 }
 
 func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
@@ -888,6 +911,20 @@ func jobState(status analysis.Status) string {
 	}
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
+func knownVocabJobLabel(status string) string {
+	switch status {
+	case "available", "scheduled", "retryable", "pending":
+		return "Queued"
+	case "running":
+		return "Running"
+	case "completed":
+		return "Completed"
+	case "discarded", "cancelled":
+		return "Failed"
+	default:
+		return status
+	}
+}
 func knownVocabUPOS(upos string) string {
 	if upos == "" {
 		return "Any"

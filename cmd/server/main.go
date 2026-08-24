@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/riverqueue/river"
 )
 
 func main() {
@@ -56,7 +57,9 @@ func main() {
 	}
 	defer nlp.Close()
 	selectionService := selection.NewService(store)
-	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService)
+	workers := river.NewWorkers()
+	knownvocab.AddWorker(workers, store.Pool())
+	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +73,7 @@ func main() {
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
 	exportService := cardexport.NewService(store)
-	knownVocabService := knownvocab.NewService(store)
+	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
 	mux.Handle("/static/", webapp.StaticHandler())
 	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
