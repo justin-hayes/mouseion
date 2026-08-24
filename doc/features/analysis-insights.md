@@ -1,6 +1,6 @@
 # Analysis Insights
 
-Status: Proposed · Date: 2026-08-24
+Status: Implemented · Date: 2026-08-24
 
 ## Problem
 
@@ -112,10 +112,12 @@ uses the nearest-rank value. These signals remain separate and descriptive.
 
 The profile also shows the analyzable-token count alongside the total normalized
 token count.
-It warns when the analyzer returns no sentences, when a sentence contains no
-tokens, or when normalized tokens exist but none pass vocabulary-analysis
-filters. Legacy analyses do not have reproducible sentence aggregates and must
-be rerun to expose the structural profile.
+An analysis-quality region reports only gaps that can be reproduced directly
+from persisted analyzer output: no sentences, analyzer-provided sentences with
+no tokens, or normalized tokens with no vocabulary-analyzable tokens. Each
+warning explains which metrics are affected; the UI does not infer a general
+quality grade from these checks. Legacy analyses do not have reproducible
+coverage or sentence aggregates and must be rerun to expose analysis insights.
 
 ## Difficulty dimensions
 
@@ -135,6 +137,7 @@ The repository feature document is the product source of truth. Stable metric de
 The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
 and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).
 
-## Open questions
-
-- Should threshold results be computed on demand or persisted with analysis?
+Thresholds, learner coverage, and projections are computed on demand from the
+persisted corpus statistics and current owner-scoped vocabulary state. This
+keeps the learner-specific values current after known-vocabulary or generated-
+deck changes without persisting derived mastery claims.

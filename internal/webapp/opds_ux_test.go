@@ -181,7 +181,7 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "1 analyzer-provided sentences contained no tokens", "not a difficulty score", "75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
+	for _, want := range []string{"Analysis quality", "do not assign a quality grade", "Empty sentences returned", "1 analyzer-provided sentences contained no tokens", "Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "not a difficulty score", "75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("coverage summary missing %q", want)
 		}
@@ -189,6 +189,72 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	for _, unwanted := range []string{"structural difficulty", "CEFR"} {
 		if strings.Contains(html, unwanted) {
 			t.Errorf("coverage summary includes unsupported claim %q: %s", unwanted, html)
+		}
+	}
+}
+
+func TestAnalyzedBookReportsOnlyEvidenceBackedQualityWarnings(t *testing.T) {
+	tests := []struct {
+		name     string
+		coverage domain.AnalysisCoverage
+		want     string
+		unwanted string
+	}{
+		{
+			name:     "no sentences",
+			coverage: domain.AnalysisCoverage{TextProfile: &domain.TextProfile{}},
+			want:     "No sentences returned.",
+			unwanted: "No vocabulary-analyzable tokens.",
+		},
+		{
+			name: "normalized tokens filtered from vocabulary analysis",
+			coverage: domain.AnalysisCoverage{TextProfile: &domain.TextProfile{
+				SentenceCount: 2, NormalizedTokenCount: 12,
+			}},
+			want:     "No vocabulary-analyzable tokens.",
+			unwanted: "No sentences returned.",
+		},
+		{
+			name: "complete analyzer output",
+			coverage: domain.AnalysisCoverage{AnalyzableTokenCount: 10, TextProfile: &domain.TextProfile{
+				SentenceCount: 2, NormalizedTokenCount: 12,
+			}},
+			unwanted: "Analysis quality",
+		},
+	}
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output bytes.Buffer
+			if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &tt.coverage, false, "").Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			html := output.String()
+			if tt.want != "" && !strings.Contains(html, tt.want) {
+				t.Errorf("page missing warning %q: %s", tt.want, html)
+			}
+			if strings.Contains(html, tt.unwanted) {
+				t.Errorf("page unexpectedly contains %q: %s", tt.unwanted, html)
+			}
+			for _, unsupported := range []string{"analysis is bad", "CEFR", "proficiency level:"} {
+				if strings.Contains(html, unsupported) {
+					t.Errorf("page contains unsupported claim %q", unsupported)
+				}
+			}
+		})
+	}
+}
+
+func TestLegacyAnalyzedBookRequestsReanalysisForAllInsights(t *testing.T) {
+	var output bytes.Buffer
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "legacy", Title: "Legacy Book", Language: "de"}, AnalysisStatus: "analyzed"}
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, true, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Analysis insights unavailable", "reproducible vocabulary and sentence statistics", "Analyze it again", "coverage, projections, and the structural profile"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("legacy page missing %q", want)
 		}
 	}
 }
