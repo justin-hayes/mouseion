@@ -143,7 +143,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	</article></div> }
 }
 
-templ LoginPage(csrf, message string, onboarding bool) {
+templ LoginPage(csrf, message, next string, onboarding bool) {
 	@Layout("Sign in", nil, csrf) { <article class="narrow">
 	if onboarding {
 		<h1>Create your account</h1><p>Set up the first learner account for this Mouseion installation.</p>
@@ -156,7 +156,7 @@ templ LoginPage(csrf, message string, onboarding bool) {
 	if onboarding {
 		<form method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"/></label><button>Create account</button></form>
 	} else {
-		<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form>
+		<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form>
 	}
 	</article> }
 }
