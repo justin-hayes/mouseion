@@ -1,4 +1,4 @@
-// Package cardexport produces owner-scoped, Anki-compatible Cloze TSV exports.
+// Package cardexport produces owner-scoped Anki Cloze deck packages.
 package cardexport
 
 import (
@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"math"
 	"sort"
 	"strings"
@@ -30,14 +31,16 @@ type Entry struct {
 }
 
 type Note struct {
-	Key, Text, BackExtra string
-	Tags                 []string
+	Key, Text, Lemma, POS, Morph, English, EnglishSentence, BookTitle, SourceSentence string
+	BackExtra                                                                         string
+	Tags                                                                              []string
 }
 
 type Artifact struct {
-	TSV, NoteType string
-	Count         int
-	Omitted       []Omission
+	APKG                    []byte
+	Filename, DeckName, TSV string
+	Count                   int
+	Omitted                 []Omission
 }
 
 type Omission struct {
@@ -79,12 +82,18 @@ func Cloze(sentence, target, hint string) (string, error) {
 		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
 	}
 	end := start + len(target)
-	mark := "{{c1::" + sentence[start:end]
+	mark := "{{c1::" + escapeField(sentence[start:end])
 	if hint = strings.TrimSpace(hint); hint != "" {
-		mark += "::" + hint
+		mark += "::" + escapeField(hint)
 	}
 	mark += "}}"
-	return sentence[:start] + mark + sentence[end:], nil
+	return escapeField(sentence[:start]) + mark + escapeField(sentence[end:]), nil
+}
+
+func escapeField(value string) string {
+	value = html.EscapeString(value)
+	value = strings.ReplaceAll(value, "{", "&#123;")
+	return strings.ReplaceAll(value, "}", "&#125;")
 }
 
 const (
@@ -220,13 +229,22 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	tags := uniqueTags("mouseion", entry.Language, entry.SourceDocument)
-	back := strings.Join([]string{
-		"Sentence: " + entry.Sentence, "Translation: " + entry.Translation,
-		"Target: " + target, "Lemma: " + lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS), "POS: " + entry.UPOS,
-		"Morphology: " + entry.Morphology, "Source: " + entry.SourceDocument, "Notes: " + entry.Notes,
-	}, "\n")
-	return Note{Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Text: text, BackExtra: back, Tags: tags}, nil
+	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
+	note := Note{
+		Key:  DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner),
+		Text: text, Lemma: escapeField(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)),
+		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
+		EnglishSentence: "", BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
+	}
+	note.BackExtra = strings.Join([]string{note.Lemma, note.Morph, note.POS, note.English, note.EnglishSentence}, "\n")
+	return note, nil
+}
+
+func prefixedTag(prefix, value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	return prefix + "::" + value
 }
 
 func uniqueTags(values ...string) []string {
@@ -234,6 +252,7 @@ func uniqueTags(values ...string) []string {
 	var tags []string
 	for _, value := range values {
 		value = strings.Join(strings.Fields(value), "_")
+		value = strings.NewReplacer("\\", "_", "/", "_", "#", "_", "^", "_", "\x00", "_").Replace(value)
 		if value != "" && !seen[value] {
 			seen[value] = true
 			tags = append(tags, value)
@@ -247,7 +266,7 @@ func RenderTSV(notes []Note) (string, error) {
 	w := csv.NewWriter(&out)
 	w.Comma, w.UseCRLF = '\t', false
 	for _, n := range notes {
-		if err := w.Write([]string{n.Key, n.Text, n.BackExtra, strings.Join(n.Tags, " ")}); err != nil {
+		if err := w.Write(append(noteFields(n), strings.Join(n.Tags, " "))); err != nil {
 			return "", err
 		}
 	}
@@ -255,8 +274,42 @@ func RenderTSV(notes []Note) (string, error) {
 	return out.String(), w.Error()
 }
 
-func NoteTypeDefinition() string {
-	return "Mouseion Cloze\nFields (in order): Key, Text, Back Extra, Tags\nSet Key as the first field and use it for duplicate checking.\nCard template: {{cloze:Text}}\nBack template: {{cloze:Text}}<hr id=answer>{{Back Extra}}\nImport: UTF-8, tab-separated, allow HTML, map Tags to Tags.\n"
+func noteFields(n Note) []string {
+	return []string{n.Text, n.Lemma, n.POS, n.Morph, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
+}
+
+const noteTypeName = "Mouseion Vocab Cloze"
+
+var fieldNames = []string{"Text", "Lemma", "POS", "Morph", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
+
+func DeckName(language, bookTitle string) string {
+	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
+}
+
+func DownloadFilename(bookTitle string) string {
+	original := strings.TrimSpace(bookTitle)
+	var b strings.Builder
+	hasNameRune := false
+	for _, r := range original {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			hasNameRune = true
+		}
+		if unicode.IsControl(r) || strings.ContainsRune(`<>:"/\\|?*`, r) {
+			b.WriteRune('_')
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	name := strings.Trim(strings.Join(strings.Fields(b.String()), " "), " .")
+	if len([]rune(name)) > 120 {
+		name = string([]rune(name)[:120])
+		name = strings.TrimRight(name, " .")
+	}
+	if name == "" || name == "." || name == ".." || !hasNameRune {
+		sum := sha256.Sum256([]byte(original))
+		name = "mouseion-deck-" + hex.EncodeToString(sum[:6])
+	}
+	return name + ".apkg"
 }
 
 // ExportCoverage exports the smallest set of unknown lemmas accounting for at
@@ -397,11 +450,20 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 	if err != nil {
 		return Artifact{}, fmt.Errorf("render TSV: %w", err)
 	}
+	language := "und"
+	if len(entries) > 0 && strings.TrimSpace(entries[0].Language) != "" {
+		language = entries[0].Language
+	}
+	ankiDeckName := DeckName(language, deckName)
+	apkg, err := renderAPKG(ankiDeckName, notes)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("render Anki package: %w", err)
+	}
 	for _, item := range accepted {
 		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, deckName, item.entry, item.note); err != nil {
 			entry := item.entry
 			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 	}
-	return Artifact{TSV: tsv, NoteType: NoteTypeDefinition(), Count: len(notes), Omitted: omitted}, nil
+	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Omitted: omitted}, nil
 }
