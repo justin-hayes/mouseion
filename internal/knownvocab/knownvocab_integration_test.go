@@ -53,11 +53,11 @@ func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := NewService(store)
-	first, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\tSCONJ\nHaus\n"))
+	first, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\nHaus\n"))
 	if err != nil || first.Imported != 2 {
 		t.Fatalf("first import = %+v, %v", first, err)
 	}
-	second, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\tSCONJ\nHaus\n"))
+	second, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\nHaus\n"))
 	if err != nil || second.AlreadyKnown != 2 || second.Imported != 0 {
 		t.Fatalf("second import = %+v, %v", second, err)
 	}
@@ -71,7 +71,7 @@ func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 			t.Fatalf("unexpected known for owner=%s language=%s: %t, %v", check.owner, check.language, known, checkErr)
 		}
 	}
-	state, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "dass", "SCONJ")
+	state, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "dass", "")
 	if err != nil || state.State != "known" {
 		t.Fatalf("exact state = %+v, %v", state, err)
 	}
@@ -79,7 +79,7 @@ func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 	if err != nil || wildcardState.State != "known" {
 		t.Fatalf("wildcard state = %+v, %v", wildcardState, err)
 	}
-	if _, err = store.GetVocabularyStateByIdentity(ctx, bob.ID, "de", "dass", "SCONJ"); !errors.Is(err, persistence.ErrNotFound) {
+	if _, err = store.GetVocabularyStateByIdentity(ctx, bob.ID, "de", "dass", ""); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatalf("bob state error = %v", err)
 	}
 }

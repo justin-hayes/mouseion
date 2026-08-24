@@ -47,7 +47,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	}
 	defer client.Stop(context.Background())
 	service := NewJobService(store.Pool(), client)
-	handle, err := service.Submit(ctx, alice.ID, "de", "Daß\tSCONJ\nHaus\nbad\tNOPE\n")
+	handle, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\nbad\tNOPE\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	if status.State != rivertype.JobStateCompleted || status.Imported != 2 || status.AlreadyKnown != 0 || len(status.Rejected) != 1 || status.Processed != 3 || status.Total != 3 {
 		t.Fatalf("first status = %+v", status)
 	}
-	duplicate, err := service.Submit(ctx, alice.ID, "de", "Daß\tSCONJ\nHaus\n")
+	duplicate, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 		t.Fatalf("known rows=%d err=%v", knownRows, err)
 	}
 	// A forged retry without its owner-scoped history handle is rejected before writes.
-	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", Input: "neu"}}
+	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", FileContents: "neu"}}
 	if err = (&Worker{Pool: store.Pool()}).Work(ctx, forged); !errors.Is(err, ErrJobNotFound) {
 		t.Fatalf("forged work = %v", err)
 	}

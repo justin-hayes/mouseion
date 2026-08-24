@@ -11,21 +11,21 @@ import (
 )
 
 func TestParseReportsMalformedRows(t *testing.T) {
-	input := strings.NewReader("Haus\ngehen\tverb\n\nzu\tviele\tSpalten\nungueltig\tWHAT\n")
+	input := strings.NewReader("Haus\ngehen\tverb\n\nzu\tviele\tSpalten\n  Straße  \n")
 	got, err := Parse(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Entries) != 2 || got.Entries[0].RawLemma != "Haus" || got.Entries[0].UPOS != "" || got.Entries[1].UPOS != "VERB" {
+	if len(got.Entries) != 2 || got.Entries[0].RawLemma != "Haus" || got.Entries[0].UPOS != "" || got.Entries[1].RawLemma != "Straße" || got.Entries[1].UPOS != "" {
 		t.Fatalf("entries = %+v", got.Entries)
 	}
-	if len(got.Rejected) != 3 || got.Rejected[0].Row != 3 || got.Rejected[1].Row != 4 || got.Rejected[2].Row != 5 {
+	if len(got.Rejected) != 2 || got.Rejected[0].Row != 2 || got.Rejected[1].Row != 4 || !strings.Contains(got.Rejected[0].Error, "no tab-separated columns") {
 		t.Fatalf("rejections = %+v", got.Rejected)
 	}
 }
 
 func TestParseRejectsInvalidUTF8(t *testing.T) {
-	got, err := Parse(strings.NewReader("Haus\n" + string([]byte{0xff, '\n'}) + "gehen\tVERB\n"))
+	got, err := Parse(strings.NewReader("Haus\n" + string([]byte{0xff, '\n'}) + "gehen\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func (s *memoryStore) ListKnownVocabulary(_ context.Context, owner, language str
 func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	store := newMemoryStore()
 	service := NewService(store)
-	input := " Daß \tSCONJ\nHaus\ninvalid\tNOPE\n"
+	input := " Daß \nHaus\ninvalid\tNOPE\n"
 
 	first, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
 	if err != nil {
@@ -92,10 +92,10 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	if first.Imported != 2 || first.AlreadyKnown != 0 || len(first.Rejected) != 1 {
 		t.Fatalf("first = %+v", first)
 	}
-	if got := first.Entries[0]; got.Original != " Daß \tSCONJ" || got.RawLemma != "Daß" || got.CanonicalLemma != "dass" || got.ProfileName == "" || got.ProfileVersion == "" {
+	if got := first.Entries[0]; got.Original != " Daß " || got.RawLemma != "Daß" || got.CanonicalLemma != "dass" || got.UPOS != "" || got.ProfileName == "" || got.ProfileVersion == "" {
 		t.Fatalf("normalized entry = %+v", got)
 	}
-	if store.state[importKey("alice", "de", "dass", "SCONJ")].State != "known" || store.state[importKey("alice", "de", "haus", "")].State != "known" {
+	if store.state[importKey("alice", "de", "dass", "")].State != "known" || store.state[importKey("alice", "de", "haus", "")].State != "known" {
 		t.Fatalf("states = %+v", store.state)
 	}
 

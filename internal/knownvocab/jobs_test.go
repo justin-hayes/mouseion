@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestJobArgsRoundTripKeepsOwnerAndWildcardInput(t *testing.T) {
-	want := JobArgs{OwnerID: "owner-1", Language: "de", Input: "Haus\ngehen\tVERB\n"}
+func TestJobArgsRoundTripKeepsOwnerAndFileContents(t *testing.T) {
+	want := JobArgs{OwnerID: "owner-1", Language: "de", FileContents: "Haus\ngehen\n"}
 	encoded, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)

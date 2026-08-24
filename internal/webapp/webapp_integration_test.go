@@ -471,18 +471,18 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
 	}
 	knownPage := perform(t, h, "GET", "/known-vocab?language=de", nil, cookies)
-	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") {
+	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") || strings.Contains(knownPage.Body.String(), "textarea") || strings.Contains(knownPage.Body.String(), "Universal POS") || !strings.Contains(knownPage.Body.String(), `accept="text/plain,.txt"`) {
 		t.Fatalf("known vocab page=%d %s", knownPage.Code, knownPage.Body.String())
 	}
-	if got := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"language": "de", "vocabulary": "Daß\tSCONJ\nbad\tNOPE"}, ""); got.Code != http.StatusForbidden {
+	if got := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"language": "de"}, "Daß\nbad\tNOPE\n"); got.Code != http.StatusForbidden {
 		t.Fatalf("known vocab without csrf=%d", got.Code)
 	}
-	importedKnown := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de", "vocabulary": "Daß\tSCONJ\nbad\tNOPE"}, "")
+	importedKnown := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Daß\nbad\tNOPE\n")
 	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "Queued") || !strings.Contains(importedKnown.Body.String(), "/known-vocab/imports/77/status") {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
 	}
 	importStatus := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, cookies)
-	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 imported") || !strings.Contains(importStatus.Body.String(), "invalid UPOS") {
+	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 imported") || !strings.Contains(importStatus.Body.String(), "no tab-separated columns") || !strings.Contains(importStatus.Body.String(), "<td>2</td>") {
 		t.Fatalf("known vocab status=%d %s", importStatus.Code, importStatus.Body.String())
 	}
 	bobLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {bob.Username}, "password": {"bob-password"}}, []*http.Cookie{csrfCookieValue})
@@ -686,7 +686,11 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 			t.Fatal(err)
 		}
 	}
-	part, err := writer.CreateFormFile("dataset", "frequency.csv")
+	field, filename := "dataset", "frequency.csv"
+	if path == "/known-vocab/import" {
+		field, filename = "vocabulary_file", "known.txt"
+	}
+	part, err := writer.CreateFormFile(field, filename)
 	if err != nil {
 		t.Fatal(err)
 	}

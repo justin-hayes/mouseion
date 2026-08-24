@@ -17,13 +17,6 @@ import (
 
 var ErrInvalidInput = errors.New("knownvocab: owner, language, and input are required")
 
-var validUPOS = map[string]bool{
-	"ADJ": true, "ADP": true, "ADV": true, "AUX": true, "CCONJ": true,
-	"DET": true, "INTJ": true, "NOUN": true, "NUM": true, "PART": true,
-	"PRON": true, "PROPN": true, "PUNCT": true, "SCONJ": true, "SYM": true,
-	"VERB": true, "X": true,
-}
-
 type Entry struct {
 	Row            int
 	Original       string
@@ -70,25 +63,16 @@ func Parse(reader io.Reader) (ParseResult, error) {
 			continue
 		}
 		line := strings.TrimSuffix(original, "\r")
-		columns := strings.Split(line, "\t")
-		if len(columns) > 2 {
-			result.Rejected = append(result.Rejected, Rejection{Row: row, Original: original, Error: fmt.Sprintf("expected 1 or 2 columns, got %d", len(columns))})
+		if strings.ContainsRune(line, '\t') {
+			result.Rejected = append(result.Rejected, Rejection{Row: row, Original: original, Error: "expected exactly one lemma with no tab-separated columns"})
 			continue
 		}
-		lemma := strings.TrimSpace(columns[0])
+		lemma := strings.TrimSpace(line)
 		if lemma == "" {
-			result.Rejected = append(result.Rejected, Rejection{Row: row, Original: original, Error: "lemma is empty"})
+			// Blank lines are allowed and do not count as input rows.
 			continue
 		}
-		upos := ""
-		if len(columns) == 2 {
-			upos = strings.ToUpper(strings.TrimSpace(columns[1]))
-			if !validUPOS[upos] {
-				result.Rejected = append(result.Rejected, Rejection{Row: row, Original: original, Error: "invalid UPOS"})
-				continue
-			}
-		}
-		result.Entries = append(result.Entries, Entry{Row: row, Original: original, RawLemma: lemma, UPOS: upos})
+		result.Entries = append(result.Entries, Entry{Row: row, Original: original, RawLemma: lemma})
 	}
 	if err := scanner.Err(); err != nil {
 		return result, fmt.Errorf("read lemma list: %w", err)

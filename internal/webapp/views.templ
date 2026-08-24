@@ -190,7 +190,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 	for _, profile := range profiles {
 		<article><header class="page-heading"><div><h2>{ profile.DisplayName } <code>{ profile.Language }</code></h2><p>Known vocabulary is private to your account and used to filter generated decks.</p></div><form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Remove</button></form></header>
-		<form method="post" action="/known-vocab/import" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ profile.Language }/><label>Paste lemma list<textarea name="vocabulary" rows="6" placeholder={ "Haus\ngehen\tVERB" }></textarea></label><label>Or upload a UTF-8 text file<input type="file" name="vocabulary_file" accept="text/plain,.txt,.tsv"/></label><small>One lemma per line, optionally followed by a tab and Universal POS tag.</small><button>Import known words</button></form>
+		<form method="post" action="/known-vocab/import" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ profile.Language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known words</button></form>
 		if language == profile.Language {
 			<section>@KnownVocabResult(language, result, known, "")</section>
 		}
@@ -345,7 +345,7 @@ templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.
 	for _, profile := range profiles {
 		<option value={ profile.Language }>{ profile.DisplayName }</option>
 	}
-	</datalist><label>Paste lemma list<textarea name="vocabulary" rows="10" placeholder={ "Haus\ngehen\tVERB" }></textarea></label><label>Or upload a UTF-8 text file<input type="file" name="vocabulary_file" accept="text/plain,.txt,.tsv"/></label><small>One lemma per line, optionally followed by a tab and Universal POS tag.</small><button>Import known words</button></form></article><section id="known-vocab-results">@KnownVocabResult(language, result, known, message)</section> }
+	</datalist><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known words</button></form></article><section id="known-vocab-results">@KnownVocabResult(language, result, known, message)</section> }
 }
 templ KnownVocabResult(language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	if message != "" {
