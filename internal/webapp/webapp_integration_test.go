@@ -6,14 +6,12 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -21,7 +19,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
-	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -277,13 +274,13 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
 	}
 
-	// Seed the completed pipeline boundary and exercise coverage export through
-	// the authenticated one-button workflow.
+	// Seed the completed pipeline boundary and exercise the authenticated book
+	// workflow after analysis.
 	artifactHash := "web-workflow-artifact"
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','test','1','test','1')`, artifactHash); err != nil {
 		t.Fatal(err)
 	}
-	corpus, err := store.PutCorpus(ctx, alice.ID, recorder.source, artifactHash)
+	_, err = store.PutCorpus(ctx, alice.ID, recorder.source, artifactHash)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,18 +288,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if library.Code != 200 || !strings.Contains(library.Body.String(), "analyzed") {
 		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, alice.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','haus','NOUN',1,'["Haus"]','[{"Location":{"StartOffset":0},"Text":"Das Haus ist heute sehr ruhig."}]','{"min_occurrences":1,"occurrence_count":1}')`, alice.ID, corpus.ID); err != nil {
-		t.Fatal(err)
-	}
-	examples := []domain.ExampleSentence{{SentenceKey: "haus:1", Text: "Das Haus ist heute sehr ruhig.", SourceLocation: []byte(`{"source_document_id":"book-1","start_offset":0,"end_offset":4}`), SelectionReasons: []byte(`["preferred length"]`), SelectionRank: 1, SelectionScore: 90, Chosen: true}}
-	if err = store.ReplaceSelectedSentences(ctx, alice.ID, corpus.ID, "de", "haus", "NOUN", examples); err != nil {
-		t.Fatal(err)
-	}
 	externalJobs := &recordingEnrichment{}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, CardExport: cardexport.NewService(store), Enrichment: externalJobs, SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Enrichment: externalJobs, SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -327,7 +314,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, []*http.Cookie{csrfCookieValue, bobSession}); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner known vocab status=%d %s", got.Code, got.Body.String())
 	}
-	for _, route := range []struct{ method, path string }{{"GET", "/review?book=" + recorder.source}, {"POST", "/review/accept"}, {"GET", "/deck?book=" + recorder.source}, {"GET", "/deck/download"}, {"GET", "/admin/frequency"}} {
+	for _, route := range []struct{ method, path string }{{"GET", "/review?book=" + recorder.source}, {"POST", "/review/accept"}, {"GET", "/deck?book=" + recorder.source}, {"GET", "/deck/download"}, {"POST", "/books/" + recorder.source + "/deck"}, {"GET", "/admin/frequency"}} {
 		if got := perform(t, h, route.method, route.path, nil, cookies); got.Code != http.StatusNotFound {
 			t.Fatalf("removed route %s %s=%d", route.method, route.path, got.Code)
 		}
@@ -335,23 +322,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
 	if !strings.Contains(bookPage.Body.String(), "Prepare deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck/preparations") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
 		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
-	}
-	generate := url.Values{}
-	if got := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("deck export without csrf=%d", got.Code)
-	}
-	generate.Set("csrf_token", csrf)
-	exported := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
-	if exported.Code != 200 || exported.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(exported.Header().Get("Content-Disposition"), `filename="Test Book.apkg"`) || exported.Header().Get("X-Mouseion-Cards-Total") != "1" || exported.Header().Get("X-Mouseion-Cards-With-English") != "0" || exported.Header().Get("X-Mouseion-Cards-With-English-Sentence") != "0" || exported.Header().Get("X-Mouseion-Cards-Quality-Omitted") != "0" {
-		t.Fatalf("export=%d headers=%v", exported.Code, exported.Header())
-	}
-	if len(externalJobs.candidates) != 0 || exported.Header().Get("X-Mouseion-Enrichment-Job") != "" {
-		t.Fatalf("translation queued without consent: %+v", externalJobs.candidates)
-	}
-	generate.Set("external_translation_consent", "on")
-	withConsent := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
-	if withConsent.Code != http.StatusOK || withConsent.Header().Get("X-Mouseion-Enrichment-Job") != "88" || len(externalJobs.candidates) != 1 || externalJobs.candidates[0].ExampleSentence != "Das Haus ist heute sehr ruhig." {
-		t.Fatalf("consented translation queue: code=%d header=%q candidates=%+v", withConsent.Code, withConsent.Header().Get("X-Mouseion-Enrichment-Job"), externalJobs.candidates)
 	}
 	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)
 	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "1 of 2 completed") || !strings.Contains(statusPage.Body.String(), "attempt 2") || !strings.Contains(statusPage.Body.String(), "temporary provider failure") {
@@ -363,50 +333,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	cancelled := perform(t, h, "POST", "/enrichment-jobs/88/cancel", url.Values{"csrf_token": {csrf}}, cookies)
 	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), "Cancelled") {
 		t.Fatalf("cancelled=%d %s", cancelled.Code, cancelled.Body.String())
-	}
-	zr, err := zip.NewReader(bytes.NewReader(exported.Body.Bytes()), int64(exported.Body.Len()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var collection *zip.File
-	for _, member := range zr.File {
-		if member.Name == "collection.anki2" {
-			collection = member
-		}
-	}
-	if collection == nil || len(zr.File) != 2 {
-		t.Fatalf("package members=%v", zr.File)
-	}
-	r, err := collection.Open()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dbBytes, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dbPath := t.TempDir() + "/collection.anki2"
-	if err = os.WriteFile(dbPath, dbBytes, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	ankidb, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ankidb.Close()
-	var models, decks, fields string
-	var cards int
-	if err = ankidb.QueryRow(`SELECT models,decks FROM col`).Scan(&models, &decks); err != nil {
-		t.Fatal(err)
-	}
-	if err = ankidb.QueryRow(`SELECT flds FROM notes`).Scan(&fields); err != nil {
-		t.Fatal(err)
-	}
-	if err = ankidb.QueryRow(`SELECT count(*) FROM cards`).Scan(&cards); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(models, `"name":"Mouseion Vocab Cloze"`) || !strings.Contains(decks, `Mouseion::de::Test Book`) || !strings.Contains(fields, `{{c1::Haus`) || len(strings.Split(fields, "\x1f")) != 8 || cards != 1 {
-		t.Fatalf("models=%s decks=%s fields=%q cards=%d", models, decks, fields, cards)
 	}
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 	if got := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, bobCookies); got.Code != http.StatusNotFound {
@@ -429,9 +355,6 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice book: %d", got.Code)
-	}
-	if got := perform(t, h, "POST", "/books/"+recorder.source+"/deck", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("bob generated alice deck: %d", got.Code)
 	}
 	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice job: %d", got.Code)
