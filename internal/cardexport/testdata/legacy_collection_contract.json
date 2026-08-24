@@ -1,0 +1,50 @@
+{
+  "decks": {
+    "desc": "string",
+    "name": "string",
+    "extendRev": "number",
+    "usn": "number",
+    "collapsed": "boolean",
+    "browserCollapsed": "boolean",
+    "newToday": "number_pair",
+    "timeToday": "number_pair",
+    "dyn": "number",
+    "extendNew": "number",
+    "conf": "number",
+    "revToday": "number_pair",
+    "lrnToday": "number_pair",
+    "id": "number",
+    "mod": "number"
+  },
+  "dconf": {
+    "id": "number",
+    "name": "string",
+    "mod": "number",
+    "usn": "number",
+    "maxTaken": "number",
+    "autoplay": "boolean",
+    "timer": "number",
+    "replayq": "boolean",
+    "new": "object",
+    "rev": "object",
+    "lapse": "object",
+    "dyn": "boolean"
+  },
+  "models": {
+    "id": "number",
+    "name": "string",
+    "type": "number",
+    "mod": "number",
+    "usn": "number",
+    "sortf": "number",
+    "did": "number",
+    "tmpls": "array",
+    "flds": "array",
+    "css": "string",
+    "latexPre": "string",
+    "latexPost": "string",
+    "req": "array",
+    "vers": "array",
+    "tags": "array"
+  }
+}
