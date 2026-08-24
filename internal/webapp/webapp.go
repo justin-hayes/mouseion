@@ -23,7 +23,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
-	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -89,7 +88,6 @@ type Services struct {
 	OPDS            OPDS
 	Analysis        Analysis
 	KnownVocab      KnownVocabulary
-	CardExport      *cardexport.Service
 	Enrichment      ExternalEnrichment
 	PreparedDeck    PreparedDeck
 	SecureCookies   bool
@@ -114,7 +112,6 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /library", h.learner(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
-	h.mux.Handle("POST /books/{id}/deck", h.learner(http.HandlerFunc(h.generateDeck)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.learner(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.learner(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.learner(http.HandlerFunc(h.cancelDeckPreparation)))
@@ -750,39 +747,6 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	}
 	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
 }
-func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	book, ok := h.loadBook(w, r, u.ID)
-	if !ok {
-		return
-	}
-	artifact, err := h.services.CardExport.ExportCoverage(r.Context(), u.ID, book.Source.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if h.services.Enrichment != nil && r.FormValue("external_translation_consent") == "on" {
-		handle, submitErr := h.services.Enrichment.SubmitEnrichment(r.Context(), u.ID, artifact.EnrichmentCandidates)
-		if submitErr != nil {
-			fail(w, submitErr)
-			return
-		}
-		if handle.ID != 0 {
-			w.Header().Set("X-Mouseion-Enrichment-Job", strconv.FormatInt(handle.ID, 10))
-		}
-	}
-	w.Header().Set("Content-Type", "application/vnd.anki")
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": artifact.Filename}))
-	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(artifact.Completeness.TotalCards))
-	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(artifact.Completeness.CardsWithEnglish))
-	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(artifact.Completeness.CardsWithEnglishSentence))
-	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(artifact.Completeness.QualityOmitted))
-	_, _ = w.Write(artifact.APKG)
-}
-
 func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
