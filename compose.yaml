@@ -2,7 +2,7 @@
 #
 # Bring up the whole app with:
 #   docker compose up -d
-# Then open http://<tailscale-host>:8080 and bootstrap the admin account.
+# Then open http://<tailscale-host>:8080 and sign in with an existing account.
 #
 # Per ADR 0009 the app is intended to be reachable ONLY over your tailnet
 # (plain HTTP over WireGuard). Do not expose :8080 to the public internet.

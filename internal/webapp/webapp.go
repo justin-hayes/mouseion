@@ -42,8 +42,6 @@ type Store interface {
 	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
 	DeleteLanguageProfile(context.Context, string, string) error
-	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
-	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
@@ -105,68 +103,41 @@ func New(s Services) *Handler {
 	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)
 	h.mux.HandleFunc("POST /login", h.login)
-	h.mux.HandleFunc("GET /register", h.registerPage)
-	h.mux.HandleFunc("POST /register", h.register)
-	h.mux.Handle("POST /admin/bootstrap", s.WebAuth)
 	h.mux.Handle("POST /logout-all", s.WebAuth)
-	h.mux.Handle("POST /admin/users/{id}/reset-password", s.WebAuth)
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
-	h.mux.Handle("GET /library", h.learner(http.HandlerFunc(h.library)))
-	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
-	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
-	h.mux.Handle("POST /books/{id}/deck/preparations", h.learner(http.HandlerFunc(h.createDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/status", h.learner(http.HandlerFunc(h.deckPreparationStatus)))
-	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.learner(http.HandlerFunc(h.cancelDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/retry", h.learner(http.HandlerFunc(h.retryDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/download", h.learner(http.HandlerFunc(h.downloadDeckPreparation)))
-	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.learner(http.HandlerFunc(h.enrichmentJobStatus)))
-	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.learner(http.HandlerFunc(h.cancelEnrichmentJob)))
+	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
+	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
+	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
+	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
+	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
+	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
+	h.mux.Handle("POST /deck-preparations/{id}/retry", h.user(http.HandlerFunc(h.retryDeckPreparation)))
+	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))
+	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.user(http.HandlerFunc(h.enrichmentJobStatus)))
+	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelEnrichmentJob)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
-	h.mux.Handle("GET /languages", h.adminOnly(http.HandlerFunc(h.languages)))
-	h.mux.Handle("POST /languages", h.adminOnly(http.HandlerFunc(h.saveLanguage)))
-	h.mux.Handle("GET /settings", h.learner(http.HandlerFunc(h.settings)))
-	h.mux.Handle("POST /settings/languages", h.learner(http.HandlerFunc(h.addStudyLanguage)))
-	h.mux.Handle("POST /settings/languages/remove", h.learner(http.HandlerFunc(h.removeStudyLanguage)))
-	h.mux.Handle("GET /connections", h.learner(http.HandlerFunc(h.connections)))
-	h.mux.Handle("POST /connections", h.learner(http.HandlerFunc(h.createConnection)))
-	h.mux.Handle("POST /connections/{id}", h.learner(http.HandlerFunc(h.updateConnection)))
-	h.mux.Handle("POST /connections/{id}/delete", h.learner(http.HandlerFunc(h.deleteConnection)))
-	h.mux.Handle("GET /catalog", h.learner(http.HandlerFunc(h.catalog)))
-	h.mux.Handle("GET /opds/browse", h.learner(http.HandlerFunc(h.browse)))
-	h.mux.Handle("GET /opds/language", h.learner(http.HandlerFunc(h.browseLanguage)))
-	h.mux.Handle("GET /opds/search", h.learner(http.HandlerFunc(h.search)))
-	h.mux.Handle("POST /opds/acquire", h.learner(http.HandlerFunc(h.acquire)))
-	h.mux.Handle("GET /jobs", h.learner(http.HandlerFunc(h.jobs)))
-	h.mux.Handle("GET /jobs/{id}", h.learner(http.HandlerFunc(h.job)))
-	h.mux.Handle("GET /jobs/{id}/status", h.learner(http.HandlerFunc(h.jobStatus)))
-	h.mux.Handle("GET /known-vocab", h.learner(http.HandlerFunc(h.knownVocabPage)))
-	h.mux.Handle("POST /known-vocab/import", h.learner(http.HandlerFunc(h.importKnownVocab)))
-	h.mux.Handle("GET /known-vocab/imports/{id}/status", h.learner(http.HandlerFunc(h.knownVocabImportStatus)))
-	h.mux.Handle("GET /admin", h.adminOnly(http.HandlerFunc(h.admin)))
-	h.mux.Handle("GET /admin/users", h.adminOnly(http.HandlerFunc(h.adminUsers)))
-	h.mux.Handle("POST /admin/users", h.adminOnly(http.HandlerFunc(h.createUser)))
+	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(h.settings)))
+	h.mux.Handle("POST /settings/languages", h.user(http.HandlerFunc(h.addStudyLanguage)))
+	h.mux.Handle("POST /settings/languages/remove", h.user(http.HandlerFunc(h.removeStudyLanguage)))
+	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.connections)))
+	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
+	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
+	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
+	h.mux.Handle("GET /catalog", h.user(http.HandlerFunc(h.catalog)))
+	h.mux.Handle("GET /opds/browse", h.user(http.HandlerFunc(h.browse)))
+	h.mux.Handle("GET /opds/language", h.user(http.HandlerFunc(h.browseLanguage)))
+	h.mux.Handle("GET /opds/search", h.user(http.HandlerFunc(h.search)))
+	h.mux.Handle("POST /opds/acquire", h.user(http.HandlerFunc(h.acquire)))
+	h.mux.Handle("GET /jobs", h.user(http.HandlerFunc(h.jobs)))
+	h.mux.Handle("GET /jobs/{id}", h.user(http.HandlerFunc(h.job)))
+	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
+	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
+	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
+	h.mux.Handle("GET /known-vocab/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
 	return h
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
 func (h *Handler) user(next http.Handler) http.Handler              { return h.services.WebAuth.RequireUser(next) }
-func (h *Handler) learner(next http.Handler) http.Handler {
-	return h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if user(r).IsAdmin {
-			http.Error(w, "user account required", http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	}))
-}
-func (h *Handler) adminOnly(next http.Handler) http.Handler {
-	return h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !user(r).IsAdmin {
-			http.Error(w, "administrator required", http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	}))
-}
 func render(w http.ResponseWriter, r *http.Request, component interface {
 	Render(context.Context, io.Writer) error
 }) {
@@ -228,27 +199,6 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	h.rotateCSRF(w)
 	redirect(w, r, "/")
 }
-func (h *Handler) registerPage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, RegisterPage(h.csrf(w, r), r.URL.Query().Get("error")))
-}
-func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	_, err := h.services.Auth.BootstrapAdmin(r.Context(), r.FormValue("username"), r.FormValue("password"))
-	if err != nil {
-		redirect(w, r, "/register?error="+url.QueryEscape("Registration unavailable: "+err.Error()))
-		return
-	}
-	token, err := h.services.Auth.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
-	if err != nil {
-		http.Error(w, "administrator created; sign in", 500)
-		return
-	}
-	h.setSession(w, token)
-	h.rotateCSRF(w)
-	redirect(w, r, "/")
-}
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		h.services.WebAuth.ServeHTTP(w, r)
@@ -264,10 +214,6 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/login")
 }
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
-	if user(r).IsAdmin {
-		redirect(w, r, "/admin")
-		return
-	}
 	redirect(w, r, "/library")
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
@@ -323,34 +269,6 @@ func (h *Handler) loadBookID(w http.ResponseWriter, r *http.Request, owner, id s
 	http.NotFound(w, r)
 	return domain.SourceMaterialSummary{}, false
 }
-func (h *Handler) languages(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	p, e := h.services.Store.ListSupportedLanguages(r.Context())
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	render(w, r, LanguagesPage(u, h.csrf(w, r), p, r.URL.Query().Get("message")))
-}
-func (h *Handler) saveLanguage(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	_, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	_, e := h.services.Store.PutSupportedLanguage(r.Context(), strings.TrimSpace(r.FormValue("language")), strings.TrimSpace(r.FormValue("display_name")))
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	redirect(w, r, "/languages?message=Language+saved")
-}
-
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
 	h.renderSettings(w, r, nil, nil, r.URL.Query().Get("message"))
 }
@@ -913,51 +831,6 @@ func (h *Handler) cancelEnrichmentJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, EnrichmentJobStatus(status, h.csrf(w, r)))
-}
-func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) (domain.User, bool) {
-	u := user(r)
-	if !u.IsAdmin {
-		http.Error(w, "administrator required", http.StatusForbidden)
-		return u, false
-	}
-	return u, true
-}
-func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	render(w, r, AdminPage(u, h.csrf(w, r)))
-}
-func (h *Handler) adminUsers(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	render(w, r, AdminUsersPage(u, h.csrf(w, r), r.URL.Query().Get("message")))
-}
-func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		h.services.WebAuth.ServeHTTP(w, r)
-		return
-	}
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u, ok := h.requireAdmin(w, r)
-	if !ok {
-		return
-	}
-	_, e := h.services.Auth.CreateUser(r.Context(), u.ID, r.FormValue("username"), r.FormValue("password"), auth.RoleUser)
-	if errors.Is(e, auth.ErrForbidden) {
-		http.Error(w, "administrator required", 403)
-		return
-	}
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	redirect(w, r, "/admin/users?message=User+registered")
 }
 func fail(w http.ResponseWriter, err error) {
 	log.Printf("mouseion: %v", err)

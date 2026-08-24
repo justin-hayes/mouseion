@@ -42,7 +42,6 @@ type DeckPreparation struct {
 
 type User struct {
 	ID, Username string
-	IsAdmin      bool
 	CreatedAt    time.Time
 }
 type LanguageProfile struct {
@@ -50,7 +49,7 @@ type LanguageProfile struct {
 	CreatedAt                          time.Time
 }
 
-// SupportedLanguage is server-wide reference data managed by administrators.
+// SupportedLanguage is server-wide reference data discovered from the analyzer.
 // LanguageProfile remains an owner-scoped learner study-language selection.
 type SupportedLanguage struct {
 	Language, DisplayName string

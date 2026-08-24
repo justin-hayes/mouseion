@@ -99,11 +99,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul>
-		if user.IsAdmin {
-			<li><a href="/admin">Administration</a></li>
-		} else {
-			<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
-		}
+		<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main class="container">{ children... }</main></body></html>
@@ -152,35 +148,10 @@ templ LoginPage(csrf, message string) {
 	if message != "" {
 		<p role="alert">{ message }</p>
 	}
-	<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form><hr/><p>First run? <a href="/register">Register the administrator</a>.</p></article> }
-}
-templ RegisterPage(csrf, message string) {
-	@Layout("Register", nil, csrf) { <article class="narrow"><h1>Register administrator</h1><p>This one-time registration is disabled after the first administrator is created.</p>
-	if message != "" {
-		<p role="alert">{ message }</p>
-	}
-	<form method="post" action="/register"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><button>Create administrator</button></form></article> }
+	<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form></article> }
 }
 templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
 	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
-}
-templ LanguagesPage(user domain.User, csrf string, profiles []domain.SupportedLanguage, message string) {
-	@Layout("Languages", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Supported languages</h1><p>Configure the languages available for study. Learners choose from this administrator-managed set in the study workflow.</p>
-	if message != "" {
-		<p role="alert">{ message }</p>
-	}
-	<article><form method="post" action="/languages"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Language code<input name="language" placeholder="de" required/></label><label>Display name<input name="display_name" placeholder="German" required/></label></div><button>Save language</button></form></article><section>
-	if len(profiles) == 0 {
-		<p>No study language configured yet.</p>
-	}
-	if len(profiles) > 0 {
-	<table><thead><tr><th>Name</th><th>Code</th></tr></thead><tbody>
-	for _, p := range profiles {
-		<tr><td>{ p.DisplayName }</td><td><code>{ p.Language }</code></td></tr>
-	}
-	</tbody></table>
-	}
-	</section> }
 }
 templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@Layout("Settings", &user, csrf) { <h1>Account settings</h1><p>Choose the languages you study and optionally import words you already know for each one.</p>
@@ -436,18 +407,4 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 		if status.Error != "" {
 			<p role="alert">Import failed: { status.Error }</p>
 		}
-}
-templ AdminUsersPage(user domain.User, csrf, message string) {
-	@Layout("Users", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>User registration</h1><p>Register non-admin learner accounts.</p>
-	if message != "" {
-		<p role="alert">{ message }</p>
-	}
-	<article><form method="post" action="/admin/users"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><button>Register learner</button></form></article> }
-}
-
-templ AdminPage(user domain.User, csrf string) {
-	@Layout("Administration", &user, csrf) { <header class="page-heading"><div><h1>Administration</h1><p>Server configuration and account management.</p></div></header><div class="admin-grid">
-		<article><h2>Users</h2><p>Create and manage non-admin learner accounts.</p><a role="button" class="outline" href="/admin/users">Manage users</a></article>
-		<article><h2>Languages</h2><p>Configure the languages learners can choose for study.</p><a role="button" class="outline" href="/languages">Configure languages</a></article>
-	</div> }
 }

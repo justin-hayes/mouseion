@@ -9,12 +9,43 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/migrations"
 )
 
 func integrationDatabase(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
 	return url
+}
+
+func TestRemoveAdminRoleMigrationPreservesAccounts(t *testing.T) {
+	ctx := context.Background()
+	url := integrationDatabase(t, ctx)
+	store, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	var id string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES('legacy-admin','hash',true) RETURNING id`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrations.FS.ReadFile("000017_remove_admin_role.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, string(migration)); err != nil {
+		t.Fatal(err)
+	}
+	var username, passwordHash string
+	var isAdmin bool
+	if err = store.Pool().QueryRow(ctx, `SELECT username,password_hash,is_admin FROM users WHERE id=$1`, id).Scan(&username, &passwordHash, &isAdmin); err != nil {
+		t.Fatal(err)
+	}
+	if username != "legacy-admin" || passwordHash != "hash" || isAdmin {
+		t.Fatalf("migrated account username=%q hash=%q is_admin=%v", username, passwordHash, isAdmin)
+	}
 }
 
 func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
