@@ -19,6 +19,13 @@ type analyzerService struct {
 	want *mouseionv1.AnalyzeRequest
 }
 
+func (s *analyzerService) GetCapabilities(context.Context, *mouseionv1.GetCapabilitiesRequest) (*mouseionv1.GetCapabilitiesResponse, error) {
+	return &mouseionv1.GetCapabilitiesResponse{Languages: []*mouseionv1.LanguageCapability{{
+		Language: "de", DisplayName: "German", ModelVersion: "1.10.1",
+		SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
+	}}}, nil
+}
+
 func (s *analyzerService) Analyze(_ context.Context, request *mouseionv1.AnalyzeRequest) (*mouseionv1.NormalizedCorpus, error) {
 	if !proto.Equal(request, s.want) {
 		return nil, &requestMismatch{got: request}
@@ -71,6 +78,13 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	}
 	if result.Language != "de" || result.Analysis.AnalyzedAt != time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC) || result.Sentences[0].Tokens[0].CanonicalLemma != "goethe" {
 		t.Fatalf("result = %+v", result)
+	}
+	capabilities, err := analyzer.GetCapabilities(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(capabilities.Languages) != 1 || capabilities.Languages[0].DisplayName != "German" || !capabilities.Languages[0].Ready {
+		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }
 

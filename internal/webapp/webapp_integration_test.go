@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -33,6 +34,19 @@ import (
 )
 
 type recordingAnalysis struct{ owner, source string }
+type staticCapabilities struct {
+	value analyzer.Capabilities
+	err   error
+}
+
+func (s staticCapabilities) GetCapabilities(context.Context) (analyzer.Capabilities, error) {
+	return s.value, s.err
+}
+
+func readyGerman() staticCapabilities {
+	return staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
+}
+
 type recordingKnownVocab struct {
 	service *knownvocab.Service
 	status  knownvocab.Status
@@ -213,7 +227,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
 	webAuth := webauth.New(authService, false, time.Hour)
 	knownJobs := &recordingKnownVocab{service: knownvocab.NewService(store)}
-	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	loginPage := perform(t, h, "GET", "/login", nil, nil)
 	csrf := hiddenToken(t, loginPage.Body.String())
 	csrfCookieValue := cookieNamed(t, loginPage.Result().Cookies(), csrfCookie)
@@ -289,7 +303,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
 	}
 	externalJobs := &recordingEnrichment{}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Enrichment: externalJobs, SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -417,7 +431,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 

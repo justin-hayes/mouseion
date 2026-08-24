@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -90,6 +91,7 @@ type Services struct {
 	KnownVocab      KnownVocabulary
 	Enrichment      ExternalEnrichment
 	PreparedDeck    PreparedDeck
+	Capabilities    analyzer.CapabilityProvider
 	SecureCookies   bool
 	SessionLifetime time.Duration
 }
@@ -362,11 +364,12 @@ func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	language := strings.TrimSpace(r.FormValue("language"))
-	supported, err := h.services.Store.ListSupportedLanguages(r.Context())
-	if err != nil {
-		fail(w, err)
+	supported, degraded := h.supportedNLP(r.Context())
+	if degraded {
+		http.Error(w, "NLP language discovery is temporarily unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	var err error
 	for _, candidate := range supported {
 		if candidate.Language == language {
 			if _, err = h.services.Store.PutLanguageProfile(r.Context(), user(r).ID, candidate.Language, candidate.DisplayName); err != nil {
@@ -393,11 +396,7 @@ func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	u := user(r)
-	supported, err := h.services.Store.ListSupportedLanguages(r.Context())
-	if err != nil {
-		fail(w, err)
-		return
-	}
+	supported, degraded := h.supportedNLP(r.Context())
 	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
@@ -414,7 +413,24 @@ func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result 
 			return
 		}
 	}
-	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, language, result, known, message))
+	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, degraded, language, result, known, message))
+}
+
+func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage, bool) {
+	if h.services.Capabilities == nil {
+		return nil, true
+	}
+	capabilities, err := h.services.Capabilities.GetCapabilities(ctx)
+	if err != nil {
+		return nil, true
+	}
+	languages := make([]domain.SupportedLanguage, 0, len(capabilities.Languages))
+	for _, capability := range capabilities.Languages {
+		if capability.Ready {
+			languages = append(languages, domain.SupportedLanguage{Language: capability.Language, DisplayName: capability.DisplayName})
+		}
+	}
+	return languages, capabilities.Degraded
 }
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u := user(r)

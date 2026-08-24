@@ -182,14 +182,19 @@ templ LanguagesPage(user domain.User, csrf string, profiles []domain.SupportedLa
 	}
 	</section> }
 }
-templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@Layout("Settings", &user, csrf) { <h1>Account settings</h1><p>Choose the languages you study and optionally import words you already know for each one.</p>
 	if message != "" {
 		<p role="status">{ message }</p>
 	}
 	<article><h2>Study languages</h2>
+		if degraded {
+			<p role="alert">NLP language discovery is temporarily unavailable. Your saved study languages are unchanged.</p>
+		}
 		if len(supported) == 0 {
-			<p>No languages are available yet. Ask an administrator to configure a supported language.</p>
+			if !degraded {
+				<p>No analysis languages are currently ready.</p>
+			}
 		}
 		if len(supported) > 0 {
 			<form method="post" action="/settings/languages"><input type="hidden" name="csrf_token" value={ csrf }/><label>Add a supported language<select name="language" required><option value="">Choose a language</option>

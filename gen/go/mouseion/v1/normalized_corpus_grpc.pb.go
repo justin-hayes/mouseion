@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AnalyzerService_Analyze_FullMethodName = "/mouseion.v1.AnalyzerService/Analyze"
+	AnalyzerService_Analyze_FullMethodName         = "/mouseion.v1.AnalyzerService/Analyze"
+	AnalyzerService_GetCapabilities_FullMethodName = "/mouseion.v1.AnalyzerService/GetCapabilities"
 )
 
 // AnalyzerServiceClient is the client API for AnalyzerService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AnalyzerServiceClient interface {
 	Analyze(ctx context.Context, in *AnalyzeRequest, opts ...grpc.CallOption) (*NormalizedCorpus, error)
+	GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error)
 }
 
 type analyzerServiceClient struct {
@@ -47,11 +49,22 @@ func (c *analyzerServiceClient) Analyze(ctx context.Context, in *AnalyzeRequest,
 	return out, nil
 }
 
+func (c *analyzerServiceClient) GetCapabilities(ctx context.Context, in *GetCapabilitiesRequest, opts ...grpc.CallOption) (*GetCapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCapabilitiesResponse)
+	err := c.cc.Invoke(ctx, AnalyzerService_GetCapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnalyzerServiceServer is the server API for AnalyzerService service.
 // All implementations must embed UnimplementedAnalyzerServiceServer
 // for forward compatibility.
 type AnalyzerServiceServer interface {
 	Analyze(context.Context, *AnalyzeRequest) (*NormalizedCorpus, error)
+	GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error)
 	mustEmbedUnimplementedAnalyzerServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedAnalyzerServiceServer struct{}
 
 func (UnimplementedAnalyzerServiceServer) Analyze(context.Context, *AnalyzeRequest) (*NormalizedCorpus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Analyze not implemented")
+}
+func (UnimplementedAnalyzerServiceServer) GetCapabilities(context.Context, *GetCapabilitiesRequest) (*GetCapabilitiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCapabilities not implemented")
 }
 func (UnimplementedAnalyzerServiceServer) mustEmbedUnimplementedAnalyzerServiceServer() {}
 func (UnimplementedAnalyzerServiceServer) testEmbeddedByValue()                         {}
@@ -104,6 +120,24 @@ func _AnalyzerService_Analyze_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AnalyzerService_GetCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyzerServiceServer).GetCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyzerService_GetCapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyzerServiceServer).GetCapabilities(ctx, req.(*GetCapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AnalyzerService_ServiceDesc is the grpc.ServiceDesc for AnalyzerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var AnalyzerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Analyze",
 			Handler:    _AnalyzerService_Analyze_Handler,
+		},
+		{
+			MethodName: "GetCapabilities",
+			Handler:    _AnalyzerService_GetCapabilities_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
