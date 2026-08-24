@@ -28,7 +28,7 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Home library", URL: "https://books.example/opds", Username: "reader", Password: "plain-password-must-not-be-stored", Language: "de"})
+	created, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Home library", URL: "https://books.example/opds", Username: "reader", Password: "plain-password-must-not-be-stored"})
 	if err != nil {
 		t.Fatal(err)
 	}

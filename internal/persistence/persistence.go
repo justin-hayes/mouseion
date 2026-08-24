@@ -183,7 +183,8 @@ const opdsColumns = `id,owner_id,name,url,username,password_encrypted,language,c
 
 func scanOpds(row pgx.Row) (v domain.OpdsConnection, err error) {
 	var encrypted []byte
-	err = row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.URL, &v.Username, &encrypted, &v.Language, &v.CreatedAt, &v.UpdatedAt)
+	var legacyLanguage string
+	err = row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.URL, &v.Username, &encrypted, &legacyLanguage, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return v, missing(err)
 	}
@@ -196,7 +197,7 @@ func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, ownerID string
 	if err != nil {
 		return domain.OpdsConnection{}, err
 	}
-	return scanOpds(s.pool.QueryRow(ctx, `INSERT INTO opds_connections(owner_id,name,url,username,password_encrypted,language) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+opdsColumns, ownerID, v.Name, v.URL, v.Username, encrypted, v.Language))
+	return scanOpds(s.pool.QueryRow(ctx, `INSERT INTO opds_connections(owner_id,name,url,username,password_encrypted,language) VALUES($1,$2,$3,$4,$5,'') RETURNING `+opdsColumns, ownerID, v.Name, v.URL, v.Username, encrypted))
 }
 func (s *PostgresStore) GetOpdsConnection(ctx context.Context, ownerID, id string) (domain.OpdsConnection, error) {
 	return scanOpds(s.pool.QueryRow(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 AND id=$2`, ownerID, id))
@@ -222,7 +223,7 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 	if err != nil {
 		return domain.OpdsConnection{}, err
 	}
-	return scanOpds(s.pool.QueryRow(ctx, `UPDATE opds_connections SET name=$3,url=$4,username=$5,password_encrypted=$6,language=$7,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+opdsColumns, ownerID, v.ID, v.Name, v.URL, v.Username, encrypted, v.Language))
+	return scanOpds(s.pool.QueryRow(ctx, `UPDATE opds_connections SET name=$3,url=$4,username=$5,password_encrypted=$6,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+opdsColumns, ownerID, v.ID, v.Name, v.URL, v.Username, encrypted))
 }
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM opds_connections WHERE owner_id=$1 AND id=$2`, ownerID, id)

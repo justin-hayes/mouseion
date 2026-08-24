@@ -26,37 +26,51 @@ func TestBrowseURLRoundTripsBreadcrumbTrail(t *testing.T) {
 	}
 }
 
-func TestLanguageOptionsPutStudyLanguagesFirst(t *testing.T) {
-	profiles := []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}
+func TestCatalogUsesReadyNLPCodeSeparatelyFromCatalogLanguageID(t *testing.T) {
 	feed := opds.Feed{Entries: []opds.Entry{
 		{Title: "Spanish", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/4"}}},
 		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/7"}}},
 	}}
-	options := languageOptions(profiles, feed)
-	if len(options) != 2 || options[0].ID != "7" || !options[0].Study || options[1].Study {
-		t.Fatalf("options=%+v", options)
+	capability := domain.SupportedLanguage{Language: "de", DisplayName: "German"}
+	if got := catalogLanguageID(capability, feed); got != "7" {
+		t.Fatalf("catalog language ID=%q", got)
 	}
 	var output bytes.Buffer
-	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Library"}, options).Render(context.Background(), &output); err != nil {
+	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Library"}, []domain.SupportedLanguage{capability}, false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Browse EPUBs by language", "German — study language", `value="7"`, "/opds/language"} {
+	for _, want := range []string{"Browse EPUBs by language", "German", `value="de"`, "/opds/language"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("catalog page missing %q: %s", want, output.String())
 		}
 	}
 }
 
+func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
+	var output bytes.Buffer
+	connections := []domain.OpdsConnection{{ID: "connection-1", Name: "Library", URL: "https://catalog.example/opds"}}
+	if err := ConnectionsPage(domain.User{}, "csrf", connections, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, "Book language") || strings.Contains(html, `name="language"`) {
+		t.Fatalf("connection forms still contain a language field: %s", html)
+	}
+}
+
 func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 	feed := opds.Feed{Title: "German", Entries: []opds.Entry{{ID: "book", Title: "Book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}
 	var output bytes.Buffer
-	if err := LanguageResults("csrf", "connection-1", feed).Render(context.Background(), &output); err != nil {
+	if err := LanguageResults("csrf", "connection-1", "de", feed).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Import &amp; analyze"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("language results missing %q: %s", want, output.String())
 		}
+	}
+	if !strings.Contains(output.String(), `name="language" value="de"`) {
+		t.Fatalf("language results did not carry NLP code: %s", output.String())
 	}
 }
 

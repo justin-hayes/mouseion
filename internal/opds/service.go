@@ -62,11 +62,11 @@ func (s *Service) Search(ctx context.Context, ownerID, connectionID, query strin
 	}
 	return client.Search(ctx, connection.URL, query)
 }
-func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, entry Entry) (epub.ImportResult, error) {
+func (s *Service) Acquire(ctx context.Context, ownerID, connectionID, language string, entry Entry) (epub.ImportResult, error) {
 	if ownerID == "" {
 		return epub.ImportResult{}, ErrUnauthenticated
 	}
-	connection, client, err := s.client(ctx, ownerID, connectionID)
+	_, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
@@ -78,7 +78,7 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, ent
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
-	result, err := s.importer.Import(ctx, ownerID, connection.Language, content)
+	result, err := s.importer.Import(ctx, ownerID, language, content)
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
 	}

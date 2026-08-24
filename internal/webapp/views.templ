@@ -204,27 +204,29 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 	if message != "" {
 		<p role="status">{ message }</p>
 	}
-	<article><h2>Add catalog</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label><label>Book language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+	<article><h2>Add catalog</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
 	if len(connections) == 0 {
 		<p>No catalog connection configured yet.</p>
 	}
 	<div class="catalog-list">
 	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+		<article><header><strong>{ c.Name }</strong></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
 	}
 	</div> }
 }
-templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []CatalogLanguage) {
+templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool) {
 	@Layout(connection.Name, &user, csrf) { <p><a href="/connections">← Catalog connections</a></p><header class="page-heading"><div><h1>{ connection.Name }</h1><p>Browse collections or search for a book to import and analyze.</p></div></header>
-	if len(languages) > 0 {
+	if degraded {
+		<p role="alert">NLP language discovery is temporarily unavailable. Catalog browsing and import are paused.</p>
+	} else if len(languages) > 0 {
 		<form hx-get="/opds/language" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connection.ID }/><label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
 		for _, language := range languages {
-			<option value={ language.ID }>{ language.Name }{ studyLanguageLabel(language) }</option>
+			<option value={ language.Language }>{ language.DisplayName }</option>
 		}</select></label><button type="submit">Browse language</button></form>
 	} else {
-		<p><small>This catalog does not advertise any language collections.</small></p>
+		<p><small>No analysis languages are currently ready.</small></p>
 	}
-	<div id="catalog-results" hx-get={ "/opds/browse?connection="+connection.ID } hx-trigger="load" hx-swap="innerHTML"><p aria-busy="true">Loading catalog…</p></div> }
+	<div id="catalog-results"></div> }
 }
 templ CatalogRootFragment(connectionID string, feed opds.Feed) {
 	<section>
@@ -267,16 +269,23 @@ templ SearchResults(csrf, connectionID, query string, feed opds.Feed) {
 	}
 	</div></section>
 }
-templ LanguageResults(csrf, connectionID string, feed opds.Feed) {
-	<section><button class="outline" hx-get={ browseURL(connectionID, "", nil) } hx-target="#catalog-results" hx-swap="innerHTML">← Back to catalog</button><h2>{ feed.Title }</h2><p><small>Showing EPUB editions only.</small></p>
+templ LanguageResults(csrf, connectionID, language string, feed opds.Feed) {
+	<section><h2>{ feed.Title }</h2><p><small>Showing EPUB editions only.</small></p>
 	if len(feed.Entries) == 0 {
 		<article><p>No EPUB books were found for this language.</p></article>
 	}
 	<div class="catalog-grid">
 	for _, entry := range feed.Entries {
-		@EntryCard(csrf, connectionID, entry, nil)
+		@EntryCardForLanguage(csrf, connectionID, language, entry)
 	}
 	</div></section>
+}
+templ EntryCardForLanguage(csrf, connectionID, language string, entry opds.Entry) {
+	<article><h3>{ entry.Title }</h3>
+	if epubLink := acquisitionLink(entry); epubLink != nil {
+		<form method="post" action="/opds/acquire" data-acquire><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/><input type="hidden" name="entry_id" value={ entry.ID }/><input type="hidden" name="title" value={ entry.Title }/><input type="hidden" name="href" value={ epubLink.Href }/><button type="submit">Import &amp; analyze</button><small>Downloads the EPUB to My Library and queues analysis.</small></form>
+	}
+	</article>
 }
 templ CatalogNotice(message string) { <article role="status"><p>{ message }</p></article> }
 templ EntryCard(csrf, connectionID string, entry opds.Entry, trail []CatalogCrumb) {

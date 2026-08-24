@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -57,7 +56,7 @@ type OPDS interface {
 	Languages(context.Context, string, string) (opds.Feed, error)
 	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
 	Search(context.Context, string, string, string) (opds.Feed, error)
-	Acquire(context.Context, string, string, opds.Entry) (epub.ImportResult, error)
+	Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
 type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
@@ -397,7 +396,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password"), Language: strings.TrimSpace(r.FormValue("language"))})
+	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password")})
 	if e != nil {
 		fail(w, e)
 		return
@@ -418,7 +417,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if password == "" {
 		password = current.Password
 	}
-	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password, Language: strings.TrimSpace(r.FormValue("language"))})
+	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password})
 	if e != nil {
 		fail(w, e)
 		return
@@ -447,19 +446,14 @@ func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	profiles, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	languages, e := h.services.OPDS.Languages(r.Context(), u.ID, c.ID)
-	if e != nil {
-		opdsFail(w, e)
-		return
-	}
-	render(w, r, CatalogPage(u, h.csrf(w, r), c, languageOptions(profiles, languages)))
+	languages, degraded := h.supportedNLP(r.Context())
+	render(w, r, CatalogPage(u, h.csrf(w, r), c, languages, degraded))
 }
 func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
+	language := strings.TrimSpace(r.URL.Query().Get("language"))
+	if _, ok := h.supportedLanguage(w, r, language); !ok {
+		return
+	}
 	u := user(r)
 	feed, e := h.services.OPDS.Browse(r.Context(), u.ID, r.URL.Query().Get("connection"), r.URL.Query().Get("url"))
 	if e != nil {
@@ -476,20 +470,39 @@ func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail))
 }
 func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
-	languageID := strings.TrimSpace(r.URL.Query().Get("language"))
-	if languageID == "" {
+	language := strings.TrimSpace(r.URL.Query().Get("language"))
+	if language == "" {
 		render(w, r, CatalogNotice("Choose a language to browse its EPUB books."))
 		return
 	}
+	capability, ok := h.supportedLanguage(w, r, language)
+	if !ok {
+		return
+	}
 	u := user(r)
-	feed, e := h.services.OPDS.BrowseLanguage(r.Context(), u.ID, r.URL.Query().Get("connection"), languageID)
+	connectionID := r.URL.Query().Get("connection")
+	languages, e := h.services.OPDS.Languages(r.Context(), u.ID, connectionID)
 	if e != nil {
 		opdsFail(w, e)
 		return
 	}
-	render(w, r, LanguageResults(h.csrf(w, r), r.URL.Query().Get("connection"), feed))
+	languageID := catalogLanguageID(capability, languages)
+	if languageID == "" {
+		http.Error(w, "The catalog does not advertise the selected language.", http.StatusBadRequest)
+		return
+	}
+	feed, e := h.services.OPDS.BrowseLanguage(r.Context(), u.ID, connectionID, languageID)
+	if e != nil {
+		opdsFail(w, e)
+		return
+	}
+	render(w, r, LanguageResults(h.csrf(w, r), connectionID, language, feed))
 }
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
+	language := strings.TrimSpace(r.URL.Query().Get("language"))
+	if _, ok := h.supportedLanguage(w, r, language); !ok {
+		return
+	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		render(w, r, CatalogNotice("Enter a title or author to search this catalog."))
@@ -512,8 +525,12 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
+	language := strings.TrimSpace(r.FormValue("language"))
+	if _, ok := h.supportedLanguage(w, r, language); !ok {
+		return
+	}
 	entry := opds.Entry{ID: r.FormValue("entry_id"), Title: r.FormValue("title"), Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: r.FormValue("href")}}}
-	result, e := h.services.OPDS.Acquire(r.Context(), u.ID, r.FormValue("connection"), entry)
+	result, e := h.services.OPDS.Acquire(r.Context(), u.ID, r.FormValue("connection"), language, entry)
 	if e != nil {
 		opdsFail(w, e)
 		return
@@ -897,25 +914,7 @@ func opdsFail(w http.ResponseWriter, err error) {
 
 type CatalogCrumb struct{ Title, URL string }
 
-type CatalogLanguage struct {
-	ID, Name string
-	Study    bool
-}
-
-func studyLanguageLabel(language CatalogLanguage) string {
-	if language.Study {
-		return " — study language"
-	}
-	return ""
-}
-
-func languageOptions(profiles []domain.LanguageProfile, feed opds.Feed) []CatalogLanguage {
-	study := make(map[string]bool, len(profiles)*2)
-	for _, profile := range profiles {
-		study[strings.ToLower(strings.TrimSpace(profile.Language))] = true
-		study[strings.ToLower(strings.TrimSpace(profile.DisplayName))] = true
-	}
-	options := make([]CatalogLanguage, 0, len(feed.Entries))
+func catalogLanguageID(language domain.SupportedLanguage, feed opds.Feed) string {
 	for _, entry := range feed.Entries {
 		href := navigationLink(entry)
 		parsed, err := url.Parse(href)
@@ -928,15 +927,26 @@ func languageOptions(profiles []domain.LanguageProfile, feed opds.Feed) []Catalo
 			continue
 		}
 		name := strings.TrimSpace(entry.Title)
-		options = append(options, CatalogLanguage{ID: id, Name: name, Study: study[strings.ToLower(name)] || study[strings.ToLower(id)]})
-	}
-	sort.SliceStable(options, func(i, j int) bool {
-		if options[i].Study != options[j].Study {
-			return options[i].Study
+		if strings.EqualFold(name, language.Language) || strings.EqualFold(name, language.DisplayName) {
+			return id
 		}
-		return strings.ToLower(options[i].Name) < strings.ToLower(options[j].Name)
-	})
-	return options
+	}
+	return ""
+}
+
+func (h *Handler) supportedLanguage(w http.ResponseWriter, r *http.Request, language string) (domain.SupportedLanguage, bool) {
+	supported, degraded := h.supportedNLP(r.Context())
+	if degraded {
+		http.Error(w, "NLP language discovery is temporarily unavailable", http.StatusServiceUnavailable)
+		return domain.SupportedLanguage{}, false
+	}
+	for _, candidate := range supported {
+		if candidate.Language == language {
+			return candidate, true
+		}
+	}
+	http.Error(w, "unsupported analysis language", http.StatusBadRequest)
+	return domain.SupportedLanguage{}, false
 }
 
 func decodeTrail(values []string) []CatalogCrumb {
