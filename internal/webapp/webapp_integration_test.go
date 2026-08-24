@@ -29,6 +29,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
@@ -44,6 +45,66 @@ type recordingEnrichment struct {
 	owner      string
 	candidates []enrichment.Candidate
 	cancelled  bool
+}
+type recordingPreparedDeck struct {
+	preparations map[string]domain.DeckPreparation
+	downloads    int
+	consent      bool
+}
+
+func (r *recordingPreparedDeck) Submit(_ context.Context, owner, source string, consent bool) (prepareddeck.Handle, error) {
+	r.consent = consent
+	for _, p := range r.preparations {
+		if p.OwnerID == owner && p.SourceMaterialID == source {
+			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
+		}
+	}
+	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: source, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	r.preparations[p.ID] = p
+	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
+}
+func (r *recordingPreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
+	p, ok := r.preparations[id]
+	if !ok || p.OwnerID != owner {
+		return domain.DeckPreparation{}, persistence.ErrNotFound
+	}
+	return p, nil
+}
+func (r *recordingPreparedDeck) Cancel(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
+	p, err := r.Get(ctx, owner, id)
+	if err != nil {
+		return p, err
+	}
+	if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
+		return p, persistence.ErrInvalidTransition
+	}
+	p.State = domain.DeckPreparationCancelled
+	r.preparations[id] = p
+	return p, nil
+}
+func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string, consent bool) (prepareddeck.Handle, error) {
+	p, err := r.Get(ctx, owner, id)
+	if err != nil {
+		return prepareddeck.Handle{}, err
+	}
+	if p.State != domain.DeckPreparationFailed && p.State != domain.DeckPreparationCancelled {
+		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
+	}
+	r.consent = consent
+	p.State, p.Error = domain.DeckPreparationQueued, ""
+	r.preparations[id] = p
+	return prepareddeck.Handle{Preparation: p, JobID: 92}, nil
+}
+func (r *recordingPreparedDeck) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
+	p, err := r.Get(ctx, owner, id)
+	if err != nil {
+		return p, err
+	}
+	if p.State != domain.DeckPreparationReady {
+		return p, persistence.ErrInvalidTransition
+	}
+	r.downloads++
+	return p, nil
 }
 
 func (r *recordingEnrichment) SubmitEnrichment(_ context.Context, owner string, candidates []enrichment.Candidate) (enrichmentjob.Handle, error) {
@@ -409,6 +470,87 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	if got := perform(t, h, "GET", "/admin/frequency", nil, adminCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("removed admin frequency route=%d", got.Code)
+	}
+}
+
+func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "prepared-deck-web-secret")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	admin, err := authService.BootstrapAdmin(ctx, "admin", "admin-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = authService.CreateUser(ctx, admin.ID, "alice", "alice-password", auth.RoleUser); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser); err != nil {
+		t.Fatal(err)
+	}
+	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, SessionLifetime: time.Hour})
+	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
+	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+
+	if got := perform(t, h, "POST", "/books/book-1/deck/preparations", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("create without csrf=%d", got.Code)
+	}
+	created := perform(t, h, "POST", "/books/book-1/deck/preparations", url.Values{"csrf_token": {aliceCSRF}, "external_translation_consent": {"on"}}, aliceCookies)
+	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/deck-preparations/prep-1/status" || !decks.consent {
+		t.Fatalf("create=%d location=%q consent=%v", created.Code, created.Header().Get("Location"), decks.consent)
+	}
+	status := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
+	if status.Code != http.StatusOK || status.Header().Get("Content-Type") != "application/json; charset=utf-8" || !strings.Contains(status.Body.String(), `"state":"queued"`) || !strings.Contains(status.Body.String(), `"progress":0`) {
+		t.Fatalf("status=%d headers=%v body=%s", status.Code, status.Header(), status.Body.String())
+	}
+	if got := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner status=%d", got.Code)
+	}
+	if got := perform(t, h, "GET", "/deck-preparations/missing/status", nil, aliceCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("missing status=%d", got.Code)
+	}
+	if got := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies); got.Code != http.StatusConflict {
+		t.Fatalf("non-ready download=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("cancel without csrf=%d", got.Code)
+	}
+	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), `"state":"cancelled"`) {
+		t.Fatalf("cancel=%d %s", cancelled.Code, cancelled.Body.String())
+	}
+	if got := perform(t, h, "POST", "/deck-preparations/prep-1/retry", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("retry without csrf=%d", got.Code)
+	}
+	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if retried.Code != http.StatusOK || !strings.Contains(retried.Body.String(), `"state":"queued"`) {
+		t.Fatalf("retry=%d %s", retried.Code, retried.Body.String())
+	}
+	if got := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner cancel=%d", got.Code)
+	}
+
+	ready := decks.preparations["prep-1"]
+	ready.State, ready.Artifact = domain.DeckPreparationReady, []byte("immutable-apkg")
+	ready.TotalCards, ready.CardsWithEnglish, ready.CardsWithContextualSentenceTranslations, ready.QualityOmissions = 7, 6, 5, 2
+	decks.preparations[ready.ID] = ready
+	for i := 0; i < 2; i++ {
+		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
+		if download.Code != http.StatusOK || download.Body.String() != "immutable-apkg" || download.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(download.Header().Get("Content-Disposition"), `filename="Stored Book.apkg"`) || download.Header().Get("X-Mouseion-Deck-Name") != "Mouseion::de::Stored Book" || download.Header().Get("X-Mouseion-Cards-Total") != "7" || download.Header().Get("X-Mouseion-Cards-With-English") != "6" || download.Header().Get("X-Mouseion-Cards-With-English-Sentence") != "5" || download.Header().Get("X-Mouseion-Cards-Quality-Omitted") != "2" {
+			t.Fatalf("download %d=%d headers=%v body=%q", i, download.Code, download.Header(), download.Body.String())
+		}
+	}
+	if decks.downloads != 2 || decks.preparations["prep-1"].State != domain.DeckPreparationReady {
+		t.Fatalf("downloads=%d state=%s", decks.downloads, decks.preparations["prep-1"].State)
+	}
+	if got := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner download=%d", got.Code)
 	}
 }
 
