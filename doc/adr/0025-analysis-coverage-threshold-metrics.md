@@ -62,8 +62,14 @@ deck-generation path continues to use 97.
 - Equal-frequency corpora produce stable results independent of database row
   order.
 - The 97% deck output is unchanged.
-- Persistence and UI representation of token statistics remain deferred to the
-  follow-up implementation issues.
+- Each newly analyzed owner-scoped corpus persists total analyzable occurrences
+  and distinct lemma+UPOS identity count. Legacy corpora leave both values
+  absent because existing artifacts cannot reproduce the named-entity filter.
+- Known and unknown counts are derived from current owner vocabulary state, not
+  persisted as immutable analysis metadata, so vocabulary updates cannot make
+  them stale.
+- UI representation and threshold projections remain deferred to the follow-up
+  implementation issues.
 
 ## Alternatives considered
 

@@ -155,6 +155,9 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if corpus.OwnerID != alice.ID || corpus.ArtifactHash != source.ContentHash {
 		t.Fatalf("corpus = %+v", corpus)
 	}
+	if corpus.Statistics == nil || corpus.Statistics.AnalyzableTokenCount != 2 || corpus.Statistics.DistinctLemmaCount != 1 {
+		t.Fatalf("corpus statistics = %+v, want 2 analyzable tokens and 1 distinct lemma", corpus.Statistics)
+	}
 	var candidateCount int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount); err != nil {
 		t.Fatal(err)

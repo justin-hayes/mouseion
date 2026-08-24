@@ -69,6 +69,22 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	}
 }
 
+func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testing.T) {
+	corpus := fixture(
+		tok("Häuser", "Haus", "NOUN", false),
+		tok("Haus", "Haus", "noun", false),
+		tok("laufen", "laufen", "VERB", false),
+		tok("der", "der", "DET", false),
+		tok("Anna", "Anna", "NOUN", true),
+		tok("leer", " ", "ADJ", false),
+	)
+	got := AnalyzableStatistics(corpus, DefaultConfig("corpus-1"))
+	want := domain.AnalysisStatistics{AnalyzableTokenCount: 3, DistinctLemmaCount: 2}
+	if got != want {
+		t.Fatalf("AnalyzableStatistics() = %+v, want %+v", got, want)
+	}
+}
+
 func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
 	cfg := DefaultConfig("c")

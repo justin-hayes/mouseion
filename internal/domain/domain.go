@@ -75,7 +75,15 @@ type OpdsConnection struct {
 }
 type Corpus struct {
 	ID, OwnerID, SourceMaterialID, ArtifactHash, Status string
+	Statistics                                          *AnalysisStatistics
 	CreatedAt                                           time.Time
+}
+
+// AnalysisStatistics records immutable counts from the analyzed corpus before
+// owner vocabulary state is applied. Legacy corpora may not have statistics.
+type AnalysisStatistics struct {
+	AnalyzableTokenCount int64
+	DistinctLemmaCount   int64
 }
 type AnalysisJob struct {
 	ID, DisplayNumber                                       int64

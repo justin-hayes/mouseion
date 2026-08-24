@@ -149,10 +149,14 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 		return domain.Corpus{}, fmt.Errorf("analysis job %d has no result", id)
 	}
 	var corpus domain.Corpus
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
-		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.Status, &corpus.CreatedAt)
+	var analyzableTokenCount, distinctLemmaCount *int64
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
+		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &corpus.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Corpus{}, ErrNotFound
+	}
+	if err == nil && analyzableTokenCount != nil && distinctLemmaCount != nil {
+		corpus.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
 	}
 	return corpus, err
 }
@@ -242,6 +246,8 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 	result := merged
 	lemmas := aggregateLemmas(a.ContentHash, result)
+	selectionConfig := selection.DefaultConfig("")
+	statistics := selection.AnalyzableStatistics(result, selectionConfig)
 	artifact := domain.NormalizedArtifact{ContentHash: a.ContentHash, Language: result.Language, SchemaVersion: result.SchemaVersion, NormalizationProfile: result.NormalizationProfile.Name, NormalizationVersion: result.NormalizationProfile.Version, AnalyzerName: result.Analysis.AnalyzerName, AnalyzerVersion: result.Analysis.AnalyzerVersion}
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
@@ -258,7 +264,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 	}
 	var corpusID string
-	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status) VALUES($1,$2,$3,'complete') ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete' RETURNING id`, a.OwnerID, a.SourceMaterialID, a.ContentHash).Scan(&corpusID)
+	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count) VALUES($1,$2,$3,'complete',$4,$5) ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete',analyzable_token_count=excluded.analyzable_token_count,distinct_lemma_count=excluded.distinct_lemma_count RETURNING id`, a.OwnerID, a.SourceMaterialID, a.ContentHash, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount).Scan(&corpusID)
 	if err != nil {
 		return err
 	}
@@ -278,7 +284,8 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	// status have already been committed, so a downstream selection
 	// failure is surfaced in processing history without retrying or losing the
 	// successful analysis.
-	_, err = w.Selection.Select(ctx, a.OwnerID, result, selection.DefaultConfig(corpusID))
+	selectionConfig.CorpusID = corpusID
+	_, err = w.Selection.Select(ctx, a.OwnerID, result, selectionConfig)
 	if err != nil {
 		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "selection", err)
 		return nil
