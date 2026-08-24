@@ -85,6 +85,36 @@ type AnalysisStatistics struct {
 	AnalyzableTokenCount int64
 	DistinctLemmaCount   int64
 }
+
+// AnalysisCorpusVocabulary is the persisted, owner-scoped input for dynamic
+// vocabulary coverage calculations.
+type AnalysisCorpusVocabulary struct {
+	CorpusID, SourceMaterialID string
+	Statistics                 *AnalysisStatistics
+	Lemmas                     []LemmaOccurrence
+}
+
+type LemmaOccurrence struct {
+	Language, CanonicalLemma, UPOS string
+	OccurrenceCount                int64
+}
+
+type CoverageThreshold struct {
+	TargetPercent      int
+	LemmaCount         int64
+	OccurrenceCount    int64
+	EligibleTokenCount int64
+}
+
+// AnalysisCoverage separates explicit mastery from projected study investment.
+type AnalysisCoverage struct {
+	AnalyzableTokenCount int64
+	KnownTokenCount      int64
+	KnownLemmaCount      int64
+	UnknownTokenCount    int64
+	UnknownLemmaCount    int64
+	Thresholds           []CoverageThreshold
+}
 type AnalysisJob struct {
 	ID, DisplayNumber                                       int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string

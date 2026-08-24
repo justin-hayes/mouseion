@@ -1,0 +1,110 @@
+// Package analysisinsights calculates learner-specific metrics for analyzed books.
+package analysisinsights
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+var ErrStatisticsUnavailable = errors.New("analysis insights: corpus statistics unavailable")
+
+var thresholdTargets = [...]int{95, 97, 99}
+
+type Store interface {
+	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
+	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
+	ListGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
+}
+
+type Service struct{ store Store }
+
+func NewService(store Store) *Service { return &Service{store: store} }
+
+func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.AnalysisCoverage, error) {
+	input, err := s.store.GetAnalysisCorpusVocabulary(ctx, owner, corpusID)
+	if err != nil {
+		return domain.AnalysisCoverage{}, fmt.Errorf("load analysis corpus vocabulary: %w", err)
+	}
+	if input.Statistics == nil {
+		return domain.AnalysisCoverage{}, ErrStatisticsUnavailable
+	}
+
+	result := domain.AnalysisCoverage{AnalyzableTokenCount: input.Statistics.AnalyzableTokenCount}
+	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
+	knownByLanguage := map[string]map[string]bool{}
+	generatedByLanguage := map[string]map[string]bool{}
+	for _, lemma := range input.Lemmas {
+		known, ok := knownByLanguage[lemma.Language]
+		if !ok {
+			words, listErr := s.store.ListKnownVocabulary(ctx, owner, lemma.Language)
+			if listErr != nil {
+				return domain.AnalysisCoverage{}, fmt.Errorf("list known vocabulary for %s: %w", lemma.Language, listErr)
+			}
+			known = make(map[string]bool, len(words))
+			for _, word := range words {
+				known[identity(word.CanonicalLemma, word.UPOS)] = true
+			}
+			knownByLanguage[lemma.Language] = known
+		}
+		generated, ok := generatedByLanguage[lemma.Language]
+		if !ok {
+			words, listErr := s.store.ListGeneratedVocabulary(ctx, owner, lemma.Language)
+			if listErr != nil {
+				return domain.AnalysisCoverage{}, fmt.Errorf("list generated vocabulary for %s: %w", lemma.Language, listErr)
+			}
+			generated = make(map[string]bool, len(words))
+			for _, word := range words {
+				if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != input.SourceMaterialID {
+					generated[identity(word.CanonicalLemma, word.UPOS)] = true
+				}
+			}
+			generatedByLanguage[lemma.Language] = generated
+		}
+
+		key := identity(lemma.CanonicalLemma, lemma.UPOS)
+		if known[key] || known[identity(lemma.CanonicalLemma, "")] {
+			result.KnownTokenCount += lemma.OccurrenceCount
+			result.KnownLemmaCount++
+			continue
+		}
+		result.UnknownLemmaCount++
+		if !generated[key] {
+			eligible = append(eligible, lemma)
+		}
+	}
+	result.UnknownTokenCount = result.AnalyzableTokenCount - result.KnownTokenCount
+
+	sort.Slice(eligible, func(i, j int) bool {
+		if eligible[i].OccurrenceCount != eligible[j].OccurrenceCount {
+			return eligible[i].OccurrenceCount > eligible[j].OccurrenceCount
+		}
+		return occurrenceKey(eligible[i]) < occurrenceKey(eligible[j])
+	})
+	var eligibleTokens int64
+	for _, lemma := range eligible {
+		eligibleTokens += lemma.OccurrenceCount
+	}
+	result.Thresholds = make([]domain.CoverageThreshold, 0, len(thresholdTargets))
+	for _, target := range thresholdTargets {
+		threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
+		for _, lemma := range eligible {
+			if threshold.OccurrenceCount*100 >= eligibleTokens*int64(target) {
+				break
+			}
+			threshold.LemmaCount++
+			threshold.OccurrenceCount += lemma.OccurrenceCount
+		}
+		result.Thresholds = append(result.Thresholds, threshold)
+	}
+	return result, nil
+}
+
+func identity(lemma, upos string) string { return lemma + "\x00" + upos }
+
+func occurrenceKey(value domain.LemmaOccurrence) string {
+	return value.Language + "\x00" + value.CanonicalLemma + "\x00" + value.UPOS
+}
