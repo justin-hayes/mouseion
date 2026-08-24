@@ -363,6 +363,35 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 		</tbody></table>
 	}
 }
+templ KnownVocabImportStatus(status knownvocab.Status) {
+	if status.State != "completed" && status.State != "discarded" && status.State != "cancelled" {
+		<article id="known-vocab-import-status" hx-get={ fmt.Sprintf("/known-vocab/imports/%d/status", status.ID) } hx-trigger="load delay:500ms" hx-swap="outerHTML">@knownVocabImportStatusBody(status)</article>
+	} else {
+		<article id="known-vocab-import-status">@knownVocabImportStatusBody(status)</article>
+	}
+}
+templ knownVocabImportStatusBody(status knownvocab.Status) {
+		<h2>Import status</h2>
+		<p role="status"><strong>{ knownVocabJobLabel(string(status.State)) }</strong>
+		if status.Total > 0 {
+			<span> · { fmt.Sprintf("%d of %d rows processed", status.Processed, status.Total) }</span>
+		}
+		</p>
+		if status.State == "completed" {
+			<p><strong>{ fmt.Sprintf("%d imported", status.Imported) }</strong> · { fmt.Sprintf("%d already known", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
+			if len(status.Rejected) > 0 {
+				<h3>Rejected rows</h3><table><thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
+				for _, rejection := range status.Rejected {
+					<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+				}
+				</tbody></table>
+			}
+			<p><a href={ templ.SafeURL("/known-vocab?language="+status.Language) }>View imported vocabulary</a></p>
+		}
+		if status.Error != "" {
+			<p role="alert">Import failed: { status.Error }</p>
+		}
+}
 templ AdminUsersPage(user domain.User, csrf, message string) {
 	@Layout("Users", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>User registration</h1><p>Register non-admin learner accounts.</p>
 	if message != "" {

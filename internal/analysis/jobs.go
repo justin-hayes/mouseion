@@ -319,7 +319,7 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	return out
 }
 
-func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service) (*river.Client[pgx.Tx], error) {
+func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
 	if pool == nil || a == nil || selectionService == nil {
 		return nil, errors.New("analysis client requires pool, analyzer, and selection service")
 	}
@@ -328,8 +328,11 @@ func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *select
 		return nil, err
 	}
 	workers := river.NewWorkers()
+	if len(workerSets) > 0 && workerSets[0] != nil {
+		workers = workerSets[0]
+	}
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Selection: selectionService})
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "known_vocabulary": {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 
 func configuredJobTimeout() (time.Duration, error) {

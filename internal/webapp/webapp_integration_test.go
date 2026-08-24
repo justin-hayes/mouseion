@@ -31,6 +31,27 @@ import (
 )
 
 type recordingAnalysis struct{ owner, source string }
+type recordingKnownVocab struct {
+	service *knownvocab.Service
+	status  knownvocab.Status
+	owner   string
+}
+
+func (r *recordingKnownVocab) Submit(ctx context.Context, owner, language, input string) (knownvocab.Handle, error) {
+	result, err := r.service.Import(ctx, owner, language, strings.NewReader(input))
+	if err != nil {
+		return knownvocab.Handle{}, err
+	}
+	r.status = knownvocab.Status{ID: 77, Language: language, State: rivertype.JobStateCompleted, Processed: len(result.Entries) + len(result.Rejected), Total: len(result.Entries) + len(result.Rejected), Imported: result.Imported, AlreadyKnown: result.AlreadyKnown, Rejected: result.Rejected}
+	r.owner = owner
+	return knownvocab.Handle{ID: 77}, nil
+}
+func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (knownvocab.Status, error) {
+	if owner != r.owner || id != r.status.ID {
+		return knownvocab.Status{}, knownvocab.ErrJobNotFound
+	}
+	return r.status, nil
+}
 
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
 	r.owner, r.source = owner, source
@@ -61,7 +82,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
+	bob, err := authService.CreateUser(ctx, admin.ID, "bob", "bob-password", auth.RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +123,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	recorder := &recordingAnalysis{}
 	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
 	webAuth := webauth.New(authService, false, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownvocab.NewService(store), SessionLifetime: time.Hour})
+	knownJobs := &recordingKnownVocab{service: knownvocab.NewService(store)}
+	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, SessionLifetime: time.Hour})
 	loginPage := perform(t, h, "GET", "/login", nil, nil)
 	csrf := hiddenToken(t, loginPage.Body.String())
 	csrfCookieValue := cookieNamed(t, loginPage.Result().Cookies(), csrfCookie)
@@ -187,7 +209,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err = store.ReplaceSelectedSentences(ctx, alice.ID, corpus.ID, "de", "haus", "NOUN", examples); err != nil {
 		t.Fatal(err)
 	}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownvocab.NewService(store), CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -200,8 +222,17 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("known vocab without csrf=%d", got.Code)
 	}
 	importedKnown := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de", "vocabulary": "Daß\tSCONJ\nbad\tNOPE"}, "")
-	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "1 imported") || !strings.Contains(importedKnown.Body.String(), "invalid UPOS") || !strings.Contains(importedKnown.Body.String(), "dass") {
+	if importedKnown.Code != 200 || !strings.Contains(importedKnown.Body.String(), "Queued") || !strings.Contains(importedKnown.Body.String(), "/known-vocab/imports/77/status") {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
+	}
+	importStatus := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, cookies)
+	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 imported") || !strings.Contains(importStatus.Body.String(), "invalid UPOS") {
+		t.Fatalf("known vocab status=%d %s", importStatus.Code, importStatus.Body.String())
+	}
+	bobLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {bob.Username}, "password": {"bob-password"}}, []*http.Cookie{csrfCookieValue})
+	bobSession := cookieNamed(t, bobLogin.Result().Cookies(), webauth.CookieName)
+	if got := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, []*http.Cookie{csrfCookieValue, bobSession}); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner known vocab status=%d %s", got.Code, got.Body.String())
 	}
 	for _, route := range []struct{ method, path string }{{"GET", "/review?book=" + recorder.source}, {"POST", "/review/accept"}, {"GET", "/deck?book=" + recorder.source}, {"GET", "/deck/download"}, {"GET", "/admin/frequency"}} {
 		if got := perform(t, h, route.method, route.path, nil, cookies); got.Code != http.StatusNotFound {
