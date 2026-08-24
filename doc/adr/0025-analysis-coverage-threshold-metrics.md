@@ -33,35 +33,41 @@ only that identity; an entry whose UPOS is empty is a lemma wildcard and matches
 all UPOS for that lemma. Generated vocabulary is never counted as explicitly
 known.
 
-**Threshold investment** retains ADR 0019's denominator. Remove explicitly
-known identities and owner-scoped generated identities from other books before
-calculating it. Generated records with unknown provenance are excluded
-conservatively; records first generated for the current book remain eligible for
-idempotent repeat exports. The remaining occurrences are the eligible
-unknown-token pool.
+**Threshold investment** uses the same full analyzable-token denominator as
+known-token coverage. Remove explicitly known identities and owner-scoped
+generated identities from other books from the learn-next candidates. Generated
+records with unknown provenance are excluded conservatively; records first
+generated for the current book remain eligible for idempotent repeat exports.
+The remaining occurrences are the eligible unknown-token pool.
 
 For target `T`, order eligible identities by descending book-local occurrence
 count, breaking equal-count ties lexicographically by `(language, canonical
 lemma, UPOS)`. Select the shortest prefix for which:
 
 ```text
-selected occurrences * 100 >= eligible occurrences * T
+(explicitly known occurrences + selected occurrences) * 100
+    >= total analyzable occurrences * T
 ```
 
 The result is an identity count and occurrence count, not a claim that the
 learner knows those words. Integer comparison is authoritative; rounded display
-percentages do not affect selection. Initial targets are 95, 97, and 99. The
-deck-generation path continues to use 97.
+percentages do not affect selection. If all eligible identities cannot meet the
+comparison because generated or otherwise excluded occurrences remain unknown,
+the target is explicitly unreachable and no lemma count is presented. Initial
+targets are 95, 97, and 99. The deck-generation path continues to select 97% of
+its eligible unknown pool under ADR 0019; its count can therefore differ from an
+insight threshold with the same numeric label.
 
 ## Consequences
 
-- Overall known-token coverage and threshold-pool coverage have different
-  denominators and must be labeled separately.
+- Current coverage, projections, and insight thresholds share the full
+  analyzable-token denominator.
 - Known, generated, eligible unknown, and selected vocabulary remain distinct
   categories, so generated cards do not inflate mastery.
 - Equal-frequency corpora produce stable results independent of database row
   order.
-- The 97% deck output is unchanged.
+- The 97% deck output is unchanged and is not presented as the 97% whole-book
+  insight threshold.
 - Each newly analyzed owner-scoped corpus persists total analyzable occurrences
   and distinct lemma+UPOS identity count. Legacy corpora leave both values
   absent because existing artifacts cannot reproduce the named-entity filter.
@@ -73,9 +79,9 @@ deck-generation path continues to use 97.
 
 ## Alternatives considered
 
-- **Use total analyzable tokens as the threshold denominator.** Rejected because
-  it changes ADR 0019 and current deck output when known or generated vocabulary
-  exists.
+- **Use the eligible unknown pool as the insight-threshold denominator.**
+  Rejected because it labels a pool-coverage investment as whole-book coverage
+  and can hide the fact that excluded unknown tokens make a target unreachable.
 - **Count generated vocabulary as known.** Rejected because assignment for study
   is not evidence of mastery.
 - **Break ties by first encounter.** Rejected for selection because the existing

@@ -499,7 +499,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 30}},
 		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170},
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 25, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 50, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}},
-		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
+		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3, Reachable: true}, {TargetPercent: 97, LemmaCount: 4, Reachable: true}, {TargetPercent: 99, LemmaCount: 5, Reachable: true}},
 	}}
 	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, AnalysisInsights: insights, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)

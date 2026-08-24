@@ -24,6 +24,8 @@ func TestGetAnalysisCorpusVocabularyIsOwnerScopedAndAggregatesMorphology(t *test
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Sing"}`), Frequency: 3},
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Plur"}`), Frequency: 2},
 		{CanonicalLemma: "gehen", UPOS: "VERB", Morphology: []byte(`{}`), Frequency: 1},
+		{CanonicalLemma: ".", UPOS: "PUNCT", Morphology: []byte(`{}`), Frequency: 20},
+		{CanonicalLemma: "der", UPOS: "DET", Morphology: []byte(`{}`), Frequency: 10},
 	})
 	if err != nil {
 		t.Fatal(err)

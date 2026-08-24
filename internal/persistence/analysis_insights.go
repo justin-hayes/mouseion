@@ -21,7 +21,7 @@ func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, 
 			value.Statistics.TextProfile = &domain.TextProfile{SentenceCount: *sentenceCount, NormalizedTokenCount: *normalizedTokenCount, EmptySentenceCount: *emptySentenceCount, MedianSentenceTokenCount: *medianSentenceTokenCount, P90SentenceTokenCount: *p90SentenceTokenCount, LongSentenceCount: *longSentenceCount}
 		}
 	}
-	rows, err := s.pool.Query(ctx, `SELECT sl.language,sl.canonical_lemma,sl.upos,SUM(sl.frequency)::bigint FROM corpora co JOIN shared_lemmas sl ON sl.content_hash=co.artifact_hash WHERE co.owner_id=$1 AND co.id=$2 GROUP BY sl.language,sl.canonical_lemma,sl.upos ORDER BY sl.language,sl.canonical_lemma,sl.upos`, owner, corpusID)
+	rows, err := s.pool.Query(ctx, `SELECT sl.language,sl.canonical_lemma,sl.upos,SUM(sl.frequency)::bigint FROM corpora co JOIN shared_lemmas sl ON sl.content_hash=co.artifact_hash WHERE co.owner_id=$1 AND co.id=$2 AND upper(sl.upos) IN ('NOUN','VERB','ADJ','ADV') AND btrim(sl.canonical_lemma)<>'' GROUP BY sl.language,sl.canonical_lemma,sl.upos ORDER BY sl.language,sl.canonical_lemma,sl.upos`, owner, corpusID)
 	if err != nil {
 		return value, err
 	}
