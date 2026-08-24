@@ -96,8 +96,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var modelsJSON, decksJSON string
-	if err = db.QueryRow(`SELECT models,decks FROM col`).Scan(&modelsJSON, &decksJSON); err != nil {
+	var modelsJSON, decksJSON, dconfJSON string
+	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Cloze"`) || !strings.Contains(modelsJSON, `"qfmt":"{{cloze:Text}}"`) || !strings.Contains(decksJSON, deckName) {
@@ -120,6 +120,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if strings.Join(gotNames, ",") != strings.Join(fieldNames, ",") {
 		t.Fatalf("field names = %v", gotNames)
 	}
+	assertLegacyCollectionContract(t, modelsJSON, decksJSON, dconfJSON, deckName)
 	var noteID, cardCount int64
 	var fields, tags string
 	if err = db.QueryRow(`SELECT id,flds,tags FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags); err != nil {
@@ -138,6 +139,80 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	}
 	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
 		t.Fatalf("cards=%d err=%v", cardCount, err)
+	}
+}
+
+func assertLegacyCollectionContract(t *testing.T, modelsJSON, decksJSON, dconfJSON, deckName string) {
+	t.Helper()
+	fixture, err := os.ReadFile("testdata/legacy_collection_contract.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]map[string]string
+	if err = json.Unmarshal(fixture, &contract); err != nil {
+		t.Fatal(err)
+	}
+
+	collections := map[string]string{"models": modelsJSON, "decks": decksJSON, "dconf": dconfJSON}
+	for collectionName, encoded := range collections {
+		decoder := json.NewDecoder(strings.NewReader(encoded))
+		decoder.UseNumber()
+		var entries map[string]map[string]any
+		if err = decoder.Decode(&entries); err != nil {
+			t.Fatalf("decode %s JSON: %v\n%s", collectionName, err, encoded)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("%s entries = %#v", collectionName, entries)
+		}
+		for key, entry := range entries {
+			assertJSONShape(t, collectionName, entry, contract[collectionName])
+			if id, ok := entry["id"].(json.Number); ok {
+				value, numberErr := id.Int64()
+				if numberErr != nil || value > 1<<53-1 {
+					t.Fatalf("%s id %q is not JSON-safe: %v", collectionName, id, numberErr)
+				}
+				if collectionName != "dconf" && key != id.String() {
+					t.Fatalf("%s key %q does not match id %q", collectionName, key, id)
+				}
+			}
+			if collectionName == "decks" && entry["name"] != deckName {
+				t.Fatalf("deck name = %q, want %q", entry["name"], deckName)
+			}
+		}
+	}
+}
+
+func assertJSONShape(t *testing.T, name string, value map[string]any, shape map[string]string) {
+	t.Helper()
+	for field, wantType := range shape {
+		got, ok := value[field]
+		if !ok {
+			t.Errorf("%s missing required field %q", name, field)
+			continue
+		}
+		valid := false
+		switch wantType {
+		case "string":
+			_, valid = got.(string)
+		case "number":
+			_, valid = got.(json.Number)
+		case "boolean":
+			_, valid = got.(bool)
+		case "object":
+			_, valid = got.(map[string]any)
+		case "array":
+			_, valid = got.([]any)
+		case "number_pair":
+			pair, isArray := got.([]any)
+			valid = isArray && len(pair) == 2
+			for _, item := range pair {
+				_, isNumber := item.(json.Number)
+				valid = valid && isNumber
+			}
+		}
+		if !valid {
+			t.Errorf("%s field %q = %#v, want %s", name, field, got, wantType)
+		}
 	}
 }
 
