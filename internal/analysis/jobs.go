@@ -40,17 +40,20 @@ type JobArgs struct {
 
 func (JobArgs) Kind() string { return "analyze_corpus" }
 
-type Handle struct{ ID int64 }
+type Handle struct {
+	ID, DisplayNumber int64
+}
 
 type Status struct {
-	ID          int64
-	State       rivertype.JobState
-	Progress    int
-	Error       string
-	CorpusID    string
-	Attempt     int
-	CreatedAt   time.Time
-	FinalizedAt *time.Time
+	ID            int64
+	DisplayNumber int64
+	State         rivertype.JobState
+	Progress      int
+	Error         string
+	CorpusID      string
+	Attempt       int
+	CreatedAt     time.Time
+	FinalizedAt   *time.Time
 }
 
 type Service struct {
@@ -79,13 +82,18 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err != nil {
 		return Handle{}, fmt.Errorf("load source for analysis: %w", err)
 	}
-	var existingID int64
-	err = tx.QueryRow(ctx, `SELECT river_job_id FROM analysis_jobs WHERE owner_id=$1 AND content_hash=$2`, owner, args.ContentHash).Scan(&existingID)
+	// Serialize submissions per owner so display numbers remain gap-free and
+	// unique without exposing River's global sequence.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
+		return Handle{}, fmt.Errorf("lock analysis submissions: %w", err)
+	}
+	var existingID, existingDisplayNumber int64
+	err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND content_hash=$2`, owner, args.ContentHash).Scan(&existingID, &existingDisplayNumber)
 	if err == nil {
 		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, fmt.Errorf("commit duplicate analysis lookup: %w", err)
 		}
-		return Handle{ID: existingID}, nil
+		return Handle{ID: existingID, DisplayNumber: existingDisplayNumber}, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, fmt.Errorf("check duplicate analysis: %w", err)
@@ -94,7 +102,10 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,content_hash) DO UPDATE SET updated_at=now()`, inserted.Job.ID, owner, sourceID, args.ContentHash)
+	var displayNumber int64
+	err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,display_number)
+		VALUES($1,$2,$3,$4,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))
+		RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash).Scan(&displayNumber)
 	if err != nil {
 		return Handle{}, fmt.Errorf("record analysis job: %w", err)
 	}
@@ -105,13 +116,13 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err := tx.Commit(ctx); err != nil {
 		return Handle{}, fmt.Errorf("commit analysis submission: %w", err)
 	}
-	return Handle{ID: inserted.Job.ID}, nil
+	return Handle{ID: inserted.Job.ID, DisplayNumber: displayNumber}, nil
 }
 
 func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, error) {
 	var status Status
-	err := s.pool.QueryRow(ctx, `SELECT river_job_id,progress,error,COALESCE(corpus_id::text,''),created_at FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
-		Scan(&status.ID, &status.Progress, &status.Error, &status.CorpusID, &status.CreatedAt)
+	err := s.pool.QueryRow(ctx, `SELECT river_job_id,display_number,progress,error,COALESCE(corpus_id::text,''),created_at FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
+		Scan(&status.ID, &status.DisplayNumber, &status.Progress, &status.Error, &status.CorpusID, &status.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Status{}, ErrNotFound
 	}

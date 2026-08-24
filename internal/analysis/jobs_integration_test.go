@@ -91,9 +91,26 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	defer client.Stop(context.Background())
 	service := NewService(store.Pool(), client)
+	bobSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: bob.ID, Language: "de", SourceIdentifier: "bob-job-source", Title: "Bob Job", MediaType: "text/plain", ContentHash: "sha256:bob-job", Content: []byte("Haus."), FullText: "Haus."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobHandle, err := service.SubmitAnalysis(ctx, bob.ID, bobSource.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bobHandle.DisplayNumber != 1 {
+		t.Fatalf("Bob's first display number = %d, want 1", bobHandle.DisplayNumber)
+	}
 	handle, err := service.SubmitAnalysis(ctx, alice.ID, source.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if handle.DisplayNumber != 1 {
+		t.Fatalf("Alice's first display number = %d, want 1 (River ID %d)", handle.DisplayNumber, handle.ID)
+	}
+	if handle.ID == handle.DisplayNumber {
+		t.Fatalf("River ID %d unexpectedly matches display number; regression setup did not decouple sequences", handle.ID)
 	}
 	duplicate, err := service.SubmitAnalysis(ctx, alice.ID, source.ID)
 	if err != nil {
@@ -101,6 +118,9 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	if duplicate.ID != handle.ID {
 		t.Fatalf("dedup IDs differ: %d != %d", duplicate.ID, handle.ID)
+	}
+	if duplicate.DisplayNumber != handle.DisplayNumber {
+		t.Fatalf("dedup display numbers differ: %d != %d", duplicate.DisplayNumber, handle.DisplayNumber)
 	}
 	if _, err = service.Get(ctx, bob.ID, handle.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner get = %v", err)
