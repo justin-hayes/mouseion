@@ -18,7 +18,7 @@ import (
 const (
 	defaultLLMBaseURL = "https://api.openai.com/v1"
 	defaultLLMTimeout = 30 * time.Second
-	llmPromptVersion  = "translation-v1"
+	llmPromptVersion  = "translation-v2"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external
@@ -140,7 +140,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		Model:       c.model,
 		Temperature: 0,
 		Messages: []chatMessage{
-			{Role: "system", Content: "Translate the supplied lemma into English. Return JSON with exactly two string fields: translation (a concise translation) and gloss (a brief sense explanation). Use the example only to disambiguate the lemma."},
+			{Role: "system", Content: "Translate the supplied lemma into English. Return JSON with exactly three string fields: translation (a concise lemma translation), gloss (a brief sense explanation), and sentence_translation (a natural translation of the complete example sentence). When no example sentence is supplied, sentence_translation must be an empty string."},
 			{Role: "user", Content: string(privateInput)},
 		},
 	}
@@ -176,13 +176,22 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		return TranslationResponse{}, errors.New("decode LLM response: no choices")
 	}
 	var result TranslationResponse
-	if err := json.Unmarshal([]byte(decoded.Choices[0].Message.Content), &result); err != nil {
+	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
+	resultDecoder.DisallowUnknownFields()
+	if err := resultDecoder.Decode(&result); err != nil {
 		return TranslationResponse{}, fmt.Errorf("decode LLM translation: %w", err)
+	}
+	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
+		return TranslationResponse{}, errors.New("decode LLM translation: trailing JSON content")
 	}
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.Gloss = strings.TrimSpace(result.Gloss)
+	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
 	if result.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
+	}
+	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
+		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
 	}
 	return result, nil
 }
