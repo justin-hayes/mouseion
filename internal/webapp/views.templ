@@ -140,6 +140,23 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 					<article><strong>{ fmt.Sprintf("%d", threshold.LemmaCount) }</strong><span>{ fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent) }</span></article>
 				}
 			</div>
+			if len(coverage.TopUnknownLemmas) > 0 {
+				<h3>Highest-impact unknown vocabulary</h3>
+				<p>The most frequent deck-eligible lemmas in this book:</p>
+				<ol class="top-unknown">
+					for _, lemma := range coverage.TopUnknownLemmas {
+						<li><span><strong>{ lemma.CanonicalLemma }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
+					}
+				</ol>
+				<p>The top { fmt.Sprintf("%d", coverage.UnknownConcentration.TopLemmaCount) } deck-eligible lemmas account for <strong>{ fmt.Sprintf("%.1f%%", concentrationPercent(coverage.UnknownConcentration)) }</strong> of eligible unknown occurrences.</p>
+				<h3>Projected token coverage</h3>
+				<p>If you learned the most frequent deck-eligible lemmas:</p>
+				<div class="coverage-thresholds">
+					for _, projection := range coverage.Projections {
+						<article><strong>{ fmt.Sprintf("%.1f%%", projectedCoveragePercent(projection, coverage.AnalyzableTokenCount)) }</strong><span>{ fmt.Sprintf("after top %d lemmas", projection.TopLemmaCount) }</span></article>
+					}
+				</div>
+			}
 			<details><summary>How these metrics work</summary><p><strong>Current token coverage</strong> is the share of analyzable token occurrences matched by vocabulary you explicitly marked known. Analyzable tokens exclude punctuation, proper names, and stop words. Distinct lemmas count lemma and part-of-speech identities.</p><p><strong>Previously generated vocabulary</strong> means words Mouseion assigned to another deck. It is not counted as explicitly known. It is excluded from a new deck, while unknown words not already generated are <strong>deck-eligible vocabulary</strong>. The 95%, 97%, and 99% estimates use that eligible pool, so their denominator differs from current token coverage.</p></details>
 		</section>
 	}
@@ -168,6 +185,20 @@ func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 		return 0
 	}
 	return float64(coverage.KnownTokenCount) * 100 / float64(coverage.AnalyzableTokenCount)
+}
+
+func concentrationPercent(projection domain.CoverageProjection) float64 {
+	if projection.EligibleTokenCount == 0 {
+		return 0
+	}
+	return float64(projection.OccurrenceCount) * 100 / float64(projection.EligibleTokenCount)
+}
+
+func projectedCoveragePercent(projection domain.CoverageProjection, analyzableTokens int64) float64 {
+	if analyzableTokens == 0 {
+		return 0
+	}
+	return float64(projection.ProjectedTokenCount) * 100 / float64(analyzableTokens)
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {

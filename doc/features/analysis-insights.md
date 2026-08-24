@@ -98,7 +98,12 @@ An analyzed book should eventually expose:
 - top unknown lemmas by occurrence count;
 - warnings about incomplete or low-quality analysis.
 
-A later phase may add top-N projected coverage, unknown-word concentration, sentence statistics, and structural difficulty signals.
+The lexical profile also shows the five highest-occurrence deck-eligible unknown
+lemmas, the share of eligible unknown occurrences concentrated in the top ten,
+and projected overall token coverage after learning the top 10, 25, or 50.
+Generated vocabulary remains excluded from these learn-next projections and is
+not counted as known. A later phase may add sentence statistics and structural
+difficulty signals.
 
 ## Difficulty dimensions
 

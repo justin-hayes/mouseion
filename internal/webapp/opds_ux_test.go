@@ -171,18 +171,21 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
 	coverage := domain.AnalysisCoverage{
 		AnalyzableTokenCount: 40, DistinctLemmaCount: 12, KnownTokenCount: 30, KnownLemmaCount: 7, UnknownTokenCount: 10, UnknownLemmaCount: 5,
-		Thresholds: []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
+		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 4}},
+		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 10, EligibleTokenCount: 10, ProjectedTokenCount: 40},
+		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 10, EligibleTokenCount: 10, ProjectedTokenCount: 40}},
+		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
 	}
 	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &coverage, false, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary"} {
+	for _, want := range []string{"75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("coverage summary missing %q", want)
 		}
 	}
-	if strings.Contains(html, "top unknown") || strings.Contains(html, "structural difficulty") {
-		t.Errorf("coverage summary includes deferred insights: %s", html)
+	if strings.Contains(html, "structural difficulty") {
+		t.Errorf("coverage summary includes structural difficulty: %s", html)
 	}
 }
