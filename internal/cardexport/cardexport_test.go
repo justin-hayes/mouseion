@@ -50,13 +50,19 @@ func TestClozeEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das {{c1::Haus}} ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "", EnglishSentence: "", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das {{c1::Haus}} ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	missingSentenceTranslation := note
+	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
+	missingSentenceTranslation.Lemma = "Baum"
+	missingSentenceTranslation.English = "tree"
+	missingSentenceTranslation.EnglishSentence = ""
 	deckName := DeckName("de", note.BookTitle)
-	a, err := renderAPKG(deckName, []Note{note})
+	notes := []Note{note, missingSentenceTranslation}
+	a, err := renderAPKG(deckName, notes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := renderAPKG(deckName, []Note{note})
+	b, err := renderAPKG(deckName, notes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,13 +122,21 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	}
 	var noteID, cardCount int64
 	var fields, tags string
-	if err = db.QueryRow(`SELECT id,flds,tags FROM notes`).Scan(&noteID, &fields, &tags); err != nil {
+	if err = db.QueryRow(`SELECT id,flds,tags FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags); err != nil {
 		t.Fatal(err)
 	}
-	if noteID != stableID("note|"+note.Key) || len(strings.Split(fields, "\x1f")) != 8 || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
+	serializedFields := strings.Split(fields, "\x1f")
+	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 8 || serializedFields[4] != note.English || serializedFields[5] != note.EnglishSentence || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
 		t.Fatalf("note id=%d fields=%q tags=%q", noteID, fields, tags)
 	}
-	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 1 {
+	if err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields); err != nil {
+		t.Fatal(err)
+	}
+	serializedFields = strings.Split(fields, "\x1f")
+	if len(serializedFields) != 8 || serializedFields[5] != "" {
+		t.Fatalf("missing sentence translation fields=%q", fields)
+	}
+	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
 		t.Fatalf("cards=%d err=%v", cardCount, err)
 	}
 }
@@ -368,15 +382,15 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: 20, ObservedForms: []byte(`["Baum"]`)},
 	}
 	store.entries = []Entry{
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Haus.", SourceDocument: "Book", FirstEncounter: 10},
-		{OwnerID: "alice", Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", Sentence: "Unter dem alten Baum warten heute mehrere müde Wanderer.", SourceDocument: "Book", FirstEncounter: 20},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Haus.", Translation: "house", SourceDocument: "Book", FirstEncounter: 10},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", Sentence: "Unter dem alten Baum warten heute mehrere müde Wanderer.", Translation: "tree", SentenceTranslation: "Several tired hikers are waiting under the old tree today.", SourceDocument: "Book", FirstEncounter: 20},
 	}
 
 	artifact, err := NewService(store).ExportCoverage(context.Background(), "alice", "book")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.Count != 1 || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(artifact.EnrichmentCandidates) != 1 || artifact.EnrichmentCandidates[0].CanonicalLemma != "Baum" || artifact.EnrichmentCandidates[0].ExampleSentence == "" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
+	if artifact.Count != 1 || artifact.Completeness != (Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1, QualityOmitted: 1}) || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(artifact.EnrichmentCandidates) != 1 || artifact.EnrichmentCandidates[0].CanonicalLemma != "Baum" || artifact.EnrichmentCandidates[0].ExampleSentence == "" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
 		t.Fatalf("artifact=%+v generated=%+v", artifact, store.generated)
 	}
 
@@ -387,7 +401,7 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.Count != 2 || len(artifact.Omitted) != 0 || len(store.generated) != 3 || !strings.Contains(artifact.TSV, "Haus") {
+	if artifact.Count != 2 || artifact.Completeness != (Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}) || len(artifact.Omitted) != 0 || len(store.generated) != 3 || !strings.Contains(artifact.TSV, "Haus") {
 		t.Fatalf("later artifact=%+v generated=%+v", artifact, store.generated)
 	}
 }

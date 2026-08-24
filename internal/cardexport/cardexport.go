@@ -41,8 +41,19 @@ type Artifact struct {
 	APKG                    []byte
 	Filename, DeckName, TSV string
 	Count                   int
+	Completeness            Completeness
 	Omitted                 []Omission
 	EnrichmentCandidates    []enrichment.Candidate
+}
+
+// Completeness reports which optional enrichment fields were available for
+// accepted cards. QualityOmitted counts selected candidates that were not
+// exported because their best source sentence failed the quality gate.
+type Completeness struct {
+	TotalCards               int
+	CardsWithEnglish         int
+	CardsWithEnglishSentence int
+	QualityOmitted           int
 }
 
 type Omission struct {
@@ -585,6 +596,7 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 	accepted := make([]acceptedNote, 0, len(entries))
 	enrichmentCandidates := make([]enrichment.Candidate, 0, len(entries))
 	omitted := make([]Omission, 0)
+	completeness := Completeness{}
 	for _, entry := range entries {
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
 		if !quality.Accepted {
@@ -596,11 +608,19 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 		accepted = append(accepted, acceptedNote{entry: entry, note: n})
+		completeness.TotalCards++
+		if strings.TrimSpace(entry.Translation) != "" {
+			completeness.CardsWithEnglish++
+		}
+		if strings.TrimSpace(entry.SentenceTranslation) != "" {
+			completeness.CardsWithEnglishSentence++
+		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
 			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
 			ExampleSentence: strings.TrimSpace(entry.Sentence),
 		})
 	}
+	completeness.QualityOmitted = len(omitted)
 	notes := make([]Note, len(accepted))
 	for i := range accepted {
 		notes[i] = accepted[i].note
@@ -624,5 +644,5 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 	}
-	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Omitted: omitted, EnrichmentCandidates: enrichmentCandidates}, nil
+	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates}, nil
 }
