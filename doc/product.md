@@ -2,11 +2,11 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, and generates Anki study material for the unknown words needed to reach 97% book coverage. It is multi-user: books, known vocabulary, and generated cards belong to each learner, while server configuration is administered centrally.
+Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, and generates Anki study material for the unknown words needed to reach 97% book coverage. It is multi-user: books, known vocabulary, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current pipeline
 
-1. **Ingest** — import an EPUB directly or from an admin-configured OPDS catalog.
+1. **Ingest** — import an EPUB directly or from an owner-scoped OPDS catalog whose credentials are encrypted at rest.
 2. **Analysis** — extract text and send size-bounded chunks to the Python/Stanza NLP service, producing a normalized corpus.
 3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 4. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
@@ -18,8 +18,8 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 ## Current stack
 
 - **Go core:** domain logic, PostgreSQL persistence, imports, coverage selection, sentence selection, Anki export, and the web/River worker process.
-- **Python/Stanza gRPC service:** long-lived, ingest-time linguistic analysis behind a versioned Protobuf contract.
-- **PostgreSQL:** application data, per-user learning state, shared language resources, and River jobs.
+- **Python/Stanza gRPC service:** long-lived, ingest-time linguistic analysis behind a versioned Protobuf contract; authoritative for advertised language and feature capabilities.
+- **PostgreSQL:** application data, per-user learning state and catalog connections, and River jobs.
 - **Web application:** server-rendered Templ views enhanced with HTMX and styled with Pico CSS.
 - **Deployment:** three processes—PostgreSQL, the Python NLP gRPC service, and the Go web application with River workers.
 
@@ -60,3 +60,7 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
+
+Mouseion does not currently expose open registration or an open/closed
+registration setting. Language availability is discovered from the running NLP
+service; it is not configured as a separate application-managed resource.

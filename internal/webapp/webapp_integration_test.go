@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -218,6 +219,54 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	login := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
 		t.Fatalf("existing login=%d location=%q body=%s", login.Code, login.Header().Get("Location"), login.Body.String())
+	}
+}
+
+func TestNLPCapabilityDiscoveryAndDegradedBehavior(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
+	webAuth := webauth.New(authService, false, time.Hour)
+	h := New(Services{
+		Auth: authService, WebAuth: webAuth, Store: store,
+		Capabilities: staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
+			{Language: "fr", DisplayName: "French", Ready: true},
+			{Language: "it", DisplayName: "Italian", Ready: false},
+		}}},
+		SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
+
+	settings := perform(t, h, "GET", "/settings", nil, cookies)
+	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), "French (fr)") || strings.Contains(settings.Body.String(), "Italian (it)") {
+		t.Fatalf("capability settings=%d %s", settings.Code, settings.Body.String())
+	}
+
+	h = New(Services{
+		Auth: authService, WebAuth: webAuth, Store: store,
+		Capabilities:    staticCapabilities{err: errors.New("nlp unavailable")},
+		SessionLifetime: time.Hour,
+	})
+	settings = perform(t, h, "GET", "/settings", nil, cookies)
+	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), "NLP language discovery is temporarily unavailable") || !strings.Contains(settings.Body.String(), "German") || strings.Contains(settings.Body.String(), `action="/settings/languages"`) {
+		t.Fatalf("degraded settings=%d %s", settings.Code, settings.Body.String())
+	}
+	blocked := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}}, cookies)
+	if blocked.Code != http.StatusServiceUnavailable {
+		t.Fatalf("degraded language add=%d %s", blocked.Code, blocked.Body.String())
+	}
+	profiles, err := store.ListLanguageProfiles(ctx, alice.ID)
+	if err != nil || len(profiles) != 1 || profiles[0].Language != "de" {
+		t.Fatalf("saved profiles changed during degradation: %+v err=%v", profiles, err)
 	}
 }
 
@@ -440,6 +489,27 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Personal"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
 		t.Fatalf("learner connection create=%d", got.Code)
+	}
+	aliceConnections, err := store.ListOpdsConnections(ctx, alice.ID)
+	if err != nil || len(aliceConnections) != 2 {
+		t.Fatalf("learner connection list=%+v err=%v", aliceConnections, err)
+	}
+	personal := aliceConnections[0]
+	if personal.ID == connection.ID {
+		personal = aliceConnections[1]
+	}
+	if got := perform(t, h, "POST", "/connections/"+personal.ID, url.Values{"csrf_token": {csrf}, "name": {"Renamed personal"}, "url": {catalog.URL + "/opds"}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
+		t.Fatalf("learner connection update=%d %s", got.Code, got.Body.String())
+	}
+	connectionsPage := perform(t, h, "GET", "/connections", nil, cookies)
+	if connectionsPage.Code != http.StatusOK || !strings.Contains(connectionsPage.Body.String(), "Renamed personal") || strings.Contains(connectionsPage.Body.String(), "Private") {
+		t.Fatalf("learner connection page=%d %s", connectionsPage.Code, connectionsPage.Body.String())
+	}
+	if got := perform(t, h, "POST", "/connections/"+personal.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies); got.Code != http.StatusSeeOther {
+		t.Fatalf("learner connection delete=%d %s", got.Code, got.Body.String())
+	}
+	if _, err = store.GetOpdsConnection(ctx, alice.ID, personal.ID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("deleted learner connection read: %v", err)
 	}
 	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
 	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)

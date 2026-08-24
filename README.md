@@ -4,6 +4,18 @@ A self-hosted reading environment for learning foreign languages at an advanced 
 
 Built around a Go core with a Python NLP service for analysis.
 
+Mouseion uses local learner accounts. On a fresh installation, the sign-in page
+creates the first account; after that, existing accounts use the normal login
+form. There is no in-application administrator role or public registration
+setting. Each learner owns their books, vocabulary state, generated decks, and
+OPDS catalog connections, including catalog credentials encrypted at rest.
+
+The running NLP service is authoritative for analysis-language availability.
+Mouseion discovers the languages and features it currently advertises instead
+of maintaining a separate web-app language allowlist. If discovery is
+temporarily unavailable, saved study-language preferences remain intact while
+operations requiring a newly available analysis language are blocked.
+
 See [the product specification](doc/product.md) and [documentation governance](doc/documentation-governance.md).
 
 ## Development
@@ -43,9 +55,10 @@ docker compose up -d --build
 - `nlp` — the Stanza gRPC service on `:50051`
 - `web` — the Go server on `http://localhost:8080`
 
-Open `http://<host>:8080` and sign in with an existing account. First-account
-onboarding is tracked separately in issue #175. The app is meant to be reachable
-only over your tailnet (plain HTTP over WireGuard); do not expose `:8080` publicly.
+Open `http://<host>:8080`. A fresh installation presents first-account
+onboarding; otherwise, sign in with an existing account. The app is meant to be
+reachable only over your tailnet (plain HTTP over WireGuard); do not expose
+`:8080` publicly.
 
 ### Option B — run the three processes manually
 
