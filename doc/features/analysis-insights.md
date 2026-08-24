@@ -32,11 +32,41 @@ Primary coverage is token-weighted:
 known analyzable token occurrences / total analyzable token occurrences
 ```
 
-The UI should also show distinct lemma counts and occurrence counts because lemma coverage and token coverage answer different questions.
+An analyzable token occurrence is an occurrence retained by the existing NLP and
+selection filters: punctuation, proper names, and stop words are outside the
+metric. The denominator is the sum of retained occurrence counts before learner
+vocabulary state is applied. Explicitly known occurrences contribute to the
+numerator. Previously generated vocabulary remains a separate category and is
+not counted as known.
+
+The UI should also show distinct lemma counts and occurrence counts because
+lemma coverage and token coverage answer different questions. Percentages use
+the integer occurrence counts; presentation may round the resulting ratio, but
+selection never uses a rounded percentage.
 
 ### Threshold requirements
 
-For target `T`, additional vocabulary means the smallest set of currently unknown lemmas whose observed occurrences would raise token coverage to `T`. Ties are deterministic. The calculation must respect the learner's explicit known vocabulary and existing generated-vocabulary exclusion semantics.
+Threshold investment preserves the existing deck-selection contract from ADRs
+0017 and 0019. First remove explicitly known identities and vocabulary generated
+for another book. The remaining occurrences form the eligible unknown-token
+pool. For target `T`, additional vocabulary is the smallest frequency-ordered
+prefix of eligible lemma+UPOS identities accounting for at least `T` percent of
+that pool. This threshold percentage is deliberately distinct from overall
+known-token coverage.
+
+Candidates are ordered by descending book-local occurrence count. Equal counts
+are ordered lexicographically by `(language, canonical lemma, UPOS)`. The
+threshold comparison uses exact integer arithmetic:
+
+```text
+selected occurrences * 100 >= eligible occurrences * T
+```
+
+An explicit known-vocabulary entry with no UPOS is a lemma wildcard and covers
+every UPOS for that language. An entry with a UPOS covers only the matching
+lemma+UPOS identity. Generated-vocabulary exclusions are identity-specific;
+unknown provenance is excluded conservatively, another book is excluded, and
+the current book remains eligible so repeat generation is idempotent.
 
 Initial targets:
 
@@ -85,10 +115,10 @@ Structural metrics require an explicit NLP/data contract before implementation.
 
 The repository feature document is the product source of truth. Stable metric decisions may be recorded in a dedicated ADR. GitHub issues track implementation slices and PRs provide delivery/verification history. No GitHub Project or GitHub Milestone is required for this feature. The Obsidian vault records the broader milestone and links back to this document and issues.
 
+The settled contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md).
+
 ## Open questions
 
-- Where should total analyzable token counts be persisted or derived?
-- How should wildcard known vocabulary interact with UPOS-specific candidate counts?
 - Which analysis-quality warnings can be computed from current artifacts?
 - Which structural metrics should be added to the NLP contract?
 - Should threshold results be computed on demand or persisted with analysis?

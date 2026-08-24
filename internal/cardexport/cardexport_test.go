@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -385,6 +386,49 @@ func TestCoverageCandidatesKnownLemmaWildcardAndSingleton(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].CanonicalLemma != "only" {
 		t.Fatalf("coverage candidates = %#v", got)
+	}
+}
+
+func TestSelectCoverageCandidatesMetricContract(t *testing.T) {
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "eins", UPOS: "NOUN", OccurrenceCount: 94},
+		{Language: "de", CanonicalLemma: "zwei", UPOS: "NOUN", OccurrenceCount: 2},
+		{Language: "de", CanonicalLemma: "drei", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "beta", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "gamma", UPOS: "NOUN", OccurrenceCount: 1},
+	}
+	tests := []struct {
+		target int
+		want   []string
+	}{
+		{target: 95, want: []string{"eins", "zwei"}},
+		{target: 97, want: []string{"eins", "zwei", "alpha"}},
+		{target: 99, want: []string{"eins", "zwei", "alpha", "beta", "drei"}},
+	}
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%d_percent", tc.target), func(t *testing.T) {
+			got := selectCoverageCandidates(candidates, tc.target)
+			if len(got) != len(tc.want) {
+				t.Fatalf("selected %d candidates, want %d: %+v", len(got), len(tc.want), got)
+			}
+			for i, candidate := range got {
+				if candidate.CanonicalLemma != tc.want[i] {
+					t.Fatalf("candidate %d = %q, want %q", i, candidate.CanonicalLemma, tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestSelectCoverageCandidatesStopsAtExactThreshold(t *testing.T) {
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "common", UPOS: "NOUN", OccurrenceCount: 97},
+		{Language: "de", CanonicalLemma: "rare", UPOS: "NOUN", OccurrenceCount: 3},
+	}
+	got := selectCoverageCandidates(candidates, 97)
+	if len(got) != 1 || got[0].CanonicalLemma != "common" {
+		t.Fatalf("selected = %+v, want exact 97%% prefix", got)
 	}
 }
 
