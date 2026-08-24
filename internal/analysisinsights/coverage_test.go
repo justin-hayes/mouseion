@@ -68,7 +68,7 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.AnalyzableTokenCount != 200 || got.KnownTokenCount != 110 || got.KnownLemmaCount != 3 || got.UnknownTokenCount != 90 || got.UnknownLemmaCount != 5 {
+	if got.AnalyzableTokenCount != 200 || got.DistinctLemmaCount != 8 || got.KnownTokenCount != 110 || got.KnownLemmaCount != 3 || got.UnknownTokenCount != 90 || got.UnknownLemmaCount != 5 {
 		t.Fatalf("coverage = %+v", got)
 	}
 	want := []domain.CoverageThreshold{

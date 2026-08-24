@@ -121,10 +121,30 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	}
 	}
 }
-templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, message string) {
+templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
 	@Layout(book.Source.Title, &user, csrf) { <p><a href="/library">← My Library</a></p><header class="page-heading"><div><h1>{ book.Source.Title }</h1><p><code>{ book.Source.Language }</code> · { book.Source.MediaType }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></header>
 	if message != "" {
 		<p role="status">{ message }</p>
+	}
+	if coverage != nil {
+		<section aria-labelledby="coverage-heading"><h2 id="coverage-heading">Vocabulary coverage</h2>
+			<div class="coverage-summary">
+				<article><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*coverage)) }</strong><span>current token coverage</span></article>
+				<article><strong>{ fmt.Sprintf("%d", coverage.AnalyzableTokenCount) }</strong><span>analyzable tokens</span></article>
+				<article><strong>{ fmt.Sprintf("%d", coverage.DistinctLemmaCount) }</strong><span>distinct lemmas</span></article>
+			</div>
+			<p>Your explicitly known vocabulary covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
+			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to cover each share of the eligible unknown-token pool:</p>
+			<div class="coverage-thresholds">
+				for _, threshold := range coverage.Thresholds {
+					<article><strong>{ fmt.Sprintf("%d", threshold.LemmaCount) }</strong><span>{ fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent) }</span></article>
+				}
+			</div>
+			<details><summary>How these metrics work</summary><p><strong>Current token coverage</strong> is the share of analyzable token occurrences matched by vocabulary you explicitly marked known. Analyzable tokens exclude punctuation, proper names, and stop words. Distinct lemmas count lemma and part-of-speech identities.</p><p><strong>Previously generated vocabulary</strong> means words Mouseion assigned to another deck. It is not counted as explicitly known. It is excluded from a new deck, while unknown words not already generated are <strong>deck-eligible vocabulary</strong>. The 95%, 97%, and 99% estimates use that eligible pool, so their denominator differs from current token coverage.</p></details>
+		</section>
+	}
+	if statisticsUnavailable {
+		<article role="note"><h2>Vocabulary coverage unavailable</h2><p>This book was analyzed before coverage statistics were recorded. Analyze it again to see coverage insights.</p></article>
 	}
 	<div class="book-actions"><article><h2>Analysis</h2>
 		if book.AnalysisJobID > 0 {
@@ -141,6 +161,13 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			<button disabled>Available after analysis</button>
 		}
 	</article></div> }
+}
+
+func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
+	if coverage.AnalyzableTokenCount == 0 {
+		return 0
+	}
+	return float64(coverage.KnownTokenCount) * 100 / float64(coverage.AnalyzableTokenCount)
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {

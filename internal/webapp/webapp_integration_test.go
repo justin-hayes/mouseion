@@ -35,6 +35,16 @@ import (
 )
 
 type recordingAnalysis struct{ owner, source string }
+type recordingAnalysisInsights struct {
+	owner, corpus string
+	coverage      domain.AnalysisCoverage
+}
+
+func (r *recordingAnalysisInsights) Coverage(_ context.Context, owner, corpus string) (domain.AnalysisCoverage, error) {
+	r.owner, r.corpus = owner, corpus
+	return r.coverage, nil
+}
+
 type staticCapabilities struct {
 	value analyzer.Capabilities
 	err   error
@@ -483,7 +493,20 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
 	}
 	externalJobs := &recordingEnrichment{}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	insights := &recordingAnalysisInsights{coverage: domain.AnalysisCoverage{
+		AnalyzableTokenCount: 200, DistinctLemmaCount: 8, KnownTokenCount: 110, KnownLemmaCount: 3, UnknownTokenCount: 90, UnknownLemmaCount: 5,
+		Thresholds: []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
+	}}
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, AnalysisInsights: insights, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
+	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
+		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
+	}
+	for _, want := range []string{"55.0%", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "explicitly known vocabulary", "Previously generated vocabulary", "deck-eligible vocabulary", "Prepare deck"} {
+		if !strings.Contains(bookPage.Body.String(), want) {
+			t.Errorf("coverage page missing %q", want)
+		}
+	}
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())

@@ -131,7 +131,7 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 		Source:         domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"},
 		AnalysisStatus: "analyzed",
 	}
-	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, "").Render(context.Background(), &output); err != nil {
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -163,5 +163,26 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 		if strings.Contains(html, unwanted) {
 			t.Errorf("deck page still contains legacy immediate-download behavior %q", unwanted)
 		}
+	}
+}
+
+func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
+	var output bytes.Buffer
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
+	coverage := domain.AnalysisCoverage{
+		AnalyzableTokenCount: 40, DistinctLemmaCount: 12, KnownTokenCount: 30, KnownLemmaCount: 7, UnknownTokenCount: 10, UnknownLemmaCount: 5,
+		Thresholds: []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3}, {TargetPercent: 97, LemmaCount: 4}, {TargetPercent: 99, LemmaCount: 5}},
+	}
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &coverage, false, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("coverage summary missing %q", want)
+		}
+	}
+	if strings.Contains(html, "top unknown") || strings.Contains(html, "structural difficulty") {
+		t.Errorf("coverage summary includes deferred insights: %s", html)
 	}
 }
