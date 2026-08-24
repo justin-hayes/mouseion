@@ -232,6 +232,9 @@ func TestNLPCapabilityDiscoveryAndDegradedBehavior(t *testing.T) {
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
@@ -270,6 +273,44 @@ func TestNLPCapabilityDiscoveryAndDegradedBehavior(t *testing.T) {
 	}
 }
 
+func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	h := New(Services{
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
+		Capabilities: readyGerman(), SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
+
+	var references int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM supported_languages`).Scan(&references); err != nil || references != 0 {
+		t.Fatalf("fresh supported languages=%d err=%v", references, err)
+	}
+	unsupported := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {"zz"}}, cookies)
+	if unsupported.Code != http.StatusBadRequest || !strings.Contains(unsupported.Body.String(), "unsupported study language") {
+		t.Fatalf("unsupported language=%d %s", unsupported.Code, unsupported.Body.String())
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM supported_languages`).Scan(&references); err != nil || references != 0 {
+		t.Fatalf("unsupported language changed references=%d err=%v", references, err)
+	}
+
+	added := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
+	if added.Code != http.StatusSeeOther {
+		t.Fatalf("add study language=%d %s", added.Code, added.Body.String())
+	}
+	profiles, err := store.ListLanguageProfiles(ctx, alice.ID)
+	if err != nil || len(profiles) != 1 || profiles[0].OwnerID != alice.ID || profiles[0].Language != "de" || profiles[0].DisplayName != "German" {
+		t.Fatalf("profiles=%+v err=%v", profiles, err)
+	}
+}
+
 func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "webapp-integration-secret")
 	ctx := context.Background()
@@ -283,6 +324,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	createAccount(t, ctx, store, "admin", "admin-password", true)
 	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
 	bob := createAccount(t, ctx, store, "bob", "bob-password", false)
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
