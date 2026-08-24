@@ -124,7 +124,7 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	if err != nil || len(bobLibrary) != 0 {
 		t.Fatalf("bob library leaked alice source: books=%v err=%v", bobLibrary, err)
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash) VALUES(84001,$1,$2,$3)`, alice.ID, source.ID, source.ContentHash); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash) VALUES(84001,1,$1,$2,$3)`, alice.ID, source.ID, source.ContentHash); err != nil {
 		t.Fatal(err)
 	}
 	library, err = store.ListSourceMaterials(ctx, alice.ID)

@@ -279,7 +279,7 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.ID))
+	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.DisplayNumber))
 }
 func (h *Handler) loadBook(w http.ResponseWriter, r *http.Request, owner string) (domain.SourceMaterialSummary, bool) {
 	return h.loadBookID(w, r, owner, r.PathValue("id"))
@@ -541,7 +541,7 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/books/%s?message=%s", result.Source.ID, url.QueryEscape(fmt.Sprintf("Imported to My Library. Analysis job #%d is queued — follow its progress below.", handle.ID))))
+	redirect(w, r, fmt.Sprintf("/books/%s?message=%s", result.Source.ID, url.QueryEscape(fmt.Sprintf("Imported to My Library. Analysis job #%d is queued — follow its progress below.", handle.DisplayNumber))))
 }
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)

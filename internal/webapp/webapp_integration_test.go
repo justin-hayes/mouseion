@@ -172,13 +172,13 @@ func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (kn
 
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
 	r.owner, r.source = owner, source
-	return analysis.Handle{ID: 42}, nil
+	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
 	if owner != r.owner || id != 42 {
 		return analysis.Status{}, analysis.ErrNotFound
 	}
-	return analysis.Status{ID: 42, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
+	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
 }
 
 func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
@@ -464,7 +464,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("resubmit=%d owner=%q source=%q", resubmitted.Code, recorder.owner, recorder.source)
 	}
 	jobPage := perform(t, h, "GET", "/jobs/42", nil, cookies)
-	if jobPage.Code != 200 || !strings.Contains(jobPage.Body.String(), "Succeeded") {
+	if jobPage.Code != 200 || !strings.Contains(jobPage.Body.String(), "Succeeded") || !strings.Contains(jobPage.Body.String(), "Analysis job #1") || strings.Contains(jobPage.Body.String(), "Analysis job #42") {
 		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
 	}
 

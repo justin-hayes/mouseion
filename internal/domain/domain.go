@@ -78,7 +78,7 @@ type Corpus struct {
 	CreatedAt                                           time.Time
 }
 type AnalysisJob struct {
-	ID                                                      int64
+	ID, DisplayNumber                                       int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
 	Progress                                                int
 	CreatedAt, UpdatedAt                                    time.Time

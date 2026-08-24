@@ -356,7 +356,7 @@ func (s *PostgresStore) ListLanguageProfiles(ctx context.Context, owner string) 
 }
 
 func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
-	rows, err := s.pool.Query(ctx, `SELECT river_job_id,owner_id,source_material_id,content_hash,COALESCE(corpus_id::text,''),progress,error,created_at,updated_at FROM analysis_jobs WHERE owner_id=$1 ORDER BY created_at DESC LIMIT 100`, owner)
+	rows, err := s.pool.Query(ctx, `SELECT river_job_id,display_number,owner_id,source_material_id,content_hash,COALESCE(corpus_id::text,''),progress,error,created_at,updated_at FROM analysis_jobs WHERE owner_id=$1 ORDER BY created_at DESC,river_job_id DESC LIMIT 100`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 	var out []domain.AnalysisJob
 	for rows.Next() {
 		var job domain.AnalysisJob
-		if err := rows.Scan(&job.ID, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
+		if err := rows.Scan(&job.ID, &job.DisplayNumber, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, job)
