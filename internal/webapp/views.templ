@@ -127,6 +127,20 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		<p role="status">{ message }</p>
 	}
 	if coverage != nil {
+		if hasAnalysisWarnings(*coverage) {
+			<section aria-labelledby="analysis-quality-heading"><h2 id="analysis-quality-heading">Analysis quality</h2>
+				<p>These checks describe concrete gaps in the analyzer output. They do not assign a quality grade.</p>
+				if coverage.TextProfile != nil && coverage.TextProfile.SentenceCount == 0 {
+					<article role="note"><strong>No sentences returned.</strong> Sentence-length signals are unavailable. Analyze the book again if the source text should contain sentences.</article>
+				}
+				if coverage.TextProfile != nil && coverage.TextProfile.EmptySentenceCount > 0 {
+					<article role="note"><strong>Empty sentences returned.</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens; those sentences count as zero tokens in the structural statistics.", coverage.TextProfile.EmptySentenceCount) }</article>
+				}
+				if coverage.TextProfile != nil && coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
+					<article role="note"><strong>No vocabulary-analyzable tokens.</strong> The analyzer returned normalized tokens, but none passed the vocabulary filters, so coverage and vocabulary projections have no usable token denominator.</article>
+				}
+			</section>
+		}
 		if coverage.TextProfile != nil {
 			<section aria-labelledby="text-profile-heading"><h2 id="text-profile-heading">Text profile</h2>
 				<div class="coverage-summary">
@@ -136,15 +150,6 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 					<article><strong>{ fmt.Sprintf("%.1f%%", longSentencePercent(*coverage.TextProfile)) }</strong><span>long sentences (&gt;35 tokens)</span></article>
 				</div>
 				<p><strong>{ fmt.Sprintf("%d of %d", coverage.AnalyzableTokenCount, coverage.TextProfile.NormalizedTokenCount) }</strong> normalized tokens contribute to vocabulary coverage. Sentence lengths include every normalized token, including punctuation.</p>
-				if coverage.TextProfile.SentenceCount == 0 {
-					<article role="note"><strong>Analysis warning:</strong> the analyzer returned no sentences, so structural signals are unavailable.</article>
-				}
-				if coverage.TextProfile.EmptySentenceCount > 0 {
-					<article role="note"><strong>Analysis warning:</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens.", coverage.TextProfile.EmptySentenceCount) }</article>
-				}
-				if coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
-					<article role="note"><strong>Coverage warning:</strong> no normalized tokens passed the vocabulary-analysis filters.</article>
-				}
 				<details><summary>How the text profile works</summary><p>Sentence boundaries and tokens come from the analyzer. The median is the middle sentence length (or the average of the two middle lengths), and the 90th percentile uses nearest-rank selection. A long sentence has more than 35 normalized tokens. These are separate, descriptive signals—not a difficulty score or proficiency-level claim.</p></details>
 			</section>
 		}
@@ -185,7 +190,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		</section>
 	}
 	if statisticsUnavailable {
-		<article role="note"><h2>Vocabulary coverage unavailable</h2><p>This book was analyzed before coverage statistics were recorded. Analyze it again to see coverage insights.</p></article>
+		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary and sentence statistics were recorded. Analyze it again to see coverage, projections, and the structural profile.</p></article>
 	}
 	<div class="book-actions"><article><h2>Analysis</h2>
 		if book.AnalysisJobID > 0 {
@@ -230,6 +235,15 @@ func longSentencePercent(profile domain.TextProfile) float64 {
 		return 0
 	}
 	return float64(profile.LongSentenceCount) * 100 / float64(profile.SentenceCount)
+}
+
+func hasAnalysisWarnings(coverage domain.AnalysisCoverage) bool {
+	if coverage.TextProfile == nil {
+		return false
+	}
+	return coverage.TextProfile.SentenceCount == 0 ||
+		coverage.TextProfile.EmptySentenceCount > 0 ||
+		(coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0)
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {
