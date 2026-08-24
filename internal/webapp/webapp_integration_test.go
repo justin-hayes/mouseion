@@ -331,7 +331,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	epubBytes := testEPUB(t)
+	catalogRequests := 0
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		catalogRequests++
 		switch r.URL.Path {
 		case "/opds":
 			w.Header().Set("Content-Type", "application/atom+xml")
@@ -350,11 +352,11 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}))
 	defer catalog.Close()
-	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds", Language: "de"})
+	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds", Language: "de"})
+	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,11 +381,24 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if home.Code != http.StatusSeeOther || home.Header().Get("Location") != "/library" {
 		t.Fatalf("home=%d location=%q", home.Code, home.Header().Get("Location"))
 	}
-	browse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID, nil, cookies)
+	requestsBeforeUnsupported := catalogRequests
+	unsupportedBrowse := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=xx", nil, cookies)
+	if unsupportedBrowse.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
+		t.Fatalf("unsupported browse=%d requests=%d want %d", unsupportedBrowse.Code, catalogRequests, requestsBeforeUnsupported)
+	}
+	unsupportedRootBrowse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID+"&language=xx", nil, cookies)
+	if unsupportedRootBrowse.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
+		t.Fatalf("unsupported root browse=%d requests=%d want %d", unsupportedRootBrowse.Code, catalogRequests, requestsBeforeUnsupported)
+	}
+	unsupportedAcquire := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"xx"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}, cookies)
+	if unsupportedAcquire.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
+		t.Fatalf("unsupported acquire=%d requests=%d want %d", unsupportedAcquire.Code, catalogRequests, requestsBeforeUnsupported)
+	}
+	browse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID+"&language=de", nil, cookies)
 	if browse.Code != 200 || strings.Contains(browse.Body.String(), "Test Book") || !strings.Contains(browse.Body.String(), "Search is not available") {
 		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
 	}
-	crossOwner := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID, nil, cookies)
+	crossOwner := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID+"&language=de", nil, cookies)
 	if crossOwner.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner browse=%d %s", crossOwner.Code, crossOwner.Body.String())
 	}
@@ -396,18 +411,18 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/connections/"+bobConnection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner delete=%d %s", got.Code, got.Body.String())
 	}
-	if got := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {bobConnection.ID}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}, cookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {bobConnection.ID}, "language": {"de"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}, cookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner acquire=%d %s", got.Code, got.Body.String())
 	}
 	catalogPage := perform(t, h, "GET", "/catalog?connection="+connection.ID, nil, cookies)
-	if catalogPage.Code != 200 || !strings.Contains(catalogPage.Body.String(), "German — study language") {
+	if catalogPage.Code != 200 || !strings.Contains(catalogPage.Body.String(), `value="de"`) {
 		t.Fatalf("catalog=%d %s", catalogPage.Code, catalogPage.Body.String())
 	}
-	languageBooks := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=1", nil, cookies)
+	languageBooks := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, cookies)
 	if languageBooks.Code != 200 || !strings.Contains(languageBooks.Body.String(), "Test Book") || strings.Contains(languageBooks.Body.String(), "PDF Book") {
 		t.Fatalf("language browse=%d %s", languageBooks.Code, languageBooks.Body.String())
 	}
-	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
+	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
 	acquired := perform(t, h, "POST", "/opds/acquire", acquireForm, cookies)
 	if acquired.Code != http.StatusSeeOther {
 		t.Fatalf("acquire=%d %s", acquired.Code, acquired.Body.String())

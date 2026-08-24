@@ -42,24 +42,24 @@ func TestAcquireUsesOwnerScopedConnectionAndPrivateImport(t *testing.T) {
 		_, _ = w.Write([]byte("epub"))
 	}))
 	defer server.Close()
-	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL, Username: "alice", Password: "encrypted-round-trip", Language: "de"}}
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL, Username: "alice", Password: "encrypted-round-trip"}}
 	importer := &importerStub{}
 	service := NewService(store, importer, server.Client())
-	result, err := service.Acquire(context.Background(), "owner-a", "connection", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	result, err := service.Acquire(context.Background(), "owner-a", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if store.owner != "owner-a" || store.id != "connection" || importer.owner != "owner-a" || importer.language != "de" || string(importer.content) != "epub" || result.Source.OwnerID != "owner-a" {
 		t.Fatalf("connection owner=%q id=%q import=%+v result=%+v", store.owner, store.id, importer, result)
 	}
-	if _, err = service.Acquire(context.Background(), "", "connection", Entry{}); !errors.Is(err, ErrUnauthenticated) {
+	if _, err = service.Acquire(context.Background(), "", "connection", "de", Entry{}); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("unauthenticated acquire error=%v", err)
 	}
 }
 
 func TestAcquireRejectsEntryWithoutEPUB(t *testing.T) {
-	store := &connectionStoreStub{connection: domain.OpdsConnection{Language: "de"}}
-	_, err := NewService(store, &importerStub{}, nil).Acquire(context.Background(), "owner", "connection", Entry{})
+	store := &connectionStoreStub{}
+	_, err := NewService(store, &importerStub{}, nil).Acquire(context.Background(), "owner", "connection", "de", Entry{})
 	if !errors.Is(err, ErrNoEPUB) {
 		t.Fatalf("error=%v", err)
 	}
