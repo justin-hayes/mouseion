@@ -63,4 +63,11 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	if result.Language != "de" || len(result.Sentences) == 0 {
 		t.Fatalf("unexpected result: %+v", result)
 	}
+	capabilities, err := analyzer.GetCapabilities(ctx)
+	if err != nil {
+		t.Fatal(fmt.Errorf("real gRPC capabilities: %w", err))
+	}
+	if len(capabilities.Languages) != 1 || capabilities.Languages[0].Language != "de" || !capabilities.Languages[0].Ready {
+		t.Fatalf("unexpected capabilities: %+v", capabilities)
+	}
 }

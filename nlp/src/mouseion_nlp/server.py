@@ -7,7 +7,8 @@ import os
 from typing import NoReturn
 
 import grpc
-from mouseion.v1 import normalized_corpus_pb2_grpc
+import stanza
+from mouseion.v1 import normalized_corpus_pb2, normalized_corpus_pb2_grpc
 
 from .producer import Producer, SourceDocument
 
@@ -17,6 +18,7 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
 
     def __init__(self, producer: Producer | None = None) -> None:
         self._producer = producer or Producer()
+        self._ready_languages: set[str] = set()
 
     def warmup(self, language: str) -> None:
         """Load (and, on first run, download) the Stanza pipeline for a language.
@@ -26,6 +28,25 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
         call (which could otherwise exceed the caller's RPC deadline).
         """
         self._producer.warmup(language)
+        self._ready_languages.add(language)
+
+    def GetCapabilities(self, request, context):  # noqa: ARG002, N802
+        language = os.getenv("MOUSEION_NLP_WARM_LANGUAGE", "de")
+        display_names = {"de": "German"}
+        features = ["tokenize", "pos", "lemma"]
+        if self._producer.enable_ner:
+            features.append("ner")
+        return normalized_corpus_pb2.GetCapabilitiesResponse(
+            languages=[
+                normalized_corpus_pb2.LanguageCapability(
+                    language=language,
+                    display_name=display_names.get(language, language),
+                    model_version=stanza.__version__,
+                    supported_features=features,
+                    ready=language in self._ready_languages,
+                )
+            ]
+        )
 
     def Analyze(self, request, context):  # noqa: N802
         source = request.source_document

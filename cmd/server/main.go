@@ -90,8 +90,9 @@ func main() {
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
 	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
 	preparedDeckService := prepareddeck.NewService(store, riverClient)
+	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

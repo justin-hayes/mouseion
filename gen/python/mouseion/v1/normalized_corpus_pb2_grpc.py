@@ -39,12 +39,23 @@ class AnalyzerServiceStub(object):
                 request_serializer=mouseion_dot_v1_dot_normalized__corpus__pb2.AnalyzeRequest.SerializeToString,
                 response_deserializer=mouseion_dot_v1_dot_normalized__corpus__pb2.NormalizedCorpus.FromString,
                 _registered_method=True)
+        self.GetCapabilities = channel.unary_unary(
+                '/mouseion.v1.AnalyzerService/GetCapabilities',
+                request_serializer=mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesRequest.SerializeToString,
+                response_deserializer=mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesResponse.FromString,
+                _registered_method=True)
 
 
 class AnalyzerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Analyze(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCapabilities(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,6 +68,11 @@ def add_AnalyzerServiceServicer_to_server(servicer, server):
                     servicer.Analyze,
                     request_deserializer=mouseion_dot_v1_dot_normalized__corpus__pb2.AnalyzeRequest.FromString,
                     response_serializer=mouseion_dot_v1_dot_normalized__corpus__pb2.NormalizedCorpus.SerializeToString,
+            ),
+            'GetCapabilities': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCapabilities,
+                    request_deserializer=mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesRequest.FromString,
+                    response_serializer=mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,6 +102,33 @@ class AnalyzerService(object):
             '/mouseion.v1.AnalyzerService/Analyze',
             mouseion_dot_v1_dot_normalized__corpus__pb2.AnalyzeRequest.SerializeToString,
             mouseion_dot_v1_dot_normalized__corpus__pb2.NormalizedCorpus.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCapabilities(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/mouseion.v1.AnalyzerService/GetCapabilities',
+            mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesRequest.SerializeToString,
+            mouseion_dot_v1_dot_normalized__corpus__pb2.GetCapabilitiesResponse.FromString,
             options,
             channel_credentials,
             insecure,

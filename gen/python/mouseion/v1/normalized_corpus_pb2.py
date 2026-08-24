@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#mouseion/v1/normalized_corpus.proto\x12\x0bmouseion.v1\"o\n\x0e\x41nalyzeRequest\x12\x10\n\x08language\x18\x65 \x01(\t\x12\x15\n\rdocument_text\x18\x66 \x01(\t\x12\x34\n\x0fsource_document\x18g \x01(\x0b\x32\x1b.mouseion.v1.SourceDocument\"\x92\x02\n\x10NormalizedCorpus\x12\x16\n\x0eschema_version\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12(\n\tsentences\x18\x03 \x03(\x0b\x32\x15.mouseion.v1.Sentence\x12\x35\n\x10source_documents\x18\x04 \x03(\x0b\x32\x1b.mouseion.v1.SourceDocument\x12\x31\n\x08\x61nalysis\x18\x05 \x01(\x0b\x32\x1f.mouseion.v1.AnalysisProvenance\x12@\n\x15normalization_profile\x18\x06 \x01(\x0b\x32!.mouseion.v1.NormalizationProfile\"k\n\x08Sentence\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\"\n\x06tokens\x18\x02 \x03(\x0b\x32\x12.mouseion.v1.Token\x12-\n\x08location\x18\x03 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\"\x97\x02\n\x05Token\x12\x0f\n\x07surface\x18\x01 \x01(\t\x12\x11\n\traw_lemma\x18\x02 \x01(\t\x12\x0b\n\x03pos\x18\x03 \x01(\t\x12\x17\n\x0f\x63\x61nonical_lemma\x18\x04 \x01(\t\x12\x36\n\nmorphology\x18\x05 \x03(\x0b\x32\".mouseion.v1.Token.MorphologyEntry\x12\x19\n\x0cnamed_entity\x18\x06 \x01(\tH\x00\x88\x01\x01\x12-\n\x08location\x18\x07 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\x1a\x31\n\x0fMorphologyEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0f\n\r_named_entity\"F\n\x0eSourceDocument\x12\n\n\x02id\x18\x01 \x01(\t\x12\x19\n\x11source_identifier\x18\x02 \x01(\t\x12\r\n\x05title\x18\x03 \x01(\t\"j\n\x12\x41nalysisProvenance\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x13\n\x0b\x61nalyzed_at\x18\x02 \x01(\t\x12\x15\n\ranalyzer_name\x18\x03 \x01(\t\x12\x18\n\x10\x61nalyzer_version\x18\x04 \x01(\t\"5\n\x14NormalizationProfile\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"x\n\x0eSourceLocation\x12\x1a\n\x12source_document_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63hapter\x18\x02 \x01(\t\x12\x0f\n\x07section\x18\x03 \x01(\t\x12\x14\n\x0cstart_offset\x18\x04 \x01(\x04\x12\x12\n\nend_offset\x18\x05 \x01(\x04\x32X\n\x0f\x41nalyzerService\x12\x45\n\x07\x41nalyze\x12\x1b.mouseion.v1.AnalyzeRequest\x1a\x1d.mouseion.v1.NormalizedCorpusB@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#mouseion/v1/normalized_corpus.proto\x12\x0bmouseion.v1\"\x18\n\x16GetCapabilitiesRequest\"M\n\x17GetCapabilitiesResponse\x12\x32\n\tlanguages\x18\x01 \x03(\x0b\x32\x1f.mouseion.v1.LanguageCapability\"~\n\x12LanguageCapability\x12\x10\n\x08language\x18\x01 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x15\n\rmodel_version\x18\x03 \x01(\t\x12\x1a\n\x12supported_features\x18\x04 \x03(\t\x12\r\n\x05ready\x18\x05 \x01(\x08\"o\n\x0e\x41nalyzeRequest\x12\x10\n\x08language\x18\x65 \x01(\t\x12\x15\n\rdocument_text\x18\x66 \x01(\t\x12\x34\n\x0fsource_document\x18g \x01(\x0b\x32\x1b.mouseion.v1.SourceDocument\"\x92\x02\n\x10NormalizedCorpus\x12\x16\n\x0eschema_version\x18\x01 \x01(\t\x12\x10\n\x08language\x18\x02 \x01(\t\x12(\n\tsentences\x18\x03 \x03(\x0b\x32\x15.mouseion.v1.Sentence\x12\x35\n\x10source_documents\x18\x04 \x03(\x0b\x32\x1b.mouseion.v1.SourceDocument\x12\x31\n\x08\x61nalysis\x18\x05 \x01(\x0b\x32\x1f.mouseion.v1.AnalysisProvenance\x12@\n\x15normalization_profile\x18\x06 \x01(\x0b\x32!.mouseion.v1.NormalizationProfile\"k\n\x08Sentence\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\"\n\x06tokens\x18\x02 \x03(\x0b\x32\x12.mouseion.v1.Token\x12-\n\x08location\x18\x03 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\"\x97\x02\n\x05Token\x12\x0f\n\x07surface\x18\x01 \x01(\t\x12\x11\n\traw_lemma\x18\x02 \x01(\t\x12\x0b\n\x03pos\x18\x03 \x01(\t\x12\x17\n\x0f\x63\x61nonical_lemma\x18\x04 \x01(\t\x12\x36\n\nmorphology\x18\x05 \x03(\x0b\x32\".mouseion.v1.Token.MorphologyEntry\x12\x19\n\x0cnamed_entity\x18\x06 \x01(\tH\x00\x88\x01\x01\x12-\n\x08location\x18\x07 \x01(\x0b\x32\x1b.mouseion.v1.SourceLocation\x1a\x31\n\x0fMorphologyEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0f\n\r_named_entity\"F\n\x0eSourceDocument\x12\n\n\x02id\x18\x01 \x01(\t\x12\x19\n\x11source_identifier\x18\x02 \x01(\t\x12\r\n\x05title\x18\x03 \x01(\t\"j\n\x12\x41nalysisProvenance\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x13\n\x0b\x61nalyzed_at\x18\x02 \x01(\t\x12\x15\n\ranalyzer_name\x18\x03 \x01(\t\x12\x18\n\x10\x61nalyzer_version\x18\x04 \x01(\t\"5\n\x14NormalizationProfile\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"x\n\x0eSourceLocation\x12\x1a\n\x12source_document_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63hapter\x18\x02 \x01(\t\x12\x0f\n\x07section\x18\x03 \x01(\t\x12\x14\n\x0cstart_offset\x18\x04 \x01(\x04\x12\x12\n\nend_offset\x18\x05 \x01(\x04\x32\xb6\x01\n\x0f\x41nalyzerService\x12\x45\n\x07\x41nalyze\x12\x1b.mouseion.v1.AnalyzeRequest\x1a\x1d.mouseion.v1.NormalizedCorpus\x12\\\n\x0fGetCapabilities\x12#.mouseion.v1.GetCapabilitiesRequest\x1a$.mouseion.v1.GetCapabilitiesResponseB@Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,24 +34,30 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'Z>github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseionv1'
   _globals['_TOKEN_MORPHOLOGYENTRY']._loaded_options = None
   _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_options = b'8\001'
-  _globals['_ANALYZEREQUEST']._serialized_start=52
-  _globals['_ANALYZEREQUEST']._serialized_end=163
-  _globals['_NORMALIZEDCORPUS']._serialized_start=166
-  _globals['_NORMALIZEDCORPUS']._serialized_end=440
-  _globals['_SENTENCE']._serialized_start=442
-  _globals['_SENTENCE']._serialized_end=549
-  _globals['_TOKEN']._serialized_start=552
-  _globals['_TOKEN']._serialized_end=831
-  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_start=765
-  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_end=814
-  _globals['_SOURCEDOCUMENT']._serialized_start=833
-  _globals['_SOURCEDOCUMENT']._serialized_end=903
-  _globals['_ANALYSISPROVENANCE']._serialized_start=905
-  _globals['_ANALYSISPROVENANCE']._serialized_end=1011
-  _globals['_NORMALIZATIONPROFILE']._serialized_start=1013
-  _globals['_NORMALIZATIONPROFILE']._serialized_end=1066
-  _globals['_SOURCELOCATION']._serialized_start=1068
-  _globals['_SOURCELOCATION']._serialized_end=1188
-  _globals['_ANALYZERSERVICE']._serialized_start=1190
-  _globals['_ANALYZERSERVICE']._serialized_end=1278
+  _globals['_GETCAPABILITIESREQUEST']._serialized_start=52
+  _globals['_GETCAPABILITIESREQUEST']._serialized_end=76
+  _globals['_GETCAPABILITIESRESPONSE']._serialized_start=78
+  _globals['_GETCAPABILITIESRESPONSE']._serialized_end=155
+  _globals['_LANGUAGECAPABILITY']._serialized_start=157
+  _globals['_LANGUAGECAPABILITY']._serialized_end=283
+  _globals['_ANALYZEREQUEST']._serialized_start=285
+  _globals['_ANALYZEREQUEST']._serialized_end=396
+  _globals['_NORMALIZEDCORPUS']._serialized_start=399
+  _globals['_NORMALIZEDCORPUS']._serialized_end=673
+  _globals['_SENTENCE']._serialized_start=675
+  _globals['_SENTENCE']._serialized_end=782
+  _globals['_TOKEN']._serialized_start=785
+  _globals['_TOKEN']._serialized_end=1064
+  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_start=998
+  _globals['_TOKEN_MORPHOLOGYENTRY']._serialized_end=1047
+  _globals['_SOURCEDOCUMENT']._serialized_start=1066
+  _globals['_SOURCEDOCUMENT']._serialized_end=1136
+  _globals['_ANALYSISPROVENANCE']._serialized_start=1138
+  _globals['_ANALYSISPROVENANCE']._serialized_end=1244
+  _globals['_NORMALIZATIONPROFILE']._serialized_start=1246
+  _globals['_NORMALIZATIONPROFILE']._serialized_end=1299
+  _globals['_SOURCELOCATION']._serialized_start=1301
+  _globals['_SOURCELOCATION']._serialized_end=1421
+  _globals['_ANALYZERSERVICE']._serialized_start=1424
+  _globals['_ANALYZERSERVICE']._serialized_end=1606
 # @@protoc_insertion_point(module_scope)

@@ -6,6 +6,21 @@ option go_package = "github.com/justin-hayes/mouseion/gen/go/mouseion/v1;mouseio
 
 service AnalyzerService {
   rpc Analyze(AnalyzeRequest) returns (NormalizedCorpus);
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+}
+
+message GetCapabilitiesRequest {}
+
+message GetCapabilitiesResponse {
+  repeated LanguageCapability languages = 1;
+}
+
+message LanguageCapability {
+  string language = 1;
+  string display_name = 2;
+  string model_version = 3;
+  repeated string supported_features = 4;
+  bool ready = 5;
 }
 
 // AnalyzeRequest carries one complete source document across the analyzer RPC

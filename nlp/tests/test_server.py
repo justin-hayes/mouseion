@@ -4,6 +4,11 @@ from mouseion_nlp.server import create_server
 
 
 class StubProducer:
+    enable_ner = False
+
+    def warmup(self, language):
+        assert language == "de"
+
     def analyze(self, text, language, document):
         assert (text, language) == ("Goethe", "de")
         assert (document.id, document.source_identifier, document.title) == (
@@ -38,5 +43,27 @@ def test_grpc_server_serves_a_normalized_corpus() -> None:
             )
         assert corpus.schema_version == "1.0.0"
         assert corpus.source_documents[0].id == "document-1"
+    finally:
+        server.stop(None).wait()
+
+
+def test_grpc_server_reports_language_capabilities() -> None:
+    server = create_server(StubProducer())
+    server._servicer.warmup("de")
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    try:
+        with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
+            stub = normalized_corpus_pb2_grpc.AnalyzerServiceStub(channel)
+            response = stub.GetCapabilities(normalized_corpus_pb2.GetCapabilitiesRequest())
+        assert len(response.languages) == 1
+        capability = response.languages[0]
+        assert (capability.language, capability.display_name, capability.ready) == (
+            "de",
+            "German",
+            True,
+        )
+        assert capability.model_version
+        assert capability.supported_features == ["tokenize", "pos", "lemma"]
     finally:
         server.stop(None).wait()

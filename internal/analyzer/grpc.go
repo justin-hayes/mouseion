@@ -57,9 +57,26 @@ func (a *GRPCAnalyzer) Analyze(ctx context.Context, request AnalyzeRequest) (Res
 	return result, nil
 }
 
+func (a *GRPCAnalyzer) GetCapabilities(ctx context.Context) (Capabilities, error) {
+	response, err := a.client.GetCapabilities(ctx, &mouseionv1.GetCapabilitiesRequest{})
+	if err != nil {
+		return Capabilities{}, fmt.Errorf("get NLP capabilities: %w", err)
+	}
+	result := Capabilities{Languages: make([]LanguageCapability, 0, len(response.GetLanguages()))}
+	for _, language := range response.GetLanguages() {
+		result.Languages = append(result.Languages, LanguageCapability{
+			Language: language.GetLanguage(), DisplayName: language.GetDisplayName(),
+			ModelVersion: language.GetModelVersion(), SupportedFeatures: append([]string(nil), language.GetSupportedFeatures()...),
+			Ready: language.GetReady(),
+		})
+	}
+	return result, nil
+}
+
 // Close releases the analyzer's reusable gRPC connection.
 func (a *GRPCAnalyzer) Close() error {
 	return a.conn.Close()
 }
 
 var _ Analyzer = (*GRPCAnalyzer)(nil)
+var _ CapabilityProvider = (*GRPCAnalyzer)(nil)
