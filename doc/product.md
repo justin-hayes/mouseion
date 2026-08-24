@@ -46,6 +46,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 19. [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — distinguishes explicitly known words from words already assigned in generated decks, with owner/book provenance.
 20. [ADR 0020: Anki package output and Mouseion deck hierarchy](adr/0020-anki-package-output.md) — makes `.apkg` the primary export and standardizes `Mouseion::<language>::<book title>` deck names.
 21. [ADR 0021: Contextual sentence translation cache and privacy](adr/0021-contextual-translation-cache.md) — separates sentence translation from lemma glosses, prevents context collisions, and preserves the external-provider privacy boundary.
+22. [ADR 0022: Asynchronous deck preparation and durable APKG artifacts](adr/0022-prepared-decks.md) — separates preparation from pure download and stores immutable prepared packages durably in PostgreSQL.
 
 ## Deployment and operations
 
