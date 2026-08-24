@@ -1,0 +1,33 @@
+# CODEOWNERS
+
+# Keep the ownership policy itself protected.
+/.github/                        @justin-hayes
+/.github/CODEOWNERS              @justin-hayes
+/AGENTS.md                       @justin-hayes
+
+# CI and repository automation.
+/.github/workflows/              @justin-hayes
+
+# Database schema and migrations.
+/migrations/                     @justin-hayes
+
+# Authentication, authorization, and security boundaries.
+/internal/auth/                  @justin-hayes
+/internal/webauth/               @justin-hayes
+/internal/security/              @justin-hayes
+
+# Dependencies and build inputs.
+/go.mod                          @justin-hayes
+/go.sum                          @justin-hayes
+/nlp/pyproject.toml              @justin-hayes
+/nlp/requirements*.txt           @justin-hayes
+
+# Containers, deployment, and infrastructure.
+/Dockerfile*                     @justin-hayes
+/docker-compose*.yml             @justin-hayes
+/docker-compose*.yaml            @justin-hayes
+/infra/                           @justin-hayes
+/deploy/                          @justin-hayes
+
+# Environment and secret templates.
+/.env*                            @justin-hayes
