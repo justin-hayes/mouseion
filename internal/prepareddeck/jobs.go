@@ -80,6 +80,13 @@ func (s *Service) Get(ctx context.Context, owner, id string) (domain.DeckPrepara
 	return s.store.GetDeckPreparation(ctx, owner, id)
 }
 
+// Download returns the persisted artifact only after preparation is ready.
+// It deliberately delegates to the read-only persistence operation so HTTP
+// downloads can never trigger providers, rendering, or study-state changes.
+func (s *Service) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
+	return s.store.DownloadDeckPreparation(ctx, owner, id)
+}
+
 func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	p, err := s.store.CancelDeckPreparation(ctx, owner, id)
 	if err != nil {

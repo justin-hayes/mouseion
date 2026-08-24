@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -70,6 +73,13 @@ type ExternalEnrichment interface {
 	Get(context.Context, string, int64) (enrichmentjob.Status, error)
 	Cancel(context.Context, string, int64) (enrichmentjob.Status, error)
 }
+type PreparedDeck interface {
+	Submit(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	Get(context.Context, string, string) (domain.DeckPreparation, error)
+	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
+	Retry(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	Download(context.Context, string, string) (domain.DeckPreparation, error)
+}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -81,6 +91,7 @@ type Services struct {
 	KnownVocab      KnownVocabulary
 	CardExport      *cardexport.Service
 	Enrichment      ExternalEnrichment
+	PreparedDeck    PreparedDeck
 	SecureCookies   bool
 	SessionLifetime time.Duration
 }
@@ -104,6 +115,11 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck", h.learner(http.HandlerFunc(h.generateDeck)))
+	h.mux.Handle("POST /books/{id}/deck/preparations", h.learner(http.HandlerFunc(h.createDeckPreparation)))
+	h.mux.Handle("GET /deck-preparations/{id}/status", h.learner(http.HandlerFunc(h.deckPreparationStatus)))
+	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.learner(http.HandlerFunc(h.cancelDeckPreparation)))
+	h.mux.Handle("POST /deck-preparations/{id}/retry", h.learner(http.HandlerFunc(h.retryDeckPreparation)))
+	h.mux.Handle("GET /deck-preparations/{id}/download", h.learner(http.HandlerFunc(h.downloadDeckPreparation)))
 	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.learner(http.HandlerFunc(h.enrichmentJobStatus)))
 	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.learner(http.HandlerFunc(h.cancelEnrichmentJob)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
@@ -765,6 +781,137 @@ func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(artifact.Completeness.CardsWithEnglishSentence))
 	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(artifact.Completeness.QualityOmitted))
 	_, _ = w.Write(artifact.APKG)
+}
+
+func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	handle, err := h.services.PreparedDeck.Submit(r.Context(), user(r).ID, r.PathValue("id"), r.FormValue("external_translation_consent") == "on")
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status")
+	w.WriteHeader(http.StatusSeeOther)
+}
+
+type deckPreparationResponse struct {
+	ID           string                      `json:"id"`
+	State        domain.DeckPreparationState `json:"state"`
+	Progress     int                         `json:"progress"`
+	Ready        bool                        `json:"ready"`
+	Error        string                      `json:"error,omitempty"`
+	Filename     string                      `json:"filename"`
+	DeckName     string                      `json:"deck_name"`
+	DownloadURL  string                      `json:"download_url,omitempty"`
+	Completeness deckCompletenessResponse    `json:"completeness"`
+}
+
+type deckCompletenessResponse struct {
+	TotalCards               int `json:"total_cards"`
+	CardsWithEnglish         int `json:"cards_with_english"`
+	CardsWithEnglishSentence int `json:"cards_with_contextual_sentence_translations"`
+	QualityOmissions         int `json:"quality_omissions"`
+}
+
+func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
+	progress := 0
+	if p.State == domain.DeckPreparationPreparing {
+		progress = 50
+	} else if p.State == domain.DeckPreparationReady || p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
+		progress = 100
+	}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: p.Error, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}}
+	if response.Ready {
+		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
+	}
+	return response
+}
+
+func writePreparationStatus(w http.ResponseWriter, p domain.DeckPreparation) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(preparationResponse(p))
+}
+
+func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) {
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := h.services.PreparedDeck.Get(r.Context(), user(r).ID, r.PathValue("id"))
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	writePreparationStatus(w, p)
+}
+
+func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := h.services.PreparedDeck.Cancel(r.Context(), user(r).ID, r.PathValue("id"))
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	writePreparationStatus(w, p)
+}
+
+func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	handle, err := h.services.PreparedDeck.Retry(r.Context(), user(r).ID, r.PathValue("id"), r.FormValue("external_translation_consent") == "on")
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	writePreparationStatus(w, handle.Preparation)
+}
+
+func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := h.services.PreparedDeck.Download(r.Context(), user(r).ID, r.PathValue("id"))
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.anki")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": p.Filename}))
+	w.Header().Set("X-Mouseion-Deck-Name", p.DeckName)
+	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(p.TotalCards))
+	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(p.CardsWithEnglish))
+	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(p.CardsWithContextualSentenceTranslations))
+	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(p.QualityOmissions))
+	_, _ = w.Write(p.Artifact)
+}
+
+func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, persistence.ErrNotFound):
+		http.NotFound(w, r)
+	case errors.Is(err, persistence.ErrInvalidTransition):
+		http.Error(w, "invalid deck preparation state", http.StatusConflict)
+	default:
+		fail(w, err)
+	}
 }
 
 func (h *Handler) enrichmentJobStatus(w http.ResponseWriter, r *http.Request) {
