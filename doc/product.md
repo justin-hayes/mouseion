@@ -44,6 +44,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 17. [ADR 0017: Replace frequency-based ranking with coverage-based selection](adr/0017-coverage-based-selection.md) — selects the minimal unknown-lemma set needed for ≥97% text coverage, ordered by first encounter.
 18. [ADR 0018: Remove global frequency dataset (DWDS) import](adr/0018-remove-dwds-frequency.md) — supersedes the DWDS import contract; coverage-based selection does not need corpus-frequency data.
 19. [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — distinguishes explicitly known words from words already assigned in generated decks, with owner/book provenance.
+20. [ADR 0020: Anki package output and Mouseion deck hierarchy](adr/0020-anki-package-output.md) — makes `.apkg` the primary export and standardizes `Mouseion::<language>::<book title>` deck names.
 
 ## Deployment and operations
 
