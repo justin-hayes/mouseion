@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/migrations"
@@ -74,16 +75,22 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','This translation belongs to another sentence.')`, enrichment.SentenceHash("Dieses alte Haus steht noch am Stadtrand.")); err != nil {
+		t.Fatal(err)
+	}
 
 	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.Count != 1 || !contains(artifact.TSV, "Haus") || contains(artifact.TSV, "Baum") {
+	if artifact.Count != 1 || artifact.Completeness.CardsWithEnglishSentence != 0 || contains(artifact.TSV, "This translation belongs to another sentence.") || !contains(artifact.TSV, "Haus") || contains(artifact.TSV, "Baum") {
 		t.Fatalf("artifact=%+v", artifact)
 	}
 	if contains(artifact.TSV, "Inhaltsverzeichnis") {
 		t.Fatalf("lower-quality first reference was selected: %s", artifact.TSV)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','The old house is surprisingly large.')`, enrichment.SentenceHash("Das alte Haus ist überraschend groß.")); err != nil {
+		t.Fatal(err)
 	}
 	var cards, decks, audits, generated, known int
 	var state string
@@ -103,7 +110,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	again, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
-	if err != nil || again.Count != 1 {
+	if err != nil || again.Count != 1 || again.Completeness != (cardexport.Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1}) || !contains(again.TSV, "The old house is surprisingly large.") {
 		t.Fatalf("again=%+v err=%v", again, err)
 	}
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards)

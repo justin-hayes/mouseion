@@ -281,7 +281,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	generate.Set("csrf_token", csrf)
 	exported := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
-	if exported.Code != 200 || exported.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(exported.Header().Get("Content-Disposition"), `filename="Test Book.apkg"`) {
+	if exported.Code != 200 || exported.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(exported.Header().Get("Content-Disposition"), `filename="Test Book.apkg"`) || exported.Header().Get("X-Mouseion-Cards-Total") != "1" || exported.Header().Get("X-Mouseion-Cards-With-English") != "0" || exported.Header().Get("X-Mouseion-Cards-With-English-Sentence") != "0" || exported.Header().Get("X-Mouseion-Cards-Quality-Omitted") != "0" {
 		t.Fatalf("export=%d headers=%v", exported.Code, exported.Header())
 	}
 	if len(externalJobs.candidates) != 0 || exported.Header().Get("X-Mouseion-Enrichment-Job") != "" {

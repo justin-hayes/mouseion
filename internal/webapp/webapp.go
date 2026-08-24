@@ -760,6 +760,10 @@ func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/vnd.anki")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": artifact.Filename}))
+	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(artifact.Completeness.TotalCards))
+	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(artifact.Completeness.CardsWithEnglish))
+	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(artifact.Completeness.CardsWithEnglishSentence))
+	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(artifact.Completeness.QualityOmitted))
 	_, _ = w.Write(artifact.APKG)
 }
 

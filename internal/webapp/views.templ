@@ -37,6 +37,8 @@ document.addEventListener('submit', async function (evt) {
   var originalText = button ? button.textContent : 'Generate deck';
   var previousError = form.querySelector('[data-deck-error]');
   if (previousError) previousError.remove();
+  var previousSummary = form.parentElement.querySelector('[data-deck-completeness]');
+  if (previousSummary) previousSummary.remove();
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Generating deck…'; }
   try {
     var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin'});
@@ -55,6 +57,14 @@ document.addEventListener('submit', async function (evt) {
     link.click();
     link.remove();
     setTimeout(function () { URL.revokeObjectURL(objectURL); }, 0);
+    var total = response.headers.get('X-Mouseion-Cards-Total') || '0';
+    var english = response.headers.get('X-Mouseion-Cards-With-English') || '0';
+    var englishSentence = response.headers.get('X-Mouseion-Cards-With-English-Sentence') || '0';
+    var omitted = response.headers.get('X-Mouseion-Cards-Quality-Omitted') || '0';
+    var summary = document.createElement('article');
+    summary.setAttribute('data-deck-completeness', '');
+    summary.innerHTML = '<strong>Deck downloaded:</strong> ' + window.escapeHtml(total) + ' cards · ' + window.escapeHtml(english) + ' with English · ' + window.escapeHtml(englishSentence) + ' with contextual sentence translations · ' + window.escapeHtml(omitted) + ' omitted for sentence quality.';
+    form.insertAdjacentElement('afterend', summary);
     var enrichmentJob = response.headers.get('X-Mouseion-Enrichment-Job');
     if (enrichmentJob) {
       var status = document.createElement('div');
