@@ -191,3 +191,69 @@ func TestCoverageCandidatesKnownLemmaWildcardAndSingleton(t *testing.T) {
 		t.Fatalf("coverage candidates = %#v", got)
 	}
 }
+
+func TestScoreSentenceQuality(t *testing.T) {
+	tests := []struct {
+		name, sentence, target, reason string
+		location                       int64
+		accepted                       bool
+	}{
+		{"long contextual", "Vor dem alten Haus spielen heute mehrere fröhliche Kinder, während ihre Eltern im sonnigen Garten gemeinsam das Abendessen vorbereiten.", "Haus", "usable length", 42, true},
+		{"too short", "Altes Haus.", "Haus", "too short or fragmented", 42, false},
+		{"too long", "Das Haus " + strings.Repeat("steht weit außerhalb der alten Stadt ", 9) + "still.", "Haus", "too long", 42, false},
+		{"missing target", "Vor dem alten Gebäude spielen heute mehrere fröhliche Kinder.", "Haus", "target not present as a word", 42, false},
+		{"fragmented boundary", "Vor dem alten Haus spielen heute mehrere Kinder", "Haus", "incomplete sentence boundaries", 42, false},
+		{"contents", "Inhaltsverzeichnis: Das Haus und seine lange Geschichte ..... 12.", "Haus", "structural noise or boilerplate", 42, false},
+		{"bibliography", "Bibliography: Das Haus in der europäischen Literatur.", "Haus", "structural noise or boilerplate", 42, false},
+		{"boilerplate", "All rights reserved for this edition of Haus und Garten.", "Haus", "structural noise or boilerplate", 42, false},
+		{"invalid location", "Vor dem alten Haus spielen heute mehrere fröhliche Kinder.", "Haus", "invalid source location", -1, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ScoreSentenceQuality(tc.sentence, tc.target, tc.location)
+			if got.Accepted != tc.accepted || !contains(got.Reasons, tc.reason) {
+				t.Fatalf("quality=%+v", got)
+			}
+		})
+	}
+}
+
+func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T) {
+	store := &memoryStore{bookID: "book"}
+	store.candidates = []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: 10, ObservedForms: []byte(`["Haus"]`)},
+		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: 20, ObservedForms: []byte(`["Baum"]`)},
+	}
+	store.entries = []Entry{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Haus.", SourceDocument: "Book", FirstEncounter: 10},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", Sentence: "Unter dem alten Baum warten heute mehrere müde Wanderer.", SourceDocument: "Book", FirstEncounter: 20},
+	}
+
+	artifact, err := NewService(store).ExportCoverage(context.Background(), "alice", "book")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 1 || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
+		t.Fatalf("artifact=%+v generated=%+v", artifact, store.generated)
+	}
+
+	// Rejected evidence was not added to generated history, so improved evidence
+	// remains eligible on a later export.
+	store.entries[0].Sentence = "Vor dem alten Haus spielen heute mehrere fröhliche Kinder."
+	artifact, err = NewService(store).ExportCoverage(context.Background(), "alice", "book")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 2 || len(artifact.Omitted) != 0 || len(store.generated) != 3 || !strings.Contains(artifact.TSV, "Haus") {
+		t.Fatalf("later artifact=%+v generated=%+v", artifact, store.generated)
+	}
+}
+
+func contains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}

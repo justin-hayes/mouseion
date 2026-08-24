@@ -60,14 +60,14 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		}
 		return source.ID
 	}
-	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das Haus ist groß.", 1, 10})
+	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 1, 10})
 	aliceBookB := seedBook(alice, "export-b", "Book B",
-		fixtureCandidate{"Haus", "Dieses Haus ist alt.", 100, 10},
-		fixtureCandidate{"Welt", "Die Welt ist groß.", 100, 20},
-		fixtureCandidate{"Baum", "Der Baum ist grün.", 96, 40},
-		fixtureCandidate{"Weg", "Der Weg ist lang.", 4, 30},
+		fixtureCandidate{"Haus", "Dieses alte Haus steht noch am Stadtrand.", 100, 10},
+		fixtureCandidate{"Welt", "Die ganze Welt ist wirklich sehr groß.", 100, 20},
+		fixtureCandidate{"Baum", "Der alte Baum trägt viele grüne Blätter.", 96, 40},
+		fixtureCandidate{"Weg", "Der schmale Weg führt durch den Wald.", 4, 30},
 	)
-	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs Haus ist neu.", 1, 10})
+	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs neues Haus steht nah am Fluss.", 1, 10})
 	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN"); err != nil {
 		t.Fatal(err)
 	}
@@ -139,6 +139,33 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, bob.ID, bobBook).Scan(&bobGenerated)
 	if bobGenerated != 1 {
 		t.Fatalf("Bob generated provenance=%d", bobGenerated)
+	}
+
+	badBook := seedBook(alice, "export-quality", "Quality Book", fixtureCandidate{"Fragment", "Fragment.", 1, 10})
+	omitted, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, badBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var omittedGenerated, omittedCards int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedCards)
+	if omitted.Count != 0 || len(omitted.Omitted) != 1 || omittedGenerated != 0 || omittedCards != 0 {
+		t.Fatalf("omitted=%+v generated=%d cards=%d", omitted, omittedGenerated, omittedCards)
+	}
+	var qualityCorpus string
+	if err = pool.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, badBook).Scan(&qualityCorpus); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.ReplaceSelectedSentences(ctx, alice.ID, qualityCorpus, "de", "Fragment", "NOUN", []domain.ExampleSentence{{SentenceKey: "quality-improved", Text: "Dieses Fragment enthält jetzt genügend hilfreichen Kontext.", SourceLocation: []byte(`{"start_offset":10}`), SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
+		t.Fatal(err)
+	}
+	improved, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, badBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated)
+	if improved.Count != 1 || len(improved.Omitted) != 0 || omittedGenerated != 1 {
+		t.Fatalf("improved=%+v generated=%d", improved, omittedGenerated)
 	}
 }
 
