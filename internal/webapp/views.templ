@@ -162,7 +162,7 @@ templ RegisterPage(csrf, message string) {
 	<form method="post" action="/register"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required/></label><label>Password<input type="password" name="password" minlength="8" required/></label><button>Create administrator</button></form></article> }
 }
 templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
-	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Browse books</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
+	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
 templ LanguagesPage(user domain.User, csrf string, profiles []domain.SupportedLanguage, message string) {
 	@Layout("Languages", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>Supported languages</h1><p>Configure the languages available for study. Learners choose from this administrator-managed set in the study workflow.</p>
@@ -217,30 +217,19 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 	}
 }
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection) {
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
 	@Layout("Add books", &user, csrf) { <h1>Add books</h1>
-	<p>Browse an administrator-configured OPDS catalog and add EPUB books to My Library.</p>
-	if len(connections) == 0 {
-		<article><h2>No catalogs available</h2><p>Ask an administrator to configure an OPDS catalog.</p></article>
-	}
-	<div class="catalog-list">
-	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a></article>
-	}
-	</div> }
-}
-templ AdminConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
-	@Layout("OPDS connections", &user, csrf) { <p><a href="/admin">← Administration</a></p><h1>OPDS connections</h1><p>Configure the shared catalogs available to every learner. Credentials are encrypted at rest and only shown here.</p>
+	<p>Configure your OPDS catalogs, then browse them to add EPUB books to My Library. Credentials are encrypted at rest and private to your account.</p>
 	if message != "" {
 		<p role="status">{ message }</p>
 	}
-	<article><h2>Add connection</h2><form method="post" action="/admin/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label><label>Book language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+	<article><h2>Add catalog</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label><label>Book language<input name="language" placeholder="de" required/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
 	if len(connections) == 0 {
 		<p>No catalog connection configured yet.</p>
 	}
 	<div class="catalog-list">
 	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/admin/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/admin/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+		<article><header><strong>{ c.Name }</strong> <small>{ c.Language }</small></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label><label>Book language<input name="language" value={ c.Language } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
 	}
 	</div> }
 }
@@ -460,6 +449,5 @@ templ AdminPage(user domain.User, csrf string) {
 	@Layout("Administration", &user, csrf) { <header class="page-heading"><div><h1>Administration</h1><p>Server configuration and account management.</p></div></header><div class="admin-grid">
 		<article><h2>Users</h2><p>Create and manage non-admin learner accounts.</p><a role="button" class="outline" href="/admin/users">Manage users</a></article>
 		<article><h2>Languages</h2><p>Configure the languages learners can choose for study.</p><a role="button" class="outline" href="/languages">Configure languages</a></article>
-		<article><h2>OPDS connections</h2><p>Configure catalog connections used to find books.</p><a role="button" class="outline" href="/admin/connections">Configure connections</a></article>
 	</div> }
 }

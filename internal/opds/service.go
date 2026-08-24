@@ -13,7 +13,7 @@ import (
 var ErrUnauthenticated = errors.New("opds: authenticated user is required")
 
 type ConnectionStore interface {
-	GetOpdsConnection(context.Context, string) (domain.OpdsConnection, error)
+	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 }
 type Importer interface {
 	Import(context.Context, string, string, []byte) (epub.ImportResult, error)
@@ -28,7 +28,7 @@ func NewService(store ConnectionStore, importer Importer, httpClient *http.Clien
 	return &Service{store: store, importer: importer, http: httpClient}
 }
 func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL string) (Feed, error) {
-	connection, client, err := s.client(ctx, connectionID)
+	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -38,14 +38,14 @@ func (s *Service) Browse(ctx context.Context, ownerID, connectionID, feedURL str
 	return client.List(ctx, feedURL)
 }
 func (s *Service) Languages(ctx context.Context, ownerID, connectionID string) (Feed, error) {
-	connection, client, err := s.client(ctx, connectionID)
+	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
 	return client.ListLanguages(ctx, connection.URL)
 }
 func (s *Service) BrowseLanguage(ctx context.Context, ownerID, connectionID, languageID string) (Feed, error) {
-	connection, client, err := s.client(ctx, connectionID)
+	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -56,7 +56,7 @@ func (s *Service) BrowseLanguage(ctx context.Context, ownerID, connectionID, lan
 	return FilterEPUBEntries(feed), nil
 }
 func (s *Service) Search(ctx context.Context, ownerID, connectionID, query string) (Feed, error) {
-	connection, client, err := s.client(ctx, connectionID)
+	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -66,7 +66,7 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, ent
 	if ownerID == "" {
 		return epub.ImportResult{}, ErrUnauthenticated
 	}
-	connection, client, err := s.client(ctx, connectionID)
+	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
@@ -84,8 +84,11 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID string, ent
 	}
 	return result, nil
 }
-func (s *Service) client(ctx context.Context, connectionID string) (domain.OpdsConnection, *Client, error) {
-	connection, err := s.store.GetOpdsConnection(ctx, connectionID)
+func (s *Service) client(ctx context.Context, ownerID, connectionID string) (domain.OpdsConnection, *Client, error) {
+	if ownerID == "" {
+		return domain.OpdsConnection{}, nil, ErrUnauthenticated
+	}
+	connection, err := s.store.GetOpdsConnection(ctx, ownerID, connectionID)
 	if err != nil {
 		return domain.OpdsConnection{}, nil, fmt.Errorf("opds: load connection: %w", err)
 	}

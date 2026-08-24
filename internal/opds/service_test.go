@@ -13,11 +13,11 @@ import (
 
 type connectionStoreStub struct {
 	connection domain.OpdsConnection
-	id         string
+	owner, id  string
 }
 
-func (s *connectionStoreStub) GetOpdsConnection(_ context.Context, id string) (domain.OpdsConnection, error) {
-	s.id = id
+func (s *connectionStoreStub) GetOpdsConnection(_ context.Context, owner, id string) (domain.OpdsConnection, error) {
+	s.owner, s.id = owner, id
 	return s.connection, nil
 }
 
@@ -31,7 +31,7 @@ func (s *importerStub) Import(_ context.Context, owner, language string, content
 	return epub.ImportResult{Source: domain.SourceMaterial{OwnerID: owner}}, nil
 }
 
-func TestAcquireUsesSharedConnectionAndPrivateImport(t *testing.T) {
+func TestAcquireUsesOwnerScopedConnectionAndPrivateImport(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, password, ok := r.BasicAuth()
 		if !ok || user != "alice" || password != "encrypted-round-trip" {
@@ -49,8 +49,8 @@ func TestAcquireUsesSharedConnectionAndPrivateImport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if store.id != "connection" || importer.owner != "owner-a" || importer.language != "de" || string(importer.content) != "epub" || result.Source.OwnerID != "owner-a" {
-		t.Fatalf("connection id=%q import=%+v result=%+v", store.id, importer, result)
+	if store.owner != "owner-a" || store.id != "connection" || importer.owner != "owner-a" || importer.language != "de" || string(importer.content) != "epub" || result.Source.OwnerID != "owner-a" {
+		t.Fatalf("connection owner=%q id=%q import=%+v result=%+v", store.owner, store.id, importer, result)
 	}
 	if _, err = service.Acquire(context.Background(), "", "connection", Entry{}); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("unauthenticated acquire error=%v", err)
