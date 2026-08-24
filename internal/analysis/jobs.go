@@ -149,14 +149,18 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 		return domain.Corpus{}, fmt.Errorf("analysis job %d has no result", id)
 	}
 	var corpus domain.Corpus
-	var analyzableTokenCount, distinctLemmaCount *int64
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
-		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &corpus.CreatedAt)
+	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
+	var medianSentenceTokenCount *float64
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
+		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &corpus.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Corpus{}, ErrNotFound
 	}
 	if err == nil && analyzableTokenCount != nil && distinctLemmaCount != nil {
 		corpus.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
+		if sentenceCount != nil && normalizedTokenCount != nil && emptySentenceCount != nil && medianSentenceTokenCount != nil && p90SentenceTokenCount != nil && longSentenceCount != nil {
+			corpus.Statistics.TextProfile = &domain.TextProfile{SentenceCount: *sentenceCount, NormalizedTokenCount: *normalizedTokenCount, EmptySentenceCount: *emptySentenceCount, MedianSentenceTokenCount: *medianSentenceTokenCount, P90SentenceTokenCount: *p90SentenceTokenCount, LongSentenceCount: *longSentenceCount}
+		}
 	}
 	return corpus, err
 }
@@ -264,7 +268,8 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 	}
 	var corpusID string
-	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count) VALUES($1,$2,$3,'complete',$4,$5) ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete',analyzable_token_count=excluded.analyzable_token_count,distinct_lemma_count=excluded.distinct_lemma_count RETURNING id`, a.OwnerID, a.SourceMaterialID, a.ContentHash, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount).Scan(&corpusID)
+	profile := statistics.TextProfile
+	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,'complete',$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete',analyzable_token_count=excluded.analyzable_token_count,distinct_lemma_count=excluded.distinct_lemma_count,sentence_count=excluded.sentence_count,normalized_token_count=excluded.normalized_token_count,empty_sentence_count=excluded.empty_sentence_count,median_sentence_token_count=excluded.median_sentence_token_count,p90_sentence_token_count=excluded.p90_sentence_token_count,long_sentence_count=excluded.long_sentence_count RETURNING id`, a.OwnerID, a.SourceMaterialID, a.ContentHash, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if err != nil {
 		return err
 	}

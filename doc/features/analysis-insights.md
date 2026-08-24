@@ -102,8 +102,20 @@ The lexical profile also shows the five highest-occurrence deck-eligible unknown
 lemmas, the share of eligible unknown occurrences concentrated in the top ten,
 and projected overall token coverage after learning the top 10, 25, or 50.
 Generated vocabulary remains excluded from these learn-next projections and is
-not counted as known. A later phase may add sentence statistics and structural
-difficulty signals.
+not counted as known.
+
+The structural profile shows the analyzer-provided sentence count, median and
+90th-percentile sentence length, and the share of sentences longer than 35
+tokens. Sentence length counts every normalized token, including punctuation.
+The median averages the two middle values for an even number of sentences; p90
+uses the nearest-rank value. These signals remain separate and descriptive.
+
+The profile also shows the analyzable-token count alongside the total normalized
+token count.
+It warns when the analyzer returns no sentences, when a sentence contains no
+tokens, or when normalized tokens exist but none pass vocabulary-analysis
+filters. Legacy analyses do not have reproducible sentence aggregates and must
+be rerun to expose the structural profile.
 
 ## Difficulty dimensions
 
@@ -114,16 +126,15 @@ Do not collapse difficulty into one unexplained number. Keep separate dimensions
 - named-entity, quotation, and editorial-material density;
 - extraction and analysis quality.
 
-Structural metrics require an explicit NLP/data contract before implementation.
+The structural metric contract is recorded in [ADR 0026](../adr/0026-structural-text-profile.md).
 
 ## Documentation and delivery
 
 The repository feature document is the product source of truth. Stable metric decisions may be recorded in a dedicated ADR. GitHub issues track implementation slices and PRs provide delivery/verification history. No GitHub Project or GitHub Milestone is required for this feature. The Obsidian vault records the broader milestone and links back to this document and issues.
 
-The settled contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md).
+The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
+and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).
 
 ## Open questions
 
-- Which analysis-quality warnings can be computed from current artifacts?
-- Which structural metrics should be added to the NLP contract?
 - Should threshold results be computed on demand or persisted with analysis?

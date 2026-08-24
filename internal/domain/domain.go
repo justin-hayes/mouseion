@@ -84,6 +84,18 @@ type Corpus struct {
 type AnalysisStatistics struct {
 	AnalyzableTokenCount int64
 	DistinctLemmaCount   int64
+	TextProfile          *TextProfile
+}
+
+// TextProfile records explainable aggregate signals from the normalized
+// sentence stream. Legacy corpora may not have a profile.
+type TextProfile struct {
+	SentenceCount            int64
+	NormalizedTokenCount     int64
+	EmptySentenceCount       int64
+	MedianSentenceTokenCount float64
+	P90SentenceTokenCount    int64
+	LongSentenceCount        int64
 }
 
 // AnalysisCorpusVocabulary is the persisted, owner-scoped input for dynamic
@@ -128,6 +140,7 @@ type AnalysisCoverage struct {
 	UnknownConcentration CoverageProjection
 	Projections          []CoverageProjection
 	Thresholds           []CoverageThreshold
+	TextProfile          *TextProfile
 }
 type AnalysisJob struct {
 	ID, DisplayNumber                                       int64

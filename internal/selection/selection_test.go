@@ -79,9 +79,18 @@ func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testin
 		tok("leer", " ", "ADJ", false),
 	)
 	got := AnalyzableStatistics(corpus, DefaultConfig("corpus-1"))
-	want := domain.AnalysisStatistics{AnalyzableTokenCount: 3, DistinctLemmaCount: 2}
-	if got != want {
+	want := domain.AnalysisStatistics{AnalyzableTokenCount: 3, DistinctLemmaCount: 2, TextProfile: &domain.TextProfile{SentenceCount: 6, NormalizedTokenCount: 6, MedianSentenceTokenCount: 1, P90SentenceTokenCount: 1}}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("AnalyzableStatistics() = %+v, want %+v", got, want)
+	}
+}
+
+func TestAnalyzableStatisticsComputesExplainableSentenceProfile(t *testing.T) {
+	result := analyzer.Result{Sentences: []analyzer.Sentence{{}, {Tokens: make([]analyzer.Token, 10)}, {Tokens: make([]analyzer.Token, 20)}, {Tokens: make([]analyzer.Token, 36)}}}
+	got := AnalyzableStatistics(result, DefaultConfig("corpus")).TextProfile
+	want := &domain.TextProfile{SentenceCount: 4, NormalizedTokenCount: 66, EmptySentenceCount: 1, MedianSentenceTokenCount: 15, P90SentenceTokenCount: 36, LongSentenceCount: 1}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("text profile = %+v, want %+v", got, want)
 	}
 }
 

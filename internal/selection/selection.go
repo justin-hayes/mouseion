@@ -66,9 +66,31 @@ type aggregate struct {
 // lemma-and-UPOS identities used by vocabulary selection.
 func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.AnalysisStatistics {
 	aggs := aggregateTokens(corpus, cfg)
-	statistics := domain.AnalysisStatistics{DistinctLemmaCount: int64(len(aggs))}
+	statistics := domain.AnalysisStatistics{DistinctLemmaCount: int64(len(aggs)), TextProfile: &domain.TextProfile{SentenceCount: int64(len(corpus.Sentences))}}
+	profile := statistics.TextProfile
 	for _, aggregate := range aggs {
 		statistics.AnalyzableTokenCount += int64(aggregate.count)
+	}
+	lengths := make([]int, 0, len(corpus.Sentences))
+	for _, sentence := range corpus.Sentences {
+		length := len(sentence.Tokens)
+		lengths = append(lengths, length)
+		profile.NormalizedTokenCount += int64(length)
+		if length == 0 {
+			profile.EmptySentenceCount++
+		}
+		if length > 35 {
+			profile.LongSentenceCount++
+		}
+	}
+	if len(lengths) > 0 {
+		sort.Ints(lengths)
+		middle := len(lengths) / 2
+		profile.MedianSentenceTokenCount = float64(lengths[middle])
+		if len(lengths)%2 == 0 {
+			profile.MedianSentenceTokenCount = float64(lengths[middle-1]+lengths[middle]) / 2
+		}
+		profile.P90SentenceTokenCount = int64(lengths[(9*len(lengths)+9)/10-1])
 	}
 	return statistics
 }

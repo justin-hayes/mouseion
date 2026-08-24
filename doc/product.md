@@ -54,6 +54,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 23. [ADR 0023: NLP service owns language capabilities](adr/0023-nlp-capabilities.md) — makes the NLP service authoritative for supported languages and features.
 24. [ADR 0024: Learner-owned catalogs and removal of the admin role](adr/0024-learner-owned-catalogs-no-admin.md) — moves OPDS ownership to learners and removes the obsolete in-app administrator role.
 25. [ADR 0025: Analysis coverage and threshold metric contract](adr/0025-analysis-coverage-threshold-metrics.md) — defines analyzable-token coverage, learner-state categories, threshold denominators, and deterministic selection.
+26. [ADR 0026: Explainable structural text profile](adr/0026-structural-text-profile.md) — persists sentence-length and analysis-coverage signals without a composite difficulty or proficiency claim.
 
 ## Deployment and operations
 
