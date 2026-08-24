@@ -33,7 +33,7 @@ These were Open Question 5 in `product.md` and consolidated as issue #27. The pr
 
 ### 3. Known-vocabulary import — a per-language lemma list in v1
 
-- **v1 input:** a simple **per-language lemma list** — one canonical lemma per line; optionally `lemma<TAB>UPOS` to disambiguate POS homographs.
+- **v1 input:** a UTF-8 text file containing a simple **per-language lemma list** — exactly one lemma per nonblank line. Paste input and POS columns are not accepted; tab-separated rows are reported as rejected. Each accepted lemma is stored with an empty UPOS so it acts as a wildcard across parts of speech.
 - Imported words land directly in the per-user `known` state, scoped by user + language.
 - Imported lemmas are run through the same **ADR 0005 normalization profile**, so imported words match candidates produced from corpus analysis.
 - **Deferred:** Anki `.apkg`/deck import, and CEFR/JLPT/priority-list ingestion. CEFR/JLPT/priority lists are better handled as *priority lists* (feeding #12 / the ranking priority signal) than as known-vocabulary import.

@@ -620,14 +620,15 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	language := strings.TrimSpace(r.FormValue("language"))
 	var input bytes.Buffer
-	if pasted := r.FormValue("vocabulary"); pasted != "" {
-		_, _ = input.WriteString(pasted)
-	}
-	file, _, err := r.FormFile("vocabulary_file")
+	file, header, err := r.FormFile("vocabulary_file")
 	if err == nil {
 		defer file.Close()
-		if input.Len() > 0 {
-			_ = input.WriteByte('\n')
+		if contentType := header.Header.Get("Content-Type"); contentType != "" {
+			mediaType, _, mediaErr := mime.ParseMediaType(contentType)
+			if mediaErr != nil || (mediaType != "text/plain" && mediaType != "application/octet-stream") {
+				h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a UTF-8 plain text file to import.")
+				return
+			}
 		}
 		if _, err = io.Copy(&input, file); err != nil {
 			h.renderKnownVocabResult(w, r, language, nil, nil, "The uploaded file could not be read.")
@@ -654,8 +655,8 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose one of your study languages before importing.")
 		return
 	}
-	if len(bytes.TrimSpace(input.Bytes())) == 0 {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Paste vocabulary or choose a file to import.")
+	if input.Len() == 0 {
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a non-empty UTF-8 text file to import.")
 		return
 	}
 	if h.services.KnownVocab == nil {

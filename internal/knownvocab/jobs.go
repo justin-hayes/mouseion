@@ -21,9 +21,9 @@ const Queue = "known_vocabulary"
 var ErrJobNotFound = errors.New("known vocabulary job: not found")
 
 type JobArgs struct {
-	OwnerID  string `json:"owner_id"`
-	Language string `json:"language"`
-	Input    string `json:"input"`
+	OwnerID      string `json:"owner_id"`
+	Language     string `json:"language"`
+	FileContents string `json:"file_contents"`
 }
 
 func (JobArgs) Kind() string { return "import_known_vocabulary" }
@@ -49,9 +49,9 @@ func NewJobService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *JobService
 	return &JobService{pool: pool, client: client}
 }
 
-func (s *JobService) Submit(ctx context.Context, owner, language, input string) (Handle, error) {
+func (s *JobService) Submit(ctx context.Context, owner, language, fileContents string) (Handle, error) {
 	owner, language = strings.TrimSpace(owner), strings.TrimSpace(language)
-	if s == nil || s.pool == nil || s.client == nil || owner == "" || language == "" || strings.TrimSpace(input) == "" {
+	if s == nil || s.pool == nil || s.client == nil || owner == "" || language == "" || fileContents == "" {
 		return Handle{}, ErrInvalidInput
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -59,7 +59,7 @@ func (s *JobService) Submit(ctx context.Context, owner, language, input string) 
 		return Handle{}, fmt.Errorf("begin known vocabulary submission: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, Input: input}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3})
+	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, FileContents: fileContents}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3})
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue known vocabulary import: %w", err)
 	}
@@ -116,7 +116,7 @@ type Worker struct {
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
 	a := job.Args
-	parsed, err := Parse(strings.NewReader(a.Input))
+	parsed, err := Parse(strings.NewReader(a.FileContents))
 	if err != nil {
 		return err
 	}
