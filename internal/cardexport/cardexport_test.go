@@ -312,6 +312,10 @@ func TestScoreSentenceQuality(t *testing.T) {
 		{"fragmented boundary", "Vor dem alten Haus spielen heute mehrere Kinder", "Haus", "incomplete sentence boundaries", 42, false},
 		{"contents", "Inhaltsverzeichnis: Das Haus und seine lange Geschichte ..... 12.", "Haus", "structural noise or boilerplate", 42, false},
 		{"bibliography", "Bibliography: Das Haus in der europäischen Literatur.", "Haus", "structural noise or boilerplate", 42, false},
+		{"numbered list", "12. Das Haus steht oberhalb des alten Dorfes.", "Haus", "structural noise or boilerplate", 42, false},
+		{"chapter heading", "Kapitel 3: Das Haus und seine lange Geschichte.", "Haus", "structural noise or boilerplate", 42, false},
+		{"citation density", "Das Haus wird bei Müller [1999] und Schmidt [2004] ausführlich beschrieben.", "Haus", "structural noise or boilerplate", 42, false},
+		{"extraction anomaly", "Das Haus Haus Haus Haus steht heute am See.", "Haus", "structural noise or boilerplate", 42, false},
 		{"boilerplate", "All rights reserved for this edition of Haus und Garten.", "Haus", "structural noise or boilerplate", 42, false},
 		{"invalid location", "Vor dem alten Haus spielen heute mehrere fröhliche Kinder.", "Haus", "invalid source location", -1, false},
 	}
@@ -322,6 +326,38 @@ func TestScoreSentenceQuality(t *testing.T) {
 				t.Fatalf("quality=%+v", got)
 			}
 		})
+	}
+}
+
+func TestBestSentenceEvidenceRanksAllReferences(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		CanonicalLemma: "haus",
+		ObservedForms:  []byte(`["Haus"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":1,"text":"Inhaltsverzeichnis: Das Haus und seine Geschichte ..... 12.","location":{"start_offset":10}},
+			{"sentence_index":2,"text":"Vor dem alten Haus spielen heute mehrere fröhliche Kinder im Garten.","location":{"start_offset":80}}
+		]`),
+	}
+	got, ok := BestSentenceEvidence(candidate)
+	if !ok || !got.Quality.Accepted || got.FirstEncounter != 80 || got.Target != "Haus" || !strings.HasPrefix(got.Sentence, "Vor dem") {
+		t.Fatalf("evidence=%+v ok=%v", got, ok)
+	}
+}
+
+func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		CanonicalLemma: "Haus",
+		ObservedForms:  []byte(`["Haus"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":9,"text":"Dieses Haus steht seit vielen Jahren ruhig am See.","location":{"start_offset":90}},
+			{"sentence_index":2,"text":"Unser Haus steht seit vielen Jahren ruhig am See.","location":{"start_offset":20}},
+			{"sentence_index":1,"text":"Das Hausboot liegt seit vielen Jahren ruhig am See.","location":{"start_offset":10}}
+		]`),
+	}
+	first, ok := BestSentenceEvidence(candidate)
+	second, okAgain := BestSentenceEvidence(candidate)
+	if !ok || !okAgain || first.Sentence != "Dieses Haus steht seit vielen Jahren ruhig am See." || first.Sentence != second.Sentence || first.Target != second.Target || first.FirstEncounter != second.FirstEncounter || first.Quality.Accepted != second.Quality.Accepted || first.Quality.Score != second.Quality.Score || strings.Join(first.Quality.Reasons, "\x00") != strings.Join(second.Quality.Reasons, "\x00") {
+		t.Fatalf("first=%+v second=%+v", first, second)
 	}
 }
 

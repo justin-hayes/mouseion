@@ -61,6 +61,9 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		return source.ID
 	}
 	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 1, 10})
+	if _, err = pool.Exec(ctx, `UPDATE selection_candidates SET eligible_sentence_refs='[{"location":{"start_offset":1},"text":"Inhaltsverzeichnis: Das Haus und seine Geschichte ..... 12."},{"location":{"start_offset":10},"text":"Das alte Haus ist überraschend groß."}]' WHERE owner_id=$1 AND canonical_lemma='Haus' AND corpus_id=(SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2)`, alice.ID, aliceBookA); err != nil {
+		t.Fatal(err)
+	}
 	aliceBookB := seedBook(alice, "export-b", "Book B",
 		fixtureCandidate{"Haus", "Dieses alte Haus steht noch am Stadtrand.", 100, 10},
 		fixtureCandidate{"Welt", "Die ganze Welt ist wirklich sehr groß.", 100, 20},
@@ -78,6 +81,9 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	}
 	if artifact.Count != 1 || !contains(artifact.TSV, "Haus") || contains(artifact.TSV, "Baum") {
 		t.Fatalf("artifact=%+v", artifact)
+	}
+	if contains(artifact.TSV, "Inhaltsverzeichnis") {
+		t.Fatalf("lower-quality first reference was selected: %s", artifact.TSV)
 	}
 	var cards, decks, audits, generated, known int
 	var state string
@@ -157,6 +163,9 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = store.ReplaceSelectedSentences(ctx, alice.ID, qualityCorpus, "de", "Fragment", "NOUN", []domain.ExampleSentence{{SentenceKey: "quality-improved", Text: "Dieses Fragment enthält jetzt genügend hilfreichen Kontext.", SourceLocation: []byte(`{"start_offset":10}`), SelectionReasons: []byte(`[]`), SelectionRank: 1, Chosen: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE selection_candidates SET eligible_sentence_refs='[{"location":{"start_offset":10},"text":"Dieses Fragment enthält jetzt genügend hilfreichen Kontext."}]' WHERE owner_id=$1 AND corpus_id=$2 AND canonical_lemma='Fragment'`, alice.ID, qualityCorpus); err != nil {
 		t.Fatal(err)
 	}
 	improved, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, badBook)
