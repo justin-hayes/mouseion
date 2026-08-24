@@ -103,6 +103,7 @@ func New(s Services) *Handler {
 	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)
 	h.mux.HandleFunc("POST /login", h.login)
+	h.mux.HandleFunc("POST /onboarding", h.onboard)
 	h.mux.Handle("POST /logout-all", s.WebAuth)
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
@@ -180,7 +181,12 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 
 func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, LoginPage(h.csrf(w, r), r.URL.Query().Get("error")))
+	hasUsers, err := h.services.Auth.HasUsers(r.Context())
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, LoginPage(h.csrf(w, r), r.URL.Query().Get("error"), !hasUsers))
 }
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
@@ -193,6 +199,32 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	token, err := h.services.Auth.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
 		redirect(w, r, "/login?error=Invalid+credentials")
+		return
+	}
+	h.setSession(w, token)
+	h.rotateCSRF(w)
+	redirect(w, r, "/")
+}
+func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
+	hasUsers, err := h.services.Auth.HasUsers(r.Context())
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if hasUsers {
+		http.NotFound(w, r)
+		return
+	}
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	_, token, err := h.services.Auth.CreateFirstAccount(r.Context(), r.FormValue("username"), r.FormValue("password"))
+	if errors.Is(err, auth.ErrFirstAccountExists) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		redirect(w, r, "/login?error="+url.QueryEscape(err.Error()))
 		return
 	}
 	h.setSession(w, token)

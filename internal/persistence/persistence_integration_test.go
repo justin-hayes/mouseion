@@ -6,11 +6,37 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/migrations"
 )
+
+func TestCreateFirstUserAndSessionIsAtomicAndOwnerReady(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if exists, err := store.HasUsers(ctx); err != nil || exists {
+		t.Fatalf("fresh users exists=%v err=%v", exists, err)
+	}
+	u, created, err := store.CreateFirstUserAndSession(ctx, "alice", "hash", "token-hash", time.Now().Add(time.Hour))
+	if err != nil || !created || u.Username != "alice" {
+		t.Fatalf("create first: %+v created=%v err=%v", u, created, err)
+	}
+	if _, _, err = store.GetSession(ctx, "token-hash"); err != nil {
+		t.Fatalf("initial session: %v", err)
+	}
+	if _, err = store.PutLanguageProfile(ctx, u.ID, "de", "German"); err != nil {
+		t.Fatalf("learner ownership: %v", err)
+	}
+	if _, created, err = store.CreateFirstUserAndSession(ctx, "bob", "hash", "other-token", time.Now().Add(time.Hour)); err != nil || created {
+		t.Fatalf("second create created=%v err=%v", created, err)
+	}
+}
 
 func integrationDatabase(t *testing.T, ctx context.Context) string {
 	t.Helper()

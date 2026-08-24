@@ -180,6 +180,47 @@ func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (anal
 	return analysis.Status{ID: 42, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
 }
 
+func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+
+	page := perform(t, h, "GET", "/login", nil, nil)
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Create your account") || strings.Contains(page.Body.String(), `action="/login"`) {
+		t.Fatalf("fresh login page=%d %s", page.Code, page.Body.String())
+	}
+	csrf := hiddenToken(t, page.Body.String())
+	csrfCookieValue := cookieNamed(t, page.Result().Cookies(), csrfCookie)
+	if got := perform(t, h, "POST", "/onboarding", url.Values{"username": {"alice"}, "password": {"alice-password"}}, nil); got.Code != http.StatusForbidden {
+		t.Fatalf("onboarding without csrf=%d", got.Code)
+	}
+	created := perform(t, h, "POST", "/onboarding", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
+	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/" || cookieNamed(t, created.Result().Cookies(), webauth.CookieName).Value == "" {
+		t.Fatalf("onboarding=%d location=%q cookies=%v body=%s", created.Code, created.Header().Get("Location"), created.Result().Cookies(), created.Body.String())
+	}
+
+	page = perform(t, h, "GET", "/login", nil, nil)
+	if page.Code != http.StatusOK || strings.Contains(page.Body.String(), "Create your account") || !strings.Contains(page.Body.String(), `action="/login"`) {
+		t.Fatalf("existing login page=%d %s", page.Code, page.Body.String())
+	}
+	csrf = hiddenToken(t, page.Body.String())
+	csrfCookieValue = cookieNamed(t, page.Result().Cookies(), csrfCookie)
+	blocked := perform(t, h, "POST", "/onboarding", url.Values{"csrf_token": {csrf}, "username": {"bob"}, "password": {"bob-password"}}, []*http.Cookie{csrfCookieValue})
+	if blocked.Code != http.StatusNotFound {
+		t.Fatalf("second onboarding=%d %s", blocked.Code, blocked.Body.String())
+	}
+	login := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
+	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
+		t.Fatalf("existing login=%d location=%q body=%s", login.Code, login.Header().Get("Location"), login.Body.String())
+	}
+}
+
 func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "webapp-integration-secret")
 	ctx := context.Background()

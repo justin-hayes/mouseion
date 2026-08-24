@@ -5,6 +5,7 @@ package webauth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +16,24 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
+
+func TestFirstAccountAuthLifecycleAgainstPostgres(t *testing.T) {
+	_, service, _ := setup(t)
+	ctx := context.Background()
+	if exists, err := service.HasUsers(ctx); err != nil || exists {
+		t.Fatalf("fresh users exists=%v err=%v", exists, err)
+	}
+	u, token, err := service.CreateFirstAccount(ctx, "alice", "alice-password")
+	if err != nil || token == "" {
+		t.Fatalf("create first account: %+v token=%q err=%v", u, token, err)
+	}
+	if got, err := service.Authenticate(ctx, token); err != nil || got.ID != u.ID {
+		t.Fatalf("authenticate first session: %+v err=%v", got, err)
+	}
+	if _, _, err = service.CreateFirstAccount(ctx, "bob", "bob-password"); !errors.Is(err, auth.ErrFirstAccountExists) {
+		t.Fatalf("second first account: %v", err)
+	}
+}
 
 func testURL() string {
 	if v := os.Getenv("MOUSEION_TEST_DATABASE_URL"); v != "" {

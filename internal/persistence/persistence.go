@@ -240,6 +240,34 @@ func (s *PostgresStore) CreateUserWithPassword(ctx context.Context, username, pa
 	err = s.pool.QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES($1,$2,$3) RETURNING id,username,created_at`, username, passwordHash, admin).Scan(&u.ID, &u.Username, &u.CreatedAt)
 	return
 }
+func (s *PostgresStore) HasUsers(ctx context.Context) (exists bool, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users)`).Scan(&exists)
+	return
+}
+func (s *PostgresStore) CreateFirstUserAndSession(ctx context.Context, username, passwordHash, tokenHash string, expiresAt time.Time) (u domain.User, created bool, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return u, false, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(110011)`); err != nil {
+		return u, false, err
+	}
+	var exists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users)`).Scan(&exists); err != nil || exists {
+		return u, false, err
+	}
+	if err = tx.QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES($1,$2,false) RETURNING id,username,created_at`, username, passwordHash).Scan(&u.ID, &u.Username, &u.CreatedAt); err != nil {
+		return u, false, err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO sessions(user_id,token_hash,expires_at) VALUES($1,$2,$3)`, u.ID, tokenHash, expiresAt); err != nil {
+		return u, false, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return u, false, err
+	}
+	return u, true, nil
+}
 func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) (u domain.User, passwordHash string, err error) {
 	err = s.pool.QueryRow(ctx, `SELECT id,username,created_at,COALESCE(password_hash,'') FROM users WHERE username=$1`, username).Scan(&u.ID, &u.Username, &u.CreatedAt, &passwordHash)
 	err = missing(err)
