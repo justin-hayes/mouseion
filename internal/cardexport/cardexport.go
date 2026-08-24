@@ -18,16 +18,17 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 var ErrInvalidInput = errors.New("cardexport: invalid input")
 
 type Entry struct {
-	OwnerID, Language, CanonicalLemma, UPOS string
-	Sentence, Translation, TargetWord       string
-	Morphology, SourceDocument, Notes       string
-	FirstEncounter                          int64
+	OwnerID, Language, CanonicalLemma, UPOS                string
+	Sentence, Translation, SentenceTranslation, TargetWord string
+	Morphology, SourceDocument, Notes                      string
+	FirstEncounter                                         int64
 }
 
 type Note struct {
@@ -41,6 +42,7 @@ type Artifact struct {
 	Filename, DeckName, TSV string
 	Count                   int
 	Omitted                 []Omission
+	EnrichmentCandidates    []enrichment.Candidate
 }
 
 type Omission struct {
@@ -234,7 +236,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 		Key:  DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner),
 		Text: text, Lemma: escapeField(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)),
 		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
-		EnglishSentence: "", BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
+		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
 	}
 	note.BackExtra = strings.Join([]string{note.Lemma, note.Morph, note.POS, note.English, note.EnglishSentence}, "\n")
 	return note, nil
@@ -429,6 +431,7 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 		note  Note
 	}
 	accepted := make([]acceptedNote, 0, len(entries))
+	enrichmentCandidates := make([]enrichment.Candidate, 0, len(entries))
 	omitted := make([]Omission, 0)
 	for _, entry := range entries {
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
@@ -441,6 +444,10 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 		accepted = append(accepted, acceptedNote{entry: entry, note: n})
+		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
+			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			ExampleSentence: strings.TrimSpace(entry.Sentence),
+		})
 	}
 	notes := make([]Note, len(accepted))
 	for i := range accepted {
@@ -465,5 +472,5 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 	}
-	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Omitted: omitted}, nil
+	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Omitted: omitted, EnrichmentCandidates: enrichmentCandidates}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
@@ -32,7 +33,14 @@ func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owne
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
 	var entry cardexport.Entry
 	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,ref.text),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',COALESCE((e.source_location->>'start_offset')::bigint,(e.source_location->>'StartOffset')::bigint,ref.start_offset,$7) FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT r->>'text' AS text,COALESCE(r->'location'->>'start_offset',r->'location'->>'StartOffset',r->'Location'->>'StartOffset')::bigint AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) r ORDER BY COALESCE(r->'location'->>'start_offset',r->'location'->>'StartOffset',r->'Location'->>'StartOffset')::bigint LIMIT 1) ref ON true LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6 AND COALESCE(e.sentence_text,ref.text) IS NOT NULL`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
-	return entry, missing(err)
+	if err = missing(err); err != nil {
+		return entry, err
+	}
+	err = s.pool.QueryRow(ctx, `SELECT sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 AND sentence_translation<>'' ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.SentenceTranslation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = nil
+	}
+	return entry, err
 }
 
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {

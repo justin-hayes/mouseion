@@ -340,7 +340,7 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.Count != 1 || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
+	if artifact.Count != 1 || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(artifact.EnrichmentCandidates) != 1 || artifact.EnrichmentCandidates[0].CanonicalLemma != "Baum" || artifact.EnrichmentCandidates[0].ExampleSentence == "" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
 		t.Fatalf("artifact=%+v generated=%+v", artifact, store.generated)
 	}
 

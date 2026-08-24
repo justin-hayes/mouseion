@@ -23,6 +23,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -37,6 +39,33 @@ type recordingKnownVocab struct {
 	service *knownvocab.Service
 	status  knownvocab.Status
 	owner   string
+}
+type recordingEnrichment struct {
+	owner      string
+	candidates []enrichment.Candidate
+	cancelled  bool
+}
+
+func (r *recordingEnrichment) SubmitEnrichment(_ context.Context, owner string, candidates []enrichment.Candidate) (enrichmentjob.Handle, error) {
+	r.owner, r.candidates = owner, append([]enrichment.Candidate(nil), candidates...)
+	return enrichmentjob.Handle{ID: 88}, nil
+}
+func (r *recordingEnrichment) Get(_ context.Context, owner string, id int64) (enrichmentjob.Status, error) {
+	if owner != r.owner || id != 88 {
+		return enrichmentjob.Status{}, enrichmentjob.ErrNotFound
+	}
+	state := rivertype.JobStateRunning
+	if r.cancelled {
+		state = rivertype.JobStateCancelled
+	}
+	return enrichmentjob.Status{ID: 88, Completed: 1, Total: 2, State: state, Attempt: 2, Error: "temporary provider failure"}, nil
+}
+func (r *recordingEnrichment) Cancel(ctx context.Context, owner string, id int64) (enrichmentjob.Status, error) {
+	if _, err := r.Get(ctx, owner, id); err != nil {
+		return enrichmentjob.Status{}, err
+	}
+	r.cancelled = true
+	return r.Get(ctx, owner, id)
 }
 
 func (r *recordingKnownVocab) Submit(ctx context.Context, owner, language, input string) (knownvocab.Handle, error) {
@@ -211,7 +240,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if err = store.ReplaceSelectedSentences(ctx, alice.ID, corpus.ID, "de", "haus", "NOUN", examples); err != nil {
 		t.Fatal(err)
 	}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, CardExport: cardexport.NewService(store), SessionLifetime: time.Hour})
+	externalJobs := &recordingEnrichment{}
+	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, CardExport: cardexport.NewService(store), Enrichment: externalJobs, SessionLifetime: time.Hour})
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
 	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
@@ -253,6 +283,25 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	exported := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
 	if exported.Code != 200 || exported.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(exported.Header().Get("Content-Disposition"), `filename="Test Book.apkg"`) {
 		t.Fatalf("export=%d headers=%v", exported.Code, exported.Header())
+	}
+	if len(externalJobs.candidates) != 0 || exported.Header().Get("X-Mouseion-Enrichment-Job") != "" {
+		t.Fatalf("translation queued without consent: %+v", externalJobs.candidates)
+	}
+	generate.Set("external_translation_consent", "on")
+	withConsent := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
+	if withConsent.Code != http.StatusOK || withConsent.Header().Get("X-Mouseion-Enrichment-Job") != "88" || len(externalJobs.candidates) != 1 || externalJobs.candidates[0].ExampleSentence != "Das Haus ist heute sehr ruhig." {
+		t.Fatalf("consented translation queue: code=%d header=%q candidates=%+v", withConsent.Code, withConsent.Header().Get("X-Mouseion-Enrichment-Job"), externalJobs.candidates)
+	}
+	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)
+	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "1 of 2 completed") || !strings.Contains(statusPage.Body.String(), "attempt 2") || !strings.Contains(statusPage.Body.String(), "temporary provider failure") {
+		t.Fatalf("enrichment status=%d %s", statusPage.Code, statusPage.Body.String())
+	}
+	if got := perform(t, h, "POST", "/enrichment-jobs/88/cancel", nil, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("cancel without csrf=%d", got.Code)
+	}
+	cancelled := perform(t, h, "POST", "/enrichment-jobs/88/cancel", url.Values{"csrf_token": {csrf}}, cookies)
+	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), "Cancelled") {
+		t.Fatalf("cancelled=%d %s", cancelled.Code, cancelled.Body.String())
 	}
 	zr, err := zip.NewReader(bytes.NewReader(exported.Body.Bytes()), int64(exported.Body.Len()))
 	if err != nil {
@@ -299,6 +348,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("models=%s decks=%s fields=%q cards=%d", models, decks, fields, cards)
 	}
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
+	if got := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner enrichment status=%d %s", got.Code, got.Body.String())
+	}
 	if got := perform(t, h, "POST", "/settings/languages", url.Values{"language": {"de"}}, bobCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("study language without csrf=%d", got.Code)
 	}

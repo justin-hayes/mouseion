@@ -53,11 +53,19 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	service := NewService(store.Pool(), client, enrich)
+	cancelledHandle, err := service.SubmitEnrichment(ctx, "11111111-1111-1111-1111-111111111111", []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "weg", UPOS: "NOUN"}, ExampleSentence: "Der lange Weg führt heute durch den stillen Wald."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := service.Cancel(ctx, "11111111-1111-1111-1111-111111111111", cancelledHandle.ID)
+	if err != nil || cancelled.State != rivertype.JobStateCancelled {
+		t.Fatalf("cancelled status=%+v err=%v", cancelled, err)
+	}
 	if err = client.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
 	defer client.Stop(context.Background())
-	service := NewService(store.Pool(), client, enrich)
 	candidates := []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus", UPOS: "noun"}, ExampleSentence: "Das Haus ist groß."}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN"}}}
 	handle, err := service.SubmitEnrichment(ctx, "11111111-1111-1111-1111-111111111111", candidates)
 	if err != nil {
