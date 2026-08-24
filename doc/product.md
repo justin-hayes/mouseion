@@ -4,6 +4,10 @@
 
 Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, and generates Anki study material for the unknown words needed to reach 97% book coverage. It is multi-user: books, known vocabulary, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
+## Feature specifications
+
+- [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
+
 ## Current pipeline
 
 1. **Ingest** — import an EPUB directly or from an owner-scoped OPDS catalog whose credentials are encrypted at rest.
