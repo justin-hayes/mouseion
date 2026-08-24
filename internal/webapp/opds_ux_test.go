@@ -171,6 +171,7 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
 	coverage := domain.AnalysisCoverage{
 		AnalyzableTokenCount: 40, DistinctLemmaCount: 12, KnownTokenCount: 30, KnownLemmaCount: 7, UnknownTokenCount: 10, UnknownLemmaCount: 5,
+		TextProfile:          &domain.TextProfile{SentenceCount: 4, NormalizedTokenCount: 50, EmptySentenceCount: 1, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 40, LongSentenceCount: 1},
 		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 4}},
 		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 10, EligibleTokenCount: 10, ProjectedTokenCount: 40},
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 10, EligibleTokenCount: 10, ProjectedTokenCount: 40}},
@@ -180,12 +181,14 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
+	for _, want := range []string{"Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "1 analyzer-provided sentences contained no tokens", "not a difficulty score", "75.0%", "current token coverage", "analyzable tokens", "distinct lemmas", "explicitly known vocabulary", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Previously generated vocabulary", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("coverage summary missing %q", want)
 		}
 	}
-	if strings.Contains(html, "structural difficulty") {
-		t.Errorf("coverage summary includes structural difficulty: %s", html)
+	for _, unwanted := range []string{"structural difficulty", "CEFR"} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("coverage summary includes unsupported claim %q: %s", unwanted, html)
+		}
 	}
 }

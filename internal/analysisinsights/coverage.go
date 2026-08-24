@@ -42,6 +42,7 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	result := domain.AnalysisCoverage{
 		AnalyzableTokenCount: input.Statistics.AnalyzableTokenCount,
 		DistinctLemmaCount:   input.Statistics.DistinctLemmaCount,
+		TextProfile:          input.Statistics.TextProfile,
 	}
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
 	knownByLanguage := map[string]map[string]bool{}

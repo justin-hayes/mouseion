@@ -40,7 +40,8 @@ func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language
 
 func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	currentBook, otherBook := "book-current", "book-other"
-	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 200, DistinctLemmaCount: 8}
+	profile := &domain.TextProfile{SentenceCount: 10, NormalizedTokenCount: 240, MedianSentenceTokenCount: 24, P90SentenceTokenCount: 40, LongSentenceCount: 2}
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 200, DistinctLemmaCount: 8, TextProfile: profile}
 	store := &memoryStore{
 		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: currentBook, Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
 			{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 80},
@@ -70,6 +71,9 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	}
 	if got.AnalyzableTokenCount != 200 || got.DistinctLemmaCount != 8 || got.KnownTokenCount != 110 || got.KnownLemmaCount != 3 || got.UnknownTokenCount != 90 || got.UnknownLemmaCount != 5 {
 		t.Fatalf("coverage = %+v", got)
+	}
+	if got.TextProfile != profile {
+		t.Fatalf("text profile = %+v, want persisted profile", got.TextProfile)
 	}
 	want := []domain.CoverageThreshold{
 		{TargetPercent: 95, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30},
