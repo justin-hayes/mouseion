@@ -1,9 +1,15 @@
 package cardexport
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -18,6 +24,107 @@ type memoryStore struct {
 	generated    []Note
 	bookID       string
 	historyCalls map[string]int
+}
+
+func TestDownloadFilenameAndDeckName(t *testing.T) {
+	if got := DeckName("de", "Das archaische Griechenland"); got != "Mouseion::de::Das archaische Griechenland" {
+		t.Fatalf("deck name = %q", got)
+	}
+	if got := DownloadFilename(`  Über/../Buch:*?  `); got != "Über_.._Buch___.apkg" {
+		t.Fatalf("filename = %q", got)
+	}
+	if a, b := DownloadFilename("../"), DownloadFilename("../"); a != b || !strings.HasPrefix(a, "mouseion-deck-") || !strings.HasSuffix(a, ".apkg") {
+		t.Fatalf("unsafe fallback = %q, %q", a, b)
+	}
+}
+
+func TestClozeEscapesHTMLAndClozeSyntax(t *testing.T) {
+	got, err := Cloze(`<b>Das {{falsche}} Haus & mehr.</b>`, "Haus", `h}}int`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `&lt;b&gt;Das &#123;&#123;falsche&#125;&#125; {{c1::Haus::h&#125;&#125;int}} &amp; mehr.&lt;/b&gt;`
+	if got != want {
+		t.Fatalf("cloze = %q, want %q", got, want)
+	}
+}
+
+func TestAnkiPackageContractAndStableIDs(t *testing.T) {
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das {{c1::Haus}} ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "", EnglishSentence: "", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	deckName := DeckName("de", note.BookTitle)
+	a, err := renderAPKG(deckName, []Note{note})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := renderAPKG(deckName, []Note{note})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("package bytes are not deterministic")
+	}
+	zr, err := zip.NewReader(bytes.NewReader(a), int64(len(a)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := map[string]*zip.File{}
+	for _, f := range zr.File {
+		members[f.Name] = f
+	}
+	if members["collection.anki2"] == nil || members["media"] == nil || len(members) != 2 {
+		t.Fatalf("zip members = %#v", members)
+	}
+	media, _ := members["media"].Open()
+	var mediaMap map[string]string
+	if err = json.NewDecoder(media).Decode(&mediaMap); err != nil || len(mediaMap) != 0 {
+		t.Fatalf("media manifest = %#v, %v", mediaMap, err)
+	}
+	dbReader, _ := members["collection.anki2"].Open()
+	dbBytes, _ := io.ReadAll(dbReader)
+	dbPath := t.TempDir() + "/collection.anki2"
+	if err = os.WriteFile(dbPath, dbBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var modelsJSON, decksJSON string
+	if err = db.QueryRow(`SELECT models,decks FROM col`).Scan(&modelsJSON, &decksJSON); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Cloze"`) || !strings.Contains(modelsJSON, `"qfmt":"{{cloze:Text}}"`) || !strings.Contains(decksJSON, deckName) {
+		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
+	}
+	var models map[string]struct {
+		Fields []struct {
+			Name string `json:"name"`
+		} `json:"flds"`
+	}
+	if err = json.Unmarshal([]byte(modelsJSON), &models); err != nil {
+		t.Fatal(err)
+	}
+	gotNames := make([]string, 0, len(fieldNames))
+	for _, model := range models {
+		for _, field := range model.Fields {
+			gotNames = append(gotNames, field.Name)
+		}
+	}
+	if strings.Join(gotNames, ",") != strings.Join(fieldNames, ",") {
+		t.Fatalf("field names = %v", gotNames)
+	}
+	var noteID, cardCount int64
+	var fields, tags string
+	if err = db.QueryRow(`SELECT id,flds,tags FROM notes`).Scan(&noteID, &fields, &tags); err != nil {
+		t.Fatal(err)
+	}
+	if noteID != stableID("note|"+note.Key) || len(strings.Split(fields, "\x1f")) != 8 || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
+		t.Fatalf("note id=%d fields=%q tags=%q", noteID, fields, tags)
+	}
+	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 1 {
+		t.Fatalf("cards=%d err=%v", cardCount, err)
+	}
 }
 
 func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
@@ -96,7 +203,7 @@ func TestClozeWithAndWithoutHint(t *testing.T) {
 }
 
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
-	n := Note{Key: "key", Text: "Grüße\t{{c1::Welt}}", BackExtra: "line one\nline two", Tags: []string{"mouseion", "de", "My_Book"}}
+	n := Note{Key: "key", Text: "Grüße\t{{c1::Welt}}", Lemma: "Welt", POS: "NOUN", Morph: "Case=Nom", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", SourceSentence: "Grüße Welt", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n})
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +214,7 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || len(rows[0]) != 4 || rows[0][0] != "key" || rows[0][1] != n.Text || rows[0][2] != n.BackExtra || rows[0][3] != "mouseion de My_Book" {
+	if len(rows) != 1 || len(rows[0]) != 9 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][7] != "Grüße Welt" || rows[0][8] != "Mouseion lang::de source::My_Book" {
 		t.Fatalf("rows=%#v", rows)
 	}
 }
@@ -121,7 +228,7 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(note.Text, "{{c1::Häuser}}") || !strings.Contains(note.BackExtra, "Target: Häuser\nLemma: Haus\n") {
+	if !strings.Contains(note.Text, "{{c1::Häuser}}") || note.Lemma != "Haus" || note.POS != "NOUN" {
 		t.Fatalf("note = %#v", note)
 	}
 	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"path"
@@ -737,10 +738,9 @@ func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	w.Header().Set("Content-Type", "text/tab-separated-values; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="mouseion-anki.tsv"`)
-	w.Header().Set("X-Mouseion-Note-Type", base64.RawURLEncoding.EncodeToString([]byte(artifact.NoteType)))
-	_, _ = io.WriteString(w, artifact.TSV)
+	w.Header().Set("Content-Type", "application/vnd.anki")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": artifact.Filename}))
+	_, _ = w.Write(artifact.APKG)
 }
 func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) (domain.User, bool) {
 	u := user(r)

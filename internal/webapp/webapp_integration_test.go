@@ -6,12 +6,14 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -249,8 +251,52 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	generate.Set("csrf_token", csrf)
 	exported := perform(t, h, "POST", "/books/"+recorder.source+"/deck", generate, cookies)
-	if exported.Code != 200 || !strings.Contains(exported.Header().Get("Content-Disposition"), "attachment") || !strings.Contains(exported.Body.String(), "{{c1::Haus") {
-		t.Fatalf("export=%d headers=%v body=%s", exported.Code, exported.Header(), exported.Body.String())
+	if exported.Code != 200 || exported.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(exported.Header().Get("Content-Disposition"), `filename="Test Book.apkg"`) {
+		t.Fatalf("export=%d headers=%v", exported.Code, exported.Header())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(exported.Body.Bytes()), int64(exported.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var collection *zip.File
+	for _, member := range zr.File {
+		if member.Name == "collection.anki2" {
+			collection = member
+		}
+	}
+	if collection == nil || len(zr.File) != 2 {
+		t.Fatalf("package members=%v", zr.File)
+	}
+	r, err := collection.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbBytes, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbPath := t.TempDir() + "/collection.anki2"
+	if err = os.WriteFile(dbPath, dbBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ankidb, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ankidb.Close()
+	var models, decks, fields string
+	var cards int
+	if err = ankidb.QueryRow(`SELECT models,decks FROM col`).Scan(&models, &decks); err != nil {
+		t.Fatal(err)
+	}
+	if err = ankidb.QueryRow(`SELECT flds FROM notes`).Scan(&fields); err != nil {
+		t.Fatal(err)
+	}
+	if err = ankidb.QueryRow(`SELECT count(*) FROM cards`).Scan(&cards); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(models, `"name":"Mouseion Vocab Cloze"`) || !strings.Contains(decks, `Mouseion::de::Test Book`) || !strings.Contains(fields, `{{c1::Haus`) || len(strings.Split(fields, "\x1f")) != 8 || cards != 1 {
+		t.Fatalf("models=%s decks=%s fields=%q cards=%d", models, decks, fields, cards)
 	}
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 	if got := perform(t, h, "POST", "/settings/languages", url.Values{"language": {"de"}}, bobCookies); got.Code != http.StatusForbidden {
