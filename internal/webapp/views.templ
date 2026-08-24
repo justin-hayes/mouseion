@@ -30,58 +30,72 @@ document.addEventListener('submit', function (evt) {
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Importing & analyzing…'; }
 });
 document.addEventListener('submit', async function (evt) {
-  var form = evt.target.closest && evt.target.closest('form[data-generate-deck]');
+  var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');
   if (!form) return;
   evt.preventDefault();
   var button = form.querySelector('button[type="submit"]');
-  var originalText = button ? button.textContent : 'Generate deck';
-  var previousError = form.querySelector('[data-deck-error]');
-  if (previousError) previousError.remove();
-  var previousSummary = form.parentElement.querySelector('[data-deck-completeness]');
-  if (previousSummary) previousSummary.remove();
-  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Generating deck…'; }
+  var status = form.parentElement.querySelector('[data-deck-preparation]');
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Queuing deck…'; }
   try {
     var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin'});
     if (!response.ok) {
       var detail = (await response.text()).trim();
       throw new Error(detail || ('Request failed with status ' + response.status));
     }
-    var blob = await response.blob();
-    var disposition = response.headers.get('Content-Disposition') || '';
-    var match = disposition.match(/filename="?([^";]+)"?/i);
-    var link = document.createElement('a');
-    var objectURL = URL.createObjectURL(blob);
-    link.href = objectURL;
-    link.download = match ? match[1] : 'mouseion-anki.tsv';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(function () { URL.revokeObjectURL(objectURL); }, 0);
-    var total = response.headers.get('X-Mouseion-Cards-Total') || '0';
-    var english = response.headers.get('X-Mouseion-Cards-With-English') || '0';
-    var englishSentence = response.headers.get('X-Mouseion-Cards-With-English-Sentence') || '0';
-    var omitted = response.headers.get('X-Mouseion-Cards-Quality-Omitted') || '0';
-    var summary = document.createElement('article');
-    summary.setAttribute('data-deck-completeness', '');
-    summary.innerHTML = '<strong>Deck downloaded:</strong> ' + window.escapeHtml(total) + ' cards · ' + window.escapeHtml(english) + ' with English · ' + window.escapeHtml(englishSentence) + ' with contextual sentence translations · ' + window.escapeHtml(omitted) + ' omitted for sentence quality.';
-    form.insertAdjacentElement('afterend', summary);
-    var enrichmentJob = response.headers.get('X-Mouseion-Enrichment-Job');
-    if (enrichmentJob) {
-      var status = document.createElement('div');
-      status.innerHTML = '<article id="enrichment-job-status" hx-get="/enrichment-jobs/' + encodeURIComponent(enrichmentJob) + '/status" hx-trigger="load" hx-swap="outerHTML"><p aria-busy="true">Contextual translations queued…</p></article>';
-      form.insertAdjacentElement('afterend', status.firstElementChild);
-      if (window.htmx) window.htmx.process(form.parentElement);
-    }
+    form.hidden = true;
+    status.hidden = false;
+    await window.pollDeckPreparation(response.url, status, form);
   } catch (error) {
-    var alert = document.createElement('p');
-    alert.setAttribute('role', 'alert');
-    alert.setAttribute('data-deck-error', '');
-    alert.textContent = 'Deck generation failed: ' + (error && error.message ? error.message : 'Please try again.');
-    form.appendChild(alert);
-  } finally {
-    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = originalText; }
+    status.hidden = false;
+    status.innerHTML = '<p role="alert">Deck preparation could not start: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>';
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = 'Prepare deck'; }
   }
 });
+window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
+  try {
+    var response = await fetch(statusURL, {credentials: 'same-origin'});
+    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
+    var preparation = await response.json();
+    var stateLabels = {queued: 'Deck queued', preparing: 'Preparing deck', ready: 'Deck ready', failed: 'Deck preparation failed', cancelled: 'Deck preparation cancelled'};
+    var active = preparation.state === 'queued' || preparation.state === 'preparing';
+    var html = '<h3>' + window.escapeHtml(stateLabels[preparation.state] || 'Deck preparation') + '</h3>';
+    if (active) html += '<p aria-busy="true">' + (preparation.state === 'queued' ? 'Waiting for preparation to begin…' : 'Selecting vocabulary, adding translations, and building the Anki package…') + '</p>';
+    html += '<progress value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
+    if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';
+    if (preparation.ready) {
+      var c = preparation.completeness || {};
+      html += '<p><strong>Completeness:</strong> ' + Number(c.total_cards || 0) + ' cards · ' + Number(c.cards_with_english || 0) + ' with English · ' + Number(c.cards_with_contextual_sentence_translations || 0) + ' with contextual sentence translations · ' + Number(c.quality_omissions || 0) + ' omitted for sentence quality.</p>';
+      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a>';
+    } else if (active) {
+      html += '<button type="button" class="outline secondary" data-cancel-preparation>Cancel preparation</button>';
+    } else {
+      if (preparation.error) html += '<p role="alert">' + window.escapeHtml(preparation.error) + '</p>';
+      html += '<button type="button" data-retry-preparation>Retry preparation</button>';
+    }
+    target.innerHTML = html;
+    var cancel = target.querySelector('[data-cancel-preparation]');
+    if (cancel) cancel.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\/status$/, '/cancel'), target, sourceForm); });
+    var retry = target.querySelector('[data-retry-preparation]');
+    if (retry) retry.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\/status$/, '/retry'), target, sourceForm); });
+    if (active) setTimeout(function () { window.pollDeckPreparation(statusURL, target, sourceForm); }, 1500);
+  } catch (error) {
+    target.innerHTML = '<p role="alert">Could not check deck preparation: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p><button type="button" data-check-preparation>Try again</button>';
+    target.querySelector('[data-check-preparation]').addEventListener('click', function () { window.pollDeckPreparation(statusURL, target, sourceForm); });
+  }
+};
+window.updateDeckPreparation = async function (action, target, sourceForm) {
+  var data = new FormData();
+  data.set('csrf_token', sourceForm.querySelector('[name="csrf_token"]').value);
+  var consent = sourceForm.querySelector('[name="external_translation_consent"]');
+  if (consent && consent.checked) data.set('external_translation_consent', 'on');
+  try {
+    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin'});
+    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
+    await window.pollDeckPreparation(action.replace(/\/(cancel|retry)$/, '/status'), target, sourceForm);
+  } catch (error) {
+    target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
+  }
+};
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul>
@@ -126,7 +140,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button></form>
 	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck covering at least 97% of the book's unknown vocabulary, ordered by first encounter.</p>
 		if book.AnalysisStatus == "analyzed" {
-			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck") } data-generate-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>The deck downloads immediately; contextual translations continue in the background.</small><button type="submit">Generate deck</button></form>
+			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck/preparations") } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
 		} else {
 			<button disabled>Available after analysis</button>
 		}

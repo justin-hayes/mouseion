@@ -333,7 +333,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "Generate deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck") || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
+	if !strings.Contains(bookPage.Body.String(), "Prepare deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck/preparations") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
 		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
 	}
 	generate := url.Values{}
