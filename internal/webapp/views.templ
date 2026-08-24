@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -54,6 +55,13 @@ document.addEventListener('submit', async function (evt) {
     link.click();
     link.remove();
     setTimeout(function () { URL.revokeObjectURL(objectURL); }, 0);
+    var enrichmentJob = response.headers.get('X-Mouseion-Enrichment-Job');
+    if (enrichmentJob) {
+      var status = document.createElement('div');
+      status.innerHTML = '<article id="enrichment-job-status" hx-get="/enrichment-jobs/' + encodeURIComponent(enrichmentJob) + '/status" hx-trigger="load" hx-swap="outerHTML"><p aria-busy="true">Contextual translations queued…</p></article>';
+      form.insertAdjacentElement('afterend', status.firstElementChild);
+      if (window.htmx) window.htmx.process(form.parentElement);
+    }
   } catch (error) {
     var alert = document.createElement('p');
     alert.setAttribute('role', 'alert');
@@ -108,7 +116,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button></form>
 	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck covering at least 97% of the book's unknown vocabulary, ordered by first encounter.</p>
 		if book.AnalysisStatus == "analyzed" {
-			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck") } data-generate-deck><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Generate deck</button></form>
+			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck") } data-generate-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>The deck downloads immediately; contextual translations continue in the background.</small><button type="submit">Generate deck</button></form>
 		} else {
 			<button disabled>Available after analysis</button>
 		}
@@ -369,6 +377,25 @@ templ KnownVocabImportStatus(status knownvocab.Status) {
 	} else {
 		<article id="known-vocab-import-status">@knownVocabImportStatusBody(status)</article>
 	}
+}
+templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
+	<article id="enrichment-job-status"
+		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
+			hx-get={ fmt.Sprintf("/enrichment-jobs/%d/status", status.ID) }
+			hx-trigger="every 2s"
+			hx-swap="outerHTML"
+		}>
+		<h3>Contextual translations</h3><p role="status"><strong>{ enrichmentJobLabel(string(status.State)) }</strong> · { fmt.Sprintf("%d of %d completed · attempt %d", status.Completed, status.Total, status.Attempt) }</p>
+		if status.Total > 0 {
+			<progress value={ fmt.Sprintf("%d", status.Completed) } max={ fmt.Sprintf("%d", status.Total) }></progress>
+		}
+		if status.Error != "" {
+			<p role="alert">Latest error: { status.Error }</p>
+		}
+		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
+			<form hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel translations</button></form>
+		}
+	</article>
 }
 templ knownVocabImportStatusBody(status knownvocab.Status) {
 		<h2>Import status</h2>

@@ -68,20 +68,36 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 	if s.enrichment == nil || !s.enrichment.ExternalConfigured() || len(candidates) == 0 {
 		return Handle{}, nil
 	}
-	language := candidates[0].Language
-	items := make([]Item, len(candidates))
-	for i, candidate := range candidates {
+	var language string
+	items := make([]Item, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if language == "" {
+			language = candidate.Language
+		}
 		if candidate.Language != language {
 			return Handle{}, ErrMixedLanguages
 		}
-		items[i] = Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), ExampleSentence: candidate.ExampleSentence}
+		if strings.TrimSpace(candidate.ExampleSentence) == "" {
+			continue
+		}
+		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
+		key := item.CanonicalLemma + "\x00" + item.UPOS + "\x00" + item.ExampleSentence
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		items = append(items, item)
+	}
+	if len(items) == 0 {
+		return Handle{}, nil
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin enrichment submission: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, Items: items}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3, Metadata: []byte(fmt.Sprintf(`{"completed":0,"total":%d}`, len(items)))})
+	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, Items: items}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3, Metadata: []byte(fmt.Sprintf(`{"completed":0,"total":%d}`, len(items))), UniqueOpts: river.UniqueOpts{ByArgs: true}})
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue enrichment: %w", err)
 	}
@@ -154,7 +170,12 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if progress == nil {
 		progress = w.updateProgress
 	}
+	var prior struct{ Completed int }
+	_ = json.Unmarshal(job.Metadata, &prior)
 	for i, item := range job.Args.Items {
+		if i < prior.Completed {
+			continue
+		}
 		candidate := enrichment.Candidate{Identity: enrichment.Identity{Language: job.Args.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}, ExampleSentence: item.ExampleSentence}
 		if _, err := w.Enrichment.EnrichExternal(ctx, candidate); err != nil {
 			return fmt.Errorf("translate %s/%s: %w", item.CanonicalLemma, item.UPOS, err)
@@ -164,6 +185,11 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		}
 	}
 	return nil
+}
+
+// AddWorker registers external translation work on an existing River client.
+func AddWorker(workers *river.Workers, pool *pgxpool.Pool, enrich *enrichment.Service) {
+	river.AddWorker(workers, &Worker{Pool: pool, Enrichment: enrich})
 }
 
 func (w *Worker) updateProgress(ctx context.Context, id int64, completed, total int) error {
@@ -177,7 +203,7 @@ func NewClient(pool *pgxpool.Pool, enrich *enrichment.Service) (*river.Client[pg
 		return nil, err
 	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &Worker{Pool: pool, Enrichment: enrich})
+	AddWorker(workers, pool, enrich)
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 

@@ -24,6 +24,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -63,6 +65,11 @@ type KnownVocabulary interface {
 	Submit(context.Context, string, string, string) (knownvocab.Handle, error)
 	Get(context.Context, string, int64) (knownvocab.Status, error)
 }
+type ExternalEnrichment interface {
+	SubmitEnrichment(context.Context, string, []enrichment.Candidate) (enrichmentjob.Handle, error)
+	Get(context.Context, string, int64) (enrichmentjob.Status, error)
+	Cancel(context.Context, string, int64) (enrichmentjob.Status, error)
+}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -73,6 +80,7 @@ type Services struct {
 	Analysis        Analysis
 	KnownVocab      KnownVocabulary
 	CardExport      *cardexport.Service
+	Enrichment      ExternalEnrichment
 	SecureCookies   bool
 	SessionLifetime time.Duration
 }
@@ -96,6 +104,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /books/{id}", h.learner(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.learner(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck", h.learner(http.HandlerFunc(h.generateDeck)))
+	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.learner(http.HandlerFunc(h.enrichmentJobStatus)))
+	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.learner(http.HandlerFunc(h.cancelEnrichmentJob)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /languages", h.adminOnly(http.HandlerFunc(h.languages)))
 	h.mux.Handle("POST /languages", h.adminOnly(http.HandlerFunc(h.saveLanguage)))
@@ -738,9 +748,58 @@ func (h *Handler) generateDeck(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	if h.services.Enrichment != nil && r.FormValue("external_translation_consent") == "on" {
+		handle, submitErr := h.services.Enrichment.SubmitEnrichment(r.Context(), u.ID, artifact.EnrichmentCandidates)
+		if submitErr != nil {
+			fail(w, submitErr)
+			return
+		}
+		if handle.ID != 0 {
+			w.Header().Set("X-Mouseion-Enrichment-Job", strconv.FormatInt(handle.ID, 10))
+		}
+	}
 	w.Header().Set("Content-Type", "application/vnd.anki")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": artifact.Filename}))
 	_, _ = w.Write(artifact.APKG)
+}
+
+func (h *Handler) enrichmentJobStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || h.services.Enrichment == nil {
+		http.NotFound(w, r)
+		return
+	}
+	status, err := h.services.Enrichment.Get(r.Context(), user(r).ID, id)
+	if errors.Is(err, enrichmentjob.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, EnrichmentJobStatus(status, h.csrf(w, r)))
+}
+
+func (h *Handler) cancelEnrichmentJob(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || h.services.Enrichment == nil {
+		http.NotFound(w, r)
+		return
+	}
+	status, err := h.services.Enrichment.Cancel(r.Context(), user(r).ID, id)
+	if errors.Is(err, enrichmentjob.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, EnrichmentJobStatus(status, h.csrf(w, r)))
 }
 func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) (domain.User, bool) {
 	u := user(r)
@@ -921,6 +980,22 @@ func knownVocabJobLabel(status string) string {
 		return "Completed"
 	case "discarded", "cancelled":
 		return "Failed"
+	default:
+		return status
+	}
+}
+func enrichmentJobLabel(status string) string {
+	switch status {
+	case "available", "scheduled", "retryable", "pending":
+		return "Queued"
+	case "running":
+		return "Running"
+	case "completed":
+		return "Completed"
+	case "cancelled":
+		return "Cancelled"
+	case "discarded":
+		return "Discarded"
 	default:
 		return status
 	}

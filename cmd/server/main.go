@@ -14,6 +14,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -57,8 +59,18 @@ func main() {
 	}
 	defer nlp.Close()
 	selectionService := selection.NewService(store)
+	llmConfig, err := enrichment.LLMConfigFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
+	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
 		log.Fatal(err)
@@ -74,8 +86,9 @@ func main() {
 	analysisService := analysis.NewService(store.Pool(), riverClient)
 	exportService := cardexport.NewService(store)
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
+	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, CardExport: exportService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, KnownVocab: knownVocabService, CardExport: exportService, Enrichment: externalEnrichmentService, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

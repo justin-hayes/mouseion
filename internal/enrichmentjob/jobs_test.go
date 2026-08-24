@@ -82,9 +82,28 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	}
 }
 
-func TestSubmitNoOpWhenExternalDisabled(t *testing.T) {
-	service := NewService(nil, nil, enrichment.NewService(enrichment.Config{}, nil, nil, nil, &fakeProvider{}, nil))
-	handle, err := service.SubmitEnrichment(context.Background(), "owner", []enrichment.Candidate{{Identity: enrichment.Identity{CanonicalLemma: "haus"}}})
+func TestSubmitNoOpWithoutExternalConfigurationOrConsent(t *testing.T) {
+	for name, tc := range map[string]struct {
+		config   enrichment.Config
+		provider enrichment.TranslationProvider
+	}{
+		"disabled":             {enrichment.Config{}, &fakeProvider{}},
+		"no consent":           {enrichment.Config{ExternalEnabled: true}, &fakeProvider{}},
+		"provider unavailable": {enrichment.Config{ExternalEnabled: true, UserOptIn: true}, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			service := NewService(nil, nil, enrichment.NewService(tc.config, nil, nil, nil, tc.provider, nil))
+			handle, err := service.SubmitEnrichment(context.Background(), "owner", []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus"}, ExampleSentence: "Das Haus ist heute sehr ruhig."}})
+			if err != nil || handle.ID != 0 {
+				t.Fatalf("handle=%+v err=%v", handle, err)
+			}
+		})
+	}
+}
+
+func TestSubmitNoOpWhenSentencesAreEmpty(t *testing.T) {
+	service := NewService(nil, nil, enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, &fakeProvider{}, nil))
+	handle, err := service.SubmitEnrichment(context.Background(), "owner", []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus"}, ExampleSentence: "  "}})
 	if err != nil || handle.ID != 0 {
 		t.Fatalf("handle=%+v err=%v", handle, err)
 	}
@@ -108,5 +127,18 @@ func TestWorkerReturnsProviderFailureForRiverRetry(t *testing.T) {
 	err := worker.Work(context.Background(), &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1}, Args: JobArgs{Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "NOUN"}}}})
 	if err == nil || len(provider.requests) != 1 {
 		t.Fatalf("err=%v calls=%d", err, len(provider.requests))
+	}
+}
+
+func TestWorkerResumesAfterRecordedProgress(t *testing.T) {
+	provider := &fakeProvider{}
+	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, &fakeCache{values: make(map[enrichment.CacheKey]enrichment.CacheEntry)})
+	worker := &Worker{Enrichment: service, Progress: func(context.Context, int64, int, int) error { return nil }}
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1, Metadata: []byte(`{"completed":1,"total":2}`)}, Args: JobArgs{Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist heute sehr ruhig."}, {CanonicalLemma: "baum", UPOS: "NOUN", ExampleSentence: "Der Baum ist heute besonders schön gewachsen."}}}}
+	if err := worker.Work(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if len(provider.requests) != 1 || provider.requests[0].CanonicalLemma != "baum" {
+		t.Fatalf("requests = %+v", provider.requests)
 	}
 }
