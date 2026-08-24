@@ -27,12 +27,17 @@ const (
 
 var (
 	ErrInvalidCredentials  = errors.New("auth: invalid credentials")
+	ErrInvalidUsername     = errors.New("auth: username must not be empty")
+	ErrInvalidPassword     = errors.New("auth: password must be at least 8 characters")
+	ErrFirstAccountExists  = errors.New("auth: first account already exists")
 	ErrUnauthenticated     = errors.New("auth: unauthenticated")
 	ErrForbidden           = errors.New("auth: forbidden")
 	ErrInvalidPasswordHash = errors.New("auth: invalid password hash")
 )
 
 type Store interface {
+	HasUsers(context.Context) (bool, error)
+	CreateFirstUserAndSession(context.Context, string, string, string, time.Time) (domain.User, bool, error)
 	GetUserByUsername(context.Context, string) (domain.User, string, error)
 	CreateSession(context.Context, string, string, time.Time) error
 	GetSession(context.Context, string) (domain.User, time.Time, error)
@@ -118,6 +123,38 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 		return "", err
 	}
 	return raw, nil
+}
+
+func (s *Service) HasUsers(ctx context.Context) (bool, error) {
+	return s.store.HasUsers(ctx)
+}
+
+// CreateFirstAccount atomically creates the installation's sole bootstrap
+// learner and its initial session. The store arbitrates concurrent attempts.
+func (s *Service) CreateFirstAccount(ctx context.Context, username, password string) (domain.User, string, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return domain.User{}, "", ErrInvalidUsername
+	}
+	if len(password) < 8 {
+		return domain.User{}, "", ErrInvalidPassword
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return domain.User{}, "", err
+	}
+	raw, tokenHash, err := GenerateSessionToken()
+	if err != nil {
+		return domain.User{}, "", err
+	}
+	u, created, err := s.store.CreateFirstUserAndSession(ctx, username, hash, tokenHash, s.now().Add(s.lifetime))
+	if err != nil {
+		return domain.User{}, "", err
+	}
+	if !created {
+		return domain.User{}, "", ErrFirstAccountExists
+	}
+	return u, raw, nil
 }
 func (s *Service) Authenticate(ctx context.Context, raw string) (domain.User, error) {
 	if raw == "" {

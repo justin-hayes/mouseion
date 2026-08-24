@@ -27,6 +27,18 @@ func (m *memoryStore) createUser(n, h string) (domain.User, error) {
 	m.hashes[n] = h
 	return u, nil
 }
+func (m *memoryStore) HasUsers(context.Context) (bool, error) { return len(m.users) > 0, nil }
+func (m *memoryStore) CreateFirstUserAndSession(ctx context.Context, n, h, token string, _ time.Time) (domain.User, bool, error) {
+	if len(m.users) > 0 {
+		return domain.User{}, false, nil
+	}
+	u, err := m.createUser(n, h)
+	if err != nil {
+		return domain.User{}, false, err
+	}
+	m.sessions[token] = u.ID
+	return u, true, nil
+}
 func (m *memoryStore) GetUserByUsername(_ context.Context, n string) (domain.User, string, error) {
 	u, ok := m.users[n]
 	if !ok {
@@ -97,6 +109,27 @@ func TestServiceLifecycle(t *testing.T) {
 	}
 	if _, err = service.Authenticate(ctx, token); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("session remains: %v", err)
+	}
+}
+func TestCreateFirstAccountValidatesAndEstablishesSession(t *testing.T) {
+	ctx := context.Background()
+	store := newMemoryStore()
+	service := New(store, time.Hour)
+	if _, _, err := service.CreateFirstAccount(ctx, " ", "password"); !errors.Is(err, ErrInvalidUsername) {
+		t.Fatalf("blank username: %v", err)
+	}
+	if _, _, err := service.CreateFirstAccount(ctx, "alice", "short"); !errors.Is(err, ErrInvalidPassword) {
+		t.Fatalf("short password: %v", err)
+	}
+	u, token, err := service.CreateFirstAccount(ctx, " alice ", "password")
+	if err != nil || u.Username != "alice" || token == "" {
+		t.Fatalf("first account: %+v token=%q err=%v", u, token, err)
+	}
+	if got, err := service.Authenticate(ctx, token); err != nil || got.ID != u.ID {
+		t.Fatalf("initial session: %+v %v", got, err)
+	}
+	if _, _, err = service.CreateFirstAccount(ctx, "bob", "password"); !errors.Is(err, ErrFirstAccountExists) {
+		t.Fatalf("second account: %v", err)
 	}
 }
 func TestAuthorizeOwner(t *testing.T) {
