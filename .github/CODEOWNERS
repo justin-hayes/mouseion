@@ -11,6 +11,10 @@
 # Database schema and migrations.
 /migrations/                     @justin-hayes
 
+# Architectural decisions and the present-state product contract.
+/doc/adr/                        @justin-hayes
+/doc/product.md                  @justin-hayes
+
 # Authentication, authorization, and security boundaries.
 /internal/auth/                  @justin-hayes
 /internal/webauth/               @justin-hayes
