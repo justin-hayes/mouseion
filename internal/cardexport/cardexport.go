@@ -57,6 +57,12 @@ type SentenceQuality struct {
 	Reasons  []string
 }
 
+type SentenceEvidence struct {
+	Sentence, Target string
+	FirstEncounter   int64
+	Quality          SentenceQuality
+}
+
 type Store interface {
 	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
@@ -120,6 +126,10 @@ func ScoreSentenceQuality(sentence, target string, firstEncounter int64) Sentenc
 	} else {
 		quality.Score += 30
 		quality.Reasons = append(quality.Reasons, "usable length")
+		if len(words) >= 8 && len(words) <= 30 {
+			quality.Score += 10
+			quality.Reasons = append(quality.Reasons, "useful context window")
+		}
 	}
 	if targetIndex(text, strings.TrimSpace(target)) < 0 {
 		reject("target not present as a word")
@@ -170,12 +180,148 @@ func hasCompleteBoundary(text string) bool {
 
 func structuralNoise(text string) bool {
 	lower := strings.ToLower(strings.TrimSpace(text))
-	for _, marker := range []string{"table of contents", "inhaltsverzeichnis", "bibliography", "bibliografie", "references", "literaturverzeichnis", "notes", "anmerkungen", "footnote", "endnote"} {
+	for _, marker := range []string{"table of contents", "inhaltsverzeichnis", "bibliography", "bibliografie", "references", "literaturverzeichnis", "notes", "anmerkungen", "footnote", "endnote", "chapter", "kapitel", "section", "abschnitt"} {
 		if structuralHeading(lower, marker) {
 			return true
 		}
 	}
-	return strings.Contains(lower, "all rights reserved") || strings.Contains(lower, "project gutenberg") || strings.Contains(lower, ".....") || strings.Count(text, "\t") >= 2
+	return strings.Contains(lower, "all rights reserved") || strings.Contains(lower, "project gutenberg") ||
+		strings.Contains(lower, ".....") || strings.Count(text, "\t") >= 2 ||
+		listOrPageFragment(text) || citationDense(text) || extractionAnomaly(text)
+}
+
+func listOrPageFragment(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return true
+	}
+	firstLine := strings.TrimSpace(strings.SplitN(trimmed, "\n", 2)[0])
+	if strings.Contains(trimmed, "\n") || strings.HasPrefix(firstLine, "•") || strings.HasPrefix(firstLine, "- ") || strings.HasPrefix(firstLine, "* ") {
+		return true
+	}
+	fields := strings.Fields(firstLine)
+	if len(fields) <= 12 && len(fields) > 0 {
+		prefix := strings.TrimRight(fields[0], ".)")
+		if _, err := fmt.Sscan(prefix, new(int)); err == nil {
+			return true
+		}
+	}
+	allDigits := true
+	for _, r := range strings.Trim(trimmed, "-–— ") {
+		if !unicode.IsDigit(r) {
+			allDigits = false
+			break
+		}
+	}
+	return allDigits
+}
+
+func citationDense(text string) bool {
+	brackets := strings.Count(text, "[") + strings.Count(text, "]")
+	years := 0
+	for year := 1500; year <= 2099; year++ {
+		if strings.Contains(text, fmt.Sprintf("%d", year)) {
+			years++
+		}
+	}
+	lower := strings.ToLower(text)
+	citationMarkers := strings.Count(lower, " et al.") + strings.Count(lower, "doi:") + strings.Count(lower, " pp.") + strings.Count(lower, " vol.")
+	return brackets >= 4 || years >= 2 || citationMarkers >= 2 || strings.Count(lower, "doi:") >= 1
+}
+
+func extractionAnomaly(text string) bool {
+	controlOrReplacement := 0
+	for _, r := range text {
+		if r == unicode.ReplacementChar || (unicode.IsControl(r) && r != '\n' && r != '\t') {
+			controlOrReplacement++
+		}
+	}
+	words := strings.Fields(strings.ToLower(text))
+	repeated := 0
+	for i := 1; i < len(words); i++ {
+		if strings.Trim(words[i], ".,;:!?") == strings.Trim(words[i-1], ".,;:!?") {
+			repeated++
+		}
+	}
+	return controlOrReplacement > 0 || repeated >= 3 || strings.Contains(text, "\u00ad \u00ad")
+}
+
+type sentenceReference struct {
+	SentenceIndex int             `json:"sentence_index"`
+	Text          string          `json:"text"`
+	Location      json.RawMessage `json:"location"`
+}
+
+// BestSentenceEvidence ranks every eligible source reference without changing
+// the candidate's first-encounter ordering. Ties prefer source order, then
+// sentence index and text, so repeated exports are stable.
+func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence, bool) {
+	var refs []sentenceReference
+	if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
+		return SentenceEvidence{}, false
+	}
+	var forms []string
+	_ = json.Unmarshal(candidate.ObservedForms, &forms)
+	forms = append(forms, candidate.CanonicalLemma)
+	ranked := make([]struct {
+		evidence SentenceEvidence
+		index    int
+		sentence int
+	}, 0, len(refs))
+	for i, ref := range refs {
+		location, valid := referenceStartOffset(ref.Location)
+		if !valid {
+			location = -1
+		}
+		target := ""
+		for _, form := range forms {
+			if targetIndex(ref.Text, form) >= 0 {
+				target = form
+				break
+			}
+		}
+		quality := ScoreSentenceQuality(ref.Text, target, location)
+		ranked = append(ranked, struct {
+			evidence SentenceEvidence
+			index    int
+			sentence int
+		}{SentenceEvidence{strings.TrimSpace(ref.Text), target, location, quality}, i, ref.SentenceIndex})
+	}
+	if len(ranked) == 0 {
+		return SentenceEvidence{}, false
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].evidence.Quality.Accepted != ranked[j].evidence.Quality.Accepted {
+			return ranked[i].evidence.Quality.Accepted
+		}
+		if ranked[i].evidence.Quality.Score != ranked[j].evidence.Quality.Score {
+			return ranked[i].evidence.Quality.Score > ranked[j].evidence.Quality.Score
+		}
+		if ranked[i].index != ranked[j].index {
+			return ranked[i].index < ranked[j].index
+		}
+		if ranked[i].sentence != ranked[j].sentence {
+			return ranked[i].sentence < ranked[j].sentence
+		}
+		return ranked[i].evidence.Sentence < ranked[j].evidence.Sentence
+	})
+	return ranked[0].evidence, true
+}
+
+func referenceStartOffset(raw json.RawMessage) (int64, bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return 0, false
+	}
+	for _, key := range []string{"start_offset", "StartOffset"} {
+		if value, ok := fields[key]; ok {
+			var offset uint64
+			if json.Unmarshal(value, &offset) == nil && offset <= math.MaxInt64 {
+				return int64(offset), true
+			}
+		}
+	}
+	return 0, false
 }
 
 func structuralHeading(text, marker string) bool {
@@ -342,7 +488,13 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 		if err != nil {
 			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
-		entry.TargetWord = targetWord(entry.Sentence, candidate)
+		if evidence, ok := BestSentenceEvidence(candidate); ok {
+			entry.Sentence = evidence.Sentence
+			entry.TargetWord = evidence.Target
+			entry.FirstEncounter = evidence.FirstEncounter
+		} else {
+			entry.TargetWord = targetWord(entry.Sentence, candidate)
+		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
