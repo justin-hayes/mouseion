@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
@@ -46,16 +48,50 @@ func (h *Handler) RequireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(CookieName)
 		if err != nil {
-			http.Error(w, "authentication required", http.StatusUnauthorized)
+			unauthenticated(w, r)
 			return
 		}
 		u, err := h.auth.Authenticate(r.Context(), cookie.Value)
 		if err != nil {
-			http.Error(w, "authentication required", http.StatusUnauthorized)
+			unauthenticated(w, r)
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, u)))
 	})
+}
+
+func unauthenticated(w http.ResponseWriter, r *http.Request) {
+	if isNavigation(r) {
+		query := url.Values{}
+		query.Set("next", SafeReturnPath(r.URL.RequestURI()))
+		http.Redirect(w, r, "/login?"+query.Encode(), http.StatusSeeOther)
+		return
+	}
+	http.Error(w, "authentication required", http.StatusUnauthorized)
+}
+
+func isNavigation(r *http.Request) bool {
+	if r.Method != http.MethodGet || r.Header.Get("HX-Request") == "true" {
+		return false
+	}
+	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {
+		return mode == "navigate"
+	}
+	for _, accepted := range strings.Split(r.Header.Get("Accept"), ",") {
+		if strings.TrimSpace(strings.SplitN(accepted, ";", 2)[0]) == "text/html" {
+			return true
+		}
+	}
+	return false
+}
+
+// SafeReturnPath accepts only local absolute paths suitable for a post-login redirect.
+func SafeReturnPath(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "" || u.Host != "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") || strings.Contains(u.Path, `\`) {
+		return "/"
+	}
+	return u.RequestURI()
 }
 
 type credentials struct {

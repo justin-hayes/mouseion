@@ -186,7 +186,7 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, LoginPage(h.csrf(w, r), r.URL.Query().Get("error"), !hasUsers))
+	render(w, r, LoginPage(h.csrf(w, r), r.URL.Query().Get("error"), webauth.SafeReturnPath(r.URL.Query().Get("next")), !hasUsers))
 }
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
@@ -198,12 +198,13 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	token, err := h.services.Auth.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
-		redirect(w, r, "/login?error=Invalid+credentials")
+		query := url.Values{"error": {"Invalid credentials"}, "next": {webauth.SafeReturnPath(r.FormValue("next"))}}
+		redirect(w, r, "/login?"+query.Encode())
 		return
 	}
 	h.setSession(w, token)
 	h.rotateCSRF(w)
-	redirect(w, r, "/")
+	redirect(w, r, webauth.SafeReturnPath(r.FormValue("next")))
 }
 func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
 	hasUsers, err := h.services.Auth.HasUsers(r.Context())

@@ -210,6 +210,24 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	if page.Code != http.StatusOK || strings.Contains(page.Body.String(), "Create your account") || !strings.Contains(page.Body.String(), `action="/login"`) {
 		t.Fatalf("existing login page=%d %s", page.Code, page.Body.String())
 	}
+	navigationRequest := httptest.NewRequest("GET", "/library?sort=title", nil)
+	navigationRequest.Header.Set("Accept", "text/html")
+	navigationRequest.Header.Set("Sec-Fetch-Mode", "navigate")
+	navigation := httptest.NewRecorder()
+	h.ServeHTTP(navigation, navigationRequest)
+	if navigation.Code != http.StatusSeeOther || navigation.Header().Get("Location") != "/login?next=%2Flibrary%3Fsort%3Dtitle" {
+		t.Fatalf("unauthenticated navigation=%d location=%q body=%s", navigation.Code, navigation.Header().Get("Location"), navigation.Body.String())
+	}
+	returnPage := perform(t, h, "GET", navigation.Header().Get("Location"), nil, nil)
+	if !strings.Contains(returnPage.Body.String(), `name="next" value="/library?sort=title"`) {
+		t.Fatalf("login return path missing: %s", returnPage.Body.String())
+	}
+	returnCSRF := hiddenToken(t, returnPage.Body.String())
+	returnCSRFCookie := cookieNamed(t, returnPage.Result().Cookies(), csrfCookie)
+	returnedLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {returnCSRF}, "next": {"/library?sort=title"}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{returnCSRFCookie})
+	if returnedLogin.Code != http.StatusSeeOther || returnedLogin.Header().Get("Location") != "/library?sort=title" {
+		t.Fatalf("returned login=%d location=%q body=%s", returnedLogin.Code, returnedLogin.Header().Get("Location"), returnedLogin.Body.String())
+	}
 	csrf = hiddenToken(t, page.Body.String())
 	csrfCookieValue = cookieNamed(t, page.Result().Cookies(), csrfCookie)
 	blocked := perform(t, h, "POST", "/onboarding", url.Values{"csrf_token": {csrf}, "username": {"bob"}, "password": {"bob-password"}}, []*http.Cookie{csrfCookieValue})
