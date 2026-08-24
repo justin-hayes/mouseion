@@ -21,7 +21,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 			t.Error(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\"}"}}]}`)
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\"}"}}]}`)
 	}))
 	defer server.Close()
 
@@ -30,7 +30,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."})
-	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling"}) {
+	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large."}) {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
 	body, _ := json.Marshal(received)
@@ -47,6 +47,18 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	}
 	if len(input) != 4 || input["language"] != "de" || input["canonical_lemma"] != "Haus" || input["upos"] != "NOUN" || input["example_sentence"] != "Das Haus ist groß." {
 		t.Fatalf("external input=%v", input)
+	}
+}
+
+func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"dwelling\"}"}}]}`)
+	}))
+	defer server.Close()
+	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
+	_, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."})
+	if err == nil || !strings.Contains(err.Error(), "sentence_translation is empty") {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -125,7 +137,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v1" || cfg.Timeout != 4*time.Second {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v2" || cfg.Timeout != 4*time.Second {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
 	}
 }

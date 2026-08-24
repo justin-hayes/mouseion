@@ -40,7 +40,7 @@ func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (Tr
 	if len(s.requests) <= s.failures {
 		return TranslationResponse{}, errors.New("unavailable")
 	}
-	return TranslationResponse{"house", "a building for people"}, nil
+	return TranslationResponse{Translation: "house", Gloss: "a building for people", SentenceTranslation: "The house is large."}, nil
 }
 
 type frequencyStub struct{}
@@ -86,8 +86,52 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	if len(provider.requests) != 1 || provider.requests[0] != want {
 		t.Fatalf("requests=%+v", provider.requests)
 	}
-	if cache.puts != 1 || !second.Translation.Available || first.Translation.Provenance.CachedAt.IsZero() {
+	if cache.puts != 1 || !second.Translation.Available || !second.SentenceTranslation.Available || first.Translation.Provenance.CachedAt.IsZero() {
 		t.Fatalf("first=%+v second=%+v cache=%+v", first, second, cache)
+	}
+}
+
+func TestSentenceHashConservativeNormalizationAndSeparation(t *testing.T) {
+	first := SentenceHash("  Das Haus ist groß.\r\n")
+	if first == "" || len(first) != 64 || first != SentenceHash("Das Haus ist groß.\n") {
+		t.Fatalf("unexpected deterministic hash %q", first)
+	}
+	for _, sentence := range []string{"Das Haus ist groß!", "Das  Haus ist groß.", "das Haus ist groß."} {
+		if got := SentenceHash(sentence); got == first {
+			t.Fatalf("meaningful difference collided for %q", sentence)
+		}
+	}
+	if SentenceHash(" \r\n ") != "" {
+		t.Fatal("blank sentence should use legacy lemma-only identity")
+	}
+}
+
+func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
+	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
+	provider := &translationStub{name: "llm", version: "model-1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
+	for _, sentence := range []string{"Das Haus ist groß.", "Das Haus ist alt.", "Das Haus ist groß."} {
+		result := service.Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: sentence}})[0]
+		if !result.SentenceTranslation.Available {
+			t.Fatalf("sentence translation unavailable for %q", sentence)
+		}
+	}
+	if len(provider.requests) != 2 || len(cache.values) != 2 || cache.puts != 2 {
+		t.Fatalf("requests=%d entries=%d puts=%d", len(provider.requests), len(cache.values), cache.puts)
+	}
+}
+
+func TestProviderWithoutSentenceTranslationRemainsCompatible(t *testing.T) {
+	provider, err := NewDictionaryProvider("dict", "1", func(context.Context, TranslationRequest) (TranslationResponse, error) {
+		return TranslationResponse{Translation: "house", Gloss: "building"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil).
+		Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: "Das Haus."}})[0]
+	if !result.Translation.Available || !result.Gloss.Available || result.SentenceTranslation.Available || len(result.Warnings) != 0 {
+		t.Fatalf("result=%+v", result)
 	}
 }
 

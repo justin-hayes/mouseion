@@ -75,7 +75,7 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	if len(provider.requests) != 3 || provider.requests[0] != want || provider.requests[1] != want {
 		t.Fatalf("requests = %+v", provider.requests)
 	}
-	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1"}
+	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	entry := cache.values[key]
 	if entry.Translation != "house" || entry.Gloss != "building" || entry.CachedAt.IsZero() {
 		t.Fatalf("cache/provenance = %+v", entry)

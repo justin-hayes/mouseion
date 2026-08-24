@@ -4,6 +4,8 @@ package enrichment
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -31,6 +33,7 @@ type Result struct {
 	Frequency                         Field[float64]
 	Morphology                        Field[map[string]string]
 	Pronunciation, Translation, Gloss Field[string]
+	SentenceTranslation               Field[string]
 	Warnings                          []string
 }
 
@@ -53,18 +56,25 @@ type PronunciationProvider interface {
 // TranslationRequest is deliberately the complete external-provider input.
 // Adding user, document, corpus, or reading metadata to it is prohibited.
 type TranslationRequest struct{ Language, CanonicalLemma, UPOS, ExampleSentence string }
-type TranslationResponse struct{ Translation, Gloss string }
+type TranslationResponse struct {
+	Translation         string `json:"translation"`
+	Gloss               string `json:"gloss"`
+	SentenceTranslation string `json:"sentence_translation"`
+}
 type TranslationProvider interface {
 	Name() string
 	Version() string
 	Translate(context.Context, TranslationRequest) (TranslationResponse, error)
 }
 
-type CacheKey struct{ Language, CanonicalLemma, UPOS, Provider, ProviderVersion string }
+type CacheKey struct {
+	Language, CanonicalLemma, UPOS, Provider, ProviderVersion string
+	SentenceHash                                              string
+}
 type CacheEntry struct {
 	CacheKey
-	Translation, Gloss string
-	CachedAt           time.Time
+	Translation, Gloss, SentenceTranslation string
+	CachedAt                                time.Time
 }
 type ExternalCache interface {
 	Get(context.Context, CacheKey) (CacheEntry, bool, error)
@@ -150,7 +160,7 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 		r.Warnings = append(r.Warnings, "translation: "+err.Error())
 		return r
 	}
-	r.Translation, r.Gloss = external.Translation, external.Gloss
+	r.Translation, r.Gloss, r.SentenceTranslation = external.Translation, external.Gloss, external.SentenceTranslation
 	r.Warnings = append(r.Warnings, external.Warnings...)
 	return r
 }
@@ -175,7 +185,17 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 	if requireCache && s.cache == nil {
 		return r, errors.New("external enrichment cache is required")
 	}
-	key := CacheKey{c.Language, c.CanonicalLemma, strings.ToUpper(c.UPOS), s.translation.Name(), s.translation.Version()}
+	sentence := ""
+	if s.config.ContextMode == SentenceContext {
+		sentence = c.ExampleSentence
+		if SentenceHash(sentence) == "" {
+			sentence = ""
+		}
+	}
+	key := CacheKey{
+		Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
+		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
+	}
 	if s.cache != nil {
 		entry, ok, err := s.cache.Get(ctx, key)
 		if err != nil {
@@ -189,9 +209,7 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		}
 	}
 	req := TranslationRequest{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
-	if s.config.ContextMode == SentenceContext {
-		req.ExampleSentence = c.ExampleSentence
-	}
+	req.ExampleSentence = sentence
 	var response TranslationResponse
 	var err error
 	for attempt := 0; attempt < s.config.MaxAttempts; attempt++ {
@@ -220,7 +238,7 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 	if err != nil {
 		return r, err
 	}
-	entry := CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, CachedAt: s.now().UTC()}
+	entry := CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, CachedAt: s.now().UTC()}
 	if s.cache != nil {
 		stored, putErr := s.cache.Put(ctx, entry)
 		if putErr != nil {
@@ -244,6 +262,27 @@ func (s *Service) setExternal(r *Result, e CacheEntry) {
 	if e.Gloss != "" {
 		r.Gloss = Field[string]{e.Gloss, true, p}
 	}
+	if e.SentenceTranslation != "" {
+		r.SentenceTranslation = Field[string]{e.SentenceTranslation, true, p}
+	}
+}
+
+// SentenceHash returns the lowercase hexadecimal SHA-256 digest of the UTF-8
+// sentence after conservative normalization: CRLF line endings become LF and
+// leading/trailing Unicode whitespace is removed. Interior text, whitespace,
+// case, and punctuation are preserved. An empty normalized sentence has an
+// empty identity so legacy lemma-only cache rows remain addressable.
+func SentenceHash(sentence string) string {
+	normalized := normalizeSentence(sentence)
+	if normalized == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(normalized))
+	return hex.EncodeToString(sum[:])
+}
+
+func normalizeSentence(sentence string) string {
+	return strings.TrimSpace(strings.ReplaceAll(sentence, "\r\n", "\n"))
 }
 
 var ErrInvalidProvider = errors.New("enrichment: provider name and version are required")
