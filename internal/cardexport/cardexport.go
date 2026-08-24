@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 var ErrInvalidInput = errors.New("cardexport: invalid input")
@@ -82,7 +83,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	tags := uniqueTags("mouseion", entry.Language, entry.SourceDocument)
 	back := strings.Join([]string{
 		"Sentence: " + entry.Sentence, "Translation: " + entry.Translation,
-		"Target: " + target, "Lemma: " + entry.CanonicalLemma, "POS: " + entry.UPOS,
+		"Target: " + target, "Lemma: " + lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS), "POS: " + entry.UPOS,
 		"Morphology: " + entry.Morphology, "Source: " + entry.SourceDocument, "Notes: " + entry.Notes,
 	}, "\n")
 	return Note{Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Text: text, BackExtra: back, Tags: tags}, nil

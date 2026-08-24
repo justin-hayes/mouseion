@@ -5,6 +5,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
@@ -357,7 +358,7 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 	} else {
 		<table><thead><tr><th>Lemma</th><th>Part of speech</th><th>Imported</th></tr></thead><tbody>
 		for _, entry := range known {
-			<tr><td>{ entry.CanonicalLemma }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
+			<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
 		}
 		</tbody></table>
 	}
