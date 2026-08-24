@@ -10,8 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
@@ -34,6 +37,19 @@ type Note struct {
 type Artifact struct {
 	TSV, NoteType string
 	Count         int
+	Omitted       []Omission
+}
+
+type Omission struct {
+	Language, CanonicalLemma, UPOS string
+	Score                          int
+	Reasons                        []string
+}
+
+type SentenceQuality struct {
+	Accepted bool
+	Score    int
+	Reasons  []string
 }
 
 type Store interface {
@@ -58,7 +74,7 @@ func Cloze(sentence, target, hint string) (string, error) {
 	if target == "" || strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
-	start := strings.Index(strings.ToLower(sentence), strings.ToLower(target))
+	start := targetIndex(sentence, target)
 	if start < 0 {
 		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
 	}
@@ -69,6 +85,130 @@ func Cloze(sentence, target, hint string) (string, error) {
 	}
 	mark += "}}"
 	return sentence[:start] + mark + sentence[end:], nil
+}
+
+const (
+	minimumSentenceWords      = 6
+	maximumSentenceWords      = 50
+	maximumSentenceCharacters = 400
+	minimumSentenceScore      = 70
+)
+
+// ScoreSentenceQuality applies a deliberately small, explainable export gate
+// using only sentence text, the selected target form, and source location.
+func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
+	text := strings.TrimSpace(sentence)
+	words := strings.Fields(text)
+	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
+	reject := func(reason string) { quality.Reasons = append(quality.Reasons, reason) }
+
+	if !utf8.ValidString(text) || len(words) < minimumSentenceWords {
+		reject("too short or fragmented")
+	} else if len(words) > maximumSentenceWords || utf8.RuneCountInString(text) > maximumSentenceCharacters {
+		reject("too long")
+	} else {
+		quality.Score += 30
+		quality.Reasons = append(quality.Reasons, "usable length")
+	}
+	if targetIndex(text, strings.TrimSpace(target)) < 0 {
+		reject("target not present as a word")
+	} else {
+		quality.Score += 25
+		quality.Reasons = append(quality.Reasons, "target present")
+	}
+	if firstEncounter < 0 || firstEncounter == math.MaxInt64 {
+		reject("invalid source location")
+	} else {
+		quality.Score += 15
+		quality.Reasons = append(quality.Reasons, "valid source location")
+	}
+	if hasCompleteBoundary(text) {
+		quality.Score += 20
+		quality.Reasons = append(quality.Reasons, "complete sentence boundaries")
+	} else {
+		reject("incomplete sentence boundaries")
+	}
+	if structuralNoise(text) {
+		reject("structural noise or boilerplate")
+	} else {
+		quality.Score += 10
+		quality.Reasons = append(quality.Reasons, "no obvious structural noise")
+	}
+
+	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
+	return quality
+}
+
+func containsRejection(reasons []string) bool {
+	for _, reason := range reasons {
+		switch reason {
+		case "too short or fragmented", "too long", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate":
+			return true
+		}
+	}
+	return false
+}
+
+func hasCompleteBoundary(text string) bool {
+	if text == "" || !strings.ContainsAny(text[len(text)-1:], ".!?") {
+		return false
+	}
+	first, _ := utf8.DecodeRuneInString(text)
+	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune("\"'“„«", first)
+}
+
+func structuralNoise(text string) bool {
+	lower := strings.ToLower(strings.TrimSpace(text))
+	for _, marker := range []string{"table of contents", "inhaltsverzeichnis", "bibliography", "bibliografie", "references", "literaturverzeichnis", "notes", "anmerkungen", "footnote", "endnote"} {
+		if structuralHeading(lower, marker) {
+			return true
+		}
+	}
+	return strings.Contains(lower, "all rights reserved") || strings.Contains(lower, "project gutenberg") || strings.Contains(lower, ".....") || strings.Count(text, "\t") >= 2
+}
+
+func structuralHeading(text, marker string) bool {
+	if !strings.HasPrefix(text, marker) {
+		return false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(text, marker))
+	return rest == "" || strings.ContainsRune(":.-–—0123456789", []rune(rest)[0])
+}
+
+func targetIndex(sentence, target string) int {
+	if target == "" {
+		return -1
+	}
+	lowerSentence, lowerTarget := strings.ToLower(sentence), strings.ToLower(target)
+	for offset := 0; offset <= len(lowerSentence)-len(lowerTarget); {
+		relative := strings.Index(lowerSentence[offset:], lowerTarget)
+		if relative < 0 {
+			return -1
+		}
+		start := offset + relative
+		end := start + len(lowerTarget)
+		if wordBoundaryBefore(lowerSentence, start) && wordBoundaryAfter(lowerSentence, end) {
+			return start
+		}
+		offset = start + 1
+	}
+	return -1
+}
+
+func wordBoundaryBefore(text string, index int) bool {
+	if index == 0 {
+		return true
+	}
+	r, _ := utf8.DecodeLastRuneInString(text[:index])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+}
+
+func wordBoundaryAfter(text string, index int) bool {
+	if index == len(text) {
+		return true
+	}
+	r, _ := utf8.DecodeRuneInString(text[index:])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 func makeNote(owner string, entry Entry) (Note, error) {
@@ -160,7 +300,7 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
 		for _, form := range forms {
-			if strings.Contains(strings.ToLower(sentence), strings.ToLower(form)) {
+			if targetIndex(sentence, form) >= 0 {
 				return form
 			}
 		}
@@ -231,17 +371,37 @@ func candidateKey(candidate domain.SelectionCandidate) string {
 }
 
 func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName string, entries []Entry) (Artifact, error) {
-	notes := make([]Note, 0, len(entries))
+	type acceptedNote struct {
+		entry Entry
+		note  Note
+	}
+	accepted := make([]acceptedNote, 0, len(entries))
+	omitted := make([]Omission, 0)
 	for _, entry := range entries {
+		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
+		if !quality.Accepted {
+			omitted = append(omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: quality.Reasons})
+			continue
+		}
 		n, err := makeNote(owner, entry)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
-		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, deckName, entry, n); err != nil {
-			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
-		}
-		notes = append(notes, n)
+		accepted = append(accepted, acceptedNote{entry: entry, note: n})
+	}
+	notes := make([]Note, len(accepted))
+	for i := range accepted {
+		notes[i] = accepted[i].note
 	}
 	tsv, err := RenderTSV(notes)
-	return Artifact{TSV: tsv, NoteType: NoteTypeDefinition(), Count: len(notes)}, err
+	if err != nil {
+		return Artifact{}, fmt.Errorf("render TSV: %w", err)
+	}
+	for _, item := range accepted {
+		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, deckName, item.entry, item.note); err != nil {
+			entry := item.entry
+			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+		}
+	}
+	return Artifact{TSV: tsv, NoteType: NoteTypeDefinition(), Count: len(notes), Omitted: omitted}, nil
 }
