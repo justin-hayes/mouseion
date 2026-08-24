@@ -17,3 +17,6 @@
 .book-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
 .book-actions article { display: flex; flex-direction: column; }
 .book-actions article > :last-child { margin-top: auto; }
+.coverage-summary, .coverage-thresholds { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.coverage-summary article, .coverage-thresholds article { display: flex; flex-direction: column; text-align: center; }
+.coverage-summary strong, .coverage-thresholds strong { font-size: 1.75rem; }

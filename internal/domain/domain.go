@@ -109,6 +109,7 @@ type CoverageThreshold struct {
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
 	AnalyzableTokenCount int64
+	DistinctLemmaCount   int64
 	KnownTokenCount      int64
 	KnownLemmaCount      int64
 	UnknownTokenCount    int64

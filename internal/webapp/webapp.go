@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -62,6 +63,9 @@ type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
+type AnalysisInsights interface {
+	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
+}
 type KnownVocabulary interface {
 	Submit(context.Context, string, string, string) (knownvocab.Handle, error)
 	Get(context.Context, string, int64) (knownvocab.Status, error)
@@ -81,17 +85,18 @@ type PreparedDeck interface {
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
-	Auth            *auth.Service
-	WebAuth         *webauth.Handler
-	Store           Store
-	OPDS            OPDS
-	Analysis        Analysis
-	KnownVocab      KnownVocabulary
-	Enrichment      ExternalEnrichment
-	PreparedDeck    PreparedDeck
-	Capabilities    analyzer.CapabilityProvider
-	SecureCookies   bool
-	SessionLifetime time.Duration
+	Auth             *auth.Service
+	WebAuth          *webauth.Handler
+	Store            Store
+	OPDS             OPDS
+	Analysis         Analysis
+	AnalysisInsights AnalysisInsights
+	KnownVocab       KnownVocabulary
+	Enrichment       ExternalEnrichment
+	PreparedDeck     PreparedDeck
+	Capabilities     analyzer.CapabilityProvider
+	SecureCookies    bool
+	SessionLifetime  time.Duration
 }
 
 type Handler struct {
@@ -264,7 +269,20 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, BookPage(u, h.csrf(w, r), summary, r.URL.Query().Get("message")))
+	var coverage *domain.AnalysisCoverage
+	statisticsUnavailable := false
+	if summary.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
+		value, err := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, summary.CorpusID)
+		if errors.Is(err, analysisinsights.ErrStatisticsUnavailable) {
+			statisticsUnavailable = true
+		} else if err != nil {
+			fail(w, err)
+			return
+		} else {
+			coverage = &value
+		}
+	}
+	render(w, r, BookPage(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, r.URL.Query().Get("message")))
 }
 func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
