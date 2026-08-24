@@ -85,7 +85,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = os.WriteFile(dbPath, dbBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}

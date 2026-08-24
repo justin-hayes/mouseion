@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // renderAPKG writes Anki's documented legacy schema version 11. Anki imports
@@ -30,7 +30,7 @@ func renderAPKG(deckName string, notes []Note) ([]byte, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
