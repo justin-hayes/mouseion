@@ -61,10 +61,19 @@ type aggregate struct {
 	refs  []SentenceReference
 }
 
-func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Result, cfg SelectionConfig) ([]Candidate, error) {
-	if owner == "" || corpus.Language == "" || cfg.CorpusID == "" || cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil {
-		return nil, ErrInvalidConfig
+// AnalyzableStatistics calculates the immutable coverage denominator using the
+// same token filters as candidate selection. Distinct lemmas are the
+// lemma-and-UPOS identities used by vocabulary selection.
+func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.AnalysisStatistics {
+	aggs := aggregateTokens(corpus, cfg)
+	statistics := domain.AnalysisStatistics{DistinctLemmaCount: int64(len(aggs))}
+	for _, aggregate := range aggs {
+		statistics.AnalyzableTokenCount += int64(aggregate.count)
 	}
+	return statistics
+}
+
+func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig) map[Identity]*aggregate {
 	aggs := map[Identity]*aggregate{}
 	for si, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
@@ -82,6 +91,14 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 			a.refs = append(a.refs, SentenceReference{si, sentence.Text, token.Location})
 		}
 	}
+	return aggs
+}
+
+func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Result, cfg SelectionConfig) ([]Candidate, error) {
+	if owner == "" || corpus.Language == "" || cfg.CorpusID == "" || cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil {
+		return nil, ErrInvalidConfig
+	}
+	aggs := aggregateTokens(corpus, cfg)
 	ids := make([]Identity, 0, len(aggs))
 	for id := range aggs {
 		ids = append(ids, id)

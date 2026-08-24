@@ -452,8 +452,12 @@ func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash str
 	return
 }
 func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v domain.Corpus, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	var analyzableTokenCount, distinctLemmaCount *int64
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &analyzableTokenCount, &distinctLemmaCount, &v.CreatedAt)
 	err = missing(err)
+	if err == nil && analyzableTokenCount != nil && distinctLemmaCount != nil {
+		v.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
+	}
 	return
 }
 func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
