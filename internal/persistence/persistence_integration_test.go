@@ -30,6 +30,9 @@ func TestCreateFirstUserAndSessionIsAtomicAndOwnerReady(t *testing.T) {
 	if _, _, err = store.GetSession(ctx, "token-hash"); err != nil {
 		t.Fatalf("initial session: %v", err)
 	}
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+		t.Fatalf("supported language: %v", err)
+	}
 	if _, err = store.PutLanguageProfile(ctx, u.ID, "de", "German"); err != nil {
 		t.Fatalf("learner ownership: %v", err)
 	}

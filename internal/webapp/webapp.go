@@ -39,6 +39,7 @@ import (
 const csrfCookie = "mouseion_csrf"
 
 type Store interface {
+	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
 	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
 	DeleteLanguageProfile(context.Context, string, string) error
@@ -318,6 +319,10 @@ func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
 	var err error
 	for _, candidate := range supported {
 		if candidate.Language == language {
+			if _, err = h.services.Store.PutSupportedLanguage(r.Context(), candidate.Language, candidate.DisplayName); err != nil {
+				fail(w, err)
+				return
+			}
 			if _, err = h.services.Store.PutLanguageProfile(r.Context(), user(r).ID, candidate.Language, candidate.DisplayName); err != nil {
 				fail(w, err)
 				return
