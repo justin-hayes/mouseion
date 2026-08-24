@@ -3,6 +3,43 @@ package domain
 
 import "time"
 
+type DeckPreparationState string
+
+const (
+	DeckPreparationQueued    DeckPreparationState = "queued"
+	DeckPreparationPreparing DeckPreparationState = "preparing"
+	DeckPreparationReady     DeckPreparationState = "ready"
+	DeckPreparationFailed    DeckPreparationState = "failed"
+	DeckPreparationCancelled DeckPreparationState = "cancelled"
+)
+
+// CanTransitionTo describes the persisted deck-preparation state machine.
+func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
+	if s == next {
+		return true
+	}
+	switch s {
+	case DeckPreparationQueued:
+		return next == DeckPreparationPreparing || next == DeckPreparationCancelled
+	case DeckPreparationPreparing:
+		return next == DeckPreparationReady || next == DeckPreparationFailed || next == DeckPreparationCancelled
+	case DeckPreparationFailed, DeckPreparationCancelled:
+		return next == DeckPreparationQueued
+	default:
+		return false
+	}
+}
+
+type DeckPreparation struct {
+	ID, OwnerID, SourceMaterialID, Filename, DeckName, ContentHash, Error string
+	State                                                                 DeckPreparationState
+	Artifact                                                              []byte
+	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations int
+	QualityOmissions                                                      int
+	CreatedAt, UpdatedAt                                                  time.Time
+	StartedAt, CompletedAt                                                *time.Time
+}
+
 type User struct {
 	ID, Username string
 	IsAdmin      bool

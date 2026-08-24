@@ -28,6 +28,8 @@ import (
 
 var ErrNotFound = errors.New("persistence: not found")
 var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
+var ErrInvalidTransition = errors.New("persistence: invalid state transition")
+var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 
 type Store interface {
 	Ping(context.Context) error
