@@ -3,9 +3,13 @@ package persistence
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -13,6 +17,74 @@ const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text
 
 type rowScanner interface {
 	Scan(...any) error
+}
+
+// CompletePreparedDeck atomically stores the immutable artifact and every card
+// and generated-vocabulary row. A failure rolls back all assignment state.
+func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	defer tx.Rollback(ctx)
+	var state domain.DeckPreparationState
+	if err = tx.QueryRow(ctx, `SELECT state FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id).Scan(&state); err != nil {
+		return domain.DeckPreparation{}, missing(err)
+	}
+	if state == domain.DeckPreparationReady {
+		p, getErr := scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id))
+		if getErr != nil {
+			return p, getErr
+		}
+		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.QualityOmissions != artifact.Completeness.QualityOmitted {
+			return p, ErrImmutable
+		}
+		return p, nil
+	}
+	if state != domain.DeckPreparationPreparing {
+		return domain.DeckPreparation{}, ErrInvalidTransition
+	}
+	for _, item := range artifact.Generated {
+		entry, note := item.Entry, item.Note
+		var vocabularyState string
+		err = tx.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 FOR UPDATE`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS).Scan(&vocabularyState)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.DeckPreparation{}, ErrNotFound
+		}
+		if err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		if vocabularyState != "candidate" && vocabularyState != "accepted" && vocabularyState != "generated" {
+			return domain.DeckPreparation{}, fmt.Errorf("cardexport: vocabulary state is %s", vocabularyState)
+		}
+		var deckID string
+		if err = tx.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language,name) DO UPDATE SET name=excluded.name RETURNING id::text`, owner, entry.Language, note.BookTitle).Scan(&deckID); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_id,dedup_key) DO UPDATE SET deck_id=excluded.deck_id,front=excluded.front,back=excluded.back`, owner, deckID, note.Key, entry.CanonicalLemma, entry.UPOS, note.Text, note.BackExtra); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) SELECT $1,$2,$3,$4,$5,source_material_id FROM deck_preparations WHERE owner_id=$1 AND id=$6 ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS, deckID, id); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		if vocabularyState != "generated" {
+			if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET state='generated',updated_at=now() WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
+				return domain.DeckPreparation{}, err
+			}
+			details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": vocabularyState, "to": "generated"})
+			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'vocabulary.transition','completed',$2,$3)`, owner, details, time.Now().UTC()); err != nil {
+				return domain.DeckPreparation{}, err
+			}
+		}
+	}
+	ready, err := scanDeckPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state='ready',artifact=$3,filename=$4,deck_name=$5,total_cards=$6,cards_with_english=$7,cards_with_contextual_sentence_translations=$8,quality_omissions=$9,error='',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND state='preparing' RETURNING `+deckPreparationColumns, owner, id, artifact.APKG, artifact.Filename, artifact.DeckName, artifact.Completeness.TotalCards, artifact.Completeness.CardsWithEnglish, artifact.Completeness.CardsWithEnglishSentence, artifact.Completeness.QualityOmitted))
+	if err != nil {
+		return ready, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return ready, nil
 }
 
 func scanDeckPreparation(row rowScanner) (domain.DeckPreparation, error) {

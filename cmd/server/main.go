@@ -20,6 +20,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -71,6 +72,8 @@ func main() {
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
+	exportService := cardexport.NewService(store)
+	prepareddeck.AddWorker(workers, store, exportService, enrichmentService)
 	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
 		log.Fatal(err)
@@ -84,7 +87,6 @@ func main() {
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
-	exportService := cardexport.NewService(store)
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
 	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
 	mux.Handle("/static/", webapp.StaticHandler())

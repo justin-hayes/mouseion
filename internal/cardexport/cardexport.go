@@ -44,6 +44,14 @@ type Artifact struct {
 	Completeness            Completeness
 	Omitted                 []Omission
 	EnrichmentCandidates    []enrichment.Candidate
+	Generated               []GeneratedRecord
+}
+
+// GeneratedRecord is the card provenance to persist only after an artifact is
+// successfully rendered. Prepared-deck completion persists these atomically.
+type GeneratedRecord struct {
+	Entry Entry
+	Note  Note
 }
 
 // Completeness reports which optional enrichment fields were available for
@@ -474,6 +482,22 @@ func DownloadFilename(bookTitle string) string {
 // ExportCoverage exports the smallest set of unknown lemmas accounting for at
 // least 97 percent of the book's unknown lemma tokens, in reading order.
 func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
+	artifact, err := s.BuildCoverage(ctx, owner, bookID)
+	if err != nil {
+		return Artifact{}, err
+	}
+	for _, item := range artifact.Generated {
+		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, item.Entry, item.Note); err != nil {
+			entry := item.Entry
+			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+		}
+	}
+	return artifact, nil
+}
+
+// BuildCoverage selects, quality-gates, and renders a deck without changing
+// vocabulary or card state. Callers can persist Generated with the artifact.
+func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
 	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
 		return Artifact{}, ErrInvalidInput
 	}
@@ -511,7 +535,7 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 			deckName = entry.SourceDocument
 		}
 	}
-	return s.renderAndRecord(ctx, owner, bookID, deckName, entries)
+	return s.render(ctx, owner, deckName, entries)
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
@@ -588,7 +612,7 @@ func candidateKey(candidate domain.SelectionCandidate) string {
 	return candidate.Language + "\x00" + candidate.CanonicalLemma + "\x00" + candidate.UPOS
 }
 
-func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName string, entries []Entry) (Artifact, error) {
+func (s *Service) render(ctx context.Context, owner, deckName string, entries []Entry) (Artifact, error) {
 	type acceptedNote struct {
 		entry Entry
 		note  Note
@@ -638,11 +662,9 @@ func (s *Service) renderAndRecord(ctx context.Context, owner, bookID, deckName s
 	if err != nil {
 		return Artifact{}, fmt.Errorf("render Anki package: %w", err)
 	}
-	for _, item := range accepted {
-		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, deckName, item.entry, item.note); err != nil {
-			entry := item.entry
-			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
-		}
+	generated := make([]GeneratedRecord, len(accepted))
+	for i, item := range accepted {
+		generated[i] = GeneratedRecord{Entry: item.entry, Note: item.note}
 	}
-	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates}, nil
+	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates, Generated: generated}, nil
 }

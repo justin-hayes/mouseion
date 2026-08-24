@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -100,6 +101,66 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	var generated int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&generated); err != nil || generated != 0 {
 		t.Fatalf("terminal preparations created exclusions: count=%d err=%v", generated, err)
+	}
+}
+
+func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "atomic-prep", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "atomic-book", Title: "Atomic Book", MediaType: "text/plain", ContentHash: "atomic-hash", Content: []byte("Haus"), FullText: "Haus"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lemma := range []string{"Haus", "Baum"} {
+		if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := createPreparation(t, ctx, store, owner.ID, source.ID, source.ContentHash)
+	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	record := func(lemma string) cardexport.GeneratedRecord {
+		return cardexport.GeneratedRecord{Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}, Note: cardexport.Note{Key: lemma, Text: lemma + " front", BackExtra: lemma + " back", BookTitle: "Atomic Book"}}
+	}
+	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Missing")}, Completeness: cardexport.Completeness{TotalCards: 2}}
+	if _, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected rollback error, got %v", err)
+	}
+	var cards, generated int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&generated); err != nil {
+		t.Fatal(err)
+	}
+	if cards != 0 || generated != 0 {
+		t.Fatalf("partial provenance after failure: cards=%d generated=%d", cards, generated)
+	}
+	artifact := cardexport.Artifact{APKG: []byte("apkg"), Filename: "atomic.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Baum")}, Completeness: cardexport.Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}}
+	ready, err := store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact)
+	if err != nil || ready.State != domain.DeckPreparationReady || ready.TotalCards != 2 {
+		t.Fatalf("complete: %+v %v", ready, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil || cards != 2 {
+		t.Fatalf("cards=%d err=%v", cards, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2`, owner.ID, source.ID).Scan(&generated); err != nil || generated != 2 {
+		t.Fatalf("generated=%d err=%v", generated, err)
+	}
+	if _, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact); err != nil {
+		t.Fatalf("idempotent completion: %v", err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil || cards != 2 {
+		t.Fatalf("duplicate cards=%d err=%v", cards, err)
 	}
 }
 
