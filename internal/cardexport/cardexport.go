@@ -552,6 +552,26 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 
 const coveragePercent = 97
 
+func selectCoverageCandidates(candidates []domain.SelectionCandidate, targetPercent int) []domain.SelectionCandidate {
+	unknown := append([]domain.SelectionCandidate(nil), candidates...)
+	sort.SliceStable(unknown, func(i, j int) bool {
+		if unknown[i].OccurrenceCount != unknown[j].OccurrenceCount {
+			return unknown[i].OccurrenceCount > unknown[j].OccurrenceCount
+		}
+		return candidateKey(unknown[i]) < candidateKey(unknown[j])
+	})
+	total := 0
+	for _, candidate := range unknown {
+		total += candidate.OccurrenceCount
+	}
+	cumulative, count := 0, 0
+	for count < len(unknown) && cumulative*100 < total*targetPercent {
+		cumulative += unknown[count].OccurrenceCount
+		count++
+	}
+	return unknown[:count]
+}
+
 func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
 	knownByLanguage := make(map[string]map[string]bool)
 	generatedByLanguage := make(map[string]map[string]bool)
@@ -590,22 +610,7 @@ func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, 
 			unknown = append(unknown, candidate)
 		}
 	}
-	sort.SliceStable(unknown, func(i, j int) bool {
-		if unknown[i].OccurrenceCount != unknown[j].OccurrenceCount {
-			return unknown[i].OccurrenceCount > unknown[j].OccurrenceCount
-		}
-		return candidateKey(unknown[i]) < candidateKey(unknown[j])
-	})
-	total := 0
-	for _, candidate := range unknown {
-		total += candidate.OccurrenceCount
-	}
-	cumulative, count := 0, 0
-	for count < len(unknown) && cumulative*100 < total*coveragePercent {
-		cumulative += unknown[count].OccurrenceCount
-		count++
-	}
-	return unknown[:count], nil
+	return selectCoverageCandidates(unknown, coveragePercent), nil
 }
 
 func candidateKey(candidate domain.SelectionCandidate) string {
