@@ -2,10 +2,14 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 )
+
+var ErrEPUBClassificationsUnavailable = errors.New("epub: unit classifications unavailable")
 
 const (
 	EPUBClassificationSchemaVersion = 1
@@ -35,6 +39,8 @@ type EPUBUnitClassification struct {
 	Confidence           uint8                          `json:"confidence"`
 	Reasons              []EPUBClassificationReason     `json:"reasons"`
 	RecommendedInclusion bool                           `json:"recommended_inclusion"`
+	CreatedAt            time.Time                      `json:"-"`
+	UpdatedAt            time.Time                      `json:"-"`
 }
 
 type EPUBClassifierIdentity struct {

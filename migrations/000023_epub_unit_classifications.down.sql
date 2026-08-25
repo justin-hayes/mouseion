@@ -1,0 +1,3 @@
+DROP TABLE source_material_unit_classification_reasons;
+DROP TABLE source_material_unit_classifications;
+ALTER TABLE source_material_unit_snapshots DROP CONSTRAINT source_material_unit_snapshots_identity, DROP COLUMN snapshot_id;
