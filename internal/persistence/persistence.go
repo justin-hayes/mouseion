@@ -414,10 +414,10 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 		       CASE WHEN c.id IS NOT NULL THEN 'analyzed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
-		       COALESCE(c.id::text,''),COALESCE(j.river_job_id,0)
+		       COALESCE(c.id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
-		LEFT JOIN corpora c ON c.owner_id=s.owner_id AND c.source_material_id=s.id
-		LEFT JOIN analysis_jobs j ON j.owner_id=s.owner_id AND j.source_material_id=s.id
+		LEFT JOIN LATERAL (SELECT id,reviewed_scope_id FROM corpora WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) c ON true
+		LEFT JOIN LATERAL (SELECT river_job_id,error FROM analysis_jobs WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,river_job_id DESC LIMIT 1) j ON true
 		WHERE s.owner_id=$1
 		ORDER BY s.created_at DESC,s.title,s.id`, owner)
 	if err != nil {
@@ -427,7 +427,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.ReviewedScopeID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)

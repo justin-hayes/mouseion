@@ -202,6 +202,19 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		<p role="status">{ message }</p>
 	}
 	if coverage != nil {
+		<section aria-labelledby="analyzed-scope-heading"><h2 id="analyzed-scope-heading">Analyzed scope</h2>
+			if coverage.ReviewedScopeID != "" {
+				<p><strong>{ fmt.Sprintf("%d selected units", len(coverage.SelectedUnits)) }</strong> from this EPUB were analyzed. Coverage, thresholds, projections, highest-impact unknown vocabulary, and structural metrics apply only to these selected units, not necessarily to the full EPUB.</p>
+				<p><small>Reviewed scope <code>{ coverage.ReviewedScopeID }</code></small></p>
+				<ul>
+					for _, unit := range coverage.SelectedUnits {
+						<li>{ corpusUnitLabel(unit) }</li>
+					}
+				</ul>
+			} else {
+				<p><strong>Legacy/full-text scope.</strong> This corpus predates reviewed EPUB scopes or was analyzed from the source's full text. All metrics on this page apply to that persisted full-text corpus.</p>
+			}
+		</section>
 		if hasAnalysisWarnings(*coverage) {
 			<section aria-labelledby="analysis-quality-heading"><h2 id="analysis-quality-heading">Analysis quality</h2>
 				<p>These checks describe concrete gaps in the analyzer output. They do not assign a quality grade.</p>
@@ -239,7 +252,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 				<article><strong>{ fmt.Sprintf("%d", coverage.DistinctLemmaCount) }</strong><span>distinct lemmas</span></article>
 			</div>
 			<p>Your current known vocabulary—including vocabulary graduated by completed campaigns—covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The active campaign could add <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignLemmaCount) }</strong> lemmas after graduation; this projection is not counted as known. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
-			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each whole-book analyzable-token coverage target:</p>
+			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each analyzed-scope token coverage target:</p>
 			<div class="coverage-thresholds">
 				for _, threshold := range coverage.Thresholds {
 					if threshold.Reachable {
@@ -251,7 +264,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			</div>
 			if len(coverage.TopUnknownLemmas) > 0 {
 				<h3>Highest-impact unknown vocabulary</h3>
-				<p>The most frequent deck-eligible lemmas in this book:</p>
+				<p>The most frequent deck-eligible lemmas in this analyzed scope:</p>
 				<ol class="top-unknown">
 					for _, lemma := range coverage.TopUnknownLemmas {
 						if lexical.IsLemma(lemma.CanonicalLemma) {
@@ -268,7 +281,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 					}
 				</div>
 			}
-			<details><summary>How these metrics work</summary><p><strong>Current-known coverage</strong> is the share of analyzable token occurrences matched by vocabulary explicitly marked known or graduated from a completed campaign. <strong>Active-campaign projected coverage</strong> adds reserved vocabulary from the active campaign without claiming it is known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p>Active-campaign vocabulary is excluded from a new deck while it is reserved. Abandoned campaign vocabulary becomes <strong>deck-eligible vocabulary</strong> again. Unattached legacy generated history remains conservatively excluded. The 95%, 97%, and 99% estimates use the same full analyzable-token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
+			<details><summary>How these metrics work</summary><p><strong>Current-known coverage</strong> is the share of analyzable token occurrences in the resulting corpus matched by vocabulary explicitly marked known or graduated from a completed campaign. <strong>Active-campaign projected coverage</strong> adds reserved vocabulary from the active campaign without claiming it is known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p>Active-campaign vocabulary is excluded from a new deck while it is reserved. Abandoned campaign vocabulary becomes <strong>deck-eligible vocabulary</strong> again. Unattached legacy generated history remains conservatively excluded. The 95%, 97%, and 99% estimates use the same analyzed-scope token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
 		</section>
 	}
 	if statisticsUnavailable {
@@ -276,7 +289,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	}
 	<div class="book-actions"><article><h2>Analysis</h2>
 		if book.Source.MediaType == "application/epub+zip" {
-			<p><a href={ templ.SafeURL("/books/"+book.Source.ID+"/scope") }>Review EPUB analysis scope</a></p>
+			<p><a href={ templ.SafeURL("/books/"+book.Source.ID+"/scope") }>Review and analyze a new EPUB scope</a></p>
 		}
 		if book.AnalysisJobID > 0 {
 			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
@@ -284,7 +297,11 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		if book.AnalysisJobID == 0 {
 			<p>Analyze the text to prepare vocabulary candidates.</p>
 		}
-		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button></form>
+		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button>
+			if book.ReviewedScopeID != "" {
+				<small>Reanalysis reuses reviewed scope <code>{ book.ReviewedScopeID }</code>. Review a new scope above to create a distinct corpus without changing these results.</small>
+			}
+		</form>
 	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck covering at least 97% of the book's unknown vocabulary, ordered by first encounter.</p>
 		if book.AnalysisStatus == "analyzed" {
 			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck/preparations") } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
@@ -400,6 +417,16 @@ func hasAnalysisWarnings(coverage domain.AnalysisCoverage) bool {
 	return coverage.TextProfile.SentenceCount == 0 ||
 		coverage.TextProfile.EmptySentenceCount > 0 ||
 		(coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0)
+}
+
+func corpusUnitLabel(unit domain.CorpusSelectedUnit) string {
+	if strings.TrimSpace(unit.Title) != "" {
+		return unit.Title
+	}
+	if strings.TrimSpace(unit.SourceHref) != "" {
+		return unit.SourceHref
+	}
+	return unit.UnitID
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {
