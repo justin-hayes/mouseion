@@ -10,6 +10,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units and provenance before later classification and selection.
 - [EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — assigns deterministic, explainable structural categories and analysis recommendations.
 - [EPUB Analysis Scope Review — Phase 3](features/epub-analysis-scope-review.md) — lets learners review unit recommendations and analyze only the persisted selected scope.
+- [EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — improves hierarchy visualization, classifier refinement, and reusable scope decisions.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 
 ## Current pipeline
