@@ -124,6 +124,22 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	}
 }
 
+func TestImportRejectsNonLexicalLemmasAndPreservesUnicodeWords(t *testing.T) {
+	store := newMemoryStore()
+	got, err := NewService(store).Import(context.Background(), "alice", "de", strings.NewReader("5\n—\nl'acqua\nStraße\nB2\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Imported != 3 || len(got.Rejected) != 2 || len(store.known) != 3 {
+		t.Fatalf("result=%+v known=%+v", got, store.known)
+	}
+	for _, rejection := range got.Rejected {
+		if !strings.Contains(rejection.Error, "at least one letter") {
+			t.Fatalf("rejection = %+v", rejection)
+		}
+	}
+}
+
 func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
 	service := NewService(newMemoryStore())
 	for _, tc := range []struct{ owner, language string }{{"", "de"}, {"alice", ""}} {

@@ -245,3 +245,19 @@ func TestCoverageRequiresPersistedStatistics(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestCoverageExcludesStaleNonLexicalLemmaRows(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 10, DistinctLemmaCount: 3}
+	store := &memoryStore{input: domain.AnalysisCorpusVocabulary{Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "5", UPOS: "NOUN", OccurrenceCount: 6},
+		{Language: "de", CanonicalLemma: "Straße", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "B2", UPOS: "NOUN", OccurrenceCount: 1},
+	}}}
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AnalyzableTokenCount != 4 || got.DistinctLemmaCount != 2 || got.UnknownTokenCount != 4 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "Straße" {
+		t.Fatalf("coverage = %+v", got)
+	}
+}

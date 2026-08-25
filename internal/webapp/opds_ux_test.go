@@ -193,6 +193,21 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	}
 }
 
+func TestAnalyzedBookDoesNotRenderNonLexicalTopUnknownLemma(t *testing.T) {
+	coverage := domain.AnalysisCoverage{TopUnknownLemmas: []domain.LemmaOccurrence{
+		{CanonicalLemma: "5", UPOS: "NOUN", OccurrenceCount: 99},
+		{CanonicalLemma: "Straße", UPOS: "NOUN", OccurrenceCount: 1},
+	}}
+	var output bytes.Buffer
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", domain.SourceMaterialSummary{}, &coverage, false, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, ">5</strong>") || !strings.Contains(html, ">Straße</strong>") {
+		t.Fatalf("top unknown vocabulary = %s", html)
+	}
+}
+
 func TestAnalyzedBookReportsOnlyEvidenceBackedQualityWarnings(t *testing.T) {
 	tests := []struct {
 		name     string

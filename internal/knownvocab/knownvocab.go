@@ -12,6 +12,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
 )
 
@@ -110,8 +111,8 @@ func (s *Service) Import(ctx context.Context, owner, language string, reader io.
 		entry.CanonicalLemma = normalized.CanonicalLemma
 		entry.ProfileName = normalized.ProfileName
 		entry.ProfileVersion = normalized.ProfileVersion
-		if entry.CanonicalLemma == "" {
-			entry.ErrorTo(&result, errors.New("canonical lemma is empty"))
+		if !lexical.IsLemma(entry.CanonicalLemma) {
+			entry.ErrorTo(&result, errors.New("canonical lemma must contain at least one letter"))
 			continue
 		}
 		known, lookupErr := s.store.IsKnownVocabularyIdentity(ctx, owner, language, entry.CanonicalLemma, entry.UPOS)
