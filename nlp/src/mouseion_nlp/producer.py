@@ -25,6 +25,28 @@ class SourceDocument:
 
 PipelineFactory = Callable[[str, bool], Any]
 
+GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
+GERMAN_NORMALIZATION_VERSION = "2"
+DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
+DEFAULT_NORMALIZATION_VERSION = "1.0.0"
+
+# Exact lexical rules avoid collapsing modern, distinct lemmas such as Maße
+# and Masse. Keep this table in sync with internal/canonicalization/german.go.
+GERMAN_POST_1996_EQUIVALENCES = {
+    "daß": "dass",
+    "muß": "muss",
+    "mußt": "musst",
+    "müßt": "müsst",
+    "fluß": "fluss",
+    "kuß": "kuss",
+    "nuß": "nuss",
+    "naß": "nass",
+    "schluß": "schluss",
+    "schloß": "schloss",
+    "thür": "tür",
+    "thüre": "türe",
+}
+
 
 @lru_cache(maxsize=None)
 def _stanza_pipeline(language: str, enable_ner: bool) -> Any:
@@ -49,8 +71,8 @@ class Producer:
         self,
         *,
         enable_ner: bool = False,
-        normalization_profile: str = "unicode-casefold",
-        normalization_version: str = "1.0.0",
+        normalization_profile: str | None = None,
+        normalization_version: str | None = None,
         pipeline_factory: PipelineFactory = _default_pipeline_factory,
     ) -> None:
         self.enable_ner = enable_ner
@@ -87,7 +109,11 @@ class Producer:
         source = document or SourceDocument()
         analyzed = analyzed_at or datetime.now(timezone.utc)
         stanza_document = self._pipeline_factory(language, self.enable_ner)(text)
-        sentences = [self._map_sentence(sentence, source) for sentence in stanza_document.sentences]
+        sentences = [
+            self._map_sentence(sentence, source, language)
+            for sentence in stanza_document.sentences
+        ]
+        profile_name, profile_version = self._normalization_profile(language)
 
         return normalized_corpus_pb2.NormalizedCorpus(
             schema_version="1.0.0",
@@ -105,11 +131,11 @@ class Producer:
                 analyzer_version=stanza.__version__,
             ),
             normalization_profile=normalized_corpus_pb2.NormalizationProfile(
-                name=self.normalization_profile, version=self.normalization_version
+                name=profile_name, version=profile_version
             ),
         )
 
-    def _map_sentence(self, sentence: Any, source: SourceDocument) -> Any:
+    def _map_sentence(self, sentence: Any, source: SourceDocument, language: str) -> Any:
         entities = getattr(sentence, "ents", ()) if self.enable_ner else ()
         tokens = []
         for token in sentence.tokens:
@@ -134,7 +160,7 @@ class Producer:
                 value = normalized_corpus_pb2.Token(
                     surface=word.text,
                     raw_lemma=lemma,
-                    canonical_lemma=lemma.casefold(),
+                    canonical_lemma=self._canonical_lemma(language, lemma),
                     pos=word.upos or "",
                     morphology=_morphology(word.feats),
                     location=self._location(source, start, end),
@@ -150,6 +176,20 @@ class Producer:
             tokens=tokens,
             location=self._location(source, start, end),
         )
+
+    def _normalization_profile(self, language: str) -> tuple[str, str]:
+        if self.normalization_profile is not None:
+            return self.normalization_profile, self.normalization_version or ""
+        if language.lower().replace("_", "-").split("-", 1)[0] == "de":
+            return GERMAN_NORMALIZATION_PROFILE, GERMAN_NORMALIZATION_VERSION
+        return DEFAULT_NORMALIZATION_PROFILE, DEFAULT_NORMALIZATION_VERSION
+
+    @staticmethod
+    def _canonical_lemma(language: str, lemma: str) -> str:
+        if language.lower().replace("_", "-").split("-", 1)[0] != "de":
+            return lemma.casefold()
+        lowered = lemma.lower()
+        return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)
 
     @staticmethod
     def _location(source: SourceDocument, start: int, end: int) -> Any:

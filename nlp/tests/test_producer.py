@@ -85,6 +85,34 @@ def test_ner_is_not_emitted_when_disabled() -> None:
     assert not token.HasField("named_entity")
 
 
+def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="Straße, Maße, Masse, daß",
+                tokens=[
+                    SimpleNamespace(words=[word("Straße", "Straße", "NOUN", None, 0, 6)]),
+                    SimpleNamespace(words=[word("Maße", "Maße", "NOUN", None, 8, 12)]),
+                    SimpleNamespace(words=[word("Masse", "Masse", "NOUN", None, 14, 19)]),
+                    SimpleNamespace(words=[word("daß", "daß", "SCONJ", None, 21, 24)]),
+                ],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    artifact = producer.analyze("Straße, Maße, Masse, daß", "de-DE")
+
+    assert [token.canonical_lemma for token in artifact.sentences[0].tokens] == [
+        "straße",
+        "maße",
+        "masse",
+        "dass",
+    ]
+    assert artifact.normalization_profile.name == "german-standard-post-1996"
+    assert artifact.normalization_profile.version == "2"
+
+
 def test_normalized_corpus_round_trip() -> None:
     artifact = normalized_corpus_pb2.NormalizedCorpus(
         schema_version="1.0.0",
