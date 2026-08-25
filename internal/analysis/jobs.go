@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -326,6 +327,9 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	values := map[string]entry{}
 	for _, sentence := range result.Sentences {
 		for _, token := range sentence.Tokens {
+			if !lexical.IsLemma(token.CanonicalLemma) {
+				continue
+			}
 			raw, _ := json.Marshal(token.Morphology)
 			key := token.CanonicalLemma + "\x00" + token.UPOS + "\x00" + string(raw)
 			e := values[key]

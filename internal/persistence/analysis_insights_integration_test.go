@@ -24,6 +24,7 @@ func TestGetAnalysisCorpusVocabularyIsOwnerScopedAndAggregatesMorphology(t *test
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Sing"}`), Frequency: 3},
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Plur"}`), Frequency: 2},
 		{CanonicalLemma: "gehen", UPOS: "VERB", Morphology: []byte(`{}`), Frequency: 1},
+		{CanonicalLemma: "5", UPOS: "NOUN", Morphology: []byte(`{}`), Frequency: 7},
 		{CanonicalLemma: ".", UPOS: "PUNCT", Morphology: []byte(`{}`), Frequency: 20},
 		{CanonicalLemma: "der", UPOS: "DET", Morphology: []byte(`{}`), Frequency: 10},
 	})
@@ -38,7 +39,7 @@ func TestGetAnalysisCorpusVocabularyIsOwnerScopedAndAggregatesMorphology(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=6,distinct_lemma_count=2,sentence_count=2,normalized_token_count=8,empty_sentence_count=0,median_sentence_token_count=4,p90_sentence_token_count=5,long_sentence_count=0 WHERE id=$1`, corpus.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=13,distinct_lemma_count=3,sentence_count=2,normalized_token_count=15,empty_sentence_count=0,median_sentence_token_count=4,p90_sentence_token_count=5,long_sentence_count=0 WHERE id=$1`, corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	got, err := store.GetAnalysisCorpusVocabulary(ctx, alice.ID, corpus.ID)

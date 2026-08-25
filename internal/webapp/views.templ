@@ -7,6 +7,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
@@ -252,7 +253,9 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 				<p>The most frequent deck-eligible lemmas in this book:</p>
 				<ol class="top-unknown">
 					for _, lemma := range coverage.TopUnknownLemmas {
-						<li><span><strong>{ lemma.CanonicalLemma }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
+						if lexical.IsLemma(lemma.CanonicalLemma) {
+							<li><span><strong>{ lemma.CanonicalLemma }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
+						}
 					}
 				</ol>
 				<p>The top { fmt.Sprintf("%d", coverage.UnknownConcentration.TopLemmaCount) } deck-eligible lemmas account for <strong>{ fmt.Sprintf("%.1f%%", concentrationPercent(coverage.UnknownConcentration)) }</strong> of eligible unknown occurrences.</p>

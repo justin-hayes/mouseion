@@ -81,9 +81,11 @@ func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testin
 		tok("der", "der", "DET", false),
 		tok("Anna", "Anna", "NOUN", true),
 		tok("leer", " ", "ADJ", false),
+		tok("5", "5", "NOUN", false),
+		tok("B2", "B2", "NOUN", false),
 	)
 	got := AnalyzableStatistics(corpus, DefaultConfig("corpus-1"))
-	want := domain.AnalysisStatistics{AnalyzableTokenCount: 3, DistinctLemmaCount: 2, TextProfile: &domain.TextProfile{SentenceCount: 6, NormalizedTokenCount: 6, MedianSentenceTokenCount: 1, P90SentenceTokenCount: 1}}
+	want := domain.AnalysisStatistics{AnalyzableTokenCount: 4, DistinctLemmaCount: 3, TextProfile: &domain.TextProfile{SentenceCount: 8, NormalizedTokenCount: 8, MedianSentenceTokenCount: 1, P90SentenceTokenCount: 1}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("AnalyzableStatistics() = %+v, want %+v", got, want)
 	}

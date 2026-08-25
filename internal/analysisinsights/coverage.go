@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 var ErrStatisticsUnavailable = errors.New("analysis insights: corpus statistics unavailable")
@@ -50,6 +51,11 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	generatedByLanguage := map[string]map[string]bool{}
 	activeByLanguage := map[string]map[string]bool{}
 	for _, lemma := range input.Lemmas {
+		if !lexical.IsLemma(lemma.CanonicalLemma) {
+			result.AnalyzableTokenCount = max(result.AnalyzableTokenCount-lemma.OccurrenceCount, 0)
+			result.DistinctLemmaCount = max(result.DistinctLemmaCount-1, 0)
+			continue
+		}
 		known, ok := knownByLanguage[lemma.Language]
 		if !ok {
 			words, listErr := s.store.ListKnownVocabulary(ctx, owner, lemma.Language)

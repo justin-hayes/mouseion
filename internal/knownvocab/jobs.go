@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -137,9 +138,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	result := ImportResult{Rejected: parsed.Rejected}
 	for i, entry := range parsed.Entries {
 		normalized, normalizeErr := canonicalization.Normalize(a.Language, entry.RawLemma)
-		if normalizeErr != nil || normalized.CanonicalLemma == "" {
+		if normalizeErr != nil || !lexical.IsLemma(normalized.CanonicalLemma) {
 			if normalizeErr == nil {
-				normalizeErr = errors.New("canonical lemma is empty")
+				normalizeErr = errors.New("canonical lemma must contain at least one letter")
 			}
 			entry.ErrorTo(&result, normalizeErr)
 			continue

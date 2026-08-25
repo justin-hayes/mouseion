@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 // GetAnalysisCorpusVocabulary resolves the corpus through its owner and groups
@@ -30,6 +31,13 @@ func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, 
 		var lemma domain.LemmaOccurrence
 		if err = rows.Scan(&lemma.Language, &lemma.CanonicalLemma, &lemma.UPOS, &lemma.OccurrenceCount); err != nil {
 			return value, err
+		}
+		if !lexical.IsLemma(lemma.CanonicalLemma) {
+			if value.Statistics != nil {
+				value.Statistics.AnalyzableTokenCount = max(value.Statistics.AnalyzableTokenCount-lemma.OccurrenceCount, 0)
+				value.Statistics.DistinctLemmaCount = max(value.Statistics.DistinctLemmaCount-1, 0)
+			}
+			continue
 		}
 		value.Lemmas = append(value.Lemmas, lemma)
 	}

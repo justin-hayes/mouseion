@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -101,7 +102,7 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig) map[Identity]*
 	for si, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
 			id := Identity{corpus.Language, strings.TrimSpace(token.CanonicalLemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
-			if id.CanonicalLemma == "" || !cfg.AllowedPOS[id.UPOS] || (token.NamedEntity != nil && !cfg.IncludeNamedEntities) {
+			if !lexical.IsLemma(id.CanonicalLemma) || !cfg.AllowedPOS[id.UPOS] || (token.NamedEntity != nil && !cfg.IncludeNamedEntities) {
 				continue
 			}
 			a := aggs[id]
