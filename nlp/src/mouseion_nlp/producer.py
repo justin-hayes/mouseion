@@ -66,6 +66,10 @@ class Producer:
         """
         self._pipeline_factory(language, self.enable_ner)
 
+    def model_version(self, language: str) -> str:  # noqa: ARG002
+        """Return the Stanza model release used by the configured pipeline."""
+        return stanza.__version__
+
     def analyze(
         self,
         text: str,

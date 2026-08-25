@@ -86,7 +86,7 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(capabilities.Languages) != 2 || capabilities.Languages[0].DisplayName != "German" || !capabilities.Languages[0].Ready || capabilities.Languages[1].DisplayName != "Italian" || capabilities.Languages[1].Ready {
+	if len(capabilities.Languages) != 2 || capabilities.Languages[0].DisplayName != "German" || capabilities.Languages[0].ModelVersion != "1.10.1" || !capabilities.Languages[0].Ready || capabilities.Languages[1].DisplayName != "Italian" || capabilities.Languages[1].ModelVersion != "1.9.2" || capabilities.Languages[1].Ready {
 		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }

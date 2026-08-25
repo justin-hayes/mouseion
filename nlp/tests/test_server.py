@@ -14,6 +14,9 @@ from mouseion_nlp.server import (
 class StubProducer:
     enable_ner = False
 
+    def model_version(self, language):
+        return {"de": "de-fixture-1", "it": "it-fixture-2"}[language]
+
     def warmup(self, language):
         assert language in {"de", "it"}
 
@@ -59,6 +62,7 @@ def test_grpc_server_reports_language_capabilities() -> None:
     with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "it, de, it"}, clear=False):
         server = create_server(StubProducer())
     server._servicer.warmup("de")
+    server._servicer.warmup("it")
     port = server.add_insecure_port("127.0.0.1:0")
     server.start()
     try:
@@ -67,13 +71,16 @@ def test_grpc_server_reports_language_capabilities() -> None:
             response = stub.GetCapabilities(normalized_corpus_pb2.GetCapabilitiesRequest())
         assert [capability.language for capability in response.languages] == ["de", "it"]
         german, italian = response.languages
-        assert (german.display_name, german.ready) == ("German", True)
-        assert german.model_version
+        assert (german.display_name, german.model_version, german.ready) == (
+            "German",
+            "de-fixture-1",
+            True,
+        )
         assert german.supported_features == ["tokenize", "pos", "lemma"]
         assert (italian.display_name, italian.model_version, italian.ready) == (
             "Italian",
-            "",
-            False,
+            "it-fixture-2",
+            True,
         )
     finally:
         server.stop(None).wait()
@@ -97,5 +104,5 @@ def test_warmup_failure_does_not_mark_another_language_ready(capsys) -> None:
     capabilities = servicer.GetCapabilities(None, None).languages
     assert [(item.language, item.ready) for item in capabilities] == [("de", False), ("it", True)]
     assert capabilities[0].model_version == ""
-    assert capabilities[1].model_version
+    assert capabilities[1].model_version == "it-fixture-2"
     assert "failed to warm Stanza pipeline for language 'de': model unavailable" in capsys.readouterr().err

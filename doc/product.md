@@ -64,7 +64,10 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 - `MOUSEION_DATABASE_URL` — PostgreSQL connection string.
 - `MOUSEION_NLP_ADDR` — address of the Python gRPC service.
 - `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
-  advertise from the NLP service, defaulting to `de`. The singular
+  advertise from the NLP service. The Compose deployment defaults to `de,it`, whose
+  Stanza models are provisioned in the NLP image; manually launched services retain
+  the application default of `de`. Configured models missing from the local Stanza
+  resource directory are explicitly downloaded during startup warmup. The singular
   `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 

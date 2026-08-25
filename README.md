@@ -52,8 +52,13 @@ docker compose up -d --build
 ```
 
 - `db` — PostgreSQL 17 with a named volume
-- `nlp` — the Stanza gRPC service on `:50051`
+- `nlp` — the Stanza gRPC service on `:50051`, with German and Italian models
+  provisioned in the image and warmed before they are advertised as ready
 - `web` — the Go server on `http://localhost:8080`
+
+Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. Override the
+comma-separated value to advertise a different set; any configured model not
+already present in the image is explicitly downloaded during service startup.
 
 Open `http://<host>:8080`. A fresh installation presents first-account
 onboarding; otherwise, sign in with an existing account. The app is meant to be
@@ -69,6 +74,8 @@ export MOUSEION_DATABASE_URL="postgres://postgres@localhost:5432/mouseion?sslmod
 
 # 2. Python NLP gRPC service (separate terminal)
 export PYTHONPATH=nlp/src:gen/python
+# Optional: provision and warm both deployment languages (defaults to de only).
+export MOUSEION_NLP_WARM_LANGUAGES=de,it
 .venv/bin/python -m mouseion_nlp.server
 
 # 3. Go web server (separate terminal) — runs migrations, starts River
