@@ -168,6 +168,90 @@ type GeneratedVocabulary struct {
 	FirstSourceMaterialID                   *string
 	FirstGeneratedAt                        time.Time
 }
+
+type BookProgress string
+
+const (
+	BookQueued    BookProgress = "queued"
+	BookReading   BookProgress = "reading"
+	BookFinished  BookProgress = "finished"
+	BookAbandoned BookProgress = "abandoned"
+)
+
+func (s BookProgress) CanTransitionTo(next BookProgress) bool {
+	if s == next {
+		return true
+	}
+	switch s {
+	case BookQueued:
+		return next == BookReading || next == BookFinished || next == BookAbandoned
+	case BookReading:
+		return next == BookFinished || next == BookAbandoned
+	default:
+		return false
+	}
+}
+
+type DeckProgress string
+
+const (
+	DeckQueued    DeckProgress = "queued"
+	DeckStudying  DeckProgress = "studying"
+	DeckReviewed  DeckProgress = "reviewed"
+	DeckAbandoned DeckProgress = "abandoned"
+)
+
+func (s DeckProgress) CanTransitionTo(next DeckProgress) bool {
+	if s == next {
+		return true
+	}
+	switch s {
+	case DeckQueued:
+		return next == DeckStudying || next == DeckReviewed || next == DeckAbandoned
+	case DeckStudying:
+		return next == DeckReviewed || next == DeckAbandoned
+	default:
+		return false
+	}
+}
+
+type CampaignStatus string
+
+const (
+	CampaignQueued    CampaignStatus = "queued"
+	CampaignActive    CampaignStatus = "active"
+	CampaignComplete  CampaignStatus = "complete"
+	CampaignAbandoned CampaignStatus = "abandoned"
+)
+
+func DeriveCampaignStatus(book BookProgress, deck DeckProgress) CampaignStatus {
+	if book == BookAbandoned || deck == DeckAbandoned {
+		return CampaignAbandoned
+	}
+	if book == BookFinished && deck == DeckReviewed {
+		return CampaignComplete
+	}
+	if book == BookQueued && deck == DeckQueued {
+		return CampaignQueued
+	}
+	return CampaignActive
+}
+
+type LearningCampaign struct {
+	ID, OwnerID, SourceMaterialID, DeckPreparationID string
+	BookProgress                                     BookProgress
+	DeckProgress                                     DeckProgress
+	Status                                           CampaignStatus
+	CreatedAt, UpdatedAt                             time.Time
+	ActivatedAt, BookFinishedAt, DeckReviewedAt      *time.Time
+	CompletedAt, AbandonedAt, VocabularyGraduatedAt  *time.Time
+}
+
+type CampaignVocabulary struct {
+	OwnerID, CampaignID, Language, CanonicalLemma, UPOS string
+	GeneratedAt                                         time.Time
+	GraduatedAt                                         *time.Time
+}
 type VocabularyState struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS, State string
 	UpdatedAt                                          time.Time
