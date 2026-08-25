@@ -108,6 +108,22 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	}
 }
 
+func TestImportPreservesModernGermanSharpS(t *testing.T) {
+	store := newMemoryStore()
+	result, err := NewService(store).Import(
+		context.Background(), "alice", "de", strings.NewReader("Straße\nDaß\n"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || result.Entries[0].CanonicalLemma != "straße" ||
+		result.Entries[1].CanonicalLemma != "dass" ||
+		result.Entries[0].ProfileName != "german-standard-post-1996" ||
+		result.Entries[0].ProfileVersion != "2" {
+		t.Fatalf("entries = %+v", result.Entries)
+	}
+}
+
 func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
 	service := NewService(newMemoryStore())
 	for _, tc := range []struct{ owner, language string }{{"", "de"}, {"alice", ""}} {

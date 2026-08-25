@@ -34,7 +34,7 @@ A learning item is uniquely identified by the tuple **(language, canonical lemma
 
 Follow the spec's model exactly: **source surface form and the raw analyzer lemma are never altered.** A derived **canonical lemma** is computed from the raw lemma by a **normalization profile**, and the profile name + version that produced it is stored alongside.
 
-- **v1 ships one profile:** *German standard orthography (post-1996 reform)* — the well-established spelling equivalences (e.g. historical `daß` → `dass`, `ß`/`ss` reform rules). Conservative only: no regional/dialectal forms, no merging of genuinely distinct lexemes.
+- **v1 ships one profile:** *German standard orthography (post-1996 reform)* — version 2 lowercases without Unicode case folding, preserving modern `ß` (for example `Straße` → `straße`), and applies explicit historical spelling equivalences such as `daß` → `dass`. Conservative only: no blanket `ß` → `ss` replacement, regional/dialectal forms, or merging of genuinely distinct lexemes such as `Maße` and `Masse`.
 - **Deterministic and pure:** the profile is a pure function, so it is unit-testable and reproducible.
 - **Versioned:** a profile update re-derives canonical lemmas for **new** items but leaves already-persisted items' canonical values stable unless an explicit re-normalize migration is run. Rules never mutate the stored surface form or raw lemma.
 

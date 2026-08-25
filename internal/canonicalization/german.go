@@ -5,7 +5,7 @@ type GermanPost1996Profile struct{}
 
 func GermanPost1996() Profile                  { return GermanPost1996Profile{} }
 func (GermanPost1996Profile) Name() string     { return "german-standard-post-1996" }
-func (GermanPost1996Profile) Version() string  { return "1" }
+func (GermanPost1996Profile) Version() string  { return "2" }
 func (GermanPost1996Profile) Language() string { return "de" }
 func (GermanPost1996Profile) Canonical(s string) string {
 	s = Lemma(s)
