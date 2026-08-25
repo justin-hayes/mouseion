@@ -168,13 +168,21 @@ func TestAbandonedCampaignDoesNotGraduateVocabulary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, domain.BookAbandoned, domain.DeckQueued)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, domain.BookReading, domain.DeckStudying)
+	if err != nil {
+		t.Fatal(err)
+	}
+	campaign, err = store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID)
 	if err != nil || campaign.Status != domain.CampaignAbandoned || campaign.AbandonedAt == nil || campaign.VocabularyGraduatedAt != nil {
 		t.Fatalf("abandon campaign = %+v, %v", campaign, err)
 	}
 	var known bool
 	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='Frei')`, owner.ID).Scan(&known); err != nil || known {
 		t.Fatalf("abandoned vocabulary graduated: known=%v err=%v", known, err)
+	}
+	repeated, err := store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID)
+	if err != nil || repeated.AbandonedAt == nil || !repeated.AbandonedAt.Equal(*campaign.AbandonedAt) {
+		t.Fatalf("idempotent abandonment=%+v err=%v", repeated, err)
 	}
 	if _, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, domain.BookAbandoned, domain.DeckStudying); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("abandoned campaign transition error = %v", err)

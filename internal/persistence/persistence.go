@@ -111,6 +111,17 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 	if known {
 		return false, nil
 	}
+	var reserved bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM learning_campaign_vocabulary cv
+		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
+		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
+	)`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&reserved); err != nil {
+		return false, err
+	}
+	if reserved {
+		return false, nil
+	}
 	if stateMissing {
 		_, err = tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,'candidate') ON CONFLICT DO NOTHING`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS)
 		if err != nil {
@@ -125,6 +136,19 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		return false, err
 	}
 	return true, nil
+}
+
+// IsLearningCampaignVocabularyReserved reports whether an identity is assigned
+// to the owner's active campaign. Queued and abandoned campaigns do not reserve
+// vocabulary for future selection.
+func (s *PostgresStore) IsLearningCampaignVocabularyReserved(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
+	var reserved bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM learning_campaign_vocabulary cv
+		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
+		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
+	)`, owner, language, lemma, upos).Scan(&reserved)
+	return reserved, err
 }
 
 func missing(err error) error {
