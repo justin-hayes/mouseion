@@ -238,6 +238,32 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil || scopedCorpus.ReviewedScopeID != scope.ScopeID || len(scopedCorpus.SelectedUnits) != 2 || scopedCorpus.SelectedUnits[0].UnitID != "unit-1" {
 		t.Fatalf("scoped corpus = %+v, %v", scopedCorpus, err)
 	}
+	if scopedCorpus.Statistics == nil || scopedCorpus.Statistics.AnalyzableTokenCount != 2 || scopedCorpus.Statistics.DistinctLemmaCount != 1 {
+		t.Fatalf("scoped corpus statistics = %+v, want selected-unit metrics only", scopedCorpus.Statistics)
+	}
+	changedScope := scope
+	changedScope.ScopeID = uuid.NewString()
+	changedScope.SelectedUnits = changedScope.SelectedUnits[:1]
+	if _, err = store.CreateEPUBReviewedScope(ctx, changedScope); err != nil {
+		t.Fatal(err)
+	}
+	changedHandle, err := service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, changedScope.ScopeID)
+	if err != nil || changedHandle.ID == scopedHandle.ID {
+		t.Fatalf("changed-scope submit = %+v, %v; original=%+v", changedHandle, err, scopedHandle)
+	}
+	changedStatus, err := service.Wait(ctx, alice.ID, changedHandle.ID)
+	if err != nil || changedStatus.State != rivertype.JobStateCompleted || changedStatus.CorpusID == scopedStatus.CorpusID {
+		t.Fatalf("changed-scope status = %+v, %v; original=%+v", changedStatus, err, scopedStatus)
+	}
+	changedCorpus, err := service.Result(ctx, alice.ID, changedHandle.ID)
+	if err != nil || changedCorpus.ReviewedScopeID != changedScope.ScopeID || len(changedCorpus.SelectedUnits) != 1 || changedCorpus.Statistics == nil || changedCorpus.Statistics.AnalyzableTokenCount != 1 {
+		t.Fatalf("changed-scope corpus = %+v, %v", changedCorpus, err)
+	}
+	analyzedChunksMu.Lock()
+	if len(scopedDocuments) != 3 || scopedDocuments[2].ID != "unit-1" || scopedDocuments[2].Text != "Keep one" {
+		t.Fatalf("changed-scope analyzer documents = %+v", scopedDocuments)
+	}
+	analyzedChunksMu.Unlock()
 	replacement := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: "replacement", Order: 0, Text: "New", EndOffset: 3}}}
 	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: scopedSource.SourceIdentifier, Title: "Scoped", MediaType: scopedSource.MediaType, ContentHash: "sha256:scoped-new", FullText: "New"}, replacement); err != nil {
 		t.Fatal(err)
@@ -248,6 +274,22 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	var historicalScope string
 	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedCorpus.ID).Scan(&historicalScope); err != nil || historicalScope != scope.ScopeID {
 		t.Fatalf("historical corpus changed: %q, %v", historicalScope, err)
+	}
+	legacyEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "legacy-epub-job", Title: "Legacy EPUB", MediaType: "application/epub+zip", ContentHash: "sha256:legacy-epub-job", Content: []byte("old epub bytes"), FullText: "Legacy complete text."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyHandle, err := service.SubmitAnalysis(ctx, alice.ID, legacyEPUB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyStatus, err := service.Wait(ctx, alice.ID, legacyHandle.ID)
+	if err != nil || legacyStatus.State != rivertype.JobStateCompleted {
+		t.Fatalf("legacy EPUB status = %+v, %v", legacyStatus, err)
+	}
+	legacyCorpus, err := service.Result(ctx, alice.ID, legacyHandle.ID)
+	if err != nil || legacyCorpus.ReviewedScopeID != "" || len(legacyCorpus.SelectedUnits) != 0 {
+		t.Fatalf("legacy EPUB corpus = %+v, %v", legacyCorpus, err)
 	}
 
 	failing, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-fail", Title: "Fail", MediaType: "text/plain", ContentHash: "sha256:job-fail", Content: []byte("fail"), FullText: "fail"})
