@@ -18,17 +18,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------------------------------------------------
+      # Checkout and change detection
+      # ------------------------------------------------------------------
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Determine which parts of the repository are affected.
-      #
-      # On workflow_dispatch, run every check so the manual action can be
-      # used as a complete CI verification.
       - name: Detect changed files
-        uses: dorny/paths-filter@v3
         id: changes
         if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
         with:
           filters: |
             go:
@@ -44,20 +44,26 @@ jobs:
               - 'nlp/**'
               - 'gen/python/**'
               - 'proto/**'
-              - 'Makefile'
               - 'pyproject.toml'
               - 'nlp/requirements-dev.txt'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
 
             generated:
               - 'proto/**'
-              - 'Makefile'
               - 'go.mod'
+              - 'go.sum'
+              - 'pyproject.toml'
               - 'nlp/requirements-dev.txt'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
 
       # ------------------------------------------------------------------
       # Go
+      #
+      # Run when Go-related files changed, or when this workflow was
+      # manually triggered. Protobuf and shared build-system changes are
+      # included in the "go" filter above.
       # ------------------------------------------------------------------
 
       - name: Set up Go
@@ -132,6 +138,9 @@ jobs:
 
       # ------------------------------------------------------------------
       # Generated protobuf code
+      #
+      # Regenerate checked-in generated code and fail if doing so changes
+      # the working tree.
       # ------------------------------------------------------------------
 
       - name: Set up protoc
