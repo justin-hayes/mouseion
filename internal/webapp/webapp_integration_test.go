@@ -711,6 +711,114 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	}
 }
 
+func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "campaign-web-secret")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "campaign-web-alice", "alice-password", false)
+	createAccount(t, ctx, store, "campaign-web-bob", "bob-password", false)
+	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
+	for i, title := range []string{"Completed Book", "Abandoned Book", "Active Book", "Queued Book"} {
+		source, sourceErr := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: fmt.Sprintf("campaign-web-%d", i), Title: title, MediaType: "text/plain", ContentHash: fmt.Sprintf("campaign-web-hash-%d", i), Content: []byte(title), FullText: title})
+		if sourceErr != nil {
+			t.Fatal(sourceErr)
+		}
+		preparation, prepErr := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: source.ID, Filename: fmt.Sprintf("book-%d.apkg", i), DeckName: "Mouseion::de::" + title, ContentHash: source.ContentHash})
+		if prepErr != nil {
+			t.Fatal(prepErr)
+		}
+		if preparation, prepErr = store.ClaimDeckPreparation(ctx, alice.ID, preparation.ID); prepErr != nil {
+			t.Fatal(prepErr)
+		}
+		preparation, prepErr = store.CompleteDeckPreparation(ctx, alice.ID, preparation.ID, domain.DeckPreparation{Artifact: []byte("apkg"), Filename: preparation.Filename, DeckName: preparation.DeckName, TotalCards: i + 1})
+		if prepErr != nil {
+			t.Fatal(prepErr)
+		}
+		decks.preparations[preparation.ID] = preparation
+	}
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	aliceCookies, aliceCSRF := loginCookies(t, h, "campaign-web-alice", "alice-password")
+	bobCookies, bobCSRF := loginCookies(t, h, "campaign-web-bob", "bob-password")
+
+	page := perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Prepared books") || !strings.Contains(page.Body.String(), "Completed Book") || !strings.Contains(page.Body.String(), "Deck ready") {
+		t.Fatalf("prepared campaign page=%d %s", page.Code, page.Body.String())
+	}
+	ready, err := store.ListUnassignedReadyDeckPreparations(ctx, alice.ID)
+	if err != nil || len(ready) != 4 {
+		t.Fatalf("ready preparations=%+v, %v", ready, err)
+	}
+	if got := perform(t, h, "POST", "/campaigns", url.Values{"deck_preparation_id": {ready[0].ID}}, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("queue without csrf=%d", got.Code)
+	}
+	for _, preparation := range ready {
+		queued := perform(t, h, "POST", "/campaigns", url.Values{"csrf_token": {aliceCSRF}, "deck_preparation_id": {preparation.ID}}, aliceCookies)
+		if queued.Code != http.StatusSeeOther || !strings.HasPrefix(queued.Header().Get("Location"), "/campaigns?message=") {
+			t.Fatalf("queue=%d location=%q body=%s", queued.Code, queued.Header().Get("Location"), queued.Body.String())
+		}
+	}
+	campaigns, err := store.ListLearningCampaigns(ctx, alice.ID)
+	if err != nil || len(campaigns) != 4 {
+		t.Fatalf("campaigns=%+v, %v", campaigns, err)
+	}
+	campaignNamed := func(title string) domain.LearningCampaign {
+		for _, campaign := range campaigns {
+			if decks.preparations[campaign.DeckPreparationID].DeckName == "Mouseion::de::"+title {
+				return campaign
+			}
+		}
+		t.Fatalf("campaign for %q not found", title)
+		return domain.LearningCampaign{}
+	}
+	completedCampaign := campaignNamed("Completed Book")
+	abandonedCampaign := campaignNamed("Abandoned Book")
+	activeCampaign := campaignNamed("Active Book")
+	queuedCampaign := campaignNamed("Queued Book")
+	if got := perform(t, h, "POST", "/campaigns/"+campaigns[0].ID+"/activate", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("activate without csrf=%d", got.Code)
+	}
+	activate := func(campaign domain.LearningCampaign) {
+		response := perform(t, h, "POST", "/campaigns/"+campaign.ID+"/activate", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+		if response.Code != http.StatusSeeOther {
+			t.Fatalf("activate %s=%d %s", campaign.ID, response.Code, response.Body.String())
+		}
+	}
+	activate(completedCampaign)
+	conflict := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/activate", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if conflict.Code != http.StatusSeeOther || !strings.Contains(conflict.Header().Get("Location"), "Finish+or+abandon") {
+		t.Fatalf("second active=%d location=%q", conflict.Code, conflict.Header().Get("Location"))
+	}
+	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, completedCampaign.ID, domain.BookFinished, domain.DeckReviewed); err != nil {
+		t.Fatal(err)
+	}
+	activate(abandonedCampaign)
+	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, abandonedCampaign.ID, domain.BookAbandoned, domain.DeckAbandoned); err != nil {
+		t.Fatal(err)
+	}
+	activate(activeCampaign)
+
+	page = perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	body := page.Body.String()
+	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying"} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("campaign page missing %q: %s", expected, body)
+		}
+	}
+	if got := perform(t, h, "POST", "/campaigns/"+queuedCampaign.ID+"/activate", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner activation=%d", got.Code)
+	}
+	bobPage := perform(t, h, "GET", "/campaigns", nil, bobCookies)
+	if bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Active Book") {
+		t.Fatalf("bob campaign page=%d %s", bobPage.Code, bobPage.Body.String())
+	}
+}
+
 func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
 	page := perform(t, h, "GET", "/login", nil, nil)
 	token := hiddenToken(t, page.Body.String())

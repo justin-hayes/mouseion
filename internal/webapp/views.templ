@@ -65,7 +65,7 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
     if (preparation.ready) {
       var c = preparation.completeness || {};
       html += '<p><strong>Completeness:</strong> ' + Number(c.total_cards || 0) + ' cards · ' + Number(c.cards_with_english || 0) + ' with English · ' + Number(c.cards_with_contextual_sentence_translations || 0) + ' with contextual sentence translations · ' + Number(c.quality_omissions || 0) + ' omitted for sentence quality.</p>';
-      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a>';
+      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a> <a role="button" class="outline" href="/campaigns">Add to learning queue</a>';
     } else if (active) {
       html += '<button type="button" class="outline secondary" data-cancel-preparation>Cancel preparation</button>';
     } else {
@@ -99,7 +99,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 </script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul>
-		<li><a href="/library">My Library</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
+		<li><a href="/library">My Library</a></li><li><a href="/campaigns">Learning</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main class="container">{ children... }</main></body></html>
@@ -120,6 +120,61 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 		</div>
 	}
 	}
+}
+templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string) {
+	@Layout("Learning", &user, csrf) {
+		<header class="page-heading"><div><h1>Learning campaigns</h1><p>Choose one prepared book and deck to study now, and keep the rest in your queue.</p></div><a role="button" class="outline" href="/library">Prepare another deck</a></header>
+		if message != "" {
+			<p role="status">{ message }</p>
+		}
+		if pageError != "" {
+			<p role="alert">{ pageError }</p>
+		}
+		<section aria-labelledby="active-campaign-heading"><h2 id="active-campaign-heading">Active campaign</h2>
+			if !hasCampaignStatus(campaigns, domain.CampaignActive) {
+				<p>No campaign is active. Start one from your queue below.</p>
+			}
+			for _, item := range campaigns {
+				if item.Campaign.Status == domain.CampaignActive {
+					@CampaignCard(item, csrf, false)
+				}
+			}
+		</section>
+		<section aria-labelledby="campaign-queue-heading"><h2 id="campaign-queue-heading">Queue</h2>
+			if !hasCampaignStatus(campaigns, domain.CampaignQueued) {
+				<p>Your learning queue is empty.</p>
+			}
+			for _, item := range campaigns {
+				if item.Campaign.Status == domain.CampaignQueued {
+					@CampaignCard(item, csrf, true)
+				}
+			}
+		</section>
+		if len(prepared) > 0 {
+			<section aria-labelledby="prepared-books-heading"><h2 id="prepared-books-heading">Prepared books</h2><p>Add a ready book and deck to your learning queue.</p><div class="campaign-list">
+				for _, item := range prepared {
+					<article><div><h3>{ item.Book.Source.Title }</h3><p><span class="status status-ready">Deck ready</span> · <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
+				}
+			</div></section>
+		}
+		<section aria-labelledby="campaign-history-heading"><h2 id="campaign-history-heading">History</h2>
+			if !hasCampaignHistory(campaigns) {
+				<p>No completed or abandoned campaigns yet.</p>
+			}
+			for _, item := range campaigns {
+				if item.Campaign.Status == domain.CampaignComplete || item.Campaign.Status == domain.CampaignAbandoned {
+					@CampaignCard(item, csrf, false)
+				}
+			}
+		</section>
+	}
+}
+templ CampaignCard(item campaignView, csrf string, activatable bool) {
+	<article class="campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p><span class={ "status status-"+statusClass(string(item.Campaign.Status)) }>{ campaignStatusLabel(item.Campaign.Status) }</span> · <code>{ item.Deck.DeckName }</code></p><dl class="campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }</dd></div></dl><p><a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download prepared deck</a></p></div>
+	if activatable {
+		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Start learning</button></form>
+	}
+	</article>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
 	@Layout(book.Source.Title, &user, csrf) { <p><a href="/library">← My Library</a></p><header class="page-heading"><div><h1>{ book.Source.Title }</h1><p><code>{ book.Source.Language }</code> · { book.Source.MediaType }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></header>

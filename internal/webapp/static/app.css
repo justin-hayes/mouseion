@@ -14,6 +14,15 @@
 .status { border-radius: 999px; padding: .25rem .65rem; white-space: nowrap; background: var(--pico-muted-border-color); }
 .status-analyzed { color: var(--pico-ins-color); }
 .status-analyzing { color: var(--pico-primary); }
+.status-active, .status-ready, .status-complete { color: var(--pico-ins-color); }
+.status-abandoned { color: var(--pico-del-color); }
+.campaign-list, section[aria-labelledby="campaign-queue-heading"], section[aria-labelledby="campaign-history-heading"] { display: grid; gap: 1rem; }
+.campaign-card, .campaign-list article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.campaign-card h3, .campaign-list h3 { margin-bottom: .35rem; }
+.campaign-card form, .campaign-list form { flex: 0 0 auto; }
+.campaign-progress { display: flex; gap: 2rem; margin-bottom: .5rem; }
+.campaign-progress div { display: flex; gap: .4rem; }
+.campaign-progress dt { font-weight: 700; }
 .book-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
 .book-actions article { display: flex; flex-direction: column; }
 .book-actions article > :last-child { margin-top: auto; }

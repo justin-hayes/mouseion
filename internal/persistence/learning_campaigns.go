@@ -160,8 +160,13 @@ func graduateCampaignVocabulary(ctx context.Context, tx pgx.Tx, owner, campaignI
 
 func campaignConstraintError(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.ConstraintName == "learning_campaigns_one_active_per_owner" {
-		return ErrActiveCampaign
+	if errors.As(err, &pgErr) {
+		switch pgErr.ConstraintName {
+		case "learning_campaigns_one_active_per_owner":
+			return ErrActiveCampaign
+		case "learning_campaigns_owner_id_deck_preparation_id_key":
+			return ErrInvalidTransition
+		}
 	}
 	return err
 }
