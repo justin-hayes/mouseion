@@ -300,6 +300,29 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if recorder.owner != alice.ID || recorder.source != german.ID || recorder.scope == "" {
 		t.Fatalf("queued scope owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
 	}
+	priorScopeID := recorder.scope
+	cloneReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, cookies)
+	cloneBody := cloneReview.Body.String()
+	for _, want := range []string{"Scope comparison", "Prior selection", germanUnits.Units[0].ID, germanUnits.Units[1].ID, "Added units", "Removed units", "None."} {
+		if cloneReview.Code != http.StatusOK || !strings.Contains(cloneBody, want) {
+			t.Fatalf("clone review missing %q: status=%d body=%s", want, cloneReview.Code, cloneBody)
+		}
+	}
+	changedReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=recommended&prior_scope_id="+priorScopeID, nil, cookies)
+	if changedReview.Code != http.StatusOK || !strings.Contains(changedReview.Body.String(), "Removed units") || !strings.Contains(changedReview.Body.String(), germanUnits.Units[1].ID+"</code> — "+germanUnits.Units[1].Title) {
+		t.Fatalf("changed comparison=%d %s", changedReview.Code, changedReview.Body.String())
+	}
+	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner prior review=%d %s", got.Code, got.Body.String())
+	}
+	clone := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
+	if clone.Code != http.StatusSeeOther || recorder.scope == priorScopeID {
+		t.Fatalf("clone=%d location=%q old=%q new=%q body=%s", clone.Code, clone.Header().Get("Location"), priorScopeID, recorder.scope, clone.Body.String())
+	}
+	var cloneCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
+		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
+	}
 	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
 	if recommended.Code != http.StatusSeeOther {
 		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())

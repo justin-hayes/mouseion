@@ -36,6 +36,13 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err == nil {
 		t.Fatal("immutable scope identity was overwritten")
 	}
+	loaded, err := store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID)
+	if err != nil || loaded.ScopeID != scope.ScopeID || len(loaded.SelectedUnits) != 1 || loaded.SelectedUnits[0] != scope.SelectedUnits[0] {
+		t.Fatalf("loaded scope=%+v err=%v", loaded, err)
+	}
+	if _, err = store.GetEPUBReviewedScope(ctx, bob.ID, source.ID, scope.ScopeID); err == nil {
+		t.Fatal("cross-owner scope read was accepted")
+	}
 	foreign := scope
 	foreign.ScopeID = uuid.NewString()
 	foreign.OwnerID = bob.ID

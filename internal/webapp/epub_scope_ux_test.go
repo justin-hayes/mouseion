@@ -62,3 +62,25 @@ func TestEPUBScopeReviewRendersGroupsAggregatesAndPartialState(t *testing.T) {
 		}
 	}
 }
+
+func TestEPUBScopeReviewComparisonNamesIDsTitlesAndEstimatedSizes(t *testing.T) {
+	view := epubScopeView{
+		Book: domain.SourceMaterial{ID: "book-1", OwnerID: "owner-1", Title: "Libro"}, Preset: "recommended",
+		PriorScope: &domain.EPUBReviewedScopeSnapshot{ScopeID: "scope-1", SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: "unit-0", Order: 0}, {UnitID: "unit-1", Order: 1}}},
+		Comparison: epubScopeComparison{
+			Old:           []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-0", Title: "Capitolo"}}, {Unit: domain.ExtractedUnit{ID: "unit-1", Title: "Bibliografia"}}},
+			New:           []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-0", Title: "Capitolo"}}},
+			Removed:       []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-1", Title: "Bibliografia"}, CharacterCount: 80, TokenEstimate: 20}},
+			OldCharacters: 200, OldTokens: 50, NewCharacters: 120, NewTokens: 30,
+		},
+	}
+	var output strings.Builder
+	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Scope comparison", "Prior included units", "Proposed included units", "unit-0", "Capitolo", "unit-1", "Bibliografia", "200 characters", "120 characters", "80 characters"} {
+		if !strings.Contains(output.String(), want) {
+			t.Fatalf("comparison missing %q: %s", want, output.String())
+		}
+	}
+}
