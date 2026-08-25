@@ -11,16 +11,17 @@ import (
 
 const (
 	ClassifierName    = "mouseion-epub-structure"
-	ClassifierVersion = "1.0.0"
+	ClassifierVersion = "1.1.0"
 )
 
 var (
-	yearPattern     = regexp.MustCompile(`\b(?:1[5-9]\d{2}|20\d{2})\b`)
-	urlPattern      = regexp.MustCompile(`(?i)\b(?:https?://|www\.)\S+`)
-	isbnPattern     = regexp.MustCompile(`(?i)\bISBN(?:-1[03])?\b`)
-	pagePattern     = regexp.MustCompile(`(?i)\b(?:p(?:p)?\.|pages?|seiten?|pagine?)\s*\d+`)
-	citationPattern = regexp.MustCompile(`(?:\[[0-9]{1,3}\]|\([A-ZÀ-ÖØ-Þ][[:alpha:]'’-]+(?:\s+(?:et\s+al\.|e\s+al\.|u\.\s*a\.))?,?\s+(?:1[5-9]\d{2}|20\d{2})\))`)
-	sentencePattern = regexp.MustCompile(`[.!?](?:\s|$)`)
+	yearPattern             = regexp.MustCompile(`\b(?:1[5-9]\d{2}|20\d{2})\b`)
+	urlPattern              = regexp.MustCompile(`(?i)\b(?:https?://|www\.)\S+`)
+	isbnPattern             = regexp.MustCompile(`(?i)\bISBN(?:-1[03])?\b`)
+	pagePattern             = regexp.MustCompile(`(?i)\b(?:p(?:p)?\.|pages?|seiten?|pagine?)\s*\d+`)
+	citationPattern         = regexp.MustCompile(`(?:\[[0-9]{1,3}\]|\([A-ZÀ-ÖØ-Þ][[:alpha:]'’-]+(?:\s+(?:et\s+al\.|e\s+al\.|u\.\s*a\.))?,?\s+(?:1[5-9]\d{2}|20\d{2})\))`)
+	sentencePattern         = regexp.MustCompile(`[.!?](?:\s|$)`)
+	bibliographyLinePattern = regexp.MustCompile(`(?i)(?:^|\n)\s*(?:\[[0-9]{1,3}\]|[[:alpha:]À-ÖØ-öø-ÿ'’-]+,?\s+(?:[[:alpha:]À-ÖØ-öø-ÿ'’-]+\s+){0,3}\(?(?:1[5-9]\d{2}|20\d{2})\)?)`)
 )
 
 type classificationScore struct {
@@ -31,6 +32,11 @@ type classificationScore struct {
 type unitDecision struct {
 	classification UnitClassification
 	excluded       bool
+}
+
+type snapshotSignals struct {
+	repeatedHeaders map[string]bool
+	repeatedFooters map[string]bool
 }
 
 // ClassifyUnits classifies one immutable extracted-unit snapshot. The whole
@@ -46,9 +52,10 @@ func ClassifyUnits(snapshotID string, extracted ExtractedUnits) ([]UnitClassific
 		return nil, ErrExtractedUnitsUnavailable
 	}
 
+	snapshot := collectSnapshotSignals(extracted.Units)
 	decisions := make([]unitDecision, len(extracted.Units))
 	for i, unit := range extracted.Units {
-		decisions[i] = classifyUnit(snapshotID, extracted.SchemaVersion, unit, i, len(extracted.Units))
+		decisions[i] = classifyUnit(snapshotID, extracted.SchemaVersion, unit, i, len(extracted.Units), snapshot)
 	}
 
 	hasIncludedMain := false
@@ -84,7 +91,7 @@ func ClassifyUnits(snapshotID string, extracted ExtractedUnits) ([]UnitClassific
 	return result, nil
 }
 
-func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, index, total int) unitDecision {
+func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, index, total int, snapshot snapshotSignals) unitDecision {
 	c := UnitClassification{
 		SchemaVersion:      ClassificationSchemaVersion,
 		Classifier:         ClassifierIdentity{Name: ClassifierName, Version: ClassifierVersion},
@@ -104,6 +111,7 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 
 	scores := map[UnitCategory]int{CategoryFrontMatter: 0, CategoryMainMatter: 0, CategoryBackMatter: 0}
 	reasons := make([]ClassificationReason, 0, 8)
+	reviewRequired := false
 	add := func(category UnitCategory, points int, signal, message string) {
 		scores[category] += points
 		reasons = append(reasons, ClassificationReason{Signal: signal, Message: message})
@@ -118,6 +126,14 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 	}
 	if category, marker := pathCategory(unit.SourceHref, unit.ResolvedHref); category != CategoryUnknown {
 		add(category, 25, "path_"+marker, "The package path matches the "+markerDisplay(marker)+" marker.")
+	}
+	for _, edge := range repeatedUnitEdges(unit.Text, snapshot) {
+		reasons = append(reasons, ClassificationReason{Signal: "text_repeated_" + edge, Message: "The same short " + edge + " appears in multiple readable units."})
+		reviewRequired = reviewRequired || len(strings.Fields(unit.Text)) <= 16
+	}
+	if marker := neutralMarker(labels); marker != "" {
+		reasons = append(reasons, ClassificationReason{Signal: "label_" + marker, Message: "A title or navigation label matches the " + markerDisplay(marker) + " marker for non-prose structural content."})
+		reviewRequired = true
 	}
 	if total >= 3 {
 		switch {
@@ -134,12 +150,15 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 	ordered := []classificationScore{{CategoryFrontMatter, scores[CategoryFrontMatter]}, {CategoryMainMatter, scores[CategoryMainMatter]}, {CategoryBackMatter, scores[CategoryBackMatter]}}
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].points > ordered[j].points })
 	top, second := ordered[0], ordered[1]
-	contradictory := top.points >= 45 && second.points >= 45 && top.points-second.points < 45
-	if top.points < 25 || contradictory {
+	contradictory := top.points >= 45 && second.points >= 45
+	if top.points < 25 || contradictory || reviewRequired {
 		c.Category = CategoryUnknown
 		if contradictory {
 			c.Confidence = 35
 			reasons = append(reasons, ClassificationReason{Signal: "contradictory_evidence", Message: "Strong signals support conflicting structural categories."})
+		} else if reviewRequired {
+			c.Confidence = 35
+			reasons = append(reasons, ClassificationReason{Signal: "review_required", Message: "Structural-fragment evidence requires learner review instead of automatic promotion."})
 		} else {
 			c.Confidence = 20
 			reasons = append(reasons, ClassificationReason{Signal: "insufficient_evidence", Message: "The available signals do not establish a structural category."})
@@ -196,7 +215,8 @@ var markerRules = []struct {
 	{CategoryFrontMatter, "preface", []string{"preface", "foreword", "vorwort", "prefazione", "introduzione dell'autore"}},
 	{CategoryFrontMatter, "copyright", []string{"copyright", "impressum", "colophon"}},
 	{CategoryFrontMatter, "acknowledgments", []string{"acknowledgments", "acknowledgements", "danksagung", "ringraziamenti"}},
-	{CategoryBackMatter, "bibliography", []string{"bibliography", "references", "works cited", "bibliografie", "literaturverzeichnis", "bibliografia", "riferimenti bibliografici"}},
+	{CategoryFrontMatter, "editorial", []string{"editorial", "editorial note", "editors note", "editorial notice", "redaktion", "redaktionelle hinweise", "redaktionelle notiz", "redazione", "nota editoriale", "avvertenza editoriale"}},
+	{CategoryBackMatter, "bibliography", []string{"bibliography", "references", "works cited", "bibliografie", "literaturverzeichnis", "quellenverzeichnis", "bibliografia", "riferimenti bibliografici", "fonti bibliografiche"}},
 	{CategoryBackMatter, "notes", []string{"notes", "endnotes", "anmerkungen", "note", "note finali"}},
 	{CategoryBackMatter, "index", []string{"index", "register", "sachregister", "indice analitico", "indice dei nomi"}},
 	{CategoryBackMatter, "glossary", []string{"glossary", "glossar", "glossario"}},
@@ -206,6 +226,28 @@ var markerRules = []struct {
 	{CategoryMainMatter, "introduction", []string{"introduction", "einleitung", "introduzione"}},
 	{CategoryMainMatter, "conclusion", []string{"conclusion", "conclusions", "schluss", "fazit", "conclusione", "conclusioni"}},
 	{CategoryMainMatter, "epilogue", []string{"epilogue", "epilog", "epilogo"}},
+}
+
+var neutralMarkerRules = []struct {
+	token string
+	terms []string
+}{
+	{"caption", []string{"caption", "figure", "fig", "table", "abbildung", "bildunterschrift", "tabelle", "figura", "didascalia", "tabella"}},
+	{"structural_fragment", []string{"page break", "section break", "separator", "blank page", "seitenumbruch", "abschnittstrenner", "leere seite", "interruzione di pagina", "separatore", "pagina vuota"}},
+}
+
+func neutralMarker(values []string) string {
+	for _, rule := range neutralMarkerRules {
+		for _, value := range values {
+			normalized := normalizeMarker(value)
+			for _, term := range rule.terms {
+				if normalized == term || strings.HasPrefix(normalized, term+" ") {
+					return rule.token
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func markerCategory(values []string) (UnitCategory, string) {
@@ -251,6 +293,10 @@ func addTextSignals(text string, add func(UnitCategory, int, string, string)) {
 	isbn := len(isbnPattern.FindAllString(text, -1))
 	pages := len(pagePattern.FindAllString(text, -1))
 	referenceMarkers := citations + urls + isbn + pages
+	bibliographyLines := len(bibliographyLinePattern.FindAllString(text, -1))
+	if bibliographyLines >= 3 {
+		add(CategoryBackMatter, 60, "text_bibliography_cluster", "The text contains a cluster of bibliography-style entries.")
+	}
 	if (referenceMarkers >= 2 && referenceMarkers*40 >= len(words)) || (years >= 3 && years*20 >= len(words)) {
 		add(CategoryBackMatter, 45, "text_reference_density", "The text has a high density of citations, years, ISBN/URL, or page-reference markers.")
 	}
@@ -258,6 +304,67 @@ func addTextSignals(text string, add func(UnitCategory, int, string, string)) {
 	if sentences >= 3 && len(words)/sentences >= 5 {
 		add(CategoryMainMatter, 50, "text_sentence_density", "The text contains sustained sentence-like prose.")
 	}
+}
+
+func collectSnapshotSignals(units []ExtractedUnit) snapshotSignals {
+	headerCounts := make(map[string]int)
+	footerCounts := make(map[string]int)
+	for _, unit := range units {
+		header, footer := unitEdges(unit.Text)
+		if header != "" {
+			headerCounts[header]++
+		}
+		if footer != "" {
+			footerCounts[footer]++
+		}
+	}
+	repeatedHeaders := make(map[string]bool)
+	for edge, count := range headerCounts {
+		if count >= 2 {
+			repeatedHeaders[edge] = true
+		}
+	}
+	repeatedFooters := make(map[string]bool)
+	for edge, count := range footerCounts {
+		if count >= 2 {
+			repeatedFooters[edge] = true
+		}
+	}
+	return snapshotSignals{repeatedHeaders: repeatedHeaders, repeatedFooters: repeatedFooters}
+}
+
+func repeatedUnitEdges(text string, snapshot snapshotSignals) []string {
+	header, footer := unitEdges(text)
+	matched := make([]string, 0, 2)
+	if header != "" && snapshot.repeatedHeaders[header] {
+		matched = append(matched, "header")
+	}
+	if footer != "" && snapshot.repeatedFooters[footer] {
+		matched = append(matched, "footer")
+	}
+	return matched
+}
+
+func unitEdges(text string) (string, string) {
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	nonBlank := make([]string, 0, len(lines))
+	for _, line := range lines {
+		normalized := normalizeMarker(line)
+		if normalized != "" {
+			nonBlank = append(nonBlank, normalized)
+		}
+	}
+	if len(nonBlank) < 2 {
+		return "", ""
+	}
+	var header, footer string
+	if len(strings.Fields(nonBlank[0])) <= 8 {
+		header = nonBlank[0]
+	}
+	if last := nonBlank[len(nonBlank)-1]; len(strings.Fields(last)) <= 8 && last != header {
+		footer = last
+	}
+	return header, footer
 }
 
 func normalizeMarker(value string) string {
