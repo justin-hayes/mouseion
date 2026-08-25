@@ -258,7 +258,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	for _, test := range []struct{ id, title string }{{german.ID, "Erstes Kapitel"}, {italian.ID, "Capitolo primo"}} {
 		page := perform(t, h, "GET", "/books/"+test.id+"/scope", nil, cookies)
 		body := page.Body.String()
-		for _, want := range []string{test.title, "Accept recommendation", "Select all main matter", "Include all", "Exclude all", "High-confidence exclusion", "title from document heading", "fallback title from manifest ID", `aria-live="polite"`} {
+		for _, want := range []string{test.title, "Accept recommendation", "Select all main matter", "Include all", "Exclude all", "High-confidence exclusion", "title from document heading", "fallback title from manifest ID", "Classification evidence", "Recommendation policy", "All units:", "Selected:", `aria-live="polite"`} {
 			if page.Code != http.StatusOK || !strings.Contains(body, want) {
 				t.Fatalf("scope page %s missing %q: status=%d body=%s", test.id, want, page.Code, body)
 			}
