@@ -56,6 +56,53 @@ Persist:
 
 Re-running the same classifier over the same unit snapshot must produce deterministic output.
 
+## Classifier output contract (v1)
+
+Each recommendation is a JSON object with `schema_version: 1`, a `classifier`
+object containing non-empty stable `name` and `version` tokens, and a
+`source_unit_snapshot` object containing the immutable snapshot ID, extracted
+unit schema version, and unit ID. This identity binds a result to one unit in
+one source snapshot; consumers must not match results by title, path, or array
+position.
+
+`category` is exactly one of `front_matter`, `main_matter`, `back_matter`, or
+`unknown`. `confidence` is a deterministic integer from 0 through 100,
+inclusive, and measures confidence in the category only. Values 0 through 49
+are low confidence, 50 through 79 are medium confidence, and 80 through 100 are
+high confidence; `unknown` must be low confidence. A classifier version must
+not change the meaning or calculation of a confidence value.
+
+`reasons` is a non-empty array in classifier precedence order. Every entry has
+a unique stable `signal` token and a non-blank human-readable `message`.
+Writers and readers preserve this order; it is part of the explanation and is
+not reconstructed from a map. Duplicate signals, leading or trailing message
+whitespace, and control characters are invalid. `recommended_inclusion` is an
+explicit boolean policy result, not a value consumers derive from category or
+confidence.
+
+For high-confidence `main_matter`, the policy result is `true`; for
+high-confidence front or back matter it is `false`. An `unknown` or other
+low-confidence result may carry either value: it is `true` only when the
+classifier's whole-book fallback determines that exclusion would leave no
+main content, and is otherwise `false` for Phase 3 review. The ordered reasons
+must explain that decision. Phase 3 therefore consumes the boolean directly
+and never invents a fallback.
+
+Serialization uses fixed object fields and the supplied reason array order.
+Invalid output is rejected before serialization, so repeated serialization of
+the same validated result is byte-for-byte stable.
+
+### Non-linear and navigation-only resources
+
+The Phase 1 v1 extracted-unit snapshot does not emit `linear="no"` spine items
+or manifest items marked `nav`, so they ordinarily have no classifier output
+at all and remain outside ordinary content. If a future extracted-unit schema
+records either as a metadata-only unit, its v1 classification recommendation
+is explicitly `recommended_inclusion: false`; a stable reason such as
+`linear_no` or `navigation_only` records why. Its structural category may be
+`unknown` at low confidence because confidence describes the category, not
+the certainty of the exclusion rule.
+
 ## Non-goals
 
 - No machine-learning classifier;
