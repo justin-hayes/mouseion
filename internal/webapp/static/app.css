@@ -33,3 +33,13 @@
 .top-unknown { max-width: 36rem; padding-left: 1.5rem; }
 .top-unknown li { padding: .25rem 0; }
 .top-unknown li, .top-unknown li span:first-child { display: flex; justify-content: space-between; gap: .75rem; }
+.scope-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.scope-actions button { width: auto; }
+.scope-summary { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; margin-bottom: 1rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); }
+.scope-units { display: grid; gap: 1rem; }
+.scope-unit { margin: 0; }
+.scope-unit header, .scope-unit dl { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.scope-unit dl div { min-width: 9rem; }
+.scope-unit dt { font-weight: 700; }
+.scope-warning { border-left: .25rem solid var(--pico-primary); padding-left: .75rem; }
+@media (max-width: 40rem) { .scope-summary { position: static; flex-direction: column; } }

@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"strings"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -274,6 +275,9 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary and sentence statistics were recorded. Analyze it again to see coverage, projections, and the structural profile.</p></article>
 	}
 	<div class="book-actions"><article><h2>Analysis</h2>
+		if book.Source.MediaType == "application/epub+zip" {
+			<p><a href={ templ.SafeURL("/books/"+book.Source.ID+"/scope") }>Review EPUB analysis scope</a></p>
+		}
 		if book.AnalysisJobID > 0 {
 			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
 		}
@@ -289,6 +293,72 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		}
 	</article></div> }
 }
+
+templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, pageError string, selectedCSV string) {
+	@Layout("Review analysis scope", &user, csrf) {
+		<p><a href={ templ.SafeURL("/books/"+review.Book.ID) }>← { review.Book.Title }</a></p>
+		<header class="page-heading"><div><h1>Review analysis scope</h1><p>Choose the readable EPUB units that should be used by a future analysis.</p></div></header>
+		if pageError != "" {
+			<article role="alert" tabindex="-1"><strong>Scope not saved.</strong> { pageError }</article>
+		}
+		<article role="note"><strong>How recommendations work</strong><p>High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.</p></article>
+		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
+			<input type="hidden" name="csrf_token" value={ csrf }/>
+			<fieldset class="scope-actions"><legend>Apply a selection</legend><button type="button" class="outline" data-select="recommended">Accept recommendation</button><button type="button" class="outline" data-select="main">Select all main matter</button><button type="button" class="outline" data-select="all">Include all</button><button type="button" class="outline secondary" data-select="none">Exclude all</button></fieldset>
+			<div class="scope-summary" role="status" aria-live="polite" aria-atomic="true"><strong data-selected-count>0 units selected</strong><span data-selected-size>Estimated scope: 0 characters, about 0 tokens</span></div>
+			<fieldset class="scope-units"><legend>Readable units in spine order</legend>
+				for _, item := range review.Units {
+					<article class="scope-unit" data-category={ string(item.Classification.Category) } data-recommended={ fmt.Sprintf("%t", item.Classification.RecommendedInclusion) } data-characters={ fmt.Sprintf("%d", item.CharacterCount) } data-tokens={ fmt.Sprintf("%d", item.TokenEstimate) }>
+						<header><label for={ "scope-unit-"+fmt.Sprintf("%d", item.Unit.Order) }><input id={ "scope-unit-"+fmt.Sprintf("%d", item.Unit.Order) } type="checkbox" name="unit_id" value={ item.Unit.ID } checked?={ scopeUnitChecked(selectedCSV, item.Unit.ID, item.Classification.RecommendedInclusion) }/> Include { item.Unit.Title }</label><span>{ fmt.Sprintf("Unit %d", item.Unit.Order+1) }</span></header>
+						<p><strong>{ item.Unit.Title }</strong> <small>{ titleSourceLabel(item.Unit.TitleSource) }</small></p>
+						<dl><div><dt>Category</dt><dd>{ categoryLabel(item.Classification.Category) }</dd></div><div><dt>Confidence</dt><dd>{ fmt.Sprintf("%d%%", item.Classification.Confidence) }</dd></div><div><dt>Recommendation</dt><dd>{ recommendationLabel(item.Classification.RecommendedInclusion) }</dd></div><div><dt>Estimated size</dt><dd>{ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) }</dd></div></dl>
+						if !item.Classification.RecommendedInclusion && item.Classification.Confidence >= domain.EPUBConfidenceHighMinimum {
+							<p class="scope-warning"><strong>High-confidence exclusion:</strong> including this unit overrides a strong exclusion recommendation.</p>
+						}
+						if item.Classification.Category == domain.EPUBCategoryUnknown || item.Classification.Confidence <= domain.EPUBConfidenceLowMaximum {
+							<p class="scope-warning"><strong>Review carefully:</strong> this unit is unknown or low confidence.</p>
+						}
+						<h3>Reasons</h3><ol>
+							for _, reason := range item.Classification.Reasons {
+								<li>{ reason.Message }</li>
+							}
+						</ol>
+					</article>
+				}
+			</fieldset>
+			<button type="submit">Confirm analysis scope</button><small>This saves the reviewed scope only. It does not start analysis.</small>
+		</form>
+		<script>
+const scopeForm = document.querySelector('[data-scope-review]');
+if (scopeForm) {
+  const boxes = Array.from(scopeForm.querySelectorAll('input[name="unit_id"]'));
+  const updateScopeSummary = () => {
+    const selected = boxes.filter((box) => box.checked);
+    const characters = selected.reduce((sum, box) => sum + Number(box.closest('[data-characters]').dataset.characters), 0);
+    const tokens = selected.reduce((sum, box) => sum + Number(box.closest('[data-tokens]').dataset.tokens), 0);
+    scopeForm.querySelector('[data-selected-count]').textContent = `${selected.length} ${selected.length === 1 ? 'unit' : 'units'} selected`;
+    scopeForm.querySelector('[data-selected-size]').textContent = `Estimated scope: ${characters.toLocaleString()} characters, about ${tokens.toLocaleString()} tokens`;
+  };
+  scopeForm.addEventListener('change', updateScopeSummary);
+  scopeForm.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-select]');
+    if (!button) return;
+    boxes.forEach((box) => {
+      const unit = box.closest('[data-category]');
+      box.checked = button.dataset.select === 'all' || (button.dataset.select === 'recommended' && unit.dataset.recommended === 'true') || (button.dataset.select === 'main' && unit.dataset.category === 'main_matter');
+    });
+    updateScopeSummary();
+  });
+  updateScopeSummary();
+}
+		</script>
+	}
+}
+
+func scopeUnitChecked(selectedCSV, unitID string, recommended bool) bool { if selectedCSV == "" { return recommended }; selectedCSV = strings.TrimPrefix(selectedCSV, "submitted:"); for _, selected := range strings.Split(selectedCSV, ",") { if selected == unitID { return true } }; return false }
+func titleSourceLabel(source string) string { if source == domain.UnitTitleHeading { return "title from document heading" }; return "fallback title from manifest ID" }
+func categoryLabel(category domain.EPUBUnitCategory) string { return strings.ReplaceAll(string(category), "_", " ") }
+func recommendationLabel(include bool) string { if include { return "Include" }; return "Exclude" }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {

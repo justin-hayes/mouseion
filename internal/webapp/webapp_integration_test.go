@@ -191,6 +191,81 @@ func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (anal
 	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, CorpusID: "corpus-result", Attempt: 1}, nil
 }
 
+func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "scope-web-alice", "alice-password", false)
+	bob := createAccount(t, ctx, store, "scope-web-bob", "bob-password", false)
+	createBook := func(owner, language, identifier, firstTitle, secondTitle string) (domain.SourceMaterial, domain.ExtractedUnits) {
+		t.Helper()
+		firstText, secondText := "Erstes Kapitel.", "Bibliografia finale."
+		fullText := firstText + "\n\n" + secondText
+		units := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{
+			{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
+			{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
+		}}
+		source, putErr := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: firstTitle, MediaType: "application/epub+zip", ContentHash: identifier, FullText: fullText}, units)
+		if putErr != nil {
+			t.Fatal(putErr)
+		}
+		snapshotID, _, snapshotErr := store.GetExtractedUnitSnapshot(ctx, owner, source.ID)
+		if snapshotErr != nil {
+			t.Fatal(snapshotErr)
+		}
+		classifications := []domain.EPUBUnitClassification{
+			{SchemaVersion: 1, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1, UnitID: units.Units[0].ID}, Category: domain.EPUBCategoryMainMatter, Confidence: 95, Reasons: []domain.EPUBClassificationReason{{Signal: "chapter", Message: "The title identifies a chapter."}}, RecommendedInclusion: true},
+			{SchemaVersion: 1, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1, UnitID: units.Units[1].ID}, Category: domain.EPUBCategoryBackMatter, Confidence: 90, Reasons: []domain.EPUBClassificationReason{{Signal: "bibliography", Message: "The title identifies a bibliography."}, {Signal: "spine_back", Message: "The unit is at the end of the readable spine."}}, RecommendedInclusion: false},
+		}
+		if replaceErr := store.ReplaceEPUBUnitClassifications(ctx, owner, source.ID, classifications); replaceErr != nil {
+			t.Fatal(replaceErr)
+		}
+		return source, units
+	}
+	german, germanUnits := createBook(alice.ID, "de", "review-de", "Erstes Kapitel", "bibliography")
+	italian, _ := createBook(alice.ID, "it", "review-it", "Capitolo primo", "bibliografia")
+	_, bobUnits := createBook(bob.ID, "de", "review-bob", "Privates Kapitel", "private-bibliography")
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: &recordingAnalysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
+	for _, test := range []struct{ id, title string }{{german.ID, "Erstes Kapitel"}, {italian.ID, "Capitolo primo"}} {
+		page := perform(t, h, "GET", "/books/"+test.id+"/scope", nil, cookies)
+		body := page.Body.String()
+		for _, want := range []string{test.title, "Accept recommendation", "Select all main matter", "Include all", "Exclude all", "High-confidence exclusion", "title from document heading", "fallback title from manifest ID", `aria-live="polite"`} {
+			if page.Code != http.StatusOK || !strings.Contains(body, want) {
+				t.Fatalf("scope page %s missing %q: status=%d body=%s", test.id, want, page.Code, body)
+			}
+		}
+		if strings.Index(body, "The title identifies a bibliography.") > strings.Index(body, "The unit is at the end of the readable spine.") {
+			t.Fatal("classification reasons rendered out of order")
+		}
+	}
+	if got := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"unit_id": {germanUnits.Units[0].ID}}, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("scope without csrf=%d", got.Code)
+	}
+	empty := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}}, cookies)
+	if empty.Code != http.StatusBadRequest || !strings.Contains(empty.Body.String(), "Select at least one readable unit") {
+		t.Fatalf("empty scope=%d %s", empty.Code, empty.Body.String())
+	}
+	foreign := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {bobUnits.Units[0].ID}}, cookies)
+	if foreign.Code != http.StatusBadRequest || !strings.Contains(foreign.Body.String(), "does not belong to this book") {
+		t.Fatalf("foreign scope=%d %s", foreign.Code, foreign.Body.String())
+	}
+	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
+	if override.Code != http.StatusSeeOther || !strings.Contains(override.Header().Get("Location"), "Analysis+scope+saved+with+2+selected+units") {
+		t.Fatalf("override=%d location=%q body=%s", override.Code, override.Header().Get("Location"), override.Body.String())
+	}
+	var mode string
+	var selected int
+	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, german.ID).Scan(&mode, &selected); err != nil || mode != "overridden" || selected != 2 {
+		t.Fatalf("persisted mode=%q selected=%d err=%v", mode, selected, err)
+	}
+}
+
 func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
