@@ -59,7 +59,7 @@ Re-running the same classifier over the same unit snapshot must produce determin
 ## Implemented behavior
 
 EPUB import now classifies the persisted extracted-unit snapshot with
-`mouseion-epub-structure` version `1.0.0` and atomically persists one result
+`mouseion-epub-structure` version `1.1.0` and atomically persists one result
 per unit. Results are owner-scoped and bound to the immutable snapshot and
 unit identities. Importing identical content replaces the same classifier run
 without changing its output; importing changed content creates a new snapshot
@@ -173,6 +173,30 @@ the certainty of the exclusion rule.
   but does not make otherwise readable EPUB content fail import.
 - A recommendation is not a learner decision and is not applied to NLP in
   Phase 2.
+
+## Version 1.1 refinement
+
+Version `1.1.0` keeps the v1 output schema and recommendation contract while
+adding rules derived from Phase 2 fixtures and anonymized Phase 3 review
+patterns. It recognizes German and Italian editorial and bibliography labels,
+language-neutral caption and structural-fragment labels, repeated short
+headers and footers across readable units, and clusters of bibliography-style
+lines. Repeated edges found inside sustained chapter prose are explained but
+do not by themselves demote the chapter.
+
+Caption, structural-fragment, and short repeated-edge units remain low-
+confidence `unknown` and are marked `review_required`; they are never promoted
+to main matter automatically. Strong evidence for two different categories
+also remains low-confidence `unknown` with `contradictory_evidence`, regardless
+of which category has the larger score. Exact category, confidence, ordered
+reasons, and recommendation outcomes are locked by the Phase 4 evaluation
+fixture. Its review-pattern provenance is descriptive input only: the
+classifier neither reads persisted overrides nor mutates or trains its rules.
+
+The version change creates a distinct persisted classifier run. Existing
+`1.0.0` rows remain addressable by their recorded identity, and immutable
+Phase 3 reviewed scopes continue to retain the classifier version that the
+learner reviewed.
 
 ## Phase 3 handoff
 
