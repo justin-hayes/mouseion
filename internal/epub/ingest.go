@@ -16,6 +16,8 @@ var ErrUnauthenticated = errors.New("epub: authenticated owner is required")
 
 type Store interface {
 	PutSourceMaterialWithExtractedUnits(context.Context, domain.SourceMaterial, ExtractedUnits) (domain.SourceMaterial, error)
+	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
+	ReplaceEPUBUnitClassifications(context.Context, string, string, []domain.EPUBUnitClassification) error
 	PutProcessingHistory(context.Context, domain.ProcessingHistory) (domain.ProcessingHistory, error)
 }
 
@@ -47,6 +49,17 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: "sha256:" + hex.EncodeToString(sum[:]), Content: content, FullText: book.FullText}, book.ExtractedUnits)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
+	}
+	snapshotID, persistedUnits, err := s.store.GetExtractedUnitSnapshot(ctx, ownerID, source.ID)
+	if err != nil {
+		return ImportResult{}, fmt.Errorf("epub: load extracted-unit snapshot: %w", err)
+	}
+	classifications, err := ClassifyUnits(snapshotID, persistedUnits)
+	if err != nil {
+		return ImportResult{}, fmt.Errorf("epub: classify extracted units: %w", err)
+	}
+	if err = s.store.ReplaceEPUBUnitClassifications(ctx, ownerID, source.ID, classifications); err != nil {
+		return ImportResult{}, fmt.Errorf("epub: persist unit classifications: %w", err)
 	}
 	details, err := json.Marshal(struct {
 		SourceMaterialID string    `json:"source_material_id"`

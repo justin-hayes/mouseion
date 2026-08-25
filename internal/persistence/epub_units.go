@@ -56,42 +56,50 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 // GetExtractedUnits returns the current owner-scoped snapshot in unit order.
 // Legacy source materials intentionally return ErrExtractedUnitsUnavailable.
 func (s *PostgresStore) GetExtractedUnits(ctx context.Context, owner, sourceID string) (domain.ExtractedUnits, error) {
+	_, out, err := s.GetExtractedUnitSnapshot(ctx, owner, sourceID)
+	return out, err
+}
+
+// GetExtractedUnitSnapshot returns the immutable identity and contents of the
+// current owner-scoped extracted-unit snapshot.
+func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sourceID string) (string, domain.ExtractedUnits, error) {
+	var snapshotID string
 	var out domain.ExtractedUnits
 	var fullText string
-	err := s.pool.QueryRow(ctx, `SELECT u.schema_version,s.full_text FROM source_material_unit_snapshots u JOIN source_materials s ON s.owner_id=u.owner_id AND s.id=u.source_material_id WHERE u.owner_id=$1 AND u.source_material_id=$2`, owner, sourceID).Scan(&out.SchemaVersion, &fullText)
+	err := s.pool.QueryRow(ctx, `SELECT u.snapshot_id,u.schema_version,s.full_text FROM source_material_unit_snapshots u JOIN source_materials s ON s.owner_id=u.owner_id AND s.id=u.source_material_id WHERE u.owner_id=$1 AND u.source_material_id=$2`, owner, sourceID).Scan(&snapshotID, &out.SchemaVersion, &fullText)
 	if err == pgx.ErrNoRows {
-		return out, domain.ErrExtractedUnitsUnavailable
+		return "", out, domain.ErrExtractedUnitsUnavailable
 	}
 	if err != nil {
-		return out, err
+		return "", out, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT unit_id,unit_order,spine_index,title,title_source,text,start_offset,end_offset,package_path,manifest_id,source_href,resolved_href,media_type,properties,linear,navigation_labels,landmark_types FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2 ORDER BY unit_order`, owner, sourceID)
 	if err != nil {
-		return out, err
+		return "", out, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var unit domain.ExtractedUnit
 		var properties, navigationLabels, landmarkTypes []byte
 		if err = rows.Scan(&unit.ID, &unit.Order, &unit.SpineIndex, &unit.Title, &unit.TitleSource, &unit.Text, &unit.StartOffset, &unit.EndOffset, &unit.PackagePath, &unit.ManifestID, &unit.SourceHref, &unit.ResolvedHref, &unit.MediaType, &properties, &unit.Linear, &navigationLabels, &landmarkTypes); err != nil {
-			return out, err
+			return "", out, err
 		}
 		if err = json.Unmarshal(properties, &unit.Properties); err != nil {
-			return out, err
+			return "", out, err
 		}
 		if err = json.Unmarshal(navigationLabels, &unit.NavigationLabels); err != nil {
-			return out, err
+			return "", out, err
 		}
 		if err = json.Unmarshal(landmarkTypes, &unit.LandmarkTypes); err != nil {
-			return out, err
+			return "", out, err
 		}
 		out.Units = append(out.Units, unit)
 	}
 	if err = rows.Err(); err != nil {
-		return out, err
+		return "", out, err
 	}
 	if err = out.ValidateOffsets(fullText); err != nil {
-		return out, fmt.Errorf("validate persisted extracted units: %w", err)
+		return "", out, fmt.Errorf("validate persisted extracted units: %w", err)
 	}
-	return out, nil
+	return snapshotID, out, nil
 }

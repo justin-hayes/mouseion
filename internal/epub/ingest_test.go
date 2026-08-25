@@ -9,9 +9,18 @@ import (
 )
 
 type memoryStore struct {
-	source  domain.SourceMaterial
-	history domain.ProcessingHistory
-	units   ExtractedUnits
+	source     domain.SourceMaterial
+	history    domain.ProcessingHistory
+	units      ExtractedUnits
+	classified []domain.EPUBUnitClassification
+}
+
+func (m *memoryStore) GetExtractedUnitSnapshot(_ context.Context, _, _ string) (string, domain.ExtractedUnits, error) {
+	return "snapshot:test", m.units, nil
+}
+func (m *memoryStore) ReplaceEPUBUnitClassifications(_ context.Context, _, _ string, classifications []domain.EPUBUnitClassification) error {
+	m.classified = classifications
+	return nil
 }
 
 func (m *memoryStore) PutSourceMaterialWithExtractedUnits(_ context.Context, v domain.SourceMaterial, units ExtractedUnits) (domain.SourceMaterial, error) {
@@ -40,6 +49,9 @@ func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	}
 	if err := store.units.ValidateOffsets(result.Source.FullText); err != nil {
 		t.Fatalf("stored units: %v", err)
+	}
+	if len(store.classified) != len(store.units.Units) {
+		t.Fatalf("stored classifications=%d units=%d", len(store.classified), len(store.units.Units))
 	}
 	if result.History.Operation != "epub.import" || result.History.Status != "complete" || len(result.History.Details) == 0 {
 		t.Fatalf("history: %+v", result.History)
