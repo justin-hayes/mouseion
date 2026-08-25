@@ -20,6 +20,7 @@
 .campaign-card, .campaign-list article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .campaign-card h3, .campaign-list h3 { margin-bottom: .35rem; }
 .campaign-card form, .campaign-list form { flex: 0 0 auto; }
+.campaign-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 .campaign-progress { display: flex; gap: 2rem; margin-bottom: .5rem; }
 .campaign-progress div { display: flex; gap: .4rem; }
 .campaign-progress dt { font-weight: 700; }

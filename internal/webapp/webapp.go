@@ -52,6 +52,7 @@ type Store interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error)
+	GetLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
 	CreateLearningCampaign(context.Context, string, string, string) (domain.LearningCampaign, error)
 	UpdateLearningCampaignProgress(context.Context, string, string, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
 	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
@@ -119,6 +120,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
 	h.mux.Handle("POST /campaigns", h.user(http.HandlerFunc(h.queueCampaign)))
 	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))
+	h.mux.Handle("POST /campaigns/{id}/book-finished", h.user(http.HandlerFunc(h.finishCampaignBook)))
+	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
@@ -376,6 +379,59 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Learning campaign started."))
+}
+
+func (h *Handler) finishCampaignBook(w http.ResponseWriter, r *http.Request) {
+	h.updateActiveCampaignProgress(w, r, true)
+}
+
+func (h *Handler) reviewCampaignDeck(w http.ResponseWriter, r *http.Request) {
+	h.updateActiveCampaignProgress(w, r, false)
+}
+
+func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Request, finishBook bool) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	campaign, err := h.services.Store.GetLearningCampaign(r.Context(), u.ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if campaign.Status != domain.CampaignActive {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be updated."))
+		return
+	}
+	nextBook, nextDeck := campaign.BookProgress, campaign.DeckProgress
+	message := "Deck marked reviewed."
+	if finishBook {
+		nextBook = domain.BookFinished
+		message = "Book marked finished."
+	} else {
+		nextDeck = domain.DeckReviewed
+	}
+	updated, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), u.ID, campaign.ID, nextBook, nextDeck)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Campaign progress could not be updated."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if updated.Status == domain.CampaignComplete {
+		message = "Campaign complete. Its vocabulary is now known."
+	}
+	redirect(w, r, "/campaigns?message="+url.QueryEscape(message))
 }
 func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -1190,6 +1246,13 @@ func campaignDeckLabel(status domain.DeckProgress) string {
 		return "Abandoned"
 	}
 	return string(status)
+}
+
+func campaignProgressTime(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return " · " + value.UTC().Format("2006-01-02 15:04 UTC")
 }
 func knownVocabJobLabel(status string) string {
 	switch status {

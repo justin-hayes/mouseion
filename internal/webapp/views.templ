@@ -170,9 +170,23 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 	}
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article class="campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p><span class={ "status status-"+statusClass(string(item.Campaign.Status)) }>{ campaignStatusLabel(item.Campaign.Status) }</span> · <code>{ item.Deck.DeckName }</code></p><dl class="campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }</dd></div></dl><p><a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download prepared deck</a></p></div>
+	<article class="campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p><span class={ "status status-"+statusClass(string(item.Campaign.Status)) }>{ campaignStatusLabel(item.Campaign.Status) }</span> · <code>{ item.Deck.DeckName }</code></p><dl class="campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	if item.Campaign.CompletedAt != nil {
+		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
+	}
+	<p><a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download prepared deck</a></p></div>
 	if activatable {
 		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Start learning</button></form>
+	}
+	if item.Campaign.Status == domain.CampaignActive {
+		<div class="campaign-actions">
+		if item.Campaign.BookProgress != domain.BookFinished {
+			<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark book finished</button></form>
+		}
+		if item.Campaign.DeckProgress != domain.DeckReviewed {
+			<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark deck reviewed</button></form>
+		}
+		</div>
 	}
 	</article>
 }
