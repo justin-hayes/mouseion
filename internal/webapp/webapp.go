@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -57,6 +58,10 @@ type Store interface {
 	UpdateLearningCampaignProgress(context.Context, string, string, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
 	AbandonLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
 	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
+	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
+	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
+	GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error)
+	CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error)
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
@@ -125,6 +130,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
 	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
+	h.mux.Handle("GET /books/{id}/scope", h.user(http.HandlerFunc(h.reviewEPUBScope)))
+	h.mux.Handle("POST /books/{id}/scope", h.user(http.HandlerFunc(h.confirmEPUBScope)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
@@ -488,6 +495,126 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	render(w, r, BookPage(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, r.URL.Query().Get("message")))
+}
+
+type epubScopeUnitView struct {
+	Unit           domain.ExtractedUnit
+	Classification domain.EPUBUnitClassification
+	CharacterCount int
+	TokenEstimate  int
+}
+
+type epubScopeView struct {
+	Book       domain.SourceMaterial
+	SnapshotID string
+	Units      []epubScopeUnitView
+}
+
+func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner string) (epubScopeView, bool) {
+	book, err := h.services.Store.GetSourceMaterial(r.Context(), owner, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return epubScopeView{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return epubScopeView{}, false
+	}
+	snapshotID, units, err := h.services.Store.GetExtractedUnitSnapshot(r.Context(), owner, book.ID)
+	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) {
+		http.Error(w, "Review is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
+		return epubScopeView{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return epubScopeView{}, false
+	}
+	classifications, err := h.services.Store.GetEPUBUnitClassifications(r.Context(), owner, book.ID, epub.ClassifierName, epub.ClassifierVersion)
+	if errors.Is(err, domain.ErrEPUBClassificationsUnavailable) {
+		http.Error(w, "Review is unavailable because this book has no unit classifications.", http.StatusConflict)
+		return epubScopeView{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return epubScopeView{}, false
+	}
+	if len(units.Units) != len(classifications) {
+		fail(w, errors.New("review scope: incomplete persisted classifications"))
+		return epubScopeView{}, false
+	}
+	view := epubScopeView{Book: book, SnapshotID: snapshotID, Units: make([]epubScopeUnitView, len(units.Units))}
+	for i, unit := range units.Units {
+		if classifications[i].SourceUnitSnapshot.UnitID != unit.ID || classifications[i].SourceUnitSnapshot.SnapshotID != snapshotID {
+			fail(w, errors.New("review scope: classification snapshot mismatch"))
+			return epubScopeView{}, false
+		}
+		characters := len([]rune(unit.Text))
+		view.Units[i] = epubScopeUnitView{Unit: unit, Classification: classifications[i], CharacterCount: characters, TokenEstimate: (characters + 3) / 4}
+	}
+	return view, true
+}
+
+func (h *Handler) reviewEPUBScope(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	view, ok := h.loadEPUBScope(w, r, u.ID)
+	if !ok {
+		return
+	}
+	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", ""))
+}
+
+func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	view, ok := h.loadEPUBScope(w, r, u.ID)
+	if !ok {
+		return
+	}
+	selected := make(map[string]struct{}, len(r.Form["unit_id"]))
+	for _, id := range r.Form["unit_id"] {
+		if _, duplicate := selected[id]; duplicate {
+			h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
+			return
+		}
+		selected[id] = struct{}{}
+	}
+	references := make([]domain.EPUBSelectedUnitReference, 0, len(selected))
+	recommended := true
+	for _, item := range view.Units {
+		_, included := selected[item.Unit.ID]
+		if included {
+			references = append(references, domain.EPUBSelectedUnitReference{UnitID: item.Unit.ID, Order: item.Unit.Order})
+			delete(selected, item.Unit.ID)
+		}
+		if included != item.Classification.RecommendedInclusion {
+			recommended = false
+		}
+	}
+	if len(selected) != 0 {
+		h.renderEPUBScopeError(w, r, u, view, "The selection contains a unit that does not belong to this book.")
+		return
+	}
+	if len(references) == 0 {
+		h.renderEPUBScopeError(w, r, u, view, "Select at least one readable unit before confirming the analysis scope.")
+		return
+	}
+	mode := domain.EPUBScopeSelectionOverridden
+	if recommended {
+		mode = domain.EPUBScopeSelectionRecommended
+	}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SelectionMode: mode, SelectedUnits: references}
+	if _, err := h.services.Store.CreateEPUBReviewedScope(r.Context(), scope); err != nil {
+		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
+		return
+	}
+	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units. No analysis was queued.", len(references))))
+}
+
+func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view epubScopeView, message string) {
+	w.WriteHeader(http.StatusBadRequest)
+	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, message, "submitted:"+strings.Join(r.Form["unit_id"], ",")))
 }
 func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
