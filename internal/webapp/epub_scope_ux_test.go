@@ -3,12 +3,79 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 )
+
+func TestIssue287CompleteGermanBookScopeReview(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "epub", "testfixtures", "classifier", "issue-287-complete-german-book.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		SnapshotID string                `json:"snapshot_id"`
+		Units      domain.ExtractedUnits `json:"units"`
+	}
+	if err = json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	classifications, err := epub.ClassifyUnits(fixture.SnapshotID, fixture.Units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := epubScopeView{Book: domain.SourceMaterial{ID: "book-287", Title: "Der Palast und die Stadt"}, SnapshotID: fixture.SnapshotID}
+	byID := make(map[string]epubScopeUnitView, len(fixture.Units.Units))
+	selectedCharacters := 0
+	for i, unit := range fixture.Units.Units {
+		characters := len([]rune(unit.Text))
+		item := epubScopeUnitView{Unit: unit, Classification: classifications[i], CharacterCount: characters, TokenEstimate: (characters + 3) / 4}
+		view.Units = append(view.Units, item)
+		view.AllCharacters += characters
+		view.AllTokens += item.TokenEstimate
+		byID[unit.ID] = item
+		if classifications[i].RecommendedInclusion {
+			selectedCharacters += characters
+		}
+	}
+	for _, group := range epub.BuildUnitGroups(fixture.Units.Units) {
+		item := epubScopeGroupView{Group: group}
+		for _, id := range group.UnitIDs {
+			item.CharacterCount += byID[id].CharacterCount
+			item.TokenEstimate += byID[id].TokenEstimate
+		}
+		view.Groups = append(view.Groups, item)
+	}
+	if view.AllCharacters != 1997 || selectedCharacters != 1333 {
+		t.Fatalf("fixture totals changed: all=%d selected=%d", view.AllCharacters, selectedCharacters)
+	}
+	var output strings.Builder
+	if err = EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	body := output.String()
+	for _, want := range []string{"All units: 1997 characters", "Selected: 0 characters", "Haupttext", "All group units: 9 units | 1333 characters", "Apparat", "All group units: 6 units", "fallback title from manifest ID", "Category", "Confidence", "Recommendation policy", "Included because high-confidence structural evidence identifies main matter.", "Excluded because the structural category is outside the recommended main-matter scope."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("complete scope review missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "Limited structural confidence") || strings.Count(body, " checked") != 9 {
+		t.Fatalf("unsafe or degraded default selection: checked=%d degraded=%t", strings.Count(body, " checked"), strings.Contains(body, "Limited structural confidence"))
+	}
+	previous := -1
+	for _, unit := range fixture.Units.Units {
+		position := strings.Index(body, "Include "+unit.Title)
+		if position <= previous {
+			t.Fatalf("unit %q rendered out of spine order", unit.Title)
+		}
+		previous = position
+	}
+}
 
 func TestEPUBScopeReviewIsAccessibleForGermanAndItalianTitles(t *testing.T) {
 	for _, title := range []string{"Erstes Kapitel", "Capitolo primo"} {
