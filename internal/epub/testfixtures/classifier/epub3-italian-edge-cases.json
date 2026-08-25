@@ -1,0 +1,74 @@
+{
+  "description": "EPUB 3 Italian labels, landmarks, epub:type, malformed metadata, and contradictory signals",
+  "epub_version": "3.3",
+  "snapshot_id": "fixture:epub3-italian-edge-cases",
+  "units": {
+    "schema_version": 1,
+    "units": [
+      {
+        "id": "epub-unit-v1:0:preface", "order": 0, "spine_index": 0,
+        "title": "Prefazione", "title_source": "heading", "text": "Prefazione.",
+        "manifest_id": "preface", "source_href": "front/prefazione.xhtml", "resolved_href": "OPS/front/prefazione.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Prefazione"], "landmark_types": ["frontmatter preface"]
+      },
+      {
+        "id": "epub-unit-v1:1:chapter1", "order": 1, "spine_index": 1,
+        "title": "Capitolo 1", "title_source": "heading",
+        "text": "Questo capitolo contiene una frase completa per chi legge. La seconda frase continua con abbastanza parole italiane. Una terza frase conclude il breve esempio narrativo.",
+        "manifest_id": "chapter1", "source_href": "text/capitolo1.xhtml", "resolved_href": "OPS/text/capitolo1.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Capitolo primo"], "landmark_types": ["bodymatter chapter"]
+      },
+      {
+        "id": "epub-unit-v1:2:bibliography", "order": 2, "spine_index": 2,
+        "title": "Bibliografia", "title_source": "heading", "text": "Rossi (2020). ISBN 9780000000000. https://example.test Pagine 10.",
+        "manifest_id": "bibliography", "source_href": "back/bibliografia.xhtml", "resolved_href": "OPS/back/bibliografia.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Bibliografia"], "landmark_types": ["backmatter bibliography"]
+      },
+      {
+        "id": "epub-unit-v1:3:index", "order": 3, "spine_index": 3,
+        "title": "Indice analitico", "title_source": "heading", "text": "Acqua, 4; aria, 9.",
+        "manifest_id": "index", "source_href": "back/index.xhtml", "resolved_href": "OPS/back/index.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Indice dei nomi"], "landmark_types": ["index"]
+      },
+      {
+        "id": "epub-unit-v1:4:notes", "order": 4, "spine_index": 4,
+        "title": "Note finali", "title_source": "heading", "text": "1. Nota breve.",
+        "manifest_id": "notes", "source_href": "back/note.xhtml", "resolved_href": "OPS/back/note.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Note"], "landmark_types": ["endnotes"]
+      },
+      {
+        "id": "epub-unit-v1:5:appendix", "order": 5, "spine_index": 5,
+        "title": "Appendice", "title_source": "heading", "text": "Materiale aggiuntivo.",
+        "manifest_id": "appendix", "source_href": "back/appendice.xhtml", "resolved_href": "OPS/back/appendice.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Appendice"], "landmark_types": ["appendix"]
+      },
+      {
+        "id": "epub-unit-v1:6:nav", "order": 6, "spine_index": 6,
+        "title": "Navigation", "title_source": "manifest_id", "text": "Malformed navigation metadata",
+        "manifest_id": "nav", "source_href": "nav.xhtml", "resolved_href": "OPS/nav.xhtml",
+        "media_type": "application/xhtml+xml", "properties": ["scripted nav"], "linear": true,
+        "navigation_labels": [], "landmark_types": []
+      },
+      {
+        "id": "epub-unit-v1:7:ambiguous", "order": 7, "spine_index": 7,
+        "title": "Sezione", "title_source": "heading", "text": "Frammento senza metadati chiari",
+        "manifest_id": "ambiguous", "source_href": "misc/x7.xhtml", "resolved_href": "OPS/misc/x7.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["  "], "landmark_types": ["not-a-real-type"]
+      },
+      {
+        "id": "epub-unit-v1:8:chapter99", "order": 8, "spine_index": 8,
+        "title": "Capitolo 99", "title_source": "heading", "text": "Segnali deliberatamente contraddittori.",
+        "manifest_id": "chapter99", "source_href": "text/chapter99.xhtml", "resolved_href": "OPS/text/chapter99.xhtml",
+        "media_type": "application/xhtml+xml", "properties": [], "linear": true,
+        "navigation_labels": ["Capitolo finale"], "landmark_types": ["bibliography"]
+      }
+    ]
+  }
+}
