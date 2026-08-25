@@ -833,14 +833,25 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 		t.Fatalf("repeat review=%d location=%q", repeated.Code, repeated.Header().Get("Location"))
 	}
 	activate(abandonedCampaign)
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, abandonedCampaign.ID, domain.BookAbandoned, domain.DeckAbandoned); err != nil {
-		t.Fatal(err)
+	if got := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("abandon without csrf=%d", got.Code)
+	}
+	if got := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner abandon=%d", got.Code)
+	}
+	abandoned := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if abandoned.Code != http.StatusSeeOther || !strings.Contains(abandoned.Header().Get("Location"), "Campaign+abandoned") {
+		t.Fatalf("abandon=%d location=%q", abandoned.Code, abandoned.Header().Get("Location"))
+	}
+	repeatedAbandon := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Campaign+abandoned") {
+		t.Fatalf("repeat abandon=%d location=%q", repeatedAbandon.Code, repeatedAbandon.Header().Get("Location"))
 	}
 	activate(activeCampaign)
 
 	page = perform(t, h, "GET", "/campaigns", nil, aliceCookies)
 	body := page.Body.String()
-	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying", "Completed 20", "Mark book finished", "Mark deck reviewed"} {
+	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying", "Completed 20", "Mark book finished", "Mark deck reviewed", "Abandon campaign"} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("campaign page missing %q: %s", expected, body)
 		}

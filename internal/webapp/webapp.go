@@ -55,6 +55,7 @@ type Store interface {
 	GetLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
 	CreateLearningCampaign(context.Context, string, string, string) (domain.LearningCampaign, error)
 	UpdateLearningCampaignProgress(context.Context, string, string, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
+	AbandonLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
 	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
 }
 type OPDS interface {
@@ -122,6 +123,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))
 	h.mux.Handle("POST /campaigns/{id}/book-finished", h.user(http.HandlerFunc(h.finishCampaignBook)))
 	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
+	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
@@ -387,6 +389,26 @@ func (h *Handler) finishCampaignBook(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) reviewCampaignDeck(w http.ResponseWriter, r *http.Request) {
 	h.updateActiveCampaignProgress(w, r, false)
+}
+
+func (h *Handler) abandonCampaign(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	_, err := h.services.Store.AbandonLearningCampaign(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be abandoned."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/campaigns?message="+url.QueryEscape("Campaign abandoned. Its ungraduated vocabulary is available again."))
 }
 
 func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Request, finishBook bool) {

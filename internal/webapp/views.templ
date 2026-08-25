@@ -186,6 +186,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 		if item.Campaign.DeckProgress != domain.DeckReviewed {
 			<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark deck reviewed</button></form>
 		}
+		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Abandon campaign</button></form>
 		</div>
 	}
 	</article>

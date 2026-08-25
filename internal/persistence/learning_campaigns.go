@@ -76,6 +76,34 @@ func (s *PostgresStore) GetActiveLearningCampaign(ctx context.Context, owner str
 	return scanLearningCampaign(s.pool.QueryRow(ctx, `SELECT `+learningCampaignColumns+` FROM learning_campaigns WHERE owner_id=$1 AND status='active'`, owner))
 }
 
+// AbandonLearningCampaign releases the owner's active campaign while retaining
+// its immutable generated-vocabulary and campaign-vocabulary provenance.
+func (s *PostgresStore) AbandonLearningCampaign(ctx context.Context, owner, id string) (domain.LearningCampaign, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.LearningCampaign{}, err
+	}
+	defer tx.Rollback(ctx)
+	current, err := scanLearningCampaign(tx.QueryRow(ctx, `SELECT `+learningCampaignColumns+` FROM learning_campaigns WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
+	if err != nil {
+		return domain.LearningCampaign{}, err
+	}
+	if current.Status == domain.CampaignAbandoned {
+		return current, tx.Commit(ctx)
+	}
+	if current.Status != domain.CampaignActive {
+		return domain.LearningCampaign{}, ErrInvalidTransition
+	}
+	updated, err := scanLearningCampaign(tx.QueryRow(ctx, `UPDATE learning_campaigns SET book_status='abandoned',deck_status='abandoned',status='abandoned',abandoned_at=COALESCE(abandoned_at,now()),updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, id))
+	if err != nil {
+		return domain.LearningCampaign{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.LearningCampaign{}, err
+	}
+	return updated, nil
+}
+
 func (s *PostgresStore) ListLearningCampaignVocabulary(ctx context.Context, owner, campaignID string) ([]domain.CampaignVocabulary, error) {
 	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,campaign_id::text,language,canonical_lemma,upos,generated_at,graduated_at FROM learning_campaign_vocabulary WHERE owner_id=$1 AND campaign_id=$2 ORDER BY language,canonical_lemma,upos`, owner, campaignID)
 	if err != nil {

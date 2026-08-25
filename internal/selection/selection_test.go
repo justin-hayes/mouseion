@@ -12,9 +12,10 @@ import (
 )
 
 type memoryStore struct {
-	states map[string]string
-	known  map[string]bool
-	saved  []domain.SelectionCandidate
+	states   map[string]string
+	known    map[string]bool
+	reserved map[string]bool
+	saved    []domain.SelectionCandidate
 }
 
 func (m *memoryStore) key(owner, lang, lemma, upos string) string {
@@ -29,6 +30,9 @@ func (m *memoryStore) GetVocabularyStateByIdentity(_ context.Context, o, l, x, p
 }
 func (m *memoryStore) IsKnownVocabularyIdentity(_ context.Context, o, l, x, p string) (bool, error) {
 	return m.known[m.key(o, l, x, p)], nil
+}
+func (m *memoryStore) IsLearningCampaignVocabularyReserved(_ context.Context, o, l, x, p string) (bool, error) {
+	return m.reserved[m.key(o, l, x, p)], nil
 }
 func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.SelectionCandidate) (bool, error) {
 	m.saved = append(m.saved, c)
@@ -133,6 +137,21 @@ func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
 	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Haus", "Haus", "NOUN", false)), DefaultConfig("book"))
 	if err != nil || len(got) != 1 || len(store.saved) != 1 {
 		t.Fatalf("candidates=%+v saved=%+v err=%v", got, store.saved, err)
+	}
+}
+
+func TestActiveCampaignReservationIsOwnerScoped(t *testing.T) {
+	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
+	store.reserved[store.key("alice", "de", "Haus", "NOUN")] = true
+	corpus := fixture(tok("Haus", "Haus", "NOUN", false))
+
+	alice, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("next-book"))
+	if err != nil || len(alice) != 0 {
+		t.Fatalf("alice candidates=%+v err=%v", alice, err)
+	}
+	bob, err := NewService(store).Select(context.Background(), "bob", corpus, DefaultConfig("bob-book"))
+	if err != nil || len(bob) != 1 {
+		t.Fatalf("bob candidates=%+v err=%v", bob, err)
 	}
 }
 
