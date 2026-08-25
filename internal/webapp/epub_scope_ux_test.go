@@ -56,10 +56,51 @@ func TestEPUBScopeReviewRendersGroupsAggregatesAndPartialState(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := output.String()
-	for _, want := range []string{`name="snapshot_id" value="snapshot-1"`, "EPUB groups", "Parte prima", "2 units · 140 characters · about 35 tokens", `name="group_include" value="group-1"`, `name="group_exclude" value="group-1"`, "Partially selected"} {
+	for _, want := range []string{`name="snapshot_id" value="snapshot-1"`, `aria-labelledby="scope-groups-heading"`, "EPUB groups", "Parte prima", "2 units · 140 characters · about 35 tokens", `data-group-state role="status" aria-live="polite"`, `<button type="submit" class="outline" name="group_include" value="group-1">`, `<button type="submit" class="outline secondary" name="group_exclude" value="group-1">`, "Partially selected"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("group render missing %q: %s", want, body)
 		}
+	}
+}
+
+func TestEPUBScopeReviewFlatFallbackAndKeyboardControls(t *testing.T) {
+	view := epubScopeView{Book: domain.SourceMaterial{ID: "book-flat", Title: "Legacy flat EPUB"}, SnapshotID: "snapshot-flat", Units: []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-0", Order: 0, Title: "Chapter"}, Classification: domain.EPUBUnitClassification{Category: domain.EPUBCategoryMainMatter, RecommendedInclusion: true}}}}
+	var output strings.Builder
+	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	body := output.String()
+	for _, want := range []string{`role="note"><strong>Flat spine order.`, `<fieldset class="scope-actions"><legend>Apply a selection</legend>`, `<button type="button"`, `<label for="scope-unit-0"><input id="scope-unit-0" type="checkbox"`, `<fieldset class="scope-units"><legend>Readable units in spine order</legend>`, `scopeForm.addEventListener('change'`, `scopeForm.addEventListener('click'`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("flat/keyboard review missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `tabindex="0"`) || strings.Contains(body, `onkeydown=`) {
+		t.Fatal("native keyboard controls were replaced with custom keyboard semantics")
+	}
+}
+
+func TestBookPageLabelsHistoricalScopedAndLegacyFullTextCorpora(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}}
+	for _, test := range []struct {
+		name     string
+		coverage domain.AnalysisCoverage
+		want     []string
+	}{
+		{"historical scope", domain.AnalysisCoverage{ReviewedScopeID: "scope-history", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Order: 1, Title: "Kapitel"}}}, []string{"Analyzed scope", "1 selected units", "scope-history", "Kapitel"}},
+		{"legacy full text", domain.AnalysisCoverage{}, []string{"Analyzed scope", "Legacy/full-text scope.", "persisted full-text corpus"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output strings.Builder
+			if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &test.coverage, false, "").Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range test.want {
+				if !strings.Contains(output.String(), want) {
+					t.Errorf("book history missing %q: %s", want, output.String())
+				}
+			}
+		})
 	}
 }
 

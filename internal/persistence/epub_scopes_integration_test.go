@@ -4,6 +4,7 @@ package persistence
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -42,6 +43,36 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	}
 	if _, err = store.GetEPUBReviewedScope(ctx, bob.ID, source.ID, scope.ScopeID); err == nil {
 		t.Fatal("cross-owner scope read was accepted")
+	}
+	classificationsV1 := classificationTestResults(snapshotID, units)
+	if err = store.ReplaceEPUBUnitClassifications(ctx, alice.ID, source.ID, classificationsV1); err != nil {
+		t.Fatal(err)
+	}
+	classificationsV2 := classificationTestResults(snapshotID, units)
+	for i := range classificationsV2 {
+		classificationsV2[i].Classifier.Version = "2"
+		classificationsV2[i].Reasons = []domain.EPUBClassificationReason{{Signal: "refined", Message: "A refined deterministic rule matched."}}
+		classificationsV2[i].Category = domain.EPUBCategoryMainMatter
+		classificationsV2[i].Confidence = 95
+		classificationsV2[i].RecommendedInclusion = true
+	}
+	if err = store.ReplaceEPUBUnitClassifications(ctx, alice.ID, source.ID, classificationsV2); err != nil {
+		t.Fatal(err)
+	}
+	historicalClassifications, err := store.GetEPUBUnitClassifications(ctx, alice.ID, source.ID, "deterministic", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range historicalClassifications {
+		historicalClassifications[i].CreatedAt = classificationsV1[i].CreatedAt
+		historicalClassifications[i].UpdatedAt = classificationsV1[i].UpdatedAt
+	}
+	if !reflect.DeepEqual(historicalClassifications, classificationsV1) {
+		t.Fatalf("classifier refinement mutated historical classifications: got=%+v want=%+v", historicalClassifications, classificationsV1)
+	}
+	historicalScope, err := store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID)
+	if err != nil || historicalScope.Classifier != scope.Classifier || historicalScope.SourceUnitSnapshot != scope.SourceUnitSnapshot || !reflect.DeepEqual(historicalScope.SelectedUnits, scope.SelectedUnits) {
+		t.Fatalf("classifier refinement mutated historical scope: got=%+v want=%+v err=%v", historicalScope, scope, err)
 	}
 	foreign := scope
 	foreign.ScopeID = uuid.NewString()
