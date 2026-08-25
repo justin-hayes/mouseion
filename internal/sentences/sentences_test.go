@@ -78,6 +78,57 @@ func TestSelectConfigAndDeterministicTieBreak(t *testing.T) {
 	}
 }
 
+func TestSelectRejectsBibliographicAndStructuralFragments(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+	}{
+		{"author_year_parenthetical", "Müller, Hans (1998): Das Haus im Wandel."},
+		{"author_year_plain", "Müller, H. 1998, Das Haus im Wandel."},
+		{"author_year_surname", "Müller (1998): Das Haus im Wandel."},
+		{"author_year_multiple", "Müller und Schmidt 1998: Das Haus im Wandel."},
+		{"in_citation", "Das Haus der Sprache, in: Zeitschrift für Kulturgeschichte."},
+		{"editors", "Das Haus der Moderne (Hgg. Müller und Schmidt)."},
+		{"editorial", "Das Haus der Moderne, hrsg. von Erika Müller."},
+		{"contents", "Das Haus und seine Geschichte ........ 147"},
+		{"page_reference", "Das Haus in der Literatur S. 147–152."},
+		{"title_only", "Das Haus und die europäische Moderne"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &memoryStore{}
+			result, err := NewService(store).Select(context.Background(), "alice", "corpus", candidate(ref(0, tc.text)), DefaultConfig())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Chosen != nil || len(result.Alternatives) != 0 || len(store.examples) != 0 {
+				t.Fatalf("fragment selected: result=%+v persisted=%+v", result, store.examples)
+			}
+		})
+	}
+}
+
+func TestSelectPreservesProseAndOmittedLemmaRemainsEligible(t *testing.T) {
+	store := &memoryStore{}
+	svc := NewService(store)
+	omitted, err := svc.Select(context.Background(), "alice", "corpus", candidate(ref(0, "Müller, Hans (1998): Das Haus im Wandel.")), DefaultConfig())
+	if err != nil || omitted.Chosen != nil || len(store.examples) != 0 {
+		t.Fatalf("omitted=%+v persisted=%+v err=%v", omitted, store.examples, err)
+	}
+
+	prose := ref(1, "Im Jahr 1998 zog die Familie in das alte Haus am See.")
+	selected, err := svc.Select(context.Background(), "alice", "corpus", candidate(prose), DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Chosen == nil || selected.Chosen.Text != prose.Text || len(store.examples) != 1 {
+		t.Fatalf("selected=%+v persisted=%+v", selected, store.examples)
+	}
+	if selected.Chosen.Score != 85 || strings.Join(selected.Chosen.Reasons, ",") != "preferred length,sufficient surrounding context,single unambiguous target use,not a quotation,not parenthetical,complete sentence punctuation" {
+		t.Fatalf("existing score/reasons changed: %+v", selected.Chosen)
+	}
+}
+
 func TestGoldenSentenceCases(t *testing.T) {
 	cases := []struct {
 		name string
