@@ -29,6 +29,33 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 		want []expectedClassification
 	}{
 		{
+			name: "Issue 287 complete German book regression",
+			file: "issue-287-complete-german-book.json",
+			want: []expectedClassification{
+				{CategoryFrontMatter, 95, false, fixtureReasons("landmark_titlepage", "spine_front")},
+				{CategoryFrontMatter, 85, false, fixtureReasons("label_copyright", "path_copyright", "spine_central")},
+				{CategoryFrontMatter, 85, false, fixtureReasons("label_acknowledgments", "path_acknowledgments", "spine_central")},
+				{CategoryFrontMatter, 95, false, fixtureReasons("landmark_frontmatter", "spine_central")},
+				{CategoryFrontMatter, 70, false, fixtureReasons("label_preface", "path_preface", "spine_central", "text_sentence_density", "label_precedence")},
+				{CategoryFrontMatter, 85, false, fixtureReasons("label_contents", "path_contents", "spine_central")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_appendix", "path_appendix", "spine_central")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_notes", "path_notes", "spine_central")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_image_credits", "path_image_credits", "spine_central")},
+				{CategoryBackMatter, 95, false, fixtureReasons("label_references", "path_references", "spine_central", "text_reference_density")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_index", "path_index", "spine_central")},
+				{CategoryFrontMatter, 85, false, fixtureReasons("label_copyright", "path_copyright", "spine_back")},
+			},
+		},
+		{
 			name: "Issue 285 German reference markers with preserved multilingual rules",
 			file: "issue-285-reference-markers.json",
 			want: []expectedClassification{
@@ -126,6 +153,48 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 	}
 }
 
+func TestIssue287CompleteGermanBookSelectionAndGroups(t *testing.T) {
+	fixture := readClassifierFixture(t, "issue-287-complete-german-book.json")
+	if len(fixture.Units.Units) != 21 {
+		t.Fatalf("units=%d want=21", len(fixture.Units.Units))
+	}
+	classifications, err := ClassifyUnits(fixture.SnapshotID, fixture.Units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allCharacters, selectedCharacters, selectedUnits := 0, 0, 0
+	for i, unit := range fixture.Units.Units {
+		if unit.Order != uint64(i) || unit.SpineIndex != uint64(i) || classifications[i].SourceUnitSnapshot.UnitID != unit.ID {
+			t.Fatalf("unit %d is out of deterministic snapshot order: unit=%+v classification=%+v", i, unit, classifications[i])
+		}
+		characters := len([]rune(unit.Text))
+		allCharacters += characters
+		if classifications[i].RecommendedInclusion {
+			selectedUnits++
+			selectedCharacters += characters
+		}
+	}
+	if fixture.Units.Units[0].TitleSource != UnitTitleManifestID || fixture.Units.Units[0].Title != "titlepage" {
+		t.Fatalf("fallback-title front matter was not preserved: %+v", fixture.Units.Units[0])
+	}
+	if selectedUnits != 9 || allCharacters != 1997 || selectedCharacters != 1333 || selectedCharacters <= allCharacters-selectedCharacters {
+		t.Fatalf("safe totals: selected=%d selectedCharacters=%d allCharacters=%d", selectedUnits, selectedCharacters, allCharacters)
+	}
+	groups := BuildUnitGroups(fixture.Units.Units)
+	var foundMain, foundApparatus bool
+	for _, group := range groups {
+		switch group.Label {
+		case "Haupttext":
+			foundMain = len(group.UnitIDs) == 9 && group.UnitIDs[0] == fixture.Units.Units[6].ID && group.UnitIDs[8] == fixture.Units.Units[14].ID
+		case "Apparat":
+			foundApparatus = len(group.UnitIDs) == 6 && group.UnitIDs[0] == fixture.Units.Units[15].ID && group.UnitIDs[5] == fixture.Units.Units[20].ID
+		}
+	}
+	if !foundMain || !foundApparatus {
+		t.Fatalf("expected ordered main/apparatus groups, got %+v", groups)
+	}
+}
+
 func readClassifierFixture(t *testing.T, name string) classifierFixture {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testfixtures", "classifier", name))
@@ -142,6 +211,7 @@ func readClassifierFixture(t *testing.T, name string) classifierFixture {
 func fixtureReasons(signals ...string) []ClassificationReason {
 	messages := map[string]string{
 		"landmark_frontmatter":      "The EPUB landmark identifies front matter.",
+		"landmark_titlepage":        "The EPUB landmark identifies front matter.",
 		"landmark_bodymatter":       "The EPUB landmark identifies main matter.",
 		"landmark_backmatter":       "The EPUB landmark identifies back matter.",
 		"landmark_bibliography":     "The EPUB landmark identifies back matter.",
@@ -157,6 +227,7 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"label_glossary":            "A title or navigation label matches the glossary marker.",
 		"label_appendix":            "A title or navigation label matches the appendix marker.",
 		"label_editorial":           "A title or navigation label matches the editorial marker.",
+		"label_acknowledgments":     "A title or navigation label matches the acknowledgments marker.",
 		"label_copyright":           "A title or navigation label matches the copyright marker.",
 		"label_image_credits":       "A title or navigation label matches the image credits marker.",
 		"label_references":          "A title or navigation label matches the references marker.",
@@ -173,6 +244,7 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"path_glossary":             "The package path matches the glossary marker.",
 		"path_appendix":             "The package path matches the appendix marker.",
 		"path_editorial":            "The package path matches the editorial marker.",
+		"path_acknowledgments":      "The package path matches the acknowledgments marker.",
 		"path_copyright":            "The package path matches the copyright marker.",
 		"path_image_credits":        "The package path matches the image credits marker.",
 		"path_references":           "The package path matches the references marker.",
