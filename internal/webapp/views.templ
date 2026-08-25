@@ -254,7 +254,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 				<ol class="top-unknown">
 					for _, lemma := range coverage.TopUnknownLemmas {
 						if lexical.IsLemma(lemma.CanonicalLemma) {
-							<li><span><strong>{ lemma.CanonicalLemma }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
+							<li><span><strong>{ lemmadisplay.Format(book.Source.Language, lemma.CanonicalLemma, lemma.UPOS) }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
 						}
 					}
 				</ol>
