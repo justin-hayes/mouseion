@@ -34,7 +34,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-type recordingAnalysis struct{ owner, source string }
+type recordingAnalysis struct{ owner, source, scope string }
 type recordingAnalysisInsights struct {
 	owner, corpus string
 	coverage      domain.AnalysisCoverage
@@ -186,7 +186,7 @@ func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source stri
 }
 
 func (r *recordingAnalysis) SubmitScopedAnalysis(_ context.Context, owner, source, scope string) (analysis.Handle, error) {
-	r.owner, r.source = owner, source
+	r.owner, r.source, r.scope = owner, source, scope
 	return analysis.Handle{ID: 1, DisplayNumber: 1}, nil
 }
 func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
@@ -235,8 +235,10 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	german, germanUnits := createBook(alice.ID, "de", "review-de", "Erstes Kapitel", "bibliography")
 	italian, _ := createBook(alice.ID, "it", "review-it", "Capitolo primo", "bibliografia")
 	_, bobUnits := createBook(bob.ID, "de", "review-bob", "Privates Kapitel", "private-bibliography")
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: &recordingAnalysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	recorder := &recordingAnalysis{}
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
+	bobCookies, _ := loginCookies(t, h, "scope-web-bob", "bob-password")
 	for _, test := range []struct{ id, title string }{{german.ID, "Erstes Kapitel"}, {italian.ID, "Capitolo primo"}} {
 		page := perform(t, h, "GET", "/books/"+test.id+"/scope", nil, cookies)
 		body := page.Body.String()
@@ -248,6 +250,9 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 		if strings.Index(body, "The title identifies a bibliography.") > strings.Index(body, "The unit is at the end of the readable spine.") {
 			t.Fatal("classification reasons rendered out of order")
 		}
+	}
+	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner scope review=%d %s", got.Code, got.Body.String())
 	}
 	if got := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"unit_id": {germanUnits.Units[0].ID}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("scope without csrf=%d", got.Code)
@@ -268,6 +273,16 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	var selected int
 	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, german.ID).Scan(&mode, &selected); err != nil || mode != "overridden" || selected != 2 {
 		t.Fatalf("persisted mode=%q selected=%d err=%v", mode, selected, err)
+	}
+	if recorder.owner != alice.ID || recorder.source != german.ID || recorder.scope == "" {
+		t.Fatalf("queued scope owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
+	}
+	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
+	if recommended.Code != http.StatusSeeOther {
+		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, italian.ID).Scan(&mode, &selected); err != nil || mode != "recommended" || selected != 1 {
+		t.Fatalf("recommended mode=%q selected=%d err=%v", mode, selected, err)
 	}
 }
 

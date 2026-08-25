@@ -1,6 +1,6 @@
 # Phase 3: Learner-reviewed EPUB analysis scope
 
-Status: Proposed · Date: 2026-08-25
+Status: Implemented · Date: 2026-08-25
 
 ## Problem
 
@@ -68,16 +68,17 @@ text. The server validates against the persisted snapshot and reloads selected
 text from those persisted units for later analysis. Fixed object fields and the
 selected-unit array make serialization deterministic without map iteration.
 
-Confirmation creates a new immutable reviewed-scope snapshot. Repeating the
-same confirmation may return that same snapshot idempotently once persistence
-is implemented; a changed review or reanalysis creates a new scope ID and must
-not update historical selections. Persistence and analysis-job linkage are
-deliberately deferred because this contract phase adds no database migration or
-worker integration.
+Confirmation creates a new immutable reviewed-scope snapshot and queues a job
+bound to it. Retrying or reanalyzing the same scope resolves to the same
+deterministic job and corpus. Confirming a changed selection creates a new
+scope ID, job, and corpus while the earlier scope and corpus remain unchanged.
+The corpus stores its reviewed scope ID and an ordered copy of selected-unit
+provenance for later display and auditing.
 
 A legacy source material with no extracted-unit snapshot returns
 `ErrReviewedScopeUnavailable`. Absence is not an empty reviewed selection: the
-caller must retain the legacy analysis path or clearly require re-extraction.
+existing analyze action retains the full-text path. Its corpus and insights are
+explicitly labeled legacy/full-text and do not claim reviewed-unit provenance.
 
 ## Safety and compatibility
 
@@ -86,6 +87,34 @@ caller must retain the legacy analysis path or clearly require re-extraction.
 - Existing analyzed corpora are not silently rewritten.
 - Empty/invalid selections are rejected before queueing NLP work.
 - Unit text is never trusted from the browser; the server reloads persisted units.
+
+CSRF protection applies to scope confirmation, and every source, snapshot,
+classification, scope, job, corpus, and selected-unit query is owner-scoped.
+Unknown IDs, duplicate IDs, forged order, stale snapshots, and cross-owner
+references fail before NLP is queued. The analyzer receives one source document
+per selected unit in spine order; excluded units are never concatenated into or
+sent with that input. Consequently token counts, vocabulary, coverage,
+projections, and structural profiles describe only the selected scope.
+
+## Validation fixtures
+
+The Phase 3 suite covers German EPUB 2/NCX and Italian EPUB 3/landmark fixtures
+from deterministic extraction and classification through persisted review,
+selected-unit analysis provenance, and scope-aware insight rendering. It also
+covers accepting recommendations, individual overrides, high-confidence
+exclusion warnings, unknown and contradictory units, empty/invalid selections,
+CSRF, owner isolation, deterministic same-scope retries, changed-scope corpus
+history, and the legacy full-text path. Review controls use native buttons,
+checkboxes, labels, fieldsets, and legends; dynamic summaries are polite live
+regions, and validation errors are exposed as focusable alerts.
+
+## Phase 4 candidates
+
+- Persist optional learner notes explaining overrides.
+- Add bulk review filters for unusually large books without changing classifier output.
+- Compare scopes and their metrics side by side.
+- Offer an explicit re-extraction migration for legacy EPUBs.
+- Improve hierarchical navigation display when EPUB structure supports it.
 
 ## Non-goals
 
