@@ -29,8 +29,8 @@ services:
       context: .
       dockerfile: nlp/Dockerfile
     restart: unless-stopped
-    # German and Italian models are provisioned in the image. Other configured
-    # languages are explicitly downloaded during startup warmup.
+    # German and Italian models are provisioned in the image's immutable
+    # /opt/stanza_resources cache. Rebuild the image to add another model.
     environment:
       MOUSEION_NLP_ADDR: "[::]:50051"
       MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it}

@@ -361,6 +361,52 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 	if !strings.Contains(note.Text, "{{c1::porterà::to bring}}") || note.Lemma != "portare" || note.POS != "VERB" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
 		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
 	}
+	assertAPKGDeckAndCard(t, artifact.APKG, "Mouseion::it::Il viaggio", "portare", "lang::it")
+}
+
+func assertAPKGDeckAndCard(t *testing.T, payload []byte, deckName, lemma, tag string) {
+	t.Helper()
+	zr, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	if err != nil {
+		t.Fatalf("open APKG: %v", err)
+	}
+	var collection []byte
+	for _, member := range zr.File {
+		if member.Name != "collection.anki2" {
+			continue
+		}
+		reader, openErr := member.Open()
+		if openErr != nil {
+			t.Fatalf("open APKG collection: %v", openErr)
+		}
+		collection, err = io.ReadAll(reader)
+		_ = reader.Close()
+		if err != nil {
+			t.Fatalf("read APKG collection: %v", err)
+		}
+	}
+	if len(collection) == 0 {
+		t.Fatal("APKG has no collection.anki2")
+	}
+	path := t.TempDir() + "/collection.anki2"
+	if err = os.WriteFile(path, collection, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var decks, fields, tags string
+	if err = db.QueryRow(`SELECT decks FROM col`).Scan(&decks); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRow(`SELECT flds,tags FROM notes`).Scan(&fields, &tags); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(decks, `"name":"`+deckName+`"`) || !strings.Contains(fields, "\x1f"+lemma+"\x1f") || !strings.Contains(tags, " "+tag+" ") {
+		t.Fatalf("Italian APKG decks=%s fields=%q tags=%q", decks, fields, tags)
+	}
 }
 
 func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
