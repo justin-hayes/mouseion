@@ -3,6 +3,7 @@ package epub
 import (
 	"encoding/json"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestBuildUnitGroupsFixtures(t *testing.T) {
 		name      string
 		wantGroup bool
 		wantNest  bool
-	}{{"german", true, false}, {"italian", true, false}, {"nested", true, true}, {"flat", false, false}} {
+	}{{"german", true, true}, {"italian", true, true}, {"nested", true, true}, {"flat", false, false}} {
 		t.Run(test.name, func(t *testing.T) {
 			data, err := os.ReadFile("testfixtures/hierarchy/" + test.name + ".json")
 			if err != nil {
@@ -52,6 +53,9 @@ func TestBuildUnitGroupsFixtures(t *testing.T) {
 				t.Fatal(err)
 			}
 			groups := BuildUnitGroups(units.Units)
+			if repeated := BuildUnitGroups(units.Units); !reflect.DeepEqual(groups, repeated) {
+				t.Fatalf("group expansion is not deterministic:\nfirst=%#v\nsecond=%#v", groups, repeated)
+			}
 			if (len(groups) > 0) != test.wantGroup {
 				t.Fatalf("groups = %#v", groups)
 			}
@@ -62,6 +66,19 @@ func TestBuildUnitGroupsFixtures(t *testing.T) {
 				}
 				if !nested {
 					t.Fatalf("no parent relationship in %#v", groups)
+				}
+			}
+			for _, group := range groups {
+				var want []string
+				for _, unit := range units.Units {
+					for _, id := range group.UnitIDs {
+						if unit.ID == id {
+							want = append(want, unit.ID)
+						}
+					}
+				}
+				if !reflect.DeepEqual(group.UnitIDs, want) {
+					t.Fatalf("group %q members are not the intended spine-ordered units: got=%v want=%v", group.ID, group.UnitIDs, want)
 				}
 			}
 		})

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -301,6 +302,10 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 		t.Fatalf("queued scope owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
 	}
 	priorScopeID := recorder.scope
+	expanded, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, priorScopeID)
+	if err != nil || len(expanded.SelectedUnits) != 2 || expanded.SelectedUnits[0].UnitID != germanUnits.Units[0].ID || expanded.SelectedUnits[1].UnitID != germanUnits.Units[1].ID {
+		t.Fatalf("group expansion selected unintended or unordered units: scope=%+v err=%v", expanded, err)
+	}
 	cloneReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, cookies)
 	cloneBody := cloneReview.Body.String()
 	for _, want := range []string{"Scope comparison", "Prior selection", germanUnits.Units[0].ID, germanUnits.Units[1].ID, "Added units", "Removed units", "None."} {
@@ -322,6 +327,10 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	var cloneCount int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
 		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
+	}
+	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, recorder.scope)
+	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot || cloned.Classifier != expanded.Classifier {
+		t.Fatalf("same-scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
 	}
 	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
 	if recommended.Code != http.StatusSeeOther {
