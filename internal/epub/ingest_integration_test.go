@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -52,7 +53,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := NewService(store).Import(ctx, alice.ID, "de", fixture(t))
+	result, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +71,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if _, err = store.GetExtractedUnits(ctx, bob.ID, result.Source.ID); !errors.Is(err, ErrExtractedUnitsUnavailable) {
 		t.Fatalf("bob read alice units: %v", err)
 	}
-	second, err := NewService(store).Import(ctx, alice.ID, "de", fixture(t))
+	second, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
 	if err != nil || second.Source.ID != result.Source.ID {
 		t.Fatalf("idempotent reimport: source=%+v err=%v", second.Source, err)
 	}
@@ -84,23 +85,17 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if snapshotCount != 1 || unitCount != len(result.Book.ExtractedUnits.Units) {
 		t.Fatalf("reimport snapshots=%d units=%d", snapshotCount, unitCount)
 	}
-	replacementText := "Grüße 👋"
-	replacementUnits := ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{{
-		ID: UnitID(7, "unicode"), Order: 0, SpineIndex: 7, Title: "Überschrift", TitleSource: UnitTitleHeading,
-		Text: replacementText, StartOffset: 0, EndOffset: uint64(len([]rune(replacementText))), PackagePath: "OPS/package.opf",
-		ManifestID: "unicode", SourceHref: "Text/ü.xhtml", ResolvedHref: "OPS/Text/ü.xhtml",
-		MediaType: "application/xhtml+xml", Properties: []string{"scripted"}, Linear: true,
-		NavigationLabels: []string{"Grüße"}, LandmarkTypes: []string{"bodymatter"},
-	}}}
-	replacementSource := result.Source
-	replacementSource.FullText = replacementText
-	replacementSource.ContentHash = "sha256:unicode-reimport"
-	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, replacementSource, replacementUnits); err != nil {
-		t.Fatalf("replace unit snapshot: %v", err)
+	replacement, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-reimport"))
+	if err != nil || replacement.Source.ID != result.Source.ID {
+		t.Fatalf("replace imported snapshot: source=%+v err=%v", replacement.Source, err)
 	}
 	units, err = store.GetExtractedUnits(ctx, alice.ID, result.Source.ID)
-	if err != nil || !reflect.DeepEqual(units, replacementUnits) {
-		t.Fatalf("replacement units=%+v err=%v, want %+v", units, err, replacementUnits)
+	if err != nil || !reflect.DeepEqual(units, replacement.Book.ExtractedUnits) {
+		t.Fatalf("replacement units=%+v err=%v, want %+v", units, err, replacement.Book.ExtractedUnits)
+	}
+	got, err = store.GetSourceMaterial(ctx, alice.ID, result.Source.ID)
+	if err != nil || got.FullText != replacement.Book.FullText || got.ContentHash != replacement.Source.ContentHash {
+		t.Fatalf("replacement source=%+v err=%v", got, err)
 	}
 	if err = admin.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, result.Source.ID).Scan(&unitCount); err != nil || unitCount != 1 {
 		t.Fatalf("replacement unit count=%d err=%v", unitCount, err)
@@ -111,8 +106,15 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if _, err = store.GetSourceMaterial(ctx, bob.ID, result.Source.ID); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatalf("bob read alice source: %v", err)
 	}
+	legacy, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "legacy-epub", Title: "Legacy", MediaType: MediaType(), ContentHash: "sha256:legacy", Content: []byte("retained epub"), FullText: "Legacy full text."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.GetExtractedUnits(ctx, alice.ID, legacy.ID); !errors.Is(err, ErrExtractedUnitsUnavailable) {
+		t.Fatalf("legacy source units: %v", err)
+	}
 	var historyCount int
-	if err = admin.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='epub.import' AND status='complete' AND details->>'source_material_id'=$2`, alice.ID, result.Source.ID).Scan(&historyCount); err != nil || historyCount != 1 {
+	if err = admin.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='epub.import' AND status='complete' AND details->>'source_material_id'=$2`, alice.ID, result.Source.ID).Scan(&historyCount); err != nil || historyCount != 3 {
 		t.Fatalf("history count=%d err=%v", historyCount, err)
 	}
 	if _, err = admin.Exec(ctx, `DELETE FROM users WHERE id=$1`, alice.ID); err != nil {

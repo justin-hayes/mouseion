@@ -220,6 +220,36 @@ leaving existing corpora untouched. Sources imported before this persistence
 was introduced have no snapshot and therefore report extracted units as
 unavailable. Their retained `full_text` remains compatible with current NLP.
 
+## Phase 1 fixture and compatibility guarantees
+
+The readable source fixtures under `internal/epub/testfixtures` are packaged
+into deterministic EPUB byte streams by the tests. They lock down these cases:
+
+- `epub2-clean` proves EPUB 2 package metadata, NCX/non-XHTML skipping, spine
+  order, stable IDs, and the existing `FullText` and `Chapters` projections;
+- `epub3-edge-cases` uses a nested package and resource tree to prove skipped
+  `linear="no"` front matter, excluded `nav` content, preserved manifest
+  properties, navigation labels and landmarks, missing-heading fallback,
+  duplicate display titles, bibliography-like content, unmatched navigation
+  targets, and rune-based offsets across German, Japanese, and emoji text;
+- `invalid-missing-spine-reference` proves a missing manifest target remains an
+  invalid EPUB rather than being silently omitted; table-driven extraction
+  tests retain coverage for malformed XML, blank and duplicate manifest IDs,
+  blank references, missing resources, and unsafe resource paths;
+- `epub3-reimport` shares the first EPUB 3 fixture's source identifier and
+  proves that reimport transactionally replaces, rather than appends to, the
+  owner-scoped extracted-unit snapshot.
+
+The extraction assertions compare every v1 field, not only unit count or text.
+Persistence integration compares the complete round-tripped snapshot with that
+extraction result and verifies replacement, owner isolation, and cascade
+deletion. A source written through the legacy import path still returns
+`ErrExtractedUnitsUnavailable` while retaining its `FullText`; fresh imports
+continue to store the source EPUB and use the unchanged full text as the NLP
+compatibility input. Bibliography-, index-, navigation-, or landmark-like
+metadata is preserved as evidence only. Phase 1 does not classify it, expose a
+selection control, or alter which preserved readable units are analyzed.
+
 ## Deferred decisions
 
 - A future schema version may make full text derived, but v1 keeps it canonical.
