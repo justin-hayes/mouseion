@@ -39,7 +39,7 @@ func TestClassifyUnitsFixtureMatrix(t *testing.T) {
 		{CategoryBackMatter, 85, false, []ClassificationReason{{Signal: "label_notes", Message: "A title or navigation label matches the notes marker."}, {Signal: "path_notes", Message: "The package path matches the notes marker."}, {Signal: "spine_central", Message: "The unit is in the central readable spine range."}}},
 		{CategoryBackMatter, 85, false, []ClassificationReason{{Signal: "label_appendix", Message: "A title or navigation label matches the appendix marker."}, {Signal: "path_appendix", Message: "The package path matches the appendix marker."}, {Signal: "spine_central", Message: "The unit is in the central readable spine range."}}},
 		{CategoryUnknown, 20, false, []ClassificationReason{{Signal: "spine_central", Message: "The unit is in the central readable spine range."}, {Signal: "insufficient_evidence", Message: "The available signals do not establish a structural category."}}},
-		{CategoryUnknown, 35, false, []ClassificationReason{{Signal: "landmark_bibliography", Message: "The EPUB landmark identifies back matter."}, {Signal: "label_chapter", Message: "A title or navigation label matches the chapter marker."}, {Signal: "path_chapter", Message: "The package path matches the chapter marker."}, {Signal: "spine_back", Message: "The unit is at the end of the readable spine."}, {Signal: "contradictory_evidence", Message: "Strong signals support conflicting structural categories."}}},
+		{CategoryBackMatter, 95, false, []ClassificationReason{{Signal: "landmark_bibliography", Message: "The EPUB landmark identifies back matter."}, {Signal: "label_chapter", Message: "A title or navigation label matches the chapter marker."}, {Signal: "path_chapter", Message: "The package path matches the chapter marker."}, {Signal: "spine_back", Message: "The unit is at the end of the readable spine."}, {Signal: "landmark_precedence", Message: "The EPUB landmark outranks conflicting title, navigation, path, spine-position, and prose-shape evidence."}}},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d classifications, want %d", len(got), len(want))
@@ -111,7 +111,7 @@ func TestClassifyUnitsGermanBookWithoutHighConfidenceMainMatterUsesSafePolicy(t 
 		t.Fatal(err)
 	}
 	for i := 2; i <= 10; i++ {
-		if got[i].Category != CategoryMainMatter || got[i].Confidence != 70 || !got[i].RecommendedInclusion {
+		if got[i].Category != CategoryMainMatter || got[i].Confidence != 95 || !got[i].RecommendedInclusion || !hasReason(got[i].Reasons, "heading_repeated_pattern") {
 			t.Errorf("substantive chapter %q was not included with medium-confidence main matter: %#v", titles[i], got[i])
 		}
 	}
@@ -137,6 +137,18 @@ func TestClassifyUnitsDoesNotTrustMainTitleAndPathAlone(t *testing.T) {
 	}
 	if got[0].Category != CategoryMainMatter || got[0].Confidence >= ConfidenceHighMinimum {
 		t.Fatalf("title and filename alone produced high-confidence main matter: %#v", got[0])
+	}
+}
+
+func TestClassifyUnitsLandmarkOutranksConflictingLabelAndText(t *testing.T) {
+	unit := classifierUnit(0, "chapter", "Chapter 9", "Text/chapter.xhtml", "Long prose appears here with enough words. Another complete sentence follows with more details. A third complete sentence finishes the passage.")
+	unit.LandmarkTypes = []string{"bibliography"}
+	got, err := ClassifyUnits("snapshot:landmark-precedence", ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{unit}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Category != CategoryBackMatter || got[0].Confidence < ConfidenceHighMinimum || got[0].RecommendedInclusion || !hasReason(got[0].Reasons, "landmark_precedence") {
+		t.Fatalf("landmark did not outrank conflicting lower-tier evidence: %#v", got[0])
 	}
 }
 

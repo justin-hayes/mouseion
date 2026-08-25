@@ -11,7 +11,7 @@ import (
 
 const (
 	ClassifierName    = "mouseion-epub-structure"
-	ClassifierVersion = "1.2.0"
+	ClassifierVersion = "1.3.0"
 )
 
 var (
@@ -22,6 +22,7 @@ var (
 	citationPattern         = regexp.MustCompile(`(?:\[[0-9]{1,3}\]|\([A-ZÀ-ÖØ-Þ][[:alpha:]'’-]+(?:\s+(?:et\s+al\.|e\s+al\.|u\.\s*a\.))?,?\s+(?:1[5-9]\d{2}|20\d{2})\))`)
 	sentencePattern         = regexp.MustCompile(`[.!?](?:\s|$)`)
 	bibliographyLinePattern = regexp.MustCompile(`(?i)(?:^|\n)\s*(?:\[[0-9]{1,3}\]|[[:alpha:]À-ÖØ-öø-ÿ'’-]+,?\s+(?:[[:alpha:]À-ÖØ-öø-ÿ'’-]+\s+){0,3}\(?(?:1[5-9]\d{2}|20\d{2})\)?)`)
+	romanHeadingPattern     = regexp.MustCompile(`(?i)^\s*[IVXLCDM]+[.)]\s+\pL`)
 )
 
 type classificationScore struct {
@@ -35,8 +36,9 @@ type unitDecision struct {
 }
 
 type snapshotSignals struct {
-	repeatedHeaders map[string]bool
-	repeatedFooters map[string]bool
+	repeatedHeaders       map[string]bool
+	repeatedFooters       map[string]bool
+	repeatedRomanHeadings bool
 }
 
 // ClassifyUnits classifies one immutable extracted-unit snapshot and applies
@@ -95,6 +97,8 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 	scores := map[UnitCategory]int{CategoryFrontMatter: 0, CategoryMainMatter: 0, CategoryBackMatter: 0}
 	reasons := make([]ClassificationReason, 0, 8)
 	reviewRequired := false
+	authoritativeCategory := CategoryUnknown
+	authority := ""
 	add := func(category UnitCategory, points int, signal, message string) {
 		scores[category] += points
 		reasons = append(reasons, ClassificationReason{Signal: signal, Message: message})
@@ -102,10 +106,23 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 
 	if category, token := landmarkCategory(unit.LandmarkTypes); category != CategoryUnknown {
 		add(category, 90, "landmark_"+token, "The EPUB landmark identifies "+categoryDescription(category)+".")
+		authoritativeCategory, authority = category, "landmark"
 	}
 	labels := append([]string{unit.Title}, unit.NavigationLabels...)
 	if category, marker := markerCategory(labels); category != CategoryUnknown {
 		add(category, 45, "label_"+marker, "A title or navigation label matches the "+markerDisplay(marker)+" marker.")
+		if authority == "" {
+			authoritativeCategory, authority = category, "label"
+		}
+	}
+	if romanHeadingPattern.MatchString(unit.Title) {
+		add(CategoryMainMatter, 55, "heading_roman_numeral", "The title begins with a Roman numeral followed by a chapter-like heading.")
+		if snapshot.repeatedRomanHeadings {
+			reasons = append(reasons, ClassificationReason{Signal: "heading_repeated_pattern", Message: "Multiple titles in this snapshot share the same numbered-heading pattern."})
+		}
+		if authority == "" {
+			authoritativeCategory, authority = CategoryMainMatter, "heading"
+		}
 	}
 	if category, marker := pathCategory(unit.SourceHref, unit.ResolvedHref); category != CategoryUnknown {
 		add(category, 25, "path_"+marker, "The package path matches the "+markerDisplay(marker)+" marker.")
@@ -134,6 +151,28 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].points > ordered[j].points })
 	top, second := ordered[0], ordered[1]
 	contradictory := top.points >= 45 && second.points >= 45
+	if authoritativeCategory != CategoryUnknown {
+		for _, candidate := range ordered {
+			if candidate.category == authoritativeCategory {
+				top = candidate
+				break
+			}
+		}
+		if second.category == authoritativeCategory {
+			second = ordered[0]
+		}
+		if contradictory && second.category != authoritativeCategory {
+			signal := authority + "_precedence"
+			message := "The explicit title or navigation label outranks conflicting path, reference-density, spine-position, and prose-shape evidence."
+			if authority == "landmark" {
+				message = "The EPUB landmark outranks conflicting title, navigation, path, spine-position, and prose-shape evidence."
+			} else if authority == "heading" {
+				message = "The repeated numbered-heading structure outranks conflicting spine-position and prose-shape evidence."
+			}
+			reasons = append(reasons, ClassificationReason{Signal: signal, Message: message})
+		}
+		contradictory = false
+	}
 	if top.points < 25 || contradictory || reviewRequired {
 		c.Category = CategoryUnknown
 		if contradictory {
@@ -150,6 +189,10 @@ func classifyUnit(snapshotID string, schemaVersion int, unit ExtractedUnit, inde
 		c.Category = top.category
 		margin := top.points - second.points
 		switch {
+		case authority == "landmark":
+			c.Confidence = 95
+		case authority == "label" && margin < 20:
+			c.Confidence = 70
 		case top.points >= 90 && margin >= 45:
 			c.Confidence = 95
 		case top.points >= 70 && margin >= 35:
@@ -292,7 +335,11 @@ func addTextSignals(text string, add func(UnitCategory, int, string, string)) {
 func collectSnapshotSignals(units []ExtractedUnit) snapshotSignals {
 	headerCounts := make(map[string]int)
 	footerCounts := make(map[string]int)
+	romanHeadings := 0
 	for _, unit := range units {
+		if romanHeadingPattern.MatchString(unit.Title) {
+			romanHeadings++
+		}
 		header, footer := unitEdges(unit.Text)
 		if header != "" {
 			headerCounts[header]++
@@ -313,7 +360,7 @@ func collectSnapshotSignals(units []ExtractedUnit) snapshotSignals {
 			repeatedFooters[edge] = true
 		}
 	}
-	return snapshotSignals{repeatedHeaders: repeatedHeaders, repeatedFooters: repeatedFooters}
+	return snapshotSignals{repeatedHeaders: repeatedHeaders, repeatedFooters: repeatedFooters, repeatedRomanHeadings: romanHeadings >= 2}
 }
 
 func repeatedUnitEdges(text string, snapshot snapshotSignals) []string {
