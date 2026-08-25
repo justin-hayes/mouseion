@@ -1,6 +1,6 @@
 # Phase 2: Classify EPUB units and recommend analysis scope
 
-Status: Proposed · Date: 2026-08-25
+Status: Implemented · Date: 2026-08-25
 
 ## Problem
 
@@ -55,6 +55,54 @@ Persist:
 - classification timestamp or analysis snapshot identity.
 
 Re-running the same classifier over the same unit snapshot must produce deterministic output.
+
+## Implemented behavior
+
+EPUB import now classifies the persisted extracted-unit snapshot with
+`mouseion-epub-structure` version `1.0.0` and atomically persists one result
+per unit. Results are owner-scoped and bound to the immutable snapshot and
+unit identities. Importing identical content replaces the same classifier run
+without changing its output; importing changed content creates a new snapshot
+and removes classifications tied to the old snapshot. Sources created before
+extracted-unit snapshots report classifications as unavailable.
+
+Rule evaluation and reasons use a fixed precedence: explicit landmark or
+`epub:type`, title/navigation label, package path, spine position, then text
+shape. Exact German and Italian markers are supported for the v1 rules,
+including contents, preface, bibliography, notes, index, glossary, appendix,
+chapter, part, introduction, conclusion, and epilogue equivalents. Strong
+conflicting category signals yield low-confidence `unknown`; malformed or
+unrecognized optional metadata is ignored and insufficient evidence is
+reported explicitly. Navigation-only and non-linear units are explicitly
+excluded if supplied to the classifier, although the Phase 1 extractor
+normally omits them.
+
+Recommendations remain metadata only. The source material's existing
+`full_text` is still the input used by analysis jobs, including text from a
+unit that the classifier recommends excluding. Classification neither queues
+reanalysis nor changes the current NLP request document.
+
+### Examples
+
+- `Inhaltsverzeichnis` at the front of an EPUB 2 spine is classified as
+  `front_matter`; `Kapitel 1` with sustained prose is high-confidence
+  `main_matter` and recommended for inclusion.
+- EPUB 3 landmarks such as `bodymatter chapter`, `bibliography`, `index`,
+  `endnotes`, and `appendix` take precedence and appear first in the ordered
+  reasons.
+- Italian `Bibliografia`, `Indice analitico`, `Note finali`, and `Appendice`
+  are classified as `back_matter` and recommended for exclusion at high
+  confidence when corroborated by structure or path.
+- A unit labeled `Capitolo` but carrying a `bibliography` landmark is
+  `unknown` with a `contradictory_evidence` reason instead of silently choosing
+  either category.
+
+Readable, deterministic EPUB 2/German and EPUB 3/Italian snapshot fixtures
+under `internal/epub/testfixtures/classifier/` lock the exact category,
+confidence, recommendation, classifier identity/version, and ordered reasons.
+PostgreSQL import coverage verifies the complete extraction-to-persistence
+path, owner isolation, replacement, legacy behavior, and unchanged analysis
+text.
 
 ## Classifier output contract (v1)
 
@@ -113,6 +161,25 @@ the certainty of the exclusion rule.
 - no deletion of excluded units;
 - no language-specific assumption that cannot be represented as a versioned rule.
 
+## Limitations
+
+- The v1 rules recognize a deliberately small English, German, and Italian
+  vocabulary; other languages and unconventional labels can remain unknown.
+- Text-shape signals are coarse counts, not semantic analysis, and short prose
+  can remain low confidence.
+- EPUB 2 has no EPUB 3 landmarks, so NCX labels, headings, paths, position, and
+  text provide its available evidence.
+- Missing, malformed, or vendor-specific navigation metadata reduces evidence
+  but does not make otherwise readable EPUB content fail import.
+- A recommendation is not a learner decision and is not applied to NLP in
+  Phase 2.
+
 ## Phase 3 handoff
 
-Phase 3 will display the unit tree and recommendation explanations, allow overrides, persist the reviewed scope, and send only the reviewed units to NLP. Coverage metrics must state the selected scope.
+Phase 3 should read the persisted boolean and ordered explanations directly,
+display the unit tree for learner review, persist overrides separately from
+the classifier result, and construct an explicit reviewed text scope for NLP.
+It must retain snapshot identity when applying selections, handle stale
+reviews after re-import, and report the selected scope in coverage metrics.
+Until that reviewed-scope path exists, analysis must continue using the
+unchanged `full_text` compatibility input.

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -68,8 +69,36 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(units, result.Book.ExtractedUnits) {
 		t.Fatalf("stored units=%+v err=%v, want %+v", units, err, result.Book.ExtractedUnits)
 	}
+	snapshotID, persistedUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, result.Source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantClassifications, err := ClassifyUnits(snapshotID, persistedUnits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	classifications, err := store.GetEPUBUnitClassifications(ctx, alice.ID, result.Source.ID, ClassifierName, ClassifierVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range classifications {
+		if classifications[i].CreatedAt.IsZero() || classifications[i].UpdatedAt.IsZero() {
+			t.Fatalf("classification %d timestamps are missing", i)
+		}
+		classifications[i].CreatedAt = wantClassifications[i].CreatedAt
+		classifications[i].UpdatedAt = wantClassifications[i].UpdatedAt
+	}
+	if !reflect.DeepEqual(classifications, wantClassifications) {
+		t.Fatalf("persisted classifications=%+v\nwant=%+v", classifications, wantClassifications)
+	}
+	if got.FullText != result.Book.FullText || !strings.Contains(got.FullText, "Bibliographie.") || classifications[len(classifications)-1].RecommendedInclusion {
+		t.Fatalf("classification changed analysis scope: full_text=%q classifications=%+v", got.FullText, classifications)
+	}
 	if _, err = store.GetExtractedUnits(ctx, bob.ID, result.Source.ID); !errors.Is(err, ErrExtractedUnitsUnavailable) {
 		t.Fatalf("bob read alice units: %v", err)
+	}
+	if _, err = store.GetEPUBUnitClassifications(ctx, bob.ID, result.Source.ID, ClassifierName, ClassifierVersion); !errors.Is(err, domain.ErrEPUBClassificationsUnavailable) {
+		t.Fatalf("bob read alice classifications: %v", err)
 	}
 	second, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
 	if err != nil || second.Source.ID != result.Source.ID {
@@ -84,6 +113,10 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	}
 	if snapshotCount != 1 || unitCount != len(result.Book.ExtractedUnits.Units) {
 		t.Fatalf("reimport snapshots=%d units=%d", snapshotCount, unitCount)
+	}
+	reimportSnapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, result.Source.ID)
+	if err != nil || reimportSnapshotID != snapshotID {
+		t.Fatalf("idempotent reimport snapshot=%q want=%q err=%v", reimportSnapshotID, snapshotID, err)
 	}
 	replacement, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-reimport"))
 	if err != nil || replacement.Source.ID != result.Source.ID {
@@ -100,6 +133,14 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if err = admin.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, result.Source.ID).Scan(&unitCount); err != nil || unitCount != 1 {
 		t.Fatalf("replacement unit count=%d err=%v", unitCount, err)
 	}
+	replacementSnapshotID, replacementUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, result.Source.ID)
+	if err != nil || replacementSnapshotID == snapshotID {
+		t.Fatalf("replacement snapshot=%q old=%q err=%v", replacementSnapshotID, snapshotID, err)
+	}
+	replacementClassifications, err := store.GetEPUBUnitClassifications(ctx, alice.ID, result.Source.ID, ClassifierName, ClassifierVersion)
+	if err != nil || len(replacementClassifications) != len(replacementUnits.Units) || replacementClassifications[0].SourceUnitSnapshot.SnapshotID != replacementSnapshotID {
+		t.Fatalf("replacement classifications=%+v units=%+v err=%v", replacementClassifications, replacementUnits, err)
+	}
 	if _, err = admin.Exec(ctx, `INSERT INTO source_material_units(owner_id,source_material_id,unit_id,unit_order,spine_index,title,title_source,text,start_offset,end_offset,package_path,manifest_id,source_href,resolved_href,media_type,linear) SELECT $1,source_material_id,'cross-owner',99,99,'x','heading','x',0,1,'x','x','x','x','application/xhtml+xml',true FROM source_material_unit_snapshots WHERE owner_id=$2 AND source_material_id=$3`, bob.ID, alice.ID, result.Source.ID); err == nil {
 		t.Fatal("cross-owner unit insert succeeded")
 	}
@@ -112,6 +153,9 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	}
 	if _, err = store.GetExtractedUnits(ctx, alice.ID, legacy.ID); !errors.Is(err, ErrExtractedUnitsUnavailable) {
 		t.Fatalf("legacy source units: %v", err)
+	}
+	if _, err = store.GetEPUBUnitClassifications(ctx, alice.ID, legacy.ID, ClassifierName, ClassifierVersion); !errors.Is(err, domain.ErrEPUBClassificationsUnavailable) {
+		t.Fatalf("legacy source classifications: %v", err)
 	}
 	var historyCount int
 	if err = admin.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='epub.import' AND status='complete' AND details->>'source_material_id'=$2`, alice.ID, result.Source.ID).Scan(&historyCount); err != nil || historyCount != 3 {
