@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/epub"
 )
 
 func TestEPUBScopeReviewIsAccessibleForGermanAndItalianTitles(t *testing.T) {
@@ -40,6 +41,24 @@ func TestEPUBScopeReviewErrorIsProgrammaticallyExposedAndPreservesSelection(t *t
 	for _, want := range []string{`role="alert"`, `tabindex="-1"`, "Scope not saved.", "Select at least one readable unit", `value="unit-0" checked`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("error render missing %q: %s", want, body)
+		}
+	}
+}
+
+func TestEPUBScopeReviewRendersGroupsAggregatesAndPartialState(t *testing.T) {
+	units := []epubScopeUnitView{
+		{Unit: domain.ExtractedUnit{ID: "unit-0", Order: 0, Title: "Uno"}, CharacterCount: 100, TokenEstimate: 25, Classification: domain.EPUBUnitClassification{RecommendedInclusion: true}},
+		{Unit: domain.ExtractedUnit{ID: "unit-1", Order: 1, Title: "Due"}, CharacterCount: 40, TokenEstimate: 10},
+	}
+	view := epubScopeView{Book: domain.SourceMaterial{ID: "book-1", Title: "Libro"}, SnapshotID: "snapshot-1", Units: units, Groups: []epubScopeGroupView{{Group: epub.UnitGroup{ID: "group-1", Label: "Parte prima", UnitIDs: []string{"unit-0", "unit-1"}}, CharacterCount: 140, TokenEstimate: 35}}}
+	var output bytes.Buffer
+	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	body := output.String()
+	for _, want := range []string{`name="snapshot_id" value="snapshot-1"`, "EPUB groups", "Parte prima", "2 units · 140 characters · about 35 tokens", `name="group_include" value="group-1"`, `name="group_exclude" value="group-1"`, "Partially selected"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("group render missing %q: %s", want, body)
 		}
 	}
 }

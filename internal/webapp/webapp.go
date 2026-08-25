@@ -509,6 +509,13 @@ type epubScopeView struct {
 	Book       domain.SourceMaterial
 	SnapshotID string
 	Units      []epubScopeUnitView
+	Groups     []epubScopeGroupView
+}
+
+type epubScopeGroupView struct {
+	Group          epub.UnitGroup
+	CharacterCount int
+	TokenEstimate  int
 }
 
 func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner string) (epubScopeView, bool) {
@@ -552,6 +559,18 @@ func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner st
 		characters := len([]rune(unit.Text))
 		view.Units[i] = epubScopeUnitView{Unit: unit, Classification: classifications[i], CharacterCount: characters, TokenEstimate: (characters + 3) / 4}
 	}
+	byID := make(map[string]epubScopeUnitView, len(view.Units))
+	for _, item := range view.Units {
+		byID[item.Unit.ID] = item
+	}
+	for _, group := range epub.BuildUnitGroups(units.Units) {
+		item := epubScopeGroupView{Group: group}
+		for _, id := range group.UnitIDs {
+			item.CharacterCount += byID[id].CharacterCount
+			item.TokenEstimate += byID[id].TokenEstimate
+		}
+		view.Groups = append(view.Groups, item)
+	}
 	return view, true
 }
 
@@ -573,6 +592,10 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if submittedSnapshot := r.FormValue("snapshot_id"); submittedSnapshot == "" || submittedSnapshot != view.SnapshotID {
+		h.renderEPUBScopeError(w, r, u, view, "The EPUB unit snapshot changed. Reload the page and review the current hierarchy.")
+		return
+	}
 	selected := make(map[string]struct{}, len(r.Form["unit_id"]))
 	for _, id := range r.Form["unit_id"] {
 		if _, duplicate := selected[id]; duplicate {
@@ -580,6 +603,34 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		selected[id] = struct{}{}
+	}
+	groups := make(map[string]epub.UnitGroup, len(view.Groups))
+	for _, item := range view.Groups {
+		groups[item.Group.ID] = item.Group
+	}
+	includeGroups, ok := submittedGroups(r.Form["group_include"], groups)
+	if !ok {
+		h.renderEPUBScopeError(w, r, u, view, "The selection contains a group that does not belong to this book.")
+		return
+	}
+	excludeGroups, ok := submittedGroups(r.Form["group_exclude"], groups)
+	if !ok {
+		h.renderEPUBScopeError(w, r, u, view, "The selection contains a group that does not belong to this book.")
+		return
+	}
+	for id := range includeGroups {
+		if _, contradictory := excludeGroups[id]; contradictory {
+			h.renderEPUBScopeError(w, r, u, view, "A group cannot be included and excluded in the same submission.")
+			return
+		}
+		for _, unitID := range groups[id].UnitIDs {
+			selected[unitID] = struct{}{}
+		}
+	}
+	for id := range excludeGroups {
+		for _, unitID := range groups[id].UnitIDs {
+			delete(selected, unitID)
+		}
 	}
 	references := make([]domain.EPUBSelectedUnitReference, 0, len(selected))
 	recommended := true
@@ -616,6 +667,20 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis job %d submitted with %d selected units.", handle.DisplayNumber, len(references))))
+}
+
+func submittedGroups(values []string, groups map[string]epub.UnitGroup) (map[string]struct{}, bool) {
+	result := make(map[string]struct{}, len(values))
+	for _, id := range values {
+		if _, exists := groups[id]; !exists {
+			return nil, false
+		}
+		if _, duplicate := result[id]; duplicate {
+			return nil, false
+		}
+		result[id] = struct{}{}
+	}
+	return result, true
 }
 
 func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view epubScopeView, message string) {
