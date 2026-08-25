@@ -1,56 +1,198 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
-  go:
-    name: Go build and test
+  ci:
+    name: Build and test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      # ------------------------------------------------------------------
+      # Checkout and change detection
+      # ------------------------------------------------------------------
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed files
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'proto/**'
+              - 'gen/go/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
+            python:
+              - 'nlp/**'
+              - 'gen/python/**'
+              - 'proto/**'
+              - 'pyproject.toml'
+              - 'nlp/requirements-dev.txt'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
+            generated:
+              - 'proto/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'pyproject.toml'
+              - 'nlp/requirements-dev.txt'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
+      # ------------------------------------------------------------------
+      # Go
+      # ------------------------------------------------------------------
+
+      - name: Set up Go
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true' ||
+          steps.changes.outputs.generated == 'true'
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - run: go build ./...
-      - run: go test ./...
-      - run: go vet ./...
 
-  python:
-    name: Python build and test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Go build
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true'
+        run: go build ./...
+
+      - name: Go test
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true'
+        run: go test ./...
+
+      - name: Go vet
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true'
+        run: go vet ./...
+
+      # ------------------------------------------------------------------
+      # Python
+      # ------------------------------------------------------------------
+
+      - name: Set up Python
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: nlp/requirements-dev.txt
-      - run: make setup
-      - name: Build
-        run: PYTHONPATH=nlp/src:gen/python .venv/bin/python -m compileall -q nlp/src gen/python
-      - name: Test
-        run: PYTHONPATH=nlp/src:gen/python .venv/bin/pytest -q nlp/tests
-      - name: Lint
+          cache-dependency-path: |
+            nlp/requirements-dev.txt
+            nlp/pyproject.toml
+
+      - name: Create Python environment
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: python -m venv .venv
+
+      - name: Install Python dev dependencies
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            -r nlp/requirements-dev.txt
+
+      # Install CPU-only Torch explicitly before installing Mouseion.
+      # This prevents Stanza from pulling in the much larger CUDA-enabled
+      # Linux dependency stack on GitHub-hosted runners.
+      - name: Install CPU-only PyTorch
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            torch \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install Mouseion NLP
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            -e nlp
+
+      - name: Python build
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: >
+          PYTHONPATH=nlp/src:gen/python
+          .venv/bin/python -m compileall -q nlp/src gen/python
+
+      - name: Python test
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: >
+          PYTHONPATH=nlp/src:gen/python
+          .venv/bin/pytest -q nlp/tests
+
+      - name: Python lint
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
         run: .venv/bin/ruff check nlp/src nlp/tests
 
-  generated:
-    name: Protobuf generated code
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: arduino/setup-protoc@v3
+      # ------------------------------------------------------------------
+      # Generated protobuf code
+      # ------------------------------------------------------------------
+
+      - name: Set up protoc
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.generated == 'true'
+        uses: arduino/setup-protoc@v3
         with:
           version: '29.3'
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
-      - run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - run: make gen
-      - run: git diff --exit-code
+
+      - name: Install protoc-gen-go
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.generated == 'true'
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Generate protobuf code
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.generated == 'true'
+        run: make gen
+
+      - name: Verify generated code is current
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.generated == 'true'
+        run: git diff --exit-code
