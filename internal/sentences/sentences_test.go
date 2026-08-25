@@ -92,6 +92,10 @@ func TestSelectRejectsBibliographicAndStructuralFragments(t *testing.T) {
 		{"editorial", "Das Haus der Moderne, hrsg. von Erika Müller."},
 		{"contents", "Das Haus und seine Geschichte ........ 147"},
 		{"page_reference", "Das Haus in der Literatur S. 147–152."},
+		{"bare_numeric_tail", "Das Haus steht dort seit dem 5."},
+		{"bare_numeric_pair_tail", "Das Haus erscheint im 5. und 4."},
+		{"trailing_footnote", "Das alte Haus steht am ruhigen See [16]"},
+		{"footnote_before_terminal_punctuation", "Das alte Haus steht am ruhigen See [16]."},
 		{"title_only", "Das Haus und die europäische Moderne"},
 	}
 	for _, tc := range tests {
@@ -126,6 +130,27 @@ func TestSelectPreservesProseAndOmittedLemmaRemainsEligible(t *testing.T) {
 	}
 	if selected.Chosen.Score != 85 || strings.Join(selected.Chosen.Reasons, ",") != "preferred length,sufficient surrounding context,single unambiguous target use,not a quotation,not parenthetical,complete sentence punctuation" {
 		t.Fatalf("existing score/reasons changed: %+v", selected.Chosen)
+	}
+}
+
+func TestSelectPreservesOrdinaryNumbersAndNonCitationBrackets(t *testing.T) {
+	tests := []string{
+		"Das Haus hat 16 helle Zimmer und einen großen Garten.",
+		"Das Haus wurde am 5. Mai für die Familie geöffnet.",
+		"Das [alte] Haus steht weiterhin am ruhigen See.",
+		"Das Haus trägt heute die Bezeichnung [Version 16].",
+	}
+	for index, text := range tests {
+		t.Run(text, func(t *testing.T) {
+			store := &memoryStore{}
+			result, err := NewService(store).Select(context.Background(), "alice", "corpus", candidate(ref(index, text)), DefaultConfig())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Chosen == nil || result.Chosen.Text != text || len(store.examples) != 1 {
+				t.Fatalf("valid prose omitted: result=%+v persisted=%+v", result, store.examples)
+			}
+		})
 	}
 }
 
