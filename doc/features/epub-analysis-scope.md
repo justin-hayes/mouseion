@@ -208,9 +208,20 @@ This preserves existing `Chapter` and downstream `SourceLocation` values,
 including duplicate display titles. New code should use unit IDs for identity;
 legacy chapter titles remain display/location labels only.
 
+## Persistence layout (Phase 1)
+
+Fresh EPUB imports store a normalized, owner-scoped snapshot linked to
+`source_materials`. The snapshot records the envelope schema version and its
+rows record every v1 unit field plus a `selected` flag that defaults to true;
+Phase 1 does not expose or change that flag. Composite foreign keys include
+both owner and source-material identity, and unit identity and order are unique
+within a snapshot. Reimport replaces the snapshot transactionally while
+leaving existing corpora untouched. Sources imported before this persistence
+was introduced have no snapshot and therefore report extracted units as
+unavailable. Their retained `full_text` remains compatible with current NLP.
+
 ## Deferred decisions
 
-- Persisting the envelope in `source_materials` or a related table is #243.
 - A future schema version may make full text derived, but v1 keeps it canonical.
 - A future version may add content hashes as secondary identity; v1 IDs remain
   source-addressed.

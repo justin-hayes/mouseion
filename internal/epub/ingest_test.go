@@ -11,11 +11,13 @@ import (
 type memoryStore struct {
 	source  domain.SourceMaterial
 	history domain.ProcessingHistory
+	units   ExtractedUnits
 }
 
-func (m *memoryStore) PutSourceMaterial(_ context.Context, v domain.SourceMaterial) (domain.SourceMaterial, error) {
+func (m *memoryStore) PutSourceMaterialWithExtractedUnits(_ context.Context, v domain.SourceMaterial, units ExtractedUnits) (domain.SourceMaterial, error) {
 	v.ID = "source-id"
 	m.source = v
+	m.units = units
 	return v, nil
 }
 func (m *memoryStore) PutProcessingHistory(_ context.Context, v domain.ProcessingHistory) (domain.ProcessingHistory, error) {
@@ -35,6 +37,9 @@ func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	}
 	if result.Source.MediaType != MediaType() || len(result.Source.Content) == 0 || result.Source.FullText == "" {
 		t.Fatalf("source: %+v", result.Source)
+	}
+	if err := store.units.ValidateOffsets(result.Source.FullText); err != nil {
+		t.Fatalf("stored units: %v", err)
 	}
 	if result.History.Operation != "epub.import" || result.History.Status != "complete" || len(result.History.Details) == 0 {
 		t.Fatalf("history: %+v", result.History)

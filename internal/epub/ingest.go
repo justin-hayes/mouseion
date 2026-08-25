@@ -15,7 +15,7 @@ import (
 var ErrUnauthenticated = errors.New("epub: authenticated owner is required")
 
 type Store interface {
-	PutSourceMaterial(context.Context, domain.SourceMaterial) (domain.SourceMaterial, error)
+	PutSourceMaterialWithExtractedUnits(context.Context, domain.SourceMaterial, ExtractedUnits) (domain.SourceMaterial, error)
 	PutProcessingHistory(context.Context, domain.ProcessingHistory) (domain.ProcessingHistory, error)
 }
 
@@ -44,7 +44,7 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 		return ImportResult{}, err
 	}
 	sum := sha256.Sum256(content)
-	source, err := s.store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: "sha256:" + hex.EncodeToString(sum[:]), Content: content, FullText: book.FullText})
+	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: "sha256:" + hex.EncodeToString(sum[:]), Content: content, FullText: book.FullText}, book.ExtractedUnits)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
 	}
