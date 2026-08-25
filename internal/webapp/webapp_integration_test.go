@@ -212,9 +212,16 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 		firstText, secondText := "Erstes Kapitel.", "Bibliografia finale."
 		fullText := firstText + "\n\n" + secondText
 		units := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{
-			{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
-			{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
+			{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/chapter.xhtml", ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
+			{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/bibliography.xhtml", ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
 		}}
+		if language == "de" {
+			units.Units[0].NavigationLabels = []string{"Teil Eins"}
+			units.Units[1].NavigationLabels = []string{"Teil Eins"}
+		} else {
+			units.Units[0].ResolvedHref = "OPS/capitolo.xhtml"
+			units.Units[1].ResolvedHref = "OPS/bibliografia.xhtml"
+		}
 		source, putErr := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: firstTitle, MediaType: "application/epub+zip", ContentHash: identifier, FullText: fullText}, units)
 		if putErr != nil {
 			t.Fatal(putErr)
@@ -235,6 +242,14 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	german, germanUnits := createBook(alice.ID, "de", "review-de", "Erstes Kapitel", "bibliography")
 	italian, _ := createBook(alice.ID, "it", "review-it", "Capitolo primo", "bibliografia")
 	_, bobUnits := createBook(bob.ID, "de", "review-bob", "Privates Kapitel", "private-bibliography")
+	germanSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, german.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	italianSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, italian.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	recorder := &recordingAnalysis{}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
@@ -257,15 +272,23 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if got := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"unit_id": {germanUnits.Units[0].ID}}, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("scope without csrf=%d", got.Code)
 	}
-	empty := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}}, cookies)
+	stale := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {"stale-snapshot"}, "unit_id": {germanUnits.Units[0].ID}}, cookies)
+	if stale.Code != http.StatusBadRequest || !strings.Contains(stale.Body.String(), "snapshot changed") {
+		t.Fatalf("stale scope=%d %s", stale.Code, stale.Body.String())
+	}
+	empty := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}}, cookies)
 	if empty.Code != http.StatusBadRequest || !strings.Contains(empty.Body.String(), "Select at least one readable unit") {
 		t.Fatalf("empty scope=%d %s", empty.Code, empty.Body.String())
 	}
-	foreign := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {bobUnits.Units[0].ID}}, cookies)
+	foreign := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {bobUnits.Units[0].ID}}, cookies)
 	if foreign.Code != http.StatusBadRequest || !strings.Contains(foreign.Body.String(), "does not belong to this book") {
 		t.Fatalf("foreign scope=%d %s", foreign.Code, foreign.Body.String())
 	}
-	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
+	germanGroups := epub.BuildUnitGroups(germanUnits.Units)
+	if len(germanGroups) == 0 {
+		t.Fatal("German nested fixture did not produce a group")
+	}
+	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "group_include": {germanGroups[0].ID}}, cookies)
 	if override.Code != http.StatusSeeOther || !strings.Contains(override.Header().Get("Location"), "Analysis+scope+saved+with+2+selected+units") {
 		t.Fatalf("override=%d location=%q body=%s", override.Code, override.Header().Get("Location"), override.Body.String())
 	}
@@ -277,7 +300,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if recorder.owner != alice.ID || recorder.source != german.ID || recorder.scope == "" {
 		t.Fatalf("queued scope owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
 	}
-	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
+	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
 	if recommended.Code != http.StatusSeeOther {
 		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
 	}

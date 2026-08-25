@@ -321,8 +321,23 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 		<article role="note"><strong>How recommendations work</strong><p>High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.</p></article>
 		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
 			<input type="hidden" name="csrf_token" value={ csrf }/>
+			<input type="hidden" name="snapshot_id" value={ review.SnapshotID }/>
 			<fieldset class="scope-actions"><legend>Apply a selection</legend><button type="button" class="outline" data-select="recommended">Accept recommendation</button><button type="button" class="outline" data-select="main">Select all main matter</button><button type="button" class="outline" data-select="all">Include all</button><button type="button" class="outline secondary" data-select="none">Exclude all</button></fieldset>
 			<div class="scope-summary" role="status" aria-live="polite" aria-atomic="true"><strong data-selected-count>0 units selected</strong><span data-selected-size>Estimated scope: 0 characters, about 0 tokens</span></div>
+			if len(review.Groups) > 0 {
+				<section class="scope-groups" aria-labelledby="scope-groups-heading"><h2 id="scope-groups-heading">EPUB groups</h2><p>Groups come from persisted navigation, landmarks, or stable resource paths. Their controls are expanded and validated by the server.</p>
+					for _, item := range review.Groups {
+						<article class="scope-group" style={ fmt.Sprintf("margin-left:%dem", item.Group.Depth*2) } data-group-units={ strings.Join(item.Group.UnitIDs, ",") }>
+							<header><strong>{ item.Group.Label }</strong><span data-group-state role="status" aria-live="polite">Selection pending</span></header>
+							<p>{ fmt.Sprintf("%d units · %d characters · about %d tokens", len(item.Group.UnitIDs), item.CharacterCount, item.TokenEstimate) }</p>
+							<button type="submit" class="outline" name="group_include" value={ item.Group.ID }>Include group</button>
+							<button type="submit" class="outline secondary" name="group_exclude" value={ item.Group.ID }>Exclude group</button>
+						</article>
+					}
+				</section>
+			} else {
+				<p role="note"><strong>Flat spine order.</strong> This EPUB has no reliable persisted hierarchy, so units remain in deterministic reading order.</p>
+			}
 			<fieldset class="scope-units"><legend>Readable units in spine order</legend>
 				for _, item := range review.Units {
 					<article class="scope-unit" data-category={ string(item.Classification.Category) } data-recommended={ fmt.Sprintf("%t", item.Classification.RecommendedInclusion) } data-characters={ fmt.Sprintf("%d", item.CharacterCount) } data-tokens={ fmt.Sprintf("%d", item.TokenEstimate) }>
@@ -355,6 +370,12 @@ if (scopeForm) {
     const tokens = selected.reduce((sum, box) => sum + Number(box.closest('[data-tokens]').dataset.tokens), 0);
     scopeForm.querySelector('[data-selected-count]').textContent = `${selected.length} ${selected.length === 1 ? 'unit' : 'units'} selected`;
     scopeForm.querySelector('[data-selected-size]').textContent = `Estimated scope: ${characters.toLocaleString()} characters, about ${tokens.toLocaleString()} tokens`;
+    scopeForm.querySelectorAll('[data-group-units]').forEach((group) => {
+      const ids = new Set(group.dataset.groupUnits.split(','));
+      const members = boxes.filter((box) => ids.has(box.value));
+      const selectedMembers = members.filter((box) => box.checked).length;
+      group.querySelector('[data-group-state]').textContent = selectedMembers === 0 ? 'Excluded' : selectedMembers === members.length ? 'Included' : `Partially selected (${selectedMembers} of ${members.length})`;
+    });
   };
   scopeForm.addEventListener('change', updateScopeSummary);
   scopeForm.addEventListener('click', (event) => {
