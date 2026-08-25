@@ -2,6 +2,7 @@ package epub
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -69,7 +70,7 @@ func TestClassifyUnitsFixtureMatrix(t *testing.T) {
 	}
 }
 
-func TestClassifyUnitsExplicitExclusionAndWholeBookFallback(t *testing.T) {
+func TestClassifyUnitsExplicitExclusionAndUnknownReviewPolicy(t *testing.T) {
 	nonLinear := classifierUnit(0, "hidden", "Chapter", "Text/hidden.xhtml", "Long prose. Another long sentence follows here. A third long sentence follows here.")
 	nonLinear.Linear = false
 	ambiguous := classifierUnit(1, "fragment", "Fragment", "Text/fragment.xhtml", "A fragment")
@@ -80,9 +81,51 @@ func TestClassifyUnitsExplicitExclusionAndWholeBookFallback(t *testing.T) {
 	if got[0].RecommendedInclusion || !reflect.DeepEqual(got[0].Reasons, []ClassificationReason{{Signal: "linear_no", Message: "The spine marks this unit as non-linear content."}}) {
 		t.Fatalf("linear=no must remain explicitly excluded: %#v", got[0])
 	}
-	wantReasons := []ClassificationReason{{Signal: "insufficient_evidence", Message: "The available signals do not establish a structural category."}, {Signal: "whole_book_fallback", Message: "Included because no high-confidence main matter was found in the source snapshot."}}
-	if !got[1].RecommendedInclusion || got[1].Category != CategoryUnknown || !reflect.DeepEqual(got[1].Reasons, wantReasons) {
-		t.Fatalf("fallback mismatch: %#v", got[1])
+	wantReasons := []ClassificationReason{{Signal: "insufficient_evidence", Message: "The available signals do not establish a structural category."}}
+	if got[1].RecommendedInclusion || got[1].Category != CategoryUnknown || !reflect.DeepEqual(got[1].Reasons, wantReasons) {
+		t.Fatalf("unknown review policy mismatch: %#v", got[1])
+	}
+}
+
+func TestClassifyUnitsGermanBookWithoutHighConfidenceMainMatterUsesSafePolicy(t *testing.T) {
+	titles := []string{
+		"VORWORT", "INHALT",
+		"I. Einleitung", "II. Die Welt der Paläste", "III. Herrschaft", "IV. Alltag", "V. Handel",
+		"VI. Religion", "VII. Kunst", "VIII. Wandel", "IX. Ausblick",
+		"ANHANG", "Anmerkungen", "Bildnachweis", "Hinweise zu Quellen und Literatur", "Register", "copyright",
+	}
+	units := make([]ExtractedUnit, len(titles))
+	for i, title := range titles {
+		text := "Kurzer struktureller Inhalt"
+		if i >= 2 && i <= 10 {
+			text = "Dies ist ein ausführlicher Satz des Kapitels. Ein zweiter Satz entwickelt den Gedanken mit genügend Wörtern. Ein dritter Satz schließt den Abschnitt verständlich ab."
+		}
+		if title == "Hinweise zu Quellen und Literatur" {
+			text = "Müller (2020), S. 12. Schmidt (2019), S. 44. Weber (2018), S. 81."
+		}
+		units[i] = classifierUnit(uint64(i), fmt.Sprintf("unit-%d", i), title, fmt.Sprintf("Text/unit-%d.xhtml", i), text)
+	}
+
+	got, err := ClassifyUnits("snapshot:german-review", ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: units})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 2; i <= 10; i++ {
+		if got[i].Category != CategoryMainMatter || got[i].Confidence != 70 || !got[i].RecommendedInclusion {
+			t.Errorf("substantive chapter %q was not included with medium-confidence main matter: %#v", titles[i], got[i])
+		}
+	}
+	for _, i := range []int{0, 1, 11, 12, 13, 14, 15, 16} {
+		if got[i].RecommendedInclusion {
+			t.Errorf("reference/front/back unit %q was automatically included: %#v", titles[i], got[i])
+		}
+	}
+	for _, classification := range got {
+		for _, reason := range classification.Reasons {
+			if reason.Signal == "whole_book_fallback" {
+				t.Fatalf("book-level policy state leaked into unit classification evidence: %#v", classification)
+			}
+		}
 	}
 }
 

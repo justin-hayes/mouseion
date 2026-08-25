@@ -80,6 +80,22 @@ func TestEPUBScopeReviewFlatFallbackAndKeyboardControls(t *testing.T) {
 	}
 }
 
+func TestEPUBScopeReviewExplainsDegradedPolicyAndMediumConfidenceRecommendation(t *testing.T) {
+	view := epubScopeView{
+		Book: domain.SourceMaterial{ID: "book-de", Title: "Buch"}, DegradedRecommendation: true, AllCharacters: 596187, AllTokens: 149047,
+		Units: []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-0", Order: 0, Title: "I. Einleitung"}, CharacterCount: 528000, TokenEstimate: 132000, Classification: domain.EPUBUnitClassification{Category: domain.EPUBCategoryMainMatter, Confidence: 70, RecommendedInclusion: true, Reasons: []domain.EPUBClassificationReason{{Message: "The text contains sustained sentence-like prose."}}}}},
+	}
+	var output strings.Builder
+	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Limited structural confidence", "No high-confidence main matter was found", "whole-book fallback", "Include — review suggested", "All units: 596187 characters", "Selected: 0 characters"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("degraded recommendation UI missing %q: %s", want, output.String())
+		}
+	}
+}
+
 func TestBookPageLabelsHistoricalScopedAndLegacyFullTextCorpora(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}}
 	for _, test := range []struct {

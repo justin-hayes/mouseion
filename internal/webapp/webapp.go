@@ -507,13 +507,16 @@ type epubScopeUnitView struct {
 }
 
 type epubScopeView struct {
-	Book       domain.SourceMaterial
-	SnapshotID string
-	Units      []epubScopeUnitView
-	Groups     []epubScopeGroupView
-	PriorScope *domain.EPUBReviewedScopeSnapshot
-	Preset     string
-	Comparison epubScopeComparison
+	Book                   domain.SourceMaterial
+	SnapshotID             string
+	Units                  []epubScopeUnitView
+	Groups                 []epubScopeGroupView
+	DegradedRecommendation bool
+	AllCharacters          int
+	AllTokens              int
+	PriorScope             *domain.EPUBReviewedScopeSnapshot
+	Preset                 string
+	Comparison             epubScopeComparison
 }
 
 type epubScopeComparison struct {
@@ -567,7 +570,17 @@ func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner st
 		}
 		characters := len([]rune(unit.Text))
 		view.Units[i] = epubScopeUnitView{Unit: unit, Classification: classifications[i], CharacterCount: characters, TokenEstimate: (characters + 3) / 4}
+		view.AllCharacters += view.Units[i].CharacterCount
+		view.AllTokens += view.Units[i].TokenEstimate
 	}
+	hasHighConfidenceMain := false
+	for _, item := range view.Units {
+		if item.Classification.Category == domain.EPUBCategoryMainMatter && item.Classification.Confidence >= domain.EPUBConfidenceHighMinimum {
+			hasHighConfidenceMain = true
+			break
+		}
+	}
+	view.DegradedRecommendation = !hasHighConfidenceMain
 	byID := make(map[string]epubScopeUnitView, len(view.Units))
 	for _, item := range view.Units {
 		byID[item.Unit.ID] = item
