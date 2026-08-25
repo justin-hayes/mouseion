@@ -158,6 +158,29 @@ func (s *PostgresStore) GetDeckPreparation(ctx context.Context, owner, id string
 	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id))
 }
 
+// ListUnassignedReadyDeckPreparations returns prepared decks that can still be
+// placed in the learner's campaign queue. The owner-scoped anti-join keeps
+// another learner's campaigns from affecting the result.
+func (s *PostgresStore) ListUnassignedReadyDeckPreparations(ctx context.Context, owner string) ([]domain.DeckPreparation, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations p
+		WHERE p.owner_id=$1 AND p.state='ready' AND NOT EXISTS (
+			SELECT 1 FROM learning_campaigns c WHERE c.owner_id=$1 AND c.deck_preparation_id=p.id
+		) ORDER BY p.completed_at,p.id`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var preparations []domain.DeckPreparation
+	for rows.Next() {
+		preparation, scanErr := scanDeckPreparation(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		preparations = append(preparations, preparation)
+	}
+	return preparations, rows.Err()
+}
+
 // DownloadDeckPreparation returns bytes only for a ready owner-scoped row.
 func (s *PostgresStore) DownloadDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	p, err := scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready'`, owner, id))

@@ -51,6 +51,10 @@ type Store interface {
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
+	ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error)
+	CreateLearningCampaign(context.Context, string, string, string) (domain.LearningCampaign, error)
+	UpdateLearningCampaignProgress(context.Context, string, string, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
+	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
@@ -112,6 +116,9 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /logout-all", s.WebAuth)
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
+	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
+	h.mux.Handle("POST /campaigns", h.user(http.HandlerFunc(h.queueCampaign)))
+	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
@@ -262,6 +269,113 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, LibraryPage(u, h.csrf(w, r), books, r.URL.Query().Get("message")))
+}
+
+type campaignView struct {
+	Campaign domain.LearningCampaign
+	Book     domain.SourceMaterialSummary
+	Deck     domain.DeckPreparation
+}
+
+type preparedCampaignOption struct {
+	Book domain.SourceMaterialSummary
+	Deck domain.DeckPreparation
+}
+
+func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	u := user(r)
+	campaigns, err := h.services.Store.ListLearningCampaigns(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	books, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
+	for _, book := range books {
+		bookByID[book.Source.ID] = book
+	}
+	views := make([]campaignView, 0, len(campaigns))
+	for _, campaign := range campaigns {
+		deck, deckErr := h.services.PreparedDeck.Get(r.Context(), u.ID, campaign.DeckPreparationID)
+		if deckErr != nil {
+			fail(w, deckErr)
+			return
+		}
+		views = append(views, campaignView{Campaign: campaign, Book: bookByID[campaign.SourceMaterialID], Deck: deck})
+	}
+	ready, err := h.services.Store.ListUnassignedReadyDeckPreparations(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	options := make([]preparedCampaignOption, 0, len(ready))
+	for _, deck := range ready {
+		if book, ok := bookByID[deck.SourceMaterialID]; ok {
+			options = append(options, preparedCampaignOption{Book: book, Deck: deck})
+		}
+	}
+	render(w, r, CampaignsPage(u, h.csrf(w, r), views, options, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	u := user(r)
+	deck, err := h.services.PreparedDeck.Get(r.Context(), u.ID, r.FormValue("deck_preparation_id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if _, err = h.services.Store.CreateLearningCampaign(r.Context(), u.ID, deck.SourceMaterialID, deck.ID); err != nil {
+		if errors.Is(err, persistence.ErrInvalidTransition) {
+			redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a ready, unassigned deck can be added to the queue."))
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/campaigns?message="+url.QueryEscape("Book and deck added to your learning queue."))
+}
+
+func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	_, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), user(r).ID, r.PathValue("id"), domain.BookReading, domain.DeckStudying)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, persistence.ErrActiveCampaign) {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Finish or abandon the active campaign before starting another."))
+		return
+	}
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a queued campaign can be started."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/campaigns?message="+url.QueryEscape("Learning campaign started."))
 }
 func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -1027,6 +1141,56 @@ func jobState(status analysis.Status) string {
 	}
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
+func hasCampaignStatus(campaigns []campaignView, status domain.CampaignStatus) bool {
+	for _, item := range campaigns {
+		if item.Campaign.Status == status {
+			return true
+		}
+	}
+	return false
+}
+func hasCampaignHistory(campaigns []campaignView) bool {
+	return hasCampaignStatus(campaigns, domain.CampaignComplete) || hasCampaignStatus(campaigns, domain.CampaignAbandoned)
+}
+func campaignStatusLabel(status domain.CampaignStatus) string {
+	switch status {
+	case domain.CampaignQueued:
+		return "Queued"
+	case domain.CampaignActive:
+		return "Active"
+	case domain.CampaignComplete:
+		return "Complete"
+	case domain.CampaignAbandoned:
+		return "Abandoned"
+	}
+	return string(status)
+}
+func campaignBookLabel(status domain.BookProgress) string {
+	switch status {
+	case domain.BookQueued:
+		return "Queued"
+	case domain.BookReading:
+		return "Reading"
+	case domain.BookFinished:
+		return "Finished"
+	case domain.BookAbandoned:
+		return "Abandoned"
+	}
+	return string(status)
+}
+func campaignDeckLabel(status domain.DeckProgress) string {
+	switch status {
+	case domain.DeckQueued:
+		return "Queued"
+	case domain.DeckStudying:
+		return "Studying"
+	case domain.DeckReviewed:
+		return "Reviewed"
+	case domain.DeckAbandoned:
+		return "Abandoned"
+	}
+	return string(status)
+}
 func knownVocabJobLabel(status string) string {
 	switch status {
 	case "available", "scheduled", "retryable", "pending":

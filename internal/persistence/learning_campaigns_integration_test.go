@@ -104,6 +104,41 @@ func TestLearningCampaignRequiresMatchingReadyPreparation(t *testing.T) {
 	}
 }
 
+func TestListUnassignedReadyDeckPreparationsIsOwnerScoped(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	alice, _ := store.CreateUser(ctx, "campaign-ready-alice", false)
+	bob, _ := store.CreateUser(ctx, "campaign-ready-bob", false)
+	aliceSource, aliceDeck := readyCampaignFixture(t, ctx, store, alice.ID, "available")
+	_, assignedDeck := readyCampaignFixture(t, ctx, store, alice.ID, "assigned")
+	_, _ = readyCampaignFixture(t, ctx, store, bob.ID, "private")
+	if _, err = store.CreateLearningCampaign(ctx, alice.ID, assignedDeck.SourceMaterialID, assignedDeck.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	ready, err := store.ListUnassignedReadyDeckPreparations(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ready) != 1 || ready[0].ID != aliceDeck.ID || ready[0].SourceMaterialID != aliceSource.ID {
+		t.Fatalf("alice unassigned ready decks = %+v", ready)
+	}
+	if _, err = store.CreateLearningCampaign(ctx, alice.ID, aliceSource.ID, aliceDeck.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CreateLearningCampaign(ctx, alice.ID, aliceSource.ID, aliceDeck.ID); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("duplicate campaign error = %v", err)
+	}
+	ready, err = store.ListUnassignedReadyDeckPreparations(ctx, alice.ID)
+	if err != nil || len(ready) != 0 {
+		t.Fatalf("ready decks after assignment = %+v, %v", ready, err)
+	}
+}
+
 func TestAbandonedCampaignDoesNotGraduateVocabulary(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
