@@ -1,6 +1,6 @@
 # ADR 0025: Analysis coverage and threshold metric contract
 
-Status: **Accepted** · Date: 2026-08-24 · Author: Justin + Codex
+Status: **Accepted with threshold semantics amended by ADR 0027** · Date: 2026-08-24 · Author: Justin + Codex
 
 Clarifies **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and **ADR 0019** (Explicit generated-vocabulary exclusion policy).

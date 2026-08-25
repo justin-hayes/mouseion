@@ -47,29 +47,29 @@ selection never uses a rounded percentage.
 ### Threshold requirements
 
 Threshold investment uses the full analyzable-token denominator from current
-coverage. First remove explicitly known identities and vocabulary generated for
-another book from the learn-next candidates. The remaining occurrences form the
-eligible unknown-token pool. For target `T`, additional vocabulary is the
-smallest frequency-ordered prefix of eligible lemma+UPOS identities which, when
-added to explicitly known occurrences, reaches `T` percent of all analyzable
-tokens. If excluded unknown occurrences prevent the eligible pool from reaching
-the target, the UI reports the target as unavailable instead of inventing a
-lemma count.
+coverage. Remove explicitly known identities from the unknown-to-learn list, but
+include previously generated identities: generated means assigned for study, not
+known. For target `T`, additional vocabulary to learn is the smallest
+frequency-ordered prefix of all currently unknown lemma+UPOS identities which,
+when added to explicitly known occurrences, reaches `T` percent of all
+analyzable tokens. If current coverage already reaches the target, the required
+lemma count is zero.
 
 Candidates are ordered by descending book-local occurrence count. Equal counts
 are ordered lexicographically by `(language, canonical lemma, UPOS)`. The
 threshold comparison uses exact integer arithmetic:
 
 ```text
-(known occurrences + selected occurrences) * 100
+(known occurrences + selected unknown occurrences) * 100
     >= analyzable occurrences * T
 ```
 
 An explicit known-vocabulary entry with no UPOS is a lemma wildcard and covers
 every UPOS for that language. An entry with a UPOS covers only the matching
-lemma+UPOS identity. Generated-vocabulary exclusions are identity-specific;
-unknown provenance is excluded conservatively, another book is excluded, and
-the current book remains eligible so repeat generation is idempotent.
+lemma+UPOS identity. Previously generated identities may be annotated as
+already assigned, but they remain part of the learner's unknown-to-learn pool.
+The separate deck-generation calculation continues to exclude active or
+reserved vocabulary according to the learning-campaign lifecycle in ADR 0027.
 
 Initial targets:
 
