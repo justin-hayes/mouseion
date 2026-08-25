@@ -9,6 +9,40 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// GetEPUBReviewedScope reloads one immutable scope through its complete
+// owner/source identity. Callers must still compare its snapshot and schema
+// identities with the current extracted-unit snapshot before reusing it.
+func (s *PostgresStore) GetEPUBReviewedScope(ctx context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
+	var scope domain.EPUBReviewedScopeSnapshot
+	err := s.pool.QueryRow(ctx, `SELECT schema_version,scope_id::text,owner_id::text,source_material_id::text,snapshot_id,extracted_units_schema_version,classifier_name,classifier_version,selection_mode,created_at
+		FROM epub_reviewed_scopes WHERE scope_id=$1 AND owner_id=$2 AND source_material_id=$3`, scopeID, owner, sourceID).Scan(
+		&scope.SchemaVersion, &scope.ScopeID, &scope.OwnerID, &scope.SourceMaterialID, &scope.SourceUnitSnapshot.SnapshotID,
+		&scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion, &scope.Classifier.Name, &scope.Classifier.Version, &scope.SelectionMode, &scope.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.EPUBReviewedScopeSnapshot{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.EPUBReviewedScopeSnapshot{}, err
+	}
+	rows, err := s.pool.Query(ctx, `SELECT unit_id,unit_order FROM epub_reviewed_scope_units
+		WHERE scope_id=$1 AND owner_id=$2 AND source_material_id=$3 ORDER BY unit_order`, scopeID, owner, sourceID)
+	if err != nil {
+		return domain.EPUBReviewedScopeSnapshot{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var selected domain.EPUBSelectedUnitReference
+		if err = rows.Scan(&selected.UnitID, &selected.Order); err != nil {
+			return domain.EPUBReviewedScopeSnapshot{}, err
+		}
+		scope.SelectedUnits = append(scope.SelectedUnits, selected)
+	}
+	if err = rows.Err(); err != nil {
+		return domain.EPUBReviewedScopeSnapshot{}, err
+	}
+	return scope, nil
+}
+
 // CreateEPUBReviewedScope validates browser-supplied identities against the
 // current owner-scoped persisted snapshot and stores a new immutable review.
 func (s *PostgresStore) CreateEPUBReviewedScope(ctx context.Context, scope domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error) {

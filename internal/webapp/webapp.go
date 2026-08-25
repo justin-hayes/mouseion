@@ -61,6 +61,7 @@ type Store interface {
 	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
 	GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error)
+	GetEPUBReviewedScope(context.Context, string, string, string) (domain.EPUBReviewedScopeSnapshot, error)
 	CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error)
 }
 type OPDS interface {
@@ -510,6 +511,14 @@ type epubScopeView struct {
 	SnapshotID string
 	Units      []epubScopeUnitView
 	Groups     []epubScopeGroupView
+	PriorScope *domain.EPUBReviewedScopeSnapshot
+	Preset     string
+	Comparison epubScopeComparison
+}
+
+type epubScopeComparison struct {
+	Old, New, Added, Removed                           []epubScopeUnitView
+	OldCharacters, OldTokens, NewCharacters, NewTokens int
 }
 
 type epubScopeGroupView struct {
@@ -580,7 +589,73 @@ func (h *Handler) reviewEPUBScope(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", ""))
+	selected, err := h.applyScopePreset(r, u.ID, &view)
+	if err != nil {
+		h.renderEPUBScopeError(w, r, u, view, err.Error())
+		return
+	}
+	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", selected))
+}
+
+func (h *Handler) applyScopePreset(r *http.Request, owner string, view *epubScopeView) (string, error) {
+	preset := r.URL.Query().Get("preset")
+	priorID := r.URL.Query().Get("prior_scope_id")
+	if preset == "" && priorID == "" {
+		return "", nil
+	}
+	if preset != "recommended" && preset != "all" && preset != "prior" {
+		return "", errors.New("The requested scope preset is invalid.")
+	}
+	view.Preset = preset
+	var prior domain.EPUBReviewedScopeSnapshot
+	if priorID != "" {
+		var err error
+		prior, err = h.services.Store.GetEPUBReviewedScope(r.Context(), owner, view.Book.ID, priorID)
+		if err != nil {
+			return "", errors.New("The prior scope is unavailable for this book and owner.")
+		}
+		if prior.SchemaVersion != domain.EPUBReviewedScopeSchemaVersion || prior.SourceUnitSnapshot.SnapshotID != view.SnapshotID || prior.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != domain.ExtractedUnitsSchemaVersion || prior.Classifier.Name != epub.ClassifierName || prior.Classifier.Version != epub.ClassifierVersion {
+			return "", errors.New("The prior scope is stale or uses a different schema or classifier. Review the current units instead.")
+		}
+		view.PriorScope = &prior
+	}
+	if preset == "prior" && priorID == "" {
+		return "", errors.New("A prior scope ID is required for the prior-selection preset.")
+	}
+	selected := make(map[string]bool, len(view.Units))
+	for _, item := range view.Units {
+		selected[item.Unit.ID] = preset == "all" || (preset == "recommended" && item.Classification.RecommendedInclusion)
+	}
+	if preset == "prior" {
+		for _, item := range prior.SelectedUnits {
+			selected[item.UnitID] = true
+		}
+	}
+	var ids []string
+	old := map[string]bool{}
+	for _, item := range prior.SelectedUnits {
+		old[item.UnitID] = true
+	}
+	for _, item := range view.Units {
+		if selected[item.Unit.ID] {
+			ids = append(ids, item.Unit.ID)
+			view.Comparison.New = append(view.Comparison.New, item)
+			view.Comparison.NewCharacters += item.CharacterCount
+			view.Comparison.NewTokens += item.TokenEstimate
+		}
+		if old[item.Unit.ID] {
+			view.Comparison.Old = append(view.Comparison.Old, item)
+			view.Comparison.OldCharacters += item.CharacterCount
+			view.Comparison.OldTokens += item.TokenEstimate
+		}
+		if selected[item.Unit.ID] && !old[item.Unit.ID] {
+			view.Comparison.Added = append(view.Comparison.Added, item)
+		}
+		if old[item.Unit.ID] && !selected[item.Unit.ID] {
+			view.Comparison.Removed = append(view.Comparison.Removed, item)
+		}
+	}
+	return "submitted:" + strings.Join(ids, ","), nil
 }
 
 func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
@@ -666,7 +741,7 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		h.renderEPUBScopeError(w, r, u, view, "The saved scope could not be queued for analysis.")
 		return
 	}
-	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis job %d submitted with %d selected units.", handle.DisplayNumber, len(references))))
+	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units; job %d submitted.", len(references), handle.DisplayNumber)))
 }
 
 func submittedGroups(values []string, groups map[string]epub.UnitGroup) (map[string]struct{}, bool) {

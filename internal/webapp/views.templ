@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -289,7 +290,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	}
 	<div class="book-actions"><article><h2>Analysis</h2>
 		if book.Source.MediaType == "application/epub+zip" {
-			<p><a href={ templ.SafeURL("/books/"+book.Source.ID+"/scope") }>Review and analyze a new EPUB scope</a></p>
+			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review and analyze a new EPUB scope</a></p>
 		}
 		if book.AnalysisJobID > 0 {
 			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
@@ -319,6 +320,46 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 			<article role="alert" tabindex="-1"><strong>Scope not saved.</strong> { pageError }</article>
 		}
 		<article role="note"><strong>How recommendations work</strong><p>High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.</p></article>
+		<nav aria-label="Scope presets"><strong>Start with a preset:</strong> <a href={ templ.SafeURL(scopePresetURL(review, "recommended")) }>Current classifier recommendation</a> · <a href={ templ.SafeURL(scopePresetURL(review, "all")) }>All readable units</a>
+			if review.PriorScope != nil {
+				<span> · </span><a href={ templ.SafeURL(scopePresetURL(review, "prior")) }>Prior selection</a>
+			}
+		</nav>
+		if review.PriorScope != nil {
+			<section aria-labelledby="scope-comparison-heading"><h2 id="scope-comparison-heading">Scope comparison</h2><p>Prior scope <code>{ review.PriorScope.ScopeID }</code> compared with the <strong>{ review.Preset }</strong> preset.</p>
+				<p><strong>Prior:</strong> { fmt.Sprintf("%d units · %d characters · about %d tokens", len(review.PriorScope.SelectedUnits), review.Comparison.OldCharacters, review.Comparison.OldTokens) }<br/><strong>Proposed:</strong> { fmt.Sprintf("%d units · %d characters · about %d tokens", len(review.PriorScope.SelectedUnits)+len(review.Comparison.Added)-len(review.Comparison.Removed), review.Comparison.NewCharacters, review.Comparison.NewTokens) }</p>
+				<h3>Prior included units</h3><ul>
+					for _, item := range review.Comparison.Old {
+						<li><code>{ item.Unit.ID }</code> — { item.Unit.Title }</li>
+					}
+				</ul>
+				<h3>Proposed included units</h3><ul>
+					for _, item := range review.Comparison.New {
+						<li><code>{ item.Unit.ID }</code> — { item.Unit.Title }</li>
+					}
+				</ul>
+				<h3>Added units</h3>
+				if len(review.Comparison.Added) == 0 {
+					<p>None.</p>
+				} else {
+					<ul>
+						for _, item := range review.Comparison.Added {
+							<li><code>{ item.Unit.ID }</code> — { item.Unit.Title } ({ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) })</li>
+						}
+					</ul>
+				}
+				<h3>Removed units</h3>
+				if len(review.Comparison.Removed) == 0 {
+					<p>None.</p>
+				} else {
+					<ul>
+						for _, item := range review.Comparison.Removed {
+							<li><code>{ item.Unit.ID }</code> — { item.Unit.Title } ({ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) })</li>
+						}
+					</ul>
+				}
+			</section>
+		}
 		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
 			<input type="hidden" name="csrf_token" value={ csrf }/>
 			<input type="hidden" name="snapshot_id" value={ review.SnapshotID }/>
@@ -397,6 +438,8 @@ func scopeUnitChecked(selectedCSV, unitID string, recommended bool) bool { if se
 func titleSourceLabel(source string) string { if source == domain.UnitTitleHeading { return "title from document heading" }; return "fallback title from manifest ID" }
 func categoryLabel(category domain.EPUBUnitCategory) string { return strings.ReplaceAll(string(category), "_", " ") }
 func recommendationLabel(include bool) string { if include { return "Include" }; return "Exclude" }
+func scopeReviewURL(book domain.SourceMaterialSummary) string { if book.ReviewedScopeID == "" { return "/books/"+book.Source.ID+"/scope" }; return "/books/"+book.Source.ID+"/scope?preset=prior&prior_scope_id="+url.QueryEscape(book.ReviewedScopeID) }
+func scopePresetURL(review epubScopeView, preset string) string { value := "/books/"+review.Book.ID+"/scope?preset="+url.QueryEscape(preset); if review.PriorScope != nil { value += "&prior_scope_id="+url.QueryEscape(review.PriorScope.ScopeID) }; return value }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {
