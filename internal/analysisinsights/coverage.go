@@ -23,7 +23,8 @@ const (
 type Store interface {
 	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	ListGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
+	ListActiveLearningCampaignVocabulary(context.Context, string, string) ([]domain.CampaignVocabulary, error)
+	ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 }
 
 type Service struct{ store Store }
@@ -47,6 +48,7 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
 	knownByLanguage := map[string]map[string]bool{}
 	generatedByLanguage := map[string]map[string]bool{}
+	activeByLanguage := map[string]map[string]bool{}
 	for _, lemma := range input.Lemmas {
 		known, ok := knownByLanguage[lemma.Language]
 		if !ok {
@@ -62,7 +64,7 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 		}
 		generated, ok := generatedByLanguage[lemma.Language]
 		if !ok {
-			words, listErr := s.store.ListGeneratedVocabulary(ctx, owner, lemma.Language)
+			words, listErr := s.store.ListLegacyGeneratedVocabulary(ctx, owner, lemma.Language)
 			if listErr != nil {
 				return domain.AnalysisCoverage{}, fmt.Errorf("list generated vocabulary for %s: %w", lemma.Language, listErr)
 			}
@@ -74,6 +76,18 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 			}
 			generatedByLanguage[lemma.Language] = generated
 		}
+		active, ok := activeByLanguage[lemma.Language]
+		if !ok {
+			words, listErr := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, lemma.Language)
+			if listErr != nil {
+				return domain.AnalysisCoverage{}, fmt.Errorf("list active campaign vocabulary for %s: %w", lemma.Language, listErr)
+			}
+			active = make(map[string]bool, len(words))
+			for _, word := range words {
+				active[identity(word.CanonicalLemma, word.UPOS)] = true
+			}
+			activeByLanguage[lemma.Language] = active
+		}
 
 		key := identity(lemma.CanonicalLemma, lemma.UPOS)
 		if known[key] || known[identity(lemma.CanonicalLemma, "")] {
@@ -82,7 +96,11 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 			continue
 		}
 		result.UnknownLemmaCount++
-		if !generated[key] {
+		if active[key] {
+			result.ActiveCampaignTokenCount += lemma.OccurrenceCount
+			result.ActiveCampaignLemmaCount++
+		}
+		if !generated[key] && !active[key] {
 			eligible = append(eligible, lemma)
 		}
 	}

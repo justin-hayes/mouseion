@@ -280,6 +280,7 @@ type campaignView struct {
 	Campaign domain.LearningCampaign
 	Book     domain.SourceMaterialSummary
 	Deck     domain.DeckPreparation
+	Coverage *domain.AnalysisCoverage
 }
 
 type preparedCampaignOption struct {
@@ -314,7 +315,19 @@ func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
 			fail(w, deckErr)
 			return
 		}
-		views = append(views, campaignView{Campaign: campaign, Book: bookByID[campaign.SourceMaterialID], Deck: deck})
+		book := bookByID[campaign.SourceMaterialID]
+		view := campaignView{Campaign: campaign, Book: book, Deck: deck}
+		if campaign.Status == domain.CampaignQueued && book.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
+			coverage, coverageErr := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, book.CorpusID)
+			if coverageErr != nil && !errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
+				fail(w, coverageErr)
+				return
+			}
+			if coverageErr == nil {
+				view.Coverage = &coverage
+			}
+		}
+		views = append(views, view)
 	}
 	ready, err := h.services.Store.ListUnassignedReadyDeckPreparations(r.Context(), u.ID)
 	if err != nil {

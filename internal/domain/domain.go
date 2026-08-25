@@ -131,17 +131,19 @@ type CoverageProjection struct {
 
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
-	AnalyzableTokenCount int64
-	DistinctLemmaCount   int64
-	KnownTokenCount      int64
-	KnownLemmaCount      int64
-	UnknownTokenCount    int64
-	UnknownLemmaCount    int64
-	TopUnknownLemmas     []LemmaOccurrence
-	UnknownConcentration CoverageProjection
-	Projections          []CoverageProjection
-	Thresholds           []CoverageThreshold
-	TextProfile          *TextProfile
+	AnalyzableTokenCount     int64
+	DistinctLemmaCount       int64
+	KnownTokenCount          int64
+	KnownLemmaCount          int64
+	ActiveCampaignTokenCount int64
+	ActiveCampaignLemmaCount int64
+	UnknownTokenCount        int64
+	UnknownLemmaCount        int64
+	TopUnknownLemmas         []LemmaOccurrence
+	UnknownConcentration     CoverageProjection
+	Projections              []CoverageProjection
+	Thresholds               []CoverageThreshold
+	TextProfile              *TextProfile
 }
 type AnalysisJob struct {
 	ID, DisplayNumber                                       int64
