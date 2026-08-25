@@ -1347,9 +1347,9 @@ func BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, 
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var76 string
-							templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(lemma.CanonicalLemma)
+							templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(lemmadisplay.Format(book.Source.Language, lemma.CanonicalLemma, lemma.UPOS))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 47}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 102}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 							if templ_7745c5c3_Err != nil {
@@ -1362,7 +1362,7 @@ func BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, 
 							var templ_7745c5c3_Var77 string
 							templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(lemma.UPOS)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 78}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 133}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 							if templ_7745c5c3_Err != nil {
@@ -1375,7 +1375,7 @@ func BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, 
 							var templ_7745c5c3_Var78 string
 							templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d occurrences", lemma.OccurrenceCount))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 155}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 210}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 							if templ_7745c5c3_Err != nil {
