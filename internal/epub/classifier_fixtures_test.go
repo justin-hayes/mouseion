@@ -29,6 +29,19 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 		want []expectedClassification
 	}{
 		{
+			name: "Reported German Roman-numeral book shape",
+			file: "issue-284-german-book.json",
+			want: []expectedClassification{
+				{CategoryFrontMatter, 70, false, fixtureReasons("label_preface", "spine_front", "text_sentence_density", "label_precedence")},
+				{CategoryFrontMatter, 70, false, fixtureReasons("label_contents", "spine_central")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "spine_central", "text_sentence_density")},
+				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "spine_central", "text_sentence_density")},
+				{CategoryBackMatter, 70, false, fixtureReasons("label_appendix", "spine_central", "text_sentence_density", "label_precedence")},
+				{CategoryBackMatter, 70, false, fixtureReasons("spine_central", "text_reference_density")},
+				{CategoryBackMatter, 70, false, fixtureReasons("label_index", "spine_back", "text_sentence_density", "label_precedence")},
+			},
+		},
+		{
 			name: "EPUB 2 German NCX labels",
 			file: "epub2-german.json",
 			want: []expectedClassification{
@@ -51,7 +64,7 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 				{CategoryBackMatter, 95, false, fixtureReasons("landmark_appendix", "label_appendix", "path_appendix", "spine_central")},
 				{CategoryUnknown, 20, false, fixtureReasons("navigation_only")},
 				{CategoryUnknown, 20, false, fixtureReasons("spine_central", "insufficient_evidence")},
-				{CategoryUnknown, 35, false, fixtureReasons("landmark_bibliography", "label_chapter", "path_chapter", "spine_back", "contradictory_evidence")},
+				{CategoryBackMatter, 95, false, fixtureReasons("landmark_bibliography", "label_chapter", "path_chapter", "spine_back", "landmark_precedence")},
 			},
 		},
 		{
@@ -66,7 +79,7 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 				{CategoryUnknown, 35, false, fixtureReasons("label_structural_fragment", "spine_central", "review_required")},
 				{CategoryUnknown, 35, false, fixtureReasons("text_repeated_header", "spine_central", "review_required")},
 				{CategoryUnknown, 35, false, fixtureReasons("text_repeated_header", "spine_central", "review_required")},
-				{CategoryUnknown, 35, false, fixtureReasons("label_chapter", "spine_back", "text_bibliography_cluster", "text_reference_density", "contradictory_evidence")},
+				{CategoryMainMatter, 70, false, fixtureReasons("label_chapter", "spine_back", "text_bibliography_cluster", "text_reference_density", "label_precedence")},
 			},
 		},
 	}
@@ -134,6 +147,8 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"label_editorial":           "A title or navigation label matches the editorial marker.",
 		"label_caption":             "A title or navigation label matches the caption marker for non-prose structural content.",
 		"label_structural_fragment": "A title or navigation label matches the structural fragment marker for non-prose structural content.",
+		"heading_roman_numeral":     "The title begins with a Roman numeral followed by a chapter-like heading.",
+		"heading_repeated_pattern":  "Multiple titles in this snapshot share the same numbered-heading pattern.",
 		"path_contents":             "The package path matches the contents marker.",
 		"path_preface":              "The package path matches the preface marker.",
 		"path_chapter":              "The package path matches the chapter marker.",
@@ -155,6 +170,8 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"navigation_only":           "The manifest identifies this unit as a navigation document.",
 		"insufficient_evidence":     "The available signals do not establish a structural category.",
 		"contradictory_evidence":    "Strong signals support conflicting structural categories.",
+		"label_precedence":          "The explicit title or navigation label outranks conflicting path, reference-density, spine-position, and prose-shape evidence.",
+		"landmark_precedence":       "The EPUB landmark outranks conflicting title, navigation, path, spine-position, and prose-shape evidence.",
 	}
 	reasons := make([]ClassificationReason, len(signals))
 	for i, signal := range signals {
