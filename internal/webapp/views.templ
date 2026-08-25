@@ -171,6 +171,9 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
 	<article class="campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p><span class={ "status status-"+statusClass(string(item.Campaign.Status)) }>{ campaignStatusLabel(item.Campaign.Status) }</span> · <code>{ item.Deck.DeckName }</code></p><dl class="campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
+		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
+	}
 	if item.Campaign.CompletedAt != nil {
 		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
 	}
@@ -228,11 +231,12 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		}
 		<section aria-labelledby="coverage-heading"><h2 id="coverage-heading">Vocabulary coverage</h2>
 			<div class="coverage-summary">
-				<article><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*coverage)) }</strong><span>current token coverage</span></article>
+				<article><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*coverage)) }</strong><span>current-known coverage</span></article>
+				<article><strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*coverage)) }</strong><span>active-campaign projected coverage</span></article>
 				<article><strong>{ fmt.Sprintf("%d", coverage.AnalyzableTokenCount) }</strong><span>analyzable tokens</span></article>
 				<article><strong>{ fmt.Sprintf("%d", coverage.DistinctLemmaCount) }</strong><span>distinct lemmas</span></article>
 			</div>
-			<p>Your explicitly known vocabulary covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
+			<p>Your current known vocabulary—including vocabulary graduated by completed campaigns—covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The active campaign could add <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignLemmaCount) }</strong> lemmas after graduation; this projection is not counted as known. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
 			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each whole-book analyzable-token coverage target:</p>
 			<div class="coverage-thresholds">
 				for _, threshold := range coverage.Thresholds {
@@ -260,7 +264,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 					}
 				</div>
 			}
-			<details><summary>How these metrics work</summary><p><strong>Current token coverage</strong> is the share of analyzable token occurrences matched by vocabulary you explicitly marked known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p><strong>Previously generated vocabulary</strong> means words Mouseion assigned to another deck. It is not counted as explicitly known. It is excluded from a new deck, while unknown words not already generated are <strong>deck-eligible vocabulary</strong>. The 95%, 97%, and 99% estimates use the same full analyzable-token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
+			<details><summary>How these metrics work</summary><p><strong>Current-known coverage</strong> is the share of analyzable token occurrences matched by vocabulary explicitly marked known or graduated from a completed campaign. <strong>Active-campaign projected coverage</strong> adds reserved vocabulary from the active campaign without claiming it is known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p>Active-campaign vocabulary is excluded from a new deck while it is reserved. Abandoned campaign vocabulary becomes <strong>deck-eligible vocabulary</strong> again. Unattached legacy generated history remains conservatively excluded. The 95%, 97%, and 99% estimates use the same full analyzable-token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
 		</section>
 	}
 	if statisticsUnavailable {
@@ -288,6 +292,11 @@ func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 		return 0
 	}
 	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
+}
+
+func activeCampaignCoveragePercent(coverage domain.AnalysisCoverage) float64 {
+	if coverage.AnalyzableTokenCount == 0 { return 0 }
+	return min(float64(coverage.KnownTokenCount+coverage.ActiveCampaignTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
 func concentrationPercent(projection domain.CoverageProjection) float64 {

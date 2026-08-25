@@ -22,6 +22,7 @@ type memoryStore struct {
 	candidates   []domain.SelectionCandidate
 	known        []domain.KnownVocabulary
 	history      []domain.GeneratedVocabulary
+	active       []domain.CampaignVocabulary
 	generated    []Note
 	bookID       string
 	historyCalls map[string]int
@@ -231,6 +232,20 @@ func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language
 	return out, nil
 }
 
+func (m *memoryStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	return m.ListGeneratedVocabulary(ctx, owner, language)
+}
+
+func (m *memoryStore) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
+	var result []domain.CampaignVocabulary
+	for _, word := range m.active {
+		if word.OwnerID == owner && word.Language == language {
+			result = append(result, word)
+		}
+	}
+	return result, nil
+}
+
 func (m *memoryStore) ListSelectionCandidatesForBook(_ context.Context, _ string, bookID string) ([]domain.SelectionCandidate, error) {
 	if bookID != m.bookID {
 		return nil, nil
@@ -371,6 +386,26 @@ func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Fatalf("coverage candidates = %#v", got)
+	}
+}
+
+func TestCoverageCandidatesReservesOnlyActiveCampaignVocabulary(t *testing.T) {
+	store := &memoryStore{active: []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "VERB"}}}
+	candidates := []domain.SelectionCandidate{
+		{Language: "de", CanonicalLemma: "reserved", UPOS: "VERB", OccurrenceCount: 10},
+		{Language: "de", CanonicalLemma: "released", UPOS: "ADJ", OccurrenceCount: 10},
+	}
+	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].CanonicalLemma != "released" {
+		t.Fatalf("active reservation candidates = %+v", got)
+	}
+	store.active = nil
+	got, err = NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("released reservation candidates = %+v, %v", got, err)
 	}
 }
 

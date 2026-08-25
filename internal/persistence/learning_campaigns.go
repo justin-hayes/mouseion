@@ -121,6 +121,54 @@ func (s *PostgresStore) ListLearningCampaignVocabulary(ctx context.Context, owne
 	return vocabulary, rows.Err()
 }
 
+// ListActiveLearningCampaignVocabulary returns the vocabulary temporarily
+// reserved by the owner's active campaign, scoped to one language.
+func (s *PostgresStore) ListActiveLearningCampaignVocabulary(ctx context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT cv.owner_id::text,cv.campaign_id::text,cv.language,cv.canonical_lemma,cv.upos,cv.generated_at,cv.graduated_at
+		FROM learning_campaign_vocabulary cv
+		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
+		WHERE cv.owner_id=$1 AND cv.language=$2 AND c.status='active'
+		ORDER BY cv.canonical_lemma,cv.upos`, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vocabulary []domain.CampaignVocabulary
+	for rows.Next() {
+		var item domain.CampaignVocabulary
+		if err = rows.Scan(&item.OwnerID, &item.CampaignID, &item.Language, &item.CanonicalLemma, &item.UPOS, &item.GeneratedAt, &item.GraduatedAt); err != nil {
+			return nil, err
+		}
+		vocabulary = append(vocabulary, item)
+	}
+	return vocabulary, rows.Err()
+}
+
+// ListLegacyGeneratedVocabulary returns generated history which has never been
+// attached to a campaign. It remains conservatively excluded during the
+// campaign migration, while abandoned campaign vocabulary is released.
+func (s *PostgresStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT gv.owner_id::text,gv.language,gv.canonical_lemma,gv.upos,gv.first_deck_id::text,gv.first_source_material_id::text,gv.first_generated_at
+		FROM generated_vocabulary gv
+		WHERE gv.owner_id=$1 AND gv.language=$2 AND NOT EXISTS (
+			SELECT 1 FROM learning_campaign_vocabulary cv
+			WHERE cv.owner_id=gv.owner_id AND cv.language=gv.language AND cv.canonical_lemma=gv.canonical_lemma AND cv.upos=gv.upos)
+		ORDER BY gv.canonical_lemma,gv.upos`, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.GeneratedVocabulary
+	for rows.Next() {
+		var item domain.GeneratedVocabulary
+		if err = rows.Scan(&item.OwnerID, &item.Language, &item.CanonicalLemma, &item.UPOS, &item.FirstDeckID, &item.FirstSourceMaterialID, &item.FirstGeneratedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 // UpdateLearningCampaignProgress records independent monotonic book/deck
 // progress. Status and lifecycle timestamps are derived atomically; completing
 // both facts graduates only the campaign's snapshotted vocabulary.

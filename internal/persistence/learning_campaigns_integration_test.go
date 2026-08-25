@@ -48,6 +48,17 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 	if err != nil || campaign.Status != domain.CampaignActive || campaign.ActivatedAt == nil || campaign.BookFinishedAt != nil || campaign.DeckReviewedAt != nil {
 		t.Fatalf("activate campaign = %+v, %v", campaign, err)
 	}
+	activeVocabulary, err := store.ListActiveLearningCampaignVocabulary(ctx, alice.ID, "de")
+	if err != nil || len(activeVocabulary) != 1 || activeVocabulary[0].CanonicalLemma != "Haus" {
+		t.Fatalf("active vocabulary = %+v, %v", activeVocabulary, err)
+	}
+	if bobVocabulary, listErr := store.ListActiveLearningCampaignVocabulary(ctx, bob.ID, "de"); listErr != nil || len(bobVocabulary) != 0 {
+		t.Fatalf("cross-owner active vocabulary = %+v, %v", bobVocabulary, listErr)
+	}
+	legacyVocabulary, err := store.ListLegacyGeneratedVocabulary(ctx, alice.ID, "de")
+	if err != nil || len(legacyVocabulary) != 1 || legacyVocabulary[0].CanonicalLemma != "Alt" {
+		t.Fatalf("legacy generated vocabulary = %+v, %v", legacyVocabulary, err)
+	}
 
 	source2, prep2 := readyCampaignFixture(t, ctx, store, alice.ID, "two")
 	queued2, err := store.CreateLearningCampaign(ctx, alice.ID, source2.ID, prep2.ID)
@@ -65,6 +76,9 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookFinished, domain.DeckReviewed)
 	if err != nil || campaign.Status != domain.CampaignComplete || campaign.CompletedAt == nil || campaign.DeckReviewedAt == nil || campaign.VocabularyGraduatedAt == nil {
 		t.Fatalf("complete campaign = %+v, %v", campaign, err)
+	}
+	if activeVocabulary, err = store.ListActiveLearningCampaignVocabulary(ctx, alice.ID, "de"); err != nil || len(activeVocabulary) != 0 {
+		t.Fatalf("active vocabulary after completion = %+v, %v", activeVocabulary, err)
 	}
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&known); err != nil || known != 1 {
 		t.Fatalf("graduated vocabulary count=%d err=%v", known, err)
@@ -175,6 +189,14 @@ func TestAbandonedCampaignDoesNotGraduateVocabulary(t *testing.T) {
 	campaign, err = store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID)
 	if err != nil || campaign.Status != domain.CampaignAbandoned || campaign.AbandonedAt == nil || campaign.VocabularyGraduatedAt != nil {
 		t.Fatalf("abandon campaign = %+v, %v", campaign, err)
+	}
+	activeVocabulary, err := store.ListActiveLearningCampaignVocabulary(ctx, owner.ID, "de")
+	if err != nil || len(activeVocabulary) != 0 {
+		t.Fatalf("active vocabulary after abandonment = %+v, %v", activeVocabulary, err)
+	}
+	legacyVocabulary, err := store.ListLegacyGeneratedVocabulary(ctx, owner.ID, "de")
+	if err != nil || len(legacyVocabulary) != 0 {
+		t.Fatalf("abandoned vocabulary treated as legacy exclusion = %+v, %v", legacyVocabulary, err)
 	}
 	var known bool
 	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='Frei')`, owner.ID).Scan(&known); err != nil || known {

@@ -13,6 +13,7 @@ type memoryStore struct {
 	input     domain.AnalysisCorpusVocabulary
 	known     []domain.KnownVocabulary
 	generated []domain.GeneratedVocabulary
+	active    []domain.CampaignVocabulary
 	err       error
 }
 
@@ -28,9 +29,18 @@ func (m *memoryStore) ListKnownVocabulary(_ context.Context, owner, language str
 	}
 	return result, nil
 }
-func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+func (m *memoryStore) ListLegacyGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	var result []domain.GeneratedVocabulary
 	for _, word := range m.generated {
+		if word.OwnerID == owner && word.Language == language {
+			result = append(result, word)
+		}
+	}
+	return result, nil
+}
+func (m *memoryStore) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
+	var result []domain.CampaignVocabulary
+	for _, word := range m.active {
 		if word.OwnerID == owner && word.Language == language {
 			result = append(result, word)
 		}
@@ -125,6 +135,37 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 		if got.TopUnknownLemmas[i].CanonicalLemma != want {
 			t.Fatalf("top unknown order = %+v", got.TopUnknownLemmas)
 		}
+	}
+}
+
+func TestCoverageSeparatesActiveCampaignProjectionAndReleasesAbandonedVocabulary(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 3}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "future", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 50},
+			{Language: "de", CanonicalLemma: "active", UPOS: "VERB", OccurrenceCount: 30},
+			{Language: "de", CanonicalLemma: "released", UPOS: "ADJ", OccurrenceCount: 20},
+		}},
+		known:  []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
+		active: []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "active", UPOS: "VERB"}},
+	}
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.KnownTokenCount != 50 || got.ActiveCampaignTokenCount != 30 || got.ActiveCampaignLemmaCount != 1 || got.UnknownTokenCount != 50 {
+		t.Fatalf("campaign coverage = %+v", got)
+	}
+	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma != "released" {
+		t.Fatalf("deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
+	}
+	store.active = nil // abandonment releases the reservation without persisting mastery
+	got, err = NewService(store).Coverage(context.Background(), "alice", "corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ActiveCampaignTokenCount != 0 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "active" {
+		t.Fatalf("coverage after abandonment = %+v", got)
 	}
 }
 
