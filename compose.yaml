@@ -29,9 +29,10 @@ services:
       context: .
       dockerfile: nlp/Dockerfile
     restart: unless-stopped
-    # The Stanza German model downloads on first use; give it time/disk.
+    # Configured Stanza models download on first use; give them time/disk.
     environment:
       MOUSEION_NLP_ADDR: "[::]:50051"
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de}
     expose:
       - "50051"
 
