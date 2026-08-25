@@ -74,9 +74,10 @@ type OpdsConnection struct {
 	CreatedAt, UpdatedAt                       time.Time
 }
 type Corpus struct {
-	ID, OwnerID, SourceMaterialID, ArtifactHash, Status string
-	Statistics                                          *AnalysisStatistics
-	CreatedAt                                           time.Time
+	ID, OwnerID, SourceMaterialID, ArtifactHash, ReviewedScopeID, Status string
+	Statistics                                                           *AnalysisStatistics
+	SelectedUnits                                                        []CorpusSelectedUnit
+	CreatedAt                                                            time.Time
 }
 
 // AnalysisStatistics records immutable counts from the analyzed corpus before
@@ -146,10 +147,15 @@ type AnalysisCoverage struct {
 	TextProfile              *TextProfile
 }
 type AnalysisJob struct {
-	ID, DisplayNumber                                       int64
-	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
-	Progress                                                int
-	CreatedAt, UpdatedAt                                    time.Time
+	ID, DisplayNumber                                                        int64
+	OwnerID, SourceMaterialID, ContentHash, CorpusID, ReviewedScopeID, Error string
+	Progress                                                                 int
+	CreatedAt, UpdatedAt                                                     time.Time
+}
+type CorpusSelectedUnit struct {
+	UnitID, SourceHref, ResolvedHref, Title string
+	Order                                   int
+	StartOffset, EndOffset                  uint64
 }
 type NormalizedArtifact struct {
 	ContentHash, Language, SchemaVersion, NormalizationProfile, NormalizationVersion, AnalyzerName, AnalyzerVersion string

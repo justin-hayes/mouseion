@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
@@ -66,6 +67,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	var (
 		analyzedChunksMu sync.Mutex
 		analyzedChunks   []string
+		scopedDocuments  []analyzer.SourceDocument
 	)
 	fake := &analyzertest.Fake{AnalyzeFunc: func(analyzeCtx context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		if req.Document.Text == "fail" {
@@ -78,6 +80,11 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		if req.Document.SourceIdentifier == "job-source" {
 			analyzedChunksMu.Lock()
 			analyzedChunks = append(analyzedChunks, req.Document.Text)
+			analyzedChunksMu.Unlock()
+		}
+		if strings.HasPrefix(req.Document.ID, "unit-") {
+			analyzedChunksMu.Lock()
+			scopedDocuments = append(scopedDocuments, req.Document)
 			analyzedChunksMu.Unlock()
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}}}}}}, nil
@@ -177,6 +184,70 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	if _, err = service.Result(ctx, bob.ID, handle.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner result = %v", err)
+	}
+
+	units := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+		{ID: "unit-0", Order: 0, Text: "Skip", EndOffset: 4, SourceHref: "skip.xhtml", ResolvedHref: "OPS/skip.xhtml"},
+		{ID: "unit-1", Order: 1, Text: "Keep one", StartOffset: 6, EndOffset: 14, Title: "One", SourceHref: "one.xhtml", ResolvedHref: "OPS/one.xhtml"},
+		{ID: "unit-2", Order: 2, Text: "Keep two", StartOffset: 16, EndOffset: 24, Title: "Two", SourceHref: "two.xhtml", ResolvedHref: "OPS/two.xhtml"},
+	}}
+	scopedSource, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scoped-job", Title: "Scoped", MediaType: "application/epub+zip", ContentHash: "sha256:scoped", FullText: "Skip\n\nKeep one\n\nKeep two"}, units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, scopedSource.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: scopedSource.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: "unit-1", Order: 1}, {UnitID: "unit-2", Order: 2}}}
+	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err != nil {
+		t.Fatal(err)
+	}
+	scopedHandle, err := service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, scope.ScopeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retryHandle, err := service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, scope.ScopeID)
+	if err != nil || retryHandle.ID != scopedHandle.ID {
+		t.Fatalf("scoped retry = %+v, %v", retryHandle, err)
+	}
+	if _, err = service.SubmitScopedAnalysis(ctx, bob.ID, scopedSource.ID, scope.ScopeID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross-owner scoped submit = %v", err)
+	}
+	scopedStatus, err := service.Wait(ctx, alice.ID, scopedHandle.ID)
+	if err != nil || scopedStatus.State != rivertype.JobStateCompleted {
+		t.Fatalf("scoped status = %+v, %v", scopedStatus, err)
+	}
+	analyzedChunksMu.Lock()
+	if len(scopedDocuments) != 2 || scopedDocuments[0].ID != "unit-1" || scopedDocuments[0].Text != "Keep one" || scopedDocuments[1].ID != "unit-2" || scopedDocuments[1].Text != "Keep two" {
+		t.Fatalf("scoped analyzer documents = %+v", scopedDocuments)
+	}
+	analyzedChunksMu.Unlock()
+	var scopeID string
+	var provenanceCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedStatus.CorpusID).Scan(&scopeID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND unit_id IN ('unit-1','unit-2')`, alice.ID, scopedStatus.CorpusID).Scan(&provenanceCount); err != nil {
+		t.Fatal(err)
+	}
+	if scopeID != scope.ScopeID || provenanceCount != 2 {
+		t.Fatalf("scope provenance = %q, %d", scopeID, provenanceCount)
+	}
+	scopedCorpus, err := service.Result(ctx, alice.ID, scopedHandle.ID)
+	if err != nil || scopedCorpus.ReviewedScopeID != scope.ScopeID || len(scopedCorpus.SelectedUnits) != 2 || scopedCorpus.SelectedUnits[0].UnitID != "unit-1" {
+		t.Fatalf("scoped corpus = %+v, %v", scopedCorpus, err)
+	}
+	replacement := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: "replacement", Order: 0, Text: "New", EndOffset: 3}}}
+	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: scopedSource.SourceIdentifier, Title: "Scoped", MediaType: scopedSource.MediaType, ContentHash: "sha256:scoped-new", FullText: "New"}, replacement); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, scope.ScopeID); err == nil {
+		t.Fatal("stale scope was accepted")
+	}
+	var historicalScope string
+	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedCorpus.ID).Scan(&historicalScope); err != nil || historicalScope != scope.ScopeID {
+		t.Fatalf("historical corpus changed: %q, %v", historicalScope, err)
 	}
 
 	failing, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-fail", Title: "Fail", MediaType: "text/plain", ContentHash: "sha256:job-fail", Content: []byte("fail"), FullText: "fail"})

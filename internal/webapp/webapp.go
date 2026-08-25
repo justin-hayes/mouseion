@@ -72,6 +72,7 @@ type OPDS interface {
 }
 type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
+	SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
 type AnalysisInsights interface {
@@ -609,7 +610,12 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
 		return
 	}
-	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units. No analysis was queued.", len(references))))
+	handle, err := h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, view.Book.ID, scope.ScopeID)
+	if err != nil {
+		h.renderEPUBScopeError(w, r, u, view, "The saved scope could not be queued for analysis.")
+		return
+	}
+	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis job %d submitted with %d selected units.", handle.DisplayNumber, len(references))))
 }
 
 func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view epubScopeView, message string) {
