@@ -59,7 +59,7 @@ Re-running the same classifier over the same unit snapshot must produce determin
 ## Implemented behavior
 
 EPUB import now classifies the persisted extracted-unit snapshot with
-`mouseion-epub-structure` version `1.1.0` and atomically persists one result
+`mouseion-epub-structure` version `1.2.0` and atomically persists one result
 per unit. Results are owner-scoped and bound to the immutable snapshot and
 unit identities. Importing identical content replaces the same classifier run
 without changing its output; importing changed content creates a new snapshot
@@ -197,6 +197,21 @@ The version change creates a distinct persisted classifier run. Existing
 `1.0.0` rows remain addressable by their recorded identity, and immutable
 Phase 3 reviewed scopes continue to retain the classifier version that the
 learner reviewed.
+
+## Version 1.2 recommendation policy
+
+Version `1.2.0` keeps category confidence separate from inclusion policy.
+High-confidence main matter remains included, and medium-confidence main
+matter with sustained prose is included with review guidance. Unknown units
+are never included solely because a snapshot lacks high-confidence main
+matter; navigation-only and non-linear exclusions remain unchanged. The
+review page reports that no high-confidence main matter was found as one
+book-level limited-confidence state instead of adding a fallback reason to
+each unit's ordered classification evidence.
+
+The new identity applies to new imports and explicit reclassification only.
+It does not rewrite prior classifier runs, immutable reviewed scopes, or
+historical analysis corpora.
 
 ## Phase 3 handoff
 

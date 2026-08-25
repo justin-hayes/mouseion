@@ -11,7 +11,7 @@ import (
 
 const (
 	ClassifierName    = "mouseion-epub-structure"
-	ClassifierVersion = "1.1.0"
+	ClassifierVersion = "1.2.0"
 )
 
 var (
@@ -39,8 +39,8 @@ type snapshotSignals struct {
 	repeatedFooters map[string]bool
 }
 
-// ClassifyUnits classifies one immutable extracted-unit snapshot. The whole
-// snapshot is required because the inclusion fallback is a book-level policy.
+// ClassifyUnits classifies one immutable extracted-unit snapshot and applies
+// the independently versioned recommendation policy encoded by ClassifierVersion.
 func ClassifyUnits(snapshotID string, extracted ExtractedUnits) ([]UnitClassification, error) {
 	if strings.TrimSpace(snapshotID) == "" || snapshotID != strings.TrimSpace(snapshotID) {
 		return nil, fmt.Errorf("epub: source snapshot identity is required and must not contain surrounding whitespace")
@@ -58,27 +58,10 @@ func ClassifyUnits(snapshotID string, extracted ExtractedUnits) ([]UnitClassific
 		decisions[i] = classifyUnit(snapshotID, extracted.SchemaVersion, unit, i, len(extracted.Units), snapshot)
 	}
 
-	hasIncludedMain := false
 	for i := range decisions {
 		c := &decisions[i].classification
-		if c.Category == CategoryMainMatter && c.Confidence >= ConfidenceHighMinimum {
-			c.RecommendedInclusion = true
-			hasIncludedMain = true
-		} else {
-			c.RecommendedInclusion = false
-		}
-	}
-	if !hasIncludedMain {
-		for i := range decisions {
-			if decisions[i].excluded {
-				continue
-			}
-			c := &decisions[i].classification
-			if c.Category == CategoryUnknown || c.Confidence <= ConfidenceLowMaximum {
-				c.RecommendedInclusion = true
-				c.Reasons = append(c.Reasons, ClassificationReason{Signal: "whole_book_fallback", Message: "Included because no high-confidence main matter was found in the source snapshot."})
-			}
-		}
+		c.RecommendedInclusion = !decisions[i].excluded && c.Category == CategoryMainMatter &&
+			(c.Confidence >= ConfidenceHighMinimum || hasReason(c.Reasons, "text_sentence_density"))
 	}
 
 	result := make([]UnitClassification, len(decisions))
@@ -409,6 +392,15 @@ func markerDisplay(marker string) string { return strings.ReplaceAll(marker, "_"
 func hasMainContentEvidence(reasons []ClassificationReason) bool {
 	for _, reason := range reasons {
 		if reason.Signal == "landmark_bodymatter" || reason.Signal == "landmark_chapter" || reason.Signal == "landmark_part" || reason.Signal == "text_sentence_density" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReason(reasons []ClassificationReason, signal string) bool {
+	for _, reason := range reasons {
+		if reason.Signal == signal {
 			return true
 		}
 	}
