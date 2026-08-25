@@ -64,9 +64,153 @@ The extracted book should retain the ordered unit list while continuing to provi
 - Phase 3: user review and unit-selection UI;
 - Phase 4: selected-unit NLP analysis and scope-aware coverage/decks.
 
-## Open questions
+## Extracted-unit contract (version 1)
 
-- Whether to persist extracted units in `source_materials` or a related table;
-- whether full text remains canonical or becomes a derived compatibility field;
-- how EPUB 3 landmarks and nav labels should be represented without making them required;
-- whether unit IDs should be content-addressed in addition to source-addressed.
+The Go representation of this contract lives in `internal/epub/contract.go`.
+This section is normative for extraction; persistence layout remains a separate
+decision for Phase 1 issue #243.
+
+### Book envelope and versioning
+
+An extracted-unit document is an object with these fields:
+
+- `schema_version`: the integer `1`;
+- `units`: an array in ascending spine order.
+
+The schema version describes the meaning and serialization of the whole unit
+document, not the EPUB version and not an individual unit. Writers must emit
+exactly the current version. Readers must reject an unsupported positive
+version rather than guessing its meaning. A missing, zero, `null`, or empty
+unit document on a source imported before this contract means **legacy data is
+unavailable**; it does not mean that the EPUB has no readable units. Callers
+that need units must re-extract the retained source EPUB. This PR does not add
+persistence or backfill legacy sources.
+
+JSON field names are the names specified below. Arrays are emitted in their
+defined order, and absent optional string arrays are emitted as empty arrays,
+not `null`. Unknown fields may be ignored by a v1 reader, but missing required
+fields, an unsupported `schema_version`, duplicate unit IDs, invalid order, or
+invalid offsets make the document invalid. Serialization does not use map
+iteration and therefore is deterministic for the same extracted input.
+
+### Unit identity and order
+
+Each readable content unit contains:
+
+- `id`: `epub-unit-v1:<zero-based spine index>:<manifest idref>`;
+- `order`: the zero-based index in the emitted `units` array;
+- `spine_index`: the zero-based position of the `itemref` in the package
+  document, including positions occupied by skipped entries;
+- `title` and `title_source`;
+- `text`, `start_offset`, and `end_offset`;
+- the source and EPUB metadata described below.
+
+The spine index is formatted as an unpadded base-10 integer. The remainder
+after the second colon is the manifest `idref` verbatim. Thus a repeated spine
+reference still produces distinct IDs, while a changed display title never
+changes identity. Identity is stable for repeated extraction of the same EPUB
+rendition; editing its manifest or spine creates a different rendition and is
+not required to preserve IDs. IDs are source-addressed, not content-addressed:
+two units with identical titles or text remain distinct.
+
+Only readable `application/xhtml+xml` spine resources with `linear` absent,
+blank, or other than ASCII-case-insensitive `no` are emitted. Manifest items
+whose whitespace-separated `properties` contain `nav` are not emitted as
+content units. All other media types are skipped as they are today. `order` is
+contiguous (`0..len(units)-1`); `spine_index` preserves gaps caused by skipped
+non-linear, navigation, non-XHTML, or empty resources. No file-system or
+manifest-map ordering participates.
+
+An XHTML resource whose normalized extracted text is empty does not produce a
+unit. If no unit remains, extraction fails with the existing invalid-EPUB
+behavior.
+
+### Titles
+
+`title` preserves the current chapter-title behavior:
+
+1. the first non-blank normalized `h1` or `h2` text in the resource;
+2. otherwise the manifest `idref` verbatim.
+
+`title_source` is respectively `heading` or `manifest_id`. Blank or malformed
+heading content is treated as missing. Titles are display metadata, need not be
+unique, and never participate in identity or ordering. Navigation labels are
+provenance only and do not alter this v1 fallback, preserving existing
+`Chapter` and source-location values.
+
+### Source and EPUB metadata provenance
+
+Each unit records:
+
+- `package_path`: the cleaned ZIP path of the selected OPF package document;
+- `manifest_id`: the spine `idref` and matching manifest item ID;
+- `source_href`: the manifest item's href exactly as decoded from the OPF;
+- `resolved_href`: the cleaned, package-directory-relative ZIP path used to
+  read the resource;
+- `media_type`: the manifest media type;
+- `properties`: whitespace-separated manifest property tokens in source order;
+- `linear`: `true` for every emitted v1 content unit;
+- `navigation_labels`: labels associated with the resource by a successfully
+  parsed EPUB navigation document, in navigation-document order;
+- `landmark_types`: landmark `epub:type` tokens associated with the resource,
+  in navigation-document order and token order.
+
+`source_href` may be nested (for example `Text/part/chapter.xhtml`), while
+`resolved_href` is resolved relative to `package_path`, never the ZIP root by
+assumption. Navigation href fragments are removed only for resource matching;
+the manifest href fields above are not rewritten. Navigation labels and
+landmarks are optional evidence: missing navigation, no match, or malformed
+optional navigation metadata yields empty arrays and must not change text,
+identity, title, or order. A manifest item marked `nav` remains excluded even
+when its navigation metadata is malformed.
+
+Required package metadata keeps the existing fail-safe behavior. A missing or
+blank package identifier, missing spine `idref`, missing/blank/duplicate
+manifest ID, a spine reference with no unique manifest match, unsafe or
+missing resolved resource, or malformed required OPF/XHTML fails extraction as
+an invalid EPUB. Implementations must not overwrite duplicate manifest IDs in
+a map or silently merge resources. Blank optional title, property, navigation,
+and landmark metadata is tolerated as described above.
+
+### Text and offsets
+
+`text` is exactly the normalized XHTML text contributed by that unit to
+`FullText`. `start_offset` and `end_offset` form a half-open span in Unicode
+code points (Go runes), not UTF-8 bytes or UTF-16 code units, into the complete
+`FullText`. Therefore:
+
+```text
+[]rune(FullText)[start_offset:end_offset] == []rune(unit.text)
+```
+
+Offsets include all preceding unit text and the existing two-newline joiner.
+The joiner lies between unit spans and belongs to neither unit. The first unit
+starts at zero; subsequent units start at the prior `end_offset + 2`; the last
+unit ends at the Unicode length of `FullText`. Text normalization and joining
+remain unchanged in v1.
+
+### Compatibility fields
+
+During the transition, `ExtractedBook.FullText` remains the canonical text sent
+to NLP and must be byte-for-byte identical to current extraction. The new unit
+list does not change analysis scope.
+
+`ExtractedBook.Chapters` also remains available. For every unit, in order, its
+compatibility chapter is projected as follows:
+
+- `Chapter.ID = unit.manifest_id` (not the new unit ID);
+- `Chapter.Title = unit.title`;
+- `Location.SourceDocumentID = ExtractedBook.SourceIdentifier`;
+- `Location.Chapter = unit.title` and `Location.Section = unit.title`;
+- location offsets equal the unit offsets.
+
+This preserves existing `Chapter` and downstream `SourceLocation` values,
+including duplicate display titles. New code should use unit IDs for identity;
+legacy chapter titles remain display/location labels only.
+
+## Deferred decisions
+
+- Persisting the envelope in `source_materials` or a related table is #243.
+- A future schema version may make full text derived, but v1 keeps it canonical.
+- A future version may add content hashes as secondary identity; v1 IDs remain
+  source-addressed.
