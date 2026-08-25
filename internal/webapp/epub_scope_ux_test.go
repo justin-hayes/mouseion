@@ -19,7 +19,7 @@ func TestEPUBScopeReviewIsAccessibleForGermanAndItalianTitles(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := output.String()
-			for _, want := range []string{title, `<form method="post"`, `<fieldset class="scope-actions">`, `<legend>Apply a selection</legend>`, `type="button"`, `for="scope-unit-0"`, `id="scope-unit-0"`, `type="checkbox"`, `name="unit_id"`, `<button type="submit">Confirm and analyze scope</button>`, `aria-live="polite"`, `aria-atomic="true"`, `role="status"`, "Review carefully", "fallback title from manifest ID", "Estimated size", "Reasons"} {
+			for _, want := range []string{title, `<form method="post"`, `<fieldset class="scope-actions">`, `<legend>Apply a selection</legend>`, `type="button"`, `for="scope-unit-0"`, `id="scope-unit-0"`, `type="checkbox"`, `name="unit_id"`, `<button type="submit">Confirm and analyze scope</button>`, `aria-live="polite"`, `aria-atomic="true"`, `role="status"`, "Review carefully", "fallback title from manifest ID", "Estimated size", "Classification evidence", "Recommendation policy"} {
 				if !strings.Contains(body, want) {
 					t.Errorf("render missing %q: %s", want, body)
 				}
@@ -56,7 +56,7 @@ func TestEPUBScopeReviewRendersGroupsAggregatesAndPartialState(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := output.String()
-	for _, want := range []string{`name="snapshot_id" value="snapshot-1"`, `aria-labelledby="scope-groups-heading"`, "EPUB groups", "Parte prima", "2 units · 140 characters · about 35 tokens", `data-group-state role="status" aria-live="polite"`, `<button type="submit" class="outline" name="group_include" value="group-1">`, `<button type="submit" class="outline secondary" name="group_exclude" value="group-1">`, "Partially selected"} {
+	for _, want := range []string{`name="snapshot_id" value="snapshot-1"`, `aria-labelledby="scope-groups-heading"`, "EPUB groups", "Parte prima", "All group units: 2 units | 140 characters | about 35 tokens", `data-group-selected`, "Selected: ${selectedMembers}", `data-group-state role="status" aria-live="polite"`, `<button type="submit" class="outline" name="group_include" value="group-1">`, `<button type="submit" class="outline secondary" name="group_exclude" value="group-1">`, "Partially selected"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("group render missing %q: %s", want, body)
 		}
@@ -83,16 +83,27 @@ func TestEPUBScopeReviewFlatFallbackAndKeyboardControls(t *testing.T) {
 func TestEPUBScopeReviewExplainsDegradedPolicyAndMediumConfidenceRecommendation(t *testing.T) {
 	view := epubScopeView{
 		Book: domain.SourceMaterial{ID: "book-de", Title: "Buch"}, DegradedRecommendation: true, AllCharacters: 596187, AllTokens: 149047,
-		Units: []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-0", Order: 0, Title: "I. Einleitung"}, CharacterCount: 528000, TokenEstimate: 132000, Classification: domain.EPUBUnitClassification{Category: domain.EPUBCategoryMainMatter, Confidence: 70, RecommendedInclusion: true, Reasons: []domain.EPUBClassificationReason{{Message: "The text contains sustained sentence-like prose."}}}}},
+		Units: []epubScopeUnitView{
+			{Unit: domain.ExtractedUnit{ID: "unit-0", Order: 0, Title: "I. Einleitung"}, CharacterCount: 528000, TokenEstimate: 132000, Classification: domain.EPUBUnitClassification{Category: domain.EPUBCategoryMainMatter, Confidence: 70, RecommendedInclusion: true, Reasons: []domain.EPUBClassificationReason{{Message: "The text contains sustained sentence-like prose."}}}},
+			{Unit: domain.ExtractedUnit{ID: "unit-1", Order: 1, Title: "Register"}, CharacterCount: 47013, TokenEstimate: 11753, Classification: domain.EPUBUnitClassification{Category: domain.EPUBCategoryUnknown, Confidence: 35, RecommendedInclusion: false, Reasons: []domain.EPUBClassificationReason{{Signal: "text_reference_density", Message: "Citation and reference patterns are concentrated in this unit."}}}},
+		},
 	}
 	var output strings.Builder
 	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Limited structural confidence", "No high-confidence main matter was found", "whole-book fallback", "Include — review suggested", "All units: 596187 characters", "Selected: 0 characters"} {
+	for _, want := range []string{"Limited structural confidence", "No high-confidence main matter was found", "whole-book fallback", "Include — review suggested", "Included as plausible main matter", "Register", "Exclude — review required", "reference-like evidence", "Classification evidence", "Recommendation policy", "All units: 596187 characters", "Selected: 0 characters"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("degraded recommendation UI missing %q: %s", want, output.String())
 		}
+	}
+	body := output.String()
+	if strings.Count(body, "Limited structural confidence") != 1 {
+		t.Fatalf("degraded notice must appear once at book level: %s", body)
+	}
+	category, confidence, recommendation, policy, evidence := strings.Index(body, "<dt>Category</dt>"), strings.Index(body, "<dt>Confidence</dt>"), strings.Index(body, "<dt>Recommendation</dt>"), strings.Index(body, "<dt>Recommendation policy</dt>"), strings.Index(body, "<h3>Classification evidence</h3>")
+	if category < 0 || !(category < confidence && confidence < recommendation && recommendation < policy && policy < evidence) {
+		t.Fatalf("classification and policy labels rendered out of order: %s", body)
 	}
 }
 
