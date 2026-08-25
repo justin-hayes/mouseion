@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -44,6 +45,13 @@ type Result struct {
 
 type Service struct{ store Store }
 
+var (
+	authorYearEntry     = regexp.MustCompile(`(?i)^[\p{L}'’\-]+(?:,\s*(?:[\p{L}'’\-]+|(?:\p{L}\.\s*)+)|\s+(?:und|&|/)\s*[\p{L}'’\-]+)?\s+\(?(?:1[5-9]|20)\d{2}[a-z]?\)?\s*[:.,]`)
+	bibliographicMarker = regexp.MustCompile(`(?i)(?:^|[[:space:]([])(?:in\s*:|(?:hgg?|hrsg)\.|(?:hgg?|hrsg)\s*(?:von|durch)|isbn(?:-1[03])?\s*:|doi\s*:|https?://|www\.)`)
+	contentsLeader      = regexp.MustCompile(`(?:\.{3,}|…{2,}|\s[-–—]{2,}\s)\s*\d{1,4}\s*$`)
+	barePageTail        = regexp.MustCompile(`\s(?:S\.|Seite(?:n)?|pp?\.)\s*\d+(?:\s*[-–]\s*\d+)?\.?\s*$`)
+)
+
 func NewService(store Store) *Service { return &Service{store: store} }
 
 // Select scores only references already attached to the owner's candidate.
@@ -64,7 +72,7 @@ func (s *Service) Select(ctx context.Context, owner, corpusID string, candidate 
 		}
 		seen[ref.Text] = true
 		words := strings.Fields(ref.Text)
-		if !validReference(ref, words, cfg) {
+		if !validReference(ref, words, cfg) || structuralFragment(ref.Text) {
 			continue
 		}
 		occurrences := targetOccurrences(words, forms)
@@ -108,6 +116,16 @@ func (s *Service) Select(ctx context.Context, owner, corpusID string, candidate 
 	result := Result{Chosen: &ranked[0]}
 	result.Alternatives = append(result.Alternatives, ranked[1:]...)
 	return result, nil
+}
+
+func structuralFragment(text string) bool {
+	if authorYearEntry.MatchString(text) || bibliographicMarker.MatchString(text) || contentsLeader.MatchString(text) || barePageTail.MatchString(text) {
+		return true
+	}
+	// Sentence segmentation also emits headings and standalone book/article
+	// titles. Without sentence-final punctuation they are not usable prose.
+	trimmed := strings.TrimRight(text, `”"')]}»`)
+	return trimmed == "" || !strings.ContainsAny(trimmed[len(trimmed)-1:], ".!?")
 }
 
 func validConfig(c Config) bool {
