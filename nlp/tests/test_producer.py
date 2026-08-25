@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
+from google.protobuf.json_format import MessageToDict
 from mouseion.v1 import normalized_corpus_pb2
 from mouseion_nlp import Producer, SourceDocument
 
@@ -151,3 +154,52 @@ def test_italian_warmup_and_analyze_use_the_injected_pipeline() -> None:
     assert analyzed == ["La casa."]
     assert artifact.language == "it"
     assert [token.raw_lemma for token in artifact.sentences[0].tokens] == ["il", "casa", "."]
+
+
+def test_italian_linguistic_regression_fixture() -> None:
+    """Lock the normalized contract to representative Italian Stanza output."""
+    text = "L'uomo e le ragazze bevono dell'acqua. Maria portera`? No, porterà pane e dammelo!"
+    sentences = [
+        SimpleNamespace(
+            text="L'uomo e le ragazze bevono dell'acqua.",
+            tokens=[
+                SimpleNamespace(words=[word("L'", "il", "DET", "Definite=Def|Gender=Masc|Number=Sing|PronType=Art", 0, 2)], ner="O"),
+                SimpleNamespace(words=[word("uomo", "uomo", "NOUN", "Gender=Masc|Number=Sing", 2, 6)], ner="O"),
+                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 7, 8)], ner="O"),
+                SimpleNamespace(words=[word("le", "il", "DET", "Definite=Def|Gender=Fem|Number=Plur|PronType=Art", 9, 11)], ner="O"),
+                SimpleNamespace(words=[word("ragazze", "ragazza", "NOUN", "Gender=Fem|Number=Plur", 12, 19)], ner="O"),
+                SimpleNamespace(words=[word("bevono", "bere", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 20, 26)], ner="O"),
+                SimpleNamespace(words=[word("dell'", "di", "ADP", None, 27, 32), word("dell'", "il", "DET", "Definite=Def|Gender=Fem|Number=Sing|PronType=Art", 27, 32)], ner="O"),
+                SimpleNamespace(words=[word("acqua", "acqua", "NOUN", "Gender=Fem|Number=Sing", 32, 37)], ner="O"),
+                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 37, 38)], ner="O"),
+            ],
+        ),
+        SimpleNamespace(
+            text="Maria portera`? No, porterà pane e dammelo!",
+            tokens=[
+                SimpleNamespace(words=[word("Maria", "Maria", "PROPN", "Gender=Fem|Number=Sing", 39, 44)], ner="S-PER"),
+                SimpleNamespace(words=[word("portera`", "portera`", "X", None, 45, 53)], ner="O"),
+                SimpleNamespace(words=[word("?", "?", "PUNCT", None, 53, 54)], ner="O"),
+                SimpleNamespace(words=[word("No", "no", "ADV", None, 55, 57)], ner="O"),
+                SimpleNamespace(words=[word(",", ",", "PUNCT", None, 57, 58)], ner="O"),
+                SimpleNamespace(words=[word("porterà", "portare", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin", 59, 66)], ner="O"),
+                SimpleNamespace(words=[word("pane", "pane", "NOUN", "Gender=Masc|Number=Sing", 67, 71)], ner="O"),
+                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 72, 73)], ner="O"),
+                SimpleNamespace(words=[word("damme", "dare", "VERB", "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin", 74, 79), word("lo", "lo", "PRON", "Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs", 79, 81)], ner="O"),
+                SimpleNamespace(words=[word("!", "!", "PUNCT", None, 81, 82)], ner="O"),
+            ],
+        ),
+    ]
+    result = SimpleNamespace(sentences=sentences)
+    producer = Producer(enable_ner=True, pipeline_factory=lambda language, enable_ner: lambda value: result)
+
+    artifact = producer.analyze(
+        text,
+        "it",
+        SourceDocument("italian-book", "fixture:italian", "Italian fixture"),
+        run_id="italian-regression",
+        analyzed_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
+    )
+
+    expected = json.loads((Path(__file__).parent / "testdata" / "italian_stanza_expected.json").read_text())
+    assert MessageToDict(artifact, preserving_proto_field_name=True) == expected

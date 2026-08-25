@@ -89,6 +89,53 @@ func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testin
 	}
 }
 
+func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
+	person := "S-PER"
+	corpus := analyzer.Result{Language: "it", Sentences: []analyzer.Sentence{{
+		Text: "L'uomo e gli uomini bevono dell'acqua; Maria berrà e dammelo!",
+		Tokens: []analyzer.Token{
+			{Surface: "L'", CanonicalLemma: "il", UPOS: "DET"},
+			{Surface: "uomo", CanonicalLemma: "uomo", UPOS: "NOUN"},
+			{Surface: "uomini", CanonicalLemma: "uomo", UPOS: "NOUN"},
+			{Surface: "bevono", CanonicalLemma: "bere", UPOS: "VERB"},
+			{Surface: "dell'", CanonicalLemma: "di", UPOS: "ADP"},
+			{Surface: "acqua", CanonicalLemma: "acqua", UPOS: "NOUN"},
+			{Surface: ";", CanonicalLemma: ";", UPOS: "PUNCT"},
+			{Surface: "Maria", CanonicalLemma: "maria", UPOS: "PROPN", NamedEntity: &person},
+			{Surface: "berrà", CanonicalLemma: "bere", UPOS: "VERB"},
+			{Surface: "damme", CanonicalLemma: "dare", UPOS: "VERB"},
+			{Surface: "lo", CanonicalLemma: "lo", UPOS: "PRON"},
+			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
+		},
+	}}}
+	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("italian-corpus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Candidate{
+		{Identity: Identity{"it", "acqua", "NOUN"}, OccurrenceCount: 1},
+		{Identity: Identity{"it", "bere", "VERB"}, OccurrenceCount: 2},
+		{Identity: Identity{"it", "dare", "VERB"}, OccurrenceCount: 1},
+		{Identity: Identity{"it", "uomo", "NOUN"}, OccurrenceCount: 2},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Italian candidates = %+v", got)
+	}
+	for i := range want {
+		if got[i].Identity != want[i].Identity || got[i].OccurrenceCount != want[i].OccurrenceCount {
+			t.Fatalf("Italian candidate %d = %+v, want identity/count %+v", i, got[i], want[i])
+		}
+	}
+	if !reflect.DeepEqual(got[3].ObservedForms, []string{"uomini", "uomo"}) {
+		t.Fatalf("Italian observed forms = %v", got[3].ObservedForms)
+	}
+	statistics := AnalyzableStatistics(corpus, DefaultConfig("italian-corpus"))
+	if statistics.AnalyzableTokenCount != 6 || statistics.DistinctLemmaCount != 4 || statistics.TextProfile.NormalizedTokenCount != 12 {
+		t.Fatalf("Italian statistics = %+v", statistics)
+	}
+}
+
 func TestAnalyzableStatisticsComputesExplainableSentenceProfile(t *testing.T) {
 	result := analyzer.Result{Sentences: []analyzer.Sentence{{}, {Tokens: make([]analyzer.Token, 10)}, {Tokens: make([]analyzer.Token, 20)}, {Tokens: make([]analyzer.Token, 36)}}}
 	got := AnalyzableStatistics(result, DefaultConfig("corpus")).TextProfile
