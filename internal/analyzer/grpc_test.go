@@ -23,6 +23,9 @@ func (s *analyzerService) GetCapabilities(context.Context, *mouseionv1.GetCapabi
 	return &mouseionv1.GetCapabilitiesResponse{Languages: []*mouseionv1.LanguageCapability{{
 		Language: "de", DisplayName: "German", ModelVersion: "1.10.1",
 		SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
+	}, {
+		Language: "it", DisplayName: "Italian", ModelVersion: "1.9.2",
+		SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: false,
 	}}}, nil
 }
 
@@ -83,7 +86,7 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(capabilities.Languages) != 1 || capabilities.Languages[0].DisplayName != "German" || !capabilities.Languages[0].Ready {
+	if len(capabilities.Languages) != 2 || capabilities.Languages[0].DisplayName != "German" || !capabilities.Languages[0].Ready || capabilities.Languages[1].DisplayName != "Italian" || capabilities.Languages[1].Ready {
 		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }

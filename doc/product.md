@@ -63,7 +63,9 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 
 - `MOUSEION_DATABASE_URL` — PostgreSQL connection string.
 - `MOUSEION_NLP_ADDR` — address of the Python gRPC service.
-- `MOUSEION_NLP_WARM_LANGUAGE` — optional language pipeline to preload in the NLP service.
+- `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
+  advertise from the NLP service, defaulting to `de`. The singular
+  `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
