@@ -61,10 +61,11 @@ type Chapter struct {
 }
 
 type ExtractedBook struct {
-	Title            string    `json:"title"`
-	SourceIdentifier string    `json:"source_identifier"`
-	FullText         string    `json:"full_text"`
-	Chapters         []Chapter `json:"chapters"`
+	Title            string         `json:"title"`
+	SourceIdentifier string         `json:"source_identifier"`
+	FullText         string         `json:"full_text"`
+	Chapters         []Chapter      `json:"chapters"`
+	ExtractedUnits   ExtractedUnits `json:"extracted_units"`
 }
 
 type container struct {
@@ -72,18 +73,20 @@ type container struct {
 		FullPath string `xml:"full-path,attr"`
 	} `xml:"rootfiles>rootfile"`
 }
+type manifestItem struct {
+	ID         string `xml:"id,attr"`
+	Href       string `xml:"href,attr"`
+	MediaType  string `xml:"media-type,attr"`
+	Properties string `xml:"properties,attr"`
+}
+
 type packageDoc struct {
 	Metadata struct {
 		Titles      []string `xml:"title"`
 		Identifiers []string `xml:"identifier"`
 	} `xml:"metadata"`
-	Manifest []struct {
-		ID         string `xml:"id,attr"`
-		Href       string `xml:"href,attr"`
-		MediaType  string `xml:"media-type,attr"`
-		Properties string `xml:"properties,attr"`
-	} `xml:"manifest>item"`
-	Spine []struct {
+	Manifest []manifestItem `xml:"manifest>item"`
+	Spine    []struct {
 		IDRef  string `xml:"idref,attr"`
 		Linear string `xml:"linear,attr"`
 	} `xml:"spine>itemref"`
@@ -118,29 +121,49 @@ func Extract(data []byte) (ExtractedBook, error) {
 	if err := decodeXMLFile(files, opfPath, &pkg); err != nil {
 		return ExtractedBook{}, invalid("read package document "+opfPath, err)
 	}
-	book := ExtractedBook{Title: firstNonBlank(pkg.Metadata.Titles), SourceIdentifier: firstNonBlank(pkg.Metadata.Identifiers)}
+	book := ExtractedBook{
+		Title:            firstNonBlank(pkg.Metadata.Titles),
+		SourceIdentifier: firstNonBlank(pkg.Metadata.Identifiers),
+		ExtractedUnits: ExtractedUnits{
+			SchemaVersion: ExtractedUnitsSchemaVersion,
+			Units:         []ExtractedUnit{},
+		},
+	}
 	if book.SourceIdentifier == "" {
 		return ExtractedBook{}, invalid("package metadata has no identifier", nil)
 	}
-	items := make(map[string]struct{ href, mediaType, properties string })
+	items := make(map[string]manifestItem, len(pkg.Manifest))
 	for _, item := range pkg.Manifest {
-		items[item.ID] = struct{ href, mediaType, properties string }{item.Href, item.MediaType, item.Properties}
+		if strings.TrimSpace(item.ID) == "" {
+			return ExtractedBook{}, invalid("manifest item has no ID", nil)
+		}
+		if _, exists := items[item.ID]; exists {
+			return ExtractedBook{}, invalid("duplicate manifest item ID "+item.ID, nil)
+		}
+		items[item.ID] = item
 	}
 	base := path.Dir(opfPath)
+	navigationLabels, landmarkTypes := navigationMetadata(files, base, pkg.Manifest)
 	var out strings.Builder
 	var offset uint64
-	for _, ref := range pkg.Spine {
-		if strings.EqualFold(ref.Linear, "no") {
-			continue
+	for spineIndex, ref := range pkg.Spine {
+		if strings.TrimSpace(ref.IDRef) == "" {
+			return ExtractedBook{}, invalid("spine item has no idref", nil)
 		}
 		item, ok := items[ref.IDRef]
 		if !ok {
 			return ExtractedBook{}, invalid("spine references missing manifest item "+ref.IDRef, nil)
 		}
-		if item.mediaType != "application/xhtml+xml" || hasWord(item.properties, "nav") {
+		if strings.EqualFold(ref.Linear, "no") {
 			continue
 		}
-		name := path.Clean(path.Join(base, item.href))
+		if item.MediaType != "application/xhtml+xml" || hasWord(item.Properties, "nav") {
+			continue
+		}
+		name, err := resolveResourcePath(base, item.Href)
+		if err != nil {
+			return ExtractedBook{}, invalid("resolve manifest resource "+item.Href, err)
+		}
 		text, title, err := extractXHTML(files[name])
 		if err != nil {
 			return ExtractedBook{}, invalid("extract spine document "+name, err)
@@ -155,16 +178,170 @@ func Extract(data []byte) (ExtractedBook, error) {
 		start := offset
 		out.WriteString(text)
 		offset += uint64(len([]rune(text)))
+		titleSource := UnitTitleHeading
 		if title == "" {
 			title = ref.IDRef
+			titleSource = UnitTitleManifestID
 		}
+		unit := ExtractedUnit{
+			ID:               UnitID(uint64(spineIndex), ref.IDRef),
+			Order:            uint64(len(book.ExtractedUnits.Units)),
+			SpineIndex:       uint64(spineIndex),
+			Title:            title,
+			TitleSource:      titleSource,
+			Text:             text,
+			StartOffset:      start,
+			EndOffset:        offset,
+			PackagePath:      opfPath,
+			ManifestID:       ref.IDRef,
+			SourceHref:       item.Href,
+			ResolvedHref:     name,
+			MediaType:        item.MediaType,
+			Properties:       append([]string{}, strings.Fields(item.Properties)...),
+			Linear:           true,
+			NavigationLabels: append([]string{}, navigationLabels[name]...),
+			LandmarkTypes:    append([]string{}, landmarkTypes[name]...),
+		}
+		book.ExtractedUnits.Units = append(book.ExtractedUnits.Units, unit)
 		book.Chapters = append(book.Chapters, Chapter{ID: ref.IDRef, Title: title, Location: Location{SourceDocumentID: book.SourceIdentifier, Chapter: title, Section: title, StartOffset: start, EndOffset: offset}})
 	}
 	if len(book.Chapters) == 0 {
 		return ExtractedBook{}, invalid("package spine contains no readable XHTML content", nil)
 	}
 	book.FullText = out.String()
+	if err := book.ExtractedUnits.ValidateOffsets(book.FullText); err != nil {
+		return ExtractedBook{}, invalid("validate extracted units", err)
+	}
 	return book, nil
+}
+
+func resolveResourcePath(base, href string) (string, error) {
+	resource := href
+	if i := strings.IndexByte(resource, '#'); i >= 0 {
+		resource = resource[:i]
+	}
+	if resource == "" || path.IsAbs(resource) {
+		return "", errors.New("unsafe or blank resource path")
+	}
+	name := path.Clean(path.Join(base, resource))
+	if name == "." || name == ".." || strings.HasPrefix(name, "../") {
+		return "", errors.New("resource escapes EPUB root")
+	}
+	return name, nil
+}
+
+func navigationMetadata(files map[string]*zip.File, base string, manifest []manifestItem) (map[string][]string, map[string][]string) {
+	labels := make(map[string][]string)
+	landmarks := make(map[string][]string)
+	for _, item := range manifest {
+		if item.MediaType != "application/xhtml+xml" || !hasWord(item.Properties, "nav") {
+			continue
+		}
+		name, err := resolveResourcePath(base, item.Href)
+		if err != nil || files[name] == nil {
+			continue
+		}
+		documentLabels := make(map[string][]string)
+		documentLandmarks := make(map[string][]string)
+		if err := extractNavigation(files[name], path.Dir(name), documentLabels, documentLandmarks); err != nil {
+			continue
+		}
+		for resource, values := range documentLabels {
+			labels[resource] = append(labels[resource], values...)
+		}
+		for resource, values := range documentLandmarks {
+			landmarks[resource] = append(landmarks[resource], values...)
+		}
+	}
+	return labels, landmarks
+}
+
+func extractNavigation(f *zip.File, base string, labels, landmarks map[string][]string) error {
+	data, err := readFile(f)
+	if err != nil {
+		return err
+	}
+	d := xml.NewDecoder(strings.NewReader(xhtmlEntityReplacer.Replace(string(data))))
+	var navTypes []string
+	var navDepth int
+	var anchorDepth int
+	var href string
+	var anchorTypes []string
+	var label strings.Builder
+	for {
+		tok, err := d.Token()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		switch v := tok.(type) {
+		case xml.StartElement:
+			switch strings.ToLower(v.Name.Local) {
+			case "nav":
+				if navDepth == 0 {
+					navTypes = strings.Fields(attribute(v.Attr, "type"))
+				}
+				navDepth++
+			case "a":
+				if navDepth > 0 && anchorDepth == 0 {
+					href = attribute(v.Attr, "href")
+					anchorTypes = strings.Fields(attribute(v.Attr, "type"))
+					label.Reset()
+				}
+				if navDepth > 0 {
+					anchorDepth++
+				}
+			default:
+				if anchorDepth > 0 {
+					anchorDepth++
+				}
+			}
+		case xml.CharData:
+			if anchorDepth > 0 {
+				label.Write([]byte(v))
+			}
+		case xml.EndElement:
+			if anchorDepth > 0 {
+				anchorDepth--
+				if anchorDepth == 0 {
+					resolved, resolveErr := resolveResourcePath(base, href)
+					if resolveErr == nil {
+						if text := cleanSpace(label.String()); text != "" {
+							labels[resolved] = append(labels[resolved], text)
+						}
+						if containsWord(navTypes, "landmarks") {
+							landmarks[resolved] = append(landmarks[resolved], anchorTypes...)
+						}
+					}
+				}
+			} else if strings.EqualFold(v.Name.Local, "nav") && navDepth > 0 {
+				navDepth--
+				if navDepth == 0 {
+					navTypes = nil
+				}
+			}
+		}
+	}
+}
+
+func attribute(attrs []xml.Attr, name string) string {
+	for _, attr := range attrs {
+		if attr.Name.Local == name {
+			return attr.Value
+		}
+	}
+	return ""
+}
+
+func containsWord(words []string, word string) bool {
+	for _, value := range words {
+		if value == word {
+			return true
+		}
+	}
+	return false
 }
 
 func readFile(f *zip.File) ([]byte, error) {
