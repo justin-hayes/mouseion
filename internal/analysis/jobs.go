@@ -3,10 +3,12 @@ package analysis
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -37,6 +39,7 @@ type JobArgs struct {
 	Text             string `json:"text"`
 	SourceIdentifier string `json:"source_identifier"`
 	Title            string `json:"title"`
+	ReviewedScopeID  string `json:"reviewed_scope_id,omitempty" river:"unique"`
 }
 
 func (JobArgs) Kind() string { return "analyze_corpus" }
@@ -69,6 +72,19 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 // SubmitAnalysis atomically records an owner-scoped handle and inserts its
 // River job. River uniqueness is based on owner + source content hash.
 func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (Handle, error) {
+	return s.submitAnalysis(ctx, owner, sourceID, "")
+}
+
+// SubmitScopedAnalysis queues an immutable reviewed EPUB scope. Unit text is
+// deliberately absent from job arguments and is reloaded and validated by the worker.
+func (s *Service) SubmitScopedAnalysis(ctx context.Context, owner, sourceID, scopeID string) (Handle, error) {
+	if scopeID == "" {
+		return Handle{}, fmt.Errorf("reviewed scope id is required")
+	}
+	return s.submitAnalysis(ctx, owner, sourceID, scopeID)
+}
+
+func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID string) (Handle, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin analysis submission: %w", err)
@@ -83,13 +99,20 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err != nil {
 		return Handle{}, fmt.Errorf("load source for analysis: %w", err)
 	}
+	args.ReviewedScopeID = scopeID
+	if scopeID != "" {
+		if _, err = loadScopedUnits(ctx, tx, owner, sourceID, scopeID); err != nil {
+			return Handle{}, err
+		}
+		args.Text = ""
+	}
 	// Serialize submissions per owner so display numbers remain gap-free and
 	// unique without exposing River's global sequence.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
 		return Handle{}, fmt.Errorf("lock analysis submissions: %w", err)
 	}
 	var existingID, existingDisplayNumber int64
-	err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND content_hash=$2`, owner, args.ContentHash).Scan(&existingID, &existingDisplayNumber)
+	err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND (($3='' AND reviewed_scope_id IS NULL AND content_hash=$2) OR reviewed_scope_id::text=$3)`, owner, args.ContentHash, scopeID).Scan(&existingID, &existingDisplayNumber)
 	if err == nil {
 		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, fmt.Errorf("commit duplicate analysis lookup: %w", err)
@@ -104,9 +127,9 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
 	}
 	var displayNumber int64
-	err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,display_number)
-		VALUES($1,$2,$3,$4,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))
-		RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash).Scan(&displayNumber)
+	err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,reviewed_scope_id,display_number)
+		VALUES($1,$2,$3,$4,NULLIF($5,'')::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))
+		RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, scopeID).Scan(&displayNumber)
 	if err != nil {
 		return Handle{}, fmt.Errorf("record analysis job: %w", err)
 	}
@@ -152,8 +175,8 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 	var corpus domain.Corpus
 	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
 	var medianSentenceTokenCount *float64
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
-		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &corpus.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,COALESCE(reviewed_scope_id::text,''),status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, status.CorpusID).
+		Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.ReviewedScopeID, &corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &corpus.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Corpus{}, ErrNotFound
 	}
@@ -161,6 +184,23 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 		corpus.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
 		if sentenceCount != nil && normalizedTokenCount != nil && emptySentenceCount != nil && medianSentenceTokenCount != nil && p90SentenceTokenCount != nil && longSentenceCount != nil {
 			corpus.Statistics.TextProfile = &domain.TextProfile{SentenceCount: *sentenceCount, NormalizedTokenCount: *normalizedTokenCount, EmptySentenceCount: *emptySentenceCount, MedianSentenceTokenCount: *medianSentenceTokenCount, P90SentenceTokenCount: *p90SentenceTokenCount, LongSentenceCount: *longSentenceCount}
+		}
+	}
+	if err == nil && corpus.ReviewedScopeID != "" {
+		rows, queryErr := s.pool.Query(ctx, `SELECT unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 ORDER BY unit_order`, owner, corpus.ID)
+		if queryErr != nil {
+			return domain.Corpus{}, queryErr
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var unit domain.CorpusSelectedUnit
+			if queryErr = rows.Scan(&unit.UnitID, &unit.Order, &unit.SourceHref, &unit.ResolvedHref, &unit.Title, &unit.StartOffset, &unit.EndOffset); queryErr != nil {
+				return domain.Corpus{}, queryErr
+			}
+			corpus.SelectedUnits = append(corpus.SelectedUnits, unit)
+		}
+		if queryErr = rows.Err(); queryErr != nil {
+			return domain.Corpus{}, queryErr
 		}
 	}
 	return corpus, err
@@ -204,6 +244,56 @@ type Worker struct {
 	MaxChunkChars int
 }
 
+type scopedUnit struct {
+	SnapshotID, UnitID, Title, SourceHref, ResolvedHref, Text string
+	Order                                                     int
+	StartOffset, EndOffset                                    uint64
+}
+
+type queryRower interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func loadScopedUnits(ctx context.Context, q queryRower, owner, sourceID, scopeID string) ([]scopedUnit, error) {
+	rows, err := q.Query(ctx, `SELECT s.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset,
+		(SELECT count(*) FROM epub_reviewed_scope_units expected WHERE expected.scope_id=s.scope_id)
+		FROM epub_reviewed_scopes s
+		JOIN source_material_unit_snapshots snap ON snap.owner_id=s.owner_id AND snap.source_material_id=s.source_material_id AND snap.snapshot_id=s.snapshot_id AND snap.schema_version=s.extracted_units_schema_version
+		JOIN epub_reviewed_scope_units selected ON selected.scope_id=s.scope_id AND selected.owner_id=s.owner_id AND selected.source_material_id=s.source_material_id
+		JOIN source_material_units u ON u.owner_id=selected.owner_id AND u.source_material_id=selected.source_material_id AND u.unit_id=selected.unit_id AND u.unit_order=selected.unit_order
+		WHERE s.scope_id=$1 AND s.owner_id=$2 AND s.source_material_id=$3 AND s.schema_version=$4
+		ORDER BY selected.unit_order`, scopeID, owner, sourceID, domain.EPUBReviewedScopeSchemaVersion)
+	if err != nil {
+		return nil, fmt.Errorf("load reviewed scope: %w", err)
+	}
+	defer rows.Close()
+	var units []scopedUnit
+	expectedCount := -1
+	lastOrder := -1
+	for rows.Next() {
+		var unit scopedUnit
+		var rowExpectedCount int
+		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset, &rowExpectedCount); err != nil {
+			return nil, fmt.Errorf("load reviewed scope unit: %w", err)
+		}
+		if expectedCount == -1 {
+			expectedCount = rowExpectedCount
+		}
+		if expectedCount != rowExpectedCount || unit.UnitID == "" || strings.TrimSpace(unit.Text) == "" || unit.Order <= lastOrder || unit.EndOffset < unit.StartOffset {
+			return nil, fmt.Errorf("reviewed scope is invalid")
+		}
+		lastOrder = unit.Order
+		units = append(units, unit)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("load reviewed scope units: %w", err)
+	}
+	if len(units) == 0 || len(units) != expectedCount {
+		return nil, fmt.Errorf("reviewed scope is missing, stale, cross-owner, empty, or invalid")
+	}
+	return units, nil
+}
+
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
 	a := job.Args
 	if _, err := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=10,error='',updated_at=now() WHERE river_job_id=$1 AND owner_id=$2`, job.ID, a.OwnerID); err != nil {
@@ -224,36 +314,67 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 		return fmt.Errorf("verify analysis ownership: source not owned or changed")
 	}
-	// Analyze the source in size-based chunks (ADR 0013). Each chunk is a
-	// separate Analyze RPC so no single call exceeds the deadline or the gRPC
-	// message-size limit. Results are merged into one corpus.
-	chunks := chunkText(a.Text, w.MaxChunkChars)
-	var merged analyzer.Result
-	var chunkStartOffset uint64
-	for i, chunk := range chunks {
-		chunkResult, err := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: a.SourceMaterialID, SourceIdentifier: a.SourceIdentifier, Title: a.Title, Text: chunk}})
+	type analysisInput struct{ id, identifier, title, text string }
+	inputs := []analysisInput{{a.SourceMaterialID, a.SourceIdentifier, a.Title, a.Text}}
+	var selectedUnits []scopedUnit
+	artifactHash := a.ContentHash
+	if a.ReviewedScopeID != "" {
+		var err error
+		selectedUnits, err = loadScopedUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ReviewedScopeID)
 		if err != nil {
-			return fmt.Errorf("analyze source chunk %d/%d: %w", i+1, len(chunks), err)
+			return err
 		}
-		if i == 0 {
-			// Carry the schema/analysis/profile from the first chunk.
-			merged = chunkResult
-			merged.Sentences = nil
+		inputs = make([]analysisInput, 0, len(selectedUnits))
+		for _, unit := range selectedUnits {
+			identifier := unit.ResolvedHref
+			if identifier == "" {
+				identifier = unit.SourceHref
+			}
+			inputs = append(inputs, analysisInput{unit.UnitID, identifier, unit.Title, unit.Text})
 		}
-		offsetResultLocations(&chunkResult, chunkStartOffset)
-		merged.Sentences = append(merged.Sentences, chunkResult.Sentences...)
-		chunkStartOffset += uint64(len([]rune(chunk)))
-		// Report per-chunk progress: 10% (started) → 90% (last chunk done).
-		progress := 10 + (i+1)*80/len(chunks)
-		if _, err := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE river_job_id=$1 AND owner_id=$3`, job.ID, progress, a.OwnerID); err != nil {
-			return fmt.Errorf("update progress after analysis chunk %d/%d: %w", i+1, len(chunks), err)
+		artifactHash = fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(a.ContentHash+"\x00"+a.ReviewedScopeID)))
+	}
+	// Analyze each selected unit independently, retaining its unit ID as the
+	// source-document identity. Oversized units still use ADR 0013 chunking.
+	var merged analyzer.Result
+	totalChunks := 0
+	for _, input := range inputs {
+		totalChunks += len(chunkText(input.text, w.MaxChunkChars))
+	}
+	completedChunks := 0
+	for _, input := range inputs {
+		chunks := chunkText(input.text, w.MaxChunkChars)
+		var chunkStartOffset uint64
+		for i, chunk := range chunks {
+			chunkResult, err := w.Analyzer.Analyze(ctx, analyzer.AnalyzeRequest{Language: a.Language, Document: analyzer.SourceDocument{ID: input.id, SourceIdentifier: input.identifier, Title: input.title, Text: chunk}})
+			if err != nil {
+				return fmt.Errorf("analyze source unit %s chunk %d/%d: %w", input.id, i+1, len(chunks), err)
+			}
+			if completedChunks == 0 {
+				// Carry the schema/analysis/profile from the first chunk.
+				merged = chunkResult
+				merged.Sentences = nil
+				merged.SourceDocuments = nil
+			}
+			offsetResultLocations(&chunkResult, chunkStartOffset)
+			merged.Sentences = append(merged.Sentences, chunkResult.Sentences...)
+			if i == 0 {
+				merged.SourceDocuments = append(merged.SourceDocuments, chunkResult.SourceDocuments...)
+			}
+			chunkStartOffset += uint64(len([]rune(chunk)))
+			completedChunks++
+			// Report per-chunk progress: 10% (started) → 90% (last chunk done).
+			progress := 10 + completedChunks*80/totalChunks
+			if _, err := w.Pool.Exec(ctx, `UPDATE analysis_jobs SET progress=$2,updated_at=now() WHERE river_job_id=$1 AND owner_id=$3`, job.ID, progress, a.OwnerID); err != nil {
+				return fmt.Errorf("update progress after analysis chunk %d/%d: %w", i+1, len(chunks), err)
+			}
 		}
 	}
 	result := merged
-	lemmas := aggregateLemmas(a.ContentHash, result)
+	lemmas := aggregateLemmas(artifactHash, result)
 	selectionConfig := selection.DefaultConfig("")
 	statistics := selection.AnalyzableStatistics(result, selectionConfig)
-	artifact := domain.NormalizedArtifact{ContentHash: a.ContentHash, Language: result.Language, SchemaVersion: result.SchemaVersion, NormalizationProfile: result.NormalizationProfile.Name, NormalizationVersion: result.NormalizationProfile.Version, AnalyzerName: result.Analysis.AnalyzerName, AnalyzerVersion: result.Analysis.AnalyzerVersion}
+	artifact := domain.NormalizedArtifact{ContentHash: artifactHash, Language: result.Language, SchemaVersion: result.SchemaVersion, NormalizationProfile: result.NormalizationProfile.Name, NormalizationVersion: result.NormalizationProfile.Version, AnalyzerName: result.Analysis.AnalyzerName, AnalyzerVersion: result.Analysis.AnalyzerVersion}
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -270,9 +391,24 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 	var corpusID string
 	profile := statistics.TextProfile
-	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,'complete',$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(owner_id,source_material_id) DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete',analyzable_token_count=excluded.analyzable_token_count,distinct_lemma_count=excluded.distinct_lemma_count,sentence_count=excluded.sentence_count,normalized_token_count=excluded.normalized_token_count,empty_sentence_count=excluded.empty_sentence_count,median_sentence_token_count=excluded.median_sentence_token_count,p90_sentence_token_count=excluded.p90_sentence_token_count,long_sentence_count=excluded.long_sentence_count RETURNING id`, a.OwnerID, a.SourceMaterialID, a.ContentHash, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
+	conflict := `(owner_id,source_material_id) WHERE reviewed_scope_id IS NULL`
+	if a.ReviewedScopeID != "" {
+		conflict = `(owner_id,reviewed_scope_id) WHERE reviewed_scope_id IS NOT NULL`
+	}
+	query := `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,reviewed_scope_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,NULLIF($4,'')::uuid,'complete',$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT ` + conflict + ` DO UPDATE SET artifact_hash=excluded.artifact_hash,status='complete',analyzable_token_count=excluded.analyzable_token_count,distinct_lemma_count=excluded.distinct_lemma_count,sentence_count=excluded.sentence_count,normalized_token_count=excluded.normalized_token_count,empty_sentence_count=excluded.empty_sentence_count,median_sentence_token_count=excluded.median_sentence_token_count,p90_sentence_token_count=excluded.p90_sentence_token_count,long_sentence_count=excluded.long_sentence_count RETURNING id`
+	err = tx.QueryRow(ctx, query, a.OwnerID, a.SourceMaterialID, artifactHash, a.ReviewedScopeID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if err != nil {
 		return err
+	}
+	if a.ReviewedScopeID != "" {
+		if _, err = tx.Exec(ctx, `DELETE FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2`, a.OwnerID, corpusID); err != nil {
+			return err
+		}
+		for _, unit := range selectedUnits {
+			if _, err = tx.Exec(ctx, `INSERT INTO corpus_selected_units(corpus_id,owner_id,scope_id,source_material_id,snapshot_id,unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, corpusID, a.OwnerID, a.ReviewedScopeID, a.SourceMaterialID, unit.SnapshotID, unit.UnitID, unit.Order, unit.SourceHref, unit.ResolvedHref, unit.Title, unit.StartOffset, unit.EndOffset); err != nil {
+				return err
+			}
+		}
 	}
 	now := time.Now().UTC()
 	details, _ := json.Marshal(map[string]any{"river_job_id": job.ID, "content_hash": a.ContentHash})

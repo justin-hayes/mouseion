@@ -326,7 +326,7 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 					</article>
 				}
 			</fieldset>
-			<button type="submit">Confirm analysis scope</button><small>This saves the reviewed scope only. It does not start analysis.</small>
+			<button type="submit">Confirm and analyze scope</button><small>This saves an immutable reviewed scope and queues its selected units for analysis.</small>
 		</form>
 		<script>
 const scopeForm = document.querySelector('[data-scope-review]');
