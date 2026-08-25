@@ -168,8 +168,9 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 
 func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	var output bytes.Buffer
-	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", ReviewedScopeID: "scope-264"}
 	coverage := domain.AnalysisCoverage{
+		ReviewedScopeID: "scope-264", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "one", Order: 1, Title: "Chapter One"}, {UnitID: "two", Order: 2, SourceHref: "chapter-two.xhtml"}},
 		AnalyzableTokenCount: 40, DistinctLemmaCount: 12, KnownTokenCount: 30, KnownLemmaCount: 7, UnknownTokenCount: 10, UnknownLemmaCount: 5,
 		TextProfile:          &domain.TextProfile{SentenceCount: 4, NormalizedTokenCount: 50, EmptySentenceCount: 1, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 40, LongSentenceCount: 1},
 		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 4}},
@@ -181,7 +182,7 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Analysis quality", "do not assign a quality grade", "Empty sentences returned", "1 analyzer-provided sentences contained no tokens", "Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "not a difficulty score", "75.0%", "current-known coverage", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas", "graduated by completed campaigns", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "Unavailable", "99% cannot be reached with deck-eligible vocabulary", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
+	for _, want := range []string{"Analyzed scope", "2 selected units", "scope-264", "Chapter One", "chapter-two.xhtml", "not necessarily to the full EPUB", "Reanalysis", "reuses reviewed scope", "new EPUB scope", "Analysis quality", "do not assign a quality grade", "Empty sentences returned", "1 analyzer-provided sentences contained no tokens", "Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "not a difficulty score", "75.0%", "current-known coverage", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas", "graduated by completed campaigns", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "Unavailable", "99% cannot be reached with deck-eligible vocabulary", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("coverage summary missing %q", want)
 		}

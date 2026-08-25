@@ -64,10 +64,11 @@ type SourceMaterial struct {
 // SourceMaterialSummary adds the learner-facing state derived from the latest
 // analysis job and corpus without loading the book's content.
 type SourceMaterialSummary struct {
-	Source         SourceMaterial
-	AnalysisStatus string
-	CorpusID       string
-	AnalysisJobID  int64
+	Source          SourceMaterial
+	AnalysisStatus  string
+	CorpusID        string
+	ReviewedScopeID string
+	AnalysisJobID   int64
 }
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password string
@@ -103,6 +104,8 @@ type TextProfile struct {
 // vocabulary coverage calculations.
 type AnalysisCorpusVocabulary struct {
 	CorpusID, SourceMaterialID string
+	ReviewedScopeID            string
+	SelectedUnits              []CorpusSelectedUnit
 	Statistics                 *AnalysisStatistics
 	Lemmas                     []LemmaOccurrence
 }
@@ -132,6 +135,8 @@ type CoverageProjection struct {
 
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
+	ReviewedScopeID          string
+	SelectedUnits            []CorpusSelectedUnit
 	AnalyzableTokenCount     int64
 	DistinctLemmaCount       int64
 	KnownTokenCount          int64

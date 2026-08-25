@@ -627,10 +627,17 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	if _, ok := h.loadBook(w, r, u.ID); !ok {
+	book, ok := h.loadBook(w, r, u.ID)
+	if !ok {
 		return
 	}
-	handle, err := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, r.PathValue("id"))
+	var handle analysis.Handle
+	var err error
+	if book.ReviewedScopeID != "" {
+		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, book.ReviewedScopeID)
+	} else {
+		handle, err = h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
+	}
 	if err != nil {
 		fail(w, err)
 		return

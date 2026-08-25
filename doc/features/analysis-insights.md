@@ -13,7 +13,7 @@ After a book is analyzed, a learner needs more than an analyzed status or a deck
 - Explain the difference between current known, active-campaign projected,
   unknown, legacy generated, and eligible vocabulary.
 - Surface useful text-profile and analysis-quality signals.
-- Keep every metric explainable and reproducible from the analyzed book and learner vocabulary.
+- Keep every metric explainable and reproducible from the resulting corpus scope and learner vocabulary.
 
 ## Non-goals
 
@@ -48,7 +48,7 @@ selection never uses a rounded percentage.
 
 ### Threshold requirements
 
-Threshold investment uses the full analyzable-token denominator from current
+Threshold investment uses the resulting corpus scope's full analyzable-token denominator from current
 coverage. Remove explicitly known identities from the unknown-to-learn list, but
 include previously generated identities: generated means assigned for study, not
 known. For target `T`, additional vocabulary to learn is the smallest
@@ -57,7 +57,7 @@ when added to explicitly known occurrences, reaches `T` percent of all
 analyzable tokens. If current coverage already reaches the target, the required
 lemma count is zero.
 
-Candidates are ordered by descending book-local occurrence count. Equal counts
+Candidates are ordered by descending analyzed-scope occurrence count. Equal counts
 are ordered lexicographically by `(language, canonical lemma, UPOS)`. The
 threshold comparison uses exact integer arithmetic:
 
@@ -153,3 +153,17 @@ Thresholds, learner coverage, and projections are computed on demand from the
 persisted corpus statistics and current owner-scoped vocabulary state. This
 keeps the learner-specific values current after known-vocabulary or generated-
 deck changes without persisting derived mastery claims.
+
+## EPUB scope and reanalysis
+
+Insights identify whether their corpus uses an immutable reviewed EPUB scope or
+the legacy/full-text path. Reviewed scopes display their scope ID and selected
+unit count and titles. Coverage, thresholds, active-campaign and learn-next
+projections, top unknowns, and structural metrics always use only that resulting
+corpus; a selected scope is not presented as the full EPUB.
+
+Reanalysis may reuse the latest reviewed scope deterministically. Reviewing a
+different selection creates a new immutable scope, analysis job, corpus, and
+processing history without rewriting historical results. All scope and corpus
+lookups remain owner- and source-material-scoped. Corpora without a reviewed
+scope remain readable and are explicitly labeled legacy/full-text.
