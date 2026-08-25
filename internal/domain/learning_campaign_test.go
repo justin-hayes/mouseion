@@ -11,6 +11,7 @@ func TestDeriveCampaignStatus(t *testing.T) {
 		{BookQueued, DeckQueued, CampaignQueued},
 		{BookReading, DeckQueued, CampaignActive},
 		{BookFinished, DeckStudying, CampaignActive},
+		{BookReading, DeckReviewed, CampaignActive},
 		{BookFinished, DeckReviewed, CampaignComplete},
 		{BookAbandoned, DeckReviewed, CampaignAbandoned},
 		{BookFinished, DeckAbandoned, CampaignAbandoned},

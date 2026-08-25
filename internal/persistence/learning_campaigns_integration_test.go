@@ -69,6 +69,18 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&known); err != nil || known != 1 {
 		t.Fatalf("graduated vocabulary count=%d err=%v", known, err)
 	}
+	completedAt, graduatedAt := *campaign.CompletedAt, *campaign.VocabularyGraduatedAt
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookFinished, domain.DeckReviewed)
+	if err != nil || campaign.CompletedAt == nil || !campaign.CompletedAt.Equal(completedAt) || campaign.VocabularyGraduatedAt == nil || !campaign.VocabularyGraduatedAt.Equal(graduatedAt) {
+		t.Fatalf("idempotent completion = %+v, %v", campaign, err)
+	}
+	var generated, graduated int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&generated); err != nil || generated != 1 {
+		t.Fatalf("generated history count=%d err=%v", generated, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary WHERE owner_id=$1 AND campaign_id=$2 AND canonical_lemma='Haus' AND graduated_at IS NOT NULL`, alice.ID, campaign.ID).Scan(&graduated); err != nil || graduated != 1 {
+		t.Fatalf("graduation provenance count=%d err=%v", graduated, err)
+	}
 	var legacyKnown bool
 	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='Alt')`, alice.ID).Scan(&legacyKnown); err != nil || legacyKnown {
 		t.Fatalf("legacy generated row was promoted: known=%v err=%v", legacyKnown, err)

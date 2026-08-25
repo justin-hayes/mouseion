@@ -741,6 +741,15 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 			t.Fatal(prepErr)
 		}
 		decks.preparations[preparation.ID] = preparation
+		if title == "Completed Book" {
+			deck, deckErr := store.PutDeck(ctx, alice.ID, "de", "Campaign completion")
+			if deckErr != nil {
+				t.Fatal(deckErr)
+			}
+			if _, generatedErr := store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "lernen", UPOS: "VERB", FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID}); generatedErr != nil {
+				t.Fatal(generatedErr)
+			}
+		}
 	}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "campaign-web-alice", "alice-password")
@@ -794,8 +803,34 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if conflict.Code != http.StatusSeeOther || !strings.Contains(conflict.Header().Get("Location"), "Finish+or+abandon") {
 		t.Fatalf("second active=%d location=%q", conflict.Code, conflict.Header().Get("Location"))
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, completedCampaign.ID, domain.BookFinished, domain.DeckReviewed); err != nil {
-		t.Fatal(err)
+	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", nil, aliceCookies); got.Code != http.StatusForbidden {
+		t.Fatalf("finish book without csrf=%d", got.Code)
+	}
+	finished := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if finished.Code != http.StatusSeeOther || !strings.Contains(finished.Header().Get("Location"), "Book+marked+finished") {
+		t.Fatalf("finish book=%d location=%q", finished.Code, finished.Header().Get("Location"))
+	}
+	progressPage := perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	if body := progressPage.Body.String(); !strings.Contains(body, "Book</dt><dd>Finished · ") || strings.Contains(body, "Mark book finished") || !strings.Contains(body, "Mark deck reviewed") {
+		t.Fatalf("book progress page=%s", body)
+	}
+	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner review=%d", got.Code)
+	}
+	reviewed := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if reviewed.Code != http.StatusSeeOther || !strings.Contains(reviewed.Header().Get("Location"), "Campaign+complete") {
+		t.Fatalf("review deck=%d location=%q", reviewed.Code, reviewed.Header().Get("Location"))
+	}
+	var known, generated int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='lernen'`, alice.ID).Scan(&known); err != nil || known != 1 {
+		t.Fatalf("graduated known vocabulary=%d err=%v", known, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='lernen'`, alice.ID).Scan(&generated); err != nil || generated != 1 {
+		t.Fatalf("generated history=%d err=%v", generated, err)
+	}
+	repeated := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	if repeated.Code != http.StatusSeeOther || !strings.Contains(repeated.Header().Get("Location"), "Only+the+active") {
+		t.Fatalf("repeat review=%d location=%q", repeated.Code, repeated.Header().Get("Location"))
 	}
 	activate(abandonedCampaign)
 	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, abandonedCampaign.ID, domain.BookAbandoned, domain.DeckAbandoned); err != nil {
@@ -805,7 +840,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 
 	page = perform(t, h, "GET", "/campaigns", nil, aliceCookies)
 	body := page.Body.String()
-	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying"} {
+	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying", "Completed 20", "Mark book finished", "Mark deck reviewed"} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("campaign page missing %q: %s", expected, body)
 		}
