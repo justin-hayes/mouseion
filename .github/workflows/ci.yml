@@ -60,10 +60,6 @@ jobs:
 
       # ------------------------------------------------------------------
       # Go
-      #
-      # Run when Go-related files changed, or when this workflow was
-      # manually triggered. Protobuf and shared build-system changes are
-      # included in the "go" filter above.
       # ------------------------------------------------------------------
 
       - name: Set up Go
@@ -106,13 +102,46 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: nlp/requirements-dev.txt
+          cache-dependency-path: |
+            nlp/requirements-dev.txt
+            nlp/pyproject.toml
 
-      - name: Set up Python environment
+      - name: Create Python environment
         if: |
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.python == 'true'
-        run: make setup
+        run: python -m venv .venv
+
+      - name: Install Python dev dependencies
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            -r nlp/requirements-dev.txt
+
+      # Install CPU-only Torch explicitly before installing Mouseion.
+      # This prevents Stanza from pulling in the much larger CUDA-enabled
+      # Linux dependency stack on GitHub-hosted runners.
+      - name: Install CPU-only PyTorch
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            torch \
+            --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install Mouseion NLP
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.python == 'true'
+        run: |
+          .venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            -e nlp
 
       - name: Python build
         if: |
@@ -138,9 +167,6 @@ jobs:
 
       # ------------------------------------------------------------------
       # Generated protobuf code
-      #
-      # Regenerate checked-in generated code and fail if doing so changes
-      # the working tree.
       # ------------------------------------------------------------------
 
       - name: Set up protoc
