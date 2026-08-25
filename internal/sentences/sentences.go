@@ -50,6 +50,8 @@ var (
 	bibliographicMarker = regexp.MustCompile(`(?i)(?:^|[[:space:]([])(?:in\s*:|(?:hgg?|hrsg)\.|(?:hgg?|hrsg)\s*(?:von|durch)|isbn(?:-1[03])?\s*:|doi\s*:|https?://|www\.)`)
 	contentsLeader      = regexp.MustCompile(`(?:\.{3,}|…{2,}|\s[-–—]{2,}\s)\s*\d{1,4}\s*$`)
 	barePageTail        = regexp.MustCompile(`\s(?:S\.|Seite(?:n)?|pp?\.)\s*\d+(?:\s*[-–]\s*\d+)?\.?\s*$`)
+	bareNumericTail     = regexp.MustCompile(`\s\d{1,4}\.(?:\s+und\s+\d{1,4}\.)?\s*$`)
+	trailingFootnote    = regexp.MustCompile(`\[\d+\]\s*[.!?]?\s*$`)
 )
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -119,7 +121,7 @@ func (s *Service) Select(ctx context.Context, owner, corpusID string, candidate 
 }
 
 func structuralFragment(text string) bool {
-	if authorYearEntry.MatchString(text) || bibliographicMarker.MatchString(text) || contentsLeader.MatchString(text) || barePageTail.MatchString(text) {
+	if authorYearEntry.MatchString(text) || bibliographicMarker.MatchString(text) || contentsLeader.MatchString(text) || barePageTail.MatchString(text) || bareNumericTail.MatchString(text) || trailingFootnote.MatchString(text) {
 		return true
 	}
 	// Sentence segmentation also emits headings and standalone book/article
