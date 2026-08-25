@@ -115,3 +115,39 @@ def test_warmup_loads_the_pipeline_for_a_language() -> None:
     # still loads the pipeline for the given language
     producer.warmup("de")
     assert loaded == ["de", "de"]
+
+
+def test_italian_warmup_and_analyze_use_the_injected_pipeline() -> None:
+    loaded: list[str] = []
+    analyzed: list[str] = []
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="La casa.",
+                tokens=[
+                    SimpleNamespace(words=[word("La", "il", "DET", None, 0, 2)]),
+                    SimpleNamespace(words=[word("casa", "casa", "NOUN", None, 3, 7)]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 7, 8)]),
+                ],
+            )
+        ]
+    )
+
+    def factory(language: str, enable_ner: bool):
+        assert (language, enable_ner) == ("it", False)
+        loaded.append(language)
+
+        def pipeline(text: str):
+            analyzed.append(text)
+            return result
+
+        return pipeline
+
+    producer = Producer(pipeline_factory=factory)
+    producer.warmup("it")
+    artifact = producer.analyze("La casa.", "it")
+
+    assert loaded == ["it", "it"]
+    assert analyzed == ["La casa."]
+    assert artifact.language == "it"
+    assert [token.raw_lemma for token in artifact.sentences[0].tokens] == ["il", "casa", "."]

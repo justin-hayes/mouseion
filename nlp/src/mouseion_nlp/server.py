@@ -72,7 +72,10 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
         if descriptor is None:
             raise ValueError(f"language '{language}' is not configured")
         self._producer.warmup(language)
-        descriptor.model_version = stanza.__version__
+        model_version = getattr(self._producer, "model_version", None)
+        descriptor.model_version = (
+            model_version(language) if model_version is not None else stanza.__version__
+        )
         descriptor.ready = True
 
     def GetCapabilities(self, request, context):  # noqa: ARG002, N802
