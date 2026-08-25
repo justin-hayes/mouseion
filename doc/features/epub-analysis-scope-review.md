@@ -50,6 +50,35 @@ A reviewed scope is an immutable selection snapshot associated with a source-mat
 
 The analysis job sends only selected unit text to NLP, in deterministic order, while preserving unit IDs and source provenance. Coverage and structural metrics state the selected scope.
 
+## Reviewed-scope contract (version 1)
+
+The Go representation lives in `internal/epub/scope_contract.go`. A reviewed
+scope records its schema version and immutable scope ID; owner and source
+material IDs; the exact extracted-unit snapshot ID and schema version; the
+classifier name and version whose recommendations were reviewed; selection
+mode (`recommended` or `overridden`); and selected unit references. Each
+reference contains only a unit ID and its original snapshot order. References
+must be unique, readable members of that exact owner-scoped source snapshot and
+must appear in strictly increasing source order. Empty selections, unsupported
+schema versions, mismatched identities, duplicate IDs, forged order metadata,
+and units outside the snapshot are invalid.
+
+The browser may submit this identity and selection metadata, but never unit
+text. The server validates against the persisted snapshot and reloads selected
+text from those persisted units for later analysis. Fixed object fields and the
+selected-unit array make serialization deterministic without map iteration.
+
+Confirmation creates a new immutable reviewed-scope snapshot. Repeating the
+same confirmation may return that same snapshot idempotently once persistence
+is implemented; a changed review or reanalysis creates a new scope ID and must
+not update historical selections. Persistence and analysis-job linkage are
+deliberately deferred because this contract phase adds no database migration or
+worker integration.
+
+A legacy source material with no extracted-unit snapshot returns
+`ErrReviewedScopeUnavailable`. Absence is not an empty reviewed selection: the
+caller must retain the legacy analysis path or clearly require re-extraction.
+
 ## Safety and compatibility
 
 - Owner isolation and CSRF are mandatory.
