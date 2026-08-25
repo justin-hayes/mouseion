@@ -138,6 +138,29 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 	}
 }
 
+func TestItalianCoverageUsesAggregatedLemmaOccurrences(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 6, DistinctLemmaCount: 4}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "libro", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "it", CanonicalLemma: "bere", UPOS: "VERB", OccurrenceCount: 2},
+			{Language: "it", CanonicalLemma: "uomo", UPOS: "NOUN", OccurrenceCount: 2},
+			{Language: "it", CanonicalLemma: "acqua", UPOS: "NOUN", OccurrenceCount: 1},
+			{Language: "it", CanonicalLemma: "dare", UPOS: "VERB", OccurrenceCount: 1},
+		}},
+		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "it", CanonicalLemma: "uomo", UPOS: "NOUN"}},
+	}
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus-it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.KnownTokenCount != 2 || got.UnknownTokenCount != 4 || got.KnownLemmaCount != 1 || got.UnknownLemmaCount != 3 {
+		t.Fatalf("Italian coverage = %+v", got)
+	}
+	if !got.Thresholds[1].Reachable || got.Thresholds[1].OccurrenceCount != 4 || got.Thresholds[1].LemmaCount != 3 {
+		t.Fatalf("Italian 97%% threshold = %+v", got.Thresholds[1])
+	}
+}
+
 func TestCoverageSeparatesActiveCampaignProjectionAndReleasesAbandonedVocabulary(t *testing.T) {
 	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 3}
 	store := &memoryStore{

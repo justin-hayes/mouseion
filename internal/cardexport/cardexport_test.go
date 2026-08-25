@@ -341,6 +341,28 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	}
 }
 
+func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
+	store := &memoryStore{bookID: "libro"}
+	store.candidates = []domain.SelectionCandidate{{
+		Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 2,
+		ObservedForms:      []byte(`["porterà"]`),
+		SentenceReferences: []byte(`[{"sentence_index":0,"text":"Domani Lucia porterà finalmente il pane fresco alla sua famiglia.","location":{"start_offset":7}}]`),
+	}}
+	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Morphology: `{"Mood":"Ind","Tense":"Fut"}`, Translation: "to bring", SentenceTranslation: "Tomorrow Lucia will finally bring fresh bread to her family.", SourceDocument: "Il viaggio"}}
+
+	artifact, err := NewService(store).BuildCoverage(context.Background(), "alice", "libro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 1 || artifact.DeckName != "Mouseion::it::Il viaggio" || artifact.Filename != "Il viaggio.apkg" || len(artifact.Generated) != 1 {
+		t.Fatalf("Italian prepared artifact = %+v", artifact)
+	}
+	note := artifact.Generated[0].Note
+	if !strings.Contains(note.Text, "{{c1::porterà::to bring}}") || note.Lemma != "portare" || note.POS != "VERB" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
+		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
+	}
+}
+
 func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
 	otherBook := "other-book"
 	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}}}

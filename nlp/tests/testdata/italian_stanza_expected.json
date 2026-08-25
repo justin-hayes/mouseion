@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "language": "it",
+  "sentences": [
+    {
+      "text": "L'uomo e le ragazze bevono dell'acqua.",
+      "tokens": [
+        {"surface":"L'","raw_lemma":"il","pos":"DET","canonical_lemma":"il","morphology":{"Definite":"Def","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"italian-book","end_offset":"2"}},
+        {"surface":"uomo","raw_lemma":"uomo","pos":"NOUN","canonical_lemma":"uomo","morphology":{"Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"italian-book","start_offset":"2","end_offset":"6"}},
+        {"surface":"e","raw_lemma":"e","pos":"CCONJ","canonical_lemma":"e","location":{"source_document_id":"italian-book","start_offset":"7","end_offset":"8"}},
+        {"surface":"le","raw_lemma":"il","pos":"DET","canonical_lemma":"il","morphology":{"Definite":"Def","Gender":"Fem","Number":"Plur","PronType":"Art"},"location":{"source_document_id":"italian-book","start_offset":"9","end_offset":"11"}},
+        {"surface":"ragazze","raw_lemma":"ragazza","pos":"NOUN","canonical_lemma":"ragazza","morphology":{"Gender":"Fem","Number":"Plur"},"location":{"source_document_id":"italian-book","start_offset":"12","end_offset":"19"}},
+        {"surface":"bevono","raw_lemma":"bere","pos":"VERB","canonical_lemma":"bere","morphology":{"Mood":"Ind","Number":"Plur","Person":"3","Tense":"Pres","VerbForm":"Fin"},"location":{"source_document_id":"italian-book","start_offset":"20","end_offset":"26"}},
+        {"surface":"dell'","raw_lemma":"di","pos":"ADP","canonical_lemma":"di","location":{"source_document_id":"italian-book","start_offset":"27","end_offset":"32"}},
+        {"surface":"dell'","raw_lemma":"il","pos":"DET","canonical_lemma":"il","morphology":{"Definite":"Def","Gender":"Fem","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"italian-book","start_offset":"27","end_offset":"32"}},
+        {"surface":"acqua","raw_lemma":"acqua","pos":"NOUN","canonical_lemma":"acqua","morphology":{"Gender":"Fem","Number":"Sing"},"location":{"source_document_id":"italian-book","start_offset":"32","end_offset":"37"}},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","location":{"source_document_id":"italian-book","start_offset":"37","end_offset":"38"}}
+      ],
+      "location":{"source_document_id":"italian-book","end_offset":"38"}
+    },
+    {
+      "text":"Maria portera`? No, porterà pane e dammelo!",
+      "tokens":[
+        {"surface":"Maria","raw_lemma":"Maria","pos":"PROPN","canonical_lemma":"maria","morphology":{"Gender":"Fem","Number":"Sing"},"named_entity":"S-PER","location":{"source_document_id":"italian-book","start_offset":"39","end_offset":"44"}},
+        {"surface":"portera`","raw_lemma":"portera`","pos":"X","canonical_lemma":"portera`","location":{"source_document_id":"italian-book","start_offset":"45","end_offset":"53"}},
+        {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"italian-book","start_offset":"53","end_offset":"54"}},
+        {"surface":"No","raw_lemma":"no","pos":"ADV","canonical_lemma":"no","location":{"source_document_id":"italian-book","start_offset":"55","end_offset":"57"}},
+        {"surface":",","raw_lemma":",","pos":"PUNCT","canonical_lemma":",","location":{"source_document_id":"italian-book","start_offset":"57","end_offset":"58"}},
+        {"surface":"porterà","raw_lemma":"portare","pos":"VERB","canonical_lemma":"portare","morphology":{"Mood":"Ind","Number":"Sing","Person":"3","Tense":"Fut","VerbForm":"Fin"},"location":{"source_document_id":"italian-book","start_offset":"59","end_offset":"66"}},
+        {"surface":"pane","raw_lemma":"pane","pos":"NOUN","canonical_lemma":"pane","morphology":{"Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"italian-book","start_offset":"67","end_offset":"71"}},
+        {"surface":"e","raw_lemma":"e","pos":"CCONJ","canonical_lemma":"e","location":{"source_document_id":"italian-book","start_offset":"72","end_offset":"73"}},
+        {"surface":"damme","raw_lemma":"dare","pos":"VERB","canonical_lemma":"dare","morphology":{"Mood":"Imp","Number":"Sing","Person":"2","VerbForm":"Fin"},"location":{"source_document_id":"italian-book","start_offset":"74","end_offset":"79"}},
+        {"surface":"lo","raw_lemma":"lo","pos":"PRON","canonical_lemma":"lo","morphology":{"Clitic":"Yes","Gender":"Masc","Number":"Sing","Person":"3","PronType":"Prs"},"location":{"source_document_id":"italian-book","start_offset":"79","end_offset":"81"}},
+        {"surface":"!","raw_lemma":"!","pos":"PUNCT","canonical_lemma":"!","location":{"source_document_id":"italian-book","start_offset":"81","end_offset":"82"}}
+      ],
+      "location":{"source_document_id":"italian-book","start_offset":"39","end_offset":"82"}
+    }
+  ],
+  "source_documents":[{"id":"italian-book","source_identifier":"fixture:italian","title":"Italian fixture"}],
+  "analysis":{"run_id":"italian-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.14.0"},
+  "normalization_profile":{"name":"unicode-casefold","version":"1.0.0"}
+}
