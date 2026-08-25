@@ -7,6 +7,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
+- [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 
 ## Current pipeline
 
@@ -15,7 +16,10 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 4. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
 5. **Sentence selection** — use an example from the learner's source text for each selected lemma.
-6. **Anki export** — a single **Generate deck** action emits UTF-8 tab-separated Anki notes ordered by each lemma's first encounter in the book.
+6. **Prepared deck and campaign** — asynchronously build an owner-scoped `.apkg`
+   named `Mouseion::<language>::<book title>`, then optionally add the ready deck
+   to the learner's campaign queue. Cards remain ordered by each lemma's first
+   encounter in the book.
 
 Generated-deck history and mastery are deliberately separate. Generating a card records that the owner was assigned the lemma, with its first book/deck provenance, but never adds it to `known_vocabulary`. Re-generating the same book is safe and does not duplicate cards or provenance; marking a word mastered/known remains an explicit learner action.
 
@@ -66,8 +70,9 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 - `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
   advertise from the NLP service. The Compose deployment defaults to `de,it`, whose
   Stanza models are provisioned in the NLP image; manually launched services retain
-  the application default of `de`. Configured models missing from the local Stanza
-  resource directory are explicitly downloaded during startup warmup. The singular
+  the application default of `de`. Models must exist in `STANZA_RESOURCES_DIR`
+  before startup; the Compose image's immutable cache contains `de` and `it`, and
+  another language requires an image rebuild that provisions its model. The singular
   `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 

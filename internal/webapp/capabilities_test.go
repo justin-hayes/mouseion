@@ -22,10 +22,11 @@ func (t testCapabilities) GetCapabilities(context.Context) (analyzer.Capabilitie
 func TestSupportedNLPOnlyReturnsReadyLanguages(t *testing.T) {
 	h := &Handler{services: Services{Capabilities: testCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de", DisplayName: "German", Ready: true},
+		{Language: "it", DisplayName: "Italian", Ready: true},
 		{Language: "fr", DisplayName: "French", Ready: false},
 	}}}}}
 	languages, degraded := h.supportedNLP(context.Background())
-	if degraded || len(languages) != 1 || languages[0].Language != "de" {
+	if degraded || len(languages) != 2 || languages[0].Language != "de" || languages[0].DisplayName != "German" || languages[1].Language != "it" || languages[1].DisplayName != "Italian" {
 		t.Fatalf("languages = %+v, degraded = %v", languages, degraded)
 	}
 }

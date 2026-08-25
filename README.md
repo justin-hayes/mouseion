@@ -57,8 +57,12 @@ docker compose up -d --build
 - `web` — the Go server on `http://localhost:8080`
 
 Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. Override the
-comma-separated value to advertise a different set; any configured model not
-already present in the image is explicitly downloaded during service startup.
+comma-separated value only with languages whose Stanza resources are already
+installed. The image sets `STANZA_RESOURCES_DIR=/opt/stanza_resources` and
+pre-populates that immutable model cache with `de` and `it`; adding another
+language requires adding its `stanza.download(...)` entry to `nlp/Dockerfile`
+and rebuilding the image. A configured language whose model is absent remains
+not ready and is not offered to learners.
 
 Open `http://<host>:8080`. A fresh installation presents first-account
 onboarding; otherwise, sign in with an existing account. The app is meant to be
@@ -74,7 +78,9 @@ export MOUSEION_DATABASE_URL="postgres://postgres@localhost:5432/mouseion?sslmod
 
 # 2. Python NLP gRPC service (separate terminal)
 export PYTHONPATH=nlp/src:gen/python
-# Optional: provision and warm both deployment languages (defaults to de only).
+# Provision de and it in the local Stanza cache once if they are not installed.
+.venv/bin/python -c "import stanza; [stanza.download(code, processors='tokenize,pos,lemma') for code in ('de', 'it')]"
+# Warm both deployment languages (the manual-launch default is de only).
 export MOUSEION_NLP_WARM_LANGUAGES=de,it
 .venv/bin/python -m mouseion_nlp.server
 
@@ -84,3 +90,14 @@ make dev
 ```
 
 Then open `http://localhost:8080`.
+
+## Language validation
+
+German and Italian are the deployment-supported analysis languages. The
+Italian vertical is covered deterministically from capability discovery and
+learner selection through Stanza fixture consumption, content-word filtering,
+coverage thresholds, prepared-deck/campaign eligibility, and the generated
+`Mouseion::it::<book title>` APKG. These tests also assert account isolation and
+keep the German regression suite intact. See the [language-support feature
+contract](doc/features/language-support.md) for the supported path and model
+cache requirements.
