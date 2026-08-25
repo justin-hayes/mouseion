@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:mouseion:phase1</dc:identifier>
+    <dc:title>Fixture Three</dc:title>
+  </metadata>
+  <manifest>
+    <item id="nav" href="Navigation/nav.xhtml" media-type="application/xhtml+xml" properties="nav scripted"/>
+    <item id="front" href="Text/front.xhtml" media-type="application/xhtml+xml"/>
+    <item id="chapter-one" href="Text/part/one.xhtml" media-type="application/xhtml+xml" properties="svg mathml"/>
+    <item id="untitled" href="Text/two.xhtml" media-type="application/xhtml+xml"/>
+    <item id="bibliography" href="Text/back/bibliography.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="front" linear="no"/>
+    <itemref idref="chapter-one"/>
+    <itemref idref="nav"/>
+    <itemref idref="untitled"/>
+    <itemref idref="bibliography"/>
+  </spine>
+</package>

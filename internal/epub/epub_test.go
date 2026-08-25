@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -17,14 +18,18 @@ type fixtureFile struct {
 }
 
 func fixture(t *testing.T) []byte {
+	return fixtureDirectory(t, "testdata")
+}
+
+func fixtureDirectory(t *testing.T, directory string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	err := filepath.WalkDir("testdata", func(name string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(directory, func(name string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}
-		rel, err := filepath.Rel("testdata", name)
+		rel, err := filepath.Rel(directory, name)
 		if err != nil {
 			return err
 		}
@@ -46,6 +51,69 @@ func fixture(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
+}
+
+func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {
+	t.Run("EPUB 3 nested package and navigation", func(t *testing.T) {
+		book, err := Extract(fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		const wantText = "Shared title\n\nGrüße 👋 aus Köln.\n\nuntitled\n\n東京 café.\n\nShared title\n\nBibliographie."
+		if book.Title != "Fixture Three" || book.SourceIdentifier != "urn:mouseion:phase1" || book.FullText != wantText {
+			t.Fatalf("book metadata/full text = %+v", book)
+		}
+		want := []ExtractedUnit{
+			{ID: UnitID(1, "chapter-one"), Order: 0, SpineIndex: 1, Title: "Shared title", TitleSource: UnitTitleHeading, Text: "Shared title\n\nGrüße 👋 aus Köln.", StartOffset: 0, EndOffset: 31, PackagePath: "Books/OPS/package.opf", ManifestID: "chapter-one", SourceHref: "Text/part/one.xhtml", ResolvedHref: "Books/OPS/Text/part/one.xhtml", MediaType: "application/xhtml+xml", Properties: []string{"svg", "mathml"}, Linear: true, NavigationLabels: []string{"Shared label", "Begin"}, LandmarkTypes: []string{"bodymatter", "chapter"}},
+			{ID: UnitID(3, "untitled"), Order: 1, SpineIndex: 3, Title: "untitled", TitleSource: UnitTitleManifestID, Text: "untitled\n\n東京 café.", StartOffset: 33, EndOffset: 51, PackagePath: "Books/OPS/package.opf", ManifestID: "untitled", SourceHref: "Text/two.xhtml", ResolvedHref: "Books/OPS/Text/two.xhtml", MediaType: "application/xhtml+xml", Properties: []string{}, Linear: true, NavigationLabels: []string{"No heading"}, LandmarkTypes: []string{}},
+			{ID: UnitID(4, "bibliography"), Order: 2, SpineIndex: 4, Title: "Shared title", TitleSource: UnitTitleHeading, Text: "Shared title\n\nBibliographie.", StartOffset: 53, EndOffset: 81, PackagePath: "Books/OPS/package.opf", ManifestID: "bibliography", SourceHref: "Text/back/bibliography.xhtml", ResolvedHref: "Books/OPS/Text/back/bibliography.xhtml", MediaType: "application/xhtml+xml", Properties: []string{}, Linear: true, NavigationLabels: []string{"Works", "Bibliography"}, LandmarkTypes: []string{"bibliography"}},
+		}
+		if !reflect.DeepEqual(book.ExtractedUnits, ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: want}) {
+			t.Fatalf("units = %#v\nwant %#v", book.ExtractedUnits, want)
+		}
+		assertCompatibilityProjection(t, book)
+	})
+
+	t.Run("EPUB 2 metadata and NCX", func(t *testing.T) {
+		book, err := Extract(fixtureDirectory(t, "testfixtures/epub2-clean"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if book.Title != "Fixture Two" || book.SourceIdentifier != "urn:mouseion:epub2" || book.FullText != "First\n\nAlpha.\n\nSecond\n\nOmega." {
+			t.Fatalf("EPUB 2 extraction = %+v", book)
+		}
+		want := ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{
+			{ID: UnitID(0, "first"), Order: 0, SpineIndex: 0, Title: "First", TitleSource: UnitTitleHeading, Text: "First\n\nAlpha.", StartOffset: 0, EndOffset: 13, PackagePath: "OEBPS/content.opf", ManifestID: "first", SourceHref: "first.xhtml", ResolvedHref: "OEBPS/first.xhtml", MediaType: "application/xhtml+xml", Properties: []string{}, Linear: true, NavigationLabels: []string{}, LandmarkTypes: []string{}},
+			{ID: UnitID(2, "second"), Order: 1, SpineIndex: 2, Title: "Second", TitleSource: UnitTitleHeading, Text: "Second\n\nOmega.", StartOffset: 15, EndOffset: 29, PackagePath: "OEBPS/content.opf", ManifestID: "second", SourceHref: "second.xhtml", ResolvedHref: "OEBPS/second.xhtml", MediaType: "application/xhtml+xml", Properties: []string{}, Linear: true, NavigationLabels: []string{}, LandmarkTypes: []string{}},
+		}}
+		if !reflect.DeepEqual(book.ExtractedUnits, want) {
+			t.Fatalf("EPUB 2 units = %#v\nwant %#v", book.ExtractedUnits, want)
+		}
+		assertCompatibilityProjection(t, book)
+	})
+}
+
+func TestPhaseOneInvalidFixture(t *testing.T) {
+	_, err := Extract(fixtureDirectory(t, "testfixtures/invalid-missing-spine-reference"))
+	if !errors.Is(err, ErrInvalidEPUB) || !strings.Contains(err.Error(), "spine references missing manifest item absent") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func assertCompatibilityProjection(t *testing.T, book ExtractedBook) {
+	t.Helper()
+	if len(book.Chapters) != len(book.ExtractedUnits.Units) {
+		t.Fatalf("chapters = %+v, units = %+v", book.Chapters, book.ExtractedUnits.Units)
+	}
+	for i, unit := range book.ExtractedUnits.Units {
+		chapter := book.Chapters[i]
+		if chapter.ID != unit.ManifestID || chapter.Title != unit.Title || chapter.Location.SourceDocumentID != book.SourceIdentifier || chapter.Location.Chapter != unit.Title || chapter.Location.Section != unit.Title || chapter.Location.StartOffset != unit.StartOffset || chapter.Location.EndOffset != unit.EndOffset {
+			t.Fatalf("chapter %d = %+v, unit = %+v", i, chapter, unit)
+		}
+	}
+	if err := book.ExtractedUnits.ValidateOffsets(book.FullText); err != nil {
+		t.Fatalf("offsets: %v", err)
+	}
 }
 
 func TestExtractReadingOrderAndLocations(t *testing.T) {
