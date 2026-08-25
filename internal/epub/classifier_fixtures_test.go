@@ -29,6 +29,18 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 		want []expectedClassification
 	}{
 		{
+			name: "Issue 285 German reference markers with preserved multilingual rules",
+			file: "issue-285-reference-markers.json",
+			want: []expectedClassification{
+				{CategoryFrontMatter, 85, false, fixtureReasons("label_copyright", "path_copyright", "spine_front")},
+				{CategoryMainMatter, 95, true, fixtureReasons("label_chapter", "path_chapter", "spine_central", "text_sentence_density")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_image_credits", "path_image_credits", "spine_central")},
+				{CategoryBackMatter, 95, false, fixtureReasons("label_references", "path_references", "spine_central", "text_reference_density")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_notes", "path_notes", "spine_central")},
+				{CategoryBackMatter, 85, false, fixtureReasons("label_appendix", "path_appendix", "spine_back")},
+			},
+		},
+		{
 			name: "Reported German Roman-numeral book shape",
 			file: "issue-284-german-book.json",
 			want: []expectedClassification{
@@ -37,7 +49,7 @@ func TestClassifierReadableEPUBFixtureSnapshots(t *testing.T) {
 				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "spine_central", "text_sentence_density")},
 				{CategoryMainMatter, 95, true, fixtureReasons("heading_roman_numeral", "heading_repeated_pattern", "spine_central", "text_sentence_density")},
 				{CategoryBackMatter, 70, false, fixtureReasons("label_appendix", "spine_central", "text_sentence_density", "label_precedence")},
-				{CategoryBackMatter, 70, false, fixtureReasons("spine_central", "text_reference_density")},
+				{CategoryBackMatter, 95, false, fixtureReasons("label_references", "spine_central", "text_reference_density")},
 				{CategoryBackMatter, 70, false, fixtureReasons("label_index", "spine_back", "text_sentence_density", "label_precedence")},
 			},
 		},
@@ -145,6 +157,9 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"label_glossary":            "A title or navigation label matches the glossary marker.",
 		"label_appendix":            "A title or navigation label matches the appendix marker.",
 		"label_editorial":           "A title or navigation label matches the editorial marker.",
+		"label_copyright":           "A title or navigation label matches the copyright marker.",
+		"label_image_credits":       "A title or navigation label matches the image credits marker.",
+		"label_references":          "A title or navigation label matches the references marker.",
 		"label_caption":             "A title or navigation label matches the caption marker for non-prose structural content.",
 		"label_structural_fragment": "A title or navigation label matches the structural fragment marker for non-prose structural content.",
 		"heading_roman_numeral":     "The title begins with a Roman numeral followed by a chapter-like heading.",
@@ -158,6 +173,9 @@ func fixtureReasons(signals ...string) []ClassificationReason {
 		"path_glossary":             "The package path matches the glossary marker.",
 		"path_appendix":             "The package path matches the appendix marker.",
 		"path_editorial":            "The package path matches the editorial marker.",
+		"path_copyright":            "The package path matches the copyright marker.",
+		"path_image_credits":        "The package path matches the image credits marker.",
+		"path_references":           "The package path matches the references marker.",
 		"spine_front":               "The unit is at the beginning of the readable spine.",
 		"spine_central":             "The unit is in the central readable spine range.",
 		"spine_back":                "The unit is at the end of the readable spine.",

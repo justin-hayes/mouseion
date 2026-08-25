@@ -11,7 +11,7 @@ import (
 
 const (
 	ClassifierName    = "mouseion-epub-structure"
-	ClassifierVersion = "1.3.0"
+	ClassifierVersion = "1.4.0"
 )
 
 var (
@@ -239,10 +239,12 @@ var markerRules = []struct {
 }{
 	{CategoryFrontMatter, "contents", []string{"contents", "table of contents", "inhalt", "inhaltsverzeichnis", "indice generale", "sommario"}},
 	{CategoryFrontMatter, "preface", []string{"preface", "foreword", "vorwort", "prefazione", "introduzione dell'autore"}},
-	{CategoryFrontMatter, "copyright", []string{"copyright", "impressum", "colophon"}},
+	{CategoryFrontMatter, "copyright", []string{"copyright", "copyright page", "copyrightseite", "impressum", "imprint", "urheberrecht", "urheberrechtsvermerk", "rechtehinweis", "rechtehinweise", "colophon"}},
 	{CategoryFrontMatter, "acknowledgments", []string{"acknowledgments", "acknowledgements", "danksagung", "ringraziamenti"}},
 	{CategoryFrontMatter, "editorial", []string{"editorial", "editorial note", "editors note", "editorial notice", "redaktion", "redaktionelle hinweise", "redaktionelle notiz", "redazione", "nota editoriale", "avvertenza editoriale"}},
 	{CategoryBackMatter, "bibliography", []string{"bibliography", "references", "works cited", "bibliografie", "literaturverzeichnis", "quellenverzeichnis", "bibliografia", "riferimenti bibliografici", "fonti bibliografiche"}},
+	{CategoryBackMatter, "image_credits", []string{"bildnachweis", "bild nachweis", "abbildungsnachweis", "abbildungs nachweis", "bildquellen", "bild quellen"}},
+	{CategoryBackMatter, "references", []string{"hinweise zu quellen und literatur", "quellen und literatur", "quellenangaben", "literaturangaben", "literaturhinweise", "weiterfuhrende literatur", "weiterführende literatur", "quellen", "literatur"}},
 	{CategoryBackMatter, "notes", []string{"notes", "endnotes", "anmerkungen", "note", "note finali"}},
 	{CategoryBackMatter, "index", []string{"index", "register", "sachregister", "indice analitico", "indice dei nomi"}},
 	{CategoryBackMatter, "glossary", []string{"glossary", "glossar", "glossario"}},
@@ -291,17 +293,17 @@ func markerCategory(values []string) (UnitCategory, string) {
 }
 
 func pathCategory(values ...string) (UnitCategory, string) {
-	parts := make([]string, 0)
 	for _, value := range values {
-		clean := strings.ToLower(path.Clean(strings.ReplaceAll(value, "\\", "/")))
-		for _, part := range strings.FieldsFunc(clean, func(r rune) bool { return !(unicode.IsLetter(r) || unicode.IsDigit(r)) }) {
-			parts = append(parts, part)
-		}
-	}
-	for _, rule := range markerRules {
-		for _, term := range rule.terms {
-			if !strings.Contains(term, " ") && containsPathMarker(parts, term) {
-				return rule.category, rule.token
+		clean := path.Clean(strings.ReplaceAll(value, "\\", "/"))
+		for _, component := range strings.Split(clean, "/") {
+			component = strings.TrimSuffix(component, path.Ext(component))
+			normalized := normalizeMarker(component)
+			for _, rule := range markerRules {
+				for _, term := range rule.terms {
+					if normalized == term || numberedPathMarker(normalized, term) {
+						return rule.category, rule.token
+					}
+				}
 			}
 		}
 	}
@@ -400,19 +402,12 @@ func unitEdges(text string) (string, string) {
 func normalizeMarker(value string) string {
 	return strings.Join(strings.FieldsFunc(strings.ToLower(strings.TrimSpace(value)), func(r rune) bool { return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '\'') }), " ")
 }
-func containsPathMarker(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-		if strings.HasPrefix(value, wanted) {
-			suffix := strings.TrimPrefix(value, wanted)
-			if suffix != "" && strings.IndexFunc(suffix, func(r rune) bool { return !unicode.IsDigit(r) }) == -1 {
-				return true
-			}
-		}
+func numberedPathMarker(value, wanted string) bool {
+	if !strings.HasPrefix(value, wanted) {
+		return false
 	}
-	return false
+	suffix := strings.TrimSpace(strings.TrimPrefix(value, wanted))
+	return suffix != "" && strings.IndexFunc(suffix, func(r rune) bool { return !unicode.IsDigit(r) }) == -1
 }
 func containsFold(values []string, wanted string) bool {
 	for _, value := range values {

@@ -152,6 +152,37 @@ func TestClassifyUnitsLandmarkOutranksConflictingLabelAndText(t *testing.T) {
 	}
 }
 
+func TestStructuralMarkerMatchingUsesNormalizedTokenBoundaries(t *testing.T) {
+	tests := []struct {
+		name     string
+		title    string
+		href     string
+		category UnitCategory
+		signal   string
+	}{
+		{"German image credit heading", "ABBILDUNGSNACHWEIS:", "Text/unit.xhtml", CategoryBackMatter, "label_image_credits"},
+		{"German image credit path", "Unbenannt", "Text/Bildquellen-2.xhtml", CategoryBackMatter, "path_image_credits"},
+		{"German sources navigation style", "Quellen & Literatur", "Text/unit.xhtml", CategoryBackMatter, "label_references"},
+		{"German imprint", "Imprint", "Text/unit.xhtml", CategoryFrontMatter, "label_copyright"},
+		{"Italian marker remains", "Bibliografia", "Text/unit.xhtml", CategoryBackMatter, "label_bibliography"},
+		{"language neutral marker remains", "Appendix", "Text/unit.xhtml", CategoryBackMatter, "label_appendix"},
+		{"no heading substring match", "Bildnachweiser gesucht", "Text/unit.xhtml", CategoryUnknown, ""},
+		{"no path substring match", "Unbenannt", "Text/meinebildquellensammlung.xhtml", CategoryUnknown, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			unit := classifierUnit(0, "marker", test.title, test.href, "Kurzer Inhalt")
+			got, err := ClassifyUnits("snapshot:marker", ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{unit}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got[0].Category != test.category || (test.signal != "" && !hasReason(got[0].Reasons, test.signal)) {
+				t.Fatalf("classification=%+v want category=%s signal=%q", got[0], test.category, test.signal)
+			}
+		})
+	}
+}
+
 func TestClassifyUnitsRejectsInvalidEnvelope(t *testing.T) {
 	unit := classifierUnit(0, "one", "Chapter 1", "one.xhtml", "Text.")
 	for _, test := range []struct {
