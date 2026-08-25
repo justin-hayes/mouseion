@@ -7,6 +7,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
+- [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units and provenance before later classification and selection.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 
 ## Current pipeline
