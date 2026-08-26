@@ -144,14 +144,33 @@ func (s *PostgresStore) RetryDeckPreparation(ctx context.Context, owner, id stri
 }
 
 func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id string, next domain.DeckPreparationState, message string, from ...string) (domain.DeckPreparation, error) {
-	p, err := scanDeckPreparation(s.pool.QueryRow(ctx, `UPDATE deck_preparations SET state=$3,error=$4,started_at=CASE WHEN $3='queued' THEN NULL ELSE started_at END,completed_at=CASE WHEN $3 IN ('failed','cancelled') THEN now() ELSE NULL END,updated_at=now() WHERE owner_id=$1 AND id=$2 AND state=ANY($5) RETURNING `+deckPreparationColumns, owner, id, next, message, from))
-	if !errors.Is(err, ErrNotFound) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	defer tx.Rollback(ctx)
+	p, err := scanDeckPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state=$3,error=$4,started_at=CASE WHEN $3='queued' THEN NULL ELSE started_at END,completed_at=CASE WHEN $3 IN ('failed','cancelled') THEN now() ELSE NULL END,updated_at=now() WHERE owner_id=$1 AND id=$2 AND state=ANY($5) RETURNING `+deckPreparationColumns, owner, id, next, message, from))
+	if errors.Is(err, ErrNotFound) {
+		_ = tx.Rollback(ctx)
+		if _, getErr := s.GetDeckPreparation(ctx, owner, id); getErr != nil {
+			return p, getErr
+		}
+		return p, ErrInvalidTransition
+	}
+	if err != nil {
 		return p, err
 	}
-	if _, getErr := s.GetDeckPreparation(ctx, owner, id); getErr != nil {
-		return p, getErr
+	details, marshalErr := json.Marshal(map[string]any{"preparation_id": id, "from": from, "message": message})
+	if marshalErr != nil {
+		return p, marshalErr
 	}
-	return p, ErrInvalidTransition
+	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'prepared_deck',$2,$3,now())`, owner, string(next), details); err != nil {
+		return p, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return p, nil
 }
 
 func (s *PostgresStore) GetDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
