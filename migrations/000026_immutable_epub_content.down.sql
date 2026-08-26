@@ -38,7 +38,7 @@ ALTER TABLE source_material_units
  FOREIGN KEY(owner_id,source_material_id)
  REFERENCES source_material_unit_snapshots(owner_id,source_material_id) ON DELETE CASCADE;
 ALTER TABLE source_material_unit_classifications
- ADD CONSTRAINT source_material_unit_classifications_owner_id_source_material_id_unit_id_fkey
+ ADD CONSTRAINT source_material_unit_classifications_source_unit_fkey
  FOREIGN KEY(owner_id,source_material_id,unit_id)
  REFERENCES source_material_units(owner_id,source_material_id,unit_id) ON DELETE CASCADE;
 ALTER TABLE source_material_unit_snapshots

@@ -42,7 +42,7 @@ ALTER TABLE source_materials
 
 -- Turn the extracted-unit tables into append-only snapshot history.
 ALTER TABLE source_material_unit_classifications
- DROP CONSTRAINT IF EXISTS source_material_unit_classifications_owner_id_source_material_id_unit_id_fkey;
+ DROP CONSTRAINT IF EXISTS source_material_unit_classifications_source_unit_fkey;
 ALTER TABLE source_material_units
  DROP CONSTRAINT IF EXISTS source_material_units_owner_id_source_material_id_fkey;
 ALTER TABLE source_material_unit_snapshots
