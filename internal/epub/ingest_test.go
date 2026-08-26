@@ -69,8 +69,8 @@ func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	if result.History.Operation != "epub.import" || result.History.Status != "complete" || len(result.History.Details) == 0 {
 		t.Fatalf("history: %+v", result.History)
 	}
-	if result.Source.ContentHash[:7] != "sha256:" {
-		t.Fatalf("hash: %s", result.Source.ContentHash)
+	if result.Source.ContentHash != ContentDigest(fixture(t)) {
+		t.Fatalf("content digest: got=%s want=%s", result.Source.ContentHash, ContentDigest(fixture(t)))
 	}
 }
 

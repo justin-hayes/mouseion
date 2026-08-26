@@ -77,7 +77,7 @@ func (s *Service) Submit(ctx context.Context, owner, sourceID string, consent bo
 	}
 	defer tx.Rollback(ctx)
 	var source domain.SourceMaterial
-	err = tx.QueryRow(ctx, `SELECT id::text,owner_id::text,language,source_identifier,title,media_type,content_hash,content,full_text,created_at FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, sourceID).
+	err = tx.QueryRow(ctx, `SELECT s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
 		Scan(&source.ID, &source.OwnerID, &source.Language, &source.SourceIdentifier, &source.Title, &source.MediaType, &source.ContentHash, &source.Content, &source.FullText, &source.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, persistence.ErrNotFound

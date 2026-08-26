@@ -38,7 +38,7 @@ func (s *PostgresStore) ReplaceEPUBUnitClassifications(ctx context.Context, owne
 	defer tx.Rollback(ctx)
 	var snapshotID string
 	var schemaVersion, unitCount int
-	err = tx.QueryRow(ctx, `SELECT snapshot_id,schema_version FROM source_material_unit_snapshots WHERE owner_id=$1 AND source_material_id=$2 FOR UPDATE`, owner, sourceID).Scan(&snapshotID, &schemaVersion)
+	err = tx.QueryRow(ctx, `SELECT snap.snapshot_id,snap.schema_version FROM source_material_unit_snapshots snap JOIN source_materials source ON source.owner_id=snap.owner_id AND source.id=snap.source_material_id AND source.current_snapshot_id=snap.snapshot_id WHERE snap.owner_id=$1 AND snap.source_material_id=$2 FOR UPDATE`, owner, sourceID).Scan(&snapshotID, &schemaVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrEPUBClassificationsUnavailable
 	}
@@ -48,7 +48,7 @@ func (s *PostgresStore) ReplaceEPUBUnitClassifications(ctx context.Context, owne
 	if snapshotID != first.SourceUnitSnapshot.SnapshotID || schemaVersion != first.SourceUnitSnapshot.ExtractedUnitsSchemaVersion {
 		return domain.ErrEPUBClassificationsUnavailable
 	}
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, owner, sourceID).Scan(&unitCount); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3`, owner, sourceID, snapshotID).Scan(&unitCount); err != nil {
 		return err
 	}
 	if unitCount != len(classifications) {
@@ -73,7 +73,7 @@ func (s *PostgresStore) ReplaceEPUBUnitClassifications(ctx context.Context, owne
 
 // GetEPUBUnitClassifications returns a classifier run in extracted-unit order.
 func (s *PostgresStore) GetEPUBUnitClassifications(ctx context.Context, owner, sourceID, classifierName, classifierVersion string) ([]domain.EPUBUnitClassification, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.schema_version,c.snapshot_id,c.extracted_units_schema_version,c.unit_id,c.category,c.confidence,c.recommended_inclusion,c.created_at,c.updated_at,r.reason_order,r.signal,r.message FROM source_material_unit_classifications c JOIN source_material_unit_snapshots s ON s.owner_id=c.owner_id AND s.source_material_id=c.source_material_id AND s.snapshot_id=c.snapshot_id JOIN source_material_units u ON u.owner_id=c.owner_id AND u.source_material_id=c.source_material_id AND u.unit_id=c.unit_id JOIN source_material_unit_classification_reasons r ON r.owner_id=c.owner_id AND r.source_material_id=c.source_material_id AND r.snapshot_id=c.snapshot_id AND r.classifier_name=c.classifier_name AND r.classifier_version=c.classifier_version AND r.unit_id=c.unit_id WHERE c.owner_id=$1 AND c.source_material_id=$2 AND c.classifier_name=$3 AND c.classifier_version=$4 ORDER BY u.unit_order,r.reason_order`, owner, sourceID, classifierName, classifierVersion)
+	rows, err := s.pool.Query(ctx, `SELECT c.schema_version,c.snapshot_id,c.extracted_units_schema_version,c.unit_id,c.category,c.confidence,c.recommended_inclusion,c.created_at,c.updated_at,r.reason_order,r.signal,r.message FROM source_material_unit_classifications c JOIN source_materials sm ON sm.owner_id=c.owner_id AND sm.id=c.source_material_id AND sm.current_snapshot_id=c.snapshot_id JOIN source_material_units u ON u.owner_id=c.owner_id AND u.source_material_id=c.source_material_id AND u.snapshot_id=c.snapshot_id AND u.unit_id=c.unit_id JOIN source_material_unit_classification_reasons r ON r.owner_id=c.owner_id AND r.source_material_id=c.source_material_id AND r.snapshot_id=c.snapshot_id AND r.classifier_name=c.classifier_name AND r.classifier_version=c.classifier_version AND r.unit_id=c.unit_id WHERE c.owner_id=$1 AND c.source_material_id=$2 AND c.classifier_name=$3 AND c.classifier_version=$4 ORDER BY u.unit_order,r.reason_order`, owner, sourceID, classifierName, classifierVersion)
 	if err != nil {
 		return nil, err
 	}

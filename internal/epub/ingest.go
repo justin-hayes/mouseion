@@ -2,8 +2,6 @@ package epub
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -71,8 +69,7 @@ func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language st
 	if err != nil {
 		return ImportResult{}, err
 	}
-	sum := sha256.Sum256(content)
-	contentHash := "sha256:" + hex.EncodeToString(sum[:])
+	contentHash := domain.EPUBContentDigest(content)
 	if lookup, ok := s.store.(AcquisitionSourceLookup); ok {
 		existing, found, lookupErr := lookup.FindSourceMaterialForAcquisition(ctx, ownerID, book.SourceIdentifier, contentHash)
 		if lookupErr != nil {
@@ -86,8 +83,8 @@ func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language st
 }
 
 func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, book ExtractedBook) (ImportResult, error) {
-	sum := sha256.Sum256(content)
-	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: "sha256:" + hex.EncodeToString(sum[:]), Content: content, FullText: book.FullText}, book.ExtractedUnits)
+	contentHash := domain.EPUBContentDigest(content)
+	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
 	}

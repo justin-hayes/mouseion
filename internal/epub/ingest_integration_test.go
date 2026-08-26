@@ -130,7 +130,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if err != nil || got.FullText != replacement.Book.FullText || got.ContentHash != replacement.Source.ContentHash {
 		t.Fatalf("replacement source=%+v err=%v", got, err)
 	}
-	if err = admin.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, result.Source.ID).Scan(&unitCount); err != nil || unitCount != 1 {
+	if err = admin.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, result.Source.ID).Scan(&unitCount); err != nil || unitCount != len(result.Book.ExtractedUnits.Units)+len(replacement.Book.ExtractedUnits.Units) {
 		t.Fatalf("replacement unit count=%d err=%v", unitCount, err)
 	}
 	replacementSnapshotID, replacementUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, result.Source.ID)
@@ -141,7 +141,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	if err != nil || len(replacementClassifications) != len(replacementUnits.Units) || replacementClassifications[0].SourceUnitSnapshot.SnapshotID != replacementSnapshotID {
 		t.Fatalf("replacement classifications=%+v units=%+v err=%v", replacementClassifications, replacementUnits, err)
 	}
-	if _, err = admin.Exec(ctx, `INSERT INTO source_material_units(owner_id,source_material_id,unit_id,unit_order,spine_index,title,title_source,text,start_offset,end_offset,package_path,manifest_id,source_href,resolved_href,media_type,linear) SELECT $1,source_material_id,'cross-owner',99,99,'x','heading','x',0,1,'x','x','x','x','application/xhtml+xml',true FROM source_material_unit_snapshots WHERE owner_id=$2 AND source_material_id=$3`, bob.ID, alice.ID, result.Source.ID); err == nil {
+	if _, err = admin.Exec(ctx, `INSERT INTO source_material_units(owner_id,source_material_id,snapshot_id,unit_id,unit_order,spine_index,title,title_source,text,start_offset,end_offset,package_path,manifest_id,source_href,resolved_href,media_type,linear) SELECT $1,source_material_id,snapshot_id,'cross-owner',99,99,'x','heading','x',0,1,'x','x','x','x','application/xhtml+xml',true FROM source_material_unit_snapshots WHERE owner_id=$2 AND source_material_id=$3`, bob.ID, alice.ID, result.Source.ID); err == nil {
 		t.Fatal("cross-owner unit insert succeeded")
 	}
 	if _, err = store.GetSourceMaterial(ctx, bob.ID, result.Source.ID); !errors.Is(err, persistence.ErrNotFound) {

@@ -21,7 +21,7 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	alice, _ := store.CreateUser(ctx, "scope-alice", false)
 	bob, _ := store.CreateUser(ctx, "scope-bob", false)
 	units := classificationTestUnits()
-	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scope-book", Title: "Scope", MediaType: "application/epub+zip", ContentHash: "scope", FullText: "One\n\nTwo"}, units)
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scope-book", Title: "Scope", MediaType: "application/epub+zip", ContentHash: "ignored", Content: []byte("One\n\nTwo"), FullText: "One\n\nTwo"}, units)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,8 +34,11 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	if err != nil || created.CreatedAt.IsZero() {
 		t.Fatalf("create=%+v err=%v", created, err)
 	}
-	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err == nil {
-		t.Fatal("immutable scope identity was overwritten")
+	retried := scope
+	retried.ScopeID = uuid.NewString()
+	retried, err = store.CreateEPUBReviewedScope(ctx, retried)
+	if err != nil || retried.ScopeID != scope.ScopeID {
+		t.Fatalf("equivalent scope confirmation was not idempotent: %+v err=%v", retried, err)
 	}
 	loaded, err := store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID)
 	if err != nil || loaded.ScopeID != scope.ScopeID || len(loaded.SelectedUnits) != 1 || loaded.SelectedUnits[0] != scope.SelectedUnits[0] {
@@ -43,6 +46,15 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	}
 	if _, err = store.GetEPUBReviewedScope(ctx, bob.ID, source.ID, scope.ScopeID); err == nil {
 		t.Fatal("cross-owner scope read was accepted")
+	}
+	metadata := source
+	metadata.Title = "Metadata-only rename"
+	metadata.Language = "de"
+	if _, err = store.PutSourceMaterial(ctx, metadata); err != nil {
+		t.Fatalf("metadata-only update: %v", err)
+	}
+	if _, err = store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID); err != nil {
+		t.Fatalf("metadata-only update invalidated scope: %v", err)
 	}
 	classificationsV1 := classificationTestResults(snapshotID, units)
 	if err = store.ReplaceEPUBUnitClassifications(ctx, alice.ID, source.ID, classificationsV1); err != nil {
@@ -84,10 +96,24 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scope_units WHERE scope_id=$1`, scope.ScopeID).Scan(&selected); err != nil || selected != 1 {
 		t.Fatalf("selected=%d err=%v", selected, err)
 	}
-	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: source.SourceIdentifier, Title: "Scope", MediaType: source.MediaType, ContentHash: "replacement", FullText: "One\n\nTwo"}, units); err != nil {
+	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: source.SourceIdentifier, Title: "Scope", MediaType: source.MediaType, ContentHash: "replacement", Content: []byte("One\n\nTwo"), FullText: "One\n\nTwo"}, units); err != nil {
 		t.Fatalf("reimport after immutable review: %v", err)
+	}
+	var revisions int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, source.ID).Scan(&revisions); err != nil || revisions != 1 {
+		t.Fatalf("same-content reimport created revisions=%d err=%v", revisions, err)
 	}
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE scope_id=$1`, scope.ScopeID).Scan(&selected); err != nil || selected != 1 {
 		t.Fatalf("historical scope count=%d err=%v", selected, err)
+	}
+	changedUnits := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "changed"), Order: 0, SpineIndex: 0, ManifestID: "changed", Text: "Changed", EndOffset: 7}}}
+	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: source.SourceIdentifier, Title: "Renamed Scope", MediaType: source.MediaType, ContentHash: "forged", Content: []byte("Changed"), FullText: "Changed"}, changedUnits); err != nil {
+		t.Fatalf("changed-content reimport: %v", err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, source.ID).Scan(&revisions); err != nil || revisions != 2 {
+		t.Fatalf("changed-content revisions=%d err=%v", revisions, err)
+	}
+	if _, err = store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID); err != nil {
+		t.Fatalf("historical scope became unreadable after content revision: %v", err)
 	}
 }

@@ -763,7 +763,7 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 	if recommended {
 		mode = domain.EPUBScopeSelectionRecommended
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SelectionMode: mode, SelectedUnits: references}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: view.Book.ContentRevisionID, Digest: view.Book.ContentDigest, DigestVersion: view.Book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SelectionMode: mode, SelectedUnits: references}
 	if _, err := h.services.Store.CreateEPUBReviewedScope(r.Context(), scope); err != nil {
 		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
 		return
