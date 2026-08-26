@@ -69,7 +69,7 @@ WHERE s.owner_id=u.owner_id AND s.source_material_id=u.source_material_id;
 ALTER TABLE source_material_units
  ALTER COLUMN snapshot_id SET NOT NULL,
  DROP CONSTRAINT source_material_units_pkey,
- DROP CONSTRAINT source_material_units_owner_id_source_material_id_unit_order_key;
+ DROP CONSTRAINT IF EXISTS source_material_units_source_order_key;
 ALTER TABLE source_material_units
  ADD PRIMARY KEY(owner_id,source_material_id,snapshot_id,unit_id),
  ADD CONSTRAINT source_material_units_snapshot_order_key UNIQUE(owner_id,source_material_id,snapshot_id,unit_order),
