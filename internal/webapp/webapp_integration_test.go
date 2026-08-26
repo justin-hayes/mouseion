@@ -298,10 +298,20 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, german.ID).Scan(&mode, &selected); err != nil || mode != "overridden" || selected != 2 {
 		t.Fatalf("persisted mode=%q selected=%d err=%v", mode, selected, err)
 	}
-	if recorder.owner != alice.ID || recorder.source != german.ID || recorder.scope == "" {
-		t.Fatalf("queued scope owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
+	if recorder.owner != "" || recorder.source != "" || recorder.scope != "" {
+		t.Fatalf("scope confirmation enqueued analysis owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
 	}
-	priorScopeID := recorder.scope
+	var analysisJobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&analysisJobs); err != nil || analysisJobs != 0 {
+		t.Fatalf("scope confirmation created analysis jobs=%d err=%v", analysisJobs, err)
+	}
+	var priorScopeID string
+	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&priorScopeID); err != nil {
+		t.Fatal(err)
+	}
+	if analyzed := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies); analyzed.Code != http.StatusSeeOther || recorder.scope != priorScopeID {
+		t.Fatalf("explicit scoped analysis=%d scope=%q want %q body=%s", analyzed.Code, recorder.scope, priorScopeID, analyzed.Body.String())
+	}
 	expanded, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, priorScopeID)
 	if err != nil || len(expanded.SelectedUnits) != 2 || expanded.SelectedUnits[0].UnitID != germanUnits.Units[0].ID || expanded.SelectedUnits[1].UnitID != germanUnits.Units[1].ID {
 		t.Fatalf("group expansion selected unintended or unordered units: scope=%+v err=%v", expanded, err)
@@ -321,14 +331,21 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 		t.Fatalf("cross-owner prior review=%d %s", got.Code, got.Body.String())
 	}
 	clone := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
-	if clone.Code != http.StatusSeeOther || recorder.scope == priorScopeID {
-		t.Fatalf("clone=%d location=%q old=%q new=%q body=%s", clone.Code, clone.Header().Get("Location"), priorScopeID, recorder.scope, clone.Body.String())
+	if clone.Code != http.StatusSeeOther {
+		t.Fatalf("clone=%d location=%q body=%s", clone.Code, clone.Header().Get("Location"), clone.Body.String())
+	}
+	var cloneScopeID string
+	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&cloneScopeID); err != nil {
+		t.Fatal(err)
+	}
+	if cloneScopeID == priorScopeID {
+		t.Fatalf("clone reused prior scope %q", priorScopeID)
 	}
 	var cloneCount int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
 		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
 	}
-	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, recorder.scope)
+	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, cloneScopeID)
 	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot || cloned.Classifier != expanded.Classifier {
 		t.Fatalf("same-scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
 	}

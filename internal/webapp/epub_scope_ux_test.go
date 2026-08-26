@@ -86,7 +86,7 @@ func TestEPUBScopeReviewIsAccessibleForGermanAndItalianTitles(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := output.String()
-			for _, want := range []string{title, `<form method="post"`, `<fieldset class="scope-actions">`, `<legend>Apply a selection</legend>`, `type="button"`, `for="scope-unit-0"`, `id="scope-unit-0"`, `type="checkbox"`, `name="unit_id"`, `<button type="submit">Confirm and analyze scope</button>`, `aria-live="polite"`, `aria-atomic="true"`, `role="status"`, "Review carefully", "fallback title from manifest ID", "Estimated size", "Classification evidence", "Recommendation policy"} {
+			for _, want := range []string{title, `<form method="post"`, `<fieldset class="scope-actions">`, `<legend>Apply a selection</legend>`, `type="button"`, `for="scope-unit-0"`, `id="scope-unit-0"`, `type="checkbox"`, `name="unit_id"`, `<button type="submit">Confirm scope</button>`, `aria-live="polite"`, `aria-atomic="true"`, `role="status"`, "Review carefully", "fallback title from manifest ID", "Estimated size", "Classification evidence", "Recommendation policy"} {
 				if !strings.Contains(body, want) {
 					t.Errorf("render missing %q: %s", want, body)
 				}
