@@ -187,11 +187,11 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 
 	units := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
-		{ID: "unit-0", Order: 0, Text: "Skip", EndOffset: 4, SourceHref: "skip.xhtml", ResolvedHref: "OPS/skip.xhtml"},
-		{ID: "unit-1", Order: 1, Text: "Keep one", StartOffset: 6, EndOffset: 14, Title: "One", SourceHref: "one.xhtml", ResolvedHref: "OPS/one.xhtml"},
-		{ID: "unit-2", Order: 2, Text: "Keep two", StartOffset: 16, EndOffset: 24, Title: "Two", SourceHref: "two.xhtml", ResolvedHref: "OPS/two.xhtml"},
+		{ID: domain.EPUBUnitID(0, "unit-0"), Order: 0, SpineIndex: 0, ManifestID: "unit-0", Text: "Skip", EndOffset: 4, SourceHref: "skip.xhtml", ResolvedHref: "OPS/skip.xhtml"},
+		{ID: domain.EPUBUnitID(1, "unit-1"), Order: 1, SpineIndex: 1, ManifestID: "unit-1", Text: "Keep one", StartOffset: 6, EndOffset: 14, Title: "One", SourceHref: "one.xhtml", ResolvedHref: "OPS/one.xhtml"},
+		{ID: domain.EPUBUnitID(2, "unit-2"), Order: 2, SpineIndex: 2, ManifestID: "unit-2", Text: "Keep two", StartOffset: 16, EndOffset: 24, Title: "Two", SourceHref: "two.xhtml", ResolvedHref: "OPS/two.xhtml"},
 	}}
-	scopedSource, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scoped-job", Title: "Scoped", MediaType: "application/epub+zip", ContentHash: "sha256:scoped", FullText: "Skip\n\nKeep one\n\nKeep two"}, units)
+	scopedSource, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scoped-job", Title: "Scoped", MediaType: "application/epub+zip", ContentHash: "sha256:scoped", Content: []byte("Skip\n\nKeep one\n\nKeep two"), FullText: "Skip\n\nKeep one\n\nKeep two"}, units)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: scopedSource.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: "unit-1", Order: 1}, {UnitID: "unit-2", Order: 2}}}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: scopedSource.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(1, "unit-1"), Order: 1}, {UnitID: domain.EPUBUnitID(2, "unit-2"), Order: 2}}}
 	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("scoped status = %+v, %v", scopedStatus, err)
 	}
 	analyzedChunksMu.Lock()
-	if len(scopedDocuments) != 2 || scopedDocuments[0].ID != "unit-1" || scopedDocuments[0].Text != "Keep one" || scopedDocuments[1].ID != "unit-2" || scopedDocuments[1].Text != "Keep two" {
+	if len(scopedDocuments) != 2 || scopedDocuments[0].ID != domain.EPUBUnitID(1, "unit-1") || scopedDocuments[0].Text != "Keep one" || scopedDocuments[1].ID != domain.EPUBUnitID(2, "unit-2") || scopedDocuments[1].Text != "Keep two" {
 		t.Fatalf("scoped analyzer documents = %+v", scopedDocuments)
 	}
 	analyzedChunksMu.Unlock()
@@ -235,7 +235,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("scope provenance = %q, %d", scopeID, provenanceCount)
 	}
 	scopedCorpus, err := service.Result(ctx, alice.ID, scopedHandle.ID)
-	if err != nil || scopedCorpus.ReviewedScopeID != scope.ScopeID || len(scopedCorpus.SelectedUnits) != 2 || scopedCorpus.SelectedUnits[0].UnitID != "unit-1" {
+	if err != nil || scopedCorpus.ReviewedScopeID != scope.ScopeID || len(scopedCorpus.SelectedUnits) != 2 || scopedCorpus.SelectedUnits[0].UnitID != domain.EPUBUnitID(1, "unit-1") {
 		t.Fatalf("scoped corpus = %+v, %v", scopedCorpus, err)
 	}
 	if scopedCorpus.Statistics == nil || scopedCorpus.Statistics.AnalyzableTokenCount != 2 || scopedCorpus.Statistics.DistinctLemmaCount != 1 {
@@ -260,12 +260,12 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("changed-scope corpus = %+v, %v", changedCorpus, err)
 	}
 	analyzedChunksMu.Lock()
-	if len(scopedDocuments) != 3 || scopedDocuments[2].ID != "unit-1" || scopedDocuments[2].Text != "Keep one" {
+	if len(scopedDocuments) != 3 || scopedDocuments[2].ID != domain.EPUBUnitID(1, "unit-1") || scopedDocuments[2].Text != "Keep one" {
 		t.Fatalf("changed-scope analyzer documents = %+v", scopedDocuments)
 	}
 	analyzedChunksMu.Unlock()
-	replacement := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: "replacement", Order: 0, Text: "New", EndOffset: 3}}}
-	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: scopedSource.SourceIdentifier, Title: "Scoped", MediaType: scopedSource.MediaType, ContentHash: "sha256:scoped-new", FullText: "New"}, replacement); err != nil {
+	replacement := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "replacement"), Order: 0, SpineIndex: 0, ManifestID: "replacement", Text: "New", EndOffset: 3}}}
+	if _, err = store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: scopedSource.SourceIdentifier, Title: "Scoped", MediaType: scopedSource.MediaType, ContentHash: "sha256:scoped-new", Content: []byte("New"), FullText: "New"}, replacement); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, scope.ScopeID); err == nil {

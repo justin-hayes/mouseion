@@ -223,7 +223,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 			units.Units[0].ResolvedHref = "OPS/capitolo.xhtml"
 			units.Units[1].ResolvedHref = "OPS/bibliografia.xhtml"
 		}
-		source, putErr := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: firstTitle, MediaType: "application/epub+zip", ContentHash: identifier, FullText: fullText}, units)
+		source, putErr := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: firstTitle, MediaType: "application/epub+zip", ContentHash: identifier, Content: []byte(fullText), FullText: fullText}, units)
 		if putErr != nil {
 			t.Fatal(putErr)
 		}

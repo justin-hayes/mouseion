@@ -5,7 +5,23 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
+
+func TestEPUBContentDigestHashesExactContainerBytes(t *testing.T) {
+	first := []byte("epub bytes")
+	second := append([]byte(nil), first...)
+	if got, want := domain.EPUBContentDigest(first), domain.EPUBContentDigest(second); got != want {
+		t.Fatalf("equal bytes produced different digests: %q != %q", got, want)
+	}
+	if domain.EPUBContentDigest(first) == domain.EPUBContentDigest([]byte("metadata-only")) {
+		t.Fatal("digest did not identify changed source bytes")
+	}
+	if got := domain.EPUBContentDigest(first); len(got) != len("sha256:")+64 || got[:7] != "sha256:" {
+		t.Fatalf("digest format = %q", got)
+	}
+}
 
 func TestExtractedUnitIdentityIsSpineBased(t *testing.T) {
 	first := UnitID(2, "chapter")

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,16 @@ import (
 
 const EPUBReviewedScopeSchemaVersion = 1
 
+const EPUBContentDigestVersion = 1
+
 var ErrEPUBReviewedScopeUnavailable = errors.New("epub: reviewed scope unavailable")
+
+// EPUBContentDigest is the identity of the exact imported EPUB byte stream.
+// It intentionally hashes the container bytes, not extracted text or metadata.
+func EPUBContentDigest(content []byte) string {
+	digest := sha256.Sum256(content)
+	return "sha256:" + fmt.Sprintf("%x", digest)
+}
 
 type EPUBScopeSelectionMode string
 
@@ -30,11 +40,21 @@ type EPUBReviewedScopeSnapshot struct {
 	ScopeID            string                      `json:"scope_id"`
 	OwnerID            string                      `json:"owner_id"`
 	SourceMaterialID   string                      `json:"source_material_id"`
+	SourceContent      EPUBContentRevisionIdentity `json:"source_content_revision"`
 	SourceUnitSnapshot EPUBUnitSnapshotIdentity    `json:"source_unit_snapshot"`
 	Classifier         EPUBClassifierIdentity      `json:"classifier"`
 	SelectionMode      EPUBScopeSelectionMode      `json:"selection_mode"`
 	SelectedUnits      []EPUBSelectedUnitReference `json:"selected_units"`
 	CreatedAt          time.Time                   `json:"-"`
+}
+
+// EPUBContentRevisionIdentity binds a reviewed scope to the exact bytes that
+// produced its extracted units. DigestVersion 0 is reserved for legacy rows;
+// new EPUB imports use version 1 and a SHA-256 digest of the stored bytes.
+type EPUBContentRevisionIdentity struct {
+	RevisionID    string `json:"revision_id"`
+	Digest        string `json:"digest"`
+	DigestVersion int    `json:"digest_version"`
 }
 
 // EPUBUnitSnapshotIdentity identifies the complete extracted-unit envelope.
@@ -57,6 +77,7 @@ type EPUBSelectedUnitReference struct {
 type EPUBScopeSourceSnapshot struct {
 	OwnerID          string
 	SourceMaterialID string
+	SourceContent    EPUBContentRevisionIdentity
 	SnapshotID       string
 	ExtractedUnits   ExtractedUnits
 }
@@ -79,6 +100,9 @@ func (s EPUBReviewedScopeSnapshot) ValidateAgainst(source EPUBScopeSourceSnapsho
 	}
 	if s.OwnerID != source.OwnerID || s.SourceMaterialID != source.SourceMaterialID {
 		return fmt.Errorf("epub: reviewed scope does not belong to the source owner and material")
+	}
+	if source.SourceContent.RevisionID != "" && (s.SourceContent != source.SourceContent || !stableIdentity(s.SourceContent.RevisionID)) {
+		return fmt.Errorf("epub: reviewed scope does not reference the exact source-content revision")
 	}
 	if s.SourceUnitSnapshot.SnapshotID != source.SnapshotID || s.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != source.ExtractedUnits.SchemaVersion {
 		return fmt.Errorf("epub: reviewed scope does not reference the exact extracted-unit snapshot")
@@ -148,6 +172,11 @@ func (s EPUBReviewedScopeSnapshot) validateEnvelope() error {
 	if !stableIdentity(s.ScopeID) || !stableIdentity(s.OwnerID) || !stableIdentity(s.SourceMaterialID) || !stableIdentity(s.SourceUnitSnapshot.SnapshotID) {
 		return fmt.Errorf("epub: reviewed scope identities are required and must be stable")
 	}
+	if s.SourceContent.RevisionID != "" {
+		if !stableIdentity(s.SourceContent.RevisionID) || !stableIdentity(s.SourceContent.Digest) || (s.SourceContent.DigestVersion != 0 && s.SourceContent.DigestVersion != 1) {
+			return fmt.Errorf("epub: source-content revision identity is invalid")
+		}
+	}
 	if s.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != ExtractedUnitsSchemaVersion {
 		return fmt.Errorf("epub: unsupported source extracted-unit schema version %d", s.SourceUnitSnapshot.ExtractedUnitsSchemaVersion)
 	}
@@ -176,4 +205,28 @@ func (s EPUBReviewedScopeSnapshot) validateEnvelope() error {
 		previousOrder = selected.Order
 	}
 	return nil
+}
+
+// ConfirmationKey is the stable identity of a scope confirmation. The caller
+// supplied ScopeID is intentionally excluded so retries with a fresh request ID
+// resolve to the same immutable revision.
+func (s EPUBReviewedScopeSnapshot) ConfirmationKey() (string, error) {
+	if err := s.validateEnvelope(); err != nil {
+		return "", err
+	}
+	wire := struct {
+		OwnerID          string
+		SourceMaterialID string
+		SourceContent    EPUBContentRevisionIdentity
+		SourceSnapshot   EPUBUnitSnapshotIdentity
+		Classifier       EPUBClassifierIdentity
+		SelectionMode    EPUBScopeSelectionMode
+		SelectedUnits    []EPUBSelectedUnitReference
+	}{s.OwnerID, s.SourceMaterialID, s.SourceContent, s.SourceUnitSnapshot, s.Classifier, s.SelectionMode, s.SelectedUnits}
+	encoded, err := json.Marshal(wire)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(encoded)
+	return "sha256:" + fmt.Sprintf("%x", digest), nil
 }

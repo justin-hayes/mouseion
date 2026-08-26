@@ -397,11 +397,18 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 	return out, rows.Err()
 }
 func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMaterial) (out domain.SourceMaterial, err error) {
-	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET title=excluded.title,media_type=excluded.media_type,content_hash=excluded.content_hash,content=excluded.content,full_text=excluded.full_text RETURNING id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at`, v.OwnerID, v.Language, v.SourceIdentifier, v.Title, v.MediaType, v.ContentHash, v.Content, v.FullText).Scan(&out.ID, &out.OwnerID, &out.Language, &out.SourceIdentifier, &out.Title, &out.MediaType, &out.ContentHash, &out.Content, &out.FullText, &out.CreatedAt)
-	return
+	content := v.Content
+	if content == nil {
+		content = []byte{}
+	}
+	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET language=excluded.language,title=excluded.title,media_type=excluded.media_type RETURNING id`, v.OwnerID, v.Language, v.SourceIdentifier, v.MediaType, v.ContentHash, content, v.FullText).Scan(&out.ID)
+	if err != nil {
+		return out, err
+	}
+	return s.GetSourceMaterial(ctx, v.OwnerID, out.ID)
 }
 func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string) (v domain.SourceMaterial, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.Content, &v.FullText, &v.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.ContentDigest, &v.Content, &v.FullText, &v.ContentRevisionID, &v.ContentDigestVersion, &v.CreatedAt)
 	err = missing(err)
 	return
 }
@@ -411,7 +418,7 @@ func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string)
 // OPDS acquisition. Normal source imports retain their existing upsert
 // behavior; this lookup is only used to make OPDS repeats idempotent.
 func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, owner, sourceIdentifier, contentHash string) (v domain.SourceMaterial, found bool, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at FROM source_materials WHERE owner_id=$1 AND (source_identifier=$2 OR content_hash=$3) ORDER BY (source_identifier=$2) DESC,created_at,id LIMIT 1`, owner, sourceIdentifier, contentHash).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.Content, &v.FullText, &v.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND (s.source_identifier=$2 OR r.content_digest=$3 OR s.content_hash=$3) ORDER BY (s.source_identifier=$2) DESC,s.created_at,s.id LIMIT 1`, owner, sourceIdentifier, contentHash).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.ContentDigest, &v.Content, &v.FullText, &v.ContentRevisionID, &v.ContentDigestVersion, &v.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SourceMaterial{}, false, nil
 	}
@@ -422,12 +429,13 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 // is authoritative for completion; otherwise a non-failed job is analyzing.
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,s.content_hash,s.created_at,
+		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
 		       CASE WHEN c.id IS NOT NULL THEN 'analyzed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
 		       COALESCE(c.id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
+		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
 		LEFT JOIN LATERAL (SELECT id,reviewed_scope_id FROM corpora WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) c ON true
 		LEFT JOIN LATERAL (SELECT river_job_id,error FROM analysis_jobs WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,river_job_id DESC LIMIT 1) j ON true
 		WHERE s.owner_id=$1
@@ -439,7 +447,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.ReviewedScopeID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.ReviewedScopeID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)

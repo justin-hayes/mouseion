@@ -91,7 +91,7 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID s
 	}
 	defer tx.Rollback(ctx)
 	var args JobArgs
-	err = tx.QueryRow(ctx, `SELECT owner_id,id,content_hash,language,full_text,source_identifier,title FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, sourceID).
+	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,s.language,COALESCE(r.full_text,s.full_text),s.source_identifier,s.title FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
 		Scan(&args.OwnerID, &args.SourceMaterialID, &args.ContentHash, &args.Language, &args.Text, &args.SourceIdentifier, &args.Title)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, ErrNotFound
@@ -258,9 +258,10 @@ func loadScopedUnits(ctx context.Context, q queryRower, owner, sourceID, scopeID
 	rows, err := q.Query(ctx, `SELECT s.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset,
 		(SELECT count(*) FROM epub_reviewed_scope_units expected WHERE expected.scope_id=s.scope_id)
 		FROM epub_reviewed_scopes s
+		JOIN source_materials source ON source.owner_id=s.owner_id AND source.id=s.source_material_id AND source.current_content_revision_id=s.content_revision_id AND source.current_snapshot_id=s.snapshot_id
 		JOIN source_material_unit_snapshots snap ON snap.owner_id=s.owner_id AND snap.source_material_id=s.source_material_id AND snap.snapshot_id=s.snapshot_id AND snap.schema_version=s.extracted_units_schema_version
 		JOIN epub_reviewed_scope_units selected ON selected.scope_id=s.scope_id AND selected.owner_id=s.owner_id AND selected.source_material_id=s.source_material_id
-		JOIN source_material_units u ON u.owner_id=selected.owner_id AND u.source_material_id=selected.source_material_id AND u.unit_id=selected.unit_id AND u.unit_order=selected.unit_order
+		JOIN source_material_units u ON u.owner_id=selected.owner_id AND u.source_material_id=selected.source_material_id AND u.snapshot_id=selected.snapshot_id AND u.unit_id=selected.unit_id AND u.unit_order=selected.unit_order
 		WHERE s.scope_id=$1 AND s.owner_id=$2 AND s.source_material_id=$3 AND s.schema_version=$4
 		ORDER BY selected.unit_order`, scopeID, owner, sourceID, domain.EPUBReviewedScopeSchemaVersion)
 	if err != nil {
@@ -308,7 +309,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 	}()
 	var exists bool
-	if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM source_materials WHERE owner_id=$1 AND id=$2 AND content_hash=$3)`, a.OwnerID, a.SourceMaterialID, a.ContentHash).Scan(&exists); err != nil || !exists {
+	if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2 AND (s.content_hash=$3 OR r.content_digest=$3))`, a.OwnerID, a.SourceMaterialID, a.ContentHash).Scan(&exists); err != nil || !exists {
 		if err != nil {
 			return fmt.Errorf("verify analysis ownership: %w", err)
 		}

@@ -1,0 +1,55 @@
+DROP TRIGGER epub_reviewed_scope_units_immutable ON epub_reviewed_scope_units;
+DROP TRIGGER epub_reviewed_scopes_immutable ON epub_reviewed_scopes;
+DROP FUNCTION reject_reviewed_scope_mutation();
+DROP TRIGGER source_materials_content_immutable ON source_materials;
+DROP FUNCTION reject_source_material_content_replacement();
+DROP TRIGGER source_content_revisions_immutable ON source_content_revisions;
+DROP TRIGGER source_material_unit_snapshots_immutable ON source_material_unit_snapshots;
+DROP TRIGGER source_material_units_immutable ON source_material_units;
+DROP FUNCTION reject_source_content_revision_mutation();
+
+ALTER TABLE epub_reviewed_scope_units
+ DROP CONSTRAINT epub_reviewed_scope_units_source_order_fkey,
+ DROP CONSTRAINT epub_reviewed_scope_units_source_unit_fkey,
+ DROP CONSTRAINT epub_reviewed_scope_units_snapshot_fkey,
+ DROP COLUMN snapshot_id;
+DROP INDEX epub_reviewed_scopes_confirmation_key;
+ALTER TABLE epub_reviewed_scopes
+ DROP CONSTRAINT epub_reviewed_scopes_snapshot_fkey,
+ DROP CONSTRAINT epub_reviewed_scopes_content_revision_fkey,
+ DROP COLUMN confirmation_key,
+ DROP COLUMN content_revision_id;
+
+ALTER TABLE source_materials
+ DROP CONSTRAINT source_materials_current_snapshot_fkey,
+ DROP COLUMN current_snapshot_id;
+ALTER TABLE source_material_unit_classifications
+ DROP CONSTRAINT IF EXISTS source_material_unit_classifications_source_unit_fkey;
+ALTER TABLE source_material_units
+ DROP CONSTRAINT source_material_units_snapshot_fkey,
+ DROP CONSTRAINT source_material_units_snapshot_order_key,
+ DROP CONSTRAINT source_material_units_pkey;
+ALTER TABLE source_material_units
+ DROP COLUMN snapshot_id;
+ALTER TABLE source_material_units
+ ADD PRIMARY KEY(owner_id,source_material_id,unit_id),
+ ADD UNIQUE(owner_id,source_material_id,unit_order),
+ ADD CONSTRAINT source_material_units_owner_id_source_material_id_fkey
+ FOREIGN KEY(owner_id,source_material_id)
+ REFERENCES source_material_unit_snapshots(owner_id,source_material_id) ON DELETE CASCADE;
+ALTER TABLE source_material_unit_classifications
+ ADD CONSTRAINT source_material_unit_classifications_owner_id_source_material_id_unit_id_fkey
+ FOREIGN KEY(owner_id,source_material_id,unit_id)
+ REFERENCES source_material_units(owner_id,source_material_id,unit_id) ON DELETE CASCADE;
+ALTER TABLE source_material_unit_snapshots
+ DROP CONSTRAINT source_material_unit_snapshots_content_revision_fkey,
+ DROP CONSTRAINT source_material_unit_snapshots_pkey;
+ALTER TABLE source_material_unit_snapshots
+ ADD PRIMARY KEY(owner_id,source_material_id),
+ DROP COLUMN content_revision_id;
+ALTER TABLE source_materials
+ DROP CONSTRAINT source_materials_current_content_revision_fkey,
+ DROP COLUMN current_content_revision_id;
+DROP TABLE source_content_revisions;
+ALTER TABLE source_materials
+ ADD CONSTRAINT source_materials_owner_id_content_hash_key UNIQUE(owner_id,content_hash);

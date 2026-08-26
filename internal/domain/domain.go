@@ -57,6 +57,9 @@ type SupportedLanguage struct {
 }
 type SourceMaterial struct {
 	ID, OwnerID, Language, SourceIdentifier, Title, MediaType, ContentHash, FullText string
+	ContentRevisionID                                                                string
+	ContentDigest                                                                    string
+	ContentDigestVersion                                                             int
 	Content                                                                          []byte
 	CreatedAt                                                                        time.Time
 }

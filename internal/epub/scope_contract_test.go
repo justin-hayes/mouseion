@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 func validReviewedScope() (ReviewedScopeSnapshot, ScopeSourceSnapshot) {
@@ -18,12 +20,13 @@ func validReviewedScope() (ReviewedScopeSnapshot, ScopeSourceSnapshot) {
 		ScopeID:            "scope:review-1",
 		OwnerID:            "owner-1",
 		SourceMaterialID:   "source-1",
+		SourceContent:      domain.EPUBContentRevisionIdentity{RevisionID: "revision:1", Digest: domain.EPUBContentDigest([]byte("epub bytes")), DigestVersion: 1},
 		SourceUnitSnapshot: UnitSnapshotIdentity{SnapshotID: "snapshot:rendition-1", ExtractedUnitsSchemaVersion: ExtractedUnitsSchemaVersion},
 		Classifier:         ClassifierIdentity{Name: "mouseion-epub-structure", Version: "1.0.0"},
 		SelectionMode:      ScopeSelectionRecommended,
 		SelectedUnits:      []SelectedUnitReference{{UnitID: units.Units[1].ID, Order: 1}, {UnitID: units.Units[2].ID, Order: 2}},
 	}
-	source := ScopeSourceSnapshot{OwnerID: scope.OwnerID, SourceMaterialID: scope.SourceMaterialID, SnapshotID: scope.SourceUnitSnapshot.SnapshotID, ExtractedUnits: units}
+	source := ScopeSourceSnapshot{OwnerID: scope.OwnerID, SourceMaterialID: scope.SourceMaterialID, SourceContent: scope.SourceContent, SnapshotID: scope.SourceUnitSnapshot.SnapshotID, ExtractedUnits: units}
 	return scope, source
 }
 
@@ -35,6 +38,8 @@ func TestReviewedScopeValidatesExactOwnerSourceAndSnapshot(t *testing.T) {
 	for _, mutate := range []func(*ScopeSourceSnapshot){
 		func(v *ScopeSourceSnapshot) { v.OwnerID = "other-owner" },
 		func(v *ScopeSourceSnapshot) { v.SourceMaterialID = "other-source" },
+		func(v *ScopeSourceSnapshot) { v.SourceContent.RevisionID = "revision:other" },
+		func(v *ScopeSourceSnapshot) { v.SourceContent.Digest = domain.EPUBContentDigest([]byte("other bytes")) },
 		func(v *ScopeSourceSnapshot) { v.SnapshotID = "snapshot:new-rendition" },
 		func(v *ScopeSourceSnapshot) { v.ExtractedUnits.SchemaVersion++ },
 	} {
@@ -139,5 +144,30 @@ func TestReviewedScopeSnapshotModelsImmutableHistory(t *testing.T) {
 	}
 	if first.ScopeID == second.ScopeID || len(first.SelectedUnits) == len(second.SelectedUnits) {
 		t.Fatal("a new review did not remain a distinct immutable snapshot")
+	}
+}
+
+func TestReviewedScopeConfirmationKeyExcludesRequestScopeID(t *testing.T) {
+	first, source := validReviewedScope()
+	key, err := first.ConfirmationKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := first
+	second.ScopeID = "scope:retry-request"
+	secondKey, err := second.ConfirmationKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != secondKey {
+		t.Fatalf("equivalent confirmations differed: %q != %q", key, secondKey)
+	}
+	second.SelectedUnits = []SelectedUnitReference{{UnitID: source.ExtractedUnits.Units[1].ID, Order: 1}}
+	changedKey, err := second.ConfirmationKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key == changedKey {
+		t.Fatal("changed selection reused confirmation identity")
 	}
 }
