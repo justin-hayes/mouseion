@@ -406,6 +406,18 @@ func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string)
 	return
 }
 
+// FindSourceMaterialForAcquisition returns an existing owner-scoped source
+// when either its extracted source identity or downloaded content matches an
+// OPDS acquisition. Normal source imports retain their existing upsert
+// behavior; this lookup is only used to make OPDS repeats idempotent.
+func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, owner, sourceIdentifier, contentHash string) (v domain.SourceMaterial, found bool, err error) {
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,created_at FROM source_materials WHERE owner_id=$1 AND (source_identifier=$2 OR content_hash=$3) ORDER BY (source_identifier=$2) DESC,created_at,id LIMIT 1`, owner, sourceIdentifier, contentHash).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.Content, &v.FullText, &v.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.SourceMaterial{}, false, nil
+	}
+	return v, err == nil, err
+}
+
 // ListSourceMaterials returns an owner's library with analysis state. A corpus
 // is authoritative for completion; otherwise a non-failed job is analyzing.
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {

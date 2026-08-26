@@ -21,6 +21,13 @@ type Store interface {
 	PutProcessingHistory(context.Context, domain.ProcessingHistory) (domain.ProcessingHistory, error)
 }
 
+// AcquisitionSourceLookup is the optional owner-scoped lookup used by OPDS
+// acquisition to make repeated downloads idempotent without changing the
+// behavior of direct EPUB imports.
+type AcquisitionSourceLookup interface {
+	FindSourceMaterialForAcquisition(context.Context, string, string, string) (domain.SourceMaterial, bool, error)
+}
+
 type Service struct {
 	store Store
 	now   func() time.Time
@@ -29,9 +36,10 @@ type Service struct {
 func NewService(store Store) *Service { return &Service{store: store, now: time.Now} }
 
 type ImportResult struct {
-	Source  domain.SourceMaterial
-	Book    ExtractedBook
-	History domain.ProcessingHistory
+	Source         domain.SourceMaterial
+	Book           ExtractedBook
+	History        domain.ProcessingHistory
+	AlreadyPresent bool
 }
 
 func (s *Service) Import(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
@@ -45,6 +53,39 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 	if err != nil {
 		return ImportResult{}, err
 	}
+	return s.importBook(ctx, ownerID, language, content, book)
+}
+
+// ImportForAcquisition validates and imports an OPDS download. When the
+// owner already has the same source identity or content, it returns that
+// source without rewriting its extracted snapshot or processing history.
+// Direct imports continue to use Import and retain their existing behavior.
+func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
+	if ownerID == "" {
+		return ImportResult{}, ErrUnauthenticated
+	}
+	if language == "" {
+		return ImportResult{}, errors.New("epub: language is required")
+	}
+	book, err := Extract(content)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	sum := sha256.Sum256(content)
+	contentHash := "sha256:" + hex.EncodeToString(sum[:])
+	if lookup, ok := s.store.(AcquisitionSourceLookup); ok {
+		existing, found, lookupErr := lookup.FindSourceMaterialForAcquisition(ctx, ownerID, book.SourceIdentifier, contentHash)
+		if lookupErr != nil {
+			return ImportResult{}, fmt.Errorf("epub: look up existing source material: %w", lookupErr)
+		}
+		if found {
+			return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
+		}
+	}
+	return s.importBook(ctx, ownerID, language, content, book)
+}
+
+func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, book ExtractedBook) (ImportResult, error) {
 	sum := sha256.Sum256(content)
 	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: "sha256:" + hex.EncodeToString(sum[:]), Content: content, FullText: book.FullText}, book.ExtractedUnits)
 	if err != nil {

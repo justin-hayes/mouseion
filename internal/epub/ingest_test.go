@@ -13,6 +13,8 @@ type memoryStore struct {
 	history    domain.ProcessingHistory
 	units      ExtractedUnits
 	classified []domain.EPUBUnitClassification
+	puts       int
+	histories  int
 }
 
 func (m *memoryStore) GetExtractedUnitSnapshot(_ context.Context, _, _ string) (string, domain.ExtractedUnits, error) {
@@ -24,15 +26,26 @@ func (m *memoryStore) ReplaceEPUBUnitClassifications(_ context.Context, _, _ str
 }
 
 func (m *memoryStore) PutSourceMaterialWithExtractedUnits(_ context.Context, v domain.SourceMaterial, units ExtractedUnits) (domain.SourceMaterial, error) {
+	m.puts++
 	v.ID = "source-id"
 	m.source = v
 	m.units = units
 	return v, nil
 }
 func (m *memoryStore) PutProcessingHistory(_ context.Context, v domain.ProcessingHistory) (domain.ProcessingHistory, error) {
+	m.histories++
 	v.ID = "history-id"
 	m.history = v
 	return v, nil
+}
+
+type acquisitionMemoryStore struct {
+	memoryStore
+	existing domain.SourceMaterial
+}
+
+func (m *acquisitionMemoryStore) FindSourceMaterialForAcquisition(context.Context, string, string, string) (domain.SourceMaterial, bool, error) {
+	return m.existing, true, nil
 }
 
 func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
@@ -65,5 +78,19 @@ func TestImportRequiresAuthenticatedOwner(t *testing.T) {
 	_, err := NewService(&memoryStore{}).Import(context.Background(), "", "de", fixture(t))
 	if !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.T) {
+	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", Title: "Existing"}}
+	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.AlreadyPresent || result.Source.ID != "existing-source" {
+		t.Fatalf("result=%+v", result)
+	}
+	if store.puts != 0 || store.histories != 0 {
+		t.Fatalf("existing acquisition rewrote source: puts=%d histories=%d", store.puts, store.histories)
 	}
 }
