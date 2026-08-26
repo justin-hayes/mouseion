@@ -926,7 +926,7 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 	var corpusID string
 	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,reviewed_scope_id,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
 		VALUES($1,$2,$3,$4::uuid,$5::uuid,'complete',$6,$7,$8,$9,$10,$11,$12,$13)
-		ON CONFLICT(owner_id,analysis_run_id) DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, artifactHash, a.ReviewedScopeID, a.RunID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
+		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, artifactHash, a.ReviewedScopeID, a.RunID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if err = tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
 			return err

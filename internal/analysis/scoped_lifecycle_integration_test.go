@@ -209,6 +209,73 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 	}
 }
 
+func TestScopedAnalysisPersistsCorpusWithRunIdentity(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	owner, err := store.CreateUser(ctx, "scoped-corpus-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := "Haus ist ein Buch."
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
+		OwnerID: owner.ID, Language: "de", SourceIdentifier: "scoped-corpus",
+		Title: "Scoped corpus", MediaType: "application/epub+zip",
+		Content: []byte(text), FullText: text,
+	}, domain.ExtractedUnits{
+		SchemaVersion: 1,
+		Units: []domain.ExtractedUnit{{
+			ID: domain.EPUBUnitID(0, "scoped-corpus"), Order: 0, SpineIndex: 0,
+			ManifestID: "scoped-corpus", Text: text, EndOffset: uint64(len([]rune(text))),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{
+		SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID,
+		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1},
+		Classifier:         domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"},
+		SelectionMode:      domain.EPUBScopeSelectionOverridden,
+		SelectedUnits:      []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "scoped-corpus"), Order: 0}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := NewClient(store.Pool(), &lifecycleAnalyzer{}, selection.NewService(store), newTestWorkers())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Stop(context.Background())
+
+	service := NewService(store.Pool(), client)
+	handle, err := service.SubmitScopedAnalysis(ctx, owner.ID, source.ID, scope.ScopeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != rivertype.JobStateCompleted || status.LogicalState != "completed" || status.CorpusID == "" {
+		t.Fatalf("scoped analysis status = %+v, want completed corpus", status)
+	}
+}
+
 func newTestWorkers() *river.Workers {
 	return river.NewWorkers()
 }
