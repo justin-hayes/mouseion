@@ -61,10 +61,10 @@ func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 	feed := opds.Feed{Title: "German", Entries: []opds.Entry{{ID: "book", Title: "Book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}
 	var output bytes.Buffer
-	if err := LanguageResults("csrf", "connection-1", "de", feed).Render(context.Background(), &output); err != nil {
+	if err := LanguageResults("csrf", "connection-1", "de", "/opds/language?connection=connection-1&language=de", "", feed).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Import &amp; analyze"} {
+	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Add to library", "Analysis starts separately"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("language results missing %q: %s", want, output.String())
 		}
@@ -77,7 +77,7 @@ func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 func TestCatalogRootFragmentShowsSearchWithoutCategories(t *testing.T) {
 	feed := opds.Feed{Title: "Catalog", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}, Entries: []opds.Entry{{Title: "Authors"}, {Title: "Newest books"}}}
 	var output bytes.Buffer
-	if err := CatalogRootFragment("connection-1", feed).Render(context.Background(), &output); err != nil {
+	if err := CatalogRootFragment("connection-1", "de", feed).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -95,7 +95,7 @@ func TestFeedFragmentShowsBreadcrumbsAndEmptyState(t *testing.T) {
 	feed := opds.Feed{Title: "A–C", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}}
 	trail := []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}, {Title: "A–C", URL: "https://catalog.example/a-c"}}
 	var output bytes.Buffer
-	if err := FeedFragment("csrf", "connection-1", feed, trail).Render(context.Background(), &output); err != nil {
+	if err := FeedFragment("csrf", "connection-1", "de", "/opds/browse?connection=connection-1&language=de", "", feed, trail).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()

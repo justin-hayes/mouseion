@@ -18,6 +18,9 @@ type ConnectionStore interface {
 type Importer interface {
 	Import(context.Context, string, string, []byte) (epub.ImportResult, error)
 }
+type AcquisitionImporter interface {
+	ImportForAcquisition(context.Context, string, string, []byte) (epub.ImportResult, error)
+}
 type Service struct {
 	store    ConnectionStore
 	importer Importer
@@ -78,7 +81,11 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID, language s
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
-	result, err := s.importer.Import(ctx, ownerID, language, content)
+	importer := s.importer.Import
+	if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
+		importer = acquisitionImporter.ImportForAcquisition
+	}
+	result, err := importer(ctx, ownerID, language, content)
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
 	}

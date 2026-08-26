@@ -509,6 +509,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	epubBytes := testEPUB(t)
+	secondEPUBBytes := testEPUBVariant(t, "book-2", "Second Book", "Guten Tag Welt.")
 	catalogRequests := 0
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		catalogRequests++
@@ -521,10 +522,13 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 			_, _ = w.Write([]byte(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/1</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/opds/language/1"/></entry></feed>`))
 		case "/opds/language/1":
 			w.Header().Set("Content-Type", "application/atom+xml")
-			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>book-pdf</id><title>PDF Book</title><link rel="%s" type="application/pdf" href="/book.pdf"/></entry><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry></feed>`, opds.AcquisitionRel, opds.AcquisitionRel, opds.EPUBMediaType)
+			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>book-pdf</id><title>PDF Book</title><link rel="%s" type="application/pdf" href="/book.pdf"/></entry><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry><entry><id>book-2</id><title>Second Book</title><link rel="%s" type="%s" href="/book-2.epub"/></entry></feed>`, opds.AcquisitionRel, opds.AcquisitionRel, opds.EPUBMediaType, opds.AcquisitionRel, opds.EPUBMediaType)
 		case "/book.epub":
 			w.Header().Set("Content-Type", opds.EPUBMediaType)
 			_, _ = w.Write(epubBytes)
+		case "/book-2.epub":
+			w.Header().Set("Content-Type", opds.EPUBMediaType)
+			_, _ = w.Write(secondEPUBBytes)
 		default:
 			http.NotFound(w, r)
 		}
@@ -600,26 +604,69 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if languageBooks.Code != 200 || !strings.Contains(languageBooks.Body.String(), "Test Book") || strings.Contains(languageBooks.Body.String(), "PDF Book") {
 		t.Fatalf("language browse=%d %s", languageBooks.Code, languageBooks.Body.String())
 	}
-	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
+	csrfMissing := url.Values{"connection": {connection.ID}, "language": {"de"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}}
+	if got := perform(t, h, "POST", "/opds/acquire", csrfMissing, cookies); got.Code != http.StatusForbidden {
+		t.Fatalf("acquire without csrf=%d", got.Code)
+	}
+	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "entry_id": {"book-1"}, "title": {"Test Book"}, "href": {catalog.URL + "/book.epub"}, "return_to": {"/opds/language?connection=" + connection.ID + "&language=de"}}
 	acquired := perform(t, h, "POST", "/opds/acquire", acquireForm, cookies)
 	if acquired.Code != http.StatusSeeOther {
 		t.Fatalf("acquire=%d %s", acquired.Code, acquired.Body.String())
 	}
-	if recorder.owner != alice.ID || recorder.source == "" {
-		t.Fatalf("analysis wiring owner=%q source=%q", recorder.owner, recorder.source)
+	if recorder.owner != "" || recorder.source != "" {
+		t.Fatalf("OPDS acquisition started analysis owner=%q source=%q", recorder.owner, recorder.source)
+	}
+	if acquired.Header().Get("Location") == "" || !strings.Contains(acquired.Header().Get("Location"), "/opds/language") {
+		t.Fatalf("acquire did not preserve browse context: %q", acquired.Header().Get("Location"))
 	}
 	library := perform(t, h, "GET", "/library", nil, cookies)
 	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "not analyzed") {
 		t.Fatalf("library=%d %s", library.Code, library.Body.String())
 	}
-	bookPage := perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
+	books, err := store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil || len(books) != 1 {
+		t.Fatalf("OPDS acquisition books=%d err=%v", len(books), err)
+	}
+	bookID := books[0].Source.ID
+	var analysisJobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs); err != nil || analysisJobs != 0 {
+		t.Fatalf("OPDS acquisition analysis jobs=%d err=%v", analysisJobs, err)
+	}
+	secondForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "entry_id": {"book-2"}, "title": {"Second Book"}, "href": {catalog.URL + "/book-2.epub"}}
+	secondRequest := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(secondForm.Encode()))
+	secondRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	secondRequest.Header.Set("HX-Request", "true")
+	for _, cookie := range cookies {
+		secondRequest.AddCookie(cookie)
+	}
+	secondResponse := httptest.NewRecorder()
+	h.ServeHTTP(secondResponse, secondRequest)
+	if secondResponse.Code != http.StatusOK || !strings.Contains(secondResponse.Body.String(), "Added to My Library") || !strings.Contains(secondResponse.Body.String(), "/scope") {
+		t.Fatalf("second OPDS acquisition=%d %s", secondResponse.Code, secondResponse.Body.String())
+	}
+	duplicateResponse := httptest.NewRecorder()
+	duplicateRequest := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(acquireForm.Encode()))
+	duplicateRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	duplicateRequest.Header.Set("HX-Request", "true")
+	for _, cookie := range cookies {
+		duplicateRequest.AddCookie(cookie)
+	}
+	h.ServeHTTP(duplicateResponse, duplicateRequest)
+	if duplicateResponse.Code != http.StatusOK || !strings.Contains(duplicateResponse.Body.String(), "Already in My Library") {
+		t.Fatalf("duplicate OPDS acquisition=%d %s", duplicateResponse.Code, duplicateResponse.Body.String())
+	}
+	books, err = store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil || len(books) != 2 {
+		t.Fatalf("multi-add books=%d err=%v", len(books), err)
+	}
+	bookPage := perform(t, h, "GET", "/books/"+bookID, nil, cookies)
 	if bookPage.Code != 200 || !strings.Contains(bookPage.Body.String(), "Submit to analysis") {
 		t.Fatalf("book=%d %s", bookPage.Code, bookPage.Body.String())
 	}
-	if got := perform(t, h, "POST", "/books/"+recorder.source+"/analyze", nil, cookies); got.Code != http.StatusForbidden {
+	if got := perform(t, h, "POST", "/books/"+bookID+"/analyze", nil, cookies); got.Code != http.StatusForbidden {
 		t.Fatalf("analysis without csrf=%d", got.Code)
 	}
-	resubmitted := perform(t, h, "POST", "/books/"+recorder.source+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	resubmitted := perform(t, h, "POST", "/books/"+bookID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
 	if resubmitted.Code != http.StatusSeeOther || recorder.owner != alice.ID || recorder.source == "" {
 		t.Fatalf("resubmit=%d owner=%q source=%q", resubmitted.Code, recorder.owner, recorder.source)
 	}
@@ -1095,10 +1142,13 @@ func cookieNamed(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie
 	return nil
 }
 func testEPUB(t *testing.T) []byte {
+	return testEPUBVariant(t, "book-1", "Test Book", "Hallo Welt.")
+}
+func testEPUBVariant(t *testing.T, identifier, title, text string) []byte {
 	t.Helper()
 	var b bytes.Buffer
 	z := zip.NewWriter(&b)
-	files := map[string]string{"mimetype": "application/epub+zip", "META-INF/container.xml": `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`, `OEBPS/content.opf`: `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">book-1</dc:identifier><dc:title>Test Book</dc:title></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>`, `OEBPS/chapter.xhtml`: `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Hallo Welt.</p></body></html>`}
+	files := map[string]string{"mimetype": "application/epub+zip", "META-INF/container.xml": `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`, `OEBPS/content.opf`: fmt.Sprintf(`<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">%s</dc:identifier><dc:title>%s</dc:title></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>`, identifier, title), `OEBPS/chapter.xhtml`: fmt.Sprintf(`<html xmlns="http://www.w3.org/1999/xhtml"><body><p>%s</p></body></html>`, text)}
 	for name, content := range files {
 		w, err := z.Create(name)
 		if err != nil {

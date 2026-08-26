@@ -205,6 +205,25 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
+func isHTMX(r *http.Request) bool      { return r.Header.Get("HX-Request") == "true" }
+
+func acquisitionReturnPath(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return "/library"
+	}
+	return webauth.SafeReturnPath(raw)
+}
+
+func addQueryMessage(raw, message string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	query := u.Query()
+	query.Set("message", message)
+	u.RawQuery = query.Encode()
+	return u.RequestURI()
+}
 
 func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 	hasUsers, err := h.services.Auth.HasUsers(r.Context())
@@ -980,11 +999,11 @@ func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	trail := decodeTrail(r.URL.Query()["trail"])
 	currentURL := r.URL.Query().Get("url")
 	if currentURL == "" {
-		render(w, r, CatalogRootFragment(r.URL.Query().Get("connection"), feed))
+		render(w, r, CatalogRootFragment(r.URL.Query().Get("connection"), language, feed))
 		return
 	}
 	trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
-	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), feed, trail))
+	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), language, r.URL.RequestURI(), r.URL.Query().Get("message"), feed, trail))
 }
 func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
@@ -1013,7 +1032,7 @@ func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
 		opdsFail(w, e)
 		return
 	}
-	render(w, r, LanguageResults(h.csrf(w, r), connectionID, language, feed))
+	render(w, r, LanguageResults(h.csrf(w, r), connectionID, language, r.URL.RequestURI(), r.URL.Query().Get("message"), feed))
 }
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
@@ -1035,7 +1054,7 @@ func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 		opdsFail(w, e)
 		return
 	}
-	render(w, r, SearchResults(h.csrf(w, r), r.URL.Query().Get("connection"), query, feed))
+	render(w, r, SearchResults(h.csrf(w, r), r.URL.Query().Get("connection"), language, r.URL.RequestURI(), r.URL.Query().Get("message"), query, feed))
 }
 func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -1049,15 +1068,23 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	entry := opds.Entry{ID: r.FormValue("entry_id"), Title: r.FormValue("title"), Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: r.FormValue("href")}}}
 	result, e := h.services.OPDS.Acquire(r.Context(), u.ID, r.FormValue("connection"), language, entry)
 	if e != nil {
+		if isHTMX(r) && !errors.Is(e, persistence.ErrNotFound) {
+			render(w, r, AcquisitionFailureCard(h.csrf(w, r), r.FormValue("connection"), language, r.FormValue("return_to"), opdsErrorMessage(e), entry, r.FormValue("href")))
+			return
+		}
 		opdsFail(w, e)
 		return
 	}
-	handle, e := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, result.Source.ID)
-	if e != nil {
-		fail(w, e)
+	if isHTMX(r) {
+		render(w, r, AcquisitionSuccessCard(entry, result.Source.ID, result.AlreadyPresent))
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/books/%s?message=%s", result.Source.ID, url.QueryEscape(fmt.Sprintf("Imported to My Library. Analysis job #%d is queued — follow its progress below.", handle.DisplayNumber))))
+	returnTo := acquisitionReturnPath(r.FormValue("return_to"))
+	message := "Added to My Library. Review its scope when you are ready."
+	if result.AlreadyPresent {
+		message = "That book is already in My Library."
+	}
+	redirect(w, r, addQueryMessage(returnTo, message))
 }
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -1415,6 +1442,10 @@ func opdsFail(w http.ResponseWriter, err error) {
 		http.Error(w, "catalog not found", http.StatusNotFound)
 		return
 	}
+	http.Error(w, opdsErrorMessage(err), http.StatusBadGateway)
+}
+
+func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."
 	lower := strings.ToLower(err.Error())
 	switch {
@@ -1424,10 +1455,12 @@ func opdsFail(w http.ResponseWriter, err error) {
 		message = "The catalog rejected the credentials. Update the connection username and password."
 	case strings.Contains(lower, "parse atom"), strings.Contains(lower, "html"):
 		message = "The catalog returned a web page instead of an OPDS feed. Check the catalog URL."
+	case strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
+		message = "The downloaded EPUB could not be added. Choose another book or try again."
 	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
 		message = "The catalog could not be reached. Check its URL and network availability, then try again."
 	}
-	http.Error(w, message, http.StatusBadGateway)
+	return message
 }
 
 type CatalogCrumb struct{ Title, URL string }
@@ -1479,6 +1512,20 @@ func decodeTrail(values []string) []CatalogCrumb {
 }
 func browseURL(connectionID, target string, trail []CatalogCrumb) string {
 	values := url.Values{"connection": {connectionID}}
+	if target != "" {
+		values.Set("url", target)
+	}
+	for _, crumb := range trail {
+		values.Add("trail", crumb.Title+"\x1f"+crumb.URL)
+	}
+	return "/opds/browse?" + values.Encode()
+}
+
+func browseURLForLanguage(connectionID, language, target string, trail []CatalogCrumb) string {
+	values := url.Values{"connection": {connectionID}}
+	if language != "" {
+		values.Set("language", language)
+	}
 	if target != "" {
 		values.Set("url", target)
 	}
