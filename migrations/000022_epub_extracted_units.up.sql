@@ -21,6 +21,6 @@ CREATE TABLE source_material_units (
  landmark_types jsonb NOT NULL DEFAULT '[]'::jsonb,
  selected boolean NOT NULL DEFAULT true,
  PRIMARY KEY(owner_id, source_material_id, unit_id),
- UNIQUE(owner_id, source_material_id, unit_order),
+ CONSTRAINT source_material_units_source_order_key UNIQUE(owner_id, source_material_id, unit_order),
  FOREIGN KEY(owner_id, source_material_id) REFERENCES source_material_unit_snapshots(owner_id, source_material_id) ON DELETE CASCADE
 );

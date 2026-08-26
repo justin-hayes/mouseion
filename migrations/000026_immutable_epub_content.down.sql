@@ -33,7 +33,7 @@ ALTER TABLE source_material_units
  DROP COLUMN snapshot_id;
 ALTER TABLE source_material_units
  ADD PRIMARY KEY(owner_id,source_material_id,unit_id),
- ADD UNIQUE(owner_id,source_material_id,unit_order),
+ ADD CONSTRAINT source_material_units_source_order_key UNIQUE(owner_id,source_material_id,unit_order),
  ADD CONSTRAINT source_material_units_owner_id_source_material_id_fkey
  FOREIGN KEY(owner_id,source_material_id)
  REFERENCES source_material_unit_snapshots(owner_id,source_material_id) ON DELETE CASCADE;
