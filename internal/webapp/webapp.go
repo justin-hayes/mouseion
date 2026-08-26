@@ -135,7 +135,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /books/{id}/scope", h.user(http.HandlerFunc(h.reviewEPUBScope)))
 	h.mux.Handle("POST /books/{id}/scope", h.user(http.HandlerFunc(h.confirmEPUBScope)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
-	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
+	h.mux.Handle("POST /jobs/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
 	h.mux.Handle("POST /deck-preparations/{id}/retry", h.user(http.HandlerFunc(h.retryDeckPreparation)))
@@ -1346,15 +1346,16 @@ func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) 
 }
 
 type deckPreparationResponse struct {
-	ID           string                      `json:"id"`
-	State        domain.DeckPreparationState `json:"state"`
-	Progress     int                         `json:"progress"`
-	Ready        bool                        `json:"ready"`
-	Error        string                      `json:"error,omitempty"`
-	Filename     string                      `json:"filename"`
-	DeckName     string                      `json:"deck_name"`
-	DownloadURL  string                      `json:"download_url,omitempty"`
-	Completeness deckCompletenessResponse    `json:"completeness"`
+	ID            string                      `json:"id"`
+	State         domain.DeckPreparationState `json:"state"`
+	Progress      int                         `json:"progress"`
+	Ready         bool                        `json:"ready"`
+	Error         string                      `json:"error,omitempty"`
+	AnalysisRunID string                      `json:"analysis_run_id,omitempty"`
+	Filename      string                      `json:"filename"`
+	DeckName      string                      `json:"deck_name"`
+	DownloadURL   string                      `json:"download_url,omitempty"`
+	Completeness  deckCompletenessResponse    `json:"completeness"`
 }
 
 type deckCompletenessResponse struct {
@@ -1371,7 +1372,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	} else if p.State == domain.DeckPreparationReady || p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		progress = 100
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: p.Error, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: p.Error, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}}
 	if response.Ready {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
@@ -1441,6 +1442,7 @@ func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/vnd.anki")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": p.Filename}))
 	w.Header().Set("X-Mouseion-Deck-Name", p.DeckName)
+	w.Header().Set("X-Mouseion-Analysis-Run-ID", p.AnalysisRunID)
 	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(p.TotalCards))
 	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(p.CardsWithEnglish))
 	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(p.CardsWithContextualSentenceTranslations))
@@ -1450,6 +1452,8 @@ func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request
 
 func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, prepareddeck.ErrAnalysisUnavailable), errors.Is(err, prepareddeck.ErrInvalidInput):
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, persistence.ErrNotFound):
 		http.NotFound(w, r)
 	case errors.Is(err, persistence.ErrInvalidTransition):

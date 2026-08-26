@@ -30,6 +30,27 @@ func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owne
 	return candidates, rows.Err()
 }
 
+func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
+	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance,selected_at,COALESCE(first_seen.start_offset,9223372036854775807)
+		FROM selection_candidates sc
+		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
+		LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'location'->>'StartOffset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true
+		WHERE sc.owner_id=$1 AND sc.corpus_id=$2 ORDER BY sc.language,sc.canonical_lemma,sc.upos`, owner, corpusID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var candidates []domain.SelectionCandidate
+	for rows.Next() {
+		var candidate domain.SelectionCandidate
+		if err := rows.Scan(&candidate.OwnerID, &candidate.CorpusID, &candidate.Language, &candidate.CanonicalLemma, &candidate.UPOS, &candidate.OccurrenceCount, &candidate.ObservedForms, &candidate.SentenceReferences, &candidate.Provenance, &candidate.SelectedAt, &candidate.FirstEncounter); err != nil {
+			return nil, err
+		}
+		candidates = append(candidates, candidate)
+	}
+	return candidates, rows.Err()
+}
+
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
 	var entry cardexport.Entry
 	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',$7::bigint FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
@@ -46,6 +67,39 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 		err = nil
 	}
 	return entry, err
+}
+
+func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	var entry cardexport.Entry
+	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',$6::bigint
+		FROM selection_candidates sc
+		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
+		JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id
+		LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true
+		LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true
+		LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true
+		WHERE sc.owner_id=$1 AND sc.corpus_id=$2 AND sc.language=$3 AND sc.canonical_lemma=$4 AND sc.upos=$5`, owner, corpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
+	if err = missing(err); err != nil {
+		return entry, err
+	}
+	if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
+		entry.Sentence = evidence.Sentence
+		entry.TargetWord = evidence.Target
+		entry.FirstEncounter = evidence.FirstEncounter
+	}
+	err = s.pool.QueryRow(ctx, `SELECT sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 AND sentence_translation<>'' ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.SentenceTranslation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = nil
+	}
+	return entry, err
+}
+
+func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysisRunID string) (domain.Corpus, error) {
+	var corpus domain.Corpus
+	err := s.pool.QueryRow(ctx, `SELECT c.id::text,c.owner_id::text,c.source_material_id::text,c.artifact_hash,COALESCE(c.reviewed_scope_id::text,''),COALESCE(c.analysis_run_id::text,''),c.status,c.created_at
+		FROM corpora c JOIN analysis_runs r ON r.owner_id=c.owner_id AND r.id=c.analysis_run_id AND r.source_material_id=c.source_material_id
+		WHERE c.owner_id=$1 AND r.id=$2 AND r.state='completed' AND c.status='complete' AND c.reviewed_scope_id=r.scope_id`, owner, analysisRunID).Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.ReviewedScopeID, &corpus.AnalysisRunID, &corpus.Status, &corpus.CreatedAt)
+	return corpus, missing(err)
 }
 
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {

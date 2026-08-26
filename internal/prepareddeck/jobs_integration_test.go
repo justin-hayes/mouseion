@@ -6,15 +6,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -38,8 +43,42 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "service-book", Title: "A Book", MediaType: "text/plain", ContentHash: "immutable-hash", Content: []byte("text"), FullText: "text"})
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "service-book", Title: "A Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, Text: "text", EndOffset: 4}}})
 	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionRecommended, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "unit"), Order: 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, selection.NewService(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	analysisService := analysis.NewService(store.Pool(), analysisRiver)
+	analysisHandle, err := analysisService.SubmitScopedAnalysis(ctx, owner.ID, source.ID, scope.ScopeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactHash := "sha256:prepared-analysis-artifact"
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash); err != nil {
+		t.Fatal(err)
+	}
+	var corpusID string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,reviewed_scope_id,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,$5,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, scope.ScopeID, analysisHandle.RunID).Scan(&corpusID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner.ID, corpusID, analysisHandle.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, analysisHandle.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner.ID, corpusID, analysisHandle.RunID); err != nil {
 		t.Fatal(err)
 	}
 	workers := river.NewWorkers()
@@ -49,7 +88,8 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := NewService(store, client)
-	handle, err := service.Submit(ctx, owner.ID, source.ID, true)
+	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
+	handle, err := service.Submit(ctx, owner.ID, analysisID, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,10 +104,10 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 	if err = json.Unmarshal(job.EncodedArgs, &args); err != nil {
 		t.Fatal(err)
 	}
-	if args.OwnerID != owner.ID || args.SourceMaterialID != source.ID || args.ContentHash != source.ContentHash || !args.ExternalTranslationConsent {
+	if args.OwnerID != owner.ID || args.SourceMaterialID != source.ID || args.ContentHash != source.ContentHash || args.AnalysisRunID != analysisHandle.RunID || !args.ExternalTranslationConsent {
 		t.Fatalf("args=%+v", args)
 	}
-	repeated, err := service.Submit(ctx, owner.ID, source.ID, false)
+	repeated, err := service.Submit(ctx, owner.ID, analysisID, false)
 	if err != nil || repeated.Preparation.ID != handle.Preparation.ID || repeated.JobID != handle.JobID {
 		t.Fatalf("duplicate submit=%+v err=%v", repeated, err)
 	}
@@ -78,7 +118,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 		submissions.Add(1)
 		go func(consent bool) {
 			defer submissions.Done()
-			result, submitErr := service.Submit(ctx, owner.ID, source.ID, consent)
+			result, submitErr := service.Submit(ctx, owner.ID, analysisID, consent)
 			if submitErr != nil {
 				errorsCh <- submitErr
 				return

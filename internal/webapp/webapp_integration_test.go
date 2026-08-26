@@ -88,14 +88,14 @@ type recordingPreparedDeck struct {
 	consent      bool
 }
 
-func (r *recordingPreparedDeck) Submit(_ context.Context, owner, source string, consent bool) (prepareddeck.Handle, error) {
+func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID string, consent bool) (prepareddeck.Handle, error) {
 	r.consent = consent
 	for _, p := range r.preparations {
-		if p.OwnerID == owner && p.SourceMaterialID == source {
+		if p.OwnerID == owner && p.AnalysisRunID == analysisID {
 			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 		}
 	}
-	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: source, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "book-1", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
@@ -720,7 +720,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
 		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
 	}
-	for _, want := range []string{"Text profile", "20", "12.0", "38", "10.0%", "200 of 240", "55.0%", "current-known coverage", "active-campaign projected coverage", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "graduated by completed campaigns", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "Prepare deck"} {
+	for _, want := range []string{"Text profile", "20", "12.0", "38", "10.0%", "200 of 240", "55.0%", "current-known coverage", "active-campaign projected coverage", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "graduated by completed campaigns", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "Open analysis result to prepare deck"} {
 		if !strings.Contains(bookPage.Body.String(), want) {
 			t.Errorf("coverage page missing %q", want)
 		}
@@ -755,7 +755,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "Prepare deck") || !strings.Contains(bookPage.Body.String(), "/books/"+recorder.source+"/deck/preparations") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
+	if !strings.Contains(bookPage.Body.String(), "Open analysis result to prepare deck") || !strings.Contains(bookPage.Body.String(), "/jobs/") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
 		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
 	}
 	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)
@@ -869,10 +869,10 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 
-	if got := perform(t, h, "POST", "/books/book-1/deck/preparations", nil, aliceCookies); got.Code != http.StatusForbidden {
+	if got := perform(t, h, "POST", "/jobs/42/deck/preparations", nil, aliceCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("create without csrf=%d", got.Code)
 	}
-	created := perform(t, h, "POST", "/books/book-1/deck/preparations", url.Values{"csrf_token": {aliceCSRF}, "external_translation_consent": {"on"}}, aliceCookies)
+	created := perform(t, h, "POST", "/jobs/42/deck/preparations", url.Values{"csrf_token": {aliceCSRF}, "external_translation_consent": {"on"}}, aliceCookies)
 	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/deck-preparations/prep-1/status" || !decks.consent {
 		t.Fatalf("create=%d location=%q consent=%v", created.Code, created.Header().Get("Location"), decks.consent)
 	}

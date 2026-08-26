@@ -43,6 +43,22 @@ type fakeBuilder struct {
 	calls     int
 }
 
+type fakeScopedBuilder struct {
+	artifact cardexport.Artifact
+	runID    string
+	calls    int
+}
+
+func (b *fakeScopedBuilder) BuildCoverage(context.Context, string, string) (cardexport.Artifact, error) {
+	return cardexport.Artifact{}, errors.New("legacy builder should not be used")
+}
+
+func (b *fakeScopedBuilder) BuildCoverageForAnalysis(_ context.Context, _, runID string) (cardexport.Artifact, error) {
+	b.calls++
+	b.runID = runID
+	return b.artifact, nil
+}
+
 func (b *fakeBuilder) BuildCoverage(context.Context, string, string) (cardexport.Artifact, error) {
 	b.calls++
 	if b.err != nil {
@@ -96,5 +112,19 @@ func TestWorkerRejectsChangedImmutableSourceIdentity(t *testing.T) {
 	}
 	if store.failed != "source material identity changed" || store.completed != nil {
 		t.Fatalf("failed=%q completed=%+v", store.failed, store.completed)
+	}
+}
+
+func TestWorkerBuildsFromTheImmutableAnalysisRun(t *testing.T) {
+	const runID = "analysis-run-1"
+	store := &fakeStore{preparation: domain.DeckPreparation{ID: "p", OwnerID: "alice", SourceMaterialID: "book", AnalysisRunID: runID, ContentHash: "hash"}, source: domain.SourceMaterial{ID: "book", OwnerID: "alice", ContentHash: "a-newer-source-hash"}}
+	builder := &fakeScopedBuilder{artifact: cardexport.Artifact{APKG: []byte("scoped")}}
+	worker := &Worker{Store: store, Builder: builder}
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1}, Args: JobArgs{PreparationID: "p", OwnerID: "alice", SourceMaterialID: "book", ContentHash: "hash", AnalysisRunID: runID}}
+	if err := worker.Work(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if builder.calls != 1 || builder.runID != runID || store.completed == nil || string(store.completed.APKG) != "scoped" {
+		t.Fatalf("calls=%d run=%q completed=%+v", builder.calls, builder.runID, store.completed)
 	}
 }

@@ -307,11 +307,11 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		} else {
 			<a role="button" class="outline" href={ templ.SafeURL(scopeReviewURL(book)) }>Review and confirm scope</a>
 			}
-	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck covering at least 97% of the book's unknown vocabulary, ordered by first encounter.</p>
-		if book.AnalysisStatus == "analyzed" {
-			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck/preparations") } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
+		if book.AnalysisStatus == "analyzed" && book.AnalysisJobID > 0 {
+			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>Open analysis result to prepare deck</a>
 		} else {
-			<button disabled>Available after analysis</button>
+			<button disabled>Available after a scoped analysis</button>
 		}
 	</article></div> }
 }
@@ -746,7 +746,12 @@ templ JobStatus(csrf string, status analysis.Status) {
 			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel analysis</button></form>
 		}
 		if status.CorpusID != "" {
-			<p>Analysis complete. <a href="/library">Choose the book in My Library to generate its deck.</a></p>
+			if status.ScopeID != "" && status.LogicalState == "completed" {
+				<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+			} else {
+				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
+			}
 		}
 	</article>
 }

@@ -92,6 +92,13 @@ type Store interface {
 	RecordGeneratedForBook(context.Context, string, string, string, Entry, Note) error
 }
 
+type analysisStore interface {
+	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
+	GetCorpusForAnalysis(context.Context, string, string) (domain.Corpus, error)
+	ListSelectionCandidatesForCorpus(context.Context, string, string) ([]domain.SelectionCandidate, error)
+	GetCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
+}
+
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -524,6 +531,63 @@ func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Arti
 		entry, err := s.store.GetCoverageEntryForBook(ctx, owner, bookID, candidate)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
+		}
+		if evidence, ok := BestSentenceEvidence(candidate); ok {
+			entry.Sentence = evidence.Sentence
+			entry.TargetWord = evidence.Target
+			entry.FirstEncounter = evidence.FirstEncounter
+		} else {
+			entry.TargetWord = targetWord(entry.Sentence, candidate)
+		}
+		entries = append(entries, entry)
+		if strings.TrimSpace(entry.SourceDocument) != "" {
+			deckName = entry.SourceDocument
+		}
+	}
+	return s.render(ctx, owner, deckName, entries)
+}
+
+// BuildCoverageForAnalysis selects and renders only the immutable corpus
+// produced by the completed scoped analysis. The analysis provenance is
+// resolved by the owner-scoped persistence implementation, rather than by a
+// mutable book-level "latest" projection.
+func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisRunID string) (Artifact, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisRunID) == "" {
+		return Artifact{}, ErrInvalidInput
+	}
+	store, ok := s.store.(analysisStore)
+	if !ok {
+		return Artifact{}, errors.New("cardexport: scoped analysis storage is unavailable")
+	}
+	corpus, err := store.GetCorpusForAnalysis(ctx, owner, analysisRunID)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("load completed analysis corpus: %w", err)
+	}
+	candidates, err := store.ListSelectionCandidatesForCorpus(ctx, owner, corpus.ID)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("list scoped selection candidates: %w", err)
+	}
+	selected, err := s.coverageCandidates(ctx, owner, corpus.SourceMaterialID, candidates)
+	if err != nil {
+		return Artifact{}, err
+	}
+	sort.SliceStable(selected, func(i, j int) bool {
+		if selected[i].FirstEncounter != selected[j].FirstEncounter {
+			return selected[i].FirstEncounter < selected[j].FirstEncounter
+		}
+		return candidateKey(selected[i]) < candidateKey(selected[j])
+	})
+
+	entries := make([]Entry, 0, len(selected))
+	source, err := store.GetSourceMaterial(ctx, owner, corpus.SourceMaterialID)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("load scoped analysis source: %w", err)
+	}
+	deckName := source.Title
+	for _, candidate := range selected {
+		entry, err := store.GetCoverageEntryForCorpus(ctx, owner, corpus.ID, candidate)
+		if err != nil {
+			return Artifact{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		if evidence, ok := BestSentenceEvidence(candidate); ok {
 			entry.Sentence = evidence.Sentence
