@@ -29,8 +29,8 @@ Make structure and scope decisions easier to understand and reuse while keeping 
 ### Reusable and historical scopes
 
 - A learner can start from the current recommendation, all readable units, or a prior selection. Prior and proposed scopes are compared by stable unit ID and title with added/removed units and estimated sizes.
-- Confirming always creates a new immutable reviewed-scope record. Reusing the same snapshot and selection produces the same ordered analysis input; changing the selection creates distinct scope and corpus history.
-- Analysis reloads the saved scope and sends only its selected persisted units to the analyzer. Completed corpora link back to the exact reviewed scope and retain ordered selected-unit provenance.
+- Confirming creates or resolves an immutable reviewed-scope revision without starting analysis. Reusing the same snapshot and selection produces the same ordered future analysis input; changing the selection creates distinct scope history.
+- A separate explicit analysis action reloads the saved scope and sends only its selected persisted units to the analyzer. Completed corpora link back to the exact reviewed scope and retain ordered selected-unit provenance.
 - Historical result pages identify either the reviewed scope and selected units or the legacy/full-text behavior used by older corpora.
 
 ## Security boundaries
