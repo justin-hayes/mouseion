@@ -31,7 +31,7 @@ func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owne
 }
 
 func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
-	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance,selected_at,COALESCE(first_seen.start_offset,9223372036854775807)
+	rows, err := s.pool.Query(ctx, `SELECT sc.owner_id::text,sc.corpus_id,sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,sc.selected_at,COALESCE(first_seen.start_offset,9223372036854775807)
 		FROM selection_candidates sc
 		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
 		LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'location'->>'StartOffset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true

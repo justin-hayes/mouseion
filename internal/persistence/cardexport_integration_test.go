@@ -41,6 +41,14 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	candidates, err := store.ListSelectionCandidatesForCorpus(ctx, owner.ID, corpus.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 1 || candidates[0].OwnerID != owner.ID {
+		t.Fatalf("scoped candidates = %#v, want one candidate owned by %s", candidates, owner.ID)
+	}
+
 	entry, err := store.GetCoverageEntryForBook(ctx, owner.ID, book.ID, candidate)
 	if err != nil {
 		t.Fatal(err)
