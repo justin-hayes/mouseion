@@ -67,21 +67,22 @@ type SourceMaterial struct {
 // SourceMaterialSummary adds the learner-facing state derived from the latest
 // analysis job and corpus without loading the book's content.
 type SourceMaterialSummary struct {
-	Source          SourceMaterial
-	AnalysisStatus  string
-	CorpusID        string
-	ReviewedScopeID string
-	AnalysisJobID   int64
+	Source           SourceMaterial
+	AnalysisStatus   string
+	CorpusID         string
+	ReviewedScopeID  string
+	ConfirmedScopeID string
+	AnalysisJobID    int64
 }
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password string
 	CreatedAt, UpdatedAt                       time.Time
 }
 type Corpus struct {
-	ID, OwnerID, SourceMaterialID, ArtifactHash, ReviewedScopeID, Status string
-	Statistics                                                           *AnalysisStatistics
-	SelectedUnits                                                        []CorpusSelectedUnit
-	CreatedAt                                                            time.Time
+	ID, OwnerID, SourceMaterialID, ArtifactHash, ReviewedScopeID, AnalysisRunID, Status string
+	Statistics                                                                          *AnalysisStatistics
+	SelectedUnits                                                                       []CorpusSelectedUnit
+	CreatedAt                                                                           time.Time
 }
 
 // AnalysisStatistics records immutable counts from the analyzed corpus before
@@ -106,11 +107,11 @@ type TextProfile struct {
 // AnalysisCorpusVocabulary is the persisted, owner-scoped input for dynamic
 // vocabulary coverage calculations.
 type AnalysisCorpusVocabulary struct {
-	CorpusID, SourceMaterialID string
-	ReviewedScopeID            string
-	SelectedUnits              []CorpusSelectedUnit
-	Statistics                 *AnalysisStatistics
-	Lemmas                     []LemmaOccurrence
+	CorpusID, SourceMaterialID, AnalysisRunID string
+	ReviewedScopeID                           string
+	SelectedUnits                             []CorpusSelectedUnit
+	Statistics                                *AnalysisStatistics
+	Lemmas                                    []LemmaOccurrence
 }
 
 type LemmaOccurrence struct {
@@ -138,7 +139,9 @@ type CoverageProjection struct {
 
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
+	SourceMaterialID         string
 	ReviewedScopeID          string
+	AnalysisRunID            string
 	SelectedUnits            []CorpusSelectedUnit
 	AnalyzableTokenCount     int64
 	DistinctLemmaCount       int64

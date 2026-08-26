@@ -12,7 +12,7 @@ import (
 func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, corpusID string) (value domain.AnalysisCorpusVocabulary, err error) {
 	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
 	var medianSentenceTokenCount *float64
-	err = s.pool.QueryRow(ctx, `SELECT id::text,source_material_id::text,COALESCE(reviewed_scope_id::text,''),analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count FROM corpora WHERE owner_id=$1 AND id=$2`, owner, corpusID).Scan(&value.CorpusID, &value.SourceMaterialID, &value.ReviewedScopeID, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount)
+	err = s.pool.QueryRow(ctx, `SELECT id::text,source_material_id::text,COALESCE(reviewed_scope_id::text,''),COALESCE(analysis_run_id::text,''),analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count FROM corpora WHERE owner_id=$1 AND id=$2`, owner, corpusID).Scan(&value.CorpusID, &value.SourceMaterialID, &value.ReviewedScopeID, &value.AnalysisRunID, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount)
 	if err = missing(err); err != nil {
 		return value, err
 	}

@@ -296,13 +296,17 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
 		}
 		if book.AnalysisJobID == 0 {
-			<p>Analyze the text to prepare vocabulary candidates.</p>
+			<p>Confirm an EPUB scope before starting analysis.</p>
 		}
-		<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button>
-			if book.ReviewedScopeID != "" {
-				<small>Reanalysis reuses reviewed scope <code>{ book.ReviewedScopeID }</code>. Review a new scope above to create a distinct corpus without changing these results.</small>
+		if book.Source.MediaType != "application/epub+zip" || book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
+			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button>
+				if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
+					<small>Analysis uses the confirmed immutable scope <code>{ firstNonEmpty(book.ConfirmedScopeID, book.ReviewedScopeID) }</code>. Reanalysis reuses reviewed scope history; review a new scope to create distinct history.</small>
+				}
+			</form>
+		} else {
+			<a role="button" class="outline" href={ templ.SafeURL(scopeReviewURL(book)) }>Review and confirm scope</a>
 			}
-		</form>
 	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck covering at least 97% of the book's unknown vocabulary, ordered by first encounter.</p>
 		if book.AnalysisStatus == "analyzed" {
 			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/deck/preparations") } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
@@ -402,7 +406,7 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 					</article>
 				}
 			</fieldset>
-			<button type="submit">Confirm and analyze scope</button><small>This saves an immutable reviewed scope and queues its selected units for analysis.</small>
+			<button type="submit">Confirm scope</button><small>This saves an immutable reviewed scope. Analysis is a separate action on the book page.</small>
 		</form>
 		<script>
 const scopeForm = document.querySelector('[data-scope-review]');
@@ -722,18 +726,24 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	} }
 }
 templ JobPage(user domain.User, csrf string, status analysis.Status) {
-	@Layout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf) { <h1>{ fmt.Sprintf("Analysis job #%d", status.DisplayNumber) }</h1><div id="job-status">@JobStatus(status)</div> }
+	@Layout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf) { <h1>{ fmt.Sprintf("Analysis job #%d", status.DisplayNumber) }</h1><div id="job-status">@JobStatus(csrf, status)</div> }
 }
-templ JobStatus(status analysis.Status) {
+templ JobStatus(csrf string, status analysis.Status) {
 	<article
 		if jobRunning(status) {
 			hx-get={ fmt.Sprintf("/jobs/%d/status", status.ID) }
 			hx-trigger="every 2s"
 			hx-swap="outerHTML"
 		}
-		id="job-status"><h2>{ jobState(status) }</h2><progress value={ fmt.Sprintf("%d", status.Progress) } max="100"></progress><p>{ fmt.Sprintf("%d%% complete · attempt %d", status.Progress, status.Attempt) }</p>
+		id="job-status"><h2>{ jobState(status) }</h2><p role="status" aria-live="polite">{ analysisStatusSummary(status) }</p><progress value={ fmt.Sprintf("%d", status.Progress) } max="100"></progress>
 		if status.Error != "" {
-			<p role="alert"><strong>Action needed:</strong> { status.Error } <a href="/connections">Check the source catalog and try importing again.</a></p>
+			<p role="alert"><strong>Action needed:</strong> { status.Error }</p>
+		}
+		if jobRetryable(status) {
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry analysis</button></form>
+		}
+		if jobRunning(status) {
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel analysis</button></form>
 		}
 		if status.CorpusID != "" {
 			<p>Analysis complete. <a href="/library">Choose the book in My Library to generate its deck.</a></p>

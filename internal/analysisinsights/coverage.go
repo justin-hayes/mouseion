@@ -42,7 +42,9 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	}
 
 	result := domain.AnalysisCoverage{
+		SourceMaterialID:     input.SourceMaterialID,
 		ReviewedScopeID:      input.ReviewedScopeID,
+		AnalysisRunID:        input.AnalysisRunID,
 		SelectedUnits:        append([]domain.CorpusSelectedUnit(nil), input.SelectedUnits...),
 		AnalyzableTokenCount: input.Statistics.AnalyzableTokenCount,
 		DistinctLemmaCount:   input.Statistics.DistinctLemmaCount,

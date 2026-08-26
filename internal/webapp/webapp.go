@@ -158,6 +158,8 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /jobs", h.user(http.HandlerFunc(h.jobs)))
 	h.mux.Handle("GET /jobs/{id}", h.user(http.HandlerFunc(h.job)))
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
+	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
+	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /known-vocab/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
@@ -768,12 +770,7 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
 		return
 	}
-	handle, err := h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, view.Book.ID, scope.ScopeID)
-	if err != nil {
-		h.renderEPUBScopeError(w, r, u, view, "The saved scope could not be queued for analysis.")
-		return
-	}
-	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units; job %d submitted.", len(references), handle.DisplayNumber)))
+	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units. Start analysis when you are ready.", len(references))))
 }
 
 func submittedGroups(values []string, groups map[string]epub.UnitGroup) (map[string]struct{}, bool) {
@@ -805,8 +802,16 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	}
 	var handle analysis.Handle
 	var err error
-	if book.ReviewedScopeID != "" {
-		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, book.ReviewedScopeID)
+	scopeID := book.ConfirmedScopeID
+	if scopeID == "" {
+		scopeID = book.ReviewedScopeID
+	}
+	if book.Source.MediaType == "application/epub+zip" && scopeID == "" {
+		redirect(w, r, "/books/"+book.Source.ID+"/scope")
+		return
+	}
+	if scopeID != "" {
+		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, scopeID)
 	} else {
 		handle, err = h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
 	}
@@ -1108,13 +1113,20 @@ func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, JobStatus(status))
+	render(w, r, JobStatus(h.csrf(w, r), status))
 }
 func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) (analysis.Status, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return analysis.Status{}, false
+	}
+	if lifecycle, ok := h.services.Analysis.(interface {
+		Reconcile(context.Context, string, int64) (analysis.Status, error)
+	}); ok {
+		if _, reconcileErr := lifecycle.Reconcile(r.Context(), owner, id); reconcileErr != nil && !errors.Is(reconcileErr, analysis.ErrNotFound) {
+			// Status reads remain useful even if a best-effort reconciliation is unavailable.
+		}
 	}
 	status, err := h.services.Analysis.Get(r.Context(), owner, id)
 	if errors.Is(err, analysis.ErrNotFound) {
@@ -1126,6 +1138,60 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 		return analysis.Status{}, false
 	}
 	return status, true
+}
+
+func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	lifecycle, ok := h.services.Analysis.(interface {
+		Retry(context.Context, string, int64) (analysis.Handle, error)
+	})
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err = lifecycle.Retry(r.Context(), user(r).ID, id); err != nil {
+		if errors.Is(err, analysis.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This analysis is not available for retry."))
+		return
+	}
+	redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Analysis retry submitted."))
+}
+
+func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	lifecycle, ok := h.services.Analysis.(interface {
+		Cancel(context.Context, string, int64) (analysis.Status, error)
+	})
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err = lifecycle.Cancel(r.Context(), user(r).ID, id); err != nil {
+		if errors.Is(err, analysis.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This analysis could not be cancelled."))
+		return
+	}
+	redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Analysis cancelled."))
 }
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -1557,9 +1623,26 @@ func credentialSummary(connection domain.OpdsConnection) string {
 	return "No credentials configured."
 }
 func jobRunning(status analysis.Status) bool {
+	if status.LogicalState != "" {
+		return status.LogicalState == "queued" || status.LogicalState == "running"
+	}
 	return status.State == "available" || status.State == "pending" || status.State == "running" || status.State == "retryable" || status.State == "scheduled"
 }
 func jobState(status analysis.Status) string {
+	if status.LogicalState != "" {
+		switch status.LogicalState {
+		case "completed":
+			return "Completed"
+		case "failed":
+			return "Failed"
+		case "cancelled":
+			return "Cancelled"
+		case "running":
+			return "Running"
+		default:
+			return "Queued"
+		}
+	}
 	switch status.State {
 	case "completed":
 		return "Succeeded"
@@ -1570,6 +1653,24 @@ func jobState(status analysis.Status) string {
 	default:
 		return strings.Title(string(status.State))
 	}
+}
+func analysisStatusSummary(status analysis.Status) string {
+	attempt := status.Attempt
+	if attempt < 1 {
+		attempt = 1
+	}
+	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
+}
+func jobRetryable(status analysis.Status) bool {
+	return status.LogicalState == "failed" || status.LogicalState == "cancelled"
+}
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
 func hasCampaignStatus(campaigns []campaignView, status domain.CampaignStatus) bool {

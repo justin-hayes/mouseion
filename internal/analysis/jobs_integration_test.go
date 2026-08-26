@@ -82,7 +82,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 			analyzedChunks = append(analyzedChunks, req.Document.Text)
 			analyzedChunksMu.Unlock()
 		}
-		if strings.HasPrefix(req.Document.ID, "unit-") {
+		if strings.HasPrefix(req.Document.ID, "epub-unit-v1:") {
 			analyzedChunksMu.Lock()
 			scopedDocuments = append(scopedDocuments, req.Document)
 			analyzedChunksMu.Unlock()
