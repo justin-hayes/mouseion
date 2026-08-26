@@ -1,6 +1,6 @@
 # Explicit scoped-analysis workflow
 
-Status: Proposed · Date: 2026-08-26
+Status: Implemented · Date: 2026-08-26
 
 ## Goal
 
@@ -80,6 +80,21 @@ The identity and state contracts for these resources are normative in
 - In-flight records are classified deterministically as resumable, completed,
   failed/actionable, or historical; rollout never leaves an indefinite waiting
   state.
+
+Rollout is sequenced as follows:
+
+1. Deploy the explicit scope-review, analysis-status, retry, reconciliation,
+   insights, and preparation-prerequisite paths while existing history remains
+   readable.
+2. Verify that OPDS acquisition only stores the source and returns to the
+   browser; it does not create an analysis job. The library and book pages
+   explain that scope confirmation and explicit analysis are separate actions.
+3. Disable automatic acquisition analysis. Existing queued work with a live
+   River job is resumable; queued work without one is re-enqueued, running work
+   without one becomes failed/actionable, completed work remains completed, and
+   legacy records remain historical.
+4. Monitor the status and reconciliation paths before enabling new deck
+   preparation from completed scoped analysis results only.
 
 ## Acceptance criteria
 
