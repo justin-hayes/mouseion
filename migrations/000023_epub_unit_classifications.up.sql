@@ -18,7 +18,9 @@ CREATE TABLE source_material_unit_classifications (
  updated_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY(owner_id, source_material_id, snapshot_id, classifier_name, classifier_version, unit_id),
  FOREIGN KEY(owner_id, source_material_id, snapshot_id) REFERENCES source_material_unit_snapshots(owner_id, source_material_id, snapshot_id) ON DELETE CASCADE,
- FOREIGN KEY(owner_id, source_material_id, unit_id) REFERENCES source_material_units(owner_id, source_material_id, unit_id) ON DELETE CASCADE,
+ CONSTRAINT source_material_unit_classifications_source_unit_fkey
+  FOREIGN KEY(owner_id, source_material_id, unit_id)
+  REFERENCES source_material_units(owner_id, source_material_id, unit_id) ON DELETE CASCADE,
  CHECK (category <> 'unknown' OR confidence <= 49),
  CHECK (confidence < 80 OR category <> 'main_matter' OR recommended_inclusion),
  CHECK (confidence < 80 OR category NOT IN ('front_matter','back_matter') OR NOT recommended_inclusion)
