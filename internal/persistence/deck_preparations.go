@@ -13,7 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
+const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
 
 type rowScanner interface {
 	Scan(...any) error
@@ -89,14 +89,17 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 
 func scanDeckPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
 	return p, missing(err)
 }
 
-// CreateDeckPreparation creates at most one active identity for an owner,
-// source, and source content hash. Repeated submissions return the same row.
+// CreateDeckPreparation creates at most one legacy or analysis-bound identity
+// for an owner and source. Repeated submissions return the same row.
 func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.DeckPreparation) (domain.DeckPreparation, error) {
-	return scanDeckPreparation(s.pool.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,source_material_id,content_hash) DO UPDATE SET owner_id=excluded.owner_id RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, p.Filename, p.DeckName, p.ContentHash))
+	if p.AnalysisRunID != "" {
+		return scanDeckPreparation(s.pool.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,analysis_run_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (owner_id,source_material_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO UPDATE SET owner_id=excluded.owner_id RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, p.AnalysisRunID, p.Filename, p.DeckName, p.ContentHash))
+	}
+	return scanDeckPreparation(s.pool.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5) ON CONFLICT (owner_id,source_material_id,content_hash) WHERE analysis_run_id IS NULL DO UPDATE SET owner_id=excluded.owner_id RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, p.Filename, p.DeckName, p.ContentHash))
 }
 
 // ClaimDeckPreparation atomically grants one worker the queued preparation.

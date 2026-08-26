@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -31,6 +33,7 @@ var livePreparationJobStates = []rivertype.JobState{
 }
 
 var ErrInvalidInput = errors.New("prepareddeck: invalid input")
+var ErrAnalysisUnavailable = errors.New("prepareddeck: completed scoped analysis required")
 
 type JobArgs struct {
 	// PreparationID is the logical idempotency key. The other fields are
@@ -40,6 +43,7 @@ type JobArgs struct {
 	OwnerID                    string `json:"owner_id"`
 	SourceMaterialID           string `json:"source_material_id"`
 	ContentHash                string `json:"content_hash"`
+	AnalysisRunID              string `json:"analysis_run_id,omitempty"`
 	ExternalTranslationConsent bool   `json:"external_translation_consent"`
 }
 
@@ -65,10 +69,11 @@ func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx]) 
 	return &Service{pool: store.Pool(), client: client, store: store}
 }
 
-// Submit creates the preparation and its River job in one transaction. The
-// content hash in the job freezes the source identity used by all retries.
-func (s *Service) Submit(ctx context.Context, owner, sourceID string, consent bool) (Handle, error) {
-	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
+// Submit creates a preparation for one completed scoped analysis and its
+// River job in one transaction. The analysis run and content hash in the job
+// freeze the immutable input used by all retries.
+func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (Handle, error) {
+	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -76,22 +81,18 @@ func (s *Service) Submit(ctx context.Context, owner, sourceID string, consent bo
 		return Handle{}, err
 	}
 	defer tx.Rollback(ctx)
-	var source domain.SourceMaterial
-	err = tx.QueryRow(ctx, `SELECT s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
-		Scan(&source.ID, &source.OwnerID, &source.Language, &source.SourceIdentifier, &source.Title, &source.MediaType, &source.ContentHash, &source.Content, &source.FullText, &source.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Handle{}, persistence.ErrNotFound
-	}
+	analysis, err := loadCompletedAnalysis(ctx, tx, owner, analysisID)
 	if err != nil {
 		return Handle{}, err
 	}
+	source := analysis.Source
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
-	row := tx.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,source_material_id,content_hash) DO NOTHING RETURNING `+preparationColumns, owner, sourceID, filename, deckName, source.ContentHash)
+	row := tx.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,analysis_run_id,filename,deck_name,content_hash) VALUES($1,$2,$3::uuid,$4,$5,$6) ON CONFLICT (owner_id,source_material_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING `+preparationColumns, owner, source.ID, analysis.RunID, filename, deckName, source.ContentHash)
 	p, err := scanPreparation(row)
 	created := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
-		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND content_hash=$3 FOR UPDATE`, owner, sourceID, source.ContentHash))
+		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3 FOR UPDATE`, owner, source.ID, analysis.RunID))
 	}
 	if err != nil {
 		return Handle{}, err
@@ -114,6 +115,71 @@ func (s *Service) Submit(ctx context.Context, owner, sourceID string, consent bo
 		return Handle{}, err
 	}
 	return Handle{Preparation: p, JobID: jobID}, nil
+}
+
+type completedAnalysis struct {
+	RunID  string
+	Source domain.SourceMaterial
+}
+
+func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID string) (completedAnalysis, error) {
+	var result completedAnalysis
+	var runState, scopeID, snapshotID, corpusID string
+	var runRevisionID, jobContentHash, jobCorpusID string
+	var scopeOwner, scopeSource, scopeRevision, scopeSnapshot string
+	var corpusOwner, corpusSource, corpusScope, corpusRun, corpusStatus string
+	var contentDigest string
+	var runID string
+	condition := "j.river_job_id=$2"
+	args := []any{owner}
+	if parsed, err := strconv.ParseInt(analysisID, 10, 64); err == nil && parsed > 0 {
+		args = append(args, parsed)
+	} else {
+		if _, err := uuid.Parse(strings.TrimSpace(analysisID)); err != nil {
+			return completedAnalysis{}, fmt.Errorf("%w: analysis result ID must be a result ID", ErrAnalysisUnavailable)
+		}
+		condition = "r.id=$2::uuid"
+		args = append(args, strings.TrimSpace(analysisID))
+	}
+	err := q.QueryRow(ctx, `SELECT COALESCE(j.analysis_run_id::text,''),s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,j.content_hash,COALESCE(j.corpus_id::text,''),
+		COALESCE(rev.content_digest,''),
+		COALESCE(r.state,''),COALESCE(r.scope_id::text,''),COALESCE(r.snapshot_id::text,''),COALESCE(r.content_revision_id::text,''),COALESCE(r.corpus_id::text,''),
+		COALESCE(scope.owner_id::text,''),COALESCE(scope.source_material_id::text,''),COALESCE(scope.content_revision_id::text,''),COALESCE(scope.snapshot_id::text,''),
+		COALESCE(c.owner_id::text,''),COALESCE(c.source_material_id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(c.analysis_run_id::text,''),COALESCE(c.status,'')
+		FROM analysis_jobs j
+		JOIN source_materials s ON s.owner_id=j.owner_id AND s.id=j.source_material_id
+		LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id AND r.source_material_id=j.source_material_id
+		LEFT JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
+		LEFT JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id
+		LEFT JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id
+		WHERE j.owner_id=$1 AND `+condition, args...).Scan(&runID, &result.Source.ID, &result.Source.OwnerID, &result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &jobContentHash, &jobCorpusID, &contentDigest, &runState, &scopeID, &snapshotID, &runRevisionID, &corpusID, &scopeOwner, &scopeSource, &scopeRevision, &scopeSnapshot, &corpusOwner, &corpusSource, &corpusScope, &corpusRun, &corpusStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return completedAnalysis{}, fmt.Errorf("%w: analysis result is missing or belongs to another owner", ErrAnalysisUnavailable)
+	}
+	if err != nil {
+		return completedAnalysis{}, fmt.Errorf("load analysis result: %w", err)
+	}
+	if runID == "" {
+		return completedAnalysis{}, fmt.Errorf("%w: legacy analysis results cannot prepare a deck", ErrAnalysisUnavailable)
+	}
+	checks := []struct {
+		valid   bool
+		message string
+	}{
+		{runState == "completed", "analysis is not completed (current state: " + runState + ")"},
+		{scopeID != "" && scopeOwner == result.Source.OwnerID && scopeSource == result.Source.ID, "analysis does not have an owned confirmed scope"},
+		{runRevisionID != "" && runRevisionID == scopeRevision && contentDigest != "" && jobContentHash == contentDigest, "analysis content revision is missing or contradictory"},
+		{snapshotID != "" && snapshotID == scopeSnapshot, "analysis scope snapshot is stale or contradictory"},
+		{corpusID != "" && jobCorpusID == corpusID && corpusOwner == result.Source.OwnerID && corpusSource == result.Source.ID && corpusScope == scopeID && corpusRun == runID && corpusStatus == "complete", "analysis has no completed matching corpus"},
+	}
+	for _, check := range checks {
+		if !check.valid {
+			return completedAnalysis{}, fmt.Errorf("%w: %s", ErrAnalysisUnavailable, check.message)
+		}
+	}
+	result.Source.ContentHash = jobContentHash
+	result.RunID = runID
+	return result, nil
 }
 
 func (s *Service) Get(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
@@ -228,7 +294,7 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 		return p, 0, err
 	}
 	if p.State == domain.DeckPreparationQueued {
-		result, insertErr := s.client.InsertTx(ctx, tx, JobArgs{PreparationID: p.ID, OwnerID: p.OwnerID, SourceMaterialID: p.SourceMaterialID, ContentHash: p.ContentHash, ExternalTranslationConsent: consent}, &river.InsertOpts{Queue: Queue, MaxAttempts: 1, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+		result, insertErr := s.client.InsertTx(ctx, tx, JobArgs{PreparationID: p.ID, OwnerID: p.OwnerID, SourceMaterialID: p.SourceMaterialID, ContentHash: p.ContentHash, AnalysisRunID: p.AnalysisRunID, ExternalTranslationConsent: consent}, &river.InsertOpts{Queue: Queue, MaxAttempts: 1, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 		if insertErr != nil {
 			return p, 0, insertErr
 		}
@@ -323,10 +389,10 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if err != nil {
 		return fail(fmt.Errorf("load source material: %w", err))
 	}
-	if p.SourceMaterialID != a.SourceMaterialID || p.ContentHash != a.ContentHash || source.ContentHash != a.ContentHash {
+	if p.SourceMaterialID != a.SourceMaterialID || p.ContentHash != a.ContentHash || p.AnalysisRunID != a.AnalysisRunID || (a.AnalysisRunID == "" && source.ContentHash != a.ContentHash) {
 		return fail(errors.New("source material identity changed"))
 	}
-	artifact, err := w.Builder.BuildCoverage(ctx, a.OwnerID, a.SourceMaterialID)
+	artifact, err := buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
 	if err != nil {
 		return fail(fmt.Errorf("build prepared deck: %w", err))
 	}
@@ -336,7 +402,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 				return fail(fmt.Errorf("contextual translation %s/%s: %w", candidate.CanonicalLemma, candidate.UPOS, err))
 			}
 		}
-		artifact, err = w.Builder.BuildCoverage(ctx, a.OwnerID, a.SourceMaterialID)
+		artifact, err = buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
 		if err != nil {
 			return fail(fmt.Errorf("render enriched prepared deck: %w", err))
 		}
@@ -350,16 +416,31 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	return nil
 }
 
+type scopedBuilder interface {
+	BuildCoverageForAnalysis(context.Context, string, string) (cardexport.Artifact, error)
+}
+
+func buildArtifact(ctx context.Context, b builder, owner, sourceID, analysisRunID string) (cardexport.Artifact, error) {
+	if analysisRunID != "" {
+		scoped, ok := b.(scopedBuilder)
+		if !ok {
+			return cardexport.Artifact{}, errors.New("scoped analysis deck builder is unavailable")
+		}
+		return scoped.BuildCoverageForAnalysis(ctx, owner, analysisRunID)
+	}
+	return b.BuildCoverage(ctx, owner, sourceID)
+}
+
 func AddWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service) {
 	river.AddWorker(workers, &Worker{Store: store, Builder: export, Enrichment: enrich})
 }
 
-const preparationColumns = `id::text,owner_id::text,source_material_id::text,state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
+const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
 	return p, err
 }

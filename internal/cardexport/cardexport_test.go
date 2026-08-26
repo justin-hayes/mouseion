@@ -28,6 +28,35 @@ type memoryStore struct {
 	historyCalls map[string]int
 }
 
+type scopedMemoryStore struct {
+	*memoryStore
+	corpusID string
+}
+
+func (s *scopedMemoryStore) GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error) {
+	return domain.SourceMaterial{ID: s.bookID, Title: "Scoped Book"}, nil
+}
+
+func (s *scopedMemoryStore) GetCorpusForAnalysis(context.Context, string, string) (domain.Corpus, error) {
+	return domain.Corpus{ID: s.corpusID, SourceMaterialID: s.bookID, AnalysisRunID: "run-1", Status: "complete"}, nil
+}
+
+func (s *scopedMemoryStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
+	var result []domain.SelectionCandidate
+	for _, candidate := range s.candidates {
+		if candidate.OwnerID == "" || candidate.OwnerID == owner {
+			if candidate.CorpusID == corpusID {
+				result = append(result, candidate)
+			}
+		}
+	}
+	return result, nil
+}
+
+func (s *scopedMemoryStore) GetCoverageEntryForCorpus(ctx context.Context, owner, _ string, candidate domain.SelectionCandidate) (Entry, error) {
+	return s.GetCoverageEntryForBook(ctx, owner, s.bookID, candidate)
+}
+
 func TestDownloadFilenameAndDeckName(t *testing.T) {
 	if got := DeckName("de", "Das archaische Griechenland"); got != "Mouseion::de::Das archaische Griechenland" {
 		t.Fatalf("deck name = %q", got)
@@ -362,6 +391,23 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
 	}
 	assertAPKGDeckAndCard(t, artifact.APKG, "Mouseion::it::Il viaggio", "portare", "lang::it")
+}
+
+func TestBuildCoverageForAnalysisUsesOnlyItsCorpus(t *testing.T) {
+	store := &scopedMemoryStore{memoryStore: &memoryStore{bookID: "libro"}, corpusID: "corpus-scoped"}
+	store.candidates = []domain.SelectionCandidate{
+		{OwnerID: "alice", CorpusID: "corpus-scoped", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 2, ObservedForms: []byte(`["porterà"]`), SentenceReferences: []byte(`[{"text":"Domani Lucia porterà finalmente il pane fresco alla sua famiglia.","location":{"start_offset":7}}]`)},
+		{OwnerID: "alice", CorpusID: "corpus-other", Language: "it", CanonicalLemma: "sbagliare", UPOS: "VERB", OccurrenceCount: 100, ObservedForms: []byte(`["sbaglia"]`), SentenceReferences: []byte(`[{"text":"Questo candidato appartiene a un altro risultato analizzato.","location":{"start_offset":7}}]`)},
+	}
+	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Translation: "to bring", SourceDocument: "Scoped Book"}}
+
+	artifact, err := NewService(store).BuildCoverageForAnalysis(context.Background(), "alice", "run-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 1 || len(artifact.Generated) != 1 || artifact.Generated[0].Entry.CanonicalLemma != "portare" {
+		t.Fatalf("scoped prepared artifact = %+v", artifact)
+	}
 }
 
 func assertAPKGDeckAndCard(t *testing.T, payload []byte, deckName, lemma, tag string) {

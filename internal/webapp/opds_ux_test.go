@@ -8,8 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/riverqueue/river/rivertype"
 )
 
 func TestBrowseURLRoundTripsBreadcrumbTrail(t *testing.T) {
@@ -127,17 +129,14 @@ func TestOPDSErrorsAreActionable(t *testing.T) {
 
 func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 	var output bytes.Buffer
-	book := domain.SourceMaterialSummary{
-		Source:         domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"},
-		AnalysisStatus: "analyzed",
-	}
-	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
+	status := analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, LogicalState: "completed", ScopeID: "scope-1", CorpusID: "corpus-1"}
+	if err := JobPage(domain.User{Username: "learner"}, "csrf", status).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	for _, want := range []string{
 		`form[data-prepare-deck]`,
-		`action="/books/book-1/deck/preparations"`,
+		`action="/jobs/42/deck/preparations"`,
 		`name="external_translation_consent"`,
 		`data-deck-preparation`,
 		`aria-live="polite"`,
@@ -159,7 +158,7 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 			t.Errorf("deck page missing client behavior %q", want)
 		}
 	}
-	for _, unwanted := range []string{`action="/books/book-1/deck"`, `await response.blob()`, `URL.createObjectURL`, `The deck downloads immediately`} {
+	for _, unwanted := range []string{`action="/books/book-1/deck/preparations"`, `action="/books/book-1/deck"`, `await response.blob()`, `URL.createObjectURL`, `The deck downloads immediately`} {
 		if strings.Contains(html, unwanted) {
 			t.Errorf("deck page still contains legacy immediate-download behavior %q", unwanted)
 		}
