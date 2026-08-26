@@ -17,7 +17,8 @@ EPUB imported
   → units extracted and classified
   → learner reviews recommended scope
   → learner accepts or overrides selection
-  → reviewed scope is persisted
+  → immutable reviewed scope revision is persisted
+  → learner explicitly starts analysis for that revision
   → analysis job processes selected units only
   → metrics report the selected scope
 ```
@@ -68,10 +69,12 @@ text. The server validates against the persisted snapshot and reloads selected
 text from those persisted units for later analysis. Fixed object fields and the
 selected-unit array make serialization deterministic without map iteration.
 
-Confirmation creates a new immutable reviewed-scope snapshot and queues a job
-bound to it. Retrying or reanalyzing the same scope resolves to the same
-deterministic job and corpus. Confirming a changed selection creates a new
-scope ID, job, and corpus while the earlier scope and corpus remain unchanged.
+Confirmation creates or resolves an immutable reviewed-scope revision but does
+not queue analysis. A separate explicit submission creates the analysis run
+bound to it. Retrying the same logical run resolves to its durable run and
+attempt history. Confirming a changed selection creates a new scope ID; a later
+submission creates distinct analysis and corpus history while earlier results
+remain unchanged.
 The corpus stores its reviewed scope ID and an ordered copy of selected-unit
 provenance for later display and auditing.
 
@@ -120,7 +123,7 @@ regions, and validation errors are exposed as focusable alerts.
 
 - No automatic classifier redesign;
 - no machine-learning classification;
-- no automatic mastery changes;
+- no automatic analysis or mastery changes;
 - no EPUB editing;
 - no cross-book scope composition;
 - no external corpus lookup.

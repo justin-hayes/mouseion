@@ -162,8 +162,13 @@ unit count and titles. Coverage, thresholds, active-campaign and learn-next
 projections, top unknowns, and structural metrics always use only that resulting
 corpus; a selected scope is not presented as the full EPUB.
 
-Reanalysis may reuse the latest reviewed scope deterministically. Reviewing a
-different selection creates a new immutable scope, analysis job, corpus, and
-processing history without rewriting historical results. All scope and corpus
-lookups remain owner- and source-material-scoped. Corpora without a reviewed
-scope remain readable and are explicitly labeled legacy/full-text.
+Each insights view also identifies the immutable completed analysis that owns
+the corpus. Deck preparation starts from that analysis identity and is not
+available for queued, running, failed, cancelled, or legacy-only analysis state.
+
+Reanalysis may explicitly reuse a confirmed reviewed scope deterministically.
+Reviewing a different selection creates a new immutable scope; explicitly
+submitting it creates a new analysis run, corpus, and processing history without
+rewriting historical results. All scope, analysis, and corpus lookups remain
+owner- and source-material-scoped. Corpora without a reviewed scope remain
+readable and are explicitly labeled legacy/full-text.

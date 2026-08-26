@@ -7,6 +7,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
+- [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — separates OPDS intake, immutable scope confirmation, explicit analysis, insights, and deck preparation.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units and provenance before later classification and selection.
 - [EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — assigns deterministic, explainable structural categories and analysis recommendations.
 - [EPUB Analysis Scope Review — Phase 3](features/epub-analysis-scope-review.md) — lets learners review unit recommendations and analyze only the persisted selected scope.
@@ -16,12 +17,14 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 
 ## Current pipeline
 
-1. **Ingest** — import an EPUB directly or from an owner-scoped OPDS catalog whose credentials are encrypted at rest.
-2. **Analysis** — extract text and send size-bounded chunks to the Python/Stanza NLP service, producing a normalized corpus.
-3. **Candidate persistence** — aggregate every eligible content-word lemma in the book, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-4. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by book-local occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
-5. **Sentence selection** — use an example from the learner's source text for each selected lemma.
-6. **Prepared deck and campaign** — asynchronously build an owner-scoped `.apkg`
+1. **Ingest** — add an EPUB directly or from an owner-scoped OPDS catalog whose credentials are encrypted at rest. OPDS addition does not start analysis and supports adding multiple books without leaving the browser.
+2. **Scope review** — review extracted EPUB units and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
+3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
+4. **Insights** — inspect coverage, threshold, structural, and quality information for that exact completed analysis.
+5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.
+6. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
+7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
+8. **Prepared deck and campaign** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`, then optionally add the ready deck
    to the learner's campaign queue. Cards remain ordered by each lemma's first
    encounter in the book.
@@ -65,6 +68,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 25. [ADR 0025: Analysis coverage and threshold metric contract](adr/0025-analysis-coverage-threshold-metrics.md) — defines analyzable-token coverage, learner-state categories, threshold denominators, and deterministic selection.
 26. [ADR 0026: Explainable structural text profile](adr/0026-structural-text-profile.md) — persists sentence-length and analysis-coverage signals without a composite difficulty or proficiency claim.
 27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models one active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release.
+28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 
 ## Deployment and operations
 
