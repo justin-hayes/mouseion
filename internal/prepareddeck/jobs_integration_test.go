@@ -6,15 +6,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 )
 
 func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
@@ -63,6 +67,40 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 	if args.OwnerID != owner.ID || args.SourceMaterialID != source.ID || args.ContentHash != source.ContentHash || !args.ExternalTranslationConsent {
 		t.Fatalf("args=%+v", args)
 	}
+	repeated, err := service.Submit(ctx, owner.ID, source.ID, false)
+	if err != nil || repeated.Preparation.ID != handle.Preparation.ID || repeated.JobID != handle.JobID {
+		t.Fatalf("duplicate submit=%+v err=%v", repeated, err)
+	}
+	var submissions sync.WaitGroup
+	results := make(chan Handle, 8)
+	errorsCh := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		submissions.Add(1)
+		go func(consent bool) {
+			defer submissions.Done()
+			result, submitErr := service.Submit(ctx, owner.ID, source.ID, consent)
+			if submitErr != nil {
+				errorsCh <- submitErr
+				return
+			}
+			results <- result
+		}(i%2 == 0)
+	}
+	submissions.Wait()
+	close(results)
+	close(errorsCh)
+	for submitErr := range errorsCh {
+		t.Fatalf("concurrent submit: %v", submitErr)
+	}
+	for result := range results {
+		if result.Preparation.ID != handle.Preparation.ID || result.JobID != handle.JobID {
+			t.Fatalf("concurrent duplicate=%+v want job %d", result, handle.JobID)
+		}
+	}
+	var jobCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (JobArgs{}).Kind(), handle.Preparation.ID).Scan(&jobCount); err != nil || jobCount != 1 {
+		t.Fatalf("duplicate jobs=%d err=%v", jobCount, err)
+	}
 	if _, err = service.Get(ctx, other.ID, handle.Preparation.ID); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatalf("cross-owner get=%v", err)
 	}
@@ -73,5 +111,137 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 	retried, err := service.Retry(ctx, owner.ID, handle.Preparation.ID, false)
 	if err != nil || retried.Preparation.State != domain.DeckPreparationQueued || retried.JobID == handle.JobID {
 		t.Fatalf("retried=%+v err=%v", retried, err)
+	}
+	var retries sync.WaitGroup
+	retryResults := make(chan Handle, 8)
+	retryErrors := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		retries.Add(1)
+		go func(consent bool) {
+			defer retries.Done()
+			result, retryErr := service.Retry(ctx, owner.ID, handle.Preparation.ID, consent)
+			if retryErr != nil {
+				retryErrors <- retryErr
+				return
+			}
+			retryResults <- result
+		}(i%2 == 0)
+	}
+	retries.Wait()
+	close(retryResults)
+	close(retryErrors)
+	for retryErr := range retryErrors {
+		t.Fatalf("concurrent retry: %v", retryErr)
+	}
+	for result := range retryResults {
+		if result.Preparation.ID != handle.Preparation.ID || result.JobID != retried.JobID {
+			t.Fatalf("concurrent retry=%+v want job %d", result, retried.JobID)
+		}
+	}
+}
+
+func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "reconcile-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "reconcile-book", Title: "A Book", MediaType: "text/plain", ContentHash: "reconcile-hash", Content: []byte("text"), FullText: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workers := river.NewWorkers()
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(store, client)
+	queued, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "queued.apkg", DeckName: "queued", ContentHash: "queued-hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := service.Get(ctx, owner.ID, queued.ID); err != nil || got.State != domain.DeckPreparationQueued {
+		t.Fatalf("queued reconciliation=%+v err=%v", got, err)
+	}
+	var queuedJobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled')`, (JobArgs{}).Kind(), queued.ID).Scan(&queuedJobs); err != nil || queuedJobs != 1 {
+		t.Fatalf("re-enqueued queued jobs=%d err=%v", queuedJobs, err)
+	}
+	preparing, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "preparing.apkg", DeckName: "preparing", ContentHash: "preparing-hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, preparing.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := service.Get(ctx, owner.ID, preparing.ID)
+	if err != nil || got.State != domain.DeckPreparationFailed || got.Error != orphanedPreparationError {
+		t.Fatalf("preparing reconciliation=%+v err=%v", got, err)
+	}
+	var historyCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='prepared_deck' AND details->>'preparation_id'=$2`, owner.ID, preparing.ID).Scan(&historyCount); err != nil || historyCount == 0 {
+		t.Fatalf("reconciliation history=%d err=%v", historyCount, err)
+	}
+}
+
+type failingRiverClient struct{ err error }
+
+func (c *failingRiverClient) InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	return nil, c.err
+}
+
+func (*failingRiverClient) JobCancel(context.Context, int64) (*rivertype.JobRow, error) {
+	return nil, errors.New("unexpected job cancellation")
+}
+
+func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "enqueue-failure-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "enqueue-failure-book", Title: "A Book", MediaType: "text/plain", ContentHash: "enqueue-failure-hash", Content: []byte("text"), FullText: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failing := &failingRiverClient{err: errors.New("River unavailable")}
+	service := &Service{pool: store.Pool(), client: failing, store: store}
+	if _, err = service.Submit(ctx, owner.ID, source.ID, false); err == nil {
+		t.Fatal("expected initial enqueue failure")
+	}
+	var count int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("initial enqueue left preparations=%d err=%v", count, err)
+	}
+	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "retry.apkg", DeckName: "retry", ContentHash: "retry-hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.FailDeckPreparation(ctx, owner.ID, p.ID, "previous attempt failed"); err != nil {
+		t.Fatal(err)
+	}
+	retried, err := service.Retry(ctx, owner.ID, p.ID, false)
+	if err != nil || retried.Preparation.State != domain.DeckPreparationFailed || !strings.Contains(retried.Preparation.Error, "River unavailable") {
+		t.Fatalf("retry enqueue failure=%+v err=%v", retried, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='prepared_deck' AND details->>'preparation_id'=$2`, owner.ID, p.ID).Scan(&count); err != nil || count < 3 {
+		t.Fatalf("retry history=%d err=%v", count, err)
 	}
 }
