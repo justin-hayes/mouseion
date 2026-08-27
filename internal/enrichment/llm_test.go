@@ -137,7 +137,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v3" || cfg.Timeout != 4*time.Second {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v4-long-context-50w-400c" || cfg.Timeout != 4*time.Second {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
 	}
 }

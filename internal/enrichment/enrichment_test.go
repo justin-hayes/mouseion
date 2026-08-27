@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -123,7 +124,7 @@ func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
 }
 
 func TestContextSentenceIsValidatedAndCachedWithSafeFallback(t *testing.T) {
-	const source = "Das Haus steht am Rand, während die Kinder im großen Garten spielen und ihre Eltern das Abendessen vorbereiten."
+	source := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 10) + "."
 	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
 	provider := &translationStub{name: "llm", version: "model-1", context: "Das Haus steht am Rand"}
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
@@ -149,8 +150,23 @@ func TestContextSentenceIsValidatedAndCachedWithSafeFallback(t *testing.T) {
 	}
 }
 
+func TestLongContextThresholdUsesWordOrUnicodeCharacterLimit(t *testing.T) {
+	if NeedsShortContext(strings.Repeat("x ", LongContextWordLimit)) {
+		t.Fatal("exactly the word limit should not trigger shortening")
+	}
+	if !NeedsShortContext(strings.Repeat("x ", LongContextWordLimit+1)) {
+		t.Fatal("one word over the limit should trigger shortening")
+	}
+	if NeedsShortContext(strings.Repeat("x", LongContextCharacterLimit)) {
+		t.Fatal("exactly the Unicode character limit should not trigger shortening")
+	}
+	if !NeedsShortContext(strings.Repeat("x", LongContextCharacterLimit+1)) {
+		t.Fatal("one Unicode character over the limit should trigger shortening")
+	}
+}
+
 func TestValidatedContextSentenceRejectsUnsafeOrNonContiguousOutput(t *testing.T) {
-	source := "Das Haus steht am Rand des stillen Waldes."
+	source := "Das Haus steht am Rand des stillen Waldes," + strings.Repeat(" während die Kinder im Garten spielen", 10) + "."
 	for _, test := range []struct {
 		name, target, proposed, want string
 	}{
@@ -165,6 +181,9 @@ func TestValidatedContextSentenceRejectsUnsafeOrNonContiguousOutput(t *testing.T
 				t.Fatalf("context=%q want %q", got, test.want)
 			}
 		})
+	}
+	if got := ValidatedContextSentence("Das Haus steht am Rand.", "Haus", "Das Haus"); got != "Das Haus steht am Rand." {
+		t.Fatalf("short source accepted provider shortening: %q", got)
 	}
 }
 

@@ -99,6 +99,23 @@ type EnrichmentConfig struct {
 	RetryBaseDelay             time.Duration
 }
 
+// Long-context shortening is considered only when either limit is exceeded.
+// The limits are deliberately shared by enrichment validation and card
+// rendering so a provider cannot change the eligibility decision.
+const (
+	LongContextWordLimit      = 50
+	LongContextCharacterLimit = 400
+)
+
+// NeedsShortContext reports whether a complete source sentence exceeds the
+// scan-length threshold for recognition-card fronts. Words are whitespace
+// delimited and characters are Unicode code points; either limit is enough to
+// trigger shortening.
+func NeedsShortContext(sentence string) bool {
+	text := strings.TrimSpace(sentence)
+	return len(strings.Fields(text)) > LongContextWordLimit || utf8.RuneCountInString(text) > LongContextCharacterLimit
+}
+
 // Config is retained as the concise constructor-facing name.
 type Config = EnrichmentConfig
 type Service struct {
@@ -299,6 +316,9 @@ func ValidatedContextSentence(source, target, proposed string) string {
 	source = strings.TrimSpace(source)
 	if source == "" || !utf8.ValidString(source) {
 		return ""
+	}
+	if !NeedsShortContext(source) {
+		return source
 	}
 	proposed = strings.TrimSpace(proposed)
 	if proposed == "" || proposed == source {

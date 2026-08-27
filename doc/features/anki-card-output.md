@@ -1,6 +1,6 @@
 # Anki card output milestone
 
-Status: **Accepted for implementation** · Date: 2026-08-27
+Status: **Accepted and rolled out** · Date: 2026-08-27
 
 ## Problem
 
@@ -108,48 +108,66 @@ The implementation should carry article information as explicit enrichment/card
 input rather than overloading the canonical lemma identity. This keeps `Buch`
 and `das Buch` as the same vocabulary item.
 
-## Long-sentence context proposal
+## Final long-context contract
 
-This is worthwhile, but should be a controlled fallback rather than allowing an
-LLM to rewrite every card:
+A source sentence is long when either of these limits is exceeded after
+trimming outer whitespace:
+
+- more than **50 whitespace-delimited words**; or
+- more than **400 Unicode code points**.
+
+The limits are an export contract shared by enrichment validation and card
+rendering. A sentence at or below both limits never uses a provider-supplied
+short context. Shortening is a controlled fallback rather than an LLM rewrite
+of every card:
 
 1. Keep the complete source sentence as the canonical context and translation
    input/output.
-2. For a sentence exceeding the scan-length threshold, ask the LLM for a shorter
-   contiguous clause/span that contains the tested word and is sufficient to
-   identify its sense.
-3. Require structured output such as `short_context` and a brief rationale or
-   confidence; the returned context must be an exact substring (or a precisely
+2. For a sentence exceeding the limits, ask the translation provider for a
+   shorter contiguous clause/span that contains the tested word and is
+   sufficient to identify its sense.
+3. Require structured output containing `context_sentence`; the returned
+   context must be an exact substring (or a precisely
    validated token span) of the original sentence, contain the target, and pass
    the same escaping/boundary checks as ordinary context.
 4. Use the shorter context only on the front. Show the complete sentence and its
    English translation on the back.
-5. If the LLM is unavailable, returns invalid JSON, omits the target, or proposes
-   an inadequate fragment, fall back to the existing deterministic sentence
-   quality policy rather than exporting unsafe text.
+5. If the provider is unavailable, returns malformed output, omits the target,
+   proposes an inadequate fragment, or returns a span for a short source,
+   discard the proposed context. The complete source is then subject to the
+   ordinary deterministic quality gate: an otherwise usable short source can
+   export without English enrichment, while a long source without a validated
+   short span is omitted and contributes to `QualityOmitted`.
 
 This preserves privacy and reproducibility better than asking the LLM to
 paraphrase. It also means the cache key and prompt version must include the
 context-selection operation and its version. The full sentence translation
 should remain tied to the complete source sentence, not the shortened clause.
+The current operation/version is `translation-v4-long-context-50w-400c`; changing
+it bypasses older cached provider results. The cache stores the validated
+context with the provider, provider version, and complete-sentence hash. A
+confidence or rationale is not persisted in this rollout.
 
-The quality gate should be revised so a long sentence with a validated short
-context is eligible, while a long sentence without one remains omitted with an
-explainable reason.
+The quality gate therefore distinguishes a successfully shortened long source
+from a genuine quality omission. A validated short context makes an otherwise
+eligible long source exportable, but appears only in `Front`;
+`SourceSentence` and `EnglishSentence` retain the complete original sentence
+and its translation.
 
 ## Delivery slices
 
-1. **Normalization fixtures** — punctuation-trimmed surfaces, pipe lemmas,
-   Unicode boundaries, raw-value preservation, and selection/card regressions.
-2. **Lean note/model contract** — remove Morph/POS display fields, add Front and
-   article-aware lemma display, switch templates from Cloze to bold recognition.
-3. **Long-context enrichment** — versioned structured LLM response, cache-key
-   update, exact-span validation, fallback, and prompt/privacy tests.
-4. **Artifact compatibility** — update APKG/TSV renderers, deterministic package
-   tests, field-order/template assertions, and import-level validation.
-5. **Migration and rollout** — decide whether legacy Cloze exports remain
-   available temporarily; document that existing imported Anki notes are not
-   rewritten.
+1. **Normalization fixtures** — complete: punctuation-trimmed surfaces, pipe
+   lemmas, Unicode boundaries, raw-value preservation, and selection/card
+   regressions.
+2. **Lean note/model contract** — complete: the recognition `Front` and
+   article-aware lemma display replace the user-facing morphology fields.
+3. **Long-context enrichment** — complete: versioned structured provider
+   response, cache-key update, exact-span validation, deterministic fallback,
+   and prompt/privacy tests.
+4. **Artifact compatibility** — complete: APKG/TSV renderers, deterministic
+   package tests, field-order/template assertions, and import-level validation.
+5. **Migration and rollout** — complete: no migration rewrites historical
+   generated-vocabulary provenance or imported Anki notes.
 
 ## Acceptance criteria
 
@@ -165,7 +183,7 @@ explainable reason.
 - Validated short context is used only when needed for a long sentence; invalid
   or unavailable LLM output falls back safely.
 - APKG output is deterministic, HTML-safe, stable-ID preserving, and importable;
-  TSV (if retained) has the same semantic fields.
+  the retained TSV has the same six semantic fields.
 
 ## Accepted decisions
 
@@ -180,11 +198,29 @@ explainable reason.
 - Include long-sentence shortening in the first implementation as a validated
   exact-span LLM fallback with full-sentence back context and deterministic
   fallback.
+- Use a 50-word or 400-Unicode-code-point limit for long-context shortening;
+  do not persist provider confidence or rationale.
 
 ## Decisions still needed
 
-- Confirm the exact long-context threshold and whether a confidence/rationale is
-  persisted for auditability.
 - Decide whether a later milestone should remove morphology from the internal
   shared-lemma schema and uniqueness key (the latter requires a migration and
   changes identity semantics).
+
+## Rollout and compatibility
+
+The Cloze model is removed immediately from new exports. Prepared-deck workers
+now produce the `Mouseion Vocab Recognition` APKG model only; the optional TSV
+is a compatibility artifact with the same `Front`, `Lemma`, `English`,
+`EnglishSentence`, `BookTitle`, and `SourceSentence` fields. New recognition
+fronts bold the tested surface, and the back shows the lemma, definition, and
+complete-sentence translation plus the complete source sentence.
+
+Existing imported Anki notes are not rewritten. Existing generated-vocabulary
+rows and their first-deck/source provenance are not migrated or reinterpreted;
+the recognition contract applies to newly prepared artifacts. Users who want
+to remove old Cloze cards must do so in Anki. A prepared export can still be
+ready when optional translation or shortening is unavailable: accepted short
+cards may have empty English fields, while long cards without a validated span
+are reported as quality omissions and are not assigned as generated
+vocabulary.
