@@ -16,29 +16,36 @@ import (
 )
 
 const (
-	defaultLLMBaseURL = "https://api.openai.com/v1"
-	defaultLLMTimeout = 30 * time.Second
-	llmPromptVersion  = "translation-v4-long-context-50w-400c"
+	defaultLLMBaseURL      = "https://api.openai.com/v1"
+	defaultLLMTimeout      = 30 * time.Second
+	defaultReasoningEffort = "low"
+	llmPromptVersion       = "translation-v5-concise-json-50w-400c"
+	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
+	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external
 // translation provider. User consent remains a separate EnrichmentConfig flag.
 type LLMConfig struct {
-	Enabled bool
-	APIKey  string
-	Model   string
-	BaseURL string
-	Timeout time.Duration
+	Enabled                 bool
+	APIKey                  string
+	Model                   string
+	BaseURL                 string
+	Timeout                 time.Duration
+	ReasoningEffort         string
+	SupportsReasoningEffort bool
 }
 
 // LLMConfigFromEnv reads MOUSEION_LLM_ENABLED, MOUSEION_LLM_API_KEY,
-// MOUSEION_LLM_MODEL, MOUSEION_LLM_BASE_URL, and MOUSEION_LLM_TIMEOUT.
+// MOUSEION_LLM_MODEL, MOUSEION_LLM_BASE_URL, MOUSEION_LLM_TIMEOUT,
+// MOUSEION_LLM_REASONING_EFFORT, and MOUSEION_LLM_SUPPORTS_REASONING_EFFORT.
 func LLMConfigFromEnv() (LLMConfig, error) {
 	cfg := LLMConfig{
-		APIKey:  strings.TrimSpace(os.Getenv("MOUSEION_LLM_API_KEY")),
-		Model:   strings.TrimSpace(os.Getenv("MOUSEION_LLM_MODEL")),
-		BaseURL: strings.TrimSpace(os.Getenv("MOUSEION_LLM_BASE_URL")),
-		Timeout: defaultLLMTimeout,
+		APIKey:          strings.TrimSpace(os.Getenv("MOUSEION_LLM_API_KEY")),
+		Model:           strings.TrimSpace(os.Getenv("MOUSEION_LLM_MODEL")),
+		BaseURL:         strings.TrimSpace(os.Getenv("MOUSEION_LLM_BASE_URL")),
+		Timeout:         defaultLLMTimeout,
+		ReasoningEffort: defaultReasoningEffort,
 	}
 	if value := strings.TrimSpace(os.Getenv("MOUSEION_LLM_ENABLED")); value != "" {
 		enabled, err := strconv.ParseBool(value)
@@ -53,6 +60,20 @@ func LLMConfigFromEnv() (LLMConfig, error) {
 			return LLMConfig{}, fmt.Errorf("MOUSEION_LLM_TIMEOUT must be a positive Go duration: %q", value)
 		}
 		cfg.Timeout = timeout
+	}
+	if value := strings.TrimSpace(os.Getenv(llmReasoningEffortEnv)); value != "" {
+		reasoningEffort, err := parseReasoningEffort(value)
+		if err != nil {
+			return LLMConfig{}, fmt.Errorf("%s %w", llmReasoningEffortEnv, err)
+		}
+		cfg.ReasoningEffort = reasoningEffort
+	}
+	if value := strings.TrimSpace(os.Getenv(llmReasoningSupportEnv)); value != "" {
+		supports, err := strconv.ParseBool(value)
+		if err != nil {
+			return LLMConfig{}, fmt.Errorf("%s must be a boolean: %w", llmReasoningSupportEnv, err)
+		}
+		cfg.SupportsReasoningEffort = supports
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = defaultLLMBaseURL
@@ -79,7 +100,11 @@ func NewConfiguredLLMProvider(cfg LLMConfig, client *http.Client) (TranslationPr
 	if err != nil {
 		return nil, err
 	}
-	return NewLLMProvider("openai-compatible", cfg.Model+"/"+llmPromptVersion, llm)
+	version := cfg.Model + "/" + llmPromptVersion
+	if llm.usesReasoningEffort {
+		version += "-reasoning-" + llm.reasoningEffort
+	}
+	return NewLLMProvider("openai-compatible", version, llm)
 }
 
 // OpenAITranslationClient implements the OpenAI-compatible Chat Completions
@@ -87,6 +112,8 @@ func NewConfiguredLLMProvider(cfg LLMConfig, client *http.Client) (TranslationPr
 // identity and reading metadata impossible to pass through this boundary.
 type OpenAITranslationClient struct {
 	apiKey, model, endpoint string
+	reasoningEffort         string
+	usesReasoningEffort     bool
 	httpClient              *http.Client
 }
 
@@ -102,6 +129,16 @@ func NewOpenAITranslationClient(cfg LLMConfig, client *http.Client) (*OpenAITran
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return nil, fmt.Errorf("enrichment: invalid LLM base URL %q", base)
 	}
+	reasoningEffort := cfg.ReasoningEffort
+	if reasoningEffort == "" {
+		reasoningEffort = defaultReasoningEffort
+	}
+	normalizedReasoningEffort, err := parseReasoningEffort(reasoningEffort)
+	if err != nil {
+		return nil, fmt.Errorf("enrichment: %s %w", llmReasoningEffortEnv, err)
+	}
+	reasoningEffort = normalizedReasoningEffort
+	usesReasoningEffort := cfg.SupportsReasoningEffort || knownReasoningModel(parsed, cfg.Model)
 	if client == nil {
 		timeout := cfg.Timeout
 		if timeout <= 0 {
@@ -109,14 +146,22 @@ func NewOpenAITranslationClient(cfg LLMConfig, client *http.Client) (*OpenAITran
 		}
 		client = &http.Client{Timeout: timeout}
 	}
-	return &OpenAITranslationClient{cfg.APIKey, cfg.Model, base + "/chat/completions", client}, nil
+	return &OpenAITranslationClient{
+		apiKey:              cfg.APIKey,
+		model:               cfg.Model,
+		endpoint:            base + "/chat/completions",
+		reasoningEffort:     reasoningEffort,
+		usesReasoningEffort: usesReasoningEffort,
+		httpClient:          client,
+	}, nil
 }
 
 type chatRequest struct {
-	Model          string        `json:"model"`
-	Messages       []chatMessage `json:"messages"`
-	Temperature    int           `json:"temperature"`
-	ResponseFormat struct {
+	Model           string        `json:"model"`
+	Messages        []chatMessage `json:"messages"`
+	Temperature     *int          `json:"temperature,omitempty"`
+	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
+	ResponseFormat  struct {
 		Type string `json:"type"`
 	} `json:"response_format"`
 }
@@ -138,12 +183,17 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		return TranslationResponse{}, fmt.Errorf("encode LLM translation input: %w", err)
 	}
 	payload := chatRequest{
-		Model:       c.model,
-		Temperature: 0,
+		Model: c.model,
 		Messages: []chatMessage{
-			{Role: "system", Content: "Translate the supplied lemma into English. Return JSON with exactly four string fields: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and context_sentence (only when the complete example sentence exceeds 50 whitespace-delimited words or 400 Unicode code points: a shorter exact contiguous substring of the supplied example sentence that contains the supplied target word; otherwise an empty string). Never paraphrase context_sentence. When no example sentence is supplied, sentence_translation and context_sentence must be empty strings."},
+			{Role: "system", Content: "Translate the supplied lemma into English. Return exactly one JSON object with exactly these four string fields and no markdown or additional keys: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and context_sentence (only when the complete example sentence exceeds 50 whitespace-delimited words or 400 Unicode code points: a shorter exact contiguous substring of the supplied example sentence that contains the supplied target word; otherwise an empty string). Keep every value concise. Never paraphrase context_sentence. When no example sentence is supplied, sentence_translation and context_sentence must be empty strings."},
 			{Role: "user", Content: string(privateInput)},
 		},
+	}
+	if c.usesReasoningEffort {
+		payload.ReasoningEffort = c.reasoningEffort
+	} else {
+		temperature := 0
+		payload.Temperature = &temperature
 	}
 	payload.ResponseFormat.Type = "json_object"
 	body, err := json.Marshal(payload)
@@ -196,6 +246,28 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
 	}
 	return result, nil
+}
+
+func parseReasoningEffort(value string) (string, error) {
+	switch normalized := strings.ToLower(strings.TrimSpace(value)); normalized {
+	case "low", "medium", "high":
+		return normalized, nil
+	default:
+		return "", fmt.Errorf("must be one of low, medium, or high; got %q", value)
+	}
+}
+
+func knownReasoningModel(baseURL *url.URL, model string) bool {
+	if strings.ToLower(strings.TrimSuffix(baseURL.Hostname(), ".")) != "api.openai.com" {
+		return false
+	}
+	model = strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range []string{"o1", "o3", "o4", "gpt-5", "gpt-oss"} {
+		if model == prefix || strings.HasPrefix(model, prefix+"-") || strings.HasPrefix(model, prefix+".") {
+			return !strings.Contains(model, "-pro")
+		}
+	}
+	return false
 }
 
 // LLMHTTPError reports whether an API response is safe to retry.
