@@ -3,6 +3,7 @@ package enrichment
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -88,6 +89,62 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	}
 	if cache.puts != 1 || !second.Translation.Available || !second.SentenceTranslation.Available || !second.SentenceTranslationTarget.Available || first.Translation.Provenance.CachedAt.IsZero() {
 		t.Fatalf("first=%+v second=%+v cache=%+v", first, second, cache)
+	}
+}
+
+func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testing.T) {
+	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
+	provider := &translationStub{name: "llm", version: "model-1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, cache)
+	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
+
+	result, metrics, err := service.EnrichExternalObserved(context.Background(), candidate)
+	if err != nil || !result.SentenceTranslation.Available {
+		t.Fatalf("first result=%+v metrics=%+v err=%v", result, metrics, err)
+	}
+	if metrics.CacheMisses != 1 || metrics.CacheHits != 0 || metrics.ProviderCalls != 1 || metrics.Attempts != 1 || metrics.Retries != 0 || metrics.CacheLatency < 0 || metrics.ProviderLatency < 0 {
+		t.Fatalf("first metrics=%+v", metrics)
+	}
+
+	_, metrics, err = service.EnrichExternalObserved(context.Background(), candidate)
+	if err != nil || metrics.CacheHits != 1 || metrics.CacheMisses != 0 || metrics.ProviderCalls != 0 || metrics.Attempts != 0 {
+		t.Fatalf("cached metrics=%+v err=%v", metrics, err)
+	}
+
+	failing := &classifiedProvider{err: &LLMHTTPError{StatusCode: http.StatusTooManyRequests, Message: "private provider response"}}
+	service = NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, failing, &memoryCache{values: map[CacheKey]CacheEntry{}})
+	_, metrics, err = service.EnrichExternalObserved(context.Background(), candidate)
+	if err == nil || metrics.ProviderCalls != 1 || metrics.Attempts != 2 || metrics.Retries != 1 || metrics.RateLimitErrors != 1 || metrics.OtherErrors != 0 {
+		t.Fatalf("failure metrics=%+v err=%v", metrics, err)
+	}
+}
+
+type classifiedProvider struct{ err error }
+
+func (*classifiedProvider) Name() string    { return "fake" }
+func (*classifiedProvider) Version() string { return "1" }
+func (p *classifiedProvider) Translate(context.Context, TranslationRequest) (TranslationResponse, error) {
+	if p.err != nil {
+		return TranslationResponse{}, p.err
+	}
+	return TranslationResponse{Translation: "house", SentenceTranslation: "The house is large."}, nil
+}
+
+func TestExternalErrorClassification(t *testing.T) {
+	tests := []struct {
+		err  error
+		want ExternalErrorClass
+	}{
+		{context.Canceled, ExternalErrorCancellation},
+		{context.DeadlineExceeded, ExternalErrorTimeout},
+		{&LLMHTTPError{StatusCode: http.StatusTooManyRequests}, ExternalErrorRateLimit},
+		{&LLMHTTPError{StatusCode: http.StatusServiceUnavailable}, ExternalErrorProvider5xx},
+		{errors.New("opaque provider failure"), ExternalErrorOther},
+	}
+	for _, test := range tests {
+		if got := ClassifyExternalError(test.err); got != test.want {
+			t.Errorf("ClassifyExternalError(%T)=%q want %q", test.err, got, test.want)
+		}
 	}
 }
 
