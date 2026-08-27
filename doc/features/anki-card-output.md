@@ -69,12 +69,13 @@ not allow a target to match inside a larger word.
 ### Punctuation-bearing surfaces
 
 At the analyzer boundary, derive a lexical surface form by removing only
-leading/trailing Unicode punctuation and symbol characters. Preserve internal
-punctuation (for example apostrophes or hyphens) and preserve the original
-sentence text and token offsets for display/provenance. Use the cleaned surface
-for target matching and extraction. Add regression fixtures for `‹die` and
-`Besten›`, plus quotes, parentheses, em dashes, apostrophes, and hyphenated
-forms.
+leading/trailing Unicode punctuation and symbol characters. Standalone
+punctuation tokens and lexical apostrophes in elided forms such as Italian
+`L'` remain intact. Preserve internal punctuation (for example apostrophes or
+hyphens) and preserve the original sentence text and token offsets for
+display/provenance. Use the cleaned surface for target matching and extraction.
+Add regression fixtures for `‹die` and `Besten›`, plus quotes, parentheses, em
+dashes, symbols, apostrophes, and hyphenated forms.
 
 This should be implemented once in the shared normalization path rather than
 as an export-only workaround, so selection and card rendering agree about the
@@ -127,9 +128,10 @@ of every card:
    shorter contiguous clause/span that contains the tested word and is
    sufficient to identify its sense.
 3. Require structured output containing `context_sentence`; the returned
-   context must be an exact substring (or a precisely
-   validated token span) of the original sentence, contain the target, and pass
-   the same escaping/boundary checks as ordinary context.
+   context must be an exact substring (or a precisely validated token span) of
+   the original sentence, contain the target, contain at least three
+   whitespace-delimited words, fall at or below both long-context limits, and
+   pass the same escaping/boundary checks as ordinary context.
 4. Use the shorter context only on the front. Show the complete sentence and its
    English translation on the back.
 5. If the provider is unavailable, returns malformed output, omits the target,
@@ -224,3 +226,8 @@ ready when optional translation or shortening is unavailable: accepted short
 cards may have empty English fields, while long cards without a validated span
 are reported as quality omissions and are not assigned as generated
 vocabulary.
+
+The analyzer contract revision is identified by scoped analyzer version `2`,
+German normalization profile version `3`, and language-neutral profile version
+`1.1.0`. Re-submitting a reviewed scope creates a new immutable analysis run
+under those versions instead of rewriting an earlier corpus.

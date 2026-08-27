@@ -48,9 +48,11 @@ type Sentence struct {
 	Location SourceLocation
 }
 
-// Token is one analyzed token. Surface and RawLemma preserve backend output;
-// CanonicalLemma is derived using Result.NormalizationProfile. UPOS contains a
-// coarse Universal Dependencies part-of-speech tag.
+// Token is one analyzed token. Surface removes surrounding Unicode punctuation
+// and symbols while sentence text and offsets preserve the source; RawLemma
+// preserves backend output. CanonicalLemma is derived using
+// Result.NormalizationProfile. UPOS contains a coarse Universal Dependencies
+// part-of-speech tag.
 type Token struct {
 	Surface        string
 	RawLemma       string

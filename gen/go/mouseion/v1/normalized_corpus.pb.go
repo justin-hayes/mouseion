@@ -397,7 +397,8 @@ func (x *Sentence) GetLocation() *SourceLocation {
 
 type Token struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// surface is preserved exactly as it appeared in the source.
+	// surface is the lexical form with surrounding Unicode punctuation/symbols
+	// removed; sentence text and source offsets preserve the analyzer input.
 	Surface string `protobuf:"bytes,1,opt,name=surface,proto3" json:"surface,omitempty"`
 	// raw_lemma is preserved exactly as returned by the analyzer.
 	RawLemma string `protobuf:"bytes,2,opt,name=raw_lemma,json=rawLemma,proto3" json:"raw_lemma,omitempty"`

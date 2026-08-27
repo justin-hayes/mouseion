@@ -131,8 +131,9 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		Language        string `json:"language"`
 		CanonicalLemma  string `json:"canonical_lemma"`
 		UPOS            string `json:"upos"`
+		TargetWord      string `json:"target_word,omitempty"`
 		ExampleSentence string `json:"example_sentence,omitempty"`
-	}{input.Language, input.CanonicalLemma, input.UPOS, input.ExampleSentence})
+	}{input.Language, input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence})
 	if err != nil {
 		return TranslationResponse{}, fmt.Errorf("encode LLM translation input: %w", err)
 	}

@@ -53,7 +53,7 @@ func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, ow
 
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
 	var entry cardexport.Entry
-	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',$7::bigint FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
+	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphology::text,'{}'),sm.title,'',$7::bigint FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
 	if err = missing(err); err != nil {
 		return entry, err
 	}
@@ -62,7 +62,7 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
 	}
-	err = s.pool.QueryRow(ctx, `SELECT context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.ContextSentence, &entry.SentenceTranslation)
+	err = s.pool.QueryRow(ctx, `SELECT translation,context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash IN ($4,'') ORDER BY (sentence_hash=$4) DESC,cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.ContextSentence, &entry.SentenceTranslation)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	}
@@ -71,12 +71,11 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 
 func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
 	var entry cardexport.Entry
-	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),COALESCE(en.translation,''),'',COALESCE(sl.morphology::text,'{}'),sm.title,'',$6::bigint
+	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphology::text,'{}'),sm.title,'',$6::bigint
 		FROM selection_candidates sc
 		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
 		JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id
 		LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true
-		LEFT JOIN LATERAL (SELECT translation FROM enrichment_cache WHERE language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=upper(sc.upos) ORDER BY cached_at DESC LIMIT 1) en ON true
 		LEFT JOIN LATERAL (SELECT morphology FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos ORDER BY id LIMIT 1) sl ON true
 		WHERE sc.owner_id=$1 AND sc.corpus_id=$2 AND sc.language=$3 AND sc.canonical_lemma=$4 AND sc.upos=$5`, owner, corpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
 	if err = missing(err); err != nil {
@@ -87,7 +86,7 @@ func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, co
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
 	}
-	err = s.pool.QueryRow(ctx, `SELECT context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.ContextSentence, &entry.SentenceTranslation)
+	err = s.pool.QueryRow(ctx, `SELECT translation,context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash IN ($4,'') ORDER BY (sentence_hash=$4) DESC,cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.ContextSentence, &entry.SentenceTranslation)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	}

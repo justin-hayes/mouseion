@@ -336,6 +336,21 @@ func TestClozeWithAndWithoutHint(t *testing.T) {
 	}
 }
 
+func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
+	for _, test := range []struct {
+		sentence, target, want string
+	}{
+		{sentence: "ẞ Haus ist heute sehr groß.", target: "Haus", want: "ẞ <b>Haus</b> ist heute sehr groß."},
+		{sentence: "Das ẞ steht heute dort ruhig.", target: "ß", want: "Das <b>ẞ</b> steht heute dort ruhig."},
+		{sentence: "K Haus ist heute sehr groß.", target: "Haus", want: "K <b>Haus</b> ist heute sehr groß."},
+	} {
+		got, err := BoldTarget(test.sentence, test.target)
+		if err != nil || got != test.want {
+			t.Fatalf("BoldTarget(%q, %q) = %q, %v; want %q", test.sentence, test.target, got, err, test.want)
+		}
+	}
+}
+
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	n := Note{Key: "key", Text: "Grüße\t{{c1::Welt}}", Lemma: "Welt", POS: "NOUN", Morph: "Case=Nom", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", SourceSentence: "Grüße Welt", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n})
@@ -350,6 +365,13 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	}
 	if len(rows) != 1 || len(rows[0]) != 7 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][5] != "Grüße Welt" || rows[0][6] != "Mouseion lang::de source::My_Book" {
 		t.Fatalf("rows=%#v", rows)
+	}
+}
+
+func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
+	got := escapeField("safe\x1finjected")
+	if strings.ContainsRune(got, '\x1f') || got != "safe&#31;injected" {
+		t.Fatalf("escaped field = %q", got)
 	}
 }
 
@@ -377,6 +399,8 @@ func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
 		{name: "das", language: "de", sentence: "Ich lese das Buch.", target: "Buch", want: "das Buch"},
 		{name: "die", language: "de", sentence: "Ich sehe die Stadt.", target: "Stadt", want: "die Stadt"},
 		{name: "der", language: "de", sentence: "Dort steht der Baum.", target: "Baum", want: "der Baum"},
+		{name: "capitalized after opening punctuation", language: "de", sentence: "Ich sehe »Das Buch dort liegen.", target: "Buch", want: "das Buch"},
+		{name: "punctuation token intervenes", language: "de", sentence: "Ich sehe das, Buch genannt werden.", target: "Buch", want: "Buch"},
 		{name: "not adjacent", language: "de", sentence: "Das schöne Buch liegt dort.", target: "Buch", want: "Buch"},
 		{name: "non German", language: "it", sentence: "La casa è grande.", target: "casa", want: "casa"},
 	} {
@@ -389,6 +413,19 @@ func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
 				t.Fatalf("lemma = %q, want %q", note.Lemma, test.want)
 			}
 		})
+	}
+}
+
+func TestBestSentenceEvidencePreservesCompleteSourceText(t *testing.T) {
+	const source = "  Vor dem alten Haus spielen heute mehrere fröhliche Kinder.  "
+	candidate := domain.SelectionCandidate{
+		CanonicalLemma:     "haus",
+		ObservedForms:      []byte(`["Haus"]`),
+		SentenceReferences: []byte(`[{"text":"  Vor dem alten Haus spielen heute mehrere fröhliche Kinder.  ","location":{"start_offset":10}}]`),
+	}
+	evidence, ok := BestSentenceEvidence(candidate)
+	if !ok || evidence.Sentence != source {
+		t.Fatalf("evidence sentence = %q, ok=%v", evidence.Sentence, ok)
 	}
 }
 

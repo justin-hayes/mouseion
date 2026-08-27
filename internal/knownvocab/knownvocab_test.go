@@ -111,15 +111,17 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	store := newMemoryStore()
 	result, err := NewService(store).Import(
-		context.Background(), "alice", "de", strings.NewReader("Straße\nDaß\n"),
+		context.Background(), "alice", "de", strings.NewReader("Straße\nDaß\ngeleiten|leiten\n"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Entries) != 2 || result.Entries[0].CanonicalLemma != "straße" ||
+	if len(result.Entries) != 3 || result.Entries[0].CanonicalLemma != "straße" ||
 		result.Entries[1].CanonicalLemma != "dass" ||
+		result.Entries[2].RawLemma != "geleiten|leiten" ||
+		result.Entries[2].CanonicalLemma != "geleiten" ||
 		result.Entries[0].ProfileName != "german-standard-post-1996" ||
-		result.Entries[0].ProfileVersion != "2" {
+		result.Entries[0].ProfileVersion != "3" {
 		t.Fatalf("entries = %+v", result.Entries)
 	}
 }

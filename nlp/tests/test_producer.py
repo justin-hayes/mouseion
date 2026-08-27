@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -108,7 +109,27 @@ def test_cleans_edge_punctuation_without_changing_offsets_or_internal_punctuatio
     assert [token.location.end_offset for token in tokens] == [4, 12, 25]
 
 
-def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma() -> None:
+def test_cleans_all_unicode_punctuation_and_symbol_edges() -> None:
+    surfaces = ["—Wort—", "$Haus€", "【Baum】", "„O'Neill-like“", "L'", "."]
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text=" ".join(surfaces),
+                tokens=[
+                    SimpleNamespace(words=[word(surface, surface, "NOUN", None, i, i + len(surface))])
+                    for i, surface in enumerate(surfaces)
+                ],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    tokens = producer.analyze(" ".join(surfaces), "de").sentences[0].tokens
+
+    assert [token.surface for token in tokens] == ["Wort", "Haus", "Baum", "O'Neill-like", "L'", "."]
+
+
+def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma(caplog) -> None:
     result = SimpleNamespace(
         sentences=[
             SimpleNamespace(
@@ -121,10 +142,30 @@ def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma() -
     )
     producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
 
-    token = producer.analyze("Nausikaa geleitet ihn.", "de").sentences[0].tokens[0]
+    with caplog.at_level(logging.WARNING, logger="mouseion_nlp.producer"):
+        token = producer.analyze("Nausikaa geleitet ihn.", "de").sentences[0].tokens[0]
 
     assert token.raw_lemma == "geleiten|leiten"
     assert token.canonical_lemma == "geleiten"
+    assert "differing lemma alternatives" in caplog.text
+
+
+def test_rejects_token_with_no_usable_pipe_lemma(caplog) -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="Wort",
+                tokens=[SimpleNamespace(words=[word("Wort", " | ", "NOUN", None, 0, 4)])],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    with caplog.at_level(logging.WARNING, logger="mouseion_nlp.producer"):
+        sentence = producer.analyze("Wort", "de").sentences[0]
+
+    assert list(sentence.tokens) == []
+    assert "no usable lemma alternative" in caplog.text
 
 
 def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms() -> None:
@@ -152,7 +193,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
         "dass",
     ]
     assert artifact.normalization_profile.name == "german-standard-post-1996"
-    assert artifact.normalization_profile.version == "2"
+    assert artifact.normalization_profile.version == "3"
 
 
 def test_normalized_corpus_round_trip() -> None:

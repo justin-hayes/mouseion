@@ -29,7 +29,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."})
+	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."})
 	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", ContextSentence: "Das Haus ist"}) {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
@@ -45,7 +45,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	if err := json.Unmarshal([]byte(user), &input); err != nil {
 		t.Fatal(err)
 	}
-	if len(input) != 4 || input["language"] != "de" || input["canonical_lemma"] != "Haus" || input["upos"] != "NOUN" || input["example_sentence"] != "Das Haus ist groß." {
+	if len(input) != 5 || input["language"] != "de" || input["canonical_lemma"] != "Haus" || input["upos"] != "NOUN" || input["target_word"] != "Haus" || input["example_sentence"] != "Das Haus ist groß." {
 		t.Fatalf("external input=%v", input)
 	}
 }

@@ -59,7 +59,8 @@ message Sentence {
 }
 
 message Token {
-  // surface is preserved exactly as it appeared in the source.
+  // surface is the lexical form with surrounding Unicode punctuation/symbols
+  // removed; sentence text and source offsets preserve the analyzer input.
   string surface = 1;
   // raw_lemma is preserved exactly as returned by the analyzer.
   string raw_lemma = 2;

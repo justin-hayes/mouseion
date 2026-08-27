@@ -54,10 +54,10 @@ func TestRegistryActiveAndVersionedLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name() != "german-standard-post-1996" || got.Version() != "2" || got.Language() != "de" {
+	if got.Name() != "german-standard-post-1996" || got.Version() != "3" || got.Language() != "de" {
 		t.Fatalf("unexpected profile: %s version %s (%s)", got.Name(), got.Version(), got.Language())
 	}
-	if versioned, err := registry.Lookup("de_DE", "2"); err != nil || versioned != got {
+	if versioned, err := registry.Lookup("de_DE", "3"); err != nil || versioned != got {
 		t.Fatalf("Lookup() = (%v, %v), want active profile", versioned, err)
 	}
 }
@@ -68,8 +68,22 @@ func TestNormalizePreservesRawLemmaAndRecordsProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.RawLemma != "  Daß  " || got.CanonicalLemma != "dass" ||
-		got.ProfileName != "german-standard-post-1996" || got.ProfileVersion != "2" {
+		got.ProfileName != "german-standard-post-1996" || got.ProfileVersion != "3" {
 		t.Fatalf("Normalize() = %#v", got)
+	}
+}
+
+func TestGermanV3SelectsFirstUsablePipeLemmaAndRetainsV2(t *testing.T) {
+	got, err := Normalize("de", "  | geleiten | leiten ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.RawLemma != "  | geleiten | leiten " || got.CanonicalLemma != "geleiten" || got.ProfileVersion != "3" {
+		t.Fatalf("Normalize() = %#v", got)
+	}
+	historical, err := Lookup("de", "2")
+	if err != nil || historical.Canonical("geleiten|leiten") != "geleiten|leiten" {
+		t.Fatalf("historical profile=%v err=%v", historical, err)
 	}
 }
 
