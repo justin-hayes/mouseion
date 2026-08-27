@@ -2,6 +2,11 @@
 
 Status: **Proposed** · Date: 2026-08-27 · Author: Justin + Codex
 
+> **Amendment:** [ADR 0031](0031-openai-batch-prepared-deck-translation.md)
+> proposes OpenAI Batch chunks in place of this ADR's scalar per-item provider
+> jobs and leased provider permits. The immutable manifest, exact item outcomes,
+> owner scoping, cancellation, and atomic finalizer remain unchanged.
+
 ## Context
 
 ADR 0022 made deck preparation asynchronous and made the ready APKG a durable,
@@ -102,3 +107,4 @@ and implementation sequence are specified in the
 - [ADR 0021: Contextual translation cache](0021-contextual-translation-cache.md)
 - [ADR 0022: Asynchronous prepared decks](0022-prepared-decks.md)
 - [Prepared-deck LLM translation performance](../features/llm-translation-performance.md)
+- [ADR 0031: OpenAI Batch prepared-deck translation](0031-openai-batch-prepared-deck-translation.md)

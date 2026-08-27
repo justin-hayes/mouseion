@@ -16,7 +16,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — proposed resumable manifest, candidate-work, and atomic-finalization contract for issue #338.
-- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — evaluates opt-in asynchronous batching for cost, throughput, and durable reconciliation.
+- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — proposes replacing synchronous prepared-deck translation with durable asynchronous OpenAI Batch execution.
 
 ## Current pipeline
 
@@ -74,6 +74,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
 30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — proposes immutable preparation runs, resumable candidate translation, bounded provider leases, and idempotent atomic finalization.
+31. [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — proposes provider-specific Batch chunks, durable reconciliation, bounded retries, temporary provider files, and retirement of synchronous prepared-deck translation.
 
 ## Deployment and operations
 
