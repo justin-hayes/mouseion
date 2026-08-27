@@ -175,9 +175,9 @@ func modelMetadata(modelID, deckID int64) map[string]any {
 	for i, name := range fieldNames {
 		fields[i] = map[string]any{"name": name, "ord": i, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}}
 	}
-	qfmt := `{{cloze:Text}}`
-	afmt := `{{cloze:Text}}<hr id="answer"><div class="meta"><b>{{Lemma}}</b> · {{Morph}} · {{POS}}</div><div class="english">{{English}}</div><div class="sentence">{{EnglishSentence}}</div>`
-	return map[string]any{"id": modelID, "name": noteTypeName, "type": 1, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Cloze", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": `.card { font-family: Arial; font-size: 20px; text-align: left; color: #222; background: #fff; line-height: 1.45; } .meta { margin-top: 1em; } .english, .sentence { margin-top: .65em; }`, "latexPre": "", "latexPost": "", "req": []any{[]any{0, "all", []any{0}}}, "vers": []any{}, "tags": []any{}}
+	qfmt := `{{Front}}`
+	afmt := `{{Front}}<hr id="answer"><div class="lemma"><b>{{Lemma}}</b></div><div class="english">{{English}}</div><div class="sentence">{{EnglishSentence}}</div>`
+	return map[string]any{"id": modelID, "name": noteTypeName, "type": 0, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Recognition", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": `.card { font-family: Arial; font-size: 20px; text-align: left; color: #222; background: #fff; line-height: 1.45; } .lemma { margin-top: 1em; } .english, .sentence { margin-top: .65em; }`, "latexPre": "", "latexPost": "", "req": []any{}, "vers": []any{}, "tags": []any{}}
 }
 
 func stableID(value string) int64 {

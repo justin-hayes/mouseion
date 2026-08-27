@@ -126,6 +126,19 @@ func Cloze(sentence, target, hint string) (string, error) {
 	return escapeField(sentence[:start]) + mark + escapeField(sentence[end:]), nil
 }
 
+func BoldTarget(sentence, target string) (string, error) {
+	target = strings.TrimSpace(target)
+	if target == "" || strings.TrimSpace(sentence) == "" {
+		return "", ErrInvalidInput
+	}
+	start := targetIndex(sentence, target)
+	if start < 0 {
+		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
+	}
+	end := start + len(target)
+	return escapeField(sentence[:start]) + "<b>" + escapeField(sentence[start:end]) + "</b>" + escapeField(sentence[end:]), nil
+}
+
 func escapeField(value string) string {
 	value = html.EscapeString(value)
 	value = strings.ReplaceAll(value, "{", "&#123;")
@@ -401,18 +414,18 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	if target == "" {
 		target = entry.CanonicalLemma
 	}
-	text, err := Cloze(entry.Sentence, target, entry.Translation)
+	front, err := BoldTarget(entry.Sentence, target)
 	if err != nil {
 		return Note{}, err
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
 	note := Note{
 		Key:  DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner),
-		Text: text, Lemma: escapeField(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)),
+		Text: front, Lemma: escapeField(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)),
 		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
 		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
 	}
-	note.BackExtra = strings.Join([]string{note.Lemma, note.Morph, note.POS, note.English, note.EnglishSentence}, "\n")
+	note.BackExtra = strings.Join([]string{note.Lemma, note.English, note.EnglishSentence}, "\n")
 	return note, nil
 }
 
@@ -451,12 +464,12 @@ func RenderTSV(notes []Note) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Text, n.Lemma, n.POS, n.Morph, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
+	return []string{n.Text, n.Lemma, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
 }
 
-const noteTypeName = "Mouseion Vocab Cloze"
+const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Text", "Lemma", "POS", "Morph", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
+var fieldNames = []string{"Front", "Lemma", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
