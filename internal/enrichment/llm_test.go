@@ -21,7 +21,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 			t.Error(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\"}"}}]}`)
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\",\"context_sentence\":\"Das Haus ist\"}"}}]}`)
 	}))
 	defer server.Close()
 
@@ -30,7 +30,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."})
-	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large."}) {
+	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", ContextSentence: "Das Haus ist"}) {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
 	body, _ := json.Marshal(received)
@@ -137,7 +137,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v2" || cfg.Timeout != 4*time.Second {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v3" || cfg.Timeout != 4*time.Second {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
 	}
 }

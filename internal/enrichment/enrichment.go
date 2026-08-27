@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Identity struct{ Language, CanonicalLemma, UPOS string }
 type Candidate struct {
 	Identity
 	Morphology      map[string]string
+	TargetWord      string
 	ExampleSentence string
 }
 type Provenance struct {
@@ -29,12 +32,12 @@ type Field[T any] struct {
 	Provenance Provenance
 }
 type Result struct {
-	Candidate                         Candidate
-	Frequency                         Field[float64]
-	Morphology                        Field[map[string]string]
-	Pronunciation, Translation, Gloss Field[string]
-	SentenceTranslation               Field[string]
-	Warnings                          []string
+	Candidate                            Candidate
+	Frequency                            Field[float64]
+	Morphology                           Field[map[string]string]
+	Pronunciation, Translation, Gloss    Field[string]
+	SentenceTranslation, ContextSentence Field[string]
+	Warnings                             []string
 }
 
 type FrequencyProvider interface {
@@ -60,6 +63,7 @@ type TranslationResponse struct {
 	Translation         string `json:"translation"`
 	Gloss               string `json:"gloss"`
 	SentenceTranslation string `json:"sentence_translation"`
+	ContextSentence     string `json:"context_sentence"`
 }
 type TranslationProvider interface {
 	Name() string
@@ -73,8 +77,8 @@ type CacheKey struct {
 }
 type CacheEntry struct {
 	CacheKey
-	Translation, Gloss, SentenceTranslation string
-	CachedAt                                time.Time
+	Translation, Gloss, SentenceTranslation, ContextSentence string
+	CachedAt                                                 time.Time
 }
 type ExternalCache interface {
 	Get(context.Context, CacheKey) (CacheEntry, bool, error)
@@ -161,6 +165,7 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 		return r
 	}
 	r.Translation, r.Gloss, r.SentenceTranslation = external.Translation, external.Gloss, external.SentenceTranslation
+	r.ContextSentence = external.ContextSentence
 	r.Warnings = append(r.Warnings, external.Warnings...)
 	return r
 }
@@ -204,6 +209,11 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
 		} else if ok {
+			target := strings.TrimSpace(c.TargetWord)
+			if target == "" {
+				target = c.CanonicalLemma
+			}
+			entry.ContextSentence = ValidatedContextSentence(sentence, target, entry.ContextSentence)
 			s.setExternal(&r, entry)
 			return r, nil
 		}
@@ -238,7 +248,18 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 	if err != nil {
 		return r, err
 	}
-	entry := CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, CachedAt: s.now().UTC()}
+	target := strings.TrimSpace(c.TargetWord)
+	if target == "" {
+		target = c.CanonicalLemma
+	}
+	entry := CacheEntry{
+		CacheKey:            key,
+		Translation:         response.Translation,
+		Gloss:               response.Gloss,
+		SentenceTranslation: response.SentenceTranslation,
+		ContextSentence:     ValidatedContextSentence(sentence, target, response.ContextSentence),
+		CachedAt:            s.now().UTC(),
+	}
 	if s.cache != nil {
 		stored, putErr := s.cache.Put(ctx, entry)
 		if putErr != nil {
@@ -265,6 +286,64 @@ func (s *Service) setExternal(r *Result, e CacheEntry) {
 	if e.SentenceTranslation != "" {
 		r.SentenceTranslation = Field[string]{e.SentenceTranslation, true, p}
 	}
+	if e.ContextSentence != "" {
+		r.ContextSentence = Field[string]{e.ContextSentence, true, p}
+	}
+}
+
+// ValidatedContextSentence accepts only a shorter, exact contiguous substring
+// of the complete source sentence that contains the tested word. Any missing,
+// unsafe, or otherwise unsuitable provider output falls back to the complete
+// source sentence so callers never render provider-invented text.
+func ValidatedContextSentence(source, target, proposed string) string {
+	source = strings.TrimSpace(source)
+	if source == "" || !utf8.ValidString(source) {
+		return ""
+	}
+	proposed = strings.TrimSpace(proposed)
+	if proposed == "" || proposed == source {
+		return source
+	}
+	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || targetIndex(proposed, strings.TrimSpace(target)) < 0 {
+		return source
+	}
+	return proposed
+}
+
+func targetIndex(sentence, target string) int {
+	if target == "" {
+		return -1
+	}
+	lowerSentence, lowerTarget := strings.ToLower(sentence), strings.ToLower(target)
+	for offset := 0; offset <= len(lowerSentence)-len(lowerTarget); {
+		relative := strings.Index(lowerSentence[offset:], lowerTarget)
+		if relative < 0 {
+			return -1
+		}
+		start := offset + relative
+		end := start + len(lowerTarget)
+		if contextWordBoundaryBefore(lowerSentence, start) && contextWordBoundaryAfter(lowerSentence, end) {
+			return start
+		}
+		offset = start + 1
+	}
+	return -1
+}
+
+func contextWordBoundaryBefore(text string, index int) bool {
+	if index == 0 {
+		return true
+	}
+	r, _ := utf8.DecodeLastRuneInString(text[:index])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+}
+
+func contextWordBoundaryAfter(text string, index int) bool {
+	if index == len(text) {
+		return true
+	}
+	r, _ := utf8.DecodeRuneInString(text[index:])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 // SentenceHash returns the lowercase hexadecimal SHA-256 digest of the UTF-8

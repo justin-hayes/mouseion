@@ -30,6 +30,7 @@ var ErrMixedLanguages = errors.New("enrichment job: candidates must share one la
 type Item struct {
 	CanonicalLemma  string `json:"canonical_lemma"`
 	UPOS            string `json:"upos"`
+	TargetWord      string `json:"target_word,omitempty"`
 	ExampleSentence string `json:"example_sentence,omitempty"`
 }
 
@@ -81,8 +82,8 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 		if strings.TrimSpace(candidate.ExampleSentence) == "" {
 			continue
 		}
-		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
-		key := item.CanonicalLemma + "\x00" + item.UPOS + "\x00" + item.ExampleSentence
+		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), TargetWord: strings.TrimSpace(candidate.TargetWord), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
+		key := item.CanonicalLemma + "\x00" + item.UPOS + "\x00" + item.TargetWord + "\x00" + item.ExampleSentence
 		if _, ok := seen[key]; ok {
 			continue
 		}
@@ -176,7 +177,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		if i < prior.Completed {
 			continue
 		}
-		candidate := enrichment.Candidate{Identity: enrichment.Identity{Language: job.Args.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}, ExampleSentence: item.ExampleSentence}
+		candidate := enrichment.Candidate{Identity: enrichment.Identity{Language: job.Args.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}, TargetWord: item.TargetWord, ExampleSentence: item.ExampleSentence}
 		if _, err := w.Enrichment.EnrichExternal(ctx, candidate); err != nil {
 			return fmt.Errorf("translate %s/%s: %w", item.CanonicalLemma, item.UPOS, err)
 		}

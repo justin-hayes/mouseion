@@ -1,4 +1,4 @@
-// Package cardexport produces owner-scoped Anki Cloze deck packages.
+// Package cardexport produces owner-scoped Anki recognition deck packages.
 package cardexport
 
 import (
@@ -25,10 +25,10 @@ import (
 var ErrInvalidInput = errors.New("cardexport: invalid input")
 
 type Entry struct {
-	OwnerID, Language, CanonicalLemma, UPOS                string
-	Sentence, Translation, SentenceTranslation, TargetWord string
-	Morphology, SourceDocument, Notes                      string
-	FirstEncounter                                         int64
+	OwnerID, Language, CanonicalLemma, UPOS                                 string
+	Sentence, Translation, SentenceTranslation, ContextSentence, TargetWord string
+	Morphology, SourceDocument, Notes                                       string
+	FirstEncounter                                                          int64
 }
 
 type Note struct {
@@ -155,6 +155,10 @@ const (
 // ScoreSentenceQuality applies a deliberately small, explainable export gate
 // using only sentence text, the selected target form, and source location.
 func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
+	return scoreSentenceQuality(sentence, target, firstEncounter, false)
+}
+
+func scoreSentenceQuality(sentence, target string, firstEncounter int64, allowLong bool) SentenceQuality {
 	text := strings.TrimSpace(sentence)
 	words := strings.Fields(text)
 	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
@@ -162,8 +166,12 @@ func ScoreSentenceQuality(sentence, target string, firstEncounter int64) Sentenc
 
 	if !utf8.ValidString(text) || len(words) < minimumSentenceWords {
 		reject("too short or fragmented")
-	} else if len(words) > maximumSentenceWords || utf8.RuneCountInString(text) > maximumSentenceCharacters {
+	} else if sentenceTooLong(text) {
 		reject("too long")
+		if allowLong {
+			quality.Score += 30
+			quality.Reasons = append(quality.Reasons, "usable length via validated short context")
+		}
 	} else {
 		quality.Score += 30
 		quality.Reasons = append(quality.Reasons, "usable length")
@@ -197,8 +205,30 @@ func ScoreSentenceQuality(sentence, target string, firstEncounter int64) Sentenc
 		quality.Reasons = append(quality.Reasons, "no obvious structural noise")
 	}
 
-	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
+	quality.Accepted = quality.Score >= minimumSentenceScore && (!containsRejection(quality.Reasons) || (allowLong && onlyLengthRejection(quality.Reasons)))
 	return quality
+}
+
+func sentenceTooLong(text string) bool {
+	return len(strings.Fields(strings.TrimSpace(text))) > maximumSentenceWords || utf8.RuneCountInString(strings.TrimSpace(text)) > maximumSentenceCharacters
+}
+
+func onlyLengthRejection(reasons []string) bool {
+	for _, reason := range reasons {
+		if reason == "too long" {
+			continue
+		}
+		switch reason {
+		case "too short or fragmented", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate":
+			return false
+		}
+	}
+	for _, reason := range reasons {
+		if reason == "too long" {
+			return true
+		}
+	}
+	return false
 }
 
 func containsRejection(reasons []string) bool {
@@ -431,7 +461,11 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	if target == "" {
 		target = entry.CanonicalLemma
 	}
-	front, err := BoldTarget(entry.Sentence, target)
+	contextSentence := entry.Sentence
+	if sentenceTooLong(entry.Sentence) {
+		contextSentence = enrichment.ValidatedContextSentence(entry.Sentence, target, entry.ContextSentence)
+	}
+	front, err := BoldTarget(contextSentence, target)
 	if err != nil {
 		return Note{}, err
 	}
@@ -448,7 +482,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
 		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
 	}
-	note.BackExtra = strings.Join([]string{note.Lemma, note.English, note.EnglishSentence}, "\n")
+	note.BackExtra = strings.Join([]string{note.Lemma, note.English, note.EnglishSentence, note.SourceSentence}, "\n")
 	return note, nil
 }
 
@@ -737,24 +771,37 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 	completeness := Completeness{}
 	for _, entry := range entries {
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
+		shortContext := strings.TrimSpace(entry.Sentence)
+		if sentenceTooLong(entry.Sentence) {
+			shortContext = enrichment.ValidatedContextSentence(entry.Sentence, entry.TargetWord, entry.ContextSentence)
+		}
+		usesShortContext := shortContext != strings.TrimSpace(entry.Sentence)
+		if usesShortContext {
+			quality = scoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter, true)
+		}
 		if !quality.Accepted {
 			omitted = append(omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: quality.Reasons})
-			continue
+			if !onlyLengthRejection(quality.Reasons) {
+				continue
+			}
 		}
-		n, err := makeNote(owner, entry)
-		if err != nil {
-			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
-		}
-		accepted = append(accepted, acceptedNote{entry: entry, note: n})
-		completeness.TotalCards++
-		if strings.TrimSpace(entry.Translation) != "" {
-			completeness.CardsWithEnglish++
-		}
-		if strings.TrimSpace(entry.SentenceTranslation) != "" {
-			completeness.CardsWithEnglishSentence++
+		if quality.Accepted {
+			n, err := makeNote(owner, entry)
+			if err != nil {
+				return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+			}
+			accepted = append(accepted, acceptedNote{entry: entry, note: n})
+			completeness.TotalCards++
+			if strings.TrimSpace(entry.Translation) != "" {
+				completeness.CardsWithEnglish++
+			}
+			if strings.TrimSpace(entry.SentenceTranslation) != "" {
+				completeness.CardsWithEnglishSentence++
+			}
 		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
 			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			TargetWord:      strings.TrimSpace(entry.TargetWord),
 			ExampleSentence: strings.TrimSpace(entry.Sentence),
 		})
 	}
