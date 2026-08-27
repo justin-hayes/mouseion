@@ -64,6 +64,21 @@ def _morphology(feats: str | None) -> dict[str, str]:
     return dict(part.split("=", 1) for part in feats.split("|") if "=" in part)
 
 
+# Quotation and bracketing marks that Stanza may attach to a lexical token.
+# Apostrophes and ordinary sentence punctuation are intentionally excluded.
+_EDGE_QUOTES = "\"‘’‚‛“”„‟‹›«»「」『』《》〈〉【】〔〕〖〗〘〙〚〛()[]{}"
+
+
+def _clean_surface(surface: str) -> str:
+    """Remove attached quotation/bracketing marks without altering punctuation."""
+    return surface.strip(_EDGE_QUOTES)
+
+
+def _primary_lemma(lemma: str) -> str:
+    """Return the first usable alternative from Stanza's pipe lemma form."""
+    return next((alternative.strip() for alternative in lemma.split("|") if alternative.strip()), "")
+
+
 class Producer:
     """Run Stanza once per complete document and emit the protobuf contract."""
 
@@ -156,11 +171,13 @@ class Producer:
                         ),
                         None,
                     )
+                surface = _clean_surface(word.text)
                 lemma = word.lemma or word.text
+                primary_lemma = _primary_lemma(lemma)
                 value = normalized_corpus_pb2.Token(
-                    surface=word.text,
+                    surface=surface,
                     raw_lemma=lemma,
-                    canonical_lemma=self._canonical_lemma(language, lemma),
+                    canonical_lemma=self._canonical_lemma(language, primary_lemma),
                     pos=word.upos or "",
                     morphology=_morphology(word.feats),
                     location=self._location(source, start, end),

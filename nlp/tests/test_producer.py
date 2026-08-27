@@ -85,6 +85,48 @@ def test_ner_is_not_emitted_when_disabled() -> None:
     assert not token.HasField("named_entity")
 
 
+def test_cleans_edge_punctuation_without_changing_offsets_or_internal_punctuation() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="‹die Besten› O'Neill-like",
+                tokens=[
+                    SimpleNamespace(words=[word("‹die", "die", "DET", None, 0, 4)]),
+                    SimpleNamespace(words=[word("Besten›", "gut", "ADJ", None, 5, 12)]),
+                    SimpleNamespace(words=[word("O'Neill-like", "O'Neill-like", "PROPN", None, 13, 25)]),
+                ],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    artifact = producer.analyze("‹die Besten› O'Neill-like", "de")
+    tokens = artifact.sentences[0].tokens
+
+    assert [token.surface for token in tokens] == ["die", "Besten", "O'Neill-like"]
+    assert [token.location.start_offset for token in tokens] == [0, 5, 13]
+    assert [token.location.end_offset for token in tokens] == [4, 12, 25]
+
+
+def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="Nausikaa geleitet ihn.",
+                tokens=[
+                    SimpleNamespace(words=[word("geleitet", "geleiten|leiten", "VERB", None, 9, 17)])
+                ],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    token = producer.analyze("Nausikaa geleitet ihn.", "de").sentences[0].tokens[0]
+
+    assert token.raw_lemma == "geleiten|leiten"
+    assert token.canonical_lemma == "geleiten"
+
+
 def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms() -> None:
     result = SimpleNamespace(
         sentences=[
