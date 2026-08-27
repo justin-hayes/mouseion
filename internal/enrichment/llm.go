@@ -18,7 +18,7 @@ import (
 const (
 	defaultLLMBaseURL = "https://api.openai.com/v1"
 	defaultLLMTimeout = 30 * time.Second
-	llmPromptVersion  = "translation-v2"
+	llmPromptVersion  = "translation-v3"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external
@@ -140,7 +140,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 		Model:       c.model,
 		Temperature: 0,
 		Messages: []chatMessage{
-			{Role: "system", Content: "Translate the supplied lemma into English. Return JSON with exactly three string fields: translation (a concise lemma translation), gloss (a brief sense explanation), and sentence_translation (a natural translation of the complete example sentence). When no example sentence is supplied, sentence_translation must be an empty string."},
+			{Role: "system", Content: "Translate the supplied lemma into English. Return JSON with exactly four string fields: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and context_sentence (only when the example sentence is too long to scan: a shorter exact contiguous substring of the supplied example sentence that contains the supplied lemma; otherwise an empty string). Never paraphrase context_sentence. When no example sentence is supplied, sentence_translation and context_sentence must be empty strings."},
 			{Role: "user", Content: string(privateInput)},
 		},
 	}
@@ -187,6 +187,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.Gloss = strings.TrimSpace(result.Gloss)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
+	result.ContextSentence = strings.TrimSpace(result.ContextSentence)
 	if result.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}

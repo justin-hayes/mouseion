@@ -131,7 +131,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(decksJSON, deckName) {
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(modelsJSON, `{{SourceSentence}}`) || !strings.Contains(decksJSON, deckName) {
 		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
 	}
 	var models map[string]struct {
@@ -389,6 +389,47 @@ func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLongContextUsesValidatedShortFrontAndFullSourceOnBack(t *testing.T) {
+	longSentence := "Das Haus steht am Rand, während die Kinder im großen Garten spielen und ihre Eltern " + strings.Repeat("das Abendessen vorbereiten und über den nächsten Tag sprechen ", 8) + "weitergehen."
+	shortContext := "Das Haus steht am Rand"
+	entry := Entry{
+		OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: longSentence,
+		TargetWord: "Haus", ContextSentence: shortContext, Translation: "house",
+		SentenceTranslation: "The house stands at the edge while the children play.", SourceDocument: "Book",
+		FirstEncounter: 12,
+	}
+	store := &memoryStore{bookID: "book", candidates: []domain.SelectionCandidate{{
+		OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1,
+		ObservedForms: []byte(`["Haus"]`), SentenceReferences: []byte(`[{"text":` + jsonString(longSentence) + `,"location":{"start_offset":12}}]`),
+	}}, entries: []Entry{entry}}
+
+	store.entries[0].ContextSentence = ""
+	withoutContext, err := NewService(store).BuildCoverage(context.Background(), "alice", "book")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withoutContext.Count != 0 || len(withoutContext.Omitted) != 1 || len(withoutContext.EnrichmentCandidates) != 1 {
+		t.Fatalf("without context artifact=%+v", withoutContext)
+	}
+	store.entries[0].ContextSentence = shortContext
+	artifact, err := NewService(store).BuildCoverage(context.Background(), "alice", "book")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifact.Count != 1 || len(artifact.Omitted) != 0 || len(artifact.Generated) != 1 {
+		t.Fatalf("artifact=%+v", artifact)
+	}
+	note := artifact.Generated[0].Note
+	if note.Text != "Das <b>Haus</b> steht am Rand" || note.SourceSentence != longSentence || !strings.Contains(note.BackExtra, note.SourceSentence) || !strings.Contains(artifact.TSV, longSentence) {
+		t.Fatalf("note=%+v TSV=%q", note, artifact.TSV)
+	}
+}
+
+func jsonString(value string) string {
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
 }
 
 func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {

@@ -48,14 +48,14 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	defer store.Close()
 	when := time.Date(2026, 8, 21, 2, 3, 4, 0, time.UTC)
 	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
-	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", CachedAt: when})
+	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", ContextSentence: "Das Haus", CachedAt: when})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// No owner is part of the API or schema: all users read the same entry.
 	for range 2 {
 		got, found, err := store.Get(ctx, key)
-		if err != nil || !found || got.Translation != "house" || got.SentenceTranslation != "The house is large." || !got.CachedAt.Equal(stored.CachedAt) {
+		if err != nil || !found || got.Translation != "house" || got.SentenceTranslation != "The house is large." || got.ContextSentence != "Das Haus" || !got.CachedAt.Equal(stored.CachedAt) {
 			t.Fatalf("got=%+v found=%v err=%v", got, found, err)
 		}
 	}
