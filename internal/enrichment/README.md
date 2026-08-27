@@ -29,9 +29,12 @@ The prompt requests one concise, strict JSON object and does not use a universal
 verbosity field.
 
 The provider boundary accepts only language, canonical lemma, UPOS, tested
-surface form, and the optional example sentence. Results use the existing
-immutable external cache; cache keys include language, provider, and
-model/prompt version, and result provenance records that version and the cache
-timestamp. HTTP 408, 429, and 5xx responses are retryable by the enrichment
-service; failures become warnings in the inline pipeline, while durable jobs
-may retry them through River.
+surface form, and the optional complete example sentence. A response may
+include a complete sentence translation and the plain-text
+`sentence_translation_target` phrase corresponding to the target. Results use
+the immutable external cache; cache keys include the complete source sentence
+hash, language, provider, and model/prompt version, and result provenance
+records that version and the cache timestamp. Provider HTML is never trusted.
+HTTP 408, 429, and 5xx responses are retryable by the enrichment service;
+failures become warnings in the inline pipeline, while durable jobs may retry
+them through River.

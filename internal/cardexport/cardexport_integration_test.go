@@ -89,7 +89,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if contains(artifact.TSV, "Inhaltsverzeichnis") {
 		t.Fatalf("lower-quality first reference was selected: %s", artifact.TSV)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','The old house is surprisingly large.')`, enrichment.SentenceHash("Das alte Haus ist überraschend groß.")); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','The old house is surprisingly large.','old house')`, enrichment.SentenceHash("Das alte Haus ist überraschend groß.")); err != nil {
 		t.Fatal(err)
 	}
 	var cards, decks, audits, generated, known int
@@ -110,7 +110,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	again, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
-	if err != nil || again.Count != 1 || again.Completeness != (cardexport.Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1}) || !contains(again.TSV, "The old house is surprisingly large.") {
+	if err != nil || again.Count != 1 || again.Completeness != (cardexport.Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1}) || !contains(again.TSV, "The <b>old house</b> is surprisingly large.") {
 		t.Fatalf("again=%+v err=%v", again, err)
 	}
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards)

@@ -74,16 +74,16 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	}})
 	candidate.ObservedForms = []byte(`["Haus"]`)
 	when := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,context_sentence,cached_at) VALUES
-		('de','Haus','NOUN','test','1',$1,'home','dwelling','She has called this house her home for many years.','',$3),
-		('de','Haus','NOUN','test','1',$2,'publisher','publishing house','The publisher is releasing a new children''s book today.','',$4)`, enrichment.SentenceHash(exactSentence), enrichment.SentenceHash(otherSentence), when, when.Add(time.Hour)); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,cached_at) VALUES
+		('de','Haus','NOUN','test','1',$1,'home','dwelling','She has called this house her home for many years.',$3),
+		('de','Haus','NOUN','test','1',$2,'publisher','publishing house','The publisher is releasing a new children''s book today.',$4)`, enrichment.SentenceHash(exactSentence), enrichment.SentenceHash(otherSentence), when, when.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	entry, err = store.GetCoverageEntryForBook(ctx, owner.ID, book.ID, candidate)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if entry.Sentence != exactSentence || entry.Translation != "home" || entry.SentenceTranslation != "She has called this house her home for many years." {
+	if entry.Sentence != exactSentence || entry.Translation != "home" || entry.SentenceTranslation != "She has called this house her home for many years." || entry.SentenceTranslationTarget != "" {
 		t.Fatalf("sentence-aligned enrichment = %+v", entry)
 	}
 }

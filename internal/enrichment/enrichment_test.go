@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
@@ -32,7 +31,6 @@ type translationStub struct {
 	name, version string
 	requests      []TranslationRequest
 	failures      int
-	context       string
 }
 
 func (s *translationStub) Name() string    { return s.name }
@@ -42,7 +40,7 @@ func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (Tr
 	if len(s.requests) <= s.failures {
 		return TranslationResponse{}, errors.New("unavailable")
 	}
-	return TranslationResponse{Translation: "house", Gloss: "a building for people", SentenceTranslation: "The house is large.", ContextSentence: s.context}, nil
+	return TranslationResponse{Translation: "house", Gloss: "a building for people", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, nil
 }
 
 type frequencyStub struct{}
@@ -88,7 +86,7 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	if len(provider.requests) != 1 || provider.requests[0] != want {
 		t.Fatalf("requests=%+v", provider.requests)
 	}
-	if cache.puts != 1 || !second.Translation.Available || !second.SentenceTranslation.Available || first.Translation.Provenance.CachedAt.IsZero() {
+	if cache.puts != 1 || !second.Translation.Available || !second.SentenceTranslation.Available || !second.SentenceTranslationTarget.Available || first.Translation.Provenance.CachedAt.IsZero() {
 		t.Fatalf("first=%+v second=%+v cache=%+v", first, second, cache)
 	}
 }
@@ -123,86 +121,17 @@ func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
 	}
 }
 
-func TestContextSentenceIsValidatedAndCachedWithSafeFallback(t *testing.T) {
-	source := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 10) + "."
+func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) {
 	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
-	provider := &translationStub{name: "llm", version: "model-1", context: "Das Haus steht am Rand"}
+	provider := &translationStub{name: "llm", version: "model-1"}
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
-	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "Haus", ExampleSentence: source}
+	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "‹Haus›", ExampleSentence: "Das Haus ist groß."}
 	first := service.Enrich(context.Background(), []Candidate{candidate})[0]
-	if !first.ContextSentence.Available || first.ContextSentence.Value != provider.context {
-		t.Fatalf("context=%+v", first.ContextSentence)
+	if !first.SentenceTranslationTarget.Available || first.SentenceTranslationTarget.Value != "house" || len(provider.requests) != 1 {
+		t.Fatalf("result=%+v requests=%d", first, len(provider.requests))
 	}
-	entry := cache.values[CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(source)}]
-	if entry.ContextSentence != provider.context {
-		t.Fatalf("cached context=%q", entry.ContextSentence)
-	}
-	second := service.Enrich(context.Background(), []Candidate{candidate})[0]
-	if second.ContextSentence.Value != provider.context || len(provider.requests) != 1 {
-		t.Fatalf("second=%+v requests=%d", second, len(provider.requests))
-	}
-
-	provider.context = "Das Haus wurde paraphrasiert"
-	uncached := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil).
-		Enrich(context.Background(), []Candidate{candidate})[0]
-	if uncached.ContextSentence.Value != source {
-		t.Fatalf("invalid context did not fall back to source: %q", uncached.ContextSentence.Value)
-	}
-}
-
-func TestLegacyPunctuationTargetIsCleanedBeforeTranslationAndContextValidation(t *testing.T) {
-	source := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 10) + "."
-	provider := &translationStub{name: "llm", version: "model-1", context: "Das Haus steht am Rand"}
-	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
-	result := service.Enrich(context.Background(), []Candidate{{
-		Identity:        Identity{"de", "haus", "NOUN"},
-		TargetWord:      "‹Haus›",
-		ExampleSentence: source,
-	}})[0]
-	if len(provider.requests) != 1 || provider.requests[0].TargetWord != "Haus" {
-		t.Fatalf("provider request = %+v, want cleaned target", provider.requests)
-	}
-	if result.ContextSentence.Value != "Das Haus steht am Rand" {
-		t.Fatalf("validated context = %q, want provider span", result.ContextSentence.Value)
-	}
-}
-
-func TestLongContextThresholdUsesWordOrUnicodeCharacterLimit(t *testing.T) {
-	if NeedsShortContext(strings.Repeat("x ", LongContextWordLimit)) {
-		t.Fatal("exactly the word limit should not trigger shortening")
-	}
-	if !NeedsShortContext(strings.Repeat("x ", LongContextWordLimit+1)) {
-		t.Fatal("one word over the limit should trigger shortening")
-	}
-	if NeedsShortContext(strings.Repeat("x", LongContextCharacterLimit)) {
-		t.Fatal("exactly the Unicode character limit should not trigger shortening")
-	}
-	if !NeedsShortContext(strings.Repeat("x", LongContextCharacterLimit+1)) {
-		t.Fatal("one Unicode character over the limit should trigger shortening")
-	}
-}
-
-func TestValidatedContextSentenceRejectsUnsafeOrNonContiguousOutput(t *testing.T) {
-	source := "Das Haus steht am Rand des stillen Waldes," + strings.Repeat(" während die Kinder im Garten spielen", 10) + "."
-	for _, test := range []struct {
-		name, target, proposed, want string
-	}{
-		{name: "valid substring", target: "Haus", proposed: "Das Haus steht am Rand", want: "Das Haus steht am Rand"},
-		{name: "missing target", target: "Haus", proposed: "Das Gebäude steht am Rand", want: source},
-		{name: "paraphrase", target: "Haus", proposed: "Das Haus befindet sich am Rand", want: source},
-		{name: "inside larger word", target: "Haus", proposed: "Das Hausboot steht", want: source},
-		{name: "inadequate fragment", target: "Haus", proposed: "Das Haus", want: source},
-		{name: "still over limit", target: "Haus", proposed: "Das Haus steht am Rand des stillen Waldes," + strings.Repeat(" während die Kinder im Garten spielen", 9), want: source},
-		{name: "empty", target: "Haus", proposed: "", want: source},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := ValidatedContextSentence(source, test.target, test.proposed); got != test.want {
-				t.Fatalf("context=%q want %q", got, test.want)
-			}
-		})
-	}
-	if got := ValidatedContextSentence("Das Haus steht am Rand.", "Haus", "Das Haus"); got != "Das Haus steht am Rand." {
-		t.Fatalf("short source accepted provider shortening: %q", got)
+	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
+		t.Fatalf("cache=%+v", cache.values)
 	}
 }
 

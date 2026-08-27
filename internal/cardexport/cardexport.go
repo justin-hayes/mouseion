@@ -26,16 +26,16 @@ import (
 var ErrInvalidInput = errors.New("cardexport: invalid input")
 
 type Entry struct {
-	OwnerID, Language, CanonicalLemma, UPOS                                 string
-	Sentence, Translation, SentenceTranslation, ContextSentence, TargetWord string
-	Morphology, SourceDocument, Notes                                       string
-	FirstEncounter                                                          int64
+	OwnerID, Language, CanonicalLemma, UPOS                                           string
+	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
+	Morphology, SourceDocument, Notes                                                 string
+	FirstEncounter                                                                    int64
 }
 
 type Note struct {
-	Key, Identity, Text, Article, Lemma, English, EnglishSentence, BookTitle, SourceSentence string
-	BackExtra                                                                                string
-	Tags                                                                                     []string
+	Key, Identity, Text, Article, Lemma, POS, Morph, English, EnglishSentence, BookTitle string
+	BackExtra                                                                            string
+	Tags                                                                                 []string
 }
 
 type Artifact struct {
@@ -136,23 +136,6 @@ func CardIdentity(owner string, entry Entry) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func Cloze(sentence, target, hint string) (string, error) {
-	target = textmatch.CleanLexicalSurface(target)
-	if target == "" || strings.TrimSpace(sentence) == "" {
-		return "", ErrInvalidInput
-	}
-	start, end, ok := textmatch.FoldedWordSpan(sentence, target)
-	if !ok {
-		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
-	}
-	mark := "{{c1::" + escapeField(sentence[start:end])
-	if hint = strings.TrimSpace(hint); hint != "" {
-		mark += "::" + escapeField(hint)
-	}
-	mark += "}}"
-	return escapeField(sentence[:start]) + mark + escapeField(sentence[end:]), nil
-}
-
 func BoldTarget(sentence, target string) (string, error) {
 	target = textmatch.CleanLexicalSurface(target)
 	if target == "" || strings.TrimSpace(sentence) == "" {
@@ -165,6 +148,70 @@ func BoldTarget(sentence, target string) (string, error) {
 	return escapeField(sentence[:start]) + "<b>" + escapeField(sentence[start:end]) + "</b>" + escapeField(sentence[end:]), nil
 }
 
+// HighlightEnglishTarget renders an optional provider alignment only when it
+// is a unique, word-bounded match in the complete translation. The provider
+// supplies plain text; all HTML is owned and escaped by Mouseion.
+func HighlightEnglishTarget(translation, target string) string {
+	start, end, ok := uniqueTargetMatch(translation, target)
+	if !ok {
+		return escapeField(translation)
+	}
+	return escapeField(translation[:start]) + "<b>" + escapeField(translation[start:end]) + "</b>" + escapeField(translation[end:])
+}
+
+func uniqueTargetMatch(text, target string) (int, int, bool) {
+	target = strings.TrimSpace(target)
+	if target == "" || !utf8.ValidString(text) || !utf8.ValidString(target) || !hasWordOrNumber(target) {
+		return 0, 0, false
+	}
+	start, end := -1, -1
+	for offset := range text {
+		matchEnd := offset + len(target)
+		if matchEnd > len(text) || (matchEnd < len(text) && !utf8.RuneStart(text[matchEnd])) || !wordBoundaryBefore(text, offset) || !wordBoundaryAfter(text, matchEnd) {
+			continue
+		}
+		if !strings.EqualFold(text[offset:matchEnd], target) {
+			continue
+		}
+		if start >= 0 {
+			return 0, 0, false
+		}
+		start, end = offset, matchEnd
+	}
+	return start, end, start >= 0
+}
+
+func hasWordOrNumber(value string) bool {
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func wordBoundaryBefore(text string, index int) bool {
+	if index == 0 {
+		return true
+	}
+	if index < 0 || index > len(text) || !utf8.RuneStart(text[index]) {
+		return false
+	}
+	r, _ := utf8.DecodeLastRuneInString(text[:index])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+}
+
+func wordBoundaryAfter(text string, index int) bool {
+	if index == len(text) {
+		return true
+	}
+	if index < 0 || index > len(text) || !utf8.RuneStart(text[index]) {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(text[index:])
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+}
+
 func escapeField(value string) string {
 	value = html.EscapeString(value)
 	// Anki serializes note fields with U+001F as the field separator. Never let
@@ -175,17 +222,15 @@ func escapeField(value string) string {
 }
 
 const (
-	minimumSentenceWords = 6
-	minimumSentenceScore = 70
+	minimumSentenceWords      = 6
+	maximumSentenceWords      = 50
+	maximumSentenceCharacters = 400
+	minimumSentenceScore      = 70
 )
 
 // ScoreSentenceQuality applies a deliberately small, explainable export gate
 // using only sentence text, the selected target form, and source location.
 func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
-	return scoreSentenceQuality(sentence, target, firstEncounter, false)
-}
-
-func scoreSentenceQuality(sentence, target string, firstEncounter int64, allowLong bool) SentenceQuality {
 	text := strings.TrimSpace(sentence)
 	words := strings.Fields(text)
 	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
@@ -195,10 +240,6 @@ func scoreSentenceQuality(sentence, target string, firstEncounter int64, allowLo
 		reject("too short or fragmented")
 	} else if sentenceTooLong(text) {
 		reject("too long")
-		if allowLong {
-			quality.Score += 30
-			quality.Reasons = append(quality.Reasons, "usable length via validated short context")
-		}
 	} else {
 		quality.Score += 30
 		quality.Reasons = append(quality.Reasons, "usable length")
@@ -232,30 +273,13 @@ func scoreSentenceQuality(sentence, target string, firstEncounter int64, allowLo
 		quality.Reasons = append(quality.Reasons, "no obvious structural noise")
 	}
 
-	quality.Accepted = quality.Score >= minimumSentenceScore && (!containsRejection(quality.Reasons) || (allowLong && onlyLengthRejection(quality.Reasons)))
+	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
 	return quality
 }
 
 func sentenceTooLong(text string) bool {
-	return enrichment.NeedsShortContext(text)
-}
-
-func onlyLengthRejection(reasons []string) bool {
-	for _, reason := range reasons {
-		if reason == "too long" {
-			continue
-		}
-		switch reason {
-		case "too short or fragmented", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate":
-			return false
-		}
-	}
-	for _, reason := range reasons {
-		if reason == "too long" {
-			return true
-		}
-	}
-	return false
+	text = strings.TrimSpace(text)
+	return len(strings.Fields(text)) > maximumSentenceWords || utf8.RuneCountInString(text) > maximumSentenceCharacters
 }
 
 func containsRejection(reasons []string) bool {
@@ -506,11 +530,7 @@ func testedTarget(entry Entry) string {
 
 func makeNote(owner string, entry Entry) (Note, error) {
 	target := testedTarget(entry)
-	contextSentence := entry.Sentence
-	if sentenceTooLong(entry.Sentence) {
-		contextSentence = enrichment.ValidatedContextSentence(entry.Sentence, target, entry.ContextSentence)
-	}
-	front, err := BoldTarget(contextSentence, target)
+	front, err := BoldTarget(entry.Sentence, target)
 	if err != nil {
 		return Note{}, err
 	}
@@ -519,14 +539,15 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	article := germanNounArticle(entry.Language, entry.UPOS, entry.Morphology)
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
-		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), English: escapeField(entry.Translation),
-		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
+		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
+		Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
+		EnglishSentence: HighlightEnglishTarget(entry.SentenceTranslation, entry.SentenceTranslationTarget), BookTitle: escapeField(entry.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
 		articleLemma = note.Article + " " + note.Lemma
 	}
-	note.BackExtra = strings.Join([]string{articleLemma, note.English, note.EnglishSentence, note.SourceSentence}, "\n")
+	note.BackExtra = strings.Join([]string{articleLemma, note.Morph, note.POS, note.English, note.EnglishSentence}, "\n")
 	return note, nil
 }
 
@@ -565,12 +586,12 @@ func RenderTSV(notes []Note) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
+	return []string{n.Text, n.Lemma, n.POS, n.Morph, n.English, n.EnglishSentence, n.BookTitle}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Front", "Article", "Lemma", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
+var fieldNames = []string{"Text", "Lemma", "POS", "Morph", "English", "EnglishSentence", "BookTitle"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -817,33 +838,21 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 	for _, entry := range entries {
 		entry.TargetWord = testedTarget(entry)
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
-		shortContext := strings.TrimSpace(entry.Sentence)
-		if sentenceTooLong(entry.Sentence) {
-			shortContext = enrichment.ValidatedContextSentence(entry.Sentence, entry.TargetWord, entry.ContextSentence)
-		}
-		usesShortContext := shortContext != strings.TrimSpace(entry.Sentence)
-		if usesShortContext {
-			quality = scoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter, true)
-		}
 		if !quality.Accepted {
 			omitted = append(omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: quality.Reasons})
-			if !onlyLengthRejection(quality.Reasons) {
-				continue
-			}
+			continue
 		}
-		if quality.Accepted {
-			n, err := makeNote(owner, entry)
-			if err != nil {
-				return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
-			}
-			accepted = append(accepted, acceptedNote{entry: entry, note: n})
-			completeness.TotalCards++
-			if strings.TrimSpace(entry.Translation) != "" {
-				completeness.CardsWithEnglish++
-			}
-			if strings.TrimSpace(entry.SentenceTranslation) != "" {
-				completeness.CardsWithEnglishSentence++
-			}
+		n, err := makeNote(owner, entry)
+		if err != nil {
+			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+		}
+		accepted = append(accepted, acceptedNote{entry: entry, note: n})
+		completeness.TotalCards++
+		if strings.TrimSpace(entry.Translation) != "" {
+			completeness.CardsWithEnglish++
+		}
+		if strings.TrimSpace(entry.SentenceTranslation) != "" {
+			completeness.CardsWithEnglishSentence++
 		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
 			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},

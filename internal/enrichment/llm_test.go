@@ -22,7 +22,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 			t.Error(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\",\"context_sentence\":\"Das Haus ist\"}"}}]}`)
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\",\"sentence_translation_target\":\"house\"}"}}]}`)
 	}))
 	defer server.Close()
 
@@ -31,7 +31,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."})
-	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", ContextSentence: "Das Haus ist"}) {
+	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}) {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
 	body, _ := json.Marshal(received)
@@ -178,7 +178,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v5-concise-json-50w-400c-reasoning-medium" || cfg.Timeout != 4*time.Second || cfg.ReasoningEffort != "medium" || !cfg.SupportsReasoningEffort {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v6-target-alignment-json-reasoning-medium" || cfg.Timeout != 4*time.Second || cfg.ReasoningEffort != "medium" || !cfg.SupportsReasoningEffort {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
 	}
 }
