@@ -3,7 +3,6 @@ package enrichment
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -114,6 +113,7 @@ type OpenAITranslationClient struct {
 	apiKey, model, endpoint string
 	reasoningEffort         string
 	usesReasoningEffort     bool
+	codec                   *TranslationCodec
 	httpClient              *http.Client
 }
 
@@ -121,24 +121,14 @@ func NewOpenAITranslationClient(cfg LLMConfig, client *http.Client) (*OpenAITran
 	if strings.TrimSpace(cfg.APIKey) == "" || strings.TrimSpace(cfg.Model) == "" {
 		return nil, errors.New("enrichment: LLM API key and model are required")
 	}
-	base := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
-	if base == "" {
-		base = defaultLLMBaseURL
-	}
-	parsed, err := url.Parse(base)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return nil, fmt.Errorf("enrichment: invalid LLM base URL %q", base)
-	}
-	reasoningEffort := cfg.ReasoningEffort
-	if reasoningEffort == "" {
-		reasoningEffort = defaultReasoningEffort
-	}
-	normalizedReasoningEffort, err := parseReasoningEffort(reasoningEffort)
+	base, _, err := parseLLMBaseURL(cfg.BaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("enrichment: %s %w", llmReasoningEffortEnv, err)
+		return nil, err
 	}
-	reasoningEffort = normalizedReasoningEffort
-	usesReasoningEffort := cfg.SupportsReasoningEffort || knownReasoningModel(parsed, cfg.Model)
+	codec, err := NewTranslationCodec(cfg)
+	if err != nil {
+		return nil, err
+	}
 	if client == nil {
 		timeout := cfg.Timeout
 		if timeout <= 0 {
@@ -150,53 +140,15 @@ func NewOpenAITranslationClient(cfg LLMConfig, client *http.Client) (*OpenAITran
 		apiKey:              cfg.APIKey,
 		model:               cfg.Model,
 		endpoint:            base + "/chat/completions",
-		reasoningEffort:     reasoningEffort,
-		usesReasoningEffort: usesReasoningEffort,
+		reasoningEffort:     codec.reasoningEffort,
+		usesReasoningEffort: codec.usesReasoningEffort,
+		codec:               codec,
 		httpClient:          client,
 	}, nil
 }
 
-type chatRequest struct {
-	Model           string        `json:"model"`
-	Messages        []chatMessage `json:"messages"`
-	Temperature     *int          `json:"temperature,omitempty"`
-	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
-	ResponseFormat  struct {
-		Type string `json:"type"`
-	} `json:"response_format"`
-}
-
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
 func (c *OpenAITranslationClient) Translate(ctx context.Context, input TranslationRequest) (TranslationResponse, error) {
-	privateInput, err := json.Marshal(struct {
-		Language        string `json:"language"`
-		CanonicalLemma  string `json:"canonical_lemma"`
-		UPOS            string `json:"upos"`
-		TargetWord      string `json:"target_word,omitempty"`
-		ExampleSentence string `json:"example_sentence,omitempty"`
-	}{input.Language, input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence})
-	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("encode LLM translation input: %w", err)
-	}
-	payload := chatRequest{
-		Model: c.model,
-		Messages: []chatMessage{
-			{Role: "system", Content: "Translate the supplied lemma into English. Return exactly one JSON object with exactly these four string fields and no markdown or additional keys: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and sentence_translation_target (the plain-text English word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence). When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."},
-			{Role: "user", Content: string(privateInput)},
-		},
-	}
-	if c.usesReasoningEffort {
-		payload.ReasoningEffort = c.reasoningEffort
-	} else {
-		temperature := 0
-		payload.Temperature = &temperature
-	}
-	payload.ResponseFormat.Type = "json_object"
-	body, err := json.Marshal(payload)
+	body, err := c.codec.EncodeRequest(input)
 	if err != nil {
 		return TranslationResponse{}, fmt.Errorf("encode LLM request: %w", err)
 	}
@@ -212,40 +164,14 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		message, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-		return TranslationResponse{}, &LLMHTTPError{StatusCode: resp.StatusCode, Message: strings.TrimSpace(string(message))}
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+		return TranslationResponse{}, &LLMHTTPError{StatusCode: resp.StatusCode}
 	}
-	var decoded struct {
-		Choices []struct {
-			Message chatMessage `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&decoded); err != nil {
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxTranslationResponseBytes+1))
+	if err != nil {
 		return TranslationResponse{}, fmt.Errorf("decode LLM response: %w", err)
 	}
-	if len(decoded.Choices) == 0 {
-		return TranslationResponse{}, errors.New("decode LLM response: no choices")
-	}
-	var result TranslationResponse
-	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
-	resultDecoder.DisallowUnknownFields()
-	if err := resultDecoder.Decode(&result); err != nil {
-		return TranslationResponse{}, fmt.Errorf("decode LLM translation: %w", err)
-	}
-	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, errors.New("decode LLM translation: trailing JSON content")
-	}
-	result.Translation = strings.TrimSpace(result.Translation)
-	result.Gloss = strings.TrimSpace(result.Gloss)
-	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
-	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
-	if result.Translation == "" {
-		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
-	}
-	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
-		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
-	}
-	return result, nil
+	return c.codec.DecodeResponse(input, responseBody)
 }
 
 func parseReasoningEffort(value string) (string, error) {
@@ -277,10 +203,10 @@ type LLMHTTPError struct {
 }
 
 func (e *LLMHTTPError) Error() string {
-	if e.Message == "" {
-		return fmt.Sprintf("LLM API returned HTTP %d", e.StatusCode)
-	}
-	return fmt.Sprintf("LLM API returned HTTP %d: %s", e.StatusCode, e.Message)
+	// Message is retained only for compatibility with existing constructors;
+	// provider bodies may contain prompts, responses, or other private data and
+	// must never be emitted in an error or warning.
+	return fmt.Sprintf("LLM API returned HTTP %d", e.StatusCode)
 }
 
 func (e *LLMHTTPError) Temporary() bool {

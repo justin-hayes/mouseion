@@ -3,6 +3,7 @@ package enrichment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -97,6 +98,23 @@ func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T
 	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
 	_, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."})
 	if err == nil || !strings.Contains(err.Error(), "sentence_translation is empty") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestOpenAITranslationClientRedactsProviderErrorBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"private source sentence and sk-secret"}}`)
+	}))
+	defer server.Close()
+	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	var httpErr *LLMHTTPError
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != http.StatusBadRequest || strings.Contains(err.Error(), "private") || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("err=%v", err)
 	}
 }
