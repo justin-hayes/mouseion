@@ -146,10 +146,8 @@ func escapeField(value string) string {
 }
 
 const (
-	minimumSentenceWords      = 6
-	maximumSentenceWords      = 50
-	maximumSentenceCharacters = 400
-	minimumSentenceScore      = 70
+	minimumSentenceWords = 6
+	minimumSentenceScore = 70
 )
 
 // ScoreSentenceQuality applies a deliberately small, explainable export gate
@@ -210,7 +208,7 @@ func scoreSentenceQuality(sentence, target string, firstEncounter int64, allowLo
 }
 
 func sentenceTooLong(text string) bool {
-	return len(strings.Fields(strings.TrimSpace(text))) > maximumSentenceWords || utf8.RuneCountInString(strings.TrimSpace(text)) > maximumSentenceCharacters
+	return enrichment.NeedsShortContext(text)
 }
 
 func onlyLengthRejection(reasons []string) bool {

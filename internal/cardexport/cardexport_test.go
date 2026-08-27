@@ -81,7 +81,7 @@ func TestClozeEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das {{c1::Haus}} ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
 	missingSentenceTranslation := note
 	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
 	missingSentenceTranslation.Lemma = "Baum"
@@ -131,7 +131,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(modelsJSON, `{{SourceSentence}}`) || !strings.Contains(decksJSON, deckName) {
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
 		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
 	}
 	var models map[string]struct {
@@ -376,6 +376,7 @@ func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
 	}{
 		{name: "das", language: "de", sentence: "Ich lese das Buch.", target: "Buch", want: "das Buch"},
 		{name: "die", language: "de", sentence: "Ich sehe die Stadt.", target: "Stadt", want: "die Stadt"},
+		{name: "der", language: "de", sentence: "Dort steht der Baum.", target: "Baum", want: "der Baum"},
 		{name: "not adjacent", language: "de", sentence: "Das schöne Buch liegt dort.", target: "Buch", want: "Buch"},
 		{name: "non German", language: "it", sentence: "La casa è grande.", target: "casa", want: "casa"},
 	} {
@@ -410,7 +411,7 @@ func TestLongContextUsesValidatedShortFrontAndFullSourceOnBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if withoutContext.Count != 0 || len(withoutContext.Omitted) != 1 || len(withoutContext.EnrichmentCandidates) != 1 {
+	if withoutContext.Count != 0 || withoutContext.Completeness.QualityOmitted != 1 || len(withoutContext.Omitted) != 1 || !contains(withoutContext.Omitted[0].Reasons, "too long") || len(withoutContext.EnrichmentCandidates) != 1 {
 		t.Fatalf("without context artifact=%+v", withoutContext)
 	}
 	store.entries[0].ContextSentence = shortContext
@@ -418,13 +419,176 @@ func TestLongContextUsesValidatedShortFrontAndFullSourceOnBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifact.Count != 1 || len(artifact.Omitted) != 0 || len(artifact.Generated) != 1 {
+	if artifact.Count != 1 || artifact.Completeness.QualityOmitted != 0 || len(artifact.Omitted) != 0 || len(artifact.Generated) != 1 {
 		t.Fatalf("artifact=%+v", artifact)
 	}
 	note := artifact.Generated[0].Note
 	if note.Text != "Das <b>Haus</b> steht am Rand" || note.SourceSentence != longSentence || !strings.Contains(note.BackExtra, note.SourceSentence) || !strings.Contains(artifact.TSV, longSentence) {
 		t.Fatalf("note=%+v TSV=%q", note, artifact.TSV)
 	}
+}
+
+func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T) {
+	const owner, bookID, sourceDocument = "alice", "book", "German rollout book"
+	longSentence := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 12) + "."
+	shortContext := "Das Haus steht am Rand"
+	punctuationSentence := "Heute sah sie ‹die Besten› und lächelte freundlich."
+	fixtures := []struct {
+		lemma, upos, target, sentence, translation, sentenceTranslation string
+		context                                                         string
+		firstEncounter                                                  int64
+	}{
+		{lemma: "die", upos: "DET", target: "die", sentence: punctuationSentence, translation: "the", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 10},
+		{lemma: "gut", upos: "ADJ", target: "Besten", sentence: punctuationSentence, translation: "good", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 20},
+		{lemma: "geleiten", upos: "VERB", target: "geleitet", sentence: "Nausikaa hat ihn geleitet und danach den Weg beschrieben.", translation: "to guide", sentenceTranslation: "Nausikaa guided him and then described the path.", firstEncounter: 30},
+		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
+		{lemma: "besuchen", upos: "VERB", target: "besucht", sentence: "Morgen besucht Anna ihre Klasse im Museum und lernt viel.", translation: "to visit", sentenceTranslation: "Tomorrow Anna visits her class at the museum and learns a lot.", firstEncounter: 50},
+		{lemma: "haus", upos: "NOUN", target: "Haus", sentence: longSentence, context: shortContext, translation: "house", sentenceTranslation: "The house stands at the edge while the children play in the garden.", firstEncounter: 60},
+	}
+	store := &memoryStore{bookID: bookID}
+	for _, fixture := range fixtures {
+		store.candidates = append(store.candidates, domain.SelectionCandidate{
+			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, OccurrenceCount: 1,
+			ObservedForms:      []byte("[" + jsonString(fixture.target) + "]"),
+			SentenceReferences: []byte("[{\"sentence_index\":0,\"text\":" + jsonString(fixture.sentence) + ",\"location\":{\"start_offset\":" + fmt.Sprint(fixture.firstEncounter) + "}}]"),
+		})
+		store.entries = append(store.entries, Entry{
+			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, Sentence: fixture.sentence,
+			TargetWord: fixture.target, ContextSentence: fixture.context, Translation: fixture.translation,
+			SentenceTranslation: fixture.sentenceTranslation, SourceDocument: sourceDocument, FirstEncounter: fixture.firstEncounter,
+		})
+	}
+
+	service := NewService(store)
+	first, err := service.BuildCoverage(context.Background(), owner, bookID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.BuildCoverage(context.Background(), owner, bookID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first.APKG, second.APKG) || first.TSV != second.TSV {
+		t.Fatal("prepared artifact is not deterministic")
+	}
+	if first.Count != len(fixtures) || len(first.Generated) != len(fixtures) || len(first.Omitted) != 0 || first.Completeness != (Completeness{TotalCards: len(fixtures), CardsWithEnglish: len(fixtures), CardsWithEnglishSentence: len(fixtures)}) {
+		t.Fatalf("artifact=%+v", first)
+	}
+
+	notesByLemma := make(map[string]Note, len(first.Generated))
+	for _, generated := range first.Generated {
+		notesByLemma[generated.Entry.CanonicalLemma] = generated.Note
+		for _, value := range []string{generated.Note.Text, generated.Note.Lemma, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.SourceSentence, generated.Note.BackExtra} {
+			if strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`) {
+				t.Fatalf("legacy or raw analyzer content in note %q: %+v", value, generated.Note)
+			}
+		}
+	}
+	if got := notesByLemma["die"].Text; !strings.Contains(got, "‹<b>die</b>") || notesByLemma["die"].SourceSentence != punctuationSentence {
+		t.Fatalf("punctuation-bearing front=%q source=%q", got, notesByLemma["die"].SourceSentence)
+	}
+	if got := notesByLemma["gut"].Text; !strings.Contains(got, "<b>Besten</b>") || notesByLemma["gut"].SourceSentence != punctuationSentence {
+		t.Fatalf("trailing punctuation front=%q source=%q", got, notesByLemma["gut"].SourceSentence)
+	}
+	if notesByLemma["geleiten"].Lemma != "geleiten" {
+		t.Fatalf("pipe lemma leaked or was not normalized: %q", notesByLemma["geleiten"].Lemma)
+	}
+	if notesByLemma["buch"].Lemma != "das Buch" || notesByLemma["buch"].Key != DedupKey("de", "buch", "NOUN", owner) {
+		t.Fatalf("article display changed identity: %+v", notesByLemma["buch"])
+	}
+	longNote := notesByLemma["haus"]
+	if longNote.Text != "Das <b>Haus</b> steht am Rand" || longNote.SourceSentence != longSentence || !strings.Contains(longNote.BackExtra, longSentence) || !strings.Contains(longNote.BackExtra, fixtures[len(fixtures)-1].sentenceTranslation) {
+		t.Fatalf("long-context note=%+v", longNote)
+	}
+
+	rows, err := readTSV(first.TSV)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(fixtures) || len(rows[0]) != 7 || !strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "das Buch") || strings.Contains(first.TSV, "Morph") || strings.Contains(first.TSV, "{{c1::") {
+		t.Fatalf("TSV rows=%#v TSV=%q", rows, first.TSV)
+	}
+	for i, generated := range first.Generated {
+		if strings.Join(rows[i][:6], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
+			t.Fatalf("TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
+		}
+	}
+	modelsJSON, apkgRows := readAPKGNotes(t, first.APKG)
+	if len(apkgRows) != len(fixtures) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) {
+		t.Fatalf("APKG model=%s rows=%#v", modelsJSON, apkgRows)
+	}
+	apkgByLemma := make(map[string][]string, len(apkgRows))
+	for _, row := range apkgRows {
+		if len(row) != 6 || strings.Contains(row[0], "{{c1::") || strings.Contains(row[1], "geleiten|leiten") || strings.Contains(row[1], `"Case"`) {
+			t.Fatalf("APKG row=%#v", row)
+		}
+		apkgByLemma[row[1]] = row
+	}
+	for _, generated := range first.Generated {
+		row, ok := apkgByLemma[generated.Note.Lemma]
+		if !ok || strings.Join(row, "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
+			t.Fatalf("APKG row=%#v note=%#v", row, generated.Note)
+		}
+	}
+}
+
+func readTSV(value string) ([][]string, error) {
+	reader := csv.NewReader(strings.NewReader(value))
+	reader.Comma = '\t'
+	return reader.ReadAll()
+}
+
+func readAPKGNotes(t *testing.T, payload []byte) (string, [][]string) {
+	t.Helper()
+	zr, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var collection []byte
+	for _, member := range zr.File {
+		if member.Name != "collection.anki2" {
+			continue
+		}
+		reader, openErr := member.Open()
+		if openErr != nil {
+			t.Fatal(openErr)
+		}
+		collection, err = io.ReadAll(reader)
+		_ = reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := t.TempDir() + "/collection.anki2"
+	if err = os.WriteFile(path, collection, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var modelsJSON string
+	if err = db.QueryRow(`SELECT models FROM col`).Scan(&modelsJSON); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Query(`SELECT flds FROM notes`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var fields [][]string
+	for rows.Next() {
+		var serialized string
+		if err = rows.Scan(&serialized); err != nil {
+			t.Fatal(err)
+		}
+		fields = append(fields, strings.Split(serialized, "\x1f"))
+	}
+	if err = rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return modelsJSON, fields
 }
 
 func jsonString(value string) string {

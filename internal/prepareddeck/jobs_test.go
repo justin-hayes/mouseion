@@ -67,18 +67,21 @@ func (b *fakeBuilder) BuildCoverage(context.Context, string, string) (cardexport
 	return b.artifacts[b.calls-1], nil
 }
 
-type fakeEnricher struct{ calls int }
+type fakeEnricher struct {
+	calls int
+	err   error
+}
 
 func (*fakeEnricher) ExternalConfigured() bool { return true }
 func (e *fakeEnricher) EnrichExternal(context.Context, enrichment.Candidate) (enrichment.Result, error) {
 	e.calls++
-	return enrichment.Result{}, nil
+	return enrichment.Result{}, e.err
 }
 
 func TestWorkerEnrichesRerendersAndCompletes(t *testing.T) {
 	store := &fakeStore{preparation: domain.DeckPreparation{ID: "p", OwnerID: "alice", SourceMaterialID: "book", ContentHash: "hash"}, source: domain.SourceMaterial{ID: "book", OwnerID: "alice", ContentHash: "hash"}}
 	first := cardexport.Artifact{APKG: []byte("before"), EnrichmentCandidates: []enrichment.Candidate{{Identity: enrichment.Identity{CanonicalLemma: "Haus", UPOS: "NOUN"}}}}
-	final := cardexport.Artifact{APKG: []byte("after"), Completeness: cardexport.Completeness{TotalCards: 1, CardsWithEnglishSentence: 1}}
+	final := cardexport.Artifact{APKG: []byte("after"), TSV: "recognition-tsv", Completeness: cardexport.Completeness{TotalCards: 1, CardsWithEnglishSentence: 1}}
 	builder := &fakeBuilder{artifacts: []cardexport.Artifact{first, final}}
 	enricher := &fakeEnricher{}
 	worker := &Worker{Store: store, Builder: builder, Enrichment: enricher}
@@ -86,8 +89,23 @@ func TestWorkerEnrichesRerendersAndCompletes(t *testing.T) {
 	if err := worker.Work(context.Background(), job); err != nil {
 		t.Fatal(err)
 	}
-	if builder.calls != 2 || enricher.calls != 1 || store.completed == nil || string(store.completed.APKG) != "after" || store.failed != "" {
+	if builder.calls != 2 || enricher.calls != 1 || store.completed == nil || string(store.completed.APKG) != "after" || store.completed.TSV != "recognition-tsv" || store.failed != "" {
 		t.Fatalf("calls=%d enrichment=%d completed=%+v failed=%q", builder.calls, enricher.calls, store.completed, store.failed)
+	}
+}
+
+func TestWorkerCompletesWithDeterministicFallbackWhenEnrichmentIsUnavailable(t *testing.T) {
+	store := &fakeStore{preparation: domain.DeckPreparation{ID: "p", OwnerID: "alice", SourceMaterialID: "book", ContentHash: "hash"}, source: domain.SourceMaterial{ID: "book", OwnerID: "alice", ContentHash: "hash"}}
+	first := cardexport.Artifact{APKG: []byte("before"), TSV: "before-tsv", EnrichmentCandidates: []enrichment.Candidate{{Identity: enrichment.Identity{CanonicalLemma: "Haus", UPOS: "NOUN"}}}}
+	final := cardexport.Artifact{APKG: []byte("after"), TSV: "recognition-tsv", Completeness: cardexport.Completeness{TotalCards: 1, QualityOmitted: 1}}
+	builder := &fakeBuilder{artifacts: []cardexport.Artifact{first, final}}
+	worker := &Worker{Store: store, Builder: builder, Enrichment: &fakeEnricher{err: errors.New("provider unavailable")}}
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1}, Args: JobArgs{PreparationID: "p", OwnerID: "alice", SourceMaterialID: "book", ContentHash: "hash", ExternalTranslationConsent: true}}
+	if err := worker.Work(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if builder.calls != 2 || store.completed == nil || string(store.completed.APKG) != "after" || store.completed.TSV != "recognition-tsv" || store.completed.Completeness.QualityOmitted != 1 || store.failed != "" {
+		t.Fatalf("calls=%d completed=%+v failed=%q", builder.calls, store.completed, store.failed)
 	}
 }
 

@@ -398,9 +398,11 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	}
 	if a.ExternalTranslationConsent && w.Enrichment != nil && w.Enrichment.ExternalConfigured() {
 		for _, candidate := range artifact.EnrichmentCandidates {
-			if _, err = w.Enrichment.EnrichExternal(ctx, candidate); err != nil {
-				return fail(fmt.Errorf("contextual translation %s/%s: %w", candidate.CanonicalLemma, candidate.UPOS, err))
-			}
+			// Translation and context shortening are optional. The second build
+			// below applies the deterministic quality gate again, so an
+			// unavailable provider can only leave English fields empty or a long
+			// source omitted; it cannot create an unsafe front.
+			_, _ = w.Enrichment.EnrichExternal(ctx, candidate)
 		}
 		artifact, err = buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
 		if err != nil {
