@@ -1,10 +1,10 @@
 # OpenAI Batch API for prepared-deck translation
 
-Status: **Proposed research** · Date: 2026-08-27
+Status: **Proposed** · Date: 2026-08-27
 
 ## Summary
 
-Evaluate an explicit OpenAI Batch API execution mode for the external
+Adopt OpenAI Batch API as the replacement execution mode for the external
 translation and card-enrichment requests used during prepared-deck generation.
 Batch is technically compatible with the current OpenAI integration because
 Mouseion sends Chat Completions requests, and OpenAI Batch supports
@@ -131,10 +131,9 @@ This feature does not promise to:
 
 ## Proposed product behavior
 
-Use Batch as the prepared-deck translation execution model. During rollout,
-an explicit deployment flag may be useful, but it should select a temporary
-rollout phase rather than establish a permanent `sync|batch` provider API.
-The target configuration is Batch-only. The existing setting
+Use Batch as the prepared-deck translation execution model. There is no
+temporary `sync|batch` deployment mode or Batch feature flag: the implementation
+changes the prepared-deck path to Batch. The existing setting
 
 ```text
 MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY
@@ -144,17 +143,16 @@ should be deprecated and removed with the synchronous implementation. It must
 not be repurposed as a Batch parallelism control: OpenAI schedules requests in
 the submitted Batch.
 
-The only required Batch-specific setting should initially be the existing LLM
-configuration plus any polling/operational defaults. Possible settings include:
+The Batch implementation uses the existing LLM configuration plus these
+operational settings defined by ADR 0031:
 
 ```text
 MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS
 MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL
-MOUSEION_PREPARED_DECK_BATCH_MAX_WAIT
 ```
 
-Exact names and defaults require an implementation ADR and should follow the
-existing configuration patterns.
+ADR 0031 proposes initial defaults of 5,000 requests, a 30-second poll interval,
+two Batch generations per item, and seven-day provider-file expiration.
 
 ## Proposed architecture
 
@@ -324,43 +322,61 @@ transitions, request counts, completed/failed/expired items, reconciliation
 errors, retries, cost, and quality-validation failures. Do not log prompts,
 responses, source sentences, credentials, or raw provider error bodies.
 
-## Architectural decisions required before implementation
+## Architectural decisions
 
-1. Whether Batch is a provider implementation under the current
-   `TranslationProvider` boundary or a separate durable translation-run
-   execution layer.
-2. Whether the durable translation-run design in ADR 0030 is accepted before
-   Batch work begins. Batch should not be bolted onto the current in-memory
-   loop as a hidden asynchronous request.
-3. Which configured models and endpoints are eligible for Batch.
-4. Whether failed Batch items retry in a new Batch immediately or through a
-   subsequent durable retry run.
-5. How long Batch metadata and temporary file IDs are retained.
-6. Whether a prepared deck waits up to 24 hours, or whether Batch is restricted
-   to an explicitly offline preparation workflow.
-7. Whether the API key and uploaded source-derived content are acceptable under
-   the existing external-translation privacy policy.
+[ADR 0031](../adr/0031-openai-batch-prepared-deck-translation.md) proposes the
+implementation decisions needed by this feature:
 
-## Suggested implementation decomposition
+1. Batch is a durable translation-run execution layer, not an implementation of
+   the scalar `TranslationProvider` interface.
+2. ADR 0030's immutable manifest, outcomes, and finalizer remain prerequisites;
+   Batch chunks supersede scalar provider jobs and leased provider permits.
+3. The initial Batch path supports only the explicitly enabled official OpenAI
+   Chat Completions endpoint and fails configuration for ineligible endpoints.
+4. Failed or expired items retry in a new Batch generation without resubmitting
+   successful items.
+5. Provider files expire after seven days and are deleted best-effort after
+   reconciliation; privacy-safe metadata follows the durable run retention.
+6. Prepared-deck translation is an offline workflow that may use the 24-hour
+   completion window while exposing progress and cancellation.
+7. Submission persists local intent before remote creation, recovers ambiguous
+   creation by opaque provider metadata, and fails closed rather than risking
+   automatic duplicate billing.
 
-1. **Provider contract and request serialization:** extract the existing
-   request semantics from the synchronous transport, make them the Batch
-   request contract, and add deterministic JSONL fixtures.
-2. **Batch client and configuration:** implement Files/Batch submission,
-   status retrieval, cancellation, and model/endpoint validation behind a
-   testable interface.
-3. **Durable run integration:** extend the ADR 0030 translation-run lifecycle
-   with Batch chunk state, durable IDs, polling, and fenced reconciliation.
-4. **Retry policy:** implement per-item retry classification and new Batch
-   submissions for failed or expired items; remove synchronous fallback.
-5. **Observability and rollout:** add aggregate metrics, operational controls,
-   comparison tests, and an opt-in deployment path.
+ADR 0031 remains Proposed. Its explicit open questions must be approved before
+implementation issues depending on these policies begin.
+
+## Implementation issues
+
+The feature is split into seven coherent implementation units:
+
+1. [#348: Persist durable runs, manifests, and Batch chunk state](https://github.com/justin-hayes/mouseion/issues/348)
+   establishes the owner-scoped schema, freeze contract, outcomes, and atomic
+   finalizer. Its migration requires CODEOWNERS review.
+2. [#349: Extract the translation codec and implement a Batch client](https://github.com/justin-hayes/mouseion/issues/349)
+   can proceed in parallel with #348 because it does not depend on persistence.
+3. [#350: Submit deterministic Batch chunks](https://github.com/justin-hayes/mouseion/issues/350)
+   integrates #348 and #349 and implements fail-closed submission recovery.
+4. [#351: Reconcile results, retries, cancellation, and finalization](https://github.com/justin-hayes/mouseion/issues/351)
+   completes the durable provider lifecycle after #350.
+5. [#352: Expose progress, metrics, and provider-file cleanup](https://github.com/justin-hayes/mouseion/issues/352)
+   makes the completed lifecycle operable and learner-visible without adding a
+   second public state machine.
+6. [#353: Validate Batch on frozen manifests](https://github.com/justin-hayes/mouseion/issues/353)
+   gathers explicit quality, correctness, cost, latency, and recovery evidence.
+7. [#354: Cut over to Batch and remove synchronous concurrency](https://github.com/justin-hayes/mouseion/issues/354)
+   is intentionally last and requires a passing #353 decision.
+
+Implementation begins only after ADRs 0030 and 0031 are accepted. The dependency
+waves are `#348 + #349` in parallel, then `#350`, `#351`, `#352`, `#353`, and
+finally `#354`.
 
 ## Related documents and code
 
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
 - [Prepared-deck LLM translation performance](llm-translation-performance.md)
 - [ADR 0030: Durable prepared-deck translation runs](../adr/0030-durable-prepared-deck-translation.md)
+- [ADR 0031: OpenAI Batch prepared-deck translation](../adr/0031-openai-batch-prepared-deck-translation.md)
 - [ADR 0021: Contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
