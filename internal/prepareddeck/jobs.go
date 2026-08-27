@@ -358,11 +358,13 @@ type preparationStore interface {
 }
 
 type builder interface {
-	BuildCoverage(context.Context, string, string) (cardexport.Artifact, error)
+	PrepareCoverage(context.Context, string, string) (cardexport.Manifest, error)
+	RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error)
 }
 
 type externalEnricher interface {
 	ExternalConfigured() bool
+	ExternalCacheKey(enrichment.Candidate) (enrichment.CacheKey, bool)
 	EnrichExternal(context.Context, enrichment.Candidate) (enrichment.Result, error)
 }
 
@@ -437,30 +439,36 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		return fail(errors.New("source material identity changed"))
 	}
 	phaseStarted = now()
-	artifact, err := buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
+	manifest, err := buildManifest(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
 	observation.Durations.InitialBuild = now().Sub(phaseStarted)
 	if err != nil {
 		observation.Errors.Build++
-		return fail(fmt.Errorf("build prepared deck: %w", err))
+		return fail(fmt.Errorf("prepare deck manifest: %w", err))
 	}
-	observation.Counts.Accepted = artifact.Completeness.TotalCards
-	observation.Counts.Omitted = artifact.Completeness.QualityOmitted
+	manifestCompleteness := manifest.Completeness()
+	candidates := manifest.EnrichmentCandidates()
+	observation.Counts.Accepted = manifestCompleteness.TotalCards
+	observation.Counts.Omitted = manifestCompleteness.QualityOmitted
 	observation.Counts.Selected = observation.Counts.Accepted + observation.Counts.Omitted
-	observation.Counts.TranslationEligible = len(artifact.EnrichmentCandidates)
+	observation.Counts.TranslationEligible = len(candidates)
 	observation.Counts.Untranslated = observation.Counts.TranslationEligible
-	observation.Completeness = completenessOf(artifact.Completeness)
+	observation.Completeness = completenessOf(manifestCompleteness)
+	var exactResults []cardexport.ExactEnrichment
 	if a.ExternalTranslationConsent && w.Enrichment != nil && w.Enrichment.ExternalConfigured() {
 		if observation.Counts.TranslationEligible > 0 {
 			observation.EffectiveConcurrency = min(observation.ConfiguredConcurrency, observation.Counts.TranslationEligible)
 		}
 		phaseStarted = now()
-		results, peakInFlight := enrichCandidates(ctx, w.Enrichment, artifact.EnrichmentCandidates, observation.ConfiguredConcurrency)
-		for _, item := range results {
-			// Translation and context shortening are optional. The second build
-			// below applies the deterministic quality gate again, so an
-			// unavailable provider can only leave English fields empty or a long
-			// source omitted; it cannot create an unsafe front.
+		results, peakInFlight := enrichCandidates(ctx, w.Enrichment, candidates, observation.ConfiguredConcurrency)
+		exactResults = make([]cardexport.ExactEnrichment, len(results))
+		cacheKeys := make([]enrichment.CacheKey, len(results))
+		for i, item := range results {
+			// Translation is optional. The manifest already froze the source
+			// quality and target decisions, so an unavailable provider can only
+			// leave optional English fields empty; it cannot change the front.
 			result, metrics := item.result, item.metrics
+			cacheKeys[i] = item.cacheKey
+			exactResults[i] = cardexport.ExactEnrichment{CacheKey: item.cacheKey, Result: result}
 			observation.Counts.CacheHits += metrics.CacheHits
 			observation.Counts.CacheMisses += metrics.CacheMisses
 			observation.Counts.ProviderCalls += metrics.ProviderCalls
@@ -486,15 +494,20 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		if err = ctx.Err(); err != nil {
 			return fail(err)
 		}
-		phaseStarted = now()
-		artifact, err = buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
-		observation.Durations.FinalBuild = now().Sub(phaseStarted)
+		manifest, err = manifest.BindCacheKeys(cacheKeys)
 		if err != nil {
 			observation.Errors.Build++
-			return fail(fmt.Errorf("render enriched prepared deck: %w", err))
+			return fail(fmt.Errorf("bind prepared deck cache identity: %w", err))
 		}
-		observation.Completeness = completenessOf(artifact.Completeness)
 	}
+	phaseStarted = now()
+	artifact, err := w.Builder.RenderManifest(ctx, manifest, exactResults)
+	observation.Durations.FinalBuild = now().Sub(phaseStarted)
+	if err != nil {
+		observation.Errors.Build++
+		return fail(fmt.Errorf("render prepared deck: %w", err))
+	}
+	observation.Completeness = completenessOf(artifact.Completeness)
 	phaseStarted = now()
 	if _, err = w.Store.CompletePreparedDeck(ctx, a.OwnerID, a.PreparationID, artifact); err != nil {
 		observation.Durations.Commit = now().Sub(phaseStarted)
@@ -512,9 +525,10 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 }
 
 type candidateEnrichment struct {
-	result  enrichment.Result
-	metrics enrichment.ExternalMetrics
-	err     error
+	cacheKey enrichment.CacheKey
+	result   enrichment.Result
+	metrics  enrichment.ExternalMetrics
+	err      error
 }
 
 func normalizedTranslationConcurrency(configured int) int {
@@ -550,6 +564,12 @@ func enrichCandidates(ctx context.Context, enricher externalEnricher, candidates
 				if i >= len(candidates) {
 					return
 				}
+				key, ok := enricher.ExternalCacheKey(candidates[i])
+				if !ok {
+					results[i].err = errors.New("external enrichment cache identity is unavailable")
+					continue
+				}
+				results[i].cacheKey = key
 				active := inFlight.Add(1)
 				for peak := peakInFlight.Load(); active > peak && !peakInFlight.CompareAndSwap(peak, active); peak = peakInFlight.Load() {
 				}
@@ -567,18 +587,18 @@ func enrichCandidates(ctx context.Context, enricher externalEnricher, candidates
 }
 
 type scopedBuilder interface {
-	BuildCoverageForAnalysis(context.Context, string, string) (cardexport.Artifact, error)
+	PrepareCoverageForAnalysis(context.Context, string, string) (cardexport.Manifest, error)
 }
 
-func buildArtifact(ctx context.Context, b builder, owner, sourceID, analysisRunID string) (cardexport.Artifact, error) {
+func buildManifest(ctx context.Context, b builder, owner, sourceID, analysisRunID string) (cardexport.Manifest, error) {
 	if analysisRunID != "" {
 		scoped, ok := b.(scopedBuilder)
 		if !ok {
-			return cardexport.Artifact{}, errors.New("scoped analysis deck builder is unavailable")
+			return cardexport.Manifest{}, errors.New("scoped analysis deck builder is unavailable")
 		}
-		return scoped.BuildCoverageForAnalysis(ctx, owner, analysisRunID)
+		return scoped.PrepareCoverageForAnalysis(ctx, owner, analysisRunID)
 	}
-	return b.BuildCoverage(ctx, owner, sourceID)
+	return b.PrepareCoverage(ctx, owner, sourceID)
 }
 
 func AddWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service) {

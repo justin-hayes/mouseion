@@ -34,12 +34,11 @@ The relevant path is:
    shared River client. `internal/analysis/jobs.go:NewClient` currently gives
    the `prepared_decks` queue `MaxWorkers: 1`.
 3. `internal/prepareddeck/jobs.go:Worker.Work` claims the preparation, checks
-   the immutable source identity, and calls `buildArtifact`. For a scoped run,
-   this reaches `internal/cardexport/cardexport.go:Service.BuildCoverageForAnalysis`:
+   the immutable source identity, and prepares a manifest. For a scoped run,
+   this reaches `internal/cardexport/cardexport.go:Service.PrepareCoverageForAnalysis`:
    it loads the immutable corpus, selects coverage candidates, loads each
-   entry, applies sentence quality gating, and renders the initial TSV/APKG.
-   `internal/cardexport/cardexport.go:Service.render` also returns the accepted
-   candidates as inputs for external enrichment.
+   entry without a broad cache lookup, and freezes order, sentence/target
+   decisions, quality omissions, and generated-card provenance.
 4. When both consent and provider configuration are present, `Worker.Work`
    iterates those candidates serially and calls
    `internal/enrichment/enrichment.go:Service.EnrichExternal`. Each miss does a
@@ -47,20 +46,19 @@ The relevant path is:
    policy), and an immutable cache put. The current server construction leaves
    `MaxAttempts` at the enrichment default of one; prepared-deck River jobs
    are also inserted with `MaxAttempts: 1`.
-5. After the loop, `Worker.Work` calls `buildArtifact` a second time. The
-   second render reads translations through
-   `internal/persistence/cardexport.go:GetCoverageEntryForCorpus` and produces
-   the artifact whose completeness counts are committed by
-   `CompletePreparedDeck`. Item translation errors are deliberately ignored so
-   optional translation cannot prevent a deck from completing.
+5. After the pool completes, `Worker.Work` binds the manifest to the same exact
+   language/lemma/normalized-UPOS/sentence/provider/version keys used during
+   enrichment, applies those returned results positionally, and renders once.
+   Item translation errors are deliberately ignored so optional translation
+   cannot prevent a deck from completing.
 6. `internal/webapp/webapp.go:downloadDeckPreparation` calls
    `Service.Download`, which is a read of the persisted ready artifact. It does
    not call the provider, select candidates, render, or mutate study state.
 
 The current unit test
-`internal/prepareddeck/jobs_test.go:TestWorkerEnrichesRerendersAndCompletes`
-verifies the two builds and one enrichment call for one candidate. The test is
-behavioral verification, not a timing measurement.
+`internal/prepareddeck/jobs_test.go:TestWorkerEnrichesManifestRendersOnceAndCompletes`
+verifies one manifest preparation, one enrichment call, and one render for one
+candidate. The test is behavioral verification, not a timing measurement.
 
 ## Verified bottlenecks and risks
 
@@ -68,10 +66,10 @@ behavioral verification, not a timing measurement.
   for candidate *i* before starting candidate *i+1*. With cache misses, deck
   preparation wall time therefore includes one provider round trip per
   accepted candidate, plus retries and backoff.
-- **Duplicate preparation work.** The worker performs a full selection/render
-  pass before enrichment and another full selection/render pass afterward.
-  The second pass is required by the current cache-backed design, but it repeats
-  database reads, sentence gating, TSV generation, and APKG generation.
+- **Duplicate preparation work (resolved by #337).** The worker now freezes a
+  manifest before enrichment and renders it once afterward; selection,
+  database reads, sentence gating, TSV generation, and APKG generation are not
+  repeated.
 - **Per-candidate cache overhead.** `EnrichExternal` performs a cache lookup
   for every candidate; on a miss, `PostgresStore.Put` inserts and reads back
   the winning immutable row. `GetCoverageEntryForCorpus` then performs
@@ -85,13 +83,11 @@ behavioral verification, not a timing measurement.
   per-item progress or outcome metrics, and its server defaults mean a
   provider failure is generally a missing optional translation rather than a
   retryable prepared-deck failure.
-- **Cache identity must remain exact.** `Service.EnrichExternal` keys by
+- **Cache identity is exact in prepared rendering.** `Service.EnrichExternal` keys by
   language, canonical lemma, normalized UPOS, provider, provider version, and
-  `SentenceHash`. However, the final entry lookup in
-  `persistence.GetCoverageEntryForCorpus` filters only language, lemma, UPOS,
-  and sentence hash and chooses the newest row. That is a verified correctness
-  risk when providers or versions coexist; a performance change must not make
-  this weaker.
+  `SentenceHash`. The prepared manifest consumes the exact result returned for
+  that same key and rejects provider/version, sentence, position, or provenance
+  mismatches instead of performing a final broad cache lookup.
 
 These are structural bottlenecks verified from code. Their contribution to
 real elapsed time is **unknown** until the proposed benchmark and runtime
@@ -108,7 +104,7 @@ metrics exist.
    candidate/cache/provider counts, provider latency, attempts, and failure
    classes without recording sentences, lemmas, titles, owner IDs, or prompt
    contents. This establishes the missing production baseline.
-3. **Next: remove avoidable duplicate work.** Freeze an immutable candidate
+3. **Implemented in #337: remove avoidable duplicate work.** Freeze an immutable candidate
    manifest after the first pass and let the finalizer render from that
    manifest plus exact cache results. Do this only after tests prove that
    selection, quality omissions, ordering, completeness, and generated-card
@@ -142,7 +138,7 @@ Add a concurrency limit around only the external-enrichment loop in
 - Collect errors by candidate for metrics while preserving the current policy:
   an individual optional translation failure does not fail the deck. Context
   cancellation and final-render errors remain fatal to the preparation.
-- Wait for every task before the second build. Never render or complete while
+- Wait for every task before the sole render. Never render or complete while
   enrichment tasks are still writing cache rows.
 - Do not change cache keys, external payload fields, consent checks, or the
   provider's plain-text response validation in this slice. Fix the exact
@@ -283,9 +279,9 @@ observed provider/database budgets, not from the matrix alone.
 - [ADR 0012: external translation through River](../adr/0012-enrichment-execution-via-river.md)
 - [ADR 0021: contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - [ADR 0022: asynchronous deck preparation and durable APKG artifacts](../adr/0022-prepared-decks.md)
-- `internal/prepareddeck/jobs.go:Worker.Work`, `buildArtifact`
+- `internal/prepareddeck/jobs.go:Worker.Work`, `buildManifest`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
 - `internal/enrichmentjob/jobs.go:Worker.Work`
 - `internal/persistence/cardexport.go:GetCoverageEntryForCorpus`
-- `internal/cardexport/cardexport.go:Service.BuildCoverageForAnalysis`, `Service.render`
+- `internal/cardexport/cardexport.go:Service.PrepareCoverageForAnalysis`, `Service.RenderManifest`

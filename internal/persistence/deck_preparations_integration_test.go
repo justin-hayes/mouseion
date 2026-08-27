@@ -162,6 +162,10 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil || cards != 2 {
 		t.Fatalf("duplicate cards=%d err=%v", cards, err)
 	}
+	var assignments int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, owner.ID).Scan(&assignments); err != nil || assignments != 2 {
+		t.Fatalf("duplicate state assignments=%d err=%v", assignments, err)
+	}
 }
 
 func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner, source, hash string) domain.DeckPreparation {

@@ -5,9 +5,11 @@ package persistence_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -86,4 +88,57 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	if entry.Sentence != exactSentence || entry.Translation != "home" || entry.SentenceTranslation != "She has called this house her home for many years." || entry.SentenceTranslationTarget != "" {
 		t.Fatalf("sentence-aligned enrichment = %+v", entry)
 	}
+
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES
+		('de','Haus','NOUN','chosen','1',$1,'wrong version','','Wrong version sentence.','version',$3),
+		('de','Haus','NOUN','other','9',$1,'wrong provider','','Wrong provider sentence.','provider',$4),
+		('de','Haus','NOUN','chosen','2',$1,'correct','','This exact house translation is correct.','house',$3),
+		('de','Haus','NOUN','chosen','2',$2,'wrong sentence','','Wrong source sentence.','sentence',$4)`, enrichment.SentenceHash(exactSentence), enrichment.SentenceHash(otherSentence), when.Add(-time.Hour), when.Add(2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	preparedEntry, err := store.GetPreparedCoverageEntryForBook(ctx, owner.ID, book.ID, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preparedEntry.Translation != "" || preparedEntry.SentenceTranslation != "" {
+		t.Fatalf("prepared entry performed a broad cache lookup: %+v", preparedEntry)
+	}
+	manifest := cardexport.NewManifest(owner.ID, book.Title, []cardexport.Entry{preparedEntry})
+	manifestCandidates := manifest.EnrichmentCandidates()
+	if len(manifestCandidates) != 1 {
+		t.Fatalf("manifest candidates=%+v", manifestCandidates)
+	}
+	provider := &cacheOnlyProvider{name: "chosen", version: "2"}
+	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, provider, store)
+	key, ok := enricher.ExternalCacheKey(manifestCandidates[0])
+	if !ok {
+		t.Fatal("exact cache identity unavailable")
+	}
+	result, err := enricher.EnrichExternal(ctx, manifestCandidates[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactResult, err := cardexport.NewService(store).RenderManifest(ctx, bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: result}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.calls != 0 || !strings.Contains(artifactResult.TSV, "This exact <b>house</b> translation is correct.") || strings.Contains(artifactResult.TSV, "Wrong") {
+		t.Fatalf("provider calls=%d exact artifact=%+v", provider.calls, artifactResult)
+	}
+}
+
+type cacheOnlyProvider struct {
+	name, version string
+	calls         int
+}
+
+func (p *cacheOnlyProvider) Name() string    { return p.name }
+func (p *cacheOnlyProvider) Version() string { return p.version }
+func (p *cacheOnlyProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	p.calls++
+	return enrichment.TranslationResponse{}, nil
 }

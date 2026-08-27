@@ -42,3 +42,11 @@ maximum in-flight enrichment operations with
 `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY`; the default is `1` for serial
 compatibility. The `prepared_decks` River queue still runs one whole-deck worker,
 so this setting does not increase simultaneous deck preparations.
+
+Before translation, the worker freezes selection, order, sentence/target
+decisions, quality omissions, and generated-card provenance in an immutable
+in-memory manifest. It binds every accepted candidate to the configured
+provider/version and sentence hash, applies only enrichment returned under
+those exact identities, and renders TSV/APKG once. Provider failures leave the
+corresponding optional fields empty without repeating selection or database
+reads.

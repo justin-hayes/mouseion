@@ -52,6 +52,16 @@ func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, ow
 }
 
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	return s.getCoverageEntryForBook(ctx, owner, bookID, candidate, true)
+}
+
+// GetPreparedCoverageEntryForBook loads only immutable render inputs. Exact
+// enrichment is applied later from the preparation manifest.
+func (s *PostgresStore) GetPreparedCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	return s.getCoverageEntryForBook(ctx, owner, bookID, candidate, false)
+}
+
+func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
 	var entry cardexport.Entry
 	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphologies::text,'[]'),sm.title,'',$7::bigint FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT jsonb_agg(morphology ORDER BY frequency DESC,morphology::text) AS morphologies FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
 	if err = missing(err); err != nil {
@@ -62,6 +72,9 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
 	}
+	if !includeLegacyEnrichment {
+		return entry, nil
+	}
 	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
@@ -70,6 +83,16 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 }
 
 func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	return s.getCoverageEntryForCorpus(ctx, owner, corpusID, candidate, true)
+}
+
+// GetPreparedCoverageEntryForCorpus loads only immutable render inputs. It
+// deliberately performs no broad provider/version cache lookup.
+func (s *PostgresStore) GetPreparedCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	return s.getCoverageEntryForCorpus(ctx, owner, corpusID, candidate, false)
+}
+
+func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
 	var entry cardexport.Entry
 	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphologies::text,'[]'),sm.title,'',$6::bigint
 		FROM selection_candidates sc
@@ -85,6 +108,9 @@ func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, co
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
+	}
+	if !includeLegacyEnrichment {
+		return entry, nil
 	}
 	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
 	if errors.Is(err, pgx.ErrNoRows) {
