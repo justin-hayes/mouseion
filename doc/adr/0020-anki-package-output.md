@@ -28,14 +28,13 @@ for the target filesystem, and end in `.apkg`. Empty or unsafe titles must use
 a deterministic fallback rather than exposing a path or producing an empty
 filename.
 
-The note model and card templates will be stable across exports. The current
-recognition contract is defined by the [Anki card output feature
-contract](../features/anki-card-output.md): `Identity`, `Front`, `Article`,
-`Lemma`, `English`, `EnglishSentence`, `BookTitle`, and `SourceSentence`.
-`Identity` is the deterministic card-specific first/sort field and `sfld`
-value; the existing owner-scoped lemma key remains the stable note GUID and
-persistence deduplication key. Morphology stays internal and is used to derive
-the optional German `Article` field, but is not exported as a card field.
+The note model and card templates will be stable across exports. The
+recognition contract is: `Text`, `Lemma`, `POS`, `Morph`, `English`,
+`EnglishSentence`, and `BookTitle`. `Text` is the complete source sentence
+with the tested target visibly bolded; it is never clozed or shortened. The
+existing owner-scoped lemma key remains the stable note GUID and persistence
+deduplication key. `SourceSentence` is deliberately absent because it would
+duplicate `Text`.
 
 TSV may remain temporarily as an explicitly labeled compatibility artifact if
 it helps existing users migrate, but it is not the primary product flow.
@@ -48,7 +47,7 @@ it helps existing users migrate, but it is not the primary product flow.
   sanitization and deterministic naming are required.
 - Anki's SQLite/ZIP package format becomes a compatibility surface that needs
   import tests and a stable note-model contract.
-- The optional TSV compatibility artifact must serialize the same eight note
+- The optional TSV compatibility artifact must serialize the same seven note
   fields, in the same order, as the APKG note fields (with tags as its final
   importer column).
 - Existing generated-vocabulary and card identity rules remain owner-scoped;

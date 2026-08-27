@@ -14,6 +14,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — improves hierarchy visualization, classifier refinement, and reusable scope decisions.
 - [EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — makes structural recommendations safe, coherent, and explainable.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
+- [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 
 ## Current pipeline
 
@@ -69,6 +70,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 26. [ADR 0026: Explainable structural text profile](adr/0026-structural-text-profile.md) — persists sentence-length and analysis-coverage signals without a composite difficulty or proficiency claim.
 27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models one active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release.
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
+29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
 
 ## Deployment and operations
 

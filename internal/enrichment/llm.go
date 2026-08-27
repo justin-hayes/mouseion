@@ -19,7 +19,7 @@ const (
 	defaultLLMBaseURL      = "https://api.openai.com/v1"
 	defaultLLMTimeout      = 30 * time.Second
 	defaultReasoningEffort = "low"
-	llmPromptVersion       = "translation-v5-concise-json-50w-400c"
+	llmPromptVersion       = "translation-v6-target-alignment-json"
 	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
 	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
@@ -185,7 +185,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 	payload := chatRequest{
 		Model: c.model,
 		Messages: []chatMessage{
-			{Role: "system", Content: "Translate the supplied lemma into English. Return exactly one JSON object with exactly these four string fields and no markdown or additional keys: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and context_sentence (only when the complete example sentence exceeds 50 whitespace-delimited words or 400 Unicode code points: a shorter exact contiguous substring of the supplied example sentence that contains the supplied target word; otherwise an empty string). Keep every value concise. Never paraphrase context_sentence. When no example sentence is supplied, sentence_translation and context_sentence must be empty strings."},
+			{Role: "system", Content: "Translate the supplied lemma into English. Return exactly one JSON object with exactly these four string fields and no markdown or additional keys: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and sentence_translation_target (the plain-text English word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence). When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."},
 			{Role: "user", Content: string(privateInput)},
 		},
 	}
@@ -238,7 +238,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.Gloss = strings.TrimSpace(result.Gloss)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
-	result.ContextSentence = strings.TrimSpace(result.ContextSentence)
+	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
 	if result.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}

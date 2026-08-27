@@ -62,7 +62,7 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
 	}
-	err = s.pool.QueryRow(ctx, `SELECT translation,context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash IN ($4,'') ORDER BY (sentence_hash=$4) DESC,cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.ContextSentence, &entry.SentenceTranslation)
+	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	}
@@ -86,7 +86,7 @@ func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, co
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
 	}
-	err = s.pool.QueryRow(ctx, `SELECT translation,context_sentence,sentence_translation FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash IN ($4,'') ORDER BY (sentence_hash=$4) DESC,cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.ContextSentence, &entry.SentenceTranslation)
+	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	}

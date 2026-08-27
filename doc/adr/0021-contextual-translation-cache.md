@@ -22,17 +22,20 @@ Treat contextual sentence translation as a distinct enrichment field from:
 - lemma translation; and
 - concise gloss/sense explanation.
 
-Contextual translations must be cached using a deterministic identity that
-includes the source sentence (or a cryptographic hash of its normalized text),
-language, lemma, UPOS, provider, and provider version. Different sentences for
-the same lemma must never share a cache entry.
+Contextual translations and their optional plain-text target phrase must be
+cached using a deterministic identity that includes the source sentence (or a
+cryptographic hash of its normalized text), language, lemma, UPOS, provider,
+and provider version. Different sentences for the same lemma must never share
+a cache entry. Provider/prompt version changes bypass incompatible cached
+responses.
 
 The provider request may contain only:
 
 - source language;
 - canonical lemma;
 - UPOS; and
-- the selected source sentence.
+- the selected source sentence and its tested target surface for optional
+  translation alignment.
 
 It must not contain owner, book, source-document title, or other private
 metadata. Provider/version changes invalidate or bypass prior translations.
@@ -49,8 +52,9 @@ accurately.
   collisions.
 - Translation cost is controlled through owner-independent content caching and
   provider/version identity.
-- The existing eight-field Anki contract remains stable; `EnglishSentence` is
-  populated opportunistically.
+- The recognition-card seven-field Anki contract carries `EnglishSentence`
+  populated opportunistically; its validated target phrase is rendered into
+  that field and is not a separate export field.
 - Missing translation is distinct from poor source evidence. A quality-rejected
   sentence is omitted; a quality-approved untranslated sentence can remain in
   the deck according to export policy.

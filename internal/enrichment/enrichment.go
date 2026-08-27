@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
@@ -33,12 +32,12 @@ type Field[T any] struct {
 	Provenance Provenance
 }
 type Result struct {
-	Candidate                            Candidate
-	Frequency                            Field[float64]
-	Morphology                           Field[map[string]string]
-	Pronunciation, Translation, Gloss    Field[string]
-	SentenceTranslation, ContextSentence Field[string]
-	Warnings                             []string
+	Candidate                                      Candidate
+	Frequency                                      Field[float64]
+	Morphology                                     Field[map[string]string]
+	Pronunciation, Translation, Gloss              Field[string]
+	SentenceTranslation, SentenceTranslationTarget Field[string]
+	Warnings                                       []string
 }
 
 type FrequencyProvider interface {
@@ -61,10 +60,10 @@ type PronunciationProvider interface {
 // Adding user, document, corpus, or reading metadata to it is prohibited.
 type TranslationRequest struct{ Language, CanonicalLemma, UPOS, TargetWord, ExampleSentence string }
 type TranslationResponse struct {
-	Translation         string `json:"translation"`
-	Gloss               string `json:"gloss"`
-	SentenceTranslation string `json:"sentence_translation"`
-	ContextSentence     string `json:"context_sentence"`
+	Translation               string `json:"translation"`
+	Gloss                     string `json:"gloss"`
+	SentenceTranslation       string `json:"sentence_translation"`
+	SentenceTranslationTarget string `json:"sentence_translation_target"`
 }
 type TranslationProvider interface {
 	Name() string
@@ -78,8 +77,8 @@ type CacheKey struct {
 }
 type CacheEntry struct {
 	CacheKey
-	Translation, Gloss, SentenceTranslation, ContextSentence string
-	CachedAt                                                 time.Time
+	Translation, Gloss, SentenceTranslation, SentenceTranslationTarget string
+	CachedAt                                                           time.Time
 }
 type ExternalCache interface {
 	Get(context.Context, CacheKey) (CacheEntry, bool, error)
@@ -98,23 +97,6 @@ type EnrichmentConfig struct {
 	ContextMode                ContextMode
 	MaxAttempts                int
 	RetryBaseDelay             time.Duration
-}
-
-// Long-context shortening is considered only when either limit is exceeded.
-// The limits are deliberately shared by enrichment validation and card
-// rendering so a provider cannot change the eligibility decision.
-const (
-	LongContextWordLimit      = 50
-	LongContextCharacterLimit = 400
-)
-
-// NeedsShortContext reports whether a complete source sentence exceeds the
-// scan-length threshold for recognition-card fronts. Words are whitespace
-// delimited and characters are Unicode code points; either limit is enough to
-// trigger shortening.
-func NeedsShortContext(sentence string) bool {
-	text := strings.TrimSpace(sentence)
-	return len(strings.Fields(text)) > LongContextWordLimit || utf8.RuneCountInString(text) > LongContextCharacterLimit
 }
 
 // Config is retained as the concise constructor-facing name.
@@ -183,7 +165,7 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 		return r
 	}
 	r.Translation, r.Gloss, r.SentenceTranslation = external.Translation, external.Gloss, external.SentenceTranslation
-	r.ContextSentence = external.ContextSentence
+	r.SentenceTranslationTarget = external.SentenceTranslationTarget
 	r.Warnings = append(r.Warnings, external.Warnings...)
 	return r
 }
@@ -227,11 +209,6 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
 		} else if ok {
-			target := textmatch.CleanLexicalSurface(c.TargetWord)
-			if target == "" {
-				target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
-			}
-			entry.ContextSentence = ValidatedContextSentence(sentence, target, entry.ContextSentence)
 			s.setExternal(&r, entry)
 			return r, nil
 		}
@@ -274,12 +251,12 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		return r, err
 	}
 	entry := CacheEntry{
-		CacheKey:            key,
-		Translation:         response.Translation,
-		Gloss:               response.Gloss,
-		SentenceTranslation: response.SentenceTranslation,
-		ContextSentence:     ValidatedContextSentence(sentence, target, response.ContextSentence),
-		CachedAt:            s.now().UTC(),
+		CacheKey:                  key,
+		Translation:               response.Translation,
+		Gloss:                     response.Gloss,
+		SentenceTranslation:       response.SentenceTranslation,
+		SentenceTranslationTarget: response.SentenceTranslationTarget,
+		CachedAt:                  s.now().UTC(),
 	}
 	if s.cache != nil {
 		stored, putErr := s.cache.Put(ctx, entry)
@@ -307,41 +284,9 @@ func (s *Service) setExternal(r *Result, e CacheEntry) {
 	if e.SentenceTranslation != "" {
 		r.SentenceTranslation = Field[string]{e.SentenceTranslation, true, p}
 	}
-	if e.ContextSentence != "" {
-		r.ContextSentence = Field[string]{e.ContextSentence, true, p}
+	if e.SentenceTranslation != "" && e.SentenceTranslationTarget != "" {
+		r.SentenceTranslationTarget = Field[string]{e.SentenceTranslationTarget, true, p}
 	}
-}
-
-// ValidatedContextSentence accepts only a shorter, exact contiguous substring
-// of the complete source sentence that contains the tested word. Any missing,
-// unsafe, or otherwise unsuitable provider output falls back to the complete
-// source sentence so callers never render provider-invented text.
-func ValidatedContextSentence(source, target, proposed string) string {
-	source = strings.TrimSpace(source)
-	if source == "" || !utf8.ValidString(source) {
-		return ""
-	}
-	if !NeedsShortContext(source) {
-		return source
-	}
-	proposed = strings.TrimSpace(proposed)
-	if proposed == "" || proposed == source {
-		return source
-	}
-	target = textmatch.CleanLexicalSurface(target)
-	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || NeedsShortContext(proposed) || len(strings.Fields(proposed)) < 3 || targetIndex(proposed, target) < 0 {
-		return source
-	}
-	return proposed
-}
-
-func targetIndex(sentence, target string) int {
-	target = textmatch.CleanLexicalSurface(target)
-	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
-	if ok {
-		return start
-	}
-	return -1
 }
 
 // SentenceHash returns the lowercase hexadecimal SHA-256 digest of the UTF-8

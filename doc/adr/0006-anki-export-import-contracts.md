@@ -2,12 +2,10 @@
 
 Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
 
-> **Card-output amendment (2026-08-27):** The accepted
-> [Anki card output contract](../features/anki-card-output.md) replaces the
-> Cloze/TSV-only serialization below. New APKG and TSV notes use a
-> card-specific `Identity` as their first/sort/duplicate field while retaining
-> the owner/language/canonical-lemma/UPOS key for stable Anki GUID and
-> persistence semantics.
+> **Card-output amendment (2026-08-27):** New APKG and TSV notes use a
+> recognition presentation with the complete source sentence and a visibly
+> bolded target. The owner/language/canonical-lemma/UPOS key remains the stable
+> Anki GUID and persistence key; the duplicate `SourceSentence` field is gone.
 
 ## Context
 
@@ -22,20 +20,17 @@ These were Open Question 5 in `product.md` and consolidated as issue #27. The pr
 
 ### 1. Anki export — UTF-8 tab-separated (TSV) via Anki's CSV importer
 
-- **Delimiter: tab, not comma.** German sentence text is full of commas, and cloze markers (`{{c1::…}}`) are awkward inside comma-separated fields. A tab-delimited file matches Anki's CSV importer with no field-escaping pitfalls.
+- **Delimiter: tab, not comma.** German sentence text is full of commas. A tab-delimited file matches Anki's CSV importer with no field-escaping pitfalls.
 - **Encoding: UTF-8** — required for umlauts and `ß`.
 
-### 2. A custom Cloze-style note type with a stable deduplication key as the first field
+### 2. A custom recognition note type with a stable deduplication key
 
-- **Note type:** a Cloze-style note with the **first field being a stable identity-based deduplication key**:
+- **Note type:** a recognition note whose **first exported field is the complete source sentence**. The stable identity-based deduplication key remains the Anki GUID:
   `hash(language | canonical_lemma | upos | user_id)`.
   - This is what Anki uses to deduplicate on re-import. Because the key derives from identity (ADR 0005) plus the owning user (ADR 0002), re-importing the same item is **idempotent** — a second example sentence for the same word updates/replaces rather than spawning a duplicate card.
-  - A plain stock Cloze type puts the cloze sentence first, which would create duplicate cards whenever a different example sentence is chosen for the same word — contrary to the product's idempotent-accumulation goal.
-- **Fields (order):**
-  1. `Key` (dedup, as above)
-  2. `Text` (the source sentence with `{{c1::targetWord}}`, and `{{c1::targetWord::hint}}` when an English hint is present)
-  3. `Back Extra` (translation, lemma, POS, morphology, source document, notes)
-- **Tags:** `mouseion`, plus `language`, plus source book — so decks can be filtered per language/book.
+  - The source sentence is complete and the target form is visibly bolded; it is never clozed or shortened.
+- **Fields (order):** `Text`, `Lemma`, `POS`, `Morph`, `English`, `EnglishSentence`, `BookTitle`, then tags. `SourceSentence` is deliberately absent because `Text` is the one learner-facing German source sentence.
+- **Tags:** `Mouseion`, plus language, POS, and source book — so decks can be filtered per language/book.
 - **Artifact: TSV only in v1.** `.apkg` (Anki's zip-of-SQLite-and-media container) is heavier to generate and would need the note type embedded; deferred as a later enhancement.
 
 ### 3. Known-vocabulary import — a per-language lemma list in v1
