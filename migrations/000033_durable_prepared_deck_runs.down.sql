@@ -1,0 +1,16 @@
+ALTER TABLE deck_preparations DROP CONSTRAINT IF EXISTS deck_preparations_current_run_fkey;
+ALTER TABLE deck_preparations DROP COLUMN IF EXISTS current_run_id;
+
+DROP TRIGGER IF EXISTS deck_preparation_batch_chunk_items_immutable ON deck_preparation_batch_chunk_items;
+DROP TRIGGER IF EXISTS deck_preparation_batch_chunks_identity_immutable ON deck_preparation_batch_chunks;
+DROP FUNCTION IF EXISTS reject_deck_preparation_batch_chunk_identity_mutation();
+DROP TRIGGER IF EXISTS deck_preparation_manifest_items_immutable ON deck_preparation_manifest_items;
+DROP TRIGGER IF EXISTS deck_preparation_manifests_immutable ON deck_preparation_manifests;
+DROP FUNCTION IF EXISTS reject_deck_preparation_manifest_mutation();
+
+DROP TABLE deck_preparation_batch_chunk_items;
+DROP TABLE deck_preparation_batch_chunks;
+DROP TABLE deck_preparation_translation_outcomes;
+DROP TABLE deck_preparation_manifest_items;
+DROP TABLE deck_preparation_manifests;
+DROP TABLE deck_preparation_runs;

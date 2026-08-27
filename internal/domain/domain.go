@@ -31,13 +31,13 @@ func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
 }
 
 type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, Filename, DeckName, ContentHash, Error string
-	State                                                                                DeckPreparationState
-	Artifact                                                                             []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations                int
-	QualityOmissions                                                                     int
-	CreatedAt, UpdatedAt                                                                 time.Time
-	StartedAt, CompletedAt                                                               *time.Time
+	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, Filename, DeckName, ContentHash, Error string
+	State                                                                                              DeckPreparationState
+	Artifact                                                                                           []byte
+	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations                              int
+	QualityOmissions                                                                                   int
+	CreatedAt, UpdatedAt                                                                               time.Time
+	StartedAt, CompletedAt                                                                             *time.Time
 }
 
 type User struct {
