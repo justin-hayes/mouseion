@@ -28,9 +28,9 @@ class SourceDocument:
 PipelineFactory = Callable[[str, bool], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
-GERMAN_NORMALIZATION_VERSION = "3"
+GERMAN_NORMALIZATION_VERSION = "4"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
-DEFAULT_NORMALIZATION_VERSION = "1.1.0"
+DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +198,7 @@ class Producer:
                 value = normalized_corpus_pb2.Token(
                     surface=surface,
                     raw_lemma=lemma,
-                    canonical_lemma=self._canonical_lemma(language, primary_lemma),
+                    canonical_lemma=self._canonical_lemma(language, _clean_surface(primary_lemma)),
                     pos=word.upos or "",
                     morphology=_morphology(word.feats),
                     location=self._location(source, start, end),

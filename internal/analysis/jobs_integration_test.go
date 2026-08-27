@@ -159,7 +159,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if corpus.OwnerID != alice.ID || corpus.ArtifactHash != source.ContentHash {
+	if corpus.OwnerID != alice.ID || corpus.ArtifactHash == source.ContentHash {
 		t.Fatalf("corpus = %+v", corpus)
 	}
 	if corpus.Statistics == nil || corpus.Statistics.AnalyzableTokenCount != 2 || corpus.Statistics.DistinctLemmaCount != 1 {
@@ -328,5 +328,33 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	if cancelled.State != rivertype.JobStateCancelled {
 		t.Fatalf("cancelled status = %+v", cancelled)
+	}
+
+	// Model a completed ordinary job created before the contract identity was
+	// added. The old duplicate lookup would return this stale handle by owner
+	// and content hash alone; the current identity must enqueue fresh work.
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET analysis_identity=NULL WHERE river_job_id=$1`, handle.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE river_job SET args=args-'analysis_identity' WHERE id=$1`, handle.ID); err != nil {
+		t.Fatal(err)
+	}
+	var legacyDuplicateID int64
+	if err = store.Pool().QueryRow(ctx, `SELECT river_job_id FROM analysis_jobs WHERE owner_id=$1 AND reviewed_scope_id IS NULL AND content_hash=$2`, alice.ID, source.ContentHash).Scan(&legacyDuplicateID); err != nil {
+		t.Fatal(err)
+	}
+	if legacyDuplicateID != handle.ID {
+		t.Fatalf("legacy duplicate lookup = %d, want stale job %d", legacyDuplicateID, handle.ID)
+	}
+	current, err := service.SubmitAnalysis(ctx, alice.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.ID == handle.ID {
+		t.Fatalf("current analysis reused stale job %d", handle.ID)
+	}
+	currentStatus, err := service.Wait(ctx, alice.ID, current.ID)
+	if err != nil || currentStatus.State != rivertype.JobStateCompleted {
+		t.Fatalf("current analysis status = %+v, %v", currentStatus, err)
 	}
 }

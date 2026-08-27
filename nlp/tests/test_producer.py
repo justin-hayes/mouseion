@@ -127,6 +127,44 @@ def test_cleans_all_unicode_punctuation_and_symbol_edges() -> None:
     tokens = producer.analyze(" ".join(surfaces), "de").sentences[0].tokens
 
     assert [token.surface for token in tokens] == ["Wort", "Haus", "Baum", "O'Neill-like", "L'", "."]
+    assert [token.canonical_lemma for token in tokens] == [
+        "wort", "haus", "baum", "o'neill-like", "l'", "."
+    ]
+
+
+def test_cleans_reported_lemma_boundaries_and_preserves_internal_punctuation() -> None:
+    first_text = "Die Versammlung der Phaiaken verfügt damit über eine gewissermaßen ‹passive Souveränität›."
+    second_text = "Beide Voraussetzungen wären beispielsweise in Al Mina gegeben, wo in dem entscheidenden Zeitraum griechische Händler und/oder Söldner angesiedelt waren."
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text=first_text,
+                tokens=[
+                    SimpleNamespace(words=[word("Souveränität›", "Souveränität›", "NOUN", None, 76, 89)])
+                ],
+            ),
+            SimpleNamespace(
+                text=second_text,
+                tokens=[
+                    SimpleNamespace(words=[word("und/oder", "/oder", "CCONJ", None, 117, 125)]),
+                ],
+            ),
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    artifact = producer.analyze(first_text + " " + second_text, "de")
+    first_token = artifact.sentences[0].tokens[0]
+    second_tokens = artifact.sentences[1].tokens
+
+    assert first_token.raw_lemma == "Souveränität›"
+    assert first_token.surface == "Souveränität"
+    assert first_token.canonical_lemma == "souveränität"
+    assert (first_token.location.start_offset, first_token.location.end_offset) == (76, 89)
+    assert second_tokens[0].raw_lemma == "/oder"
+    assert second_tokens[0].surface == "und/oder"
+    assert second_tokens[0].canonical_lemma == "oder"
+    assert (second_tokens[0].location.start_offset, second_tokens[0].location.end_offset) == (117, 125)
 
 
 def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma(caplog) -> None:
@@ -193,7 +231,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
         "dass",
     ]
     assert artifact.normalization_profile.name == "german-standard-post-1996"
-    assert artifact.normalization_profile.version == "3"
+    assert artifact.normalization_profile.version == "4"
 
 
 def test_normalized_corpus_round_trip() -> None:

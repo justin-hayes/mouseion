@@ -24,6 +24,8 @@ func TestGermanPost1996Fixtures(t *testing.T) {
 		{"historical th", "Thür", "tür"}, {"modern spelling", "Schluss", "schluss"},
 		{"diacritic retained", "Grüßen", "grüßen"}, {"modern sharp s retained", "Straße", "straße"},
 		{"ambiguous form", "Maße", "maße"}, {"regional form unchanged", "Bub", "bub"},
+		{"attached closing quote", "Souveränität›", "souveränität"}, {"leading slash", "/oder", "oder"},
+		{"internal punctuation", "O'Neill-like", "o'neill-like"},
 	}
 	profile := GermanPost1996()
 	for _, tt := range tests {
@@ -54,10 +56,10 @@ func TestRegistryActiveAndVersionedLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name() != "german-standard-post-1996" || got.Version() != "3" || got.Language() != "de" {
+	if got.Name() != "german-standard-post-1996" || got.Version() != "4" || got.Language() != "de" {
 		t.Fatalf("unexpected profile: %s version %s (%s)", got.Name(), got.Version(), got.Language())
 	}
-	if versioned, err := registry.Lookup("de_DE", "3"); err != nil || versioned != got {
+	if versioned, err := registry.Lookup("de_DE", "4"); err != nil || versioned != got {
 		t.Fatalf("Lookup() = (%v, %v), want active profile", versioned, err)
 	}
 }
@@ -68,22 +70,29 @@ func TestNormalizePreservesRawLemmaAndRecordsProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.RawLemma != "  Daß  " || got.CanonicalLemma != "dass" ||
-		got.ProfileName != "german-standard-post-1996" || got.ProfileVersion != "3" {
+		got.ProfileName != "german-standard-post-1996" || got.ProfileVersion != "4" {
 		t.Fatalf("Normalize() = %#v", got)
 	}
 }
 
-func TestGermanV3SelectsFirstUsablePipeLemmaAndRetainsV2(t *testing.T) {
+func TestGermanV4SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T) {
 	got, err := Normalize("de", "  | geleiten | leiten ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.RawLemma != "  | geleiten | leiten " || got.CanonicalLemma != "geleiten" || got.ProfileVersion != "3" {
+	if got.RawLemma != "  | geleiten | leiten " || got.CanonicalLemma != "geleiten" || got.ProfileVersion != "4" {
 		t.Fatalf("Normalize() = %#v", got)
 	}
 	historical, err := Lookup("de", "2")
 	if err != nil || historical.Canonical("geleiten|leiten") != "geleiten|leiten" {
 		t.Fatalf("historical profile=%v err=%v", historical, err)
+	}
+	historical, err = Lookup("de", "3")
+	if err != nil || historical.Canonical("geleiten|leiten") != "geleiten" {
+		t.Fatalf("version 3 profile=%v err=%v", historical, err)
+	}
+	if historical.Canonical("Souveränität›") != "souveränität›" {
+		t.Fatalf("version 3 changed lemma-edge behavior")
 	}
 }
 
