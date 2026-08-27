@@ -160,6 +160,13 @@ cancelled preparation into detached work.
 
 ## Longer-term durable-phase design
 
+The implementation contract for this phase is now specified in
+[Durable prepared-deck translation](durable-prepared-deck-translation.md) and
+[ADR 0030](../adr/0030-durable-prepared-deck-translation.md). The summary below
+is retained as the performance investigation's recommendation; the dedicated
+design is authoritative for state transitions, persistence, recovery, and
+follow-up sequencing.
+
 Use the existing `internal/enrichmentjob` model as a starting point, but bind
 it to an immutable prepared-deck manifest:
 
@@ -267,18 +274,22 @@ observed provider/database budgets, not from the matrix alone.
   cache queries under concurrent work.
 - Translation-quality and target-alignment changes, if any, as concurrency,
   model, reasoning effort, or batching changes.
-- Whether optional per-item failures should remain invisible to preparation
-  status or become resumable item-level states in the durable phase.
-- Whether exact reproducibility requires cache-key claiming/single-flight, or
-  whether immutable first-writer semantics are sufficient for this product.
-- The retention/cleanup policy for preparation manifests and item-level
-  translation history.
+- The learner-facing presentation of durable per-item failures. The durable
+  design records them internally while retaining the current public
+  `preparing` state during work.
+- The observed duplicate-call rate under lease expiry. The durable design
+  accepts the current immutable cache's first-writer behavior and does not add
+  a cache redesign.
+- The retention duration for preparation manifests and item-level translation
+  history; automatic deletion remains disabled until that policy is approved.
 
 ## Related decisions and implementation references
 
 - [ADR 0012: external translation through River](../adr/0012-enrichment-execution-via-river.md)
 - [ADR 0021: contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - [ADR 0022: asynchronous deck preparation and durable APKG artifacts](../adr/0022-prepared-decks.md)
+- [ADR 0030: durable prepared-deck translation runs](../adr/0030-durable-prepared-deck-translation.md)
+- [Durable prepared-deck translation design](durable-prepared-deck-translation.md)
 - `internal/prepareddeck/jobs.go:Worker.Work`, `buildManifest`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
