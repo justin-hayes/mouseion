@@ -131,7 +131,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Cloze"`) || !strings.Contains(modelsJSON, `"qfmt":"{{cloze:Text}}"`) || !strings.Contains(decksJSON, deckName) {
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(decksJSON, deckName) {
 		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
 	}
 	var models map[string]struct {
@@ -158,14 +158,14 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	serializedFields := strings.Split(fields, "\x1f")
-	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 8 || serializedFields[4] != note.English || serializedFields[5] != note.EnglishSentence || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
+	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 6 || serializedFields[2] != note.English || serializedFields[3] != note.EnglishSentence || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
 		t.Fatalf("note id=%d fields=%q tags=%q", noteID, fields, tags)
 	}
 	if err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields); err != nil {
 		t.Fatal(err)
 	}
 	serializedFields = strings.Split(fields, "\x1f")
-	if len(serializedFields) != 8 || serializedFields[5] != "" {
+	if len(serializedFields) != 6 || serializedFields[3] != "" {
 		t.Fatalf("missing sentence translation fields=%q", fields)
 	}
 	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
@@ -348,7 +348,7 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || len(rows[0]) != 9 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][7] != "Grüße Welt" || rows[0][8] != "Mouseion lang::de source::My_Book" {
+	if len(rows) != 1 || len(rows[0]) != 7 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][5] != "Grüße Welt" || rows[0][6] != "Mouseion lang::de source::My_Book" {
 		t.Fatalf("rows=%#v", rows)
 	}
 }
@@ -362,7 +362,7 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(note.Text, "{{c1::Häuser}}") || note.Lemma != "Haus" || note.POS != "NOUN" {
+	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Lemma != "Haus" || note.POS != "NOUN" {
 		t.Fatalf("note = %#v", note)
 	}
 	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {
@@ -387,7 +387,7 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 		t.Fatalf("Italian prepared artifact = %+v", artifact)
 	}
 	note := artifact.Generated[0].Note
-	if !strings.Contains(note.Text, "{{c1::porterà::to bring}}") || note.Lemma != "portare" || note.POS != "VERB" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
+	if !strings.Contains(note.Text, "<b>porterà</b>") || note.Lemma != "portare" || note.POS != "VERB" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
 		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
 	}
 	assertAPKGDeckAndCard(t, artifact.APKG, "Mouseion::it::Il viaggio", "portare", "lang::it")
