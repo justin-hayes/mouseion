@@ -7,6 +7,35 @@ import (
 	"unicode/utf8"
 )
 
+// CleanLexicalSurface removes surrounding Unicode punctuation and symbols
+// from a tested surface while preserving lexical internals and apostrophes.
+// Standalone punctuation is returned unchanged.
+//
+// The analyzer applies the same rule to new tokens. Card export reapplies it
+// before matching so persisted candidates from older analyzer versions behave
+// identically without rewriting their stored source text, offsets, or forms.
+func CleanLexicalSurface(surface string) string {
+	surface = strings.TrimSpace(surface)
+	if surface == "" {
+		return ""
+	}
+	runes := []rune(surface)
+	start, end := 0, len(runes)
+	isEdgeDecoration := func(r rune) bool {
+		return r != '\'' && r != '\u2019' && (unicode.IsPunct(r) || unicode.IsSymbol(r))
+	}
+	for start < end && isEdgeDecoration(runes[start]) {
+		start++
+	}
+	for end > start && isEdgeDecoration(runes[end-1]) {
+		end--
+	}
+	if start == end {
+		return surface
+	}
+	return string(runes[start:end])
+}
+
 // FoldedWordSpan returns the byte offsets of the first case-insensitive target
 // occurrence that is bounded by non-word runes. It compares at rune boundaries
 // so case folding that changes UTF-8 byte length cannot corrupt the returned

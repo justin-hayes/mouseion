@@ -48,7 +48,7 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	provider := &fakeProvider{failures: 1}
 	cache := &fakeCache{values: make(map[enrichment.CacheKey]enrichment.CacheEntry)}
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, cache)
-	args := JobArgs{OwnerID: "owner-private", Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "noun", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}, {CanonicalLemma: "baum", UPOS: "NOUN"}}}
+	args := JobArgs{OwnerID: "owner-private", Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "noun", TargetWord: "‹Haus›", ExampleSentence: "Das Haus ist groß."}, {CanonicalLemma: "baum", UPOS: "NOUN"}}}
 	encoded, err := json.Marshal(args)
 	if err != nil || args.Kind() != "enrich_external_translation" {
 		t.Fatalf("kind/json: %q %v", args.Kind(), err)

@@ -150,6 +150,23 @@ func TestContextSentenceIsValidatedAndCachedWithSafeFallback(t *testing.T) {
 	}
 }
 
+func TestLegacyPunctuationTargetIsCleanedBeforeTranslationAndContextValidation(t *testing.T) {
+	source := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 10) + "."
+	provider := &translationStub{name: "llm", version: "model-1", context: "Das Haus steht am Rand"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+	result := service.Enrich(context.Background(), []Candidate{{
+		Identity:        Identity{"de", "haus", "NOUN"},
+		TargetWord:      "‹Haus›",
+		ExampleSentence: source,
+	}})[0]
+	if len(provider.requests) != 1 || provider.requests[0].TargetWord != "Haus" {
+		t.Fatalf("provider request = %+v, want cleaned target", provider.requests)
+	}
+	if result.ContextSentence.Value != "Das Haus steht am Rand" {
+		t.Fatalf("validated context = %q, want provider span", result.ContextSentence.Value)
+	}
+}
+
 func TestLongContextThresholdUsesWordOrUnicodeCharacterLimit(t *testing.T) {
 	if NeedsShortContext(strings.Repeat("x ", LongContextWordLimit)) {
 		t.Fatal("exactly the word limit should not trigger shortening")

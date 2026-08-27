@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/textmatch"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
@@ -82,7 +83,7 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 		if strings.TrimSpace(candidate.ExampleSentence) == "" {
 			continue
 		}
-		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), TargetWord: strings.TrimSpace(candidate.TargetWord), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
+		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), TargetWord: textmatch.CleanLexicalSurface(candidate.TargetWord), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
 		key := item.CanonicalLemma + "\x00" + item.UPOS + "\x00" + item.TargetWord + "\x00" + item.ExampleSentence
 		if _, ok := seen[key]; ok {
 			continue

@@ -33,9 +33,9 @@ type Entry struct {
 }
 
 type Note struct {
-	Key, Text, Lemma, POS, Morph, English, EnglishSentence, BookTitle, SourceSentence string
-	BackExtra                                                                         string
-	Tags                                                                              []string
+	Key, Identity, Text, Article, Lemma, English, EnglishSentence, BookTitle, SourceSentence string
+	BackExtra                                                                                string
+	Tags                                                                                     []string
 }
 
 type Artifact struct {
@@ -109,8 +109,35 @@ func DedupKey(language, lemma, upos, owner string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// CardIdentity returns the stable, owner-scoped identity exported as Anki's
+// sort and duplicate-detection field. It is deliberately separate from Key:
+// Key preserves the existing lemma-level note GUID and persistence semantics,
+// while Identity distinguishes the concrete target and source occurrence.
+func CardIdentity(owner string, entry Entry) string {
+	target := testedTarget(entry)
+	inputs := struct {
+		Version        int    `json:"version"`
+		Owner          string `json:"owner"`
+		Language       string `json:"language"`
+		CanonicalLemma string `json:"canonical_lemma"`
+		UPOS           string `json:"upos"`
+		Target         string `json:"target"`
+		SourceSentence string `json:"source_sentence"`
+		SourceDocument string `json:"source_document"`
+		FirstEncounter int64  `json:"first_encounter"`
+	}{
+		Version: 1, Owner: owner, Language: entry.Language,
+		CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Target: target,
+		SourceSentence: entry.Sentence, SourceDocument: entry.SourceDocument,
+		FirstEncounter: entry.FirstEncounter,
+	}
+	payload, _ := json.Marshal(inputs)
+	sum := sha256.Sum256(append([]byte("mouseion-card-identity-v1\x00"), payload...))
+	return hex.EncodeToString(sum[:])
+}
+
 func Cloze(sentence, target, hint string) (string, error) {
-	target = strings.TrimSpace(target)
+	target = textmatch.CleanLexicalSurface(target)
 	if target == "" || strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
@@ -127,7 +154,7 @@ func Cloze(sentence, target, hint string) (string, error) {
 }
 
 func BoldTarget(sentence, target string) (string, error) {
-	target = strings.TrimSpace(target)
+	target = textmatch.CleanLexicalSurface(target)
 	if target == "" || strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
@@ -346,8 +373,9 @@ func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence
 		}
 		target := ""
 		for _, form := range forms {
-			if targetIndex(ref.Text, form) >= 0 {
-				target = form
+			cleanForm := textmatch.CleanLexicalSurface(form)
+			if targetIndex(ref.Text, cleanForm) >= 0 {
+				target = cleanForm
 				break
 			}
 		}
@@ -404,6 +432,7 @@ func structuralHeading(text, marker string) bool {
 }
 
 func targetIndex(sentence, target string) int {
+	target = textmatch.CleanLexicalSurface(target)
 	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
 	if ok {
 		return start
@@ -411,31 +440,72 @@ func targetIndex(sentence, target string) int {
 	return -1
 }
 
-func precedingGermanDefiniteArticle(sentence, target string) string {
-	start := targetIndex(sentence, strings.TrimSpace(target))
-	if start <= 0 {
+func germanNounArticle(language, upos, morphology string) string {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	baseLanguage, _, _ := strings.Cut(language, "-")
+	if baseLanguage != "de" || !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
 		return ""
 	}
-	words := strings.Fields(sentence[:start])
-	if len(words) == 0 {
+	var variants []map[string]string
+	if err := json.Unmarshal([]byte(morphology), &variants); err != nil {
+		var single map[string]string
+		if json.Unmarshal([]byte(morphology), &single) != nil || single == nil {
+			return ""
+		}
+		variants = []map[string]string{single}
+	}
+	if len(variants) == 0 {
 		return ""
 	}
-	word := strings.TrimLeftFunc(words[len(words)-1], func(r rune) bool {
-		return unicode.IsPunct(r) || unicode.IsSymbol(r)
-	})
-	switch strings.ToLower(word) {
-	case "der", "die", "das":
-		return strings.ToLower(word)
-	default:
-		return ""
+	genders := make(map[string]bool, 3)
+	allPlural := true
+	for _, variant := range variants {
+		gender := morphologyValue(variant, "Gender")
+		if gender != "" {
+			switch gender {
+			case "masc", "masculine":
+				genders["der"] = true
+			case "fem", "feminine":
+				genders["die"] = true
+			case "neut", "neuter":
+				genders["das"] = true
+			default:
+				return ""
+			}
+		}
+		number := morphologyValue(variant, "Number")
+		allPlural = allPlural && (number == "plur" || number == "plural")
 	}
+	if len(genders) == 1 {
+		for article := range genders {
+			return article
+		}
+	}
+	if len(genders) == 0 && allPlural {
+		return "die"
+	}
+	return ""
+}
+
+func morphologyValue(morphology map[string]string, key string) string {
+	for candidate, value := range morphology {
+		if strings.EqualFold(strings.TrimSpace(candidate), key) {
+			return strings.ToLower(strings.TrimSpace(value))
+		}
+	}
+	return ""
+}
+
+func testedTarget(entry Entry) string {
+	target := textmatch.CleanLexicalSurface(entry.TargetWord)
+	if target == "" {
+		target = textmatch.CleanLexicalSurface(entry.CanonicalLemma)
+	}
+	return target
 }
 
 func makeNote(owner string, entry Entry) (Note, error) {
-	target := strings.TrimSpace(entry.TargetWord)
-	if target == "" {
-		target = entry.CanonicalLemma
-	}
+	target := testedTarget(entry)
 	contextSentence := entry.Sentence
 	if sentenceTooLong(entry.Sentence) {
 		contextSentence = enrichment.ValidatedContextSentence(entry.Sentence, target, entry.ContextSentence)
@@ -446,18 +516,17 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
 	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
-	if strings.EqualFold(strings.TrimSpace(entry.Language), "de") && strings.EqualFold(strings.TrimSpace(entry.UPOS), "NOUN") {
-		if article := precedingGermanDefiniteArticle(entry.Sentence, target); article != "" {
-			displayLemma = article + " " + displayLemma
-		}
-	}
+	article := germanNounArticle(entry.Language, entry.UPOS, entry.Morphology)
 	note := Note{
-		Key:  DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner),
-		Text: front, Lemma: escapeField(displayLemma),
-		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
+		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
+		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), English: escapeField(entry.Translation),
 		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
 	}
-	note.BackExtra = strings.Join([]string{note.Lemma, note.English, note.EnglishSentence, note.SourceSentence}, "\n")
+	articleLemma := note.Lemma
+	if note.Article != "" {
+		articleLemma = note.Article + " " + note.Lemma
+	}
+	note.BackExtra = strings.Join([]string{articleLemma, note.English, note.EnglishSentence, note.SourceSentence}, "\n")
 	return note, nil
 }
 
@@ -496,12 +565,12 @@ func RenderTSV(notes []Note) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Text, n.Lemma, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.English, n.EnglishSentence, n.BookTitle, n.SourceSentence}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Front", "Lemma", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
+var fieldNames = []string{"Identity", "Front", "Article", "Lemma", "English", "EnglishSentence", "BookTitle", "SourceSentence"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -653,12 +722,13 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
 		for _, form := range forms {
-			if targetIndex(sentence, form) >= 0 {
-				return form
+			cleanForm := textmatch.CleanLexicalSurface(form)
+			if targetIndex(sentence, cleanForm) >= 0 {
+				return cleanForm
 			}
 		}
 	}
-	return candidate.CanonicalLemma
+	return textmatch.CleanLexicalSurface(candidate.CanonicalLemma)
 }
 
 const coveragePercent = 97
@@ -745,6 +815,7 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 	omitted := make([]Omission, 0)
 	completeness := Completeness{}
 	for _, entry := range entries {
+		entry.TargetWord = testedTarget(entry)
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
 		shortContext := strings.TrimSpace(entry.Sentence)
 		if sentenceTooLong(entry.Sentence) {
@@ -776,7 +847,7 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
 			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
-			TargetWord:      strings.TrimSpace(entry.TargetWord),
+			TargetWord:      testedTarget(entry),
 			ExampleSentence: strings.TrimSpace(entry.Sentence),
 		})
 	}

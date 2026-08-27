@@ -5,6 +5,27 @@ import (
 	"unicode/utf8"
 )
 
+func TestCleanLexicalSurface(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "Souveränität›", want: "Souveränität"},
+		{input: "die Besten›", want: "die Besten"},
+		{input: "‹die", want: "die"},
+		{input: "„O'Neill-like“", want: "O'Neill-like"},
+		{input: " L' ", want: "L'"},
+		{input: "dell’", want: "dell’"},
+		{input: ".", want: "."},
+		{input: "—", want: "—"},
+	}
+	for _, test := range tests {
+		if got := CleanLexicalSurface(test.input); got != test.want {
+			t.Errorf("CleanLexicalSurface(%q) = %q, want %q", test.input, got, test.want)
+		}
+	}
+}
+
 func TestFoldedWordSpanPreservesOriginalUTF8Offsets(t *testing.T) {
 	for _, test := range []struct {
 		name, text, target, want string

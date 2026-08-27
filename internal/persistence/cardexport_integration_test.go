@@ -28,7 +28,10 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 		t.Fatal(err)
 	}
 	artifact := domain.NormalizedArtifact{ContentHash: "coverage-entry-hash", Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
-	if err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{{CanonicalLemma: "Haus", UPOS: "NOUN", Morphology: []byte(`{}`), Frequency: 1}}); err != nil {
+	if err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{
+		{CanonicalLemma: "Haus", UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut","Number":"Sing"}`), Frequency: 2},
+		{CanonicalLemma: "Haus", UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut","Number":"Plur"}`), Frequency: 1},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	book, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "coverage-entry-book", Title: "Coverage Entry Book", MediaType: "text/plain", ContentHash: artifact.ContentHash, Content: []byte("Haus"), FullText: "Haus"})
@@ -58,6 +61,10 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	}
 	if entry.FirstEncounter != candidate.FirstEncounter {
 		t.Fatalf("first encounter = %d, want %d", entry.FirstEncounter, candidate.FirstEncounter)
+	}
+	var morphologies []map[string]string
+	if err = json.Unmarshal([]byte(entry.Morphology), &morphologies); err != nil || len(morphologies) != 2 || morphologies[0]["Number"] != "Sing" || morphologies[1]["Number"] != "Plur" {
+		t.Fatalf("deterministic morphology variants = %s, %v", entry.Morphology, err)
 	}
 
 	const exactSentence = "Sie nennt dieses Haus seit vielen Jahren ihr Zuhause."
