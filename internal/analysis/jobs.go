@@ -75,8 +75,10 @@ type Status struct {
 }
 
 const (
-	scopedAnalyzerName    = "mouseion-scoped-analyzer"
-	scopedAnalyzerVersion = "1"
+	scopedAnalyzerName = "mouseion-scoped-analyzer"
+	// Version 2 identifies lexical-surface cleanup and pipe-lemma selection so
+	// an existing immutable v1 run is not silently reused after normalization.
+	scopedAnalyzerVersion = "2"
 	scopedConfigIdentity  = "selection-default-v1"
 )
 

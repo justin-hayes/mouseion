@@ -79,12 +79,12 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	provider := &translationStub{name: "llm", version: "model-1"}
 	s := NewService(Config{ExternalEnabled: true, UserOptIn: true, ContextMode: SentenceContext}, nil, nil, nil, provider, cache)
 	s.now = func() time.Time { return time.Date(2026, 8, 21, 1, 2, 3, 0, time.UTC) }
-	c := Candidate{Identity: Identity{"de", "haus", "noun"}, ExampleSentence: "Das Haus ist groß."}
+	c := Candidate{Identity: Identity{"de", "haus", "noun"}, TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	first := s.Enrich(context.Background(), []Candidate{c})[0]
 	// A second user's identity cannot affect the shared key because it is not
 	// accepted by either Candidate identity or TranslationRequest.
 	second := s.Enrich(context.Background(), []Candidate{c})[0]
-	want := TranslationRequest{"de", "haus", "NOUN", "Das Haus ist groß."}
+	want := TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	if len(provider.requests) != 1 || provider.requests[0] != want {
 		t.Fatalf("requests=%+v", provider.requests)
 	}
@@ -174,6 +174,8 @@ func TestValidatedContextSentenceRejectsUnsafeOrNonContiguousOutput(t *testing.T
 		{name: "missing target", target: "Haus", proposed: "Das Gebäude steht am Rand", want: source},
 		{name: "paraphrase", target: "Haus", proposed: "Das Haus befindet sich am Rand", want: source},
 		{name: "inside larger word", target: "Haus", proposed: "Das Hausboot steht", want: source},
+		{name: "inadequate fragment", target: "Haus", proposed: "Das Haus", want: source},
+		{name: "still over limit", target: "Haus", proposed: "Das Haus steht am Rand des stillen Waldes," + strings.Repeat(" während die Kinder im Garten spielen", 9), want: source},
 		{name: "empty", target: "Haus", proposed: "", want: source},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -208,8 +210,8 @@ func TestLemmaOnlyRetriesAndGracefulFailure(t *testing.T) {
 		t.Fatalf("result=%+v calls=%d", r, len(provider.requests))
 	}
 	for _, req := range provider.requests {
-		if req.ExampleSentence != "" {
-			t.Fatalf("lemma-only leaked context: %+v", req)
+		if req.ExampleSentence != "" || req.TargetWord != "" {
+			t.Fatalf("lemma-only leaked sentence-derived context: %+v", req)
 		}
 	}
 }

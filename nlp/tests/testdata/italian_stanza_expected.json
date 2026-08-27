@@ -22,7 +22,7 @@
       "text":"Maria portera`? No, porterà pane e dammelo!",
       "tokens":[
         {"surface":"Maria","raw_lemma":"Maria","pos":"PROPN","canonical_lemma":"maria","morphology":{"Gender":"Fem","Number":"Sing"},"named_entity":"S-PER","location":{"source_document_id":"italian-book","start_offset":"39","end_offset":"44"}},
-        {"surface":"portera`","raw_lemma":"portera`","pos":"X","canonical_lemma":"portera`","location":{"source_document_id":"italian-book","start_offset":"45","end_offset":"53"}},
+        {"surface":"portera","raw_lemma":"portera`","pos":"X","canonical_lemma":"portera`","location":{"source_document_id":"italian-book","start_offset":"45","end_offset":"53"}},
         {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","location":{"source_document_id":"italian-book","start_offset":"53","end_offset":"54"}},
         {"surface":"No","raw_lemma":"no","pos":"ADV","canonical_lemma":"no","location":{"source_document_id":"italian-book","start_offset":"55","end_offset":"57"}},
         {"surface":",","raw_lemma":",","pos":"PUNCT","canonical_lemma":",","location":{"source_document_id":"italian-book","start_offset":"57","end_offset":"58"}},
@@ -38,5 +38,5 @@
   ],
   "source_documents":[{"id":"italian-book","source_identifier":"fixture:italian","title":"Italian fixture"}],
   "analysis":{"run_id":"italian-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.14.0"},
-  "normalization_profile":{"name":"unicode-casefold","version":"1.0.0"}
+  "normalization_profile":{"name":"unicode-casefold","version":"1.1.0"}
 }

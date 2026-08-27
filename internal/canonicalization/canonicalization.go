@@ -97,6 +97,9 @@ func (r *Registry) Lookup(language, version string) (Profile, error) {
 
 var defaultRegistry = func() *Registry {
 	r := NewRegistry()
+	if err := r.Register(GermanPost1996Profile{version: "2"}, false); err != nil {
+		panic(err)
+	}
 	if err := r.Register(GermanPost1996(), true); err != nil {
 		panic(err)
 	}

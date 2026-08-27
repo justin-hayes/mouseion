@@ -20,6 +20,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
+	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
 var ErrInvalidInput = errors.New("cardexport: invalid input")
@@ -113,11 +114,10 @@ func Cloze(sentence, target, hint string) (string, error) {
 	if target == "" || strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
-	start := targetIndex(sentence, target)
-	if start < 0 {
+	start, end, ok := textmatch.FoldedWordSpan(sentence, target)
+	if !ok {
 		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
 	}
-	end := start + len(target)
 	mark := "{{c1::" + escapeField(sentence[start:end])
 	if hint = strings.TrimSpace(hint); hint != "" {
 		mark += "::" + escapeField(hint)
@@ -131,16 +131,18 @@ func BoldTarget(sentence, target string) (string, error) {
 	if target == "" || strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
-	start := targetIndex(sentence, target)
-	if start < 0 {
+	start, end, ok := textmatch.FoldedWordSpan(sentence, target)
+	if !ok {
 		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
 	}
-	end := start + len(target)
 	return escapeField(sentence[:start]) + "<b>" + escapeField(sentence[start:end]) + "</b>" + escapeField(sentence[end:]), nil
 }
 
 func escapeField(value string) string {
 	value = html.EscapeString(value)
+	// Anki serializes note fields with U+001F as the field separator. Never let
+	// source or provider text inject an extra field into an APKG note.
+	value = strings.ReplaceAll(value, "\x1f", "&#31;")
 	value = strings.ReplaceAll(value, "{", "&#123;")
 	return strings.ReplaceAll(value, "}", "&#125;")
 }
@@ -354,7 +356,7 @@ func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence
 			evidence SentenceEvidence
 			index    int
 			sentence int
-		}{SentenceEvidence{strings.TrimSpace(ref.Text), target, location, quality}, i, ref.SentenceIndex})
+		}{SentenceEvidence{ref.Text, target, location, quality}, i, ref.SentenceIndex})
 	}
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
@@ -402,39 +404,11 @@ func structuralHeading(text, marker string) bool {
 }
 
 func targetIndex(sentence, target string) int {
-	if target == "" {
-		return -1
-	}
-	lowerSentence, lowerTarget := strings.ToLower(sentence), strings.ToLower(target)
-	for offset := 0; offset <= len(lowerSentence)-len(lowerTarget); {
-		relative := strings.Index(lowerSentence[offset:], lowerTarget)
-		if relative < 0 {
-			return -1
-		}
-		start := offset + relative
-		end := start + len(lowerTarget)
-		if wordBoundaryBefore(lowerSentence, start) && wordBoundaryAfter(lowerSentence, end) {
-			return start
-		}
-		offset = start + 1
+	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
+	if ok {
+		return start
 	}
 	return -1
-}
-
-func wordBoundaryBefore(text string, index int) bool {
-	if index == 0 {
-		return true
-	}
-	r, _ := utf8.DecodeLastRuneInString(text[:index])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
-}
-
-func wordBoundaryAfter(text string, index int) bool {
-	if index == len(text) {
-		return true
-	}
-	r, _ := utf8.DecodeRuneInString(text[index:])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 func precedingGermanDefiniteArticle(sentence, target string) string {
@@ -446,9 +420,12 @@ func precedingGermanDefiniteArticle(sentence, target string) string {
 	if len(words) == 0 {
 		return ""
 	}
-	switch strings.ToLower(words[len(words)-1]) {
+	word := strings.TrimLeftFunc(words[len(words)-1], func(r rune) bool {
+		return unicode.IsPunct(r) || unicode.IsSymbol(r)
+	})
+	switch strings.ToLower(word) {
 	case "der", "die", "das":
-		return strings.ToLower(words[len(words)-1])
+		return strings.ToLower(word)
 	default:
 		return ""
 	}

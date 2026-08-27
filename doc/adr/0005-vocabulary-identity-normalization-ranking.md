@@ -32,11 +32,17 @@ A learning item is uniquely identified by the tuple **(language, canonical lemma
 
 ### 2. Normalization — conservative, deterministic, versioned; a derived field
 
-Follow the spec's model exactly: **source surface form and the raw analyzer lemma are never altered.** A derived **canonical lemma** is computed from the raw lemma by a **normalization profile**, and the profile name + version that produced it is stored alongside.
+Preserve the complete source sentence, source offsets, and raw analyzer lemma.
+`Token.Surface` is the derived lexical form used for selection and matching: it
+removes surrounding Unicode punctuation/symbol decoration while retaining
+lexical apostrophes and internal punctuation. A derived **canonical lemma** is
+computed from the raw lemma by a **normalization profile**, and the profile name
+and version that produced it are stored alongside. This paragraph is amended by
+the accepted [Anki card output milestone](../features/anki-card-output.md).
 
-- **v1 ships one profile:** *German standard orthography (post-1996 reform)* — version 2 lowercases without Unicode case folding, preserving modern `ß` (for example `Straße` → `straße`), and applies explicit historical spelling equivalences such as `daß` → `dass`. Conservative only: no blanket `ß` → `ss` replacement, regional/dialectal forms, or merging of genuinely distinct lexemes such as `Maße` and `Masse`.
+- **v1 ships one profile:** *German standard orthography (post-1996 reform)* — version 3 lowercases without Unicode case folding, preserving modern `ß` (for example `Straße` → `straße`), selects the first usable analyzer lemma alternative, and applies explicit historical spelling equivalences such as `daß` → `dass`. Conservative only: no blanket `ß` → `ss` replacement, regional/dialectal forms, or merging of genuinely distinct lexemes such as `Maße` and `Masse`.
 - **Deterministic and pure:** the profile is a pure function, so it is unit-testable and reproducible.
-- **Versioned:** a profile update re-derives canonical lemmas for **new** items but leaves already-persisted items' canonical values stable unless an explicit re-normalize migration is run. Rules never mutate the stored surface form or raw lemma.
+- **Versioned:** a profile update re-derives canonical lemmas and lexical surfaces for **new** analysis runs but leaves already-persisted items stable unless an explicit re-normalize migration is run. Rules never mutate source sentence text, source offsets, or the raw lemma.
 
 ### 3. Selection & ranking — global (DWDS) frequency as the primary signal
 

@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
+
+	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
 type Identity struct{ Language, CanonicalLemma, UPOS string }
@@ -58,7 +59,7 @@ type PronunciationProvider interface {
 
 // TranslationRequest is deliberately the complete external-provider input.
 // Adding user, document, corpus, or reading metadata to it is prohibited.
-type TranslationRequest struct{ Language, CanonicalLemma, UPOS, ExampleSentence string }
+type TranslationRequest struct{ Language, CanonicalLemma, UPOS, TargetWord, ExampleSentence string }
 type TranslationResponse struct {
 	Translation         string `json:"translation"`
 	Gloss               string `json:"gloss"`
@@ -235,7 +236,14 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 			return r, nil
 		}
 	}
+	target := strings.TrimSpace(c.TargetWord)
+	if target == "" {
+		target = c.CanonicalLemma
+	}
 	req := TranslationRequest{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
+	if sentence != "" {
+		req.TargetWord = target
+	}
 	req.ExampleSentence = sentence
 	var response TranslationResponse
 	var err error
@@ -264,10 +272,6 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 	}
 	if err != nil {
 		return r, err
-	}
-	target := strings.TrimSpace(c.TargetWord)
-	if target == "" {
-		target = c.CanonicalLemma
 	}
 	entry := CacheEntry{
 		CacheKey:            key,
@@ -324,46 +328,18 @@ func ValidatedContextSentence(source, target, proposed string) string {
 	if proposed == "" || proposed == source {
 		return source
 	}
-	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || targetIndex(proposed, strings.TrimSpace(target)) < 0 {
+	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || NeedsShortContext(proposed) || len(strings.Fields(proposed)) < 3 || targetIndex(proposed, strings.TrimSpace(target)) < 0 {
 		return source
 	}
 	return proposed
 }
 
 func targetIndex(sentence, target string) int {
-	if target == "" {
-		return -1
-	}
-	lowerSentence, lowerTarget := strings.ToLower(sentence), strings.ToLower(target)
-	for offset := 0; offset <= len(lowerSentence)-len(lowerTarget); {
-		relative := strings.Index(lowerSentence[offset:], lowerTarget)
-		if relative < 0 {
-			return -1
-		}
-		start := offset + relative
-		end := start + len(lowerTarget)
-		if contextWordBoundaryBefore(lowerSentence, start) && contextWordBoundaryAfter(lowerSentence, end) {
-			return start
-		}
-		offset = start + 1
+	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
+	if ok {
+		return start
 	}
 	return -1
-}
-
-func contextWordBoundaryBefore(text string, index int) bool {
-	if index == 0 {
-		return true
-	}
-	r, _ := utf8.DecodeLastRuneInString(text[:index])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
-}
-
-func contextWordBoundaryAfter(text string, index int) bool {
-	if index == len(text) {
-		return true
-	}
-	r, _ := utf8.DecodeRuneInString(text[index:])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 // SentenceHash returns the lowercase hexadecimal SHA-256 digest of the UTF-8

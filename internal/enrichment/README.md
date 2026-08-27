@@ -13,11 +13,13 @@ Mouseion supports OpenAI-compatible Chat Completions endpoints through
 Admin enablement is not user consent. Pass the user's current preference as
 `EnrichmentConfig.UserOptIn`; external calls occur only when that flag and
 `ExternalEnabled` are both true. Use `SentenceContext` to send the canonical
-lemma and one example sentence, or `LemmaOnly` to omit the sentence entirely.
+lemma, tested surface form, and one example sentence, or `LemmaOnly` to omit the
+sentence and tested surface entirely.
 
-The provider boundary accepts only language, canonical lemma, UPOS, and the
-optional example sentence. Results use the existing immutable external cache;
-cache keys include language, provider, and model/prompt version, and result
-provenance records that version and the cache timestamp. HTTP 408, 429, and 5xx
-responses are retryable by the enrichment service; failures become warnings in
-the inline pipeline, while durable jobs may retry them through River.
+The provider boundary accepts only language, canonical lemma, UPOS, tested
+surface form, and the optional example sentence. Results use the existing
+immutable external cache; cache keys include language, provider, and
+model/prompt version, and result provenance records that version and the cache
+timestamp. HTTP 408, 429, and 5xx responses are retryable by the enrichment
+service; failures become warnings in the inline pipeline, while durable jobs
+may retry them through River.

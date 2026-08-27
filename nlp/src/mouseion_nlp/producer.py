@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
+import logging
 from typing import Any, Callable
+import unicodedata
 from uuid import uuid4
 
 import stanza
@@ -26,9 +28,11 @@ class SourceDocument:
 PipelineFactory = Callable[[str, bool], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
-GERMAN_NORMALIZATION_VERSION = "2"
+GERMAN_NORMALIZATION_VERSION = "3"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
-DEFAULT_NORMALIZATION_VERSION = "1.0.0"
+DEFAULT_NORMALIZATION_VERSION = "1.1.0"
+
+logger = logging.getLogger(__name__)
 
 # Exact lexical rules avoid collapsing modern, distinct lemmas such as Maße
 # and Masse. Keep this table in sync with internal/canonicalization/german.go.
@@ -64,19 +68,30 @@ def _morphology(feats: str | None) -> dict[str, str]:
     return dict(part.split("=", 1) for part in feats.split("|") if "=" in part)
 
 
-# Quotation and bracketing marks that Stanza may attach to a lexical token.
-# Apostrophes and ordinary sentence punctuation are intentionally excluded.
-_EDGE_QUOTES = "\"‘’‚‛“”„‟‹›«»「」『』《》〈〉【】〔〕〖〗〘〙〚〛()[]{}"
-
-
 def _clean_surface(surface: str) -> str:
-    """Remove attached quotation/bracketing marks without altering punctuation."""
-    return surface.strip(_EDGE_QUOTES)
+    """Remove Unicode punctuation/symbol edges while preserving lexical internals."""
+    def is_edge_decoration(character: str) -> bool:
+        # Apostrophes are lexical in elided forms such as Italian L' and dell'.
+        return character not in {"'", "’"} and unicodedata.category(character)[0] in {"P", "S"}
+
+    start, end = 0, len(surface)
+    while start < end and is_edge_decoration(surface[start]):
+        start += 1
+    while end > start and is_edge_decoration(surface[end - 1]):
+        end -= 1
+    # Preserve standalone punctuation tokens; only lexical surfaces are derived.
+    return surface[start:end] or surface
 
 
 def _primary_lemma(lemma: str) -> str:
     """Return the first usable alternative from Stanza's pipe lemma form."""
-    return next((alternative.strip() for alternative in lemma.split("|") if alternative.strip()), "")
+    alternatives = [alternative.strip() for alternative in lemma.split("|") if alternative.strip()]
+    if len(set(alternatives)) > 1:
+        logger.warning(
+            "analyzer returned differing lemma alternatives; using the first",
+            extra={"raw_lemma": lemma, "lemma_alternatives": alternatives},
+        )
+    return alternatives[0] if alternatives else ""
 
 
 class Producer:
@@ -174,6 +189,12 @@ class Producer:
                 surface = _clean_surface(word.text)
                 lemma = word.lemma or word.text
                 primary_lemma = _primary_lemma(lemma)
+                if not primary_lemma:
+                    logger.warning(
+                        "analyzer token has no usable lemma alternative; rejecting token",
+                        extra={"raw_lemma": lemma},
+                    )
+                    continue
                 value = normalized_corpus_pb2.Token(
                     surface=surface,
                     raw_lemma=lemma,

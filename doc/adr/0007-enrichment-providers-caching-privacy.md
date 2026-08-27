@@ -47,8 +47,8 @@ The constraints that shape the decision:
 
 ### 4. Privacy — what may leave the home lab
 
-- **Only the target lemma + the one example sentence** are sent to an external provider, and **only for translation**. The full document, surrounding text, document title, user identity, reading history, and any other corpus/learning data **never leave the lab**.
-- The example sentence is included specifically for **sense disambiguation** (the single ambiguous-sense case from ADR 0005). A user can configure **lemma-only** context (no sentence) for stricter privacy.
+- In sentence-context mode, **only the target lemma, its tested surface form, and the one example sentence** are sent to an external provider, and **only for translation/context selection**. The full document, surrounding text, document title, user identity, reading history, and any other corpus/learning data **never leave the lab**.
+- The example sentence and tested surface are included specifically for **sense disambiguation** and exact-span validation. A user can configure **lemma-only** context (neither sentence nor tested surface) for stricter privacy.
 - **External providers are opt-in, per-user, admin-configured.** An admin enables a provider and supplies credentials; each user can enable/disable translation. Provider privacy policies are surfaced where relevant.
 - **A no-external-provider configuration is fully supported** (see §2): the entire pipeline runs with translation off, frequency/morphology/pronunciation all local.
 
@@ -62,14 +62,14 @@ The constraints that shape the decision:
 
 - **Enrichment through the job abstraction.** Rejected: adds coordination overhead for a bounded, cached operation that runs inline in the core; the job API stays for slow ingest-time NLP.
 - **Dictionary provider as the v1 default instead of LLM.** Deferred: a dictionary integration is a per-provider auth/rate-limit integration; the LLM is one generic provider and is easily replaced via the interface. A dictionary remains a configurable alternative.
-- **Send full sentence context + document metadata to the LLM.** Rejected on privacy: only lemma + one example sentence leave the lab; no document/user metadata.
+- **Send full sentence context + document metadata to the LLM.** Rejected on privacy: only the lemma, tested surface form, and one example sentence leave the lab; no document/user metadata.
 - **Per-user caching (no cross-user sharing).** Rejected: wasteful — two users studying the same German lemma should not each incur an LLM call. Cache key is language-scoped and provider-versioned.
 - **Make translation required.** Rejected: a user who already knows a word's meaning (or runs fully offline) must be able to use the tool without it.
 
 ## Consequences
 
 - The enrichment pipeline (issue #19) implements the provider interface, caching, and provenance; translation is the only external-capable field.
-- Only the lemma + one example sentence may transit an external provider, under admin-configured, per-user opt-in.
+- In sentence-context mode, only the lemma, tested surface form, and one example sentence may transit an external provider, under admin-configured, per-user opt-in; lemma-only mode sends only the lemma identity.
 - Cached translations are shared across users per language, keyed and versioned by ADR 0005 identity.
 - Enrichment runs inline in the Go core; the job abstraction is unchanged (still for ingest-time NLP).
 - Open Questions 6 and 9 in `product.md` are resolved; #28 can be closed. Issues #19 and #20 are updated per the decision.
