@@ -13,7 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
+const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`
 
 type rowScanner interface {
 	Scan(...any) error
@@ -27,8 +27,72 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 		return domain.DeckPreparation{}, err
 	}
 	defer tx.Rollback(ctx)
+	ready, err := completePreparedDeckTx(ctx, tx, owner, id, artifact)
+	if err != nil {
+		return ready, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return ready, nil
+}
+
+// CompletePreparedDeckRun extends the existing atomic artifact boundary with a
+// current-run and finalizer-token fence. A retry after commit is a no-op only
+// when both the immutable artifact and completed run match.
+func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, preparationID, runID, claimToken string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	defer tx.Rollback(ctx)
+	var preparationState domain.DeckPreparationState
+	var currentRunID string
+	if err = tx.QueryRow(ctx, `SELECT state,COALESCE(current_run_id::text,'') FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, preparationID).Scan(&preparationState, &currentRunID); err != nil {
+		return domain.DeckPreparation{}, missing(err)
+	}
+	run, err := scanPreparedDeckRun(tx.QueryRow(ctx, `SELECT `+preparedDeckRunColumns+` FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 FOR UPDATE`, owner, preparationID, runID))
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if preparationState == domain.DeckPreparationReady && run.State == domain.PreparedDeckRunCompleted && currentRunID == runID {
+		ready, completeErr := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact)
+		if completeErr != nil {
+			return ready, completeErr
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		return ready, nil
+	}
+	var leaseActive bool
+	if err = tx.QueryRow(ctx, `SELECT COALESCE(finalization_lease_expires_at > now(),false) FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3`, owner, preparationID, runID).Scan(&leaseActive); err != nil {
+		return domain.DeckPreparation{}, missing(err)
+	}
+	if currentRunID != runID || run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted || run.FinalizationClaimToken == "" || run.FinalizationClaimToken != claimToken || !leaseActive {
+		return domain.DeckPreparation{}, ErrFenced
+	}
+	ready, err := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact)
+	if err != nil {
+		return ready, err
+	}
+	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_runs SET state='completed',finalization_claim_token=NULL,finalization_claimed_at=NULL,finalization_lease_expires_at=NULL,error_class='',error_code='',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='finalizing' AND finalization_claim_token=$4`, owner, preparationID, runID, claimToken)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if tag.RowsAffected() != 1 {
+		return domain.DeckPreparation{}, ErrFenced
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return ready, nil
+}
+
+func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
 	var state domain.DeckPreparationState
-	if err = tx.QueryRow(ctx, `SELECT state FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id).Scan(&state); err != nil {
+	err := tx.QueryRow(ctx, `SELECT state FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id).Scan(&state)
+	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
 	}
 	if state == domain.DeckPreparationReady {
@@ -81,15 +145,12 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 	if err != nil {
 		return ready, err
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
 	return ready, nil
 }
 
 func scanDeckPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt)
 	return p, missing(err)
 }
 
@@ -139,7 +200,7 @@ func (s *PostgresStore) FailDeckPreparation(ctx context.Context, owner, id, mess
 }
 
 func (s *PostgresStore) CancelDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
-	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationCancelled, "", "queued", "preparing")
+	return s.CancelCurrentPreparedDeckRun(ctx, owner, id)
 }
 
 func (s *PostgresStore) RetryDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
@@ -152,7 +213,7 @@ func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id
 		return domain.DeckPreparation{}, err
 	}
 	defer tx.Rollback(ctx)
-	p, err := scanDeckPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state=$3,error=$4,started_at=CASE WHEN $3='queued' THEN NULL ELSE started_at END,completed_at=CASE WHEN $3 IN ('failed','cancelled') THEN now() ELSE NULL END,updated_at=now() WHERE owner_id=$1 AND id=$2 AND state=ANY($5) RETURNING `+deckPreparationColumns, owner, id, next, message, from))
+	p, err := scanDeckPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state=$3,error=$4,current_run_id=CASE WHEN $3='queued' THEN NULL ELSE current_run_id END,started_at=CASE WHEN $3='queued' THEN NULL ELSE started_at END,completed_at=CASE WHEN $3 IN ('failed','cancelled') THEN now() ELSE NULL END,updated_at=now() WHERE owner_id=$1 AND id=$2 AND state=ANY($5) RETURNING `+deckPreparationColumns, owner, id, next, message, from))
 	if errors.Is(err, ErrNotFound) {
 		_ = tx.Rollback(ctx)
 		if _, getErr := s.GetDeckPreparation(ctx, owner, id); getErr != nil {

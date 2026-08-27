@@ -31,6 +31,9 @@ var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrActiveCampaign = errors.New("persistence: owner already has an active learning campaign")
+var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
+var ErrFenced = ErrPreparedDeckClaimLost
+var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")
 
 type Store interface {
 	Ping(context.Context) error

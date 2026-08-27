@@ -59,6 +59,7 @@ type Manifest struct {
 	omitted              []Omission
 	enrichmentCandidates []enrichment.Candidate
 	cacheKeys            []enrichment.CacheKey
+	decisions            []ManifestItem
 }
 
 // ExactEnrichment is the result for one manifest candidate under the exact
@@ -886,15 +887,21 @@ func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
 
 // NewManifest quality-gates entries once and returns an immutable render plan.
 func NewManifest(owner, deckName string, entries []Entry) Manifest {
-	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]Entry, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries))}
-	for _, entry := range entries {
+	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]Entry, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
+	for ordinal, entry := range entries {
+		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
 		entry.TargetWord = testedTarget(entry)
+		decisionEntry := entry
+		clearExternalFields(&decisionEntry)
+		decisionEntry.OwnerID = ""
 		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
+			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, Entry: decisionEntry, Quality: quality})
 			continue
 		}
 		manifest.accepted = append(manifest.accepted, entry)
+		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
 			TargetWord:      entry.TargetWord,
@@ -933,7 +940,13 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 	}
 	bound := m.clone()
 	bound.cacheKeys = append([]enrichment.CacheKey(nil), keys...)
-	for i, key := range bound.cacheKeys {
+	acceptedIndex := 0
+	for decisionIndex := range bound.decisions {
+		if bound.decisions[decisionIndex].Disposition != ManifestAccepted {
+			continue
+		}
+		key := bound.cacheKeys[acceptedIndex]
+		i := acceptedIndex
 		candidate := bound.enrichmentCandidates[i]
 		if key.Language != candidate.Language || key.CanonicalLemma != candidate.CanonicalLemma || key.UPOS != strings.ToUpper(candidate.UPOS) || strings.TrimSpace(key.Provider) == "" || strings.TrimSpace(key.ProviderVersion) == "" {
 			return Manifest{}, fmt.Errorf("%w: cache identity does not match manifest candidate %d", ErrInvalidInput, i)
@@ -943,6 +956,8 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 			return Manifest{}, fmt.Errorf("%w: sentence cache identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
 		clearExternalFields(&bound.accepted[i])
+		bound.decisions[decisionIndex].CacheKey = &key
+		acceptedIndex++
 	}
 	return bound, nil
 }
@@ -955,6 +970,7 @@ func (m Manifest) clone() Manifest {
 	}
 	m.enrichmentCandidates = append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
 	m.cacheKeys = append([]enrichment.CacheKey(nil), m.cacheKeys...)
+	m.decisions = cloneManifestItems(m.decisions)
 	return m
 }
 
