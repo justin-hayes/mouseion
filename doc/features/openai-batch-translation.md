@@ -349,20 +349,30 @@ implementation decisions needed by this feature:
 ADR 0031 remains Proposed. Its explicit open questions must be approved before
 implementation issues depending on these policies begin.
 
-## Suggested implementation decomposition
+## Implementation issues
 
-1. **Provider contract and request serialization:** extract the existing
-   request semantics from the synchronous transport, make them the Batch
-   request contract, and add deterministic JSONL fixtures.
-2. **Batch client and configuration:** implement Files/Batch submission,
-   status retrieval, cancellation, and model/endpoint validation behind a
-   testable interface.
-3. **Durable run integration:** extend the ADR 0030 translation-run lifecycle
-   with Batch chunk state, durable IDs, polling, and fenced reconciliation.
-4. **Retry policy:** implement per-item retry classification and new Batch
-   submissions for failed or expired items; remove synchronous fallback.
-5. **Observability and rollout:** add aggregate metrics, operational controls,
-   comparison tests, and an opt-in deployment path.
+The feature is split into seven coherent implementation units:
+
+1. [#348: Persist durable runs, manifests, and Batch chunk state](https://github.com/justin-hayes/mouseion/issues/348)
+   establishes the owner-scoped schema, freeze contract, outcomes, and atomic
+   finalizer. Its migration requires CODEOWNERS review.
+2. [#349: Extract the translation codec and implement a Batch client](https://github.com/justin-hayes/mouseion/issues/349)
+   can proceed in parallel with #348 because it does not depend on persistence.
+3. [#350: Submit deterministic Batch chunks](https://github.com/justin-hayes/mouseion/issues/350)
+   integrates #348 and #349 and implements fail-closed submission recovery.
+4. [#351: Reconcile results, retries, cancellation, and finalization](https://github.com/justin-hayes/mouseion/issues/351)
+   completes the durable provider lifecycle after #350.
+5. [#352: Expose progress, metrics, and provider-file cleanup](https://github.com/justin-hayes/mouseion/issues/352)
+   makes the completed lifecycle operable and learner-visible without adding a
+   second public state machine.
+6. [#353: Validate the opt-in rollout on frozen manifests](https://github.com/justin-hayes/mouseion/issues/353)
+   gathers explicit quality, correctness, cost, latency, and recovery evidence.
+7. [#354: Cut over to Batch and remove synchronous concurrency](https://github.com/justin-hayes/mouseion/issues/354)
+   is intentionally last and requires a passing #353 decision.
+
+Implementation begins only after ADRs 0030 and 0031 are accepted. The dependency
+waves are `#348 + #349` in parallel, then `#350`, `#351`, `#352`, `#353`, and
+finally `#354`.
 
 ## Related documents and code
 
