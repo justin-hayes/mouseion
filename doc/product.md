@@ -84,6 +84,15 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
   another language requires an image rebuild that provisions its model. The singular
   `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
+- `MOUSEION_LLM_ENABLED` — set to `true` to enable optional external translation;
+  also requires `MOUSEION_LLM_API_KEY` and `MOUSEION_LLM_MODEL`.
+- `MOUSEION_LLM_BASE_URL` — optional OpenAI-compatible API root; defaults to
+  `https://api.openai.com/v1`.
+- `MOUSEION_LLM_TIMEOUT` — optional positive Go duration; defaults to `30s`.
+- `MOUSEION_LLM_REASONING_EFFORT` — optional `low`, `medium`, or `high` value;
+  defaults to `low`.
+- `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` — set to `true` only when a custom
+  OpenAI-compatible endpoint/model supports `reasoning_effort`.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
 

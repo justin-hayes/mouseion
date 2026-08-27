@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +41,10 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		}
 	}
 	messages := received["messages"].([]any)
+	system := messages[0].(map[string]any)["content"].(string)
+	if !strings.Contains(system, "exactly one JSON object") || !strings.Contains(system, "exactly these four string fields") || strings.Contains(strings.ToLower(system), "verbosity") {
+		t.Fatalf("prompt does not enforce concise strict JSON output: %q", system)
+	}
 	user := messages[1].(map[string]any)["content"].(string)
 	var input map[string]any
 	if err := json.Unmarshal([]byte(user), &input); err != nil {
@@ -47,6 +52,40 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	}
 	if len(input) != 5 || input["language"] != "de" || input["canonical_lemma"] != "Haus" || input["upos"] != "NOUN" || input["target_word"] != "Haus" || input["example_sentence"] != "Das Haus ist groß." {
 		t.Fatalf("external input=%v", input)
+	}
+	if received["temperature"] != float64(0) || received["reasoning_effort"] != nil {
+		t.Fatalf("unknown endpoint request compatibility fields: %v", received)
+	}
+}
+
+func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature(t *testing.T) {
+	var received map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Error(err)
+		}
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"dwelling\"}"}}]}`)
+	}))
+	defer server.Close()
+
+	client, err := NewOpenAITranslationClient(LLMConfig{
+		APIKey:                  "key",
+		Model:                   "self-hosted-reasoning-model",
+		BaseURL:                 server.URL,
+		ReasoningEffort:         "low",
+		SupportsReasoningEffort: true,
+	}, server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}); err != nil {
+		t.Fatal(err)
+	}
+	if received["reasoning_effort"] != "low" {
+		t.Fatalf("reasoning_effort=%v, request=%v", received["reasoning_effort"], received)
+	}
+	if _, present := received["temperature"]; present {
+		t.Fatalf("reasoning request included temperature: %v", received)
 	}
 }
 
@@ -129,6 +168,8 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	t.Setenv("MOUSEION_LLM_MODEL", "gpt-test")
 	t.Setenv("MOUSEION_LLM_BASE_URL", "https://llm.example/v1/")
 	t.Setenv("MOUSEION_LLM_TIMEOUT", "4s")
+	t.Setenv("MOUSEION_LLM_REASONING_EFFORT", "medium")
+	t.Setenv("MOUSEION_LLM_SUPPORTS_REASONING_EFFORT", "true")
 	cfg, err := LLMConfigFromEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +178,45 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v4-long-context-50w-400c" || cfg.Timeout != 4*time.Second {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v5-concise-json-50w-400c-reasoning-medium" || cfg.Timeout != 4*time.Second || cfg.ReasoningEffort != "medium" || !cfg.SupportsReasoningEffort {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
+	}
+}
+
+func TestLLMConfigFromEnvDefaultsReasoningEffortToLow(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_REASONING_EFFORT", "")
+	cfg, err := LLMConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ReasoningEffort != "low" {
+		t.Fatalf("reasoning effort=%q, want low", cfg.ReasoningEffort)
+	}
+}
+
+func TestLLMConfigFromEnvRejectsInvalidReasoningEffort(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_REASONING_EFFORT", "maximum")
+	_, err := LLMConfigFromEnv()
+	if err == nil || !strings.Contains(err.Error(), "MOUSEION_LLM_REASONING_EFFORT") || !strings.Contains(err.Error(), "one of low, medium, or high") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestLLMConfigFromEnvRejectsInvalidReasoningSupport(t *testing.T) {
+	t.Setenv("MOUSEION_LLM_SUPPORTS_REASONING_EFFORT", "sometimes")
+	_, err := LLMConfigFromEnv()
+	if err == nil || !strings.Contains(err.Error(), "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT must be a boolean") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestKnownReasoningModelRequiresOpenAIEndpoint(t *testing.T) {
+	openAIURL, _ := url.Parse("https://api.openai.com/v1")
+	customURL, _ := url.Parse("https://llm.example/v1")
+	if !knownReasoningModel(openAIURL, "o3-mini") {
+		t.Fatal("o3-mini should be recognized at the OpenAI endpoint")
+	}
+	if knownReasoningModel(customURL, "o3-mini") {
+		t.Fatal("o3-mini should not be assumed supported at an unknown endpoint")
 	}
 }

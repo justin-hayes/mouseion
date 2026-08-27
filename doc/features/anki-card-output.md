@@ -172,8 +172,9 @@ This preserves privacy and reproducibility better than asking the LLM to
 paraphrase. It also means the cache key and prompt version must include the
 context-selection operation and its version. The full sentence translation
 should remain tied to the complete source sentence, not the shortened clause.
-The current operation/version is `translation-v4-long-context-50w-400c`; changing
-it bypasses older cached provider results. The cache stores the validated
+The current operation/version is `translation-v5-concise-json-50w-400c` with
+low reasoning effort on supported reasoning models; changing it bypasses older
+cached provider results. The cache stores the validated
 context with the provider, provider version, and complete-sentence hash. A
 confidence or rationale is not persisted in this rollout.
 

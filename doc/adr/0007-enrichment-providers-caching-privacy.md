@@ -58,6 +58,14 @@ The constraints that shape the decision:
 - **External translation** of a bulk candidate set runs as a **River background job** (retries, progress, cancellation), per [ADR 0012](0012-enrichment-execution-via-river.md). This amends the earlier "all inline, not job-based" stance for the external-translation path.
 - Rationale: local providers are instant/deterministic; external translation is slow and failure-prone (one call per candidate), better served by the job abstraction (ADR 0010).
 
+The OpenAI-compatible implementation defaults to low reasoning effort. It sends
+the `reasoning_effort` field only for recognized OpenAI reasoning models or an
+endpoint/model explicitly marked as supporting that field, and omits
+`temperature` for those requests. Unknown and self-hosted endpoints retain the
+legacy request shape for compatibility. Its prompt requires one concise JSON
+object with exactly the translation fields; it does not rely on a provider-wide
+verbosity parameter.
+
 ## Alternatives considered
 
 - **Enrichment through the job abstraction.** Rejected: adds coordination overhead for a bounded, cached operation that runs inline in the core; the job API stays for slow ingest-time NLP.
