@@ -362,11 +362,32 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Lemma != "Haus" || note.POS != "NOUN" {
+	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Lemma != "die Haus" || note.POS != "NOUN" {
 		t.Fatalf("note = %#v", note)
 	}
 	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {
 		t.Fatalf("note key = %q, want canonical identity key %q", note.Key, want)
+	}
+}
+
+func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
+	for _, test := range []struct {
+		name, language, sentence, target, want string
+	}{
+		{name: "das", language: "de", sentence: "Ich lese das Buch.", target: "Buch", want: "das Buch"},
+		{name: "die", language: "de", sentence: "Ich sehe die Stadt.", target: "Stadt", want: "die Stadt"},
+		{name: "not adjacent", language: "de", sentence: "Das schöne Buch liegt dort.", target: "Buch", want: "Buch"},
+		{name: "non German", language: "it", sentence: "La casa è grande.", target: "casa", want: "casa"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			note, err := makeNote("alice", Entry{Language: test.language, CanonicalLemma: strings.ToLower(test.target), UPOS: "NOUN", Sentence: test.sentence, TargetWord: test.target})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if note.Lemma != test.want {
+				t.Fatalf("lemma = %q, want %q", note.Lemma, test.want)
+			}
+		})
 	}
 }
 

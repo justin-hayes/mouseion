@@ -409,6 +409,23 @@ func wordBoundaryAfter(text string, index int) bool {
 	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
+func precedingGermanDefiniteArticle(sentence, target string) string {
+	start := targetIndex(sentence, strings.TrimSpace(target))
+	if start <= 0 {
+		return ""
+	}
+	words := strings.Fields(sentence[:start])
+	if len(words) == 0 {
+		return ""
+	}
+	switch strings.ToLower(words[len(words)-1]) {
+	case "der", "die", "das":
+		return strings.ToLower(words[len(words)-1])
+	default:
+		return ""
+	}
+}
+
 func makeNote(owner string, entry Entry) (Note, error) {
 	target := strings.TrimSpace(entry.TargetWord)
 	if target == "" {
@@ -419,9 +436,15 @@ func makeNote(owner string, entry Entry) (Note, error) {
 		return Note{}, err
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
+	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
+	if strings.EqualFold(strings.TrimSpace(entry.Language), "de") && strings.EqualFold(strings.TrimSpace(entry.UPOS), "NOUN") {
+		if article := precedingGermanDefiniteArticle(entry.Sentence, target); article != "" {
+			displayLemma = article + " " + displayLemma
+		}
+	}
 	note := Note{
 		Key:  DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner),
-		Text: front, Lemma: escapeField(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)),
+		Text: front, Lemma: escapeField(displayLemma),
 		POS: escapeField(entry.UPOS), Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
 		EnglishSentence: escapeField(entry.SentenceTranslation), BookTitle: escapeField(entry.SourceDocument), SourceSentence: escapeField(entry.Sentence), Tags: tags,
 	}
