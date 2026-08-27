@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -83,6 +85,77 @@ type CacheEntry struct {
 type ExternalCache interface {
 	Get(context.Context, CacheKey) (CacheEntry, bool, error)
 	Put(context.Context, CacheEntry) (CacheEntry, error)
+}
+
+// ExternalMetrics contains only aggregate, content-free measurements for one
+// external enrichment operation. It is safe to roll up into job telemetry;
+// candidate identity, requests, responses, and provider error messages are
+// deliberately excluded.
+type ExternalMetrics struct {
+	CacheHits, CacheMisses                  int
+	ProviderCalls, Attempts, Retries        int
+	Cancellations                           int
+	CacheLatency, ProviderLatency           time.Duration
+	RateLimitErrors, Provider5xxErrors      int
+	TimeoutErrors, CacheErrors, OtherErrors int
+}
+
+func (m *ExternalMetrics) addError(class ExternalErrorClass) {
+	switch class {
+	case ExternalErrorRateLimit:
+		m.RateLimitErrors++
+	case ExternalErrorProvider5xx:
+		m.Provider5xxErrors++
+	case ExternalErrorTimeout:
+		m.TimeoutErrors++
+	case ExternalErrorCancellation:
+		m.Cancellations++
+	case ExternalErrorCache:
+		m.CacheErrors++
+	default:
+		m.OtherErrors++
+	}
+}
+
+// ExternalErrorClass is a bounded, privacy-safe provider/cache outcome label.
+// It intentionally never includes an error string or provider response body.
+type ExternalErrorClass string
+
+const (
+	ExternalErrorRateLimit    ExternalErrorClass = "rate_limit"
+	ExternalErrorProvider5xx  ExternalErrorClass = "provider_5xx"
+	ExternalErrorTimeout      ExternalErrorClass = "timeout"
+	ExternalErrorCancellation ExternalErrorClass = "cancellation"
+	ExternalErrorCache        ExternalErrorClass = "cache"
+	ExternalErrorOther        ExternalErrorClass = "other"
+)
+
+// ClassifyExternalError maps provider failures to a bounded label without
+// retaining private provider messages.
+func ClassifyExternalError(err error) ExternalErrorClass {
+	if errors.Is(err, context.Canceled) {
+		return ExternalErrorCancellation
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ExternalErrorTimeout
+	}
+	var httpErr *LLMHTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.StatusCode == http.StatusTooManyRequests {
+			return ExternalErrorRateLimit
+		}
+		if httpErr.StatusCode == http.StatusRequestTimeout {
+			return ExternalErrorTimeout
+		}
+		if httpErr.StatusCode >= 500 {
+			return ExternalErrorProvider5xx
+		}
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return ExternalErrorTimeout
+	}
+	return ExternalErrorOther
 }
 
 type ContextMode string
@@ -179,16 +252,30 @@ func (s *Service) ExternalConfigured() bool {
 // EnrichExternal performs only the cache-backed external translation portion
 // of enrichment. It is shared by the inline compatibility path and River jobs.
 func (s *Service) EnrichExternal(ctx context.Context, c Candidate) (Result, error) {
-	return s.enrichExternal(ctx, c, true)
+	r, _, err := s.EnrichExternalObserved(ctx, c)
+	return r, err
+}
+
+// EnrichExternalObserved is EnrichExternal with aggregate timing and outcome
+// data for prepared-deck observability and deterministic benchmarks.
+func (s *Service) EnrichExternalObserved(ctx context.Context, c Candidate) (Result, ExternalMetrics, error) {
+	return s.enrichExternalObserved(ctx, c, true)
 }
 
 func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache bool) (Result, error) {
+	r, _, err := s.enrichExternalObserved(ctx, c, requireCache)
+	return r, err
+}
+
+func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requireCache bool) (Result, ExternalMetrics, error) {
 	r := Result{Candidate: c}
+	var metrics ExternalMetrics
 	if !s.ExternalConfigured() {
-		return r, nil
+		return r, metrics, nil
 	}
 	if requireCache && s.cache == nil {
-		return r, errors.New("external enrichment cache is required")
+		metrics.CacheErrors++
+		return r, metrics, errors.New("external enrichment cache is required")
 	}
 	sentence := ""
 	if s.config.ContextMode == SentenceContext {
@@ -202,15 +289,21 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
 	}
 	if s.cache != nil {
+		started := time.Now()
 		entry, ok, err := s.cache.Get(ctx, key)
+		metrics.CacheLatency += time.Since(started)
 		if err != nil {
+			metrics.CacheErrors++
 			if requireCache {
-				return r, fmt.Errorf("translation cache get: %w", err)
+				return r, metrics, fmt.Errorf("translation cache get: %w", err)
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
 		} else if ok {
+			metrics.CacheHits++
 			s.setExternal(&r, entry)
-			return r, nil
+			return r, metrics, nil
+		} else {
+			metrics.CacheMisses++
 		}
 	}
 	target := textmatch.CleanLexicalSurface(c.TargetWord)
@@ -224,13 +317,22 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 	req.ExampleSentence = sentence
 	var response TranslationResponse
 	var err error
+	metrics.ProviderCalls++
 	for attempt := 0; attempt < s.config.MaxAttempts; attempt++ {
+		metrics.Attempts++
+		if attempt > 0 {
+			metrics.Retries++
+		}
+		started := time.Now()
 		response, err = s.translation.Translate(ctx, req)
+		metrics.ProviderLatency += time.Since(started)
 		if err == nil {
 			break
 		}
 		if ctx.Err() != nil {
-			return r, ctx.Err()
+			class := ClassifyExternalError(ctx.Err())
+			metrics.addError(class)
+			return r, metrics, ctx.Err()
 		}
 		var retryable interface{ Temporary() bool }
 		if errors.As(err, &retryable) && !retryable.Temporary() {
@@ -242,13 +344,16 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return r, ctx.Err()
+				class := ClassifyExternalError(ctx.Err())
+				metrics.addError(class)
+				return r, metrics, ctx.Err()
 			case <-timer.C:
 			}
 		}
 	}
 	if err != nil {
-		return r, err
+		metrics.addError(ClassifyExternalError(err))
+		return r, metrics, err
 	}
 	entry := CacheEntry{
 		CacheKey:                  key,
@@ -259,10 +364,13 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		CachedAt:                  s.now().UTC(),
 	}
 	if s.cache != nil {
+		started := time.Now()
 		stored, putErr := s.cache.Put(ctx, entry)
+		metrics.CacheLatency += time.Since(started)
 		if putErr != nil {
+			metrics.CacheErrors++
 			if requireCache {
-				return r, fmt.Errorf("translation cache put: %w", putErr)
+				return r, metrics, fmt.Errorf("translation cache put: %w", putErr)
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+putErr.Error())
 		} else {
@@ -270,7 +378,7 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 		}
 	}
 	s.setExternal(&r, entry)
-	return r, nil
+	return r, metrics, nil
 }
 
 func (s *Service) setExternal(r *Result, e CacheEntry) {

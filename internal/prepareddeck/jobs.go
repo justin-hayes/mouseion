@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -362,23 +364,60 @@ type externalEnricher interface {
 	EnrichExternal(context.Context, enrichment.Candidate) (enrichment.Result, error)
 }
 
+type observedExternalEnricher interface {
+	EnrichExternalObserved(context.Context, enrichment.Candidate) (enrichment.Result, enrichment.ExternalMetrics, error)
+}
+
 type Worker struct {
 	river.WorkerDefaults[JobArgs]
 	Store      preparationStore
 	Builder    builder
 	Enrichment externalEnricher
+	Observer   Observer
+	Now        func() time.Time
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
+	now := w.Now
+	if now == nil {
+		now = time.Now
+	}
+	workStarted := now()
+	observation := Observation{
+		Event:                 "prepared_deck_preparation",
+		Outcome:               "error",
+		ConfiguredConcurrency: 1, // Production remains serial until issue #335.
+	}
+	if job.JobRow != nil {
+		observation.JobAttempt = job.Attempt
+		if !job.CreatedAt.IsZero() && workStarted.After(job.CreatedAt) {
+			observation.Durations.QueueWait = workStarted.Sub(job.CreatedAt)
+		}
+	}
+	defer func() {
+		observation.Durations.Total = observation.Durations.QueueWait + now().Sub(workStarted)
+		observeSafely(w.Observer, observation)
+	}()
+
 	a := job.Args
+	phaseStarted := now()
 	p, err := w.Store.ClaimDeckPreparation(ctx, a.OwnerID, a.PreparationID)
+	observation.Durations.Claim = now().Sub(phaseStarted)
 	if errors.Is(err, persistence.ErrInvalidTransition) {
+		observation.Outcome = "skipped"
 		return nil // already completed, cancelled, failed, or claimed by another attempt
 	}
 	if err != nil {
+		observation.Errors.Other++
 		return err
 	}
 	fail := func(cause error) error {
+		observation.Outcome = "failed"
+		if errors.Is(cause, context.Canceled) && observation.Counts.Cancellations == 0 {
+			observation.Counts.Cancellations++
+		} else if errors.Is(cause, context.DeadlineExceeded) && observation.Errors.Timeout == 0 {
+			observation.Errors.Timeout++
+		}
 		_, transitionErr := w.Store.FailDeckPreparation(context.WithoutCancel(ctx), a.OwnerID, a.PreparationID, cause.Error())
 		if transitionErr != nil && !errors.Is(transitionErr, persistence.ErrInvalidTransition) {
 			return fmt.Errorf("%v; mark preparation failed: %w", cause, transitionErr)
@@ -387,34 +426,87 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	}
 	source, err := w.Store.GetSourceMaterial(ctx, a.OwnerID, a.SourceMaterialID)
 	if err != nil {
+		observation.Errors.Other++
 		return fail(fmt.Errorf("load source material: %w", err))
 	}
 	if p.SourceMaterialID != a.SourceMaterialID || p.ContentHash != a.ContentHash || p.AnalysisRunID != a.AnalysisRunID || (a.AnalysisRunID == "" && source.ContentHash != a.ContentHash) {
+		observation.Errors.Other++
 		return fail(errors.New("source material identity changed"))
 	}
+	phaseStarted = now()
 	artifact, err := buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
+	observation.Durations.InitialBuild = now().Sub(phaseStarted)
 	if err != nil {
+		observation.Errors.Build++
 		return fail(fmt.Errorf("build prepared deck: %w", err))
 	}
+	observation.Counts.Accepted = artifact.Completeness.TotalCards
+	observation.Counts.Omitted = artifact.Completeness.QualityOmitted
+	observation.Counts.Selected = observation.Counts.Accepted + observation.Counts.Omitted
+	observation.Counts.TranslationEligible = len(artifact.EnrichmentCandidates)
+	observation.Counts.Untranslated = observation.Counts.TranslationEligible
+	observation.Completeness = completenessOf(artifact.Completeness)
 	if a.ExternalTranslationConsent && w.Enrichment != nil && w.Enrichment.ExternalConfigured() {
+		if observation.Counts.TranslationEligible > 0 {
+			observation.EffectiveConcurrency = 1
+		}
+		phaseStarted = now()
 		for _, candidate := range artifact.EnrichmentCandidates {
 			// Translation and context shortening are optional. The second build
 			// below applies the deterministic quality gate again, so an
 			// unavailable provider can only leave English fields empty or a long
 			// source omitted; it cannot create an unsafe front.
-			_, _ = w.Enrichment.EnrichExternal(ctx, candidate)
+			var result enrichment.Result
+			var metrics enrichment.ExternalMetrics
+			if observed, ok := w.Enrichment.(observedExternalEnricher); ok {
+				result, metrics, err = observed.EnrichExternalObserved(ctx, candidate)
+			} else {
+				result, err = w.Enrichment.EnrichExternal(ctx, candidate)
+			}
+			observation.Counts.CacheHits += metrics.CacheHits
+			observation.Counts.CacheMisses += metrics.CacheMisses
+			observation.Counts.ProviderCalls += metrics.ProviderCalls
+			observation.Counts.Attempts += metrics.Attempts
+			observation.Counts.Retries += metrics.Retries
+			observation.Counts.Cancellations += metrics.Cancellations
+			observation.Errors.RateLimit += metrics.RateLimitErrors
+			observation.Errors.Provider5xx += metrics.Provider5xxErrors
+			observation.Errors.Timeout += metrics.TimeoutErrors
+			observation.Errors.Cache += metrics.CacheErrors
+			observation.Errors.Other += metrics.OtherErrors
+			observation.Durations.Cache += metrics.CacheLatency
+			observation.Durations.Provider += metrics.ProviderLatency
+			if metrics.Attempts > 0 {
+				observation.PeakInFlightProviderCalls = 1
+			}
+			if err == nil && result.SentenceTranslation.Available {
+				observation.Counts.Translated++
+				observation.Counts.Untranslated--
+			}
 		}
+		observation.Durations.Translation = now().Sub(phaseStarted)
+		phaseStarted = now()
 		artifact, err = buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
+		observation.Durations.FinalBuild = now().Sub(phaseStarted)
 		if err != nil {
+			observation.Errors.Build++
 			return fail(fmt.Errorf("render enriched prepared deck: %w", err))
 		}
+		observation.Completeness = completenessOf(artifact.Completeness)
 	}
+	phaseStarted = now()
 	if _, err = w.Store.CompletePreparedDeck(ctx, a.OwnerID, a.PreparationID, artifact); err != nil {
+		observation.Durations.Commit = now().Sub(phaseStarted)
 		if errors.Is(err, persistence.ErrInvalidTransition) { // cancellation won the race
+			observation.Outcome = "cancelled"
+			observation.Counts.Cancellations++
 			return nil
 		}
+		observation.Errors.Commit++
 		return fail(fmt.Errorf("complete prepared deck: %w", err))
 	}
+	observation.Durations.Commit = now().Sub(phaseStarted)
+	observation.Outcome = "ready"
 	return nil
 }
 
@@ -434,7 +526,13 @@ func buildArtifact(ctx context.Context, b builder, owner, sourceID, analysisRunI
 }
 
 func AddWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service) {
-	river.AddWorker(workers, &Worker{Store: store, Builder: export, Enrichment: enrich})
+	AddWorkerObserved(workers, store, export, enrich, NewLogObserver(log.Default()))
+}
+
+// AddWorkerObserved registers a worker with an explicit aggregate observer.
+// It is primarily useful for tests and alternate metrics backends.
+func AddWorkerObserved(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service, observer Observer) {
+	river.AddWorker(workers, &Worker{Store: store, Builder: export, Enrichment: enrich, Observer: observer})
 }
 
 const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`

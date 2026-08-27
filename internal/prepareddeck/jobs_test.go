@@ -1,9 +1,13 @@
 package prepareddeck
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -72,6 +76,24 @@ type fakeEnricher struct {
 	err   error
 }
 
+type observedEnricher struct {
+	results []enrichment.Result
+	metrics []enrichment.ExternalMetrics
+	errors  []error
+	calls   int
+}
+
+func (*observedEnricher) ExternalConfigured() bool { return true }
+func (e *observedEnricher) EnrichExternal(ctx context.Context, candidate enrichment.Candidate) (enrichment.Result, error) {
+	result, _, err := e.EnrichExternalObserved(ctx, candidate)
+	return result, err
+}
+func (e *observedEnricher) EnrichExternalObserved(context.Context, enrichment.Candidate) (enrichment.Result, enrichment.ExternalMetrics, error) {
+	i := e.calls
+	e.calls++
+	return e.results[i], e.metrics[i], e.errors[i]
+}
+
 func (*fakeEnricher) ExternalConfigured() bool { return true }
 func (e *fakeEnricher) EnrichExternal(context.Context, enrichment.Candidate) (enrichment.Result, error) {
 	e.calls++
@@ -91,6 +113,66 @@ func TestWorkerEnrichesRerendersAndCompletes(t *testing.T) {
 	}
 	if builder.calls != 2 || enricher.calls != 1 || store.completed == nil || string(store.completed.APKG) != "after" || store.completed.TSV != "recognition-tsv" || store.failed != "" {
 		t.Fatalf("calls=%d enrichment=%d completed=%+v failed=%q", builder.calls, enricher.calls, store.completed, store.failed)
+	}
+}
+
+func TestWorkerEmitsPrivacySafePhaseAndOutcomeObservation(t *testing.T) {
+	store := &fakeStore{preparation: domain.DeckPreparation{ID: "private-preparation", OwnerID: "private-owner", SourceMaterialID: "book", ContentHash: "hash"}, source: domain.SourceMaterial{ID: "book", OwnerID: "private-owner", Title: "Private Title", ContentHash: "hash"}}
+	candidates := []enrichment.Candidate{
+		{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "secret-lemma-1", UPOS: "NOUN"}, ExampleSentence: "Private sentence one."},
+		{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "secret-lemma-2", UPOS: "NOUN"}, ExampleSentence: "Private sentence two."},
+	}
+	first := cardexport.Artifact{APKG: []byte("before"), Count: 2, Completeness: cardexport.Completeness{TotalCards: 2, QualityOmitted: 1}, EnrichmentCandidates: candidates}
+	final := cardexport.Artifact{APKG: []byte("after"), Count: 2, Completeness: cardexport.Completeness{TotalCards: 2, CardsWithEnglish: 1, CardsWithEnglishSentence: 1, QualityOmitted: 1}}
+	enricher := &observedEnricher{
+		results: []enrichment.Result{{SentenceTranslation: enrichment.Field[string]{Available: true}}, {}},
+		metrics: []enrichment.ExternalMetrics{
+			{CacheHits: 1, CacheLatency: time.Millisecond},
+			{CacheMisses: 1, ProviderCalls: 1, Attempts: 2, Retries: 1, ProviderLatency: 2 * time.Millisecond, RateLimitErrors: 1},
+		},
+		errors: []error{nil, errors.New("provider response must not be observed")},
+	}
+	var got Observation
+	worker := &Worker{Store: store, Builder: &fakeBuilder{artifacts: []cardexport.Artifact{first, final}}, Enrichment: enricher, Observer: ObserverFunc(func(observation Observation) { got = observation })}
+	created := time.Now().Add(-time.Second)
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1, Attempt: 2, CreatedAt: created}, Args: JobArgs{PreparationID: "private-preparation", OwnerID: "private-owner", SourceMaterialID: "book", ContentHash: "hash", ExternalTranslationConsent: true}}
+	if err := worker.Work(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome != "ready" || got.JobAttempt != 2 || got.ConfiguredConcurrency != 1 || got.EffectiveConcurrency != 1 || got.PeakInFlightProviderCalls != 1 {
+		t.Fatalf("observation header=%+v", got)
+	}
+	wantCounts := OutcomeCounts{Selected: 3, Accepted: 2, Omitted: 1, TranslationEligible: 2, Translated: 1, Untranslated: 1, CacheHits: 1, CacheMisses: 1, ProviderCalls: 1, Attempts: 2, Retries: 1}
+	if got.Counts != wantCounts || got.Errors.RateLimit != 1 || got.Completeness != (Completeness{TotalCards: 2, CardsWithEnglish: 1, CardsWithContextualTranslation: 1, QualityOmissions: 1}) {
+		t.Fatalf("observation=%+v", got)
+	}
+	if got.Durations.QueueWait <= 0 || got.Durations.Total < got.Durations.QueueWait || got.Durations.Cache != time.Millisecond || got.Durations.Provider != 2*time.Millisecond {
+		t.Fatalf("durations=%+v", got.Durations)
+	}
+
+	var output bytes.Buffer
+	NewLogObserver(log.New(&output, "", 0)).Observe(got)
+	logged := output.String()
+	for _, private := range []string{"private-preparation", "private-owner", "Private Title", "secret-lemma", "Private sentence", "provider response"} {
+		if strings.Contains(logged, private) {
+			t.Fatalf("observation leaked %q: %s", private, logged)
+		}
+	}
+	if !strings.Contains(logged, `"event":"prepared_deck_preparation"`) || !strings.Contains(logged, `"cache_hits":1`) {
+		t.Fatalf("missing aggregate fields: %s", logged)
+	}
+}
+
+func TestObservationFailureCannotFailPreparation(t *testing.T) {
+	store := &fakeStore{preparation: domain.DeckPreparation{ID: "p", SourceMaterialID: "book", ContentHash: "hash"}, source: domain.SourceMaterial{ID: "book", ContentHash: "hash"}}
+	worker := &Worker{
+		Store:    store,
+		Builder:  &fakeBuilder{artifacts: []cardexport.Artifact{{APKG: []byte("ready")}}},
+		Observer: ObserverFunc(func(Observation) { panic("metrics backend unavailable") }),
+	}
+	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1}, Args: JobArgs{PreparationID: "p", OwnerID: "alice", SourceMaterialID: "book", ContentHash: "hash"}}
+	if err := worker.Work(context.Background(), job); err != nil || store.completed == nil {
+		t.Fatalf("err=%v completed=%+v", err, store.completed)
 	}
 }
 
