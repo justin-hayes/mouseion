@@ -265,7 +265,7 @@ cards may have empty English fields, while long cards without a validated span
 are reported as quality omissions and are not assigned as generated
 vocabulary.
 
-The analyzer contract revision is identified by scoped analyzer version `2`,
-German normalization profile version `3`, and language-neutral profile version
-`1.1.0`. Re-submitting a reviewed scope creates a new immutable analysis run
+The analyzer contract revision is identified by scoped analyzer version `3`,
+German normalization profile version `4`, and language-neutral profile version
+`1.2.0`. Re-submitting a reviewed scope creates a new immutable analysis run
 under those versions instead of rewriting an earlier corpus.

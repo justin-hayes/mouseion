@@ -43,6 +43,7 @@ type JobArgs struct {
 	SourceIdentifier  string `json:"source_identifier"`
 	Title             string `json:"title"`
 	ReviewedScopeID   string `json:"reviewed_scope_id,omitempty" river:"unique"`
+	AnalysisIdentity  string `json:"analysis_identity,omitempty" river:"unique"`
 	ContentRevisionID string `json:"content_revision_id,omitempty"`
 	SnapshotID        string `json:"snapshot_id,omitempty"`
 	AnalyzerName      string `json:"analyzer_name,omitempty"`
@@ -76,10 +77,14 @@ type Status struct {
 
 const (
 	scopedAnalyzerName = "mouseion-scoped-analyzer"
-	// Version 2 identifies lexical-surface cleanup and pipe-lemma selection so
-	// an existing immutable v1 run is not silently reused after normalization.
-	scopedAnalyzerVersion = "2"
+	// Version 3 identifies lemma-boundary cleanup so an existing immutable run
+	// is not silently reused after normalization.
+	scopedAnalyzerVersion = "3"
 	scopedConfigIdentity  = "selection-default-v1"
+	// Version 2 identifies the current ordinary analysis contract, including
+	// lemma-boundary cleanup. Bump it whenever ordinary normalization or
+	// analyzer output semantics change.
+	ordinaryAnalysisContractVersion = "2"
 )
 
 type Service struct {
@@ -146,7 +151,8 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 }
 
 // SubmitAnalysis atomically records an owner-scoped handle and inserts its
-// River job. River uniqueness is based on owner + source content hash.
+// River job. Ordinary uniqueness is based on owner + source content hash +
+// analysis contract identity.
 func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (Handle, error) {
 	return s.submitAnalysis(ctx, owner, sourceID, "")
 }
@@ -273,6 +279,8 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID s
 			return Handle{}, err
 		}
 		args.Text = ""
+	} else {
+		args.AnalysisIdentity = ordinaryAnalysisIdentity(args.ContentHash)
 	}
 	// Serialize submissions per owner so display numbers remain gap-free and
 	// unique without exposing River's global sequence.
@@ -280,7 +288,7 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID s
 		return Handle{}, fmt.Errorf("lock analysis submissions: %w", err)
 	}
 	var existingID, existingDisplayNumber int64
-	err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND (($3='' AND reviewed_scope_id IS NULL AND content_hash=$2) OR reviewed_scope_id::text=$3)`, owner, args.ContentHash, scopeID).Scan(&existingID, &existingDisplayNumber)
+	err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND (($3='' AND reviewed_scope_id IS NULL AND content_hash=$2 AND analysis_identity=$4) OR reviewed_scope_id::text=$3)`, owner, args.ContentHash, scopeID, args.AnalysisIdentity).Scan(&existingID, &existingDisplayNumber)
 	if err == nil {
 		if err := tx.Commit(ctx); err != nil {
 			return Handle{}, fmt.Errorf("commit duplicate analysis lookup: %w", err)
@@ -295,9 +303,9 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID s
 		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
 	}
 	var displayNumber int64
-	err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,reviewed_scope_id,display_number)
-		VALUES($1,$2,$3,$4,NULLIF($5,'')::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))
-		RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, scopeID).Scan(&displayNumber)
+	err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_identity,reviewed_scope_id,display_number)
+		VALUES($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,'')::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2))
+		RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, args.AnalysisIdentity, scopeID).Scan(&displayNumber)
 	if err != nil {
 		return Handle{}, fmt.Errorf("record analysis job: %w", err)
 	}
@@ -711,7 +719,6 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 			}
 			inputs = append(inputs, analysisInput{unit.UnitID, identifier, unit.Title, unit.Text})
 		}
-		artifactHash = fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(a.ContentHash+"\x00"+a.ReviewedScopeID)))
 	}
 	// Analyze each selected unit independently, retaining its unit ID as the
 	// source-document identity. Oversized units still use ADR 0013 chunking.
@@ -750,6 +757,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 	}
 	result := merged
+	artifactHash = normalizedArtifactHash(a.ContentHash, a.ReviewedScopeID, a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, result)
 	lemmas := aggregateLemmas(artifactHash, result)
 	selectionConfig := selection.DefaultConfig("")
 	statistics := selection.AnalyzableStatistics(result, selectionConfig)
@@ -901,7 +909,7 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 			}
 		}
 	}
-	artifactHash := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(a.ContentHash+"\x00"+a.ReviewedScopeID+"\x00"+a.ConfigIdentity)))
+	artifactHash := normalizedArtifactHash(a.ContentHash, a.ReviewedScopeID, a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, merged)
 	lemmas := aggregateLemmas(artifactHash, merged)
 	statistics := selection.AnalyzableStatistics(merged, selection.DefaultConfig(""))
 	artifact := domain.NormalizedArtifact{ContentHash: artifactHash, Language: merged.Language, SchemaVersion: merged.SchemaVersion, NormalizationProfile: merged.NormalizationProfile.Name, NormalizationVersion: merged.NormalizationProfile.Version, AnalyzerName: merged.Analysis.AnalyzerName, AnalyzerVersion: merged.Analysis.AnalyzerVersion}
@@ -973,6 +981,28 @@ func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, co
 
 func safeAnalysisError(_ error) string {
 	return "Analysis could not be completed. Retry the analysis or review the current source scope."
+}
+
+func ordinaryAnalysisIdentity(contentHash string) string {
+	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(contentHash+"\x00"+ordinaryAnalysisContractVersion)))
+}
+
+func normalizedArtifactHash(contentHash, scopeID, analysisIdentity, analyzerName, analyzerVersion, configIdentity string, result analyzer.Result) string {
+	identity := strings.Join([]string{
+		contentHash,
+		scopeID,
+		analysisIdentity,
+		analyzerName,
+		analyzerVersion,
+		configIdentity,
+		result.Language,
+		result.SchemaVersion,
+		result.NormalizationProfile.Name,
+		result.NormalizationProfile.Version,
+		result.Analysis.AnalyzerName,
+		result.Analysis.AnalyzerVersion,
+	}, "\x00")
+	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(identity)))
 }
 
 func offsetResultLocations(result *analyzer.Result, offset uint64) {

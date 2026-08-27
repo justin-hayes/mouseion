@@ -121,7 +121,7 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 		result.Entries[2].RawLemma != "geleiten|leiten" ||
 		result.Entries[2].CanonicalLemma != "geleiten" ||
 		result.Entries[0].ProfileName != "german-standard-post-1996" ||
-		result.Entries[0].ProfileVersion != "3" {
+		result.Entries[0].ProfileVersion != "4" {
 		t.Fatalf("entries = %+v", result.Entries)
 	}
 }

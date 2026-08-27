@@ -29,3 +29,42 @@ func TestOffsetResultLocations(t *testing.T) {
 		t.Fatalf("token location = %+v", got)
 	}
 }
+
+func TestNormalizedArtifactHashIncludesAnalysisIdentity(t *testing.T) {
+	result := analyzer.Result{
+		Language:      "de",
+		SchemaVersion: "1.0.0",
+		NormalizationProfile: analyzer.NormalizationProfile{
+			Name: "german-standard-post-1996", Version: "4",
+		},
+		Analysis: analyzer.AnalysisProvenance{AnalyzerName: "stanza", AnalyzerVersion: "1.14.0"},
+	}
+	base := normalizedArtifactHash("sha256:source", "scope", "scope-identity", "mouseion-scoped-analyzer", "3", "selection-default-v1", result)
+
+	changedProfile := result
+	changedProfile.NormalizationProfile.Version = "3"
+	if got := normalizedArtifactHash("sha256:source", "scope", "scope-identity", "mouseion-scoped-analyzer", "3", "selection-default-v1", changedProfile); got == base {
+		t.Fatal("normalization profile version did not change artifact identity")
+	}
+	if got := normalizedArtifactHash("sha256:source", "scope", "scope-identity", "mouseion-scoped-analyzer", "2", "selection-default-v1", result); got == base {
+		t.Fatal("analyzer version did not change artifact identity")
+	}
+	if got := normalizedArtifactHash("sha256:source", "scope", "scope-identity", "mouseion-scoped-analyzer", "3", "selection-default-v2", result); got == base {
+		t.Fatal("configuration identity did not change artifact identity")
+	}
+	if got := normalizedArtifactHash("sha256:source", "scope", "old-scope-identity", "mouseion-scoped-analyzer", "3", "selection-default-v1", result); got == base {
+		t.Fatal("analysis identity did not change artifact identity")
+	}
+}
+
+func TestOrdinaryAnalysisIdentityDoesNotReuseLegacyContentHash(t *testing.T) {
+	contentHash := "sha256:source"
+	legacyIdentity := contentHash // The pre-contract-change duplicate lookup key.
+	currentIdentity := ordinaryAnalysisIdentity(contentHash)
+	if currentIdentity == legacyIdentity {
+		t.Fatalf("current ordinary identity reused legacy key %q", legacyIdentity)
+	}
+	if currentIdentity != ordinaryAnalysisIdentity(contentHash) {
+		t.Fatal("ordinary analysis identity is not deterministic")
+	}
+}
