@@ -16,6 +16,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — proposed resumable manifest, candidate-work, and atomic-finalization contract for issue #338.
+- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — evaluates opt-in asynchronous batching for cost, throughput, and durable reconciliation.
 
 ## Current pipeline
 
