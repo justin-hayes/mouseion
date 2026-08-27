@@ -40,14 +40,13 @@ design. Its immutable manifest, exact cache identity, per-item terminal outcome,
 owner scoping, cancellation, and atomic finalizer remain authoritative. Batch
 chunks replace per-item provider jobs and provider permits.
 
-### 2. Batch is opt-in only for an explicitly capable OpenAI endpoint
+### 2. Batch requires an explicitly capable OpenAI endpoint
 
-The initial implementation supports the official OpenAI API and
+The implementation supports the official OpenAI API and
 `POST /v1/chat/completions` only. It must not infer Files/Batch support from an
-"OpenAI-compatible" base URL or model name. During rollout,
-`MOUSEION_PREPARED_DECK_BATCH_ENABLED` is an explicit boolean capability flag,
-defaulting to `false`; enabling it with an ineligible endpoint fails
-configuration rather than falling back silently.
+"OpenAI-compatible" base URL or model name. When external prepared-deck
+translation is enabled, an ineligible endpoint fails configuration rather than
+falling back silently.
 
 The configured model must be frozen into the run and used for every request in
 one input file. Unsupported-model or endpoint errors fail the affected Batch
@@ -55,11 +54,10 @@ chunk with a bounded, privacy-safe error class. Supporting another endpoint or
 Responses API later requires evidence of compatible Files, Batch, request, and
 retention behavior and a separate decision.
 
-The flag is temporary rollout configuration, not a permanent `sync|batch`
-provider abstraction. After operational validation, Batch becomes the only
-prepared-deck external-translation transport and the flag, synchronous
-transport wiring, and
-`MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` are removed.
+There is no `sync|batch` mode or temporary Batch feature flag. The code change
+replaces prepared-deck synchronous transport with Batch. The synchronous
+transport wiring and `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` are
+removed as part of the implementation sequence.
 
 ### 3. One request represents one manifest item
 
@@ -145,9 +143,9 @@ completeness.
 - **Implement Batch behind `TranslationProvider`.** Rejected because a scalar
   request/response interface cannot represent upload, provider job identity,
   polling, partial output, or restart recovery without blocking or hidden state.
-- **Keep synchronous and Batch transports permanently.** Rejected because it
-  doubles retry, configuration, test, and operational policy. A temporary
-  comparison path is justified only for rollout.
+- **Add a synchronous/Batch rollout mode.** Rejected because it creates a
+  temporary product configuration and two runtime policies. Equivalent request
+  and result fixtures provide comparison coverage without a deployment mode.
 - **Submit one whole-deck model request.** Rejected because it creates context
   and output-size risk and destroys independent cache, correlation, failure, and
   retry semantics.
@@ -171,9 +169,7 @@ completeness.
 - Ambiguous provider creation fails closed and can require operator/manual retry;
   this favors cost and correctness over automatic liveness.
 - Batch is intentionally provider-specific. Generic OpenAI-compatible endpoints
-  continue to work only through the temporary synchronous rollout path until
-  that path is removed; they are not promised as prepared-deck providers after
-  migration.
+  are not supported for prepared-deck translation after this change.
 - Quality, cost, latency, expiry, correlation, and completeness must be measured
   on frozen equivalent manifests before synchronous removal. Batch changes
   transport, not the quality contract.

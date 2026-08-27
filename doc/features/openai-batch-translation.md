@@ -131,10 +131,9 @@ This feature does not promise to:
 
 ## Proposed product behavior
 
-Use Batch as the prepared-deck translation execution model. During rollout,
-an explicit deployment flag may be useful, but it should select a temporary
-rollout phase rather than establish a permanent `sync|batch` provider API.
-The target configuration is Batch-only. The existing setting
+Use Batch as the prepared-deck translation execution model. There is no
+temporary `sync|batch` deployment mode or Batch feature flag: the implementation
+changes the prepared-deck path to Batch. The existing setting
 
 ```text
 MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY
@@ -144,16 +143,14 @@ should be deprecated and removed with the synchronous implementation. It must
 not be repurposed as a Batch parallelism control: OpenAI schedules requests in
 the submitted Batch.
 
-The initial rollout uses an explicit capability flag and a small set of
+The Batch implementation uses the existing LLM configuration plus these
 operational settings defined by ADR 0031:
 
 ```text
-MOUSEION_PREPARED_DECK_BATCH_ENABLED
 MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS
 MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL
 ```
 
-The rollout flag defaults to false and is removed with the synchronous path.
 ADR 0031 proposes initial defaults of 5,000 requests, a 30-second poll interval,
 two Batch generations per item, and seven-day provider-file expiration.
 
@@ -365,7 +362,7 @@ The feature is split into seven coherent implementation units:
 5. [#352: Expose progress, metrics, and provider-file cleanup](https://github.com/justin-hayes/mouseion/issues/352)
    makes the completed lifecycle operable and learner-visible without adding a
    second public state machine.
-6. [#353: Validate the opt-in rollout on frozen manifests](https://github.com/justin-hayes/mouseion/issues/353)
+6. [#353: Validate Batch on frozen manifests](https://github.com/justin-hayes/mouseion/issues/353)
    gathers explicit quality, correctness, cost, latency, and recovery evidence.
 7. [#354: Cut over to Batch and remove synchronous concurrency](https://github.com/justin-hayes/mouseion/issues/354)
    is intentionally last and requires a passing #353 decision.
