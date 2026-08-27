@@ -13,6 +13,7 @@ go-tmp:
 setup:
 	$(PYTHON) -m venv $(VENV)
 	$(VENV_BIN)/python -m pip install --disable-pip-version-check -r nlp/requirements-dev.txt
+	$(VENV_BIN)/python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
 	$(VENV_BIN)/python -m pip install --disable-pip-version-check -e nlp
 
 build: go-tmp

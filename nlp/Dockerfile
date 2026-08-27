@@ -7,7 +7,8 @@ COPY nlp/ ./nlp/
 COPY proto/ ./proto/
 COPY gen/python/ ./gen/python/
 # Copy the shared protobuf bindings so `from mouseion.v1 import ...` resolves.
-RUN python -m pip install --no-cache-dir -e ./nlp && \
+RUN python -m pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    python -m pip install --no-cache-dir -e ./nlp && \
     cp -r ./gen/python/mouseion /src/ && \
     python -c "import stanza; [stanza.download(language, processors='tokenize,pos,lemma', verbose=False) for language in ('de', 'it')]"
 ENV PYTHONPATH=/src:/src/nlp/src:/src/gen/python
