@@ -4,11 +4,14 @@ Status: **Accepted and rolled out** · Date: 2026-08-27
 
 ## Problem
 
-The generated Anki cards currently expose two small classes of analyzer/output
-quality defects:
+The generated Anki cards currently expose several analyzer/output contract
+defects:
 
-- punctuation can become part of the extracted word (`‹die`, `Besten›`);
-- Stanza can emit a pipe-separated lemma such as `geleiten|leiten`.
+- persisted targets can retain punctuation (`Souveränität›`, `die Besten›`,
+  `‹die`);
+- Stanza can emit a pipe-separated lemma such as `geleiten|leiten`;
+- German article display can copy a declined context article into the lemma;
+- Anki duplicate detection can collide when two targets share a sentence.
 
 The current note is also shaped around a production-oriented Cloze workflow.
 The intended product is now a recognition-oriented card with a compact,
@@ -20,8 +23,8 @@ be discarded solely because the complete sentence is too long to scan.
 - Ensure extracted word forms do not include surrounding punctuation while
   preserving the original source sentence exactly.
 - Establish deterministic handling for pipe-separated analyzer lemmas.
-- Replace the user-facing morphology JSON/card field with a compact noun article
-  display where a definite article is present directly before the tested noun.
+- Replace the user-facing morphology JSON/card field with a separate German
+  noun article derived from stored gender and number morphology.
 - Change the primary Anki note model from Cloze production to recognition:
   context with the tested word bolded on the front; lemma, concise English
   definition, and English translation of the sentence on the back.
@@ -30,12 +33,13 @@ be discarded solely because the complete sentence is too long to scan.
   fallback.
 - Preserve stable identity, provenance, escaping, deterministic exports, and
   owner-scoped generated-vocabulary behavior.
+- Give each concrete card a deterministic, unobtrusive Anki duplicate field so
+  different targets in the same sentence do not collide.
 
 ## Non-goals
 
-- Do not infer a noun's article from morphology or an external grammar source in
-  this milestone. The initial rule is limited to an article actually present in
-  the source immediately before the noun.
+- Do not infer articles for languages other than German or use declined source
+  context as an article source.
 - Do not make the LLM responsible for lexical eligibility, target matching, or
   HTML safety.
 - Do not silently change historical cards or rewrite existing generated-vocabulary
@@ -45,20 +49,29 @@ be discarded solely because the complete sentence is too long to scan.
 
 ## Proposed card contract
 
-The note model should contain these display fields, in this order:
+The note model contains these fields, in this order:
 
-1. `Front` — source context with the tested surface form rendered in bold;
-2. `Lemma` — canonical lemma, with a directly preceding German definite article
-   when one is present (for example, `das Buch`);
-3. `English` — concise English definition/translation of the lemma;
-4. `EnglishSentence` — English translation of the complete source sentence;
-5. `BookTitle` — source/book provenance;
-6. `SourceSentence` — complete original source sentence.
+1. `Identity` — a hidden SHA-256 value derived from the owner, language,
+   canonical lemma, UPOS, normalized tested surface, complete source sentence,
+   source document, and source location;
+2. `Front` — source context with the tested surface form rendered in bold;
+3. `Article` — dictionary-form German definite article when morphology is
+   sufficient and unambiguous, otherwise empty;
+4. `Lemma` — the bare display lemma;
+5. `English` — concise English definition/translation of the lemma;
+6. `EnglishSentence` — English translation of the complete source sentence;
+7. `BookTitle` — source/book provenance;
+8. `SourceSentence` — complete original source sentence.
 
 `POS` and `Morph` should no longer be user-facing card fields. POS may remain a
 stable tag and internal selection attribute if needed for identity and filtering.
-The exact Anki model name/template should be versioned as a deliberate contract;
-the front should be a normal field template, not a Cloze template.
+Morphology remains internal persisted analysis data. The back conditionally
+renders `Article` plus a space before `Lemma`, while both remain separate note
+fields. `Identity` is the Anki model's sort field and the serialized note's
+`sfld`/first-field checksum source, but is not referenced by either card
+template. The existing owner/language/lemma/UPOS key continues to produce the
+Anki GUID and persistence dedup key, preserving lemma-level generated-vocabulary
+semantics. The front is a normal field template, not a Cloze template.
 
 The front must HTML-escape all source text first and then add the bold wrapper
 only around the matched target span. Matching must be Unicode-aware and must
@@ -77,9 +90,12 @@ display/provenance. Use the cleaned surface for target matching and extraction.
 Add regression fixtures for `‹die` and `Besten›`, plus quotes, parentheses, em
 dashes, symbols, apostrophes, and hyphenated forms.
 
-This should be implemented once in the shared normalization path rather than
-as an export-only workaround, so selection and card rendering agree about the
-word under test.
+This is implemented in the analyzer normalization path for new analysis. Card
+selection/export also reapplies the identical rule immediately before matching
+persisted observed forms. That last-boundary guard covers legacy analysis data
+without changing canonical identity or rewriting historical records. It also
+feeds the cleaned target to sentence scoring, long-context validation,
+enrichment candidates, card rendering, and card-specific identity generation.
 
 ### Pipe-separated lemmas
 
@@ -99,15 +115,26 @@ selection policy rather than presenting a pipe in a learner-facing card.
 
 ## Article handling
 
-For German NOUN entries, inspect the source token immediately preceding the
-selected surface form. If it is a definite article (`der`, `die`, or `das`,
-case-insensitive), prefix that article to the displayed lemma. Do not include
-an article that is merely elsewhere in the sentence, and do not infer one from
-morphology in this milestone. The source sentence remains unchanged.
+For German `NOUN` entries, derive the dictionary-form definite article from all
+persisted morphology variants for the lemma:
 
-The implementation should carry article information as explicit enrichment/card
-input rather than overloading the canonical lemma identity. This keeps `Buch`
-and `das Buch` as the same vocabulary item.
+- an unambiguous masculine gender produces `der`;
+- an unambiguous feminine gender produces `die`;
+- an unambiguous neuter gender produces `das`;
+- when gender is absent, morphology that is unambiguously plural produces
+  `die` (for plural-only lemmas);
+- missing, malformed, unsupported, or conflicting morphology produces an empty
+  `Article` field.
+
+Gender takes precedence over an observed token's number because the displayed
+lemma is the dictionary lemma: plural `Häuser` still displays `das Haus`, while
+a plural-only lemma without gender can display `die Eltern`.
+
+Sentence context is never an article source, so a dative phrase such as `der
+Iteration` exports bare lemma `Iteration`, article `die`, and displays `die
+Iteration` on the back. `Ruderblatt` can display `das Ruderblatt` even when no
+article precedes it in the source. The source sentence and internal morphology
+remain unchanged, and article display does not alter canonical lemma identity.
 
 ## Final long-context contract
 
@@ -161,8 +188,9 @@ and its translation.
 1. **Normalization fixtures** — complete: punctuation-trimmed surfaces, pipe
    lemmas, Unicode boundaries, raw-value preservation, and selection/card
    regressions.
-2. **Lean note/model contract** — complete: the recognition `Front` and
-   article-aware lemma display replace the user-facing morphology fields.
+2. **Lean note/model contract** — complete: the recognition `Front`, separate
+   morphology-derived `Article`, bare `Lemma`, and hidden card-specific
+   `Identity` replace the user-facing morphology fields.
 3. **Long-context enrichment** — complete: versioned structured provider
    response, cache-key update, exact-span validation, deterministic fallback,
    and prompt/privacy tests.
@@ -173,19 +201,23 @@ and its translation.
 
 ## Acceptance criteria
 
-- The examples `‹die` and `Besten›` produce clean tested forms while the displayed
-  source sentence remains unchanged.
+- The examples `Souveränität›`, `die Besten›`, and `‹die` produce clean tested
+  forms while the displayed source sentence remains unchanged.
 - `geleiten|leiten` never appears as a learner-facing lemma; raw analyzer data is
   still diagnosable.
 - No morphology JSON or `Morph` card field is emitted by the new export contract.
-- A noun with a directly preceding `der`, `die`, or `das` displays the article in
-  the lemma field; other nouns are unchanged.
+- A German noun with unambiguous gender/number morphology exports a separate
+  dictionary-form article and bare lemma; missing or ambiguous morphology leaves
+  `Article` empty.
+- Declined context articles do not affect the dictionary-form article.
 - Front cards show a bold target in ordinary sentence context; backs show lemma,
   English definition, and full-sentence English translation.
 - Validated short context is used only when needed for a long sentence; invalid
   or unavailable LLM output falls back safely.
-- APKG output is deterministic, HTML-safe, stable-ID preserving, and importable;
-  the retained TSV has the same six semantic fields.
+- APKG output is deterministic, HTML-safe, stable-GUID preserving, and
+  importable. `Identity` is its hidden sort/duplicate field, differs for
+  different targets in one sentence, and is stable for identical card inputs.
+  The retained TSV has the same eight semantic fields.
 
 ## Accepted decisions
 
@@ -195,8 +227,12 @@ and its translation.
 - Remove the Cloze model immediately; recognition cards become the sole export
   model rather than carrying two templates indefinitely.
 - Remove morphology from transport-facing/card output, but retain internal
-  morphology and its current persistence identity semantics until a separate
-  migration decision.
+  morphology and its current persistence identity semantics. Aggregate stored
+  variants at read time only to detect ambiguous article display; no migration
+  or historical rewrite is required.
+- Preserve the existing lemma-level owner-scoped key for Anki GUIDs and stored
+  card/generated-vocabulary semantics. Use a separately versioned card-specific
+  `Identity` hash as Anki's first/sort field and first-field checksum source.
 - Include long-sentence shortening in the first implementation as a validated
   exact-span LLM fallback with full-sentence back context and deterministic
   fallback.
@@ -212,11 +248,12 @@ and its translation.
 ## Rollout and compatibility
 
 The Cloze model is removed immediately from new exports. Prepared-deck workers
-now produce the `Mouseion Vocab Recognition` APKG model only; the optional TSV
-is a compatibility artifact with the same `Front`, `Lemma`, `English`,
-`EnglishSentence`, `BookTitle`, and `SourceSentence` fields. New recognition
-fronts bold the tested surface, and the back shows the lemma, definition, and
-complete-sentence translation plus the complete source sentence.
+produce the `Mouseion Vocab Recognition` APKG model; the optional TSV is a
+compatibility artifact with the same `Identity`, `Front`, `Article`, `Lemma`,
+`English`, `EnglishSentence`, `BookTitle`, and `SourceSentence` fields. New
+recognition fronts bold only the normalized tested surface, and the back shows
+the optional article with the bare lemma, definition, complete-sentence
+translation, and complete source sentence.
 
 Existing imported Anki notes are not rewritten. Existing generated-vocabulary
 rows and their first-deck/source provenance are not migrated or reinterpreted;

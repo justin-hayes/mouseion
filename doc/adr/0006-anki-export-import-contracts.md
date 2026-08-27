@@ -2,6 +2,13 @@
 
 Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
 
+> **Card-output amendment (2026-08-27):** The accepted
+> [Anki card output contract](../features/anki-card-output.md) replaces the
+> Cloze/TSV-only serialization below. New APKG and TSV notes use a
+> card-specific `Identity` as their first/sort/duplicate field while retaining
+> the owner/language/canonical-lemma/UPOS key for stable Anki GUID and
+> persistence semantics.
+
 ## Context
 
 `mouseion` must exchange vocabulary with the learner's SRS and accept the learner's existing vocabulary. Two interchange contracts are needed, and both must round-trip against the vocabulary identity model from [ADR 0005](0005-vocabulary-identity-normalization-ranking.md): `(language, canonical lemma, UPOS)`, sense-agnostic in v1.

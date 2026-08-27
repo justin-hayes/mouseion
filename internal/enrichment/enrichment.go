@@ -227,18 +227,18 @@ func (s *Service) enrichExternal(ctx context.Context, c Candidate, requireCache 
 			}
 			r.Warnings = append(r.Warnings, "translation cache: "+err.Error())
 		} else if ok {
-			target := strings.TrimSpace(c.TargetWord)
+			target := textmatch.CleanLexicalSurface(c.TargetWord)
 			if target == "" {
-				target = c.CanonicalLemma
+				target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
 			}
 			entry.ContextSentence = ValidatedContextSentence(sentence, target, entry.ContextSentence)
 			s.setExternal(&r, entry)
 			return r, nil
 		}
 	}
-	target := strings.TrimSpace(c.TargetWord)
+	target := textmatch.CleanLexicalSurface(c.TargetWord)
 	if target == "" {
-		target = c.CanonicalLemma
+		target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
 	}
 	req := TranslationRequest{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
 	if sentence != "" {
@@ -328,13 +328,15 @@ func ValidatedContextSentence(source, target, proposed string) string {
 	if proposed == "" || proposed == source {
 		return source
 	}
-	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || NeedsShortContext(proposed) || len(strings.Fields(proposed)) < 3 || targetIndex(proposed, strings.TrimSpace(target)) < 0 {
+	target = textmatch.CleanLexicalSurface(target)
+	if !utf8.ValidString(proposed) || !strings.Contains(source, proposed) || NeedsShortContext(proposed) || len(strings.Fields(proposed)) < 3 || targetIndex(proposed, target) < 0 {
 		return source
 	}
 	return proposed
 }
 
 func targetIndex(sentence, target string) int {
+	target = textmatch.CleanLexicalSurface(target)
 	start, _, ok := textmatch.FoldedWordSpan(sentence, target)
 	if ok {
 		return start

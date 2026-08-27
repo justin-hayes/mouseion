@@ -81,9 +81,11 @@ func TestClozeEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Lemma: "Haus", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", SourceSentence: "Das Haus ist heute sehr ruhig.", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
 	missingSentenceTranslation := note
 	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
+	missingSentenceTranslation.Identity = strings.Repeat("b", 64)
+	missingSentenceTranslation.Article = "der"
 	missingSentenceTranslation.Lemma = "Baum"
 	missingSentenceTranslation.English = "tree"
 	missingSentenceTranslation.EnglishSentence = ""
@@ -131,7 +133,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Front}}"`) || !strings.Contains(modelsJSON, `{{#Article}}{{Article}} {{/Article}}{{Lemma}}`) || !strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(modelsJSON, `{{Identity}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
 		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
 	}
 	var models map[string]struct {
@@ -152,21 +154,25 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 		t.Fatalf("field names = %v", gotNames)
 	}
 	assertLegacyCollectionContract(t, modelsJSON, decksJSON, dconfJSON, deckName)
-	var noteID, cardCount int64
-	var fields, tags string
-	if err = db.QueryRow(`SELECT id,flds,tags FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags); err != nil {
+	var noteID, cardCount, checksum int64
+	var fields, tags, sortField string
+	if err = db.QueryRow(`SELECT id,flds,tags,sfld,csum FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags, &sortField, &checksum); err != nil {
 		t.Fatal(err)
 	}
 	serializedFields := strings.Split(fields, "\x1f")
-	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 6 || serializedFields[2] != note.English || serializedFields[3] != note.EnglishSentence || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
-		t.Fatalf("note id=%d fields=%q tags=%q", noteID, fields, tags)
+	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 8 || serializedFields[0] != note.Identity || serializedFields[2] != note.Article || serializedFields[3] != note.Lemma || serializedFields[4] != note.English || serializedFields[5] != note.EnglishSentence || sortField != note.Identity || checksum != fieldChecksum(note.Identity) || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
+		t.Fatalf("note id=%d fields=%q sfld=%q checksum=%d tags=%q", noteID, fields, sortField, checksum, tags)
 	}
 	if err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields); err != nil {
 		t.Fatal(err)
 	}
 	serializedFields = strings.Split(fields, "\x1f")
-	if len(serializedFields) != 6 || serializedFields[3] != "" {
+	if len(serializedFields) != 8 || serializedFields[5] != "" {
 		t.Fatalf("missing sentence translation fields=%q", fields)
+	}
+	var distinctSortFields int64
+	if err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields); err != nil || distinctSortFields != 2 {
+		t.Fatalf("distinct identity sort fields=%d err=%v", distinctSortFields, err)
 	}
 	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
 		t.Fatalf("cards=%d err=%v", cardCount, err)
@@ -322,6 +328,35 @@ func TestDedupKeyStableAndOwnerScoped(t *testing.T) {
 	}
 }
 
+func TestCardIdentityIsDeterministicCardSpecificAndOwnerScoped(t *testing.T) {
+	entry := Entry{Language: "de", CanonicalLemma: "gut", UPOS: "ADJ", TargetWord: "die Besten›", Sentence: "Heute sah sie ‹die Besten› und lächelte freundlich.", SourceDocument: "Book", FirstEncounter: 42}
+	identity := CardIdentity("alice", entry)
+	cleanEntry := entry
+	cleanEntry.TargetWord = "die Besten"
+	if len(identity) != 64 || identity != CardIdentity("alice", entry) || identity != CardIdentity("alice", cleanEntry) {
+		t.Fatalf("identity is unstable across equivalent legacy target forms: %q", identity)
+	}
+	variants := []struct {
+		owner string
+		entry Entry
+	}{
+		{owner: "bob", entry: entry},
+		{owner: "alice", entry: func() Entry {
+			value := entry
+			value.CanonicalLemma = "die"
+			value.UPOS = "DET"
+			value.TargetWord = "‹die"
+			return value
+		}()},
+		{owner: "alice", entry: func() Entry { value := entry; value.FirstEncounter++; return value }()},
+	}
+	for _, variant := range variants {
+		if got := CardIdentity(variant.owner, variant.entry); got == identity {
+			t.Fatalf("distinct card inputs collided: %+v", variant)
+		}
+	}
+}
+
 func TestClozeWithAndWithoutHint(t *testing.T) {
 	got, err := Cloze("Das Haus ist groß.", "Haus", "house")
 	if err != nil || got != "Das {{c1::Haus::house}} ist groß." {
@@ -343,6 +378,10 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 		{sentence: "ẞ Haus ist heute sehr groß.", target: "Haus", want: "ẞ <b>Haus</b> ist heute sehr groß."},
 		{sentence: "Das ẞ steht heute dort ruhig.", target: "ß", want: "Das <b>ẞ</b> steht heute dort ruhig."},
 		{sentence: "K Haus ist heute sehr groß.", target: "Haus", want: "K <b>Haus</b> ist heute sehr groß."},
+		{sentence: "Heute blieb die Souveränität› vollständig erhalten.", target: "Souveränität›", want: "Heute blieb die <b>Souveränität</b>› vollständig erhalten."},
+		{sentence: "Heute sah sie ‹die Besten› dort.", target: "die Besten›", want: "Heute sah sie ‹<b>die Besten</b>› dort."},
+		{sentence: "Heute sah sie ‹die Besten› dort.", target: "‹die", want: "Heute sah sie ‹<b>die</b> Besten› dort."},
+		{sentence: "Oggi O'Neill-like arriva insieme agli amici.", target: "O'Neill-like", want: "Oggi <b>O&#39;Neill-like</b> arriva insieme agli amici."},
 	} {
 		got, err := BoldTarget(test.sentence, test.target)
 		if err != nil || got != test.want {
@@ -352,7 +391,7 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 }
 
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
-	n := Note{Key: "key", Text: "Grüße\t{{c1::Welt}}", Lemma: "Welt", POS: "NOUN", Morph: "Case=Nom", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", SourceSentence: "Grüße Welt", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
+	n := Note{Key: "key", Identity: "identity", Text: "Grüße\t{{c1::Welt}}", Article: "die", Lemma: "Welt", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", SourceSentence: "Grüße Welt", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n})
 	if err != nil {
 		t.Fatal(err)
@@ -363,7 +402,7 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || len(rows[0]) != 7 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][5] != "Grüße Welt" || rows[0][6] != "Mouseion lang::de source::My_Book" {
+	if len(rows) != 1 || len(rows[0]) != 9 || rows[0][0] != n.Identity || rows[0][1] != n.Text || rows[0][2] != "die" || rows[0][3] != "Welt" || rows[0][7] != "Grüße Welt" || rows[0][8] != "Mouseion lang::de source::My_Book" {
 		t.Fatalf("rows=%#v", rows)
 	}
 }
@@ -378,13 +417,13 @@ func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
 func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	entry := Entry{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
-		Sentence: "Die Häuser sind alt.", TargetWord: "Häuser",
+		Sentence: "Die Häuser sind alt.", TargetWord: "Häuser", Morphology: `{"Gender":"Neut","Number":"Plur"}`,
 	}
 	note, err := makeNote("alice", entry)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Lemma != "die Haus" || note.POS != "NOUN" {
+	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Article != "das" || note.Lemma != "Haus" || !strings.HasPrefix(note.BackExtra, "das Haus\n") {
 		t.Fatalf("note = %#v", note)
 	}
 	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {
@@ -392,25 +431,33 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	}
 }
 
-func TestMakeNoteAddsImmediatelyPrecedingGermanDefiniteArticle(t *testing.T) {
+func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
 	for _, test := range []struct {
-		name, language, sentence, target, want string
+		name, language, lemma, sentence, target, morphology, wantArticle, wantLemma string
 	}{
-		{name: "das", language: "de", sentence: "Ich lese das Buch.", target: "Buch", want: "das Buch"},
-		{name: "die", language: "de", sentence: "Ich sehe die Stadt.", target: "Stadt", want: "die Stadt"},
-		{name: "der", language: "de", sentence: "Dort steht der Baum.", target: "Baum", want: "der Baum"},
-		{name: "capitalized after opening punctuation", language: "de", sentence: "Ich sehe »Das Buch dort liegen.", target: "Buch", want: "das Buch"},
-		{name: "punctuation token intervenes", language: "de", sentence: "Ich sehe das, Buch genannt werden.", target: "Buch", want: "Buch"},
-		{name: "not adjacent", language: "de", sentence: "Das schöne Buch liegt dort.", target: "Buch", want: "Buch"},
-		{name: "non German", language: "it", sentence: "La casa è grande.", target: "casa", want: "casa"},
+		{name: "feminine ignores declined context", language: "de", sentence: "Bei der Iteration wurde das Ergebnis erneut geprüft.", target: "Iteration", morphology: `{"Case":"Dat","Gender":"Fem","Number":"Sing"}`, wantArticle: "die", wantLemma: "Iteration"},
+		{name: "neuter without context article", language: "de", sentence: "Dieses Ruderblatt wurde gestern sorgfältig ausgetauscht.", target: "Ruderblatt", morphology: `{"Gender":"Neut","Number":"Sing"}`, wantArticle: "das", wantLemma: "Ruderblatt"},
+		{name: "masculine singular", language: "de", sentence: "Dort steht ein Baum seit vielen Jahren.", target: "Baum", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "der", wantLemma: "Baum"},
+		{name: "plural inflection uses lemma gender", language: "de", lemma: "haus", sentence: "Viele Häuser stehen seit Jahren am See.", target: "Häuser", morphology: `{"Gender":"Neut","Number":"Plur"}`, wantArticle: "das", wantLemma: "Haus"},
+		{name: "plural only without gender", language: "de", lemma: "eltern", sentence: "Meine Eltern wohnen seit Jahren am See.", target: "Eltern", morphology: `{"Number":"Plur"}`, wantArticle: "die", wantLemma: "Eltern"},
+		{name: "gender sufficient when number missing", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `{"Gender":"Neut"}`, wantArticle: "das", wantLemma: "Haus"},
+		{name: "missing gender and singular number", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `{"Number":"Sing"}`, wantLemma: "Haus"},
+		{name: "consistent gender across number variants", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Neut","Number":"Plur"}]`, wantArticle: "das", wantLemma: "Haus"},
+		{name: "ambiguous gender variants", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Sing"}]`, wantLemma: "Haus"},
+		{name: "malformed morphology", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `{`, wantLemma: "Haus"},
+		{name: "non German", language: "it", sentence: "La casa è ancora molto grande oggi.", target: "casa", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantLemma: "casa"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			note, err := makeNote("alice", Entry{Language: test.language, CanonicalLemma: strings.ToLower(test.target), UPOS: "NOUN", Sentence: test.sentence, TargetWord: test.target})
+			lemma := test.lemma
+			if lemma == "" {
+				lemma = strings.ToLower(test.target)
+			}
+			note, err := makeNote("alice", Entry{Language: test.language, CanonicalLemma: lemma, UPOS: "NOUN", Sentence: test.sentence, TargetWord: test.target, Morphology: test.morphology})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if note.Lemma != test.want {
-				t.Fatalf("lemma = %q, want %q", note.Lemma, test.want)
+			if note.Article != test.wantArticle || note.Lemma != test.wantLemma {
+				t.Fatalf("article=%q lemma=%q, want article=%q lemma=%q", note.Article, note.Lemma, test.wantArticle, test.wantLemma)
 			}
 		})
 	}
@@ -471,16 +518,19 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	shortContext := "Das Haus steht am Rand"
 	punctuationSentence := "Heute sah sie ‹die Besten› und lächelte freundlich."
 	fixtures := []struct {
-		lemma, upos, target, sentence, translation, sentenceTranslation string
-		context                                                         string
-		firstEncounter                                                  int64
+		lemma, upos, target, sentence, morphology, translation, sentenceTranslation string
+		context                                                                     string
+		firstEncounter                                                              int64
 	}{
-		{lemma: "die", upos: "DET", target: "die", sentence: punctuationSentence, translation: "the", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 10},
-		{lemma: "gut", upos: "ADJ", target: "Besten", sentence: punctuationSentence, translation: "good", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 20},
+		{lemma: "die", upos: "DET", target: "‹die", sentence: punctuationSentence, translation: "the", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 10},
+		{lemma: "gut", upos: "ADJ", target: "die Besten›", sentence: punctuationSentence, translation: "good", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 20},
+		{lemma: "souveränität", upos: "NOUN", target: "Souveränität›", sentence: "Über Souveränität› sprach die Professorin gestern sehr ausführlich.", morphology: `{"Gender":"Fem","Number":"Sing"}`, translation: "sovereignty", sentenceTranslation: "The professor spoke about sovereignty in detail yesterday.", firstEncounter: 25},
 		{lemma: "geleiten", upos: "VERB", target: "geleitet", sentence: "Nausikaa hat ihn geleitet und danach den Weg beschrieben.", translation: "to guide", sentenceTranslation: "Nausikaa guided him and then described the path.", firstEncounter: 30},
-		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
+		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
+		{lemma: "iteration", upos: "NOUN", target: "Iteration", sentence: "Bei der Iteration wurde das Ergebnis erneut sorgfältig geprüft.", morphology: `{"Case":"Dat","Gender":"Fem","Number":"Sing"}`, translation: "iteration", sentenceTranslation: "The result was carefully checked again during the iteration.", firstEncounter: 42},
+		{lemma: "ruderblatt", upos: "NOUN", target: "Ruderblatt", sentence: "Dieses Ruderblatt wurde gestern in der Werkstatt sorgfältig ausgetauscht.", morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "rudder blade", sentenceTranslation: "This rudder blade was carefully replaced in the workshop yesterday.", firstEncounter: 44},
 		{lemma: "besuchen", upos: "VERB", target: "besucht", sentence: "Morgen besucht Anna ihre Klasse im Museum und lernt viel.", translation: "to visit", sentenceTranslation: "Tomorrow Anna visits her class at the museum and learns a lot.", firstEncounter: 50},
-		{lemma: "haus", upos: "NOUN", target: "Haus", sentence: longSentence, context: shortContext, translation: "house", sentenceTranslation: "The house stands at the edge while the children play in the garden.", firstEncounter: 60},
+		{lemma: "haus", upos: "NOUN", target: "Haus", sentence: longSentence, context: shortContext, morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "house", sentenceTranslation: "The house stands at the edge while the children play in the garden.", firstEncounter: 60},
 	}
 	store := &memoryStore{bookID: bookID}
 	for _, fixture := range fixtures {
@@ -492,7 +542,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 		store.entries = append(store.entries, Entry{
 			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, Sentence: fixture.sentence,
 			TargetWord: fixture.target, ContextSentence: fixture.context, Translation: fixture.translation,
-			SentenceTranslation: fixture.sentenceTranslation, SourceDocument: sourceDocument, FirstEncounter: fixture.firstEncounter,
+			SentenceTranslation: fixture.sentenceTranslation, Morphology: fixture.morphology, SourceDocument: sourceDocument, FirstEncounter: fixture.firstEncounter,
 		})
 	}
 
@@ -515,7 +565,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	notesByLemma := make(map[string]Note, len(first.Generated))
 	for _, generated := range first.Generated {
 		notesByLemma[generated.Entry.CanonicalLemma] = generated.Note
-		for _, value := range []string{generated.Note.Text, generated.Note.Lemma, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.SourceSentence, generated.Note.BackExtra} {
+		for _, value := range []string{generated.Note.Identity, generated.Note.Text, generated.Note.Article, generated.Note.Lemma, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.SourceSentence, generated.Note.BackExtra} {
 			if strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`) {
 				t.Fatalf("legacy or raw analyzer content in note %q: %+v", value, generated.Note)
 			}
@@ -524,14 +574,31 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	if got := notesByLemma["die"].Text; !strings.Contains(got, "‹<b>die</b>") || notesByLemma["die"].SourceSentence != punctuationSentence {
 		t.Fatalf("punctuation-bearing front=%q source=%q", got, notesByLemma["die"].SourceSentence)
 	}
-	if got := notesByLemma["gut"].Text; !strings.Contains(got, "<b>Besten</b>") || notesByLemma["gut"].SourceSentence != punctuationSentence {
+	if got := notesByLemma["gut"].Text; !strings.Contains(got, "‹<b>die Besten</b>›") || notesByLemma["gut"].SourceSentence != punctuationSentence {
 		t.Fatalf("trailing punctuation front=%q source=%q", got, notesByLemma["gut"].SourceSentence)
+	}
+	if got := notesByLemma["souveränität"].Text; !strings.Contains(got, "<b>Souveränität</b>›") || notesByLemma["souveränität"].SourceSentence != fixtures[2].sentence {
+		t.Fatalf("legacy sovereignty front=%q source=%q", got, notesByLemma["souveränität"].SourceSentence)
 	}
 	if notesByLemma["geleiten"].Lemma != "geleiten" {
 		t.Fatalf("pipe lemma leaked or was not normalized: %q", notesByLemma["geleiten"].Lemma)
 	}
-	if notesByLemma["buch"].Lemma != "das Buch" || notesByLemma["buch"].Key != DedupKey("de", "buch", "NOUN", owner) {
+	if notesByLemma["buch"].Article != "das" || notesByLemma["buch"].Lemma != "Buch" || notesByLemma["buch"].Key != DedupKey("de", "buch", "NOUN", owner) {
 		t.Fatalf("article display changed identity: %+v", notesByLemma["buch"])
+	}
+	if note := notesByLemma["iteration"]; note.Article != "die" || note.Lemma != "Iteration" || !strings.HasPrefix(note.BackExtra, "die Iteration\n") {
+		t.Fatalf("declined context article leaked into card: %+v", note)
+	}
+	if note := notesByLemma["ruderblatt"]; note.Article != "das" || note.Lemma != "Ruderblatt" || !strings.HasPrefix(note.BackExtra, "das Ruderblatt\n") {
+		t.Fatalf("article without sentence determiner = %+v", note)
+	}
+	if notesByLemma["die"].Identity == notesByLemma["gut"].Identity {
+		t.Fatal("different targets in the same sentence share an Identity")
+	}
+	for _, candidate := range first.EnrichmentCandidates {
+		if candidate.TargetWord == "‹die" || candidate.TargetWord == "die Besten›" {
+			t.Fatalf("legacy punctuation leaked into enrichment candidate: %+v", candidate)
+		}
 	}
 	longNote := notesByLemma["haus"]
 	if longNote.Text != "Das <b>Haus</b> steht am Rand" || longNote.SourceSentence != longSentence || !strings.Contains(longNote.BackExtra, longSentence) || !strings.Contains(longNote.BackExtra, fixtures[len(fixtures)-1].sentenceTranslation) {
@@ -542,11 +609,11 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != len(fixtures) || len(rows[0]) != 7 || !strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "das Buch") || strings.Contains(first.TSV, "Morph") || strings.Contains(first.TSV, "{{c1::") {
+	if len(rows) != len(fixtures) || len(rows[0]) != 9 || !strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "\tdas\tBuch\t") || strings.Contains(first.TSV, "Morph") || strings.Contains(first.TSV, "{{c1::") {
 		t.Fatalf("TSV rows=%#v TSV=%q", rows, first.TSV)
 	}
 	for i, generated := range first.Generated {
-		if strings.Join(rows[i][:6], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
+		if strings.Join(rows[i][:8], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
 			t.Fatalf("TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
 		}
 	}
@@ -556,10 +623,10 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	}
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		if len(row) != 6 || strings.Contains(row[0], "{{c1::") || strings.Contains(row[1], "geleiten|leiten") || strings.Contains(row[1], `"Case"`) {
+		if len(row) != 8 || strings.Contains(row[1], "{{c1::") || strings.Contains(row[3], "geleiten|leiten") || strings.Contains(row[3], `"Case"`) {
 			t.Fatalf("APKG row=%#v", row)
 		}
-		apkgByLemma[row[1]] = row
+		apkgByLemma[row[3]] = row
 	}
 	for _, generated := range first.Generated {
 		row, ok := apkgByLemma[generated.Note.Lemma]
@@ -650,7 +717,7 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 		t.Fatalf("Italian prepared artifact = %+v", artifact)
 	}
 	note := artifact.Generated[0].Note
-	if !strings.Contains(note.Text, "<b>porterà</b>") || note.Lemma != "portare" || note.POS != "VERB" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
+	if !strings.Contains(note.Text, "<b>porterà</b>") || note.Article != "" || note.Lemma != "portare" || note.SourceSentence != "Domani Lucia porterà finalmente il pane fresco alla sua famiglia." || !strings.Contains(artifact.TSV, "lang::it") {
 		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
 	}
 	assertAPKGDeckAndCard(t, artifact.APKG, "Mouseion::it::Il viaggio", "portare", "lang::it")
