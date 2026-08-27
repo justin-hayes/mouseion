@@ -37,5 +37,8 @@ TMPDIR=/root/tmp-go go test ./internal/prepareddeck \
   -count=1
 ```
 
-These benchmark concurrency values are experimental only. Production prepared
-deck translation remains serial pending the separate bounded-concurrency work.
+Prepared-deck translation uses a bounded per-deck worker pool. Configure its
+maximum in-flight enrichment operations with
+`MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY`; the default is `1` for serial
+compatibility. The `prepared_decks` River queue still runs one whole-deck worker,
+so this setting does not increase simultaneous deck preparations.

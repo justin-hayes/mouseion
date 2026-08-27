@@ -6,6 +6,12 @@ This document records the verified prepared-deck translation path and the
 follow-up design for improving it. It is an implementation brief for focused
 GitHub issues, not a production performance report.
 
+Issue #335 implemented the first recommendation below as a bounded per-deck
+worker pool. `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` sets the positive
+in-flight limit and defaults to `1`; the whole-deck River worker count remains
+one. The investigation sections retain the serial pre-change baseline that
+motivated the implementation.
+
 ## Evidence boundary
 
 **Verified** below means established by the current source, configuration, or

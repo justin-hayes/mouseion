@@ -9,6 +9,8 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -370,11 +372,12 @@ type observedExternalEnricher interface {
 
 type Worker struct {
 	river.WorkerDefaults[JobArgs]
-	Store      preparationStore
-	Builder    builder
-	Enrichment externalEnricher
-	Observer   Observer
-	Now        func() time.Time
+	Store                  preparationStore
+	Builder                builder
+	Enrichment             externalEnricher
+	TranslationConcurrency int
+	Observer               Observer
+	Now                    func() time.Time
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
@@ -386,7 +389,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	observation := Observation{
 		Event:                 "prepared_deck_preparation",
 		Outcome:               "error",
-		ConfiguredConcurrency: 1, // Production remains serial until issue #335.
+		ConfiguredConcurrency: normalizedTranslationConcurrency(w.TranslationConcurrency),
 	}
 	if job.JobRow != nil {
 		observation.JobAttempt = job.Attempt
@@ -448,21 +451,16 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	observation.Completeness = completenessOf(artifact.Completeness)
 	if a.ExternalTranslationConsent && w.Enrichment != nil && w.Enrichment.ExternalConfigured() {
 		if observation.Counts.TranslationEligible > 0 {
-			observation.EffectiveConcurrency = 1
+			observation.EffectiveConcurrency = min(observation.ConfiguredConcurrency, observation.Counts.TranslationEligible)
 		}
 		phaseStarted = now()
-		for _, candidate := range artifact.EnrichmentCandidates {
+		results, peakInFlight := enrichCandidates(ctx, w.Enrichment, artifact.EnrichmentCandidates, observation.ConfiguredConcurrency)
+		for _, item := range results {
 			// Translation and context shortening are optional. The second build
 			// below applies the deterministic quality gate again, so an
 			// unavailable provider can only leave English fields empty or a long
 			// source omitted; it cannot create an unsafe front.
-			var result enrichment.Result
-			var metrics enrichment.ExternalMetrics
-			if observed, ok := w.Enrichment.(observedExternalEnricher); ok {
-				result, metrics, err = observed.EnrichExternalObserved(ctx, candidate)
-			} else {
-				result, err = w.Enrichment.EnrichExternal(ctx, candidate)
-			}
+			result, metrics := item.result, item.metrics
 			observation.Counts.CacheHits += metrics.CacheHits
 			observation.Counts.CacheMisses += metrics.CacheMisses
 			observation.Counts.ProviderCalls += metrics.ProviderCalls
@@ -476,15 +474,18 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 			observation.Errors.Other += metrics.OtherErrors
 			observation.Durations.Cache += metrics.CacheLatency
 			observation.Durations.Provider += metrics.ProviderLatency
-			if metrics.Attempts > 0 {
-				observation.PeakInFlightProviderCalls = 1
-			}
-			if err == nil && result.SentenceTranslation.Available {
+			if item.err == nil && result.SentenceTranslation.Available {
 				observation.Counts.Translated++
 				observation.Counts.Untranslated--
 			}
 		}
+		if observation.Counts.Attempts > 0 {
+			observation.PeakInFlightProviderCalls = peakInFlight
+		}
 		observation.Durations.Translation = now().Sub(phaseStarted)
+		if err = ctx.Err(); err != nil {
+			return fail(err)
+		}
 		phaseStarted = now()
 		artifact, err = buildArtifact(ctx, w.Builder, a.OwnerID, a.SourceMaterialID, a.AnalysisRunID)
 		observation.Durations.FinalBuild = now().Sub(phaseStarted)
@@ -510,6 +511,61 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	return nil
 }
 
+type candidateEnrichment struct {
+	result  enrichment.Result
+	metrics enrichment.ExternalMetrics
+	err     error
+}
+
+func normalizedTranslationConcurrency(configured int) int {
+	if configured < 1 {
+		return DefaultTranslationConcurrency
+	}
+	return configured
+}
+
+// enrichCandidates runs a fixed-size worker pool and stores every outcome at
+// its candidate index. This preserves deterministic aggregation and rendering
+// while ensuring all started cache/provider work has stopped before returning.
+func enrichCandidates(ctx context.Context, enricher externalEnricher, candidates []enrichment.Candidate, configured int) ([]candidateEnrichment, int) {
+	results := make([]candidateEnrichment, len(candidates))
+	workerCount := min(normalizedTranslationConcurrency(configured), len(candidates))
+	if workerCount == 0 {
+		return results, 0
+	}
+
+	var next atomic.Int64
+	var inFlight atomic.Int64
+	var peakInFlight atomic.Int64
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+				i := int(next.Add(1) - 1)
+				if i >= len(candidates) {
+					return
+				}
+				active := inFlight.Add(1)
+				for peak := peakInFlight.Load(); active > peak && !peakInFlight.CompareAndSwap(peak, active); peak = peakInFlight.Load() {
+				}
+				if observed, ok := enricher.(observedExternalEnricher); ok {
+					results[i].result, results[i].metrics, results[i].err = observed.EnrichExternalObserved(ctx, candidates[i])
+				} else {
+					results[i].result, results[i].err = enricher.EnrichExternal(ctx, candidates[i])
+				}
+				inFlight.Add(-1)
+			}
+		}()
+	}
+	workers.Wait()
+	return results, int(peakInFlight.Load())
+}
+
 type scopedBuilder interface {
 	BuildCoverageForAnalysis(context.Context, string, string) (cardexport.Artifact, error)
 }
@@ -526,13 +582,25 @@ func buildArtifact(ctx context.Context, b builder, owner, sourceID, analysisRunI
 }
 
 func AddWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service) {
-	AddWorkerObserved(workers, store, export, enrich, NewLogObserver(log.Default()))
+	AddWorkerWithTranslationConcurrency(workers, store, export, enrich, DefaultTranslationConcurrency)
+}
+
+// AddWorkerWithTranslationConcurrency registers a worker with a per-deck
+// in-flight limit. The River queue's whole-deck worker count is unchanged.
+func AddWorkerWithTranslationConcurrency(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service, concurrency int) {
+	AddWorkerObservedWithTranslationConcurrency(workers, store, export, enrich, NewLogObserver(log.Default()), concurrency)
 }
 
 // AddWorkerObserved registers a worker with an explicit aggregate observer.
 // It is primarily useful for tests and alternate metrics backends.
 func AddWorkerObserved(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service, observer Observer) {
-	river.AddWorker(workers, &Worker{Store: store, Builder: export, Enrichment: enrich, Observer: observer})
+	AddWorkerObservedWithTranslationConcurrency(workers, store, export, enrich, observer, DefaultTranslationConcurrency)
+}
+
+// AddWorkerObservedWithTranslationConcurrency registers an observed worker
+// with an explicit per-deck in-flight limit.
+func AddWorkerObservedWithTranslationConcurrency(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, enrich *enrichment.Service, observer Observer, concurrency int) {
+	river.AddWorker(workers, &Worker{Store: store, Builder: export, Enrichment: enrich, TranslationConcurrency: normalizedTranslationConcurrency(concurrency), Observer: observer})
 }
 
 const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at`

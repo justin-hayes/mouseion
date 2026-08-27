@@ -70,11 +70,15 @@ func main() {
 		log.Fatal(err)
 	}
 	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
+	translationConcurrency, err := prepareddeck.TranslationConcurrencyFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	exportService := cardexport.NewService(store)
-	prepareddeck.AddWorker(workers, store, exportService, enrichmentService)
+	prepareddeck.AddWorkerWithTranslationConcurrency(workers, store, exportService, enrichmentService, translationConcurrency)
 	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
 		log.Fatal(err)
