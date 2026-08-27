@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -144,12 +145,54 @@ func (s *PostgresStore) ListPreparedDeckBatchChunks(ctx context.Context, owner, 
 	return chunks, nil
 }
 
+func (s *PostgresStore) GetPreparedDeckBatchChunk(ctx context.Context, owner, preparationID, runID, chunkID string) (domain.PreparedDeckBatchChunk, error) {
+	chunks, err := listPreparedDeckBatchChunks(ctx, s.pool, owner, preparationID, runID)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	for _, chunk := range chunks {
+		if chunk.ID == chunkID {
+			return chunk, nil
+		}
+	}
+	return domain.PreparedDeckBatchChunk{}, ErrNotFound
+}
+
 func (s *PostgresStore) SetPreparedDeckBatchSubmissionJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, chunkID string, generation int, jobID int64) error {
 	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_batch_chunks SET submission_job_id=$7,submission_generation=$6,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND generation=$5 AND state='pending'`, owner, preparationID, runID, chunkID, generation, generation, jobID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrPreparedDeckClaimLost
 	}
 	return err
+}
+
+// PreparedDeckBatchPollJobInserter inserts the short polling job while the
+// transaction that attaches the provider Batch ID is still open.
+type PreparedDeckBatchPollJobInserter func(context.Context, pgx.Tx, domain.PreparedDeckBatchChunk) (int64, error)
+
+func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, chunkID string, generation int, token, inputFileID, batchID string, submittedAt time.Time, insertPoll PreparedDeckBatchPollJobInserter) (domain.PreparedDeckBatchChunk, error) {
+	if tx == nil || strings.TrimSpace(inputFileID) == "" || strings.TrimSpace(batchID) == "" {
+		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
+	}
+	chunk, err := scanPreparedDeckBatchChunk(tx.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='submitted',input_file_id=$7,batch_id=$8,submitted_at=$9,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,error_class='',error_code='',updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, inputFileID, batchID, submittedAt))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return chunk, ErrPreparedDeckClaimLost
+		}
+		return chunk, err
+	}
+	if insertPoll == nil {
+		return chunk, nil
+	}
+	jobID, err := insertPoll(ctx, tx, chunk)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	if jobID < 1 {
+		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
+	}
+	chunk, err = scanPreparedDeckBatchChunk(tx.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks SET reconciliation_job_id=$5,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND state='submitted' AND batch_id=$6 RETURNING `+preparedDeckBatchChunkColumns, owner, preparationID, runID, chunkID, jobID, batchID))
+	return chunk, err
 }
 
 func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, generation int, jobID int64) error {

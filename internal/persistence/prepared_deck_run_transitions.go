@@ -241,11 +241,19 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmitted(ctx context.Context, ow
 	if strings.TrimSpace(inputFileID) == "" || strings.TrimSpace(batchID) == "" {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='submitted',input_file_id=$7,batch_id=$8,submitted_at=$9,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,error_class='',error_code='',updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.submission_generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, inputFileID, batchID, submittedAt))
-	if err != nil && errors.Is(err, ErrNotFound) {
-		return chunk, ErrInvalidTransition
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
 	}
-	return chunk, err
+	defer tx.Rollback(ctx)
+	chunk, err := s.RecordPreparedDeckBatchSubmittedTx(ctx, tx, owner, preparationID, runID, chunkID, generation, token, inputFileID, batchID, submittedAt, nil)
+	if err != nil {
+		return chunk, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	return chunk, nil
 }
 
 func (s *PostgresStore) AssignPreparedDeckBatchReconciliationJob(ctx context.Context, owner, preparationID, runID, chunkID string, expectedGeneration int, jobID int64) (domain.PreparedDeckBatchChunk, error) {
@@ -283,6 +291,70 @@ type PreparedDeckBatchReconciliationUpdate struct {
 	ErrorClass          string
 	ErrorCode           string
 	ProviderCompletedAt *time.Time
+}
+
+// CompletePreparedDeckBatchCacheHits closes exact cache hits while a chunk is
+// fenced for submission. It never broadens identity or changes a running or
+// terminal outcome, so a provider request cannot be caused by a cache hit.
+func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) (int, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var count int
+	err = tx.QueryRow(ctx, `WITH hit AS (
+		UPDATE deck_preparation_translation_outcomes o SET state='completed',terminal_at=now(),cache_hit_count=cache_hit_count+1,updated_at=now(),claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL
+		FROM deck_preparation_batch_chunk_items ci
+		JOIN deck_preparation_batch_chunks c ON c.owner_id=ci.owner_id AND c.preparation_id=ci.preparation_id AND c.run_id=ci.run_id AND c.id=ci.chunk_id AND c.generation=ci.generation
+		JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal
+		JOIN enrichment_cache ec ON ec.language=mi.language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
+		WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=ci.ordinal AND o.state='pending' AND c.id=$4 AND c.generation=$5 AND c.state='submitting' AND c.submission_claim_token=$6
+		RETURNING o.ordinal
+	) SELECT count(*) FROM hit`, owner, preparationID, runID, chunkID, generation, token).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// FinishPreparedDeckBatchSubmission records a pre-network terminal outcome
+// (for example, a chunk whose remaining items became cache hits) behind the
+// submission fence.
+func (s *PostgresStore) FinishPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) (domain.PreparedDeckBatchChunk, error) {
+	if state != domain.PreparedDeckBatchCompleted && state != domain.PreparedDeckBatchFailed && state != domain.PreparedDeckBatchAmbiguous {
+		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
+	}
+	if err := validateBoundedError(errorClass, errorCode); err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state=$7,error_class=$8,error_code=$9,completed_count=CASE WHEN $7='completed' THEN request_count ELSE completed_count END,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, state, errorClass, errorCode))
+	if err != nil && errors.Is(err, ErrNotFound) {
+		return chunk, ErrPreparedDeckClaimLost
+	}
+	return chunk, err
+}
+
+// VerifyPreparedDeckBatchSubmissionClaim closes the read/prepare gap before
+// the external boundary. Cancellation or supersession that wins first makes
+// the provider call ineligible.
+func (s *PostgresStore) VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) error {
+	var exists bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM deck_preparation_batch_chunks c
+		JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
+		WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.state='translating'
+	)`, owner, preparationID, runID, chunkID, generation, token).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrPreparedDeckClaimLost
+	}
+	return nil
 }
 
 func (s *PostgresStore) FinishPreparedDeckBatchReconciliation(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, update PreparedDeckBatchReconciliationUpdate) (domain.PreparedDeckBatchChunk, error) {
