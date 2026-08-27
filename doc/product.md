@@ -15,6 +15,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — makes structural recommendations safe, coherent, and explainable.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
+- [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — proposed resumable manifest, candidate-work, and atomic-finalization contract for issue #338.
 
 ## Current pipeline
 
@@ -71,6 +72,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models one active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release.
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
+30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — proposes immutable preparation runs, resumable candidate translation, bounded provider leases, and idempotent atomic finalization.
 
 ## Deployment and operations
 
