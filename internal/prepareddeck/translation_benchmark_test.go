@@ -144,34 +144,13 @@ func runTranslationBenchmark(c translationBenchmarkCase) benchmarkResult {
 	}
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, cache)
 
-	type itemResult struct {
-		available bool
-		metrics   enrichment.ExternalMetrics
-	}
-	items := make([]itemResult, c.Candidates)
-	jobs := make(chan int, c.Candidates)
-	for i := range candidates {
-		jobs <- i
-	}
-	close(jobs)
-	var workers sync.WaitGroup
-	workers.Add(effective)
-	for range effective {
-		go func() {
-			defer workers.Done()
-			for i := range jobs {
-				result, metrics, _ := service.EnrichExternalObserved(context.Background(), candidates[i])
-				items[i] = itemResult{available: result.SentenceTranslation.Available, metrics: metrics}
-			}
-		}()
-	}
-	workers.Wait()
+	items, _ := enrichCandidates(context.Background(), service, candidates, c.Concurrency)
 
 	result := benchmarkResult{configuredConcurrency: c.Concurrency, effectiveConcurrency: effective, peakInFlight: int(provider.peak.Load())}
 	artifactState := make([]byte, len(items))
 	for i, item := range items {
 		addExternalMetrics(&result.metrics, item.metrics)
-		if item.available {
+		if item.err == nil && item.result.SentenceTranslation.Available {
 			result.translated++
 			artifactState[i] = 1
 		} else {

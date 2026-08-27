@@ -95,6 +95,9 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
   defaults to `low`.
 - `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` — set to `true` only when a custom
   OpenAI-compatible endpoint/model supports `reasoning_effort`.
+- `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` — positive per-deck external
+  translation in-flight limit; defaults to `1` for serial compatibility. This
+  does not change the whole-deck River worker count.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
 
