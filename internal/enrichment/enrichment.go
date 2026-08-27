@@ -249,6 +249,25 @@ func (s *Service) ExternalConfigured() bool {
 	return s.config.ExternalEnabled && s.config.UserOptIn && s.translation != nil
 }
 
+// ExternalCacheKey returns the complete immutable cache identity that
+// EnrichExternal will use for this candidate.
+func (s *Service) ExternalCacheKey(c Candidate) (CacheKey, bool) {
+	if !s.ExternalConfigured() {
+		return CacheKey{}, false
+	}
+	sentence := ""
+	if s.config.ContextMode == SentenceContext {
+		sentence = c.ExampleSentence
+		if SentenceHash(sentence) == "" {
+			sentence = ""
+		}
+	}
+	return CacheKey{
+		Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
+		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
+	}, true
+}
+
 // EnrichExternal performs only the cache-backed external translation portion
 // of enrichment. It is shared by the inline compatibility path and River jobs.
 func (s *Service) EnrichExternal(ctx context.Context, c Candidate) (Result, error) {
@@ -277,16 +296,10 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		metrics.CacheErrors++
 		return r, metrics, errors.New("external enrichment cache is required")
 	}
+	key, _ := s.ExternalCacheKey(c)
 	sentence := ""
-	if s.config.ContextMode == SentenceContext {
+	if key.SentenceHash != "" {
 		sentence = c.ExampleSentence
-		if SentenceHash(sentence) == "" {
-			sentence = ""
-		}
-	}
-	key := CacheKey{
-		Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
-		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
 	}
 	if s.cache != nil {
 		started := time.Now()

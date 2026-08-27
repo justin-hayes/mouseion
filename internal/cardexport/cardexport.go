@@ -48,6 +48,26 @@ type Artifact struct {
 	Generated               []GeneratedRecord
 }
 
+// Manifest freezes every selection and render decision made for one prepared
+// deck before optional external enrichment starts. Its fields are private and
+// all slice-returning methods copy their data so later learner state, database
+// rows, or caller mutation cannot change the final artifact.
+type Manifest struct {
+	owner                string
+	deckName             string
+	accepted             []Entry
+	omitted              []Omission
+	enrichmentCandidates []enrichment.Candidate
+	cacheKeys            []enrichment.CacheKey
+}
+
+// ExactEnrichment is the result for one manifest candidate under the exact
+// cache identity used by the enrichment service.
+type ExactEnrichment struct {
+	CacheKey enrichment.CacheKey
+	Result   enrichment.Result
+}
+
 // GeneratedRecord is the card provenance to persist only after an artifact is
 // successfully rendered. Prepared-deck completion persists these atomically.
 type GeneratedRecord struct {
@@ -98,6 +118,14 @@ type analysisStore interface {
 	GetCorpusForAnalysis(context.Context, string, string) (domain.Corpus, error)
 	ListSelectionCandidatesForCorpus(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	GetCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
+}
+
+// preparedEntryStore avoids the legacy cache lookup performed by the direct
+// export path. Prepared decks receive enrichment only through exact results
+// returned by the configured enrichment service.
+type preparedEntryStore interface {
+	GetPreparedCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
+	GetPreparedCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
 }
 
 type Service struct{ store Store }
@@ -739,6 +767,259 @@ func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisR
 	return s.render(ctx, owner, deckName, entries)
 }
 
+// PrepareCoverage freezes the legacy book-scoped candidate and render inputs
+// without rendering an artifact or reading a non-exact enrichment cache row.
+func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Manifest, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+		return Manifest{}, ErrInvalidInput
+	}
+	candidates, err := s.store.ListSelectionCandidatesForBook(ctx, owner, bookID)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("list selection candidates: %w", err)
+	}
+	selected, err := s.coverageCandidates(ctx, owner, bookID, candidates)
+	if err != nil {
+		return Manifest{}, err
+	}
+	sortCandidatesByEncounter(selected)
+	entries := make([]Entry, 0, len(selected))
+	deckName := bookID
+	for _, candidate := range selected {
+		entry, err := s.preparedEntryForBook(ctx, owner, bookID, candidate)
+		if err != nil {
+			return Manifest{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
+		}
+		applySentenceDecision(&entry, candidate)
+		entries = append(entries, entry)
+		if strings.TrimSpace(entry.SourceDocument) != "" {
+			deckName = entry.SourceDocument
+		}
+	}
+	return NewManifest(owner, deckName, entries), nil
+}
+
+// PrepareCoverageForAnalysis freezes only the immutable corpus produced by a
+// completed scoped analysis, without rendering or assigning vocabulary state.
+func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysisRunID string) (Manifest, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisRunID) == "" {
+		return Manifest{}, ErrInvalidInput
+	}
+	store, ok := s.store.(analysisStore)
+	if !ok {
+		return Manifest{}, errors.New("cardexport: scoped analysis storage is unavailable")
+	}
+	corpus, err := store.GetCorpusForAnalysis(ctx, owner, analysisRunID)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("load completed analysis corpus: %w", err)
+	}
+	candidates, err := store.ListSelectionCandidatesForCorpus(ctx, owner, corpus.ID)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("list scoped selection candidates: %w", err)
+	}
+	selected, err := s.coverageCandidates(ctx, owner, corpus.SourceMaterialID, candidates)
+	if err != nil {
+		return Manifest{}, err
+	}
+	sortCandidatesByEncounter(selected)
+	source, err := store.GetSourceMaterial(ctx, owner, corpus.SourceMaterialID)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("load scoped analysis source: %w", err)
+	}
+	entries := make([]Entry, 0, len(selected))
+	deckName := source.Title
+	for _, candidate := range selected {
+		entry, err := s.preparedEntryForCorpus(ctx, store, owner, corpus.ID, candidate)
+		if err != nil {
+			return Manifest{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
+		}
+		applySentenceDecision(&entry, candidate)
+		entries = append(entries, entry)
+		if strings.TrimSpace(entry.SourceDocument) != "" {
+			deckName = entry.SourceDocument
+		}
+	}
+	return NewManifest(owner, deckName, entries), nil
+}
+
+func (s *Service) preparedEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (Entry, error) {
+	if store, ok := s.store.(preparedEntryStore); ok {
+		return store.GetPreparedCoverageEntryForBook(ctx, owner, bookID, candidate)
+	}
+	entry, err := s.store.GetCoverageEntryForBook(ctx, owner, bookID, candidate)
+	clearExternalFields(&entry)
+	return entry, err
+}
+
+func (s *Service) preparedEntryForCorpus(ctx context.Context, store analysisStore, owner, corpusID string, candidate domain.SelectionCandidate) (Entry, error) {
+	if prepared, ok := s.store.(preparedEntryStore); ok {
+		return prepared.GetPreparedCoverageEntryForCorpus(ctx, owner, corpusID, candidate)
+	}
+	entry, err := store.GetCoverageEntryForCorpus(ctx, owner, corpusID, candidate)
+	clearExternalFields(&entry)
+	return entry, err
+}
+
+func clearExternalFields(entry *Entry) {
+	entry.Translation = ""
+	entry.SentenceTranslation = ""
+	entry.SentenceTranslationTarget = ""
+}
+
+func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate) {
+	if evidence, ok := BestSentenceEvidence(candidate); ok {
+		entry.Sentence = evidence.Sentence
+		entry.TargetWord = evidence.Target
+		entry.FirstEncounter = evidence.FirstEncounter
+	} else {
+		entry.TargetWord = targetWord(entry.Sentence, candidate)
+	}
+}
+
+func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].FirstEncounter != candidates[j].FirstEncounter {
+			return candidates[i].FirstEncounter < candidates[j].FirstEncounter
+		}
+		return candidateKey(candidates[i]) < candidateKey(candidates[j])
+	})
+}
+
+// NewManifest quality-gates entries once and returns an immutable render plan.
+func NewManifest(owner, deckName string, entries []Entry) Manifest {
+	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]Entry, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries))}
+	for _, entry := range entries {
+		entry.TargetWord = testedTarget(entry)
+		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
+		if !quality.Accepted {
+			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
+			continue
+		}
+		manifest.accepted = append(manifest.accepted, entry)
+		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
+			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			TargetWord:      entry.TargetWord,
+			ExampleSentence: strings.TrimSpace(entry.Sentence),
+		})
+	}
+	return manifest
+}
+
+// EnrichmentCandidates returns the frozen candidates in final render order.
+func (m Manifest) EnrichmentCandidates() []enrichment.Candidate {
+	return append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
+}
+
+// Completeness reports the manifest's pre-enrichment accepted and omitted
+// counts. Final optional-field counts are calculated during the sole render.
+func (m Manifest) Completeness() Completeness {
+	result := Completeness{TotalCards: len(m.accepted), QualityOmitted: len(m.omitted)}
+	for _, entry := range m.accepted {
+		if strings.TrimSpace(entry.Translation) != "" {
+			result.CardsWithEnglish++
+		}
+		if strings.TrimSpace(entry.SentenceTranslation) != "" {
+			result.CardsWithEnglishSentence++
+		}
+	}
+	return result
+}
+
+// BindCacheKeys returns a new manifest bound to the exact provider/version and
+// sentence identities that enrichment will use. Existing external fields are
+// cleared so a legacy or mismatched cache row can never survive finalization.
+func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
+	if len(keys) != len(m.enrichmentCandidates) {
+		return Manifest{}, fmt.Errorf("%w: cache identity count does not match manifest candidates", ErrInvalidInput)
+	}
+	bound := m.clone()
+	bound.cacheKeys = append([]enrichment.CacheKey(nil), keys...)
+	for i, key := range bound.cacheKeys {
+		candidate := bound.enrichmentCandidates[i]
+		if key.Language != candidate.Language || key.CanonicalLemma != candidate.CanonicalLemma || key.UPOS != strings.ToUpper(candidate.UPOS) || strings.TrimSpace(key.Provider) == "" || strings.TrimSpace(key.ProviderVersion) == "" {
+			return Manifest{}, fmt.Errorf("%w: cache identity does not match manifest candidate %d", ErrInvalidInput, i)
+		}
+		exactSentenceHash := enrichment.SentenceHash(candidate.ExampleSentence)
+		if key.SentenceHash != "" && key.SentenceHash != exactSentenceHash {
+			return Manifest{}, fmt.Errorf("%w: sentence cache identity does not match manifest candidate %d", ErrInvalidInput, i)
+		}
+		clearExternalFields(&bound.accepted[i])
+	}
+	return bound, nil
+}
+
+func (m Manifest) clone() Manifest {
+	m.accepted = append([]Entry(nil), m.accepted...)
+	m.omitted = append([]Omission(nil), m.omitted...)
+	for i := range m.omitted {
+		m.omitted[i].Reasons = append([]string(nil), m.omitted[i].Reasons...)
+	}
+	m.enrichmentCandidates = append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
+	m.cacheKeys = append([]enrichment.CacheKey(nil), m.cacheKeys...)
+	return m
+}
+
+// RenderManifest applies exact enrichment outcomes and renders the frozen plan
+// once. Outcomes are positional so duplicate or missing assignment is rejected.
+func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, error) {
+	entries := append([]Entry(nil), manifest.accepted...)
+	omitted := append([]Omission(nil), manifest.omitted...)
+	for i := range omitted {
+		omitted[i].Reasons = append([]string(nil), omitted[i].Reasons...)
+	}
+	if len(outcomes) > 0 || len(manifest.cacheKeys) > 0 {
+		if len(outcomes) != len(entries) || len(manifest.cacheKeys) != len(entries) {
+			return Artifact{}, fmt.Errorf("%w: exact enrichment count does not match manifest", ErrInvalidInput)
+		}
+		for i, outcome := range outcomes {
+			if outcome.CacheKey != manifest.cacheKeys[i] {
+				return Artifact{}, fmt.Errorf("%w: exact enrichment cache identity mismatch at candidate %d", ErrInvalidInput, i)
+			}
+			if err := applyExactEnrichment(&entries[i], outcome); err != nil {
+				return Artifact{}, fmt.Errorf("candidate %d: %w", i, err)
+			}
+		}
+	}
+	return s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+}
+
+func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
+	result := outcome.Result
+	fields := []struct {
+		available  bool
+		provenance enrichment.Provenance
+	}{
+		{result.Translation.Available, result.Translation.Provenance},
+		{result.SentenceTranslation.Available, result.SentenceTranslation.Provenance},
+		{result.SentenceTranslationTarget.Available, result.SentenceTranslationTarget.Provenance},
+	}
+	available := false
+	for _, field := range fields {
+		available = available || field.available
+		if field.available && (field.provenance.Provider != outcome.CacheKey.Provider || field.provenance.ProviderVersion != outcome.CacheKey.ProviderVersion) {
+			return fmt.Errorf("%w: enrichment provenance does not match cache identity", ErrInvalidInput)
+		}
+	}
+	if available {
+		candidate := result.Candidate
+		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || testedTarget(*entry) != testedTarget(Entry{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
+			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
+		}
+		if outcome.CacheKey.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != outcome.CacheKey.SentenceHash {
+			return fmt.Errorf("%w: enrichment sentence does not match cache identity", ErrInvalidInput)
+		}
+	}
+	if result.Translation.Available {
+		entry.Translation = result.Translation.Value
+	}
+	if result.SentenceTranslation.Available {
+		entry.SentenceTranslation = result.SentenceTranslation.Value
+	}
+	if result.SentenceTranslationTarget.Available {
+		entry.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
+	}
+	return nil
+}
+
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	var forms []string
 	if json.Unmarshal(candidate.ObservedForms, &forms) == nil {
@@ -827,21 +1108,18 @@ func candidateKey(candidate domain.SelectionCandidate) string {
 }
 
 func (s *Service) render(ctx context.Context, owner, deckName string, entries []Entry) (Artifact, error) {
+	return s.RenderManifest(ctx, NewManifest(owner, deckName, entries), nil)
+}
+
+func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, entries []Entry, omitted []Omission) (Artifact, error) {
 	type acceptedNote struct {
 		entry Entry
 		note  Note
 	}
 	accepted := make([]acceptedNote, 0, len(entries))
 	enrichmentCandidates := make([]enrichment.Candidate, 0, len(entries))
-	omitted := make([]Omission, 0)
-	completeness := Completeness{}
+	completeness := Completeness{QualityOmitted: len(omitted)}
 	for _, entry := range entries {
-		entry.TargetWord = testedTarget(entry)
-		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
-		if !quality.Accepted {
-			omitted = append(omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: quality.Reasons})
-			continue
-		}
 		n, err := makeNote(owner, entry)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
@@ -860,7 +1138,6 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 			ExampleSentence: strings.TrimSpace(entry.Sentence),
 		})
 	}
-	completeness.QualityOmitted = len(omitted)
 	notes := make([]Note, len(accepted))
 	for i := range accepted {
 		notes[i] = accepted[i].note

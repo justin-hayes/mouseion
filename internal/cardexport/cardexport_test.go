@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 type memoryStore struct {
@@ -623,6 +625,127 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 		if !ok || strings.Join(row, "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
 			t.Fatalf("APKG row=%#v note=%#v", row, generated.Note)
 		}
+	}
+}
+
+func TestManifestExactEnrichmentMatchesLegacyRenderAndIsDeterministic(t *testing.T) {
+	entries := []Entry{
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "Stale sentence.", SourceDocument: "Book", FirstEncounter: 10},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Translation: "stale", SentenceTranslation: "Stale sentence.", SourceDocument: "Book", FirstEncounter: 20},
+		{OwnerID: "alice", Language: "de", CanonicalLemma: "fragment", UPOS: "NOUN", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: "Book", FirstEncounter: 30},
+	}
+	exactEntries := append([]Entry(nil), entries...)
+	exactEntries[0].Translation, exactEntries[0].SentenceTranslation, exactEntries[0].SentenceTranslationTarget = "house", "The old house is surprisingly large.", "old house"
+	exactEntries[1].Translation, exactEntries[1].SentenceTranslation, exactEntries[1].SentenceTranslationTarget = "tree", "The old tree has many green leaves today.", "tree"
+	service := &Service{}
+	want, err := service.render(context.Background(), "alice", "Book", exactEntries)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := NewManifest("alice", "Book", entries)
+	candidates := manifest.EnrichmentCandidates()
+	keys := make([]enrichment.CacheKey, len(candidates))
+	outcomes := make([]ExactEnrichment, len(candidates))
+	for i, candidate := range candidates {
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "2"}
+		outcomes[i] = ExactEnrichment{CacheKey: keys[i], Result: enrichment.Result{
+			Candidate:                 candidate,
+			Translation:               enrichment.Field[string]{Value: exactEntries[i].Translation, Available: true, Provenance: provenance},
+			SentenceTranslation:       enrichment.Field[string]{Value: exactEntries[i].SentenceTranslation, Available: true, Provenance: provenance},
+			SentenceTranslationTarget: enrichment.Field[string]{Value: exactEntries[i].SentenceTranslationTarget, Available: true, Provenance: provenance},
+		}}
+	}
+	bound, err := manifest.BindCacheKeys(keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.RenderManifest(context.Background(), bound, outcomes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.RenderManifest(context.Background(), bound, outcomes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first.APKG, want.APKG) || first.TSV != want.TSV || first.Completeness != want.Completeness || !reflect.DeepEqual(first.Generated, want.Generated) || !bytes.Equal(first.APKG, second.APKG) || first.TSV != second.TSV {
+		t.Fatalf("manifest=%+v\nwant=%+v\nsecond=%+v", first, want, second)
+	}
+	if first.Completeness != (Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 2, QualityOmitted: 1}) || len(first.Generated) != 2 {
+		t.Fatalf("completeness/provenance changed: %+v generated=%d", first.Completeness, len(first.Generated))
+	}
+
+	// Returned candidates and caller-owned key slices cannot mutate the bound manifest.
+	candidates[0].CanonicalLemma = "mutated"
+	keys[0].ProviderVersion = "mutated"
+	first.Omitted[0].Reasons[0] = "mutated"
+	third, err := service.RenderManifest(context.Background(), bound, outcomes)
+	if err != nil || third.TSV != first.TSV || !bytes.Equal(third.APKG, first.APKG) || third.Omitted[0].Reasons[0] == "mutated" {
+		t.Fatalf("manifest was mutable: err=%v third=%+v", err, third)
+	}
+}
+
+func TestManifestRejectsProviderVersionAndSentenceIdentityMismatch(t *testing.T) {
+	entry := Entry{OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: "Book", FirstEncounter: 10}
+	manifest := NewManifest("alice", "Book", []Entry{entry})
+	candidate := manifest.EnrichmentCandidates()[0]
+	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "2"}
+	result := enrichment.Result{Candidate: candidate, Translation: enrichment.Field[string]{Value: "house", Available: true, Provenance: provenance}}
+	wrongVersion := key
+	wrongVersion.ProviderVersion = "1"
+	if _, err = (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: wrongVersion, Result: result}}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("provider-version mismatch err=%v", err)
+	}
+	wrongSentence := key
+	wrongSentence.SentenceHash = enrichment.SentenceHash("Dieses andere Haus steht heute am Stadtrand.")
+	if _, err = manifest.BindCacheKeys([]enrichment.CacheKey{wrongSentence}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("sentence mismatch err=%v", err)
+	}
+}
+
+func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(t *testing.T) {
+	const owner, bookID = "alice", "book"
+	fixtures := []struct {
+		lemma, sentence string
+		first           int64
+	}{
+		{"baum", "Der alte Baum trägt heute viele grüne Blätter.", 30},
+		{"haus", "Das alte Haus ist überraschend groß.", 10},
+		{"fragment", "Fragment.", 20},
+	}
+	store := &memoryStore{bookID: bookID}
+	for _, fixture := range fixtures {
+		store.candidates = append(store.candidates, domain.SelectionCandidate{
+			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: fixture.first,
+			ObservedForms:      []byte("[" + jsonString(strings.Title(fixture.lemma)) + "]"),
+			SentenceReferences: []byte("[{\"text\":" + jsonString(fixture.sentence) + ",\"location\":{\"start_offset\":" + fmt.Sprint(fixture.first) + "}}]"),
+		})
+		store.entries = append(store.entries, Entry{OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: "NOUN", Sentence: fixture.sentence, TargetWord: strings.Title(fixture.lemma), SourceDocument: "Book", FirstEncounter: fixture.first})
+	}
+	service := NewService(store)
+	legacy, err := service.BuildCoverage(context.Background(), owner, bookID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := service.PrepareCoverage(context.Background(), owner, bookID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := service.RenderManifest(context.Background(), manifest, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(prepared.APKG, legacy.APKG) || prepared.TSV != legacy.TSV || prepared.Completeness != legacy.Completeness || !reflect.DeepEqual(prepared.Omitted, legacy.Omitted) || !reflect.DeepEqual(prepared.Generated, legacy.Generated) {
+		t.Fatalf("prepared=%+v\nlegacy=%+v", prepared, legacy)
+	}
+	if strings.Index(prepared.TSV, "Haus") > strings.Index(prepared.TSV, "Baum") || prepared.Completeness.QualityOmitted != 1 || len(prepared.Generated) != 2 {
+		t.Fatalf("order, omission, or provenance changed: %+v", prepared)
 	}
 }
 

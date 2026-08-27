@@ -33,22 +33,26 @@ func (s *translationState) put(candidate enrichment.Candidate) {
 }
 
 type orderedStateBuilder struct {
-	candidates []enrichment.Candidate
-	state      *translationState
-	calls      int
+	candidates   []enrichment.Candidate
+	state        *translationState
+	prepareCalls int
+	renderCalls  int
 }
 
-func (b *orderedStateBuilder) BuildCoverage(context.Context, string, string) (cardexport.Artifact, error) {
-	b.calls++
+func (b *orderedStateBuilder) PrepareCoverage(context.Context, string, string) (cardexport.Manifest, error) {
+	b.prepareCalls++
+	return testManifest(b.candidates, 0), nil
+}
+
+func (b *orderedStateBuilder) RenderManifest(_ context.Context, _ cardexport.Manifest, outcomes []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
+	b.renderCalls++
 	completeness := cardexport.Completeness{TotalCards: len(b.candidates)}
-	if b.calls == 1 {
-		return cardexport.Artifact{Count: len(b.candidates), Completeness: completeness, EnrichmentCandidates: b.candidates}, nil
-	}
-	b.state.mu.RLock()
-	defer b.state.mu.RUnlock()
 	var rows strings.Builder
-	for _, candidate := range b.candidates {
-		translation := b.state.values[candidate.CanonicalLemma]
+	for i, candidate := range b.candidates {
+		translation := ""
+		if i < len(outcomes) && outcomes[i].Result.SentenceTranslation.Available {
+			translation = outcomes[i].Result.SentenceTranslation.Value
+		}
 		fmt.Fprintf(&rows, "%s\t%s\n", candidate.CanonicalLemma, translation)
 		if translation != "" {
 			completeness.CardsWithEnglish++
@@ -69,6 +73,9 @@ type timedObservedEnricher struct {
 }
 
 func (*timedObservedEnricher) ExternalConfigured() bool { return true }
+func (*timedObservedEnricher) ExternalCacheKey(candidate enrichment.Candidate) (enrichment.CacheKey, bool) {
+	return testCacheKey(candidate), true
+}
 
 func (e *timedObservedEnricher) EnrichExternal(ctx context.Context, candidate enrichment.Candidate) (enrichment.Result, error) {
 	result, _, err := e.EnrichExternalObserved(ctx, candidate)
@@ -95,7 +102,7 @@ func (e *timedObservedEnricher) EnrichExternalObserved(ctx context.Context, cand
 		return enrichment.Result{}, metrics, errors.New("synthetic provider failure")
 	}
 	e.state.put(candidate)
-	return enrichment.Result{Candidate: candidate, SentenceTranslation: enrichment.Field[string]{Value: "translated", Available: true}}, metrics, nil
+	return enrichment.Result{Candidate: candidate, SentenceTranslation: enrichment.Field[string]{Value: "translated-" + candidate.CanonicalLemma, Available: true, Provenance: enrichment.Provenance{Provider: "test", ProviderVersion: "1"}}}, metrics, nil
 }
 
 type workerScenario struct {
@@ -139,7 +146,7 @@ func runWorkerScenario(t *testing.T, candidates []enrichment.Candidate, concurre
 		elapsed:     time.Since(started),
 		calls:       int(enricher.calls.Load()),
 		peak:        int(enricher.peak.Load()),
-		builds:      builder.calls,
+		builds:      builder.renderCalls,
 		failed:      store.failed,
 	}
 }
@@ -161,7 +168,7 @@ func TestWorkerBoundsConcurrencyCompletesAllCandidatesAndMatchesSerialOutput(t *
 	serial := runWorkerScenario(t, candidates, 1, 15*time.Millisecond, nil)
 	concurrent := runWorkerScenario(t, candidates, 4, 15*time.Millisecond, nil)
 
-	if serial.calls != len(candidates) || concurrent.calls != len(candidates) || serial.builds != 2 || concurrent.builds != 2 {
+	if serial.calls != len(candidates) || concurrent.calls != len(candidates) || serial.builds != 1 || concurrent.builds != 1 {
 		t.Fatalf("serial calls/builds=%d/%d concurrent=%d/%d", serial.calls, serial.builds, concurrent.calls, concurrent.builds)
 	}
 	if serial.peak != 1 || concurrent.peak != 4 || concurrent.observation.PeakInFlightProviderCalls != 4 {
@@ -205,6 +212,9 @@ type cancellationEnricher struct {
 }
 
 func (*cancellationEnricher) ExternalConfigured() bool { return true }
+func (*cancellationEnricher) ExternalCacheKey(candidate enrichment.Candidate) (enrichment.CacheKey, bool) {
+	return testCacheKey(candidate), true
+}
 
 func (e *cancellationEnricher) EnrichExternal(ctx context.Context, candidate enrichment.Candidate) (enrichment.Result, error) {
 	result, _, err := e.EnrichExternalObserved(ctx, candidate)
@@ -258,8 +268,8 @@ func TestWorkerCancellationStopsSchedulingAndWaitsForInFlightWork(t *testing.T) 
 	if got := enricher.inFlight.Load(); got != 0 {
 		t.Fatalf("in-flight work after worker return=%d", got)
 	}
-	if builder.calls != 1 || store.completed != nil || store.failed != context.Canceled.Error() {
-		t.Fatalf("builds=%d completed=%+v failed=%q", builder.calls, store.completed, store.failed)
+	if builder.prepareCalls != 1 || builder.renderCalls != 0 || store.completed != nil || store.failed != context.Canceled.Error() {
+		t.Fatalf("prepare=%d render=%d completed=%+v failed=%q", builder.prepareCalls, builder.renderCalls, store.completed, store.failed)
 	}
 	if observation.Outcome != "failed" || observation.Counts.Cancellations != concurrency {
 		t.Fatalf("observation=%+v", observation)
