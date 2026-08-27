@@ -11,11 +11,14 @@ Mouseion sends Chat Completions requests, and OpenAI Batch supports
 `POST /v1/chat/completions`. It is a throughput and cost optimization, not a
 translation-quality improvement.
 
-The recommended direction is to retain the current synchronous provider as the
-default and add Batch as an opt-in asynchronous provider for large,
-non-interactive preparations. Batch should integrate with the durable
-prepared-deck translation-run design rather than being hidden inside the
-current in-memory worker loop.
+The recommended direction is to replace synchronous provider calls with Batch
+for prepared-deck translation. A normal preparation should submit one Batch
+job containing one request per eligible translation item. Batch should
+integrate with the durable prepared-deck translation-run design rather than be
+hidden inside the current in-memory worker loop. The current synchronous
+provider and its per-deck concurrency setting should be removed after the
+Batch path is operationally validated; this is not intended to become a
+permanent dual-provider architecture.
 
 ## Evidence from the current implementation
 
@@ -107,8 +110,8 @@ and quality validation so transport changes can be evaluated independently.
 3. Preserve exact correlation between source candidates and responses.
 4. Handle partial success, expiration, cancellation, retries, and worker
    restarts safely.
-5. Preserve the existing synchronous path and per-deck concurrency setting as a
-   fallback and for latency-sensitive work.
+5. Replace synchronous per-item scheduling and its concurrency configuration
+   rather than carrying both implementations indefinitely.
 6. Measure translation quality separately from throughput, cost, and provider
    errors.
 
@@ -117,7 +120,7 @@ and quality validation so transport changes can be evaluated independently.
 This feature does not promise to:
 
 - improve model quality or prompt quality;
-- make small jobs complete faster;
+- make small jobs complete immediately or within a synchronous request latency;
 - provide immediate responses;
 - eliminate retries or malformed model output;
 - change candidate selection, sentence selection, or card-ranking policy;
@@ -128,24 +131,21 @@ This feature does not promise to:
 
 ## Proposed product behavior
 
-Add an explicit provider or execution-mode choice, using the repository's
-configuration naming conventions, for example:
-
-```text
-MOUSEION_PREPARED_DECK_TRANSLATION_PROVIDER=sync|batch
-```
-
-The default remains `sync` until Batch has passed production-like quality and
-operational tests. The existing setting remains applicable to synchronous work:
+Use Batch as the prepared-deck translation execution model. During rollout,
+an explicit deployment flag may be useful, but it should select a temporary
+rollout phase rather than establish a permanent `sync|batch` provider API.
+The target configuration is Batch-only. The existing setting
 
 ```text
 MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY
 ```
 
-That setting must not be documented as controlling Batch execution parallelism.
-It may continue to limit synchronous fallback and individual retries.
+should be deprecated and removed with the synchronous implementation. It must
+not be repurposed as a Batch parallelism control: OpenAI schedules requests in
+the submitted Batch.
 
-Possible Batch-specific settings include:
+The only required Batch-specific setting should initially be the existing LLM
+configuration plus any polling/operational defaults. Possible settings include:
 
 ```text
 MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS
@@ -160,9 +160,12 @@ existing configuration patterns.
 
 ### Request construction
 
-Extract or reuse the current Chat Completions request construction so sync and
-Batch modes use identical prompts, model parameters, JSON response format, and
-privacy filtering. Serialize one JSONL request per translation unit.
+Extract or reuse the current Chat Completions request construction so the Batch
+request uses the existing prompt, model parameters, JSON response format, and
+privacy filtering. Serialize one JSONL request per translation unit. Do not
+serialize the entire deck as one model request: that would create context and
+output-size risk and would eliminate independent item failure and retry
+semantics.
 
 Each request needs a stable ID, for example:
 
@@ -189,11 +192,19 @@ and manifest item without embedding source sentences or learner identity.
 1. Read the immutable translation-run manifest.
 2. Exclude cache hits and already-terminal items according to the run contract.
 3. Group requests by endpoint and model; never mix models in one input file.
-4. Chunk before the 50,000-request or 200 MB limits, with safety headroom.
-5. Upload each JSONL file through the Files API with `purpose="batch"`.
-6. Create a Batch with the supported endpoint and `completion_window="24h"`.
-7. Persist the batch ID, input file ID, model, endpoint, request count, and
+4. For the expected 3,000–5,000-card decks, submit one Batch containing all
+   eligible per-item requests when the measured JSONL size and queued prompt
+   token budget allow it.
+5. Split into multiple Batch jobs only when the 50,000-request limit, 200 MB
+   input-file limit, or model/account queued-prompt-token limit requires it.
+6. Upload each JSONL file through the Files API with `purpose="batch"`.
+7. Create a Batch with the supported endpoint and `completion_window="24h"`.
+8. Persist the batch ID, input file ID, model, endpoint, request count, and
    submission state before returning success.
+
+The 50,000-request and 200 MB limits are necessary but not sufficient sizing
+checks. The implementation must calculate serialized bytes and estimated
+prompt tokens before submission and expose the reason when a run is split.
 
 The current in-memory `Worker.Work` flow is not a safe place to own this
 lifecycle: it renders and commits in one River attempt and has no durable place
@@ -207,8 +218,9 @@ A durable River job should poll or reconcile Batch status. On a terminal state:
 2. Download the error file, if present.
 3. Parse each JSONL line independently.
 4. Resolve lines by `custom_id`, never by line position.
-5. Run the same response decoding and quality validation used by the
-   synchronous provider.
+5. Run the same response decoding and quality validation currently used by the
+   synchronous provider, after extracting that logic from the synchronous
+   transport implementation.
 6. Persist successful item outcomes idempotently.
 7. Persist request-level errors separately from batch-level failures.
 8. Leave retryable or expired items eligible for a bounded retry policy.
@@ -253,14 +265,16 @@ malformed JSON, or content failing Mouseion validation. Only explicitly
 retryable classes should be retried. Retries must be idempotent at the
 manifest-item level and must not overwrite a newer successful outcome.
 
-A practical first rollout is to use Batch for the initial bulk attempt and the
-existing synchronous provider for bounded retries of individual failed items.
-This keeps recovery simple while avoiding creation of many tiny batches.
+Retries should remain Batch-based so the replacement does not carry a second
+synchronous transport. A retry run may submit a new Batch containing only the
+failed or expired items. This keeps the provider surface singular while
+avoiding regeneration of successful items.
 
 ## Quality and performance evaluation
 
-Before changing the default, compare equivalent synchronous and Batch runs using
-the same frozen manifests, prompt version, model, and validation rules. Record:
+Before removing the synchronous implementation, compare equivalent synchronous
+and Batch runs using the same frozen manifests, prompt version, model, and
+validation rules. Record:
 
 - completion latency and queue latency;
 - total and per-item cost;
@@ -279,9 +293,11 @@ alignment is not an acceptable optimization without an explicit product decision
 
 ### Functional
 
-- Batch mode is explicit and opt-in.
-- Sync mode remains available and unchanged by default.
-- Batch requests use the same semantic request contract as sync requests.
+- Batch is the prepared-deck translation execution model after rollout.
+- The synchronous transport and `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY`
+  are removed once migration verification passes.
+- Batch requests use the same semantic request contract as the current sync
+  requests.
 - Every request has a deterministic unique `custom_id`.
 - Model and endpoint compatibility is validated before submission.
 - Request-count and file-size limits are enforced before upload.
@@ -298,8 +314,8 @@ alignment is not an acceptable optimization without an explicit product decision
 Add tests for deterministic JSONL serialization, custom-ID round trips,
 output-order independence, mixed success/error files, malformed lines, unknown
 IDs, duplicate IDs, batch expiration, cancellation, partial success, restart
-recovery, retry selection, chunking, model validation, and preservation of the
-current synchronous concurrency behavior.
+recovery, retry selection, chunking, model validation, and migration away from
+the current synchronous concurrency behavior.
 
 ### Operations
 
@@ -317,7 +333,8 @@ responses, source sentences, credentials, or raw provider error bodies.
    Batch work begins. Batch should not be bolted onto the current in-memory
    loop as a hidden asynchronous request.
 3. Which configured models and endpoints are eligible for Batch.
-4. Whether failed Batch items retry synchronously, in a new Batch, or both.
+4. Whether failed Batch items retry in a new Batch immediately or through a
+   subsequent durable retry run.
 5. How long Batch metadata and temporary file IDs are retained.
 6. Whether a prepared deck waits up to 24 hours, or whether Batch is restricted
    to an explicitly offline preparation workflow.
@@ -326,15 +343,16 @@ responses, source sentences, credentials, or raw provider error bodies.
 
 ## Suggested implementation decomposition
 
-1. **Provider contract and request serialization:** share sync/Batch request
-   construction and add deterministic JSONL fixtures.
+1. **Provider contract and request serialization:** extract the existing
+   request semantics from the synchronous transport, make them the Batch
+   request contract, and add deterministic JSONL fixtures.
 2. **Batch client and configuration:** implement Files/Batch submission,
    status retrieval, cancellation, and model/endpoint validation behind a
    testable interface.
 3. **Durable run integration:** extend the ADR 0030 translation-run lifecycle
    with Batch chunk state, durable IDs, polling, and fenced reconciliation.
-4. **Retry and fallback:** implement per-item retry classification and optional
-   synchronous fallback.
+4. **Retry policy:** implement per-item retry classification and new Batch
+   submissions for failed or expired items; remove synchronous fallback.
 5. **Observability and rollout:** add aggregate metrics, operational controls,
    comparison tests, and an opt-in deployment path.
 
