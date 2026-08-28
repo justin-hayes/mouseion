@@ -356,6 +356,15 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 			return p, 0, insertErr
 		}
 		if result == nil || result.Job == nil || !isLivePreparationJobState(result.Job.State) {
+			// River may have skipped a duplicate insert and not return the
+			// existing row. Confirm the job from the same transaction before
+			// treating the submission as unsafe; otherwise a concurrent submit
+			// can incorrectly fail an otherwise live preparation.
+			if confirmedJobID, confirmErr := livePreparationJobID(ctx, tx, p.OwnerID, p.ID); confirmErr == nil {
+				return p, confirmedJobID, nil
+			} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
+				return p, 0, confirmErr
+			}
 			return p, 0, errors.New("River did not return a live preparation job")
 		}
 		return p, result.Job.ID, nil
