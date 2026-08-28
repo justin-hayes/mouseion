@@ -138,6 +138,14 @@ unless it is strictly necessary to complete the current issue. If issue
 boundaries prove incorrect, surface that fact rather than silently combining
 multiple issues.
 
+## Coding-agent escalation
+
+Start Codex in `normal` mode for all repository work, including substantial or
+cross-cutting issues. Escalate to Sol/deep only when a concrete blocker
+requires it, such as architectural ambiguity or a repeated implementation or
+test failure. Keep the escalation narrowly scoped to resolving that blocker,
+then return to normal mode for the remaining implementation and verification.
+
 ## Autonomous implementation
 
 Implementation agents are expected to work autonomously through ordinary
