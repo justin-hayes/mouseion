@@ -41,7 +41,7 @@ func TestCatalogUsesReadyNLPCodeSeparatelyFromCatalogLanguageID(t *testing.T) {
 	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Library"}, []domain.SupportedLanguage{capability}, false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Browse EPUBs by language", "German", `value="de"`, "/opds/language"} {
+	for _, want := range []string{"Browse EPUBs by language", "German", `value="de"`, `method="get"`, `action="/opds/language"`, `hx-get="/opds/language"`} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("catalog page missing %q: %s", want, output.String())
 		}
@@ -57,6 +57,14 @@ func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 	html := output.String()
 	if strings.Contains(html, "Book language") || strings.Contains(html, `name="language"`) {
 		t.Fatalf("connection forms still contain a language field: %s", html)
+	}
+	for _, want := range []string{`class="confirmation confirmation--danger"`, "Delete catalog connection", "Confirm deletion"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("connection deletion missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, "window.confirm") || strings.Contains(html, "onsubmit=") {
+		t.Fatalf("connection deletion must use the server-rendered confirmation pattern: %s", html)
 	}
 }
 
@@ -83,8 +91,10 @@ func TestCatalogRootFragmentShowsSearchWithoutCategories(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, "Search this catalog") {
-		t.Errorf("root fragment missing search: %s", html)
+	for _, want := range []string{"Search this catalog", `method="get"`, `action="/opds/search"`, `hx-get="/opds/search"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("root fragment missing %q: %s", want, html)
+		}
 	}
 	for _, unwanted := range []string{"Catalog root", "Authors", "Newest books"} {
 		if strings.Contains(html, unwanted) {

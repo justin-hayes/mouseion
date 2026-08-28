@@ -57,8 +57,11 @@ feature specification.
 ### System
 
 - [`design-system.md`](design-system.md) — pinned frontend dependencies,
-  semantic tokens, typography, spacing, responsive behavior, accessibility
-  requirements, and the boundary for reusable component work.
+  semantic tokens, typography, spacing, responsive behavior, and accessibility
+  foundations.
+- [`components.md`](components.md) — reusable Templ component purposes, content
+  rules, variants, states, focus, keyboard, announcement, and responsive
+  contracts.
 
 ## Required workflow questions
 

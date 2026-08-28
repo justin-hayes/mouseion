@@ -24,7 +24,7 @@ document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
   var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
-  target.innerHTML = '<article role="alert"><strong>Catalog error:</strong> ' + window.escapeHtml(text) + '<p><small>Review the catalog connection or try again.</small></p></article>';
+  target.innerHTML = '<article role="alert"><strong>Request failed:</strong> ' + window.escapeHtml(text) + '<p><small>Review the affected item or try again.</small></p></article>';
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
@@ -70,7 +70,7 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
       var b = preparation.batch || {};
       if (Number(b.requests || 0) > 0) html += 'Batch requests: ' + Number(b.completed || 0) + ' complete · ' + Number(b.failed || 0) + ' failed · ' + Number(b.expired || 0) + ' expired' + (Number(b.age_seconds || 0) > 0 ? ' · running for ' + Math.floor(Number(b.age_seconds || 0) / 3600) + 'h' : '') + '.';
     }
-    html += '<progress value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
+    html += '<progress aria-label="Deck preparation progress" value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
     if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';
     if (preparation.ready) {
       var c = preparation.completeness || {};
@@ -106,39 +106,49 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
     target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
   }
 };
-</script></head><body><header class="container"><nav><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+</script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav aria-label="Primary navigation"><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul>
 		<li><a href="/library">My Library</a></li><li><a href="/campaigns">Learning</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
-	</nav></header><main class="container">{ children... }</main></body></html>
+	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
-	@Layout("My Library", &user, csrf) { <header class="page-heading"><div><h1>My Library</h1><p>Your books, ready for pre-learning.</p></div><a role="button" href="/connections">Add a book</a></header>
-	if message != "" {
-		<p role="status">{ message }</p>
-	}
-	if len(books) == 0 {
-		<article><h2>Your library is empty</h2><p>Browse a catalog and import a book to begin.</p><a href="/connections">Browse catalogs</a></article>
-	}
-	if len(books) > 0 {
-		<div class="library-list">
-		for _, book := range books {
-			<article><div><h2 class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2><p class="metadata"><code>{ book.Source.Language }</code> · imported { book.Source.CreatedAt.Format("2006-01-02") }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></article>
+	@Layout("My Library", &user, csrf) {
+		@PageHeader("My Library", "Your books, ready for pre-learning.", nil) {
+			<a role="button" href="/connections">Add a book</a>
 		}
-		</div>
-	}
+		if message != "" {
+			@Feedback(FeedbackSuccess, "", message)
+		}
+		if len(books) == 0 {
+			@EmptyState("Your library is empty", "Browse a catalog and add a book to begin.") {
+				<a href="/connections">Browse catalogs</a>
+			}
+		}
+		if len(books) > 0 {
+			<div class="library-list">
+				for _, book := range books {
+					@ResourceCard() {
+						<div><h2 class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2><p class="metadata"><code>{ book.Source.Language }</code> · imported { book.Source.CreatedAt.Format("2006-01-02") }</p></div>
+						@StatusBadge(book.AnalysisStatus, statusTone(book.AnalysisStatus))
+					}
+				}
+			</div>
+		}
 	}
 }
 templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string) {
 	@Layout("Learning", &user, csrf) {
-		<header class="page-heading"><div><h1>Learning campaigns</h1><p>Choose one prepared book and deck to study now, and keep the rest in your queue.</p></div><a role="button" class="outline" href="/library">Prepare another deck</a></header>
+		@PageHeader("Learning campaigns", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
+			<a role="button" class="outline" href="/library">Prepare another deck</a>
+		}
 		if message != "" {
-			<p role="status">{ message }</p>
+			@Feedback(FeedbackSuccess, "", message)
 		}
 		if pageError != "" {
-			<p role="alert">{ pageError }</p>
+			@Feedback(FeedbackError, "Action needed", pageError)
 		}
 		<section aria-labelledby="active-campaign-heading"><h2 id="active-campaign-heading">Active campaign</h2>
 			if !hasCampaignStatus(campaigns, domain.CampaignActive) {
@@ -163,7 +173,7 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 		if len(prepared) > 0 {
 			<section aria-labelledby="prepared-books-heading"><h2 id="prepared-books-heading">Prepared books</h2><p>Add a ready book and deck to your learning queue.</p><div class="campaign-list">
 				for _, item := range prepared {
-					<article><div><h3>{ item.Book.Source.Title }</h3><p><span class="status status-ready">Deck ready</span> · <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
+					<article class="resource-card"><div><h3>{ item.Book.Source.Title }</h3><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
 				}
 			</div></section>
 		}
@@ -180,7 +190,7 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 	}
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article class="campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p><span class={ "status status-"+statusClass(string(item.Campaign.Status)) }>{ campaignStatusLabel(item.Campaign.Status) }</span> · <code>{ item.Deck.DeckName }</code></p><dl class="campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	<article class="resource-card campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
 	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
 		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
 	}
@@ -192,22 +202,38 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Start learning</button></form>
 	}
 	if item.Campaign.Status == domain.CampaignActive {
-		<div class="campaign-actions">
-		if item.Campaign.BookProgress != domain.BookFinished {
-			<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark book finished</button></form>
+		@ActionGroup() {
+			if item.Campaign.BookProgress != domain.BookFinished {
+				if item.Campaign.DeckProgress == domain.DeckReviewed {
+					@Confirmation("Mark book finished and complete campaign", "Completing this campaign adds its assigned vocabulary to known vocabulary and cannot currently be undone in Mouseion.", StatusNeutral) {
+						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Complete campaign</button></form>
+					}
+				} else {
+					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark book finished</button></form>
+				}
+			}
+			if item.Campaign.DeckProgress != domain.DeckReviewed {
+				if item.Campaign.BookProgress == domain.BookFinished {
+					@Confirmation("Mark deck reviewed and complete campaign", "Completing this campaign adds its assigned vocabulary to known vocabulary and cannot currently be undone in Mouseion.", StatusNeutral) {
+						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Complete campaign</button></form>
+					}
+				} else {
+					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark deck reviewed</button></form>
+				}
+			}
+			@Confirmation("Abandon campaign", "The prepared deck and learning history remain available. Reserved vocabulary is released for future decks.", StatusDanger) {
+				<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Confirm abandonment</button></form>
+			}
 		}
-		if item.Campaign.DeckProgress != domain.DeckReviewed {
-			<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark deck reviewed</button></form>
-		}
-		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Abandon campaign</button></form>
-		</div>
 	}
 	</article>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
-	@Layout(book.Source.Title, &user, csrf) { <p><a href="/library">← My Library</a></p><header class="page-heading"><div><h1>{ book.Source.Title }</h1><p><code>{ book.Source.Language }</code> · { book.Source.MediaType }</p></div><span class={ "status status-"+statusClass(book.AnalysisStatus) }>{ book.AnalysisStatus }</span></header>
+	@Layout(book.Source.Title, &user, csrf) {
+	@Breadcrumb("/library", "My Library")
+	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(book.AnalysisStatus, statusTone(book.AnalysisStatus)))
 	if message != "" {
-		<p role="status">{ message }</p>
+		@Feedback(FeedbackSuccess, "", message)
 	}
 	if coverage != nil {
 		<section aria-labelledby="analyzed-scope-heading"><h2 id="analyzed-scope-heading">Analyzed scope</h2>
@@ -239,12 +265,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		}
 		if coverage.TextProfile != nil {
 			<section aria-labelledby="text-profile-heading"><h2 id="text-profile-heading">Text profile</h2>
-				<div class="coverage-summary">
-					<article><strong>{ fmt.Sprintf("%d", coverage.TextProfile.SentenceCount) }</strong><span>sentences</span></article>
-					<article><strong>{ fmt.Sprintf("%.1f", coverage.TextProfile.MedianSentenceTokenCount) }</strong><span>median tokens per sentence</span></article>
-					<article><strong>{ fmt.Sprintf("%d", coverage.TextProfile.P90SentenceTokenCount) }</strong><span>90th-percentile tokens</span></article>
-					<article><strong>{ fmt.Sprintf("%.1f%%", longSentencePercent(*coverage.TextProfile)) }</strong><span>long sentences (&gt;35 tokens)</span></article>
-				</div>
+				@StatGroup(textProfileStatItems(*coverage.TextProfile))
 				<p><strong>{ fmt.Sprintf("%d of %d", coverage.AnalyzableTokenCount, coverage.TextProfile.NormalizedTokenCount) }</strong> normalized tokens contribute to vocabulary coverage. Sentence lengths include every normalized token, including punctuation.</p>
 				<details><summary>How the text profile works</summary><p>Sentence boundaries and tokens come from the analyzer. The median is the middle sentence length (or the average of the two middle lengths), and the 90th percentile uses nearest-rank selection. A long sentence has more than 35 normalized tokens. These are separate, descriptive signals—not a difficulty score or proficiency-level claim.</p></details>
 			</section>
@@ -253,23 +274,10 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			<article role="note"><h2>Text profile unavailable</h2><p>This book was analyzed before sentence statistics were recorded. Analyze it again to see structural signals.</p></article>
 		}
 		<section aria-labelledby="coverage-heading"><h2 id="coverage-heading">Vocabulary coverage</h2>
-			<div class="coverage-summary">
-				<article><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*coverage)) }</strong><span>current-known coverage</span></article>
-				<article><strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*coverage)) }</strong><span>active-campaign projected coverage</span></article>
-				<article><strong>{ fmt.Sprintf("%d", coverage.AnalyzableTokenCount) }</strong><span>analyzable tokens</span></article>
-				<article><strong>{ fmt.Sprintf("%d", coverage.DistinctLemmaCount) }</strong><span>distinct lemmas</span></article>
-			</div>
+			@StatGroup(coverageStatItems(*coverage))
 			<p>Your current known vocabulary—including vocabulary graduated by completed campaigns—covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The active campaign could add <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignLemmaCount) }</strong> lemmas after graduation; this projection is not counted as known. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
 			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each analyzed-scope token coverage target:</p>
-			<div class="coverage-thresholds">
-				for _, threshold := range coverage.Thresholds {
-					if threshold.Reachable {
-						<article><strong>{ fmt.Sprintf("%d", threshold.LemmaCount) }</strong><span>{ fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent) }</span></article>
-					} else {
-						<article><strong>Unavailable</strong><span>{ fmt.Sprintf("%d%% cannot be reached with deck-eligible vocabulary", threshold.TargetPercent) }</span></article>
-					}
-				}
-			</div>
+			@StatGroup(thresholdStatItems(coverage.Thresholds))
 			if len(coverage.TopUnknownLemmas) > 0 {
 				<h3>Highest-impact unknown vocabulary</h3>
 				<p>The most frequent deck-eligible lemmas in this analyzed scope:</p>
@@ -283,11 +291,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 				<p>The top { fmt.Sprintf("%d", coverage.UnknownConcentration.TopLemmaCount) } deck-eligible lemmas account for <strong>{ fmt.Sprintf("%.1f%%", concentrationPercent(coverage.UnknownConcentration)) }</strong> of eligible unknown occurrences.</p>
 				<h3>Projected token coverage</h3>
 				<p>If you learned the most frequent deck-eligible lemmas:</p>
-				<div class="coverage-thresholds">
-					for _, projection := range coverage.Projections {
-						<article><strong>{ fmt.Sprintf("%.1f%%", projectedCoveragePercent(projection, coverage.AnalyzableTokenCount)) }</strong><span>{ fmt.Sprintf("after top %d lemmas", projection.TopLemmaCount) }</span></article>
-					}
-				</div>
+				@StatGroup(projectionStatItems(coverage.Projections, coverage.AnalyzableTokenCount))
 			}
 			<details><summary>How these metrics work</summary><p><strong>Current-known coverage</strong> is the share of analyzable token occurrences in the resulting corpus matched by vocabulary explicitly marked known or graduated from a completed campaign. <strong>Active-campaign projected coverage</strong> adds reserved vocabulary from the active campaign without claiming it is known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p>Active-campaign vocabulary is excluded from a new deck while it is reserved. Abandoned campaign vocabulary becomes <strong>deck-eligible vocabulary</strong> again. Unattached legacy generated history remains conservatively excluded. The 95%, 97%, and 99% estimates use the same analyzed-scope token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
 		</section>
@@ -295,7 +299,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	if statisticsUnavailable {
 		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary and sentence statistics were recorded. Analyze it again to see coverage, projections, and the structural profile.</p></article>
 	}
-	<div class="book-actions"><article><h2>Analysis</h2>
+	<div class="book-actions"><article class="resource-card"><h2>Analysis</h2>
 		if book.Source.MediaType == "application/epub+zip" {
 			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review and analyze a new EPUB scope</a></p>
 		}
@@ -314,7 +318,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 		} else {
 			<a role="button" class="outline" href={ templ.SafeURL(scopeReviewURL(book)) }>Review and confirm scope</a>
 			}
-	</article><article><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
+	</article><article class="resource-card"><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
 		if book.AnalysisStatus == "analyzed" && book.AnalysisJobID > 0 {
 			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>Open analysis result to prepare deck</a>
 		} else {
@@ -325,12 +329,12 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 
 templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, pageError string, selectedCSV string) {
 	@Layout("Review analysis scope", &user, csrf) {
-		<p><a href={ templ.SafeURL("/books/"+review.Book.ID) }>← { review.Book.Title }</a></p>
-		<header class="page-heading"><div><h1>Review analysis scope</h1><p>Choose the readable EPUB units that should be used by a future analysis.</p></div></header>
+		@Breadcrumb("/books/"+review.Book.ID, review.Book.Title)
+		@PageHeader("Review analysis scope", "Choose the readable EPUB units that should be used by a future analysis.", nil)
 		if pageError != "" {
-			<article role="alert" tabindex="-1"><strong>Scope not saved.</strong> { pageError }</article>
+			@Feedback(FeedbackError, "Scope not saved.", pageError)
 		}
-		<article role="note"><strong>How recommendations work</strong><p>High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.</p></article>
+		@Feedback(FeedbackInfo, "How recommendations work", "High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.")
 		if review.DegradedRecommendation {
 			<article role="note"><strong>Limited structural confidence</strong><p>No high-confidence main matter was found. Substantive medium-confidence main matter is included with review suggested; unknown units remain excluded for review instead of being promoted by a whole-book fallback.</p></article>
 		}
@@ -545,13 +549,14 @@ templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile
 	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
 templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	@Layout("Settings", &user, csrf) { <h1>Account settings</h1><p>Choose the languages you study and optionally import words you already know for each one.</p>
+	@Layout("Settings", &user, csrf) {
+	@PageHeader("Account settings", "Choose the languages you study and optionally import words you already know for each one.", nil)
 	if message != "" {
-		<p role="status">{ message }</p>
+		@Feedback(FeedbackSuccess, "", message)
 	}
-	<article><h2>Study languages</h2>
+	<article class="resource-card"><h2>Study languages</h2>
 		if degraded {
-			<p role="alert">NLP language discovery is temporarily unavailable. Your saved study languages are unchanged.</p>
+			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged.")
 		}
 		if len(supported) == 0 {
 			if !degraded {
@@ -567,10 +572,10 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 		}
 	</article>
 	if len(profiles) == 0 {
-		<article><p>Select at least one study language to manage known vocabulary.</p></article>
+		@EmptyState("No study languages yet", "Select at least one study language to manage known vocabulary.")
 	}
 	for _, profile := range profiles {
-		<article><header class="page-heading"><div><h2>{ profile.DisplayName } <code>{ profile.Language }</code></h2><p>Known vocabulary is private to your account and used to filter generated decks.</p></div><form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Remove</button></form></header>
+		<article class="resource-card"><header class="page-heading"><div><h2>{ profile.DisplayName } <code>{ profile.Language }</code></h2><p>Known vocabulary is private to your account and used to filter generated decks.</p></div><form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Remove</button></form></header>
 		<form method="post" action="/known-vocab/import" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ profile.Language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known words</button></form>
 		if language == profile.Language {
 			<section>@KnownVocabResult(language, result, known, "")</section>
@@ -591,7 +596,7 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 	}
 	<div class="catalog-list">
 	for _, c := range connections {
-		<article><header><strong>{ c.Name }</strong></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details><form class="inline right" method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") } onsubmit="return confirm('Delete this catalog connection?')"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Delete</button></form></article>
+		<article><header><strong>{ c.Name }</strong></header><p class="break">{ c.URL }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL<input type="url" name="url" value={ c.URL } required/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes the saved catalog and its credentials. Books already in My Library remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 	}
 	</div> }
 }
@@ -600,7 +605,7 @@ templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnectio
 	if degraded {
 		<p role="alert">NLP language discovery is temporarily unavailable. Catalog browsing and import are paused.</p>
 	} else if len(languages) > 0 {
-		<form hx-get="/opds/language" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connection.ID }/><label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
+		<form method="get" action="/opds/language" hx-get="/opds/language" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connection.ID }/><label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
 		for _, language := range languages {
 			<option value={ language.Language }>{ language.DisplayName }</option>
 		}</select></label><button type="submit">Browse language</button></form>
@@ -612,7 +617,7 @@ templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnectio
 templ CatalogRootFragment(connectionID, language string, feed opds.Feed) {
 	<section>
 	if opds.SupportsSearch(feed) {
-		<form role="search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
+		<form role="search" method="get" action="/opds/search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="innerHTML"><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
 	} else {
 		<p><small>Search is not available for this catalog.</small></p>
 	}
@@ -717,40 +722,45 @@ templ AcquisitionFailureCard(csrf, connectionID, language, returnTo, message str
 	<article><h3>{ entry.Title }</h3><p role="alert">{ message }</p>@AcquisitionForm(csrf, connectionID, language, returnTo, entry, href)</article>
 }
 templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
-	@Layout("Jobs", &user, csrf) { <h1>Analysis jobs</h1>
-	if message != "" {
-		<p>{ message }</p>
+	@Layout("Jobs", &user, csrf) {
+		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
+		if message != "" {
+			@Feedback(FeedbackInfo, "", message)
+		}
+		if len(jobs) == 0 {
+			@EmptyState("No analysis runs yet", "Start analysis from a book after confirming its scope.") {
+				<a href="/library">Go to My Library</a>
+			}
+		}
+		if len(jobs) > 0 {
+			@ResponsiveTable("Analysis history") {
+				<thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				for _, job := range jobs {
+					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a></td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+				}
+				</tbody>
+			}
+		}
 	}
-	if len(jobs) == 0 {
-		<p>No books have been submitted.</p>
-	}
-	if len(jobs) > 0 {
-	<table><thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
-	for _, job := range jobs {
-		<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a></td><td><progress value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
-	}
-	</tbody></table>
-	} }
 }
 templ JobPage(user domain.User, csrf string, status analysis.Status) {
-	@Layout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf) { <h1>{ fmt.Sprintf("Analysis job #%d", status.DisplayNumber) }</h1><div id="job-status">@JobStatus(csrf, status)</div> }
+	@Layout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf) {
+		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
+		@JobStatus(csrf, status)
+	}
 }
 templ JobStatus(csrf string, status analysis.Status) {
-	<article
-		if jobRunning(status) {
-			hx-get={ fmt.Sprintf("/jobs/%d/status", status.ID) }
-			hx-trigger="every 2s"
-			hx-swap="outerHTML"
-		}
-		id="job-status"><h2>{ jobState(status) }</h2><p role="status" aria-live="polite">{ analysisStatusSummary(status) }</p><progress value={ fmt.Sprintf("%d", status.Progress) } max="100"></progress>
+	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status)) {
 		if status.Error != "" {
-			<p role="alert"><strong>Action needed:</strong> { status.Error }</p>
+			@Feedback(FeedbackError, "Action needed", status.Error)
 		}
-		if jobRetryable(status) {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry analysis</button></form>
-		}
-		if jobRunning(status) {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel analysis</button></form>
+		@ActionGroup() {
+			if jobRetryable(status) {
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry analysis</button></form>
+			}
+			if jobRunning(status) {
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel analysis</button></form>
+			}
 		}
 		if status.CorpusID != "" {
 			if status.ScopeID != "" && status.LogicalState == "completed" {
@@ -760,14 +770,14 @@ templ JobStatus(csrf string, status analysis.Status) {
 				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
 			}
 		}
-	</article>
+	}
 }
 templ KnownVocabPage(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, known []domain.KnownVocabulary) {
 	@KnownVocabPageWithResult(user, csrf, profiles, language, nil, known, "")
 }
 templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@Layout("Known vocabulary", &user, csrf) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
-	<article><form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-target="#known-vocab-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>Language code<input name="language" value={ language } list="study-languages" placeholder="de" required/></label><datalist id="study-languages">
+	<article><form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-encoding="multipart/form-data" hx-target="#known-vocab-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>Language code<input name="language" value={ language } list="study-languages" placeholder="de" required/></label><datalist id="study-languages">
 	for _, profile := range profiles {
 		<option value={ profile.Language }>{ profile.DisplayName }</option>
 	}
@@ -775,16 +785,19 @@ templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.
 }
 templ KnownVocabResult(language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	if message != "" {
-		<p role="alert">{ message }</p>
+		@Feedback(FeedbackError, "Import not completed", message)
 	}
 	if result != nil {
-		<article><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d imported", result.Imported) }</strong> · { fmt.Sprintf("%d already known", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
+		<article class="resource-card"><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d imported", result.Imported) }</strong> · { fmt.Sprintf("%d already known", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
 		if len(result.Rejected) > 0 {
-			<h3>Rejected rows</h3><table><thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
-			for _, rejection := range result.Rejected {
-				<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+			<h3>Rejected rows</h3>
+			@ResponsiveTable("Rejected vocabulary rows") {
+				<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
+				for _, rejection := range result.Rejected {
+					<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+				}
+				</tbody>
 			}
-			</tbody></table>
 		}
 		</article>
 	}
@@ -798,11 +811,13 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 	} else if len(known) == 0 {
 		<p>No known vocabulary imported for this language yet.</p>
 	} else {
-		<table><thead><tr><th>Lemma</th><th>Part of speech</th><th>Imported</th></tr></thead><tbody>
-		for _, entry := range known {
-			<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
+		@ResponsiveTable("Previously imported known vocabulary") {
+			<thead><tr><th>Lemma</th><th>Part of speech</th><th>Imported</th></tr></thead><tbody>
+			for _, entry := range known {
+				<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
+			}
+			</tbody>
 		}
-		</tbody></table>
 	}
 }
 templ KnownVocabImportStatus(status knownvocab.Status) {
@@ -821,13 +836,13 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 		}>
 		<h3>Contextual translations</h3><p role="status"><strong>{ enrichmentJobLabel(string(status.State)) }</strong> · { fmt.Sprintf("%d of %d completed · attempt %d", status.Completed, status.Total, status.Attempt) }</p>
 		if status.Total > 0 {
-			<progress value={ fmt.Sprintf("%d", status.Completed) } max={ fmt.Sprintf("%d", status.Total) }></progress>
+			<progress aria-label="Contextual translation progress" value={ fmt.Sprintf("%d", status.Completed) } max={ fmt.Sprintf("%d", status.Total) }></progress>
 		}
 		if status.Error != "" {
 			<p role="alert">Latest error: { status.Error }</p>
 		}
 		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			<form hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel translations</button></form>
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel translations</button></form>
 		}
 	</article>
 }

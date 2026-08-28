@@ -1,0 +1,126 @@
+package webapp
+
+import "fmt"
+
+templ PageHeader(title, description string, status templ.Component) {
+	<header class="page-header">
+		<div class="page-header__content">
+			<h1>{ title }</h1>
+			if description != "" {
+				<p>{ description }</p>
+			}
+			if status != nil {
+				<div class="page-header__status">@status
+</div>
+			}
+		</div>
+		<div class="page-header__actions">
+			{ children... }
+		</div>
+	</header>
+}
+
+templ Breadcrumb(href, label string) {
+	<nav class="breadcrumb" aria-label="Breadcrumb">
+		<a href={ templ.SafeURL(href) }>← { label }</a>
+	</nav>
+}
+
+templ StatusBadge(label string, tone StatusTone) {
+	<span class={ statusBadgeClass(tone) }>{ label }</span>
+}
+
+templ Feedback(kind FeedbackKind, title, message string) {
+	<article { feedbackAttributes(kind)... } class={ feedbackClass(kind) } role={ feedbackRole(kind) } aria-live={ feedbackLive(kind) }>
+		if title != "" {
+			<strong>{ title }</strong>
+		}
+		if message != "" {
+			<p>{ message }</p>
+		}
+	</article>
+}
+
+templ EmptyState(title, message string) {
+	<article class="empty-state">
+		<h2>{ title }</h2>
+		if message != "" {
+			<p>{ message }</p>
+		}
+		<div class="empty-state__actions">
+			{ children... }
+		</div>
+	</article>
+}
+
+templ ActionGroup() {
+	<div class="action-group">
+		{ children... }
+	</div>
+}
+
+templ ResourceCard() {
+	<article class="resource-card">
+		{ children... }
+	</article>
+}
+
+templ Confirmation(summary, description string, tone StatusTone) {
+	<details class={ confirmationClass(tone) }>
+		<summary>{ summary }</summary>
+		<div class="confirmation__body">
+			if description != "" {
+				<p>{ description }</p>
+			}
+			{ children... }
+		</div>
+	</details>
+}
+
+templ StatGroup(items []StatItem) {
+	<div class="stat-group" role="list">
+		for _, item := range items {
+			<article class="stat-group__item" role="listitem">
+				<strong class="stat-group__value numeric">{ item.Value }</strong>
+				<span class="stat-group__label">{ item.Label }</span>
+				if item.Detail != "" {
+					<small class="stat-group__detail">{ item.Detail }</small>
+				}
+			</article>
+		}
+	</div>
+}
+
+templ MetadataList(items []MetadataItem) {
+	<dl class="metadata-list">
+		for _, item := range items {
+			<div>
+				<dt>{ item.Term }</dt>
+				<dd>{ item.Description }</dd>
+			</div>
+		}
+	</dl>
+}
+
+templ ResponsiveTable(label string) {
+	<div class="table-region" role="region" aria-label={ label } tabindex="0">
+		<table>
+			{ children... }
+		</table>
+	</div>
+}
+
+templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value, max int, busy bool) {
+	<section { attributes... } id={ id } class="async-status" role="status" aria-live="polite" aria-atomic="true" aria-busy={ boolString(busy) }>
+		<p class="async-status__title"><strong>{ title }</strong></p>
+		if summary != "" {
+			<p>{ summary }</p>
+		}
+		if max > 0 {
+			<progress aria-label={ title + " progress" } value={ fmt.Sprintf("%d", value) } max={ fmt.Sprintf("%d", max) }>{ fmt.Sprintf("%d of %d", value, max) }</progress>
+		}
+		<div class="async-status__actions">
+			{ children... }
+		</div>
+	</section>
+}

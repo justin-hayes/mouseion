@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
+	"github.com/riverqueue/river/rivertype"
 )
 
 func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
@@ -106,10 +108,73 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 	}
 
 	html := output.String()
+	for _, pattern := range []string{`class="page-header"`, `class="resource-card"`, `class="status-badge`} {
+		if !strings.Contains(html, pattern) {
+			t.Errorf("library missing shared pattern %q", pattern)
+		}
+	}
 	if !strings.Contains(html, `<h2 class="bibliographic-title">`) {
 		t.Error("book title must use the bibliographic typography role")
 	}
 	if !strings.Contains(html, `<p class="metadata">`) {
 		t.Error("book metadata must use the metadata typography role")
+	}
+}
+
+func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
+	var output bytes.Buffer
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", nil, "Book added").Render(context.Background(), &output); err != nil {
+		t.Fatalf("render library: %v", err)
+	}
+
+	html := output.String()
+	for _, pattern := range []string{
+		`class="feedback feedback--success"`,
+		`class="empty-state"`,
+		`class="empty-state__actions"`,
+	} {
+		if !strings.Contains(html, pattern) {
+			t.Errorf("library missing shared pattern %q", pattern)
+		}
+	}
+}
+
+func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
+	var output bytes.Buffer
+	if err := Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `Request failed:`, `aria-label="Deck preparation progress"`} {
+		if !strings.Contains(output.String(), pattern) {
+			t.Errorf("application shell missing %q: %s", pattern, output.String())
+		}
+	}
+}
+
+func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
+	var upload bytes.Buffer
+	if err := KnownVocabPageWithResult(domain.User{}, "csrf", nil, "de", nil, nil, "").Render(context.Background(), &upload); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`method="post"`, `action="/known-vocab/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`} {
+		if !strings.Contains(upload.String(), want) {
+			t.Errorf("known-vocabulary upload missing %q: %s", want, upload.String())
+		}
+	}
+
+	var progress bytes.Buffer
+	status := enrichmentjob.Status{ID: 7, Completed: 2, Total: 5, State: rivertype.JobStateRunning}
+	if err := EnrichmentJobStatus(status, "csrf").Render(context.Background(), &progress); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`aria-label="Contextual translation progress"`,
+		`method="post"`,
+		`action="/enrichment-jobs/7/cancel"`,
+		`hx-post="/enrichment-jobs/7/cancel"`,
+	} {
+		if !strings.Contains(progress.String(), want) {
+			t.Errorf("enrichment status missing %q: %s", want, progress.String())
+		}
 	}
 }
