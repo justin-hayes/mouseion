@@ -58,11 +58,11 @@ According to the [OpenAI Batch API guide](https://developers.openai.com/api/docs
 
 ## Problem and motivation
 
-The concurrency setting improves wall-clock time for a single prepared deck but
-leaves Mouseion responsible for scheduling every request, handling retry bursts,
-and consuming the normal synchronous rate-limit pool. It also does not make
-translation progress durable: the current worker keeps the manifest and all
-candidate outcomes in memory until final rendering.
+Before the Batch cutover, prepared-deck translation left Mouseion responsible
+for scheduling every request, handling retry bursts, and consuming the normal
+synchronous rate-limit pool. It also did not make translation progress durable:
+the worker kept the manifest and all candidate outcomes in memory until final
+rendering.
 
 Batch could simplify high-volume submission, reduce cost, and use additional
 provider capacity. It does not explain or directly fix lackluster results. Poor
@@ -80,8 +80,8 @@ and quality validation so transport changes can be evaluated independently.
 3. Preserve exact correlation between source candidates and responses.
 4. Handle partial success, expiration, cancellation, retries, and worker
    restarts safely.
-5. Replace synchronous per-item scheduling and its concurrency configuration
-   rather than carrying both implementations indefinitely.
+5. Keep prepared-deck provider work on the durable Batch execution layer rather
+   than carrying a second prepared-deck transport indefinitely.
 6. Measure translation quality separately from throughput, cost, and provider
    errors.
 
@@ -324,8 +324,8 @@ runtime transport selector or feature flag.
 Add tests for deterministic JSONL serialization, custom-ID round trips,
 output-order independence, mixed success/error files, malformed lines, unknown
 IDs, duplicate IDs, batch expiration, cancellation, partial success, restart
-recovery, retry selection, chunking, model validation, and migration away from
-the current synchronous concurrency behavior.
+recovery, retry selection, chunking, model validation, and the Batch-only
+prepared-deck execution boundary.
 
 ### Operations
 

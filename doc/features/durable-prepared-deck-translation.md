@@ -645,7 +645,9 @@ initial implementation performs no automatic deletion. A follow-up proposal
 should separately choose retention for failed/cancelled superseded manifests,
 ready artifacts, and the shared enrichment cache. Cleanup must never delete a
 manifest or exact cache row needed by a live run or retained ready artifact,
-and must expose audit counts before destructive deletion is enabled.
+and must expose audit counts before destructive deletion is enabled. This is
+separate from the accepted seven-day expiration requested for temporary
+provider files.
 
 ## Batch execution
 

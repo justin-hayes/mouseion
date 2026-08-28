@@ -201,6 +201,21 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	}
 }
 
+func TestConfiguredLLMProviderRetainsSharedCacheIdentity(t *testing.T) {
+	cfg := LLMConfig{Enabled: true, APIKey: "secret", Model: "gpt-test", BaseURL: "https://api.openai.com/v1"}
+	provider, err := NewConfiguredLLMProvider(cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	codec, err := NewTranslationCodec(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.Name() != codec.ProviderName() || provider.Version() != codec.ProviderVersion() {
+		t.Fatalf("configured provider identity=%s/%s, codec identity=%s/%s", provider.Name(), provider.Version(), codec.ProviderName(), codec.ProviderVersion())
+	}
+}
+
 func TestLLMConfigFromEnvDefaultsReasoningEffortToLow(t *testing.T) {
 	t.Setenv("MOUSEION_LLM_REASONING_EFFORT", "")
 	cfg, err := LLMConfigFromEnv()
