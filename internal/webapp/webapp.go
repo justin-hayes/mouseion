@@ -1348,14 +1348,18 @@ func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) 
 type deckPreparationResponse struct {
 	ID            string                      `json:"id"`
 	State         domain.DeckPreparationState `json:"state"`
+	Phase         string                      `json:"phase,omitempty"`
 	Progress      int                         `json:"progress"`
 	Ready         bool                        `json:"ready"`
 	Error         string                      `json:"error,omitempty"`
+	FailureClass  string                      `json:"failure_class,omitempty"`
 	AnalysisRunID string                      `json:"analysis_run_id,omitempty"`
 	Filename      string                      `json:"filename"`
 	DeckName      string                      `json:"deck_name"`
 	DownloadURL   string                      `json:"download_url,omitempty"`
 	Completeness  deckCompletenessResponse    `json:"completeness"`
+	Translation   deckTranslationResponse     `json:"translation"`
+	Batch         deckBatchResponse           `json:"batch"`
 }
 
 type deckCompletenessResponse struct {
@@ -1365,18 +1369,76 @@ type deckCompletenessResponse struct {
 	QualityOmissions         int `json:"quality_omissions"`
 }
 
+type deckTranslationResponse struct {
+	Eligible  int `json:"eligible"`
+	Completed int `json:"completed"`
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Retrying  int `json:"retrying"`
+	Failed    int `json:"failed"`
+	Cancelled int `json:"cancelled"`
+}
+
+type deckBatchResponse struct {
+	AgeSeconds        int64 `json:"age_seconds"`
+	Chunks            int   `json:"chunks"`
+	SubmittedChunks   int   `json:"submitted_chunks"`
+	PollingChunks     int   `json:"polling_chunks"`
+	ReconcilingChunks int   `json:"reconciling_chunks"`
+	CompletedChunks   int   `json:"completed_chunks"`
+	FailedChunks      int   `json:"failed_chunks"`
+	CancelledChunks   int   `json:"cancelled_chunks"`
+	Requests          int   `json:"requests"`
+	Completed         int   `json:"completed"`
+	Failed            int   `json:"failed"`
+	Expired           int   `json:"expired"`
+	InputTokens       int64 `json:"input_tokens"`
+	OutputTokens      int64 `json:"output_tokens"`
+}
+
 func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	progress := 0
 	if p.State == domain.DeckPreparationPreparing {
-		progress = 50
+		if p.TranslationEligible > 0 {
+			progress = (p.TranslationDone + p.TranslationFailed) * 100 / p.TranslationEligible
+		} else {
+			progress = 50
+		}
 	} else if p.State == domain.DeckPreparationReady || p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		progress = 100
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: p.Error, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}}
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 100 {
+		progress = 100
+	}
+	errorMessage := ""
+	if p.State == domain.DeckPreparationFailed {
+		errorMessage = preparationFailureMessage(p.FailureClass)
+	}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	if response.Ready {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
 	return response
+}
+
+func preparationFailureMessage(class string) string {
+	switch class {
+	case "configuration", "unsupported_model":
+		return "External translation is not available for this preparation. Check the provider configuration and retry."
+	case "ambiguous_submission":
+		return "Translation submission could not be confirmed safely. Retry the preparation later."
+	case "validation", "malformed_result", "missing_result", "duplicate_result", "unknown_result", "reconciliation":
+		return "Translation results could not be verified. Retry the preparation."
+	case "provider", "upload", "poll":
+		return "The translation provider is temporarily unavailable. Retry the preparation later."
+	case "cancelled":
+		return ""
+	default:
+		return "Deck preparation could not be completed. Retry the preparation."
+	}
 }
 
 func writePreparationStatus(w http.ResponseWriter, p domain.DeckPreparation) {

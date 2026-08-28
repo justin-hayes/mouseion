@@ -99,9 +99,25 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
   defaults to `low`.
 - `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` — set to `true` only when a custom
   OpenAI-compatible endpoint/model supports `reasoning_effort`.
+- `MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS` — maximum requests in one
+  prepared-deck Batch input file; defaults to `5000` and is capped at `50000`.
+- `MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL` — provider Batch polling
+  interval; defaults to `30s` and is capped at `24h`.
+- Prepared-deck Batch files are temporary: Mouseion requests seven-day
+  provider expiration and deletes input/output/error files after reconciliation
+  or cancellation. Failed deletion is retried a bounded number of times and
+  does not invalidate a reconciled deck.
 - `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` — positive per-deck external
   translation in-flight limit; defaults to `1` for serial compatibility. This
-  does not change the whole-deck River worker count.
+  does not change the whole-deck River worker count and remains a compatibility
+  setting until the later Batch cutover.
+
+Prepared-deck translation is an offline workflow when external translation is
+enabled. A preparation can remain in `preparing` while OpenAI processes its
+Batch for up to the provider's 24-hour completion window; the status endpoint
+reports the current phase, durable counts, retrying items, and cancellation
+control. Cancellation stops local publication first, while provider file
+cleanup remains best effort.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
 

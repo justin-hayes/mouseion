@@ -231,6 +231,9 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (domain.DeckP
 	if err = tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
 	}
+	if p.CurrentRunID != "" {
+		return s.store.GetDeckPreparationStatus(ctx, owner, id)
+	}
 	return p, nil
 }
 
@@ -269,6 +272,14 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 		if batchIDs, listErr := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, p.CurrentRunID); listErr == nil {
 			for _, batchID := range batchIDs {
 				_, _ = s.batchCanceller.CancelBatch(ctx, batchID)
+			}
+		}
+		if cleaner, ok := s.batchCanceller.(batchFileDeleter); ok {
+			if chunks, listErr := s.store.ListPreparedDeckBatchChunks(ctx, owner, id, p.CurrentRunID); listErr == nil {
+				cleanup := &BatchCleanupWorker{Store: s.store, Provider: cleaner}
+				for _, chunk := range chunks {
+					_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation})
+				}
 			}
 		}
 	}
@@ -339,6 +350,11 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 		return p, result.Job.ID, nil
 	}
 	if p.State == domain.DeckPreparationPreparing {
+		// A committed durable run owns its recovery. Status polling must not
+		// turn a long-lived Batch into the legacy orphan failure path.
+		if p.CurrentRunID != "" {
+			return p, 0, nil
+		}
 		failed, failErr := markPreparationFailedTx(ctx, tx, p.OwnerID, p.ID, orphanedPreparationError)
 		return failed, 0, failErr
 	}

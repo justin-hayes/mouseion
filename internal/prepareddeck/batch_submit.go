@@ -35,6 +35,7 @@ type BatchSubmitWorker struct {
 	Provider batchProvider
 	Codec    *enrichment.TranslationCodec
 	Now      func() time.Time
+	Metrics  BatchMetrics
 }
 
 func (w *BatchSubmitWorker) Work(ctx context.Context, job *river.Job[BatchSubmitJobArgs]) error {
@@ -48,10 +49,20 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	if w == nil || w.Store == nil || w.Provider == nil || w.Codec == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || strings.TrimSpace(args.ChunkID) == "" || args.Generation < 1 {
 		return ErrInvalidInput
 	}
+	started := w.now()
+	var totalStarted time.Time
+	defer func() {
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchPhaseLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(started))})
+		if totalStarted.IsZero() {
+			totalStarted = started
+		}
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchTotalLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
+	}()
 	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
 	if err != nil {
 		return err
 	}
+	totalStarted = chunk.CreatedAt
 	if chunk.Generation != args.Generation {
 		return nil
 	}
@@ -154,7 +165,15 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	if created.InputFileID != inputFile.ID || created.Endpoint != enrichment.OpenAIChatCompletionsEndpoint || created.CompletionWindow != "24h" || created.RequestCounts.Total != claimed.RequestCount || !metadataMatches(created.Metadata, metadata) {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_contract")
 	}
-	return w.recordSubmitted(ctx, args, claimToken, inputFile.ID, created.ID)
+	err = w.recordSubmitted(ctx, args, claimToken, inputFile.ID, created.ID)
+	if err == nil {
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchSubmissions, Phase: "submitting", State: "submitted", Provider: "openai", Value: 1})
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchRequests, Phase: "submitting", State: "submitted", Provider: "openai", Value: float64(claimed.RequestCount)})
+		if !claimed.CreatedAt.IsZero() {
+			observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchQueueAge, Phase: "submitting", State: "submitted", Provider: "openai", Value: seconds(w.now().Sub(claimed.CreatedAt))})
+		}
+	}
+	return err
 }
 
 func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmitJobArgs, token, inputFileID, batchID string) error {
@@ -289,19 +308,14 @@ func boundedProviderCode(value string) string {
 	if value == "" {
 		return ""
 	}
-	var b strings.Builder
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '.' || r == ':' || r == '-' {
-			b.WriteRune(r)
-		}
-		if b.Len() == 80 {
-			break
-		}
+	// Provider error codes are untrusted input. Keep only the small vocabulary
+	// used by our bounded classifiers; sanitized arbitrary provider strings can
+	// still contain request IDs or other credential/source-derived data.
+	switch value {
+	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "delete_file":
+		return value
 	}
-	if b.Len() == 0 {
-		return "provider_error"
-	}
-	return b.String()
+	return "provider_error"
 }
 
 func (w *BatchSubmitWorker) now() time.Time {
