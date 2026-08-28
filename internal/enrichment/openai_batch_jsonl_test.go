@@ -83,18 +83,51 @@ func TestDecodeBatchResultsRejectsDuplicateUnknownAndMalformedLines(t *testing.T
 	item := BatchTranslationItem{Ordinal: 1, Request: TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}
 	id, _ := BatchCustomID("123e4567-e89b-12d3-a456-426614174000", 1, 1)
 	valid := `{"custom_id":"` + id + `","error":{"code":"invalid_request_error"}}` + "\n"
-	for name, content := range map[string]string{
-		"duplicate":           valid + valid,
-		"unknown":             `{"custom_id":"prepared-deck:123e4567-e89b-12d3-a456-426614174000:9:1","error":{"code":"x"}}` + "\n",
-		"malformed":           "not-json\n",
-		"empty error code":    `{"custom_id":"` + id + `","error":{"code":""}}` + "\n",
-		"invalid status code": `{"custom_id":"` + id + `","response":{"status_code":0,"body":{}}}` + "\n",
+	for name, fixture := range map[string]struct {
+		content string
+		kind    BatchResultErrorKind
+	}{
+		"duplicate":           {valid + valid, BatchResultDuplicate},
+		"unknown":             {`{"custom_id":"prepared-deck:123e4567-e89b-12d3-a456-426614174000:9:1","error":{"code":"x"}}` + "\n", BatchResultUnknown},
+		"malformed":           {"not-json\n", BatchResultMalformed},
+		"empty error code":    {`{"custom_id":"` + id + `","error":{"code":""}}` + "\n", BatchResultMalformed},
+		"invalid status code": {`{"custom_id":"` + id + `","response":{"status_code":0,"body":{}}}` + "\n", BatchResultMalformed},
+		"contradictory":       {`{"custom_id":"` + id + `","response":{"status_code":200,"body":{}},"error":{"code":"invalid_request"}}` + "\n", BatchResultContradictory},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := codec.DecodeBatchResults("123e4567-e89b-12d3-a456-426614174000", 1, []BatchTranslationItem{item}, strings.NewReader(content), nil); err == nil {
+			_, err := codec.DecodeBatchResults("123e4567-e89b-12d3-a456-426614174000", 1, []BatchTranslationItem{item}, strings.NewReader(fixture.content), nil)
+			var resultErr *BatchResultError
+			if !errors.As(err, &resultErr) || resultErr.Kind != fixture.kind {
+				t.Fatalf("err=%v kind=%q want=%q", err, resultErr.Kind, fixture.kind)
+			}
+			if err == nil {
 				t.Fatal("malformed result accepted")
 			}
 		})
+	}
+}
+
+func TestDecodeBatchResultsPartialReportsSortedMissingIDs(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runID := "123e4567-e89b-12d3-a456-426614174000"
+	items := []BatchTranslationItem{
+		{Ordinal: 9, Request: TranslationRequest{Language: "de", CanonicalLemma: "neun", UPOS: "NUM"}},
+		{Ordinal: 2, Request: TranslationRequest{Language: "de", CanonicalLemma: "zwei", UPOS: "NUM"}},
+		{Ordinal: 5, Request: TranslationRequest{Language: "de", CanonicalLemma: "fünf", UPOS: "NUM"}},
+	}
+	id, _ := BatchCustomID(runID, 5, 1)
+	content := `{"custom_id":"` + id + `","error":{"code":"batch_expired"}}` + "\n"
+	results, missing, err := codec.DecodeBatchResultsPartial(runID, 1, items, nil, strings.NewReader(content))
+	if err != nil || len(results) != 1 || results[5].ErrorCode != "expired" || len(missing) != 2 || missing[0] != 2 || missing[1] != 9 {
+		t.Fatalf("results=%+v missing=%v err=%v", results, missing, err)
+	}
+	_, err = codec.DecodeBatchResults(runID, 1, items, nil, strings.NewReader(content))
+	var resultErr *BatchResultError
+	if !errors.As(err, &resultErr) || resultErr.Kind != BatchResultMissing {
+		t.Fatalf("strict missing error=%v", err)
 	}
 }
 

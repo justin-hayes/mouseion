@@ -367,7 +367,7 @@ func (s *PostgresStore) FinishPreparedDeckBatchReconciliation(ctx context.Contex
 	if err := validateBoundedError(update.ErrorClass, update.ErrorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state=$7,provider_status=NULLIF($8,''),output_file_id=NULLIF($9,''),error_file_id=NULLIF($10,''),completed_count=$11,failed_count=$12,expired_count=$13,input_tokens=$14,output_tokens=$15,total_tokens=$14::bigint+$15::bigint,error_class=$16,error_code=$17,provider_completed_at=$18,reconciled_at=CASE WHEN $7 IN ('completed','failed') THEN now() ELSE reconciled_at END,reconciliation_claim_token=NULL,reconciliation_claimed_at=NULL,reconciliation_lease_expires_at=NULL,updated_at=now()
+	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state=$7,provider_status=NULLIF($8,''),output_file_id=NULLIF($9,''),error_file_id=NULLIF($10,''),completed_count=$11,failed_count=$12,expired_count=$13,input_tokens=$14,output_tokens=$15,total_tokens=$14::bigint+$15::bigint,error_class=$16,error_code=$17,provider_completed_at=$18,last_polled_at=now(),reconciled_at=CASE WHEN $7 IN ('completed','failed') THEN now() ELSE reconciled_at END,reconciliation_claim_token=NULL,reconciliation_claimed_at=NULL,reconciliation_lease_expires_at=NULL,updated_at=now()
 		FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.reconciliation_generation=$5 AND c.reconciliation_claim_token=$6 AND c.state='reconciling' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns),
 		owner, preparationID, runID, chunkID, generation, token, update.State, update.ProviderStatus, update.OutputFileID, update.ErrorFileID, update.CompletedCount, update.FailedCount, update.ExpiredCount, update.InputTokens, update.OutputTokens, update.ErrorClass, update.ErrorCode, update.ProviderCompletedAt))
 	if err != nil && errors.Is(err, ErrNotFound) {
@@ -384,17 +384,23 @@ func (s *PostgresStore) ListPreparedDeckRecoveryWork(ctx context.Context, limit 
 		return nil, ErrInvalidTransition
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT owner_id::text,preparation_id::text,run_id::text,''::text,ordinal,dispatch_generation,'outcome',state='running'
-		FROM deck_preparation_translation_outcomes WHERE (state='pending' AND next_attempt_at<=now()) OR (state='running' AND lease_expires_at<=now())
+		SELECT o.owner_id::text,o.preparation_id::text,o.run_id::text,''::text,o.ordinal,o.dispatch_generation,'outcome',o.state='running'
+		FROM deck_preparation_translation_outcomes o JOIN deck_preparation_runs r ON r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id
+		WHERE r.state='translating' AND ((o.state='pending' AND o.next_attempt_at<=now()) OR (o.state='running' AND o.lease_expires_at<=now()))
 		UNION ALL
-		SELECT owner_id::text,preparation_id::text,run_id::text,id::text,-1,submission_generation,'batch_submission',state='submitting'
-		FROM deck_preparation_batch_chunks WHERE state='pending' OR (state='submitting' AND submission_lease_expires_at<=now())
+		SELECT c.owner_id::text,c.preparation_id::text,c.run_id::text,c.id::text,-1,c.submission_generation,'batch_submission',c.state='submitting'
+		FROM deck_preparation_batch_chunks c JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
+		WHERE r.state='translating' AND (c.state='pending' OR (c.state='submitting' AND c.submission_lease_expires_at<=now()))
 		UNION ALL
-		SELECT owner_id::text,preparation_id::text,run_id::text,id::text,-1,reconciliation_generation,'batch_reconciliation',state='reconciling'
-		FROM deck_preparation_batch_chunks WHERE state IN ('submitted','polling') OR (state='reconciling' AND reconciliation_lease_expires_at<=now())
+		SELECT c.owner_id::text,c.preparation_id::text,c.run_id::text,c.id::text,-1,c.reconciliation_generation,'batch_reconciliation',c.state='reconciling'
+		FROM deck_preparation_batch_chunks c JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
+		WHERE r.state='translating' AND (c.state IN ('submitted','polling') OR (c.state='reconciling' AND c.reconciliation_lease_expires_at<=now()))
 		UNION ALL
-		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'finalizer',finalization_claim_token IS NOT NULL
+		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'finalizer',finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now()
 		FROM deck_preparation_runs WHERE state='finalizing' AND translation_state='completed' AND (finalization_claim_token IS NULL OR finalization_lease_expires_at<=now())
+		UNION ALL
+		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'translation_completion',false
+		FROM deck_preparation_runs r WHERE state='translating' AND NOT EXISTS (SELECT 1 FROM deck_preparation_translation_outcomes o WHERE o.run_id=r.id AND o.state IN ('pending','running'))
 		ORDER BY 7,3,5 LIMIT $1`, limit)
 	if err != nil {
 		return nil, err

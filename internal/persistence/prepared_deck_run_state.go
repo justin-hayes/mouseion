@@ -159,7 +159,7 @@ func (s *PostgresStore) GetPreparedDeckBatchChunk(ctx context.Context, owner, pr
 }
 
 func (s *PostgresStore) SetPreparedDeckBatchSubmissionJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, chunkID string, generation int, jobID int64) error {
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_batch_chunks SET submission_job_id=$7,submission_generation=$6,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND generation=$5 AND state='pending'`, owner, preparationID, runID, chunkID, generation, generation, jobID)
+	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_batch_chunks SET submission_job_id=$7,submission_generation=$6,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND generation=$5 AND (state='pending' OR (state='submitting' AND submission_lease_expires_at<=now()))`, owner, preparationID, runID, chunkID, generation, generation, jobID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrPreparedDeckClaimLost
 	}
@@ -196,7 +196,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 }
 
 func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, generation int, jobID int64) error {
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_runs SET finalization_job_id=$5,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND finalization_dispatch_generation=$4 AND state='finalizing'`, owner, preparationID, runID, generation, jobID)
+	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_runs SET finalization_job_id=$5,finalization_claim_token=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_claim_token END,finalization_claimed_at=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_claimed_at END,finalization_lease_expires_at=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_lease_expires_at END,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND finalization_dispatch_generation=$4 AND state='finalizing'`, owner, preparationID, runID, generation, jobID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrPreparedDeckClaimLost
 	}
