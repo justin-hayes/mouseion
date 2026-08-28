@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -74,6 +75,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	batchConfig, err := prepareddeck.BatchConfigFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var batchProvider *enrichment.OpenAIBatchClient
+	var batchCodec *enrichment.TranslationCodec
+	if llmConfig.Enabled {
+		batchCodec, err = enrichment.NewTranslationCodec(llmConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		batchProvider, err = enrichment.NewOpenAIBatchClient(llmConfig, nil)
+		if err != nil {
+			// The synchronous path continues to support configured compatible
+			// endpoints until the later Batch cutover. Batch workers remain
+			// registered but cannot run without an eligible provider.
+			log.Printf("prepared-deck Batch workers unavailable: %v", err)
+			batchProvider = nil
+			batchCodec = nil
+		}
+	}
+	batchMetrics := prepareddeck.NewMetricsCollector()
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
@@ -81,6 +104,10 @@ func main() {
 	prepareddeck.AddWorkerWithTranslationConcurrency(workers, store, exportService, enrichmentService, translationConcurrency)
 	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
+		log.Fatal(err)
+	}
+	registerPreparedDeckWorkers(workers, store, exportService, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics)
+	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
 		log.Fatal(err)
 	}
 	if err = riverClient.Start(context.Background()); err != nil {
@@ -94,10 +121,23 @@ func main() {
 	analysisService := analysis.NewService(store.Pool(), riverClient)
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
 	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
-	preparedDeckService := prepareddeck.NewService(store, riverClient)
+	var preparedDeckService *prepareddeck.Service
+	if batchProvider != nil {
+		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, riverClient, batchProvider)
+	} else {
+		preparedDeckService = prepareddeck.NewService(store, riverClient)
+	}
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	mux.Handle("/static/", webapp.StaticHandler())
 	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, SecureCookies: secureCookies, SessionLifetime: lifetime}))
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
+	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, provider, codec, metrics)
+	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, Provider: provider, Codec: codec, PollInterval: pollInterval, Metrics: metrics})
+	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: export, Metrics: metrics})
+	prepareddeck.AddBatchCleanupWorker(workers, &prepareddeck.BatchCleanupWorker{Store: store, Provider: provider, Metrics: metrics})
+	prepareddeck.AddRecoveryWorkerWithMetrics(workers, store, client, pollInterval, metrics)
 }

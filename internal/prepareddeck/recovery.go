@@ -143,5 +143,9 @@ func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, cl
 }
 
 func AddRecoveryWorker(workers *river.Workers, store *persistence.PostgresStore, client riverClient, interval time.Duration) {
-	river.AddWorker(workers, &RecoveryWorker{Store: store, Client: client, Interval: interval})
+	AddRecoveryWorkerWithMetrics(workers, store, client, interval, nil)
+}
+
+func AddRecoveryWorkerWithMetrics(workers *river.Workers, store *persistence.PostgresStore, client riverClient, interval time.Duration, metrics BatchMetrics) {
+	river.AddWorker(workers, &RecoveryWorker{Store: store, Client: client, Interval: interval, Metrics: metrics})
 }
