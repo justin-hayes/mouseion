@@ -32,6 +32,24 @@ func (c *TranslationCodec) Model() string {
 	return c.model
 }
 
+// ProviderName returns the stable provider name used by the existing
+// translation-cache identity. Batch and synchronous callers must share this
+// value so changing transport does not invalidate or mix cache entries.
+func (c *TranslationCodec) ProviderName() string { return "openai-compatible" }
+
+// ProviderVersion returns the stable version used by the existing
+// translation-cache identity.
+func (c *TranslationCodec) ProviderVersion() string {
+	if c == nil {
+		return ""
+	}
+	version := c.model + "/" + llmPromptVersion
+	if c.usesReasoningEffort {
+		version += "-reasoning-" + c.reasoningEffort
+	}
+	return version
+}
+
 // PromptVersion identifies the request/validation contract frozen into this
 // codec. It is recorded by the operator validation report.
 func (c *TranslationCodec) PromptVersion() string { return llmPromptVersion }

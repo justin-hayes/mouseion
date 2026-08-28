@@ -1,6 +1,6 @@
 # OpenAI Batch API for prepared-deck translation
 
-Status: **Proposed** · Date: 2026-08-27
+Status: **Accepted** · Date: 2026-08-28
 
 ## Summary
 
@@ -11,49 +11,19 @@ Mouseion sends Chat Completions requests, and OpenAI Batch supports
 `POST /v1/chat/completions`. It is a throughput and cost optimization, not a
 translation-quality improvement.
 
-The recommended direction is to replace synchronous provider calls with Batch
-for prepared-deck translation. A normal preparation should submit one Batch
-job containing one request per eligible translation item. Batch should
-integrate with the durable prepared-deck translation-run design rather than be
-hidden inside the current in-memory worker loop. The current synchronous
-provider and its per-deck concurrency setting should be removed after the
-Batch path is operationally validated; this is not intended to become a
-permanent dual-provider architecture.
+Prepared-deck translation uses Batch. A normal preparation submits one Batch
+job containing one request per eligible translation item. Batch integrates with
+the durable prepared-deck translation-run design and is not hidden inside an
+in-memory worker loop. The synchronous transport remains available only for
+other non-prepared-deck enrichment.
 
 ## Evidence from the current implementation
 
-The current path has the following boundaries:
-
-- `internal/enrichment/llm.go:OpenAITranslationClient.Translate` constructs and
-  sends a synchronous `POST /chat/completions` request using the configured
-  model, prompt, JSON response format, temperature or reasoning effort, and a
-  30-second default HTTP timeout.
-- `internal/enrichment/enrichment.go:Service.EnrichExternal` performs the
-  immutable cache lookup, calls the `TranslationProvider`, applies bounded
-  retry/backoff policy, validates the translation response, and stores cache
-  results.
-- `internal/prepareddeck/jobs.go:Worker.Work` builds a manifest, enriches all
-  eligible candidates, renders one artifact, and commits the prepared deck as
-  one atomic completion.
-- `internal/prepareddeck/jobs.go:enrichCandidates` creates a fixed-size
-  in-memory worker pool. It assigns results to candidate indexes, preserving
-  deterministic output order while allowing up to the configured number of
-  provider calls in flight.
-- `internal/prepareddeck/config.go` reads
-  `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY`, requiring a positive integer
-  and defaulting to `1` for serial compatibility.
-- `cmd/server/main.go` wires that value into
-  `prepareddeck.AddWorkerWithTranslationConcurrency`.
-- The River `prepared_decks` queue remains configured with one whole-deck worker;
-  the environment variable changes only the per-deck in-flight enrichment
-  calls, not the number of decks prepared simultaneously.
-- `internal/prepareddeck/concurrency_test.go` verifies bounded concurrency,
-  deterministic serial/concurrent artifact equivalence, non-fatal per-item
-  failures, and cancellation behavior.
-- `doc/adr/0030-durable-prepared-deck-translation.md` proposes durable,
-  preparation-owned translation runs with immutable manifests, per-item
-  outcomes, provider leases, fenced claims, and idempotent finalization. Its
-  current decision does not specify a Batch API provider.
+The prepared-deck path now freezes an immutable manifest and durable run,
+submits eligible cache misses through Batch chunks, reconciles unordered
+results by opaque custom ID, and finalizes through the existing atomic artifact
+boundary. The synchronous translation client and shared codec remain available
+to non-prepared-deck enrichment and validation tooling.
 
 The current external provider boundary deliberately accepts only language,
 canonical lemma, UPOS, tested surface form, and an optional complete example
@@ -129,19 +99,13 @@ This feature does not promise to:
   Batch APIs;
 - rely on output line order.
 
-## Proposed product behavior
+## Product behavior
 
 Use Batch as the prepared-deck translation execution model. There is no
 temporary `sync|batch` deployment mode or Batch feature flag: the implementation
-changes the prepared-deck path to Batch. The existing setting
-
-```text
-MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY
-```
-
-should be deprecated and removed with the synchronous implementation. It must
-not be repurposed as a Batch parallelism control: OpenAI schedules requests in
-the submitted Batch.
+changes the prepared-deck path to Batch. OpenAI schedules requests in the
+submitted Batch; Mouseion has no prepared-deck transport selector or Batch
+feature flag.
 
 The Batch implementation uses the existing LLM configuration plus these
 operational settings defined by ADR 0031:
@@ -151,10 +115,10 @@ MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS
 MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL
 ```
 
-ADR 0031 proposes initial defaults of 5,000 requests, a 30-second poll interval,
-two Batch generations per item, and seven-day provider-file expiration.
+The accepted defaults are 5,000 requests, a 30-second poll interval, two Batch
+generations per item, and seven-day provider-file expiration.
 
-## Proposed architecture
+## Architecture
 
 ### Request construction
 
@@ -270,9 +234,9 @@ avoiding regeneration of successful items.
 
 ## Quality and performance evaluation
 
-Before removing the synchronous implementation, compare equivalent synchronous
-and Batch runs using the same frozen manifests, prompt version, model, and
-validation rules. Record:
+The cutover gate compared equivalent synchronous and Batch runs using the same
+frozen manifests, prompt version, model, and validation rules. The resulting
+record included:
 
 - completion latency and queue latency;
 - total and per-item cost;
@@ -333,17 +297,15 @@ recovery gates. Synthetic results never satisfy those real-provider gates.
 The report must explicitly record the ADR-0031 review decision, endpoint
 retirement for custom OpenAI-compatible providers, and approval of the two
 generation, 5,000-request, 30-second-poll, and seven-day-file-expiry defaults.
-If cutover is later approved, rollback remains a code revert before removing
-the synchronous implementation; this validation work adds no runtime
-transport selector or feature flag.
+Rollback, if ever required, is a code revert; the validation tooling adds no
+runtime transport selector or feature flag.
 
 ## Acceptance criteria
 
 ### Functional
 
 - Batch is the prepared-deck translation execution model after rollout.
-- The synchronous transport and `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY`
-  are removed once migration verification passes.
+- Prepared-deck translation uses only the durable Batch transport.
 - Batch requests use the same semantic request contract as the current sync
   requests.
 - Every request has a deterministic unique `custom_id`.
@@ -374,8 +336,8 @@ responses, source sentences, credentials, or raw provider error bodies.
 
 ## Architectural decisions
 
-[ADR 0031](../adr/0031-openai-batch-prepared-deck-translation.md) proposes the
-implementation decisions needed by this feature:
+[ADR 0031](../adr/0031-openai-batch-prepared-deck-translation.md) records the
+accepted implementation decisions for this feature:
 
 1. Batch is a durable translation-run execution layer, not an implementation of
    the scalar `TranslationProvider` interface.
@@ -393,8 +355,8 @@ implementation decisions needed by this feature:
    creation by opaque provider metadata, and fails closed rather than risking
    automatic duplicate billing.
 
-ADR 0031 remains Proposed. Its explicit open questions must be approved before
-implementation issues depending on these policies begin.
+ADR 0031 is accepted. Its endpoint, retry, polling, retention, and manual
+recovery decisions govern the prepared-deck Batch path.
 
 ## Implementation issues
 
@@ -415,11 +377,10 @@ The feature is split into seven coherent implementation units:
 6. [#353: Validate Batch on frozen manifests](https://github.com/justin-hayes/mouseion/issues/353)
    gathers explicit quality, correctness, cost, latency, and recovery evidence.
 7. [#354: Cut over to Batch and remove synchronous concurrency](https://github.com/justin-hayes/mouseion/issues/354)
-   is intentionally last and requires a passing #353 decision.
+   was intentionally last and required the passing #353 decision.
 
-Implementation begins only after ADRs 0030 and 0031 are accepted. The dependency
-waves are `#348 + #349` in parallel, then `#350`, `#351`, `#352`, `#353`, and
-finally `#354`.
+The implementation dependency waves were `#348 + #349` in parallel, then
+`#350`, `#351`, `#352`, `#353`, and finally `#354`.
 
 ## Related documents and code
 
@@ -430,9 +391,7 @@ finally `#354`.
 - [ADR 0021: Contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
-- `internal/prepareddeck/jobs.go:Worker.Work`
-- `internal/prepareddeck/jobs.go:enrichCandidates`
-- `internal/prepareddeck/config.go:TranslationConcurrencyFromEnv`
+- `internal/prepareddeck/cutover.go:BatchPlanner`
+- `internal/prepareddeck/batch_submit.go:BatchSubmitWorker`
 - `cmd/server/main.go`
-- `internal/prepareddeck/concurrency_test.go`
 - [OpenAI Batch API guide](https://developers.openai.com/api/docs/guides/batch.md)

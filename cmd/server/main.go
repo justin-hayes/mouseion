@@ -71,10 +71,6 @@ func main() {
 		log.Fatal(err)
 	}
 	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
-	translationConcurrency, err := prepareddeck.TranslationConcurrencyFromEnv()
-	if err != nil {
-		log.Fatal(err)
-	}
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
 	if err != nil {
 		log.Fatal(err)
@@ -88,12 +84,7 @@ func main() {
 		}
 		batchProvider, err = enrichment.NewOpenAIBatchClient(llmConfig, nil)
 		if err != nil {
-			// The synchronous path continues to support configured compatible
-			// endpoints until the later Batch cutover. Batch workers remain
-			// registered but cannot run without an eligible provider.
-			log.Printf("prepared-deck Batch workers unavailable: %v", err)
-			batchProvider = nil
-			batchCodec = nil
+			log.Fatalf("prepared-deck external translation requires the official OpenAI Batch endpoint: %v", err)
 		}
 	}
 	batchMetrics := prepareddeck.NewMetricsCollector()
@@ -101,11 +92,11 @@ func main() {
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	exportService := cardexport.NewService(store)
-	prepareddeck.AddWorkerWithTranslationConcurrency(workers, store, exportService, enrichmentService, translationConcurrency)
 	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
+	prepareddeck.AddBatchWorker(workers, store, exportService, riverClient, batchCodec, batchConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkers(workers, store, exportService, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics)
 	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
 		log.Fatal(err)

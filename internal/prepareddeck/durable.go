@@ -56,7 +56,7 @@ func (FinalizeJobArgs) Kind() string { return "prepared_deck_finalize" }
 // supplied repeatable-read transaction and returns the complete frozen plan.
 // Provider transport is intentionally outside this boundary.
 type DurableRunPlanner interface {
-	PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error)
+	PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation, bool) (persistence.FreezePreparedDeckRunParams, error)
 }
 
 type DurableCoordinator struct {
@@ -66,7 +66,7 @@ type DurableCoordinator struct {
 	planner DurableRunPlanner
 }
 
-func NewDurableCoordinator(store *persistence.PostgresStore, client *river.Client[pgx.Tx], planner DurableRunPlanner) *DurableCoordinator {
+func NewDurableCoordinator(store *persistence.PostgresStore, client riverClient, planner DurableRunPlanner) *DurableCoordinator {
 	if store == nil {
 		return &DurableCoordinator{client: client, planner: planner}
 	}
@@ -74,8 +74,9 @@ func NewDurableCoordinator(store *persistence.PostgresStore, client *river.Clien
 }
 
 type DurableFreezeRequest struct {
-	OwnerID, PreparationID string
-	ExpectedManifestDigest string
+	OwnerID, PreparationID     string
+	ExpectedManifestDigest     string
+	ExternalTranslationConsent bool
 }
 
 // Freeze commits the run, immutable manifest, outcomes, Batch placeholders,
@@ -115,7 +116,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		chunks, getErr := c.store.ListPreparedDeckBatchChunks(ctx, request.OwnerID, request.PreparationID, run.ID)
 		return persistence.FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, Existing: true, NeedsFinalizer: run.State == domain.PreparedDeckRunFinalizing}, getErr
 	}
-	plan, err := c.planner.PlanPreparedDeckRun(ctx, tx, preparation)
+	plan, err := c.planner.PlanPreparedDeckRun(ctx, tx, preparation, request.ExternalTranslationConsent)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("plan durable prepared deck: %w", err)
 	}

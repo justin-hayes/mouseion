@@ -43,6 +43,7 @@ type PreparedDeckBatchChunkPlan struct {
 
 type FreezePreparedDeckRunParams struct {
 	OwnerID, PreparationID string
+	RunID                  string
 	ExpectedManifestDigest string
 	Manifest               cardexport.ManifestSnapshot
 	Config                 PreparedDeckRunConfig
@@ -162,7 +163,12 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(run_number),0)+1 FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2`, params.OwnerID, params.PreparationID).Scan(&runNumber); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	runID := uuid.NewString()
+	runID := params.RunID
+	if runID == "" {
+		runID = uuid.NewString()
+	} else if parsed, parseErr := uuid.Parse(runID); parseErr != nil || parsed.String() != runID {
+		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: invalid durable run identity", ErrImmutable)
+	}
 	runState, translationState := domain.PreparedDeckRunTranslating, domain.PreparedDeckTranslationPending
 	var translationCompletedAt any
 	if len(pending) == 0 {

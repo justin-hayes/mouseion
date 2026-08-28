@@ -22,7 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -104,7 +103,7 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepareddeck.AddWorker(workers, store, cardexport.NewService(store), (*enrichment.Service)(nil))
+	prepareddeck.AddBatchWorker(workers, store, cardexport.NewService(store), analysisClient, nil, prepareddeck.BatchConfig{}, false)
 	if err = analysisClient.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
