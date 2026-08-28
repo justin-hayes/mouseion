@@ -135,6 +135,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		// failure, not a long-lived polling retry.
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", providerErrorCode(downloadErr))
 	}
+	providerCompleted, providerFailed := batchProviderResultCounts(decoded)
 	successes, failures, expiredFailures := 0, 0, 0
 	for _, outcome := range decoded {
 		if outcome.Successful() {
@@ -146,7 +147,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 			}
 		}
 	}
-	if successes != batch.RequestCounts.Completed || failures != batch.RequestCounts.Failed {
+	if providerCompleted != batch.RequestCounts.Completed || providerFailed != batch.RequestCounts.Failed {
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", "contradictory_counts")
 	}
 	missing := len(missingOrdinals)
@@ -231,6 +232,22 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
 	}
 	return err
+}
+
+// batchProviderResultCounts mirrors OpenAI's request_counts semantics: a
+// request with an HTTP 2xx response is completed even when its response body
+// fails Mouseion's translation validation. Those application-level failures
+// are persisted as item outcomes below, rather than treated as contradictory
+// provider counts.
+func batchProviderResultCounts(outcomes map[int]enrichment.BatchTranslationOutcome) (completed, failed int) {
+	for _, outcome := range outcomes {
+		if outcome.StatusCode >= 200 && outcome.StatusCode < 300 {
+			completed++
+		} else {
+			failed++
+		}
+	}
+	return completed, failed
 }
 
 func (w *BatchPollWorker) insertSubmissionJob(ctx context.Context, tx pgx.Tx, chunk domain.PreparedDeckBatchChunk) (int64, error) {

@@ -79,6 +79,28 @@ func TestBatchFailureClassesChooseBoundedRetryAndTerminalOutcomes(t *testing.T) 
 	}
 }
 
+func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runID := "123e4567-e89b-12d3-a456-426614174000"
+	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}}
+	customID, err := enrichment.BatchCustomID(runID, item.Ordinal, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"building\",\"sentence_translation\":\"\",\"sentence_translation_target\":\"\"}"}}]}},"error":null}`+"\n", customID)
+	outcomes, missing, err := codec.DecodeBatchResultsPartial(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(output), nil)
+	if err != nil || len(missing) != 0 || outcomes[item.Ordinal].StatusCode != 200 || outcomes[item.Ordinal].ErrorClass != enrichment.ProviderErrorInvalidResponse {
+		t.Fatalf("outcomes=%+v missing=%v err=%v", outcomes, missing, err)
+	}
+	completed, failed := batchProviderResultCounts(outcomes)
+	if completed != 1 || failed != 0 {
+		t.Fatalf("provider counts=%d completed, %d failed; want 1 completed, 0 failed", completed, failed)
+	}
+}
+
 func TestBatchPollingUsesConfiguredBoundedJitter(t *testing.T) {
 	worker := &BatchPollWorker{PollInterval: 40 * time.Second, Jitter: func(interval time.Duration) time.Duration { return interval + interval/10 }}
 	if got := worker.pollDelay(); got != 44*time.Second {
