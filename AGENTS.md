@@ -327,3 +327,23 @@ A fresh agent session must be able to reconstruct the intent and constraints
 of an implementation task from the issue, referenced feature document, ADRs,
 and repository alone.
 
+## Frontend and product design
+
+Before substantial frontend or UX work, read:
+
+* `doc/design/README.md`
+* `doc/design/principles.md`
+* `doc/design/experience-direction.md`
+* `doc/design/design-system.md`
+* `doc/design/information-architecture.md`
+* any relevant workflow or screen documents under `doc/design/`
+
+Project-specific design decisions belong in `doc/design/`, not in agent
+profiles or conversational memory.
+
+When a frontend change introduces a reusable visual or interaction pattern,
+update the relevant design documentation when necessary.
+
+Do not introduce arbitrary new typography, spacing, colors, interaction
+patterns, or UI primitives when an established project pattern already
+exists.
