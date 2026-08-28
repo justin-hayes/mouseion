@@ -20,6 +20,21 @@ templ PageHeader(title, description string, status templ.Component) {
 	</header>
 }
 
+templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
+	if action.Submit {
+		<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">{ action.Label }</button></form>
+	} else if action.URL != "" {
+		<a role="button" href={ templ.SafeURL(action.URL) }>{ action.Label }</a>
+	}
+}
+
+templ NextActionSummary(action bookLifecycleAction) {
+	<section class="next-action" aria-labelledby="next-action-heading">
+		<h2 id="next-action-heading">Next action</h2>
+		<p><strong>{ action.Status }.</strong> { action.Description }</p>
+	</section>
+}
+
 templ Breadcrumb(href, label string) {
 	<nav class="breadcrumb" aria-label="Breadcrumb">
 		<a href={ templ.SafeURL(href) }>← { label }</a>

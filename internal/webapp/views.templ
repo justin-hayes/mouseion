@@ -117,7 +117,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
 	@Layout("My Library", &user, csrf) {
-		@PageHeader("My Library", "Your books, ready for pre-learning.", nil) {
+		@PageHeader("My Library", "Track each book's next step from scope review to learning.", nil) {
 			<a role="button" href="/connections">Add a book</a>
 		}
 		if message != "" {
@@ -133,7 +133,9 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 				for _, book := range books {
 					@ResourceCard() {
 						<div><h2 class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2><p class="metadata"><code>{ book.Source.Language }</code> · imported { book.Source.CreatedAt.Format("2006-01-02") }</p></div>
-						@StatusBadge(book.AnalysisStatus, statusTone(book.AnalysisStatus))
+						@StatusBadge(bookLifecycleActionFor(book, nil).Status, bookLifecycleActionFor(book, nil).Tone)
+						<p class="library-next-action"><strong>Next action:</strong> { bookLifecycleActionFor(book, nil).Description }</p>
+						@LifecycleActionControl(bookLifecycleActionFor(book, nil), csrf)
 					}
 				}
 			</div>
@@ -235,10 +237,13 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string) {
 	@Layout(book.Source.Title, &user, csrf) {
 	@Breadcrumb("/library", "My Library")
-	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(book.AnalysisStatus, statusTone(book.AnalysisStatus)))
+	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
+		@LifecycleActionControl(bookLifecycleActionFor(book, history), csrf)
+	}
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
 	}
+	@NextActionSummary(bookLifecycleActionFor(book, history))
 	if coverage != nil {
 		<section aria-labelledby="analyzed-scope-heading"><h2 id="analyzed-scope-heading">Analyzed scope</h2>
 			if coverage.ReviewedScopeID != "" {
@@ -306,41 +311,23 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 	if len(history) > 0 {
 		<section aria-labelledby="book-analysis-history-heading"><h2 id="book-analysis-history-heading">Analysis history</h2><p>Completed scoped analyses remain available as exact historical results. Other runs remain on their operational status page.</p><ul>
 			for _, job := range history {
-				<li>
-					if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-						<a href={ templ.SafeURL(fmt.Sprintf("/books/%s/analyses/%s", book.Source.ID, job.AnalysisRunID)) }>{ fmt.Sprintf("Completed analysis #%d", job.DisplayNumber) }</a>
-					} else {
-						<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("Analysis job #%d", job.DisplayNumber) }</a>
-					}
-					<span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span>
-				</li>
+				if historyURL := analysisHistoryURL(book.Source.ID, job); historyURL != "" {
+					<li><a href={ templ.SafeURL(historyURL) }>{ analysisHistoryLabel(job) }</a><span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span></li>
+				}
 			}
 		</ul></section>
 	}
 	<div class="book-actions"><article class="resource-card"><h2>Analysis</h2>
-		if book.Source.MediaType == "application/epub+zip" {
-			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review and analyze a new EPUB scope</a></p>
+		<p>{ bookLifecycleActionFor(book, history).Description }</p>
+		if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
+			<p><small>Analysis uses the confirmed immutable scope <code>{ firstNonEmpty(book.ConfirmedScopeID, book.ReviewedScopeID) }</code>. Reanalysis reuses reviewed scope history; review a new scope to create distinct history.</small></p>
 		}
-		if book.AnalysisJobID > 0 {
-			<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>View analysis status and results</a></p>
+		if book.Source.MediaType == "application/epub+zip" && (book.ConfirmedScopeID != "" || book.ReviewedScopeID != "") {
+			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review a new EPUB scope</a></p>
 		}
-		if book.AnalysisJobID == 0 {
-			<p>Confirm an EPUB scope before starting analysis.</p>
-		}
-		if book.Source.MediaType != "application/epub+zip" || book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
-			<form method="post" action={ templ.SafeURL("/books/"+book.Source.ID+"/analyze") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">{ analyzeLabel(book.AnalysisStatus) }</button>
-				if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
-					<small>Analysis uses the confirmed immutable scope <code>{ firstNonEmpty(book.ConfirmedScopeID, book.ReviewedScopeID) }</code>. Reanalysis reuses reviewed scope history; review a new scope to create distinct history.</small>
-				}
-			</form>
-		} else {
-			<a role="button" class="outline" href={ templ.SafeURL(scopeReviewURL(book)) }>Review and confirm scope</a>
-			}
 	</article><article class="resource-card"><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
 		if book.AnalysisStatus == "analyzed" && completedAnalysisURL(book, history) != "" {
-			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(completedAnalysisURL(book, history)) }>Open analysis result to prepare deck</a>
-		} else if book.AnalysisStatus == "analyzed" && book.AnalysisJobID > 0 {
-			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>Open analysis result to prepare deck</a>
+			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(completedAnalysisURL(book, history)) }>View analysis result</a>
 		} else {
 			<button disabled>Available after a scoped analysis</button>
 		}
@@ -455,6 +442,7 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 		if review.DegradedRecommendation {
 			<article role="note"><strong>Limited structural confidence</strong><p>No high-confidence main matter was found. Substantive medium-confidence main matter is included with review suggested; unknown units remain excluded for review instead of being promoted by a whole-book fallback.</p></article>
 		}
+		<section class="next-action" aria-labelledby="scope-next-action-heading"><h2 id="scope-next-action-heading">Next action</h2><p><strong>Confirm this scope.</strong> This saves an immutable selection for the book. It does not start analysis; after confirmation, return to the book page to choose <strong>Start analysis</strong>.</p></section>
 		<nav aria-label="Scope presets"><strong>Start with a preset:</strong> <a href={ templ.SafeURL(scopePresetURL(review, "recommended")) }>Current classifier recommendation</a> · <a href={ templ.SafeURL(scopePresetURL(review, "all")) }>All readable units</a>
 			if review.PriorScope != nil {
 				<span> · </span><a href={ templ.SafeURL(scopePresetURL(review, "prior")) }>Prior selection</a>
@@ -494,6 +482,15 @@ templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, p
 					</ul>
 				}
 			</section>
+		}
+		if len(review.History) > 0 {
+			<section aria-labelledby="scope-analysis-history-heading"><h2 id="scope-analysis-history-heading">Analysis history</h2><p>Previous analysis results remain available while you decide whether this new scope is needed.</p><ul>
+				for _, job := range review.History {
+					if historyURL := analysisHistoryURL(review.Book.ID, job); historyURL != "" {
+						<li><a href={ templ.SafeURL(historyURL) }>{ analysisHistoryLabel(job) }</a><span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span></li>
+					}
+				}
+			</ul></section>
 		}
 		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
 			<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -592,7 +589,7 @@ func recommendationExplanation(classification domain.EPUBUnitClassification) str
 func hasReferenceLikeEvidence(reasons []domain.EPUBClassificationReason) bool { for _, reason := range reasons { value := strings.ToLower(reason.Signal+" "+reason.Message); if strings.Contains(value, "reference") || strings.Contains(value, "citation") || strings.Contains(value, "bibliograph") || strings.Contains(value, "index") || strings.Contains(value, "register") || strings.Contains(value, "quellen") || strings.Contains(value, "literatur") { return true } }; return false }
 func scopeReviewURL(book domain.SourceMaterialSummary) string { if book.ReviewedScopeID == "" { return "/books/"+book.Source.ID+"/scope" }; return "/books/"+book.Source.ID+"/scope?preset=prior&prior_scope_id="+url.QueryEscape(book.ReviewedScopeID) }
 func scopePresetURL(review epubScopeView, preset string) string { value := "/books/"+review.Book.ID+"/scope?preset="+url.QueryEscape(preset); if review.PriorScope != nil { value += "&prior_scope_id="+url.QueryEscape(review.PriorScope.ScopeID) }; return value }
-func completedAnalysisURL(book domain.SourceMaterialSummary, history []domain.AnalysisJob) string { for _, job := range history { if job.SourceMaterialID == book.Source.ID && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" { return fmt.Sprintf("/books/%s/analyses/%s", book.Source.ID, job.AnalysisRunID) } }; return "" }
+func completedAnalysisURL(book domain.SourceMaterialSummary, history []domain.AnalysisJob) string { for _, job := range history { if historyURL := analysisHistoryURL(book.Source.ID, job); strings.Contains(historyURL, "/analyses/") { return historyURL } }; return "" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {

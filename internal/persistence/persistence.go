@@ -433,13 +433,19 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
-		       CASE WHEN c.id IS NOT NULL THEN 'analyzed'
-		            WHEN ar.state IN ('queued','running') THEN 'analyzing'
+		       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
 		            WHEN ar.state = 'failed' THEN 'analysis failed'
 		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
+		            WHEN c.id IS NOT NULL THEN 'analyzed'
 		            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
+		       CASE WHEN ar.state IS NOT NULL THEN ar.state
+		            WHEN c.id IS NOT NULL THEN 'completed'
+		            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
+		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
+		            ELSE '' END,
+		       COALESCE(j.analysis_run_id::text,c.analysis_run_id::text,''),
 		       COALESCE(c.id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
@@ -456,7 +462,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.CorpusID, &item.ReviewedScopeID, &item.ConfirmedScopeID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.ReviewedScopeID, &item.ConfirmedScopeID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)

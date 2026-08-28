@@ -637,7 +637,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("acquire did not preserve browse context: %q", acquired.Header().Get("Location"))
 	}
 	library := perform(t, h, "GET", "/library", nil, cookies)
-	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "not analyzed") {
+	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "Scope review required") {
 		t.Fatalf("library=%d %s", library.Code, library.Body.String())
 	}
 	books, err := store.ListSourceMaterials(ctx, alice.ID)
@@ -677,7 +677,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("multi-add books=%d err=%v", len(books), err)
 	}
 	bookPage := perform(t, h, "GET", "/books/"+bookID, nil, cookies)
-	if bookPage.Code != 200 || !strings.Contains(bookPage.Body.String(), "Submit to analysis") {
+	if bookPage.Code != 200 || !strings.Contains(bookPage.Body.String(), "Review scope") {
 		t.Fatalf("book=%d %s", bookPage.Code, bookPage.Body.String())
 	}
 	if got := perform(t, h, "POST", "/books/"+bookID+"/analyze", nil, cookies); got.Code != http.StatusForbidden {
@@ -703,7 +703,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	library = perform(t, h, "GET", "/library", nil, cookies)
-	if library.Code != 200 || !strings.Contains(library.Body.String(), "analyzed") {
+	if library.Code != 200 || !strings.Contains(library.Body.String(), "Analysis result ready") {
 		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
 	}
 	externalJobs := &recordingEnrichment{}
@@ -720,7 +720,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
 		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
 	}
-	for _, want := range []string{"Text profile", "20", "12.0", "38", "10.0%", "200 of 240", "55.0%", "current-known coverage", "active-campaign projected coverage", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "graduated by completed campaigns", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "Open analysis result to prepare deck"} {
+	for _, want := range []string{"Text profile", "20", "12.0", "38", "10.0%", "200 of 240", "55.0%", "current-known coverage", "active-campaign projected coverage", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "graduated by completed campaigns", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "View analysis result"} {
 		if !strings.Contains(bookPage.Body.String(), want) {
 			t.Errorf("coverage page missing %q", want)
 		}
@@ -755,7 +755,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "Open analysis result to prepare deck") || !strings.Contains(bookPage.Body.String(), "/jobs/") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
+	if !strings.Contains(bookPage.Body.String(), "View analysis result") || !strings.Contains(bookPage.Body.String(), "/jobs/") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
 		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
 	}
 	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)

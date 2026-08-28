@@ -254,6 +254,25 @@ body {
   margin: 0;
 }
 
+.next-action {
+  border-left: var(--mouseion-space-1) solid var(--mouseion-color-accent);
+  padding: var(--mouseion-space-3) var(--mouseion-space-4);
+  background: var(--mouseion-color-surface-raised);
+}
+
+.next-action h2 {
+  margin-bottom: var(--mouseion-space-1);
+}
+
+.next-action > :last-child,
+.library-next-action {
+  margin-bottom: 0;
+}
+
+.inline-action {
+  margin-bottom: 0;
+}
+
 .confirmation {
   width: 100%;
   border-top: 1px solid var(--mouseion-color-border);
@@ -365,6 +384,14 @@ body {
 
 .library-list h2 {
   margin-bottom: var(--mouseion-space-1);
+}
+
+.library-list .library-next-action {
+  color: var(--mouseion-color-text-muted);
+}
+
+.library-list .inline-action {
+  margin-left: auto;
 }
 
 .status {
@@ -582,6 +609,10 @@ section[aria-labelledby="campaign-history-heading"] {
 
   .page-header__actions > * {
     width: 100%;
+  }
+
+  .library-list .inline-action {
+    margin-left: 0;
   }
 
   .action-group {

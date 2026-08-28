@@ -59,6 +59,11 @@ Learner-facing book state is broader than operational analysis-job state. Pages
 should answer what the book needs next rather than exposing only the latest
 backend status.
 
+My Library rows and book detail use the same single next-action projection for
+the current book state. Scope review required, ready to analyze, active or
+failed analysis, and an exact completed result each expose one clear action;
+operational history and alternate scope choices remain secondary links.
+
 ## Primary navigation
 
 The authenticated shell currently exposes:

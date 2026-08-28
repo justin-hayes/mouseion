@@ -32,6 +32,7 @@ markup.
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
 | `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | Library, book, scope review, Learning, Jobs, Settings      |
+| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Library, book detail, scope review                       |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Phase 3 contract           | Book and scope review                                      |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Library, book, campaigns                                   |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Learning, Jobs, Settings               |
@@ -135,6 +136,14 @@ Use one concise title, an optional task-oriented description, an optional
 non-interactive status, and at most one primary action group. Status belongs
 with page identity rather than in the action slot. Do not place long metadata,
 warnings, progress, or multiple resource actions in the header.
+
+### `NextAction`
+
+Use a concise state description to make the learner-facing lifecycle action
+explicit. The action itself remains a native link or form button owned by the
+screen; the summary must not introduce a second competing route. My Library
+and book detail use the same state projection, while scope review names
+`Confirm this scope` and explains that confirmation does not start analysis.
 
 ### `Breadcrumb`
 
