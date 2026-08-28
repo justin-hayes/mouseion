@@ -183,6 +183,25 @@ completeness.
 - Is operator/manual retry the desired response when remote Batch creation
   cannot be recovered unambiguously?
 
+## Validation and review gate
+
+Issue #353 supplies an explicit operator command and checked-in frozen
+fixtures. It compares the same request bodies, model, prompt version, cache
+identity, response decoder, and renderer through synchronous and Batch
+transports, while local stubs cover success, partial failure, expiry,
+cancellation, restart, and ambiguous submission. The report separates those
+synthetic results from measured real-provider evidence and records quality,
+correctness, privacy, durability, cost, latency, and operational-recovery
+gates.
+
+ADR 0031 must not be marked accepted, and issue #354 must not remove the
+synchronous implementation, until a human records decisions for endpoint
+retirement (including custom OpenAI-compatible endpoints), the proposed
+operational defaults, and every cutover gate in the report. A later cutover
+rolls back by reverting code before synchronous support is removed. The
+validation command is intentionally not a deployed feature flag or runtime
+transport selector, and neither CI nor startup makes paid provider calls.
+
 ## Related
 
 - [OpenAI Batch API for prepared-deck translation](../features/openai-batch-translation.md)

@@ -69,3 +69,22 @@ bounds each input file. Provider input/output/error files request seven-day
 expiration and are deleted after reconciliation or cancellation. Cleanup
 failures are persisted, observable, and retried at most three times; a cleanup
 failure never rolls back already reconciled results.
+
+## Batch validation
+
+`cmd/batch-validation` is an operator-only evaluation command. Without
+`-real-provider` it replays the checked-in frozen manifest and response fixtures
+through both synchronous and Batch semantics without network access:
+
+```bash
+go run ./cmd/batch-validation -report /tmp/batch-validation.md
+```
+
+Paid calls require the explicit `-real-provider` flag and the exact
+`-acknowledge-paid-provider-calls "I understand this makes paid OpenAI calls"`
+acknowledgement. The command always runs both transports for the same frozen
+requests; it has no `sync|batch` selector and is not used by startup, CI, or
+the deployed worker. Real cost evidence additionally requires the current
+model's `-input-cost-per-million` and `-output-cost-per-million` rates. See the
+[report template](../../doc/reports/openai-batch-validation-report.md)
+for evidence separation, cutover gates, and operator recovery records.

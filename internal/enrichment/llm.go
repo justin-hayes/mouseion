@@ -148,30 +148,38 @@ func NewOpenAITranslationClient(cfg LLMConfig, client *http.Client) (*OpenAITran
 }
 
 func (c *OpenAITranslationClient) Translate(ctx context.Context, input TranslationRequest) (TranslationResponse, error) {
+	result, _, err := c.TranslateWithUsage(ctx, input)
+	return result, err
+}
+
+// TranslateWithUsage is the observed form used only by the explicit
+// validation harness. Normal enrichment deliberately keeps usage out of its
+// semantic result and cache identity.
+func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input TranslationRequest) (TranslationResponse, TranslationUsage, error) {
 	body, err := c.codec.EncodeRequest(input)
 	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("encode LLM request: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("encode LLM request: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("create LLM request: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("create LLM request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("call LLM: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("call LLM: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
-		return TranslationResponse{}, &LLMHTTPError{StatusCode: resp.StatusCode}
+		return TranslationResponse{}, TranslationUsage{}, &LLMHTTPError{StatusCode: resp.StatusCode}
 	}
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxTranslationResponseBytes+1))
 	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("decode LLM response: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM response: %w", err)
 	}
-	return c.codec.DecodeResponse(input, responseBody)
+	return c.codec.DecodeResponseWithUsage(input, responseBody)
 }
 
 func parseReasoningEffort(value string) (string, error) {

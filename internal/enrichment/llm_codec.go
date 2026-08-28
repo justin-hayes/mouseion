@@ -32,6 +32,10 @@ func (c *TranslationCodec) Model() string {
 	return c.model
 }
 
+// PromptVersion identifies the request/validation contract frozen into this
+// codec. It is recorded by the operator validation report.
+func (c *TranslationCodec) PromptVersion() string { return llmPromptVersion }
+
 // NewTranslationCodec builds the shared Chat Completions codec. BaseURL is
 // consulted only to preserve the existing reasoning-model capability policy;
 // it is not retained by the codec.
@@ -114,47 +118,58 @@ func (c *TranslationCodec) EncodeRequest(input TranslationRequest) ([]byte, erro
 // DecodeResponse applies the shared Chat Completions and translation quality
 // validation to a bounded provider response body.
 func (c *TranslationCodec) DecodeResponse(input TranslationRequest, body []byte) (TranslationResponse, error) {
+	result, _, err := c.DecodeResponseWithUsage(input, body)
+	return result, err
+}
+
+// DecodeResponseWithUsage applies the same decoder and validator as
+// DecodeResponse while returning provider-reported usage for evaluation.
+func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, body []byte) (TranslationResponse, TranslationUsage, error) {
 	if c == nil {
-		return TranslationResponse{}, errors.New("decode LLM response: nil translation codec")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: nil translation codec")
 	}
 	if len(body) > maxTranslationResponseBytes {
-		return TranslationResponse{}, errors.New("decode LLM response: response exceeds 1 MiB")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: response exceeds 1 MiB")
 	}
 	var decoded struct {
 		Choices []struct {
 			Message chatMessage `json:"message"`
 		} `json:"choices"`
+		Usage TranslationUsage `json:"usage"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	if err := decoder.Decode(&decoded); err != nil {
-		return TranslationResponse{}, fmt.Errorf("decode LLM response: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM response: %w", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, errors.New("decode LLM response: trailing JSON content")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: trailing JSON content")
 	}
 	if len(decoded.Choices) == 0 {
-		return TranslationResponse{}, errors.New("decode LLM response: no choices")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: no choices")
 	}
 	var result TranslationResponse
 	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
 	resultDecoder.DisallowUnknownFields()
 	if err := resultDecoder.Decode(&result); err != nil {
-		return TranslationResponse{}, fmt.Errorf("decode LLM translation: %w", err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM translation: %w", err)
 	}
 	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, errors.New("decode LLM translation: trailing JSON content")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: trailing JSON content")
 	}
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.Gloss = strings.TrimSpace(result.Gloss)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
 	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
 	if result.Translation == "" {
-		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
-		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: sentence_translation is empty")
 	}
-	return result, nil
+	if decoded.Usage.PromptTokens < 0 || decoded.Usage.CompletionTokens < 0 || decoded.Usage.TotalTokens < 0 {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: invalid usage")
+	}
+	return result, decoded.Usage, nil
 }
 
 func parseLLMBaseURL(value string) (string, *url.URL, error) {
