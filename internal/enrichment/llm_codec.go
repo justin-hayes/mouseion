@@ -23,6 +23,15 @@ type TranslationCodec struct {
 	usesReasoningEffort bool
 }
 
+// Model returns the model frozen into this codec. Callers use it to verify
+// that durable work is not silently rebound to current configuration.
+func (c *TranslationCodec) Model() string {
+	if c == nil {
+		return ""
+	}
+	return c.model
+}
+
 // NewTranslationCodec builds the shared Chat Completions codec. BaseURL is
 // consulted only to preserve the existing reasoning-model capability policy;
 // it is not retained by the codec.

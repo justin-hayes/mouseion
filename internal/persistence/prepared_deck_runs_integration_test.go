@@ -140,9 +140,19 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	if err != nil || chunk.State != domain.PreparedDeckBatchSubmitting {
 		t.Fatalf("claim chunk=%+v err=%v", chunk, err)
 	}
-	chunk, err = store.RecordPreparedDeckBatchSubmitted(ctx, owner.ID, preparation.ID, result.Run.ID, result.Chunks[0].ID, 1, submissionToken, "file-input", "batch-1", time.Now().UTC())
-	if err != nil || chunk.State != domain.PreparedDeckBatchSubmitted || chunk.BatchID != "batch-1" {
+	submitTx, err := store.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk, err = store.RecordPreparedDeckBatchSubmittedTx(ctx, submitTx, owner.ID, preparation.ID, result.Run.ID, result.Chunks[0].ID, 1, submissionToken, "file-input", "batch-1", time.Now().UTC(), func(context.Context, pgx.Tx, domain.PreparedDeckBatchChunk) (int64, error) {
+		return 9003, nil
+	})
+	if err != nil || chunk.State != domain.PreparedDeckBatchSubmitted || chunk.BatchID != "batch-1" || chunk.ReconciliationJobID != 9003 {
+		_ = submitTx.Rollback(ctx)
 		t.Fatalf("submitted chunk=%+v err=%v", chunk, err)
+	}
+	if err = submitTx.Commit(ctx); err != nil {
+		t.Fatal(err)
 	}
 	chunk, err = store.AssignPreparedDeckBatchReconciliationJob(ctx, owner.ID, preparation.ID, result.Run.ID, result.Chunks[0].ID, 0, 9002)
 	if err != nil || chunk.ReconciliationGeneration != 1 || chunk.ReconciliationJobID != 9002 {

@@ -18,16 +18,30 @@ import (
 
 const durableJobMaxAttempts = 5
 
-// BatchSubmitJobArgs deliberately contains only opaque durable identities. A
-// later issue registers the provider transport worker for this job kind.
+// BatchSubmitJobArgs deliberately contains only durable orchestration
+// identities; the provider transport worker never receives source content.
 type BatchSubmitJobArgs struct {
-	OwnerID    string `json:"owner_id"`
-	RunID      string `json:"run_id"`
-	ChunkID    string `json:"chunk_id" river:"unique"`
-	Generation int    `json:"generation"`
+	OwnerID       string `json:"owner_id"`
+	PreparationID string `json:"preparation_id"`
+	RunID         string `json:"run_id"`
+	ChunkID       string `json:"chunk_id" river:"unique"`
+	Generation    int    `json:"generation"`
 }
 
 func (BatchSubmitJobArgs) Kind() string { return "prepared_deck_batch_submit" }
+
+// BatchPollJobArgs is intentionally short-lived work. It identifies one
+// already-created provider Batch and never carries a prompt, response, or
+// source-derived field.
+type BatchPollJobArgs struct {
+	OwnerID       string `json:"owner_id"`
+	PreparationID string `json:"preparation_id"`
+	RunID         string `json:"run_id"`
+	ChunkID       string `json:"chunk_id" river:"unique"`
+	Generation    int    `json:"generation"`
+}
+
+func (BatchPollJobArgs) Kind() string { return "prepared_deck_batch_poll" }
 
 type FinalizeJobArgs struct {
 	OwnerID       string `json:"owner_id"`
@@ -112,7 +126,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 	}
 	for i := range result.Chunks {
 		chunk := &result.Chunks[i]
-		inserted, insertErr := c.client.InsertTx(ctx, tx, BatchSubmitJobArgs{OwnerID: request.OwnerID, RunID: result.Run.ID, ChunkID: chunk.ID, Generation: chunk.Generation}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+		inserted, insertErr := c.client.InsertTx(ctx, tx, BatchSubmitJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, ChunkID: chunk.ID, Generation: chunk.Generation}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 		if insertErr != nil {
 			return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("enqueue Batch chunk %d: %w", chunk.ChunkIndex, insertErr)
 		}
