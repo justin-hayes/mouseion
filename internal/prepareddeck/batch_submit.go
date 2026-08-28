@@ -326,7 +326,11 @@ func (w *BatchSubmitWorker) now() time.Time {
 }
 
 func AddBatchSubmitWorker(workers *river.Workers, store *persistence.PostgresStore, client riverClient, provider batchProvider, codec *enrichment.TranslationCodec) {
-	river.AddWorker(workers, &BatchSubmitWorker{Store: store, Client: client, Provider: provider, Codec: codec})
+	AddBatchSubmitWorkerWithMetrics(workers, store, client, provider, codec, nil)
+}
+
+func AddBatchSubmitWorkerWithMetrics(workers *river.Workers, store *persistence.PostgresStore, client riverClient, provider batchProvider, codec *enrichment.TranslationCodec, metrics BatchMetrics) {
+	river.AddWorker(workers, &BatchSubmitWorker{Store: store, Client: client, Provider: provider, Codec: codec, Metrics: metrics})
 }
 
 // inputFileIDOr preserves the recovered provider file ID while allowing a
