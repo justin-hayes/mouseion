@@ -59,9 +59,14 @@ type Handle struct {
 }
 
 type Service struct {
-	pool   *pgxpool.Pool
-	client riverClient
-	store  *persistence.PostgresStore
+	pool           *pgxpool.Pool
+	client         riverClient
+	store          *persistence.PostgresStore
+	batchCanceller batchCanceller
+}
+
+type batchCanceller interface {
+	CancelBatch(context.Context, string) (enrichment.Batch, error)
 }
 
 type riverClient interface {
@@ -71,6 +76,12 @@ type riverClient interface {
 
 func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx]) *Service {
 	return &Service{pool: store.Pool(), client: client, store: store}
+}
+
+func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *river.Client[pgx.Tx], canceller batchCanceller) *Service {
+	service := NewService(store, client)
+	service.batchCanceller = canceller
+	return service
 }
 
 // Submit creates a preparation for one completed scoped analysis and its
@@ -235,11 +246,31 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	if err != nil {
 		return p, err
 	}
-	var jobID int64
-	if err = s.pool.QueryRow(ctx, `SELECT id FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'preparation_id'=$3 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id DESC LIMIT 1`, (JobArgs{}).Kind(), owner, id).Scan(&jobID); err == nil {
-		_, _ = s.client.JobCancel(ctx, jobID)
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return p, err
+	// Local state commits first. Provider and River cancellation are explicitly
+	// best effort because their work is fenced by the cancelled run.
+	rows, queryErr := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
+	if queryErr == nil {
+		var jobIDs []int64
+		for rows.Next() {
+			var jobID int64
+			if scanErr := rows.Scan(&jobID); scanErr != nil {
+				break
+			}
+			jobIDs = append(jobIDs, jobID)
+		}
+		rows.Close()
+		if s.client != nil {
+			for _, jobID := range jobIDs {
+				_, _ = s.client.JobCancel(ctx, jobID)
+			}
+		}
+	}
+	if s.batchCanceller != nil && p.CurrentRunID != "" {
+		if batchIDs, listErr := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, p.CurrentRunID); listErr == nil {
+			for _, batchID := range batchIDs {
+				_, _ = s.batchCanceller.CancelBatch(ctx, batchID)
+			}
+		}
 	}
 	return p, nil
 }

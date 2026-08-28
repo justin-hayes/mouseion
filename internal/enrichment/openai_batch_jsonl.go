@@ -21,6 +21,36 @@ const (
 
 var ErrInvalidBatchCustomID = errors.New("enrichment: invalid Batch custom ID")
 
+type BatchResultErrorKind string
+
+const (
+	BatchResultMalformed     BatchResultErrorKind = "malformed_result"
+	BatchResultUnknown       BatchResultErrorKind = "unknown_result"
+	BatchResultDuplicate     BatchResultErrorKind = "duplicate_result"
+	BatchResultContradictory BatchResultErrorKind = "contradictory_result"
+	BatchResultMissing       BatchResultErrorKind = "missing_result"
+)
+
+// BatchResultError identifies an untrustworthy correlation failure without
+// retaining the provider line, custom ID, response, or source content.
+type BatchResultError struct {
+	Kind BatchResultErrorKind
+	err  error
+}
+
+func (e *BatchResultError) Error() string {
+	if e == nil {
+		return "enrichment: invalid Batch result"
+	}
+	return "enrichment: invalid Batch result (" + string(e.Kind) + ")"
+}
+
+func (e *BatchResultError) Unwrap() error { return e.err }
+
+func batchResultError(kind BatchResultErrorKind, err error) error {
+	return &BatchResultError{Kind: kind, err: err}
+}
+
 type BatchTranslationItem struct {
 	Ordinal int
 	Request TranslationRequest
@@ -37,6 +67,9 @@ type BatchTranslationOutcome struct {
 	Ordinal    int
 	Response   TranslationResponse
 	ErrorClass ProviderErrorClass
+	// ErrorCode is a bounded provider-independent code. Raw provider error
+	// bodies and messages are deliberately not retained.
+	ErrorCode  string
 	StatusCode int
 }
 
@@ -117,20 +150,39 @@ func (c *TranslationCodec) WriteBatchJSONL(dst io.Writer, runID string, generati
 // their outcomes cannot be trusted. Request and translation failures remain
 // typed per-item outcomes.
 func (c *TranslationCodec) DecodeBatchResults(runID string, generation int, items []BatchTranslationItem, output, errorOutput io.Reader) (map[int]BatchTranslationOutcome, error) {
+	outcomes, missing, err := c.decodeBatchResults(runID, generation, items, output, errorOutput)
+	if err != nil {
+		return nil, err
+	}
+	if len(missing) != 0 {
+		return nil, batchResultError(BatchResultMissing, nil)
+	}
+	return outcomes, nil
+}
+
+// DecodeBatchResultsPartial has the same strict line validation as
+// DecodeBatchResults, but returns the IDs that were absent from both files.
+// Expired Batches use that distinction to retry only requests with no
+// durable result.
+func (c *TranslationCodec) DecodeBatchResultsPartial(runID string, generation int, items []BatchTranslationItem, output, errorOutput io.Reader) (map[int]BatchTranslationOutcome, []int, error) {
+	return c.decodeBatchResults(runID, generation, items, output, errorOutput)
+}
+
+func (c *TranslationCodec) decodeBatchResults(runID string, generation int, items []BatchTranslationItem, output, errorOutput io.Reader) (map[int]BatchTranslationOutcome, []int, error) {
 	if c == nil || len(items) == 0 {
-		return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
+		return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
 	}
 	canonicalRunID, err := canonicalBatchRunID(runID)
 	if err != nil || generation < 1 {
-		return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, err)
+		return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, err)
 	}
 	expected := make(map[int]TranslationRequest, len(items))
 	for _, item := range items {
 		if item.Ordinal < 0 {
-			return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
+			return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
 		}
 		if _, duplicate := expected[item.Ordinal]; duplicate {
-			return nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
+			return nil, nil, providerError("decode Batch results", ProviderErrorInvalidRequest, 0, nil)
 		}
 		expected[item.Ordinal] = item.Request
 	}
@@ -140,10 +192,17 @@ func (c *TranslationCodec) DecodeBatchResults(runID string, generation int, item
 			continue
 		}
 		if err = c.decodeBatchResultReader(source, canonicalRunID, generation, expected, outcomes); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return outcomes, nil
+	missing := make([]int, 0, len(expected)-len(outcomes))
+	for ordinal := range expected {
+		if _, found := outcomes[ordinal]; !found {
+			missing = append(missing, ordinal)
+		}
+	}
+	sort.Ints(missing)
+	return outcomes, missing, nil
 }
 
 func (c *TranslationCodec) decodeBatchResultReader(source io.Reader, runID string, generation int, expected map[int]TranslationRequest, outcomes map[int]BatchTranslationOutcome) error {
@@ -152,26 +211,26 @@ func (c *TranslationCodec) decodeBatchResultReader(source io.Reader, runID strin
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(bytes.TrimSpace(line)) == 0 {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+			return batchResultError(BatchResultMalformed, nil)
 		}
 		var wire batchResultWire
 		decoder := json.NewDecoder(bytes.NewReader(line))
 		if err := decoder.Decode(&wire); err != nil {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, err)
+			return batchResultError(BatchResultMalformed, err)
 		}
 		if err := decoder.Decode(&struct{}{}); err != io.EOF {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+			return batchResultError(BatchResultMalformed, nil)
 		}
 		identity, err := ParseBatchCustomID(wire.CustomID)
 		if err != nil || identity.RunID != runID || identity.Generation != generation {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, err)
+			return batchResultError(BatchResultUnknown, err)
 		}
 		request, known := expected[identity.Ordinal]
 		if !known {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+			return batchResultError(BatchResultUnknown, nil)
 		}
 		if _, duplicate := outcomes[identity.Ordinal]; duplicate {
-			return providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+			return batchResultError(BatchResultDuplicate, nil)
 		}
 		outcome, err := c.decodeBatchResultLine(wire, identity.Ordinal, request)
 		if err != nil {
@@ -180,7 +239,7 @@ func (c *TranslationCodec) decodeBatchResultReader(source io.Reader, runID strin
 		outcomes[identity.Ordinal] = outcome
 	}
 	if err := scanner.Err(); err != nil {
-		return providerError("decode Batch results", ProviderErrorResponseTooLarge, 0, err)
+		return batchResultError(BatchResultMalformed, err)
 	}
 	return nil
 }
@@ -198,31 +257,55 @@ type batchResultWire struct {
 
 func (c *TranslationCodec) decodeBatchResultLine(wire batchResultWire, ordinal int, request TranslationRequest) (BatchTranslationOutcome, error) {
 	if (wire.Response == nil) == (wire.Error == nil) {
-		return BatchTranslationOutcome{}, providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+		return BatchTranslationOutcome{}, batchResultError(BatchResultContradictory, nil)
 	}
 	outcome := BatchTranslationOutcome{CustomID: wire.CustomID, Ordinal: ordinal}
 	if wire.Error != nil {
 		if strings.TrimSpace(wire.Error.Code) == "" {
-			return BatchTranslationOutcome{}, providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+			return BatchTranslationOutcome{}, batchResultError(BatchResultMalformed, nil)
 		}
 		outcome.ErrorClass = classifyProviderCode(wire.Error.Code)
+		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)
 		return outcome, nil
 	}
 	outcome.StatusCode = wire.Response.StatusCode
 	if wire.Response.StatusCode < 100 || wire.Response.StatusCode > 599 {
-		return BatchTranslationOutcome{}, providerError("decode Batch results", ProviderErrorMalformedResponse, 0, nil)
+		return BatchTranslationOutcome{}, batchResultError(BatchResultMalformed, nil)
 	}
 	if wire.Response.StatusCode < 200 || wire.Response.StatusCode >= 300 {
 		outcome.ErrorClass = classifyHTTPStatus(wire.Response.StatusCode)
+		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)
 		return outcome, nil
 	}
 	response, err := c.DecodeResponse(request, wire.Response.Body)
 	if err != nil {
 		outcome.ErrorClass = ProviderErrorInvalidResponse
+		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)
 		return outcome, nil
 	}
 	outcome.Response = response
 	return outcome, nil
+}
+
+func providerResultCode(class ProviderErrorClass) string {
+	switch class {
+	case ProviderErrorRateLimit:
+		return "rate_limit"
+	case ProviderErrorTimeout:
+		return "timeout"
+	case ProviderErrorUnavailable:
+		return "provider_5xx"
+	case ProviderErrorInvalidResponse:
+		return "invalid_translation_response"
+	case ProviderErrorInvalidRequest:
+		return "invalid_request"
+	case ProviderErrorCancelled:
+		return "cancelled"
+	case ProviderErrorExpired:
+		return "expired"
+	default:
+		return "request_failed"
+	}
 }
 
 func canonicalBatchRunID(runID string) (string, error) {

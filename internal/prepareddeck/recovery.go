@@ -1,0 +1,130 @@
+package prepareddeck
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/riverqueue/river"
+)
+
+type RecoveryJobArgs struct{}
+
+func (RecoveryJobArgs) Kind() string { return "prepared_deck_reconcile" }
+
+type RecoveryWorker struct {
+	river.WorkerDefaults[RecoveryJobArgs]
+	Store    *persistence.PostgresStore
+	Client   riverClient
+	Interval time.Duration
+	Limit    int
+}
+
+// Work reconstructs missing short jobs only from persisted identities. River
+// uniqueness makes an already-live delivery an idempotent repair.
+func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]) error {
+	if w == nil || w.Store == nil || w.Client == nil {
+		return ErrInvalidInput
+	}
+	limit := w.Limit
+	if limit < 1 {
+		limit = 100
+	}
+	work, err := w.Store.ListPreparedDeckRecoveryWork(ctx, limit)
+	if err != nil {
+		return err
+	}
+	for _, item := range work {
+		if err = w.repair(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
+			return err
+		}
+	}
+	interval := w.Interval
+	if interval <= 0 {
+		interval = DefaultBatchPollInterval
+	}
+	return river.JobSnooze(interval)
+}
+
+func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
+	if item.Kind == "outcome" {
+		// Scalar outcome repair was superseded by ADR 0031's Batch chunks.
+		return nil
+	}
+	if item.Kind == "translation_completion" {
+		_, err := w.Store.AdvancePreparedDeckRunIfTerminal(ctx, item.OwnerID, item.PreparationID, item.RunID, w.insertFinalizer)
+		return err
+	}
+	tx, err := w.Store.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var args river.JobArgs
+	switch item.Kind {
+	case "batch_submission":
+		args = BatchSubmitJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
+	case "batch_reconciliation":
+		args = BatchPollJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
+	case "finalizer":
+		args = FinalizeJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Generation: item.Generation}
+	default:
+		return nil
+	}
+	inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOpts())
+	if err != nil {
+		return err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		return errors.New("River did not return live durable recovery work")
+	}
+	switch item.Kind {
+	case "batch_submission":
+		err = w.Store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, inserted.Job.ID)
+	case "batch_reconciliation":
+		err = w.Store.SetPreparedDeckBatchReconciliationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, inserted.Job.ID)
+	case "finalizer":
+		err = w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Generation, inserted.Job.ID)
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (w *RecoveryWorker) insertFinalizer(ctx context.Context, tx pgx.Tx, run domain.PreparedDeckRun) error {
+	inserted, err := w.Client.InsertTx(ctx, tx, FinalizeJobArgs{OwnerID: run.OwnerID, PreparationID: run.PreparationID, RunID: run.ID, Generation: run.FinalizationDispatchGeneration}, durableInsertOpts())
+	if err != nil {
+		return err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		return errors.New("River did not return a live finalizer job")
+	}
+	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
+}
+
+func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, client riverClient) error {
+	if store == nil || client == nil {
+		return ErrInvalidInput
+	}
+	tx, err := store.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	inserted, err := client.InsertTx(ctx, tx, RecoveryJobArgs{}, durableInsertOpts())
+	if err != nil {
+		return err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		return errors.New("River did not return a live prepared-deck recovery job")
+	}
+	return tx.Commit(ctx)
+}
+
+func AddRecoveryWorker(workers *river.Workers, store *persistence.PostgresStore, client riverClient, interval time.Duration) {
+	river.AddWorker(workers, &RecoveryWorker{Store: store, Client: client, Interval: interval})
+}

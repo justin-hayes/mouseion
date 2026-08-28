@@ -103,7 +103,10 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	}
 	if len(items) == 0 {
 		_, finishErr := w.Store.FinishPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, domain.PreparedDeckBatchCompleted, "", "")
-		return finishErr
+		if finishErr != nil {
+			return finishErr
+		}
+		return w.advanceIfTerminal(ctx, args)
 	}
 	if len(items) != claimed.RequestCount || claimed.InputBytes <= 0 || claimed.InputDigest == "" {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_changed")
@@ -180,8 +183,28 @@ func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmi
 }
 
 func (w *BatchSubmitWorker) finishSubmissionFailure(ctx context.Context, args BatchSubmitJobArgs, token string, state domain.PreparedDeckBatchChunkState, class, code string) error {
-	_, err := w.Store.FinishPreparedDeckBatchSubmission(context.WithoutCancel(ctx), args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, state, class, boundedProviderCode(code))
+	err := w.Store.FailPreparedDeckBatchSubmission(context.WithoutCancel(ctx), args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, state, class, boundedProviderCode(code))
 	if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
+		return nil
+	}
+	return err
+}
+
+func (w *BatchSubmitWorker) advanceIfTerminal(ctx context.Context, args BatchSubmitJobArgs) error {
+	if w.Client == nil {
+		return errors.New("prepareddeck: finalizer dispatch unavailable")
+	}
+	_, err := w.Store.AdvancePreparedDeckRunIfTerminal(ctx, args.OwnerID, args.PreparationID, args.RunID, func(ctx context.Context, tx pgx.Tx, run domain.PreparedDeckRun) error {
+		inserted, insertErr := w.Client.InsertTx(ctx, tx, FinalizeJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, Generation: run.FinalizationDispatchGeneration}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+		if insertErr != nil {
+			return insertErr
+		}
+		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+			return errors.New("River did not return a live finalizer job")
+		}
+		return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, run.FinalizationDispatchGeneration, inserted.Job.ID)
+	})
+	if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
 		return nil
 	}
 	return err

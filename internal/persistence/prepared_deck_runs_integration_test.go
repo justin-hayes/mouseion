@@ -273,8 +273,42 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 		return result
 	}
 	first := freeze()
+	jobTx, err := store.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, jobTx, owner.ID, preparation.ID, first.Run.ID, first.Chunks[0].ID, 1, 9101); err != nil {
+		_ = jobTx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err = jobTx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	submissionToken := uuid.NewString()
+	if _, err = store.ClaimPreparedDeckBatchSubmission(ctx, owner.ID, preparation.ID, first.Run.ID, first.Chunks[0].ID, 1, submissionToken, time.Now().UTC().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RecordPreparedDeckBatchSubmitted(ctx, owner.ID, preparation.ID, first.Run.ID, first.Chunks[0].ID, 1, submissionToken, "cancel-file", "cancel-batch", time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	reconciliationToken := uuid.NewString()
+	if _, err = store.ClaimPreparedDeckBatchReconciliation(ctx, owner.ID, preparation.ID, first.Run.ID, first.Chunks[0].ID, 0, reconciliationToken, time.Now().UTC().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = store.CancelCurrentPreparedDeckRun(ctx, owner.ID, preparation.ID); err != nil {
 		t.Fatal(err)
+	}
+	lateEntry := enrichment.CacheEntry{CacheKey: key, Translation: "late house", CachedAt: time.Now().UTC()}
+	_, err = store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{
+		OwnerID: owner.ID, PreparationID: preparation.ID, RunID: first.Run.ID, ChunkID: first.Chunks[0].ID, ClaimToken: reconciliationToken,
+		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "completed", CompletedCount: 1},
+		Items: []PreparedDeckBatchItemReconciliation{{Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &lateEntry}},
+	}, nil, nil)
+	if !errors.Is(err, ErrPreparedDeckClaimLost) {
+		t.Fatalf("late reconciliation error=%v", err)
+	}
+	if _, found, cacheErr := store.Get(ctx, key); cacheErr != nil || found {
+		t.Fatalf("late cancelled result reached cache found=%t err=%v", found, cacheErr)
 	}
 	if _, err = store.ClaimPreparedDeckTranslationOutcome(ctx, owner.ID, preparation.ID, first.Run.ID, 0, 0, uuid.NewString(), time.Now().UTC().Add(time.Minute)); !errors.Is(err, ErrPreparedDeckClaimLost) && !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("cancelled outcome claim error=%v", err)
@@ -285,5 +319,131 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	second := freeze()
 	if second.Run.ID == first.Run.ID || second.Run.RunNumber != 2 {
 		t.Fatalf("manual retry did not create new run: first=%+v second=%+v", first.Run, second.Run)
+	}
+}
+
+func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGenerations(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "batch-reconcile-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "batch-reconcile-book", Title: "Batch Reconcile", MediaType: "text/plain", ContentHash: "batch-reconcile-hash", Content: []byte("Haus Baum"), FullText: "Haus Baum"}
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id::text`, source.OwnerID, source.Language, source.SourceIdentifier, source.Title, source.MediaType, source.ContentHash, source.Content, source.FullText).Scan(&source.ID); err != nil {
+		t.Fatal(err)
+	}
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lemma := range []string{"haus", "baum"} {
+		if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{
+		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1},
+		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: source.Title, FirstEncounter: 2},
+	})
+	candidates := manifest.EnrichmentCandidates()
+	keys := make([]enrichment.CacheKey, len(candidates))
+	for i, candidate := range candidates {
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	}
+	manifest, err = manifest.BindCacheKeys(keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	params := FreezePreparedDeckRunParams{
+		OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(),
+		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test", MaxBatchGenerations: 2, MaxProviderAttempts: 2},
+		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("c", 64), InputBytes: 128, Ordinals: []int{0, 1}}},
+	}
+	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := store.FreezePreparedDeckRunTx(ctx, tx, params)
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, owner.ID, preparation.ID, frozen.Run.ID, frozen.Chunks[0].ID, 1, 9201); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	claimAndSubmit := func(chunk domain.PreparedDeckBatchChunk, inputFile, batchID string) string {
+		t.Helper()
+		submissionToken := uuid.NewString()
+		if _, claimErr := store.ClaimPreparedDeckBatchSubmission(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunk.ID, chunk.Generation, submissionToken, time.Now().UTC().Add(time.Minute)); claimErr != nil {
+			t.Fatal(claimErr)
+		}
+		if _, submitErr := store.RecordPreparedDeckBatchSubmitted(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunk.ID, chunk.Generation, submissionToken, inputFile, batchID, time.Now().UTC()); submitErr != nil {
+			t.Fatal(submitErr)
+		}
+		reconcileToken := uuid.NewString()
+		if _, claimErr := store.ClaimPreparedDeckBatchReconciliation(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunk.ID, 0, reconcileToken, time.Now().UTC().Add(time.Minute)); claimErr != nil {
+			t.Fatal(claimErr)
+		}
+		return reconcileToken
+	}
+	firstToken := claimAndSubmit(frozen.Chunks[0], "input-one", "batch-one")
+	cacheEntry := enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", Gloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()}
+	firstResult, err := store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{
+		OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: frozen.Chunks[0].ID, ClaimToken: firstToken,
+		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "expired", OutputFileID: "output-one", CompletedCount: 1, ExpiredCount: 1},
+		Items: []PreparedDeckBatchItemReconciliation{
+			{Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &cacheEntry},
+			{Ordinal: 1, State: domain.PreparedDeckOutcomePending, ErrorClass: "expired", ErrorCode: "expired"},
+		},
+		RetryChunks: []PreparedDeckBatchChunkPlan{{Generation: 2, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "retry", InputDigest: strings.Repeat("d", 64), InputBytes: 64, Ordinals: []int{1}}},
+	}, func(context.Context, pgx.Tx, domain.PreparedDeckBatchChunk) (int64, error) { return 9202, nil }, func(context.Context, pgx.Tx, domain.PreparedDeckRun) error {
+		return errors.New("finalizer dispatched before retries ended")
+	})
+	if err != nil || len(firstResult.RetryChunks) != 1 || firstResult.RetryChunks[0].Generation != 2 || len(firstResult.RetryChunks[0].Ordinals) != 1 || firstResult.RetryChunks[0].Ordinals[0] != 1 {
+		t.Fatalf("first reconciliation=%+v err=%v", firstResult, err)
+	}
+	if stored, found, getErr := store.Get(ctx, keys[0]); getErr != nil || !found || stored.Translation != "house" {
+		t.Fatalf("exact cache stored=%+v found=%t err=%v", stored, found, getErr)
+	}
+	outcomes, err := store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, preparation.ID, frozen.Run.ID)
+	if err != nil || outcomes[0].State != domain.PreparedDeckOutcomeCompleted || outcomes[1].State != domain.PreparedDeckOutcomePending || outcomes[1].ProviderAttemptCount != 1 {
+		t.Fatalf("partial outcomes=%+v err=%v", outcomes, err)
+	}
+	second := firstResult.RetryChunks[0]
+	secondToken := claimAndSubmit(second, "input-two", "batch-two")
+	finalizerCount := 0
+	secondResult, err := store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{
+		OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: second.ID, ClaimToken: secondToken,
+		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "completed", ErrorFileID: "error-two", FailedCount: 1},
+		Items: []PreparedDeckBatchItemReconciliation{{Ordinal: 1, State: domain.PreparedDeckOutcomeFailed, ErrorClass: "retry_exhausted", ErrorCode: "timeout"}},
+	}, nil, func(ctx context.Context, tx pgx.Tx, run domain.PreparedDeckRun) error {
+		finalizerCount++
+		return store.SetPreparedDeckFinalizationJobTx(ctx, tx, owner.ID, preparation.ID, run.ID, run.FinalizationDispatchGeneration, 9203)
+	})
+	if err != nil || secondResult.Run.State != domain.PreparedDeckRunFinalizing || secondResult.Run.CompletedCount != 1 || secondResult.Run.FailedCount != 1 || finalizerCount != 1 {
+		t.Fatalf("second reconciliation=%+v finalizers=%d err=%v", secondResult, finalizerCount, err)
+	}
+	if _, err = store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: second.ID, ClaimToken: secondToken, Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "completed"}}, nil, nil); !errors.Is(err, ErrPreparedDeckClaimLost) {
+		t.Fatalf("duplicate reconciliation error=%v", err)
+	}
+	work, err := store.ListPreparedDeckRecoveryWork(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundFinalizer := false
+	for _, item := range work {
+		foundFinalizer = foundFinalizer || (item.Kind == "finalizer" && item.RunID == frozen.Run.ID)
+	}
+	if !foundFinalizer {
+		t.Fatalf("recovery work=%+v", work)
 	}
 }

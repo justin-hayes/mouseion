@@ -19,6 +19,7 @@ import (
 const (
 	PreparedDeckRetryPolicyVersion       = 1
 	DefaultBatchMaxRequests              = 5000
+	MaximumBatchGenerations              = 2
 	DefaultBatchMaxBytes           int64 = 200 * 1024 * 1024
 )
 
@@ -274,7 +275,7 @@ func validatePreparedDeckRunConfig(config PreparedDeckRunConfig) (PreparedDeckRu
 	} else if config.ContextMode != "" || config.Provider != "" || config.ProviderVersion != "" || config.Endpoint != "" || config.Model != "" {
 		return config, fmt.Errorf("%w: disabled external translation has provider identity", ErrInvalidTransition)
 	}
-	if config.RetryPolicyVersion < 1 || config.MaxProviderAttempts < 1 || config.MaxBatchGenerations < 1 || config.BatchMaxRequests < 1 || config.BatchMaxRequests > 50000 || config.BatchMaxBytes < 1 || config.BatchMaxBytes > DefaultBatchMaxBytes {
+	if config.RetryPolicyVersion < 1 || config.MaxProviderAttempts < 1 || config.MaxBatchGenerations < 1 || config.MaxBatchGenerations > MaximumBatchGenerations || config.BatchMaxRequests < 1 || config.BatchMaxRequests > 50000 || config.BatchMaxBytes < 1 || config.BatchMaxBytes > DefaultBatchMaxBytes {
 		return config, fmt.Errorf("%w: invalid durable run limits", ErrInvalidTransition)
 	}
 	return config, nil
