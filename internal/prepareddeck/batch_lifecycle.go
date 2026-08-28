@@ -81,7 +81,10 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 	claimed.Ordinals = append([]int(nil), chunk.Ordinals...)
 	batch, err := w.Provider.GetBatch(ctx, claimed.BatchID)
 	if err != nil {
-		return w.snoozeAfterPollError(ctx, claimed, args, claimToken, providerErrorCode(err))
+		if temporaryProviderError(err) {
+			return w.snoozeAfterPollError(ctx, claimed, args, claimToken, providerErrorCode(err))
+		}
+		return w.failUntrustworthy(ctx, args, claimToken, string(enrichment.BatchStatusFailed), "reconciliation", providerErrorCode(err))
 	}
 	if !knownBatchStatus(batch.Status) {
 		return w.failUntrustworthy(ctx, args, claimToken, string(enrichment.BatchStatusFailed), "validation", "unsupported_status")
@@ -102,13 +105,17 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 		}
 		return river.JobSnooze(w.pollDelay())
 	}
-	if batch.Status == enrichment.BatchStatusFailed || batch.Status == enrichment.BatchStatusCancelled {
+	if terminalBatchFailsRun(batch) {
 		// A provider-level terminal failure prevents trusted reconciliation. There
 		// is no trustworthy basis for publishing a partial artifact, and a
 		// cancelled provider Batch must never turn into a local retry.
 		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), terminalChunkErrorClass(batch.Status), terminalChunkErrorCode(batch.Status))
 	}
 	return w.reconcileTerminal(ctx, claimed, args, claimToken, batch)
+}
+
+func terminalBatchFailsRun(batch enrichment.Batch) bool {
+	return batch.Status == enrichment.BatchStatusCancelled || (batch.Status == enrichment.BatchStatusFailed && !retryableBatchFailure(batchFailureClass(batch)))
 }
 
 func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token string, batch enrichment.Batch) error {
@@ -130,9 +137,12 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 			class := batchResultFailureClass(resultErr.Kind)
 			return w.failUntrustworthy(ctx, args, token, string(batch.Status), class, string(resultErr.Kind))
 		}
+		if temporaryProviderError(downloadErr) {
+			return w.snoozeAfterPollError(ctx, chunk, args, token, providerErrorCode(downloadErr))
+		}
 		// Terminal files are part of the provider result contract. A missing
-		// file or failed download is therefore an explicit reconciliation
-		// failure, not a long-lived polling retry.
+		// file or permanent download failure is therefore an explicit
+		// reconciliation failure.
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", providerErrorCode(downloadErr))
 	}
 	providerCompleted, providerFailed := batchProviderResultCounts(decoded)
@@ -188,6 +198,8 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		errorCode := string(class)
 		if found && providerOutcome.ErrorCode != "" {
 			errorCode = providerOutcome.ErrorCode
+		} else if batch.Status == enrichment.BatchStatusFailed {
+			errorCode = batchFailureCode(batch)
 		}
 		updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: state, ErrorClass: errorClass, ErrorCode: boundedProviderCode(errorCode)})
 	}
@@ -204,7 +216,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 	} else if batch.Status == enrichment.BatchStatusFailed || batch.Status == enrichment.BatchStatusCancelled {
 		failedCount += missing
 	}
-	update := batchReconciliationUpdate(batch, domain.PreparedDeckBatchCompleted, terminalChunkErrorClass(batch.Status), terminalChunkErrorCode(batch.Status), expiredCount)
+	update := batchReconciliationUpdate(batch, domain.PreparedDeckBatchCompleted, terminalChunkErrorClass(batch.Status), terminalBatchErrorCode(batch), expiredCount)
 	update.FailedCount = failedCount
 	_, err = w.Store.ReconcilePreparedDeckBatch(ctx, persistence.PreparedDeckBatchReconcileParams{
 		OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID,
@@ -464,6 +476,26 @@ func batchFailureClass(batch enrichment.Batch) enrichment.ProviderErrorClass {
 	return class
 }
 
+func batchFailureCode(batch enrichment.Batch) string {
+	if len(batch.Errors) == 0 {
+		return string(enrichment.ProviderErrorRequestFailed)
+	}
+	code := batch.Errors[0].Code
+	if code == "" {
+		code = string(batch.Errors[0].Class)
+	}
+	for _, issue := range batch.Errors[1:] {
+		issueCode := issue.Code
+		if issueCode == "" {
+			issueCode = string(issue.Class)
+		}
+		if issueCode != code {
+			return string(enrichment.ProviderErrorRequestFailed)
+		}
+	}
+	return boundedProviderCode(code)
+}
+
 func outcomeErrorClass(class enrichment.ProviderErrorClass) string {
 	switch class {
 	case enrichment.ProviderErrorRateLimit:
@@ -499,6 +531,13 @@ func terminalChunkErrorCode(status enrichment.BatchStatus) string {
 		return ""
 	}
 	return boundedProviderCode(string(status))
+}
+
+func terminalBatchErrorCode(batch enrichment.Batch) string {
+	if batch.Status == enrichment.BatchStatusFailed {
+		return batchFailureCode(batch)
+	}
+	return terminalChunkErrorCode(batch.Status)
 }
 
 func batchResultFailureClass(kind enrichment.BatchResultErrorKind) string {
