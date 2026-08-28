@@ -396,7 +396,15 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 		return reconcileToken
 	}
 	firstToken := claimAndSubmit(frozen.Chunks[0], "input-one", "batch-one")
-	cacheEntry := enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", Gloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()}
+	// A different run may populate the exact key after this Batch was submitted.
+	// The immutable first writer remains authoritative even when the provider
+	// later returns different valid text.
+	firstWriter := enrichment.CacheEntry{CacheKey: keys[0], Translation: "first house", Gloss: "first writer", SentenceTranslation: "First cached sentence.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC().Add(-time.Minute)}
+	firstWriter, err = store.Put(ctx, firstWriter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cacheEntry := enrichment.CacheEntry{CacheKey: keys[0], Translation: "provider house", Gloss: "provider result", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()}
 	firstResult, err := store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{
 		OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: frozen.Chunks[0].ID, ClaimToken: firstToken,
 		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "expired", OutputFileID: "output-one", CompletedCount: 1, ExpiredCount: 1},
@@ -411,7 +419,7 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	if err != nil || len(firstResult.RetryChunks) != 1 || firstResult.RetryChunks[0].Generation != 2 || len(firstResult.RetryChunks[0].Ordinals) != 1 || firstResult.RetryChunks[0].Ordinals[0] != 1 {
 		t.Fatalf("first reconciliation=%+v err=%v", firstResult, err)
 	}
-	if stored, found, getErr := store.Get(ctx, keys[0]); getErr != nil || !found || stored.Translation != "house" {
+	if stored, found, getErr := store.Get(ctx, keys[0]); getErr != nil || !found || stored.Translation != firstWriter.Translation || !stored.CachedAt.Equal(firstWriter.CachedAt) {
 		t.Fatalf("exact cache stored=%+v found=%t err=%v", stored, found, getErr)
 	}
 	outcomes, err := store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, preparation.ID, frozen.Run.ID)

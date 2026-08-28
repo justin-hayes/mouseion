@@ -52,6 +52,54 @@ func TestUnknownBatchStatusIsNotMappedToPolling(t *testing.T) {
 	}
 }
 
+func TestPolledBatchAcceptsUnavailableCountsUntilResultReconciliation(t *testing.T) {
+	runID := "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
+	chunkID := "118f64b6-5f2f-7e12-a7a7-832a50f68b7c"
+	chunk := domain.PreparedDeckBatchChunk{
+		ID: chunkID, RunID: runID, Generation: 1, BatchID: "batch-validating", InputFileID: "file-input",
+		Endpoint: enrichment.OpenAIChatCompletionsEndpoint, RequestCount: 37,
+	}
+	base := enrichment.Batch{
+		ID: chunk.BatchID, InputFileID: chunk.InputFileID, Endpoint: chunk.Endpoint,
+		Metadata: batchMetadata(runID, chunkID, chunk.Generation),
+	}
+	for _, status := range []enrichment.BatchStatus{
+		enrichment.BatchStatusValidating,
+		enrichment.BatchStatusInProgress,
+		enrichment.BatchStatusFinalizing,
+		enrichment.BatchStatusFailed,
+		enrichment.BatchStatusCancelling,
+		enrichment.BatchStatusCancelled,
+	} {
+		t.Run(string(status), func(t *testing.T) {
+			batch := base
+			batch.Status = status
+			if err := validatePolledBatch(chunk, batch); err != nil {
+				t.Fatalf("normal %s Batch with unavailable counts was rejected: %v", status, err)
+			}
+		})
+	}
+	for _, status := range []enrichment.BatchStatus{enrichment.BatchStatusCompleted, enrichment.BatchStatusExpired} {
+		t.Run(string(status), func(t *testing.T) {
+			batch := base
+			batch.Status = status
+			if err := validatePolledBatch(chunk, batch); err == nil {
+				t.Fatalf("terminal result-bearing %s Batch with missing counts was accepted", status)
+			}
+		})
+	}
+	completed := base
+	completed.Status = enrichment.BatchStatusCompleted
+	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount, Completed: chunk.RequestCount}
+	if err := validatePolledBatch(chunk, completed); err != nil {
+		t.Fatalf("completed Batch with exact counts was rejected: %v", err)
+	}
+	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount + 1, Completed: chunk.RequestCount + 1}
+	if err := validatePolledBatch(chunk, completed); err == nil {
+		t.Fatal("contradictory completed Batch count was accepted")
+	}
+}
+
 func TestBatchFailureClassesChooseBoundedRetryAndTerminalOutcomes(t *testing.T) {
 	for _, test := range []struct {
 		class     enrichment.ProviderErrorClass

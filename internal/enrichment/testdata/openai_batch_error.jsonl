@@ -1,0 +1,1 @@
+{"id":"batch_req_failure","custom_id":"prepared-deck:123e4567-e89b-12d3-a456-426614174000:1:1","response":{"status_code":429,"request_id":"req_failure","body":{"error":{"message":"Rate limit reached for this request.","type":"requests","param":null,"code":"rate_limit_exceeded"}}},"error":null}

@@ -103,10 +103,10 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 		return river.JobSnooze(w.pollDelay())
 	}
 	if batch.Status == enrichment.BatchStatusFailed || batch.Status == enrichment.BatchStatusCancelled {
-		// A provider-level terminal failure is an orchestration failure. There
+		// A provider-level terminal failure prevents trusted reconciliation. There
 		// is no trustworthy basis for publishing a partial artifact, and a
 		// cancelled provider Batch must never turn into a local retry.
-		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), "reconciliation", terminalChunkErrorCode(batch.Status))
+		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), terminalChunkErrorClass(batch.Status), terminalChunkErrorCode(batch.Status))
 	}
 	return w.reconcileTerminal(ctx, claimed, args, claimToken, batch)
 }
@@ -348,10 +348,33 @@ func (w *BatchPollWorker) failUntrustworthy(ctx context.Context, args BatchPollJ
 }
 
 func validatePolledBatch(chunk domain.PreparedDeckBatchChunk, batch enrichment.Batch) error {
-	if batch.ID != chunk.BatchID || batch.InputFileID != chunk.InputFileID || batch.Endpoint != chunk.Endpoint || batch.RequestCounts.Total != chunk.RequestCount || !metadataMatches(batch.Metadata, batchMetadata(chunk.RunID, chunk.ID, chunk.Generation)) {
+	if batch.ID != chunk.BatchID || batch.InputFileID != chunk.InputFileID || batch.Endpoint != chunk.Endpoint || !metadataMatches(batch.Metadata, batchMetadata(chunk.RunID, chunk.ID, chunk.Generation)) {
 		return errors.New("provider Batch contradicts durable chunk")
 	}
-	return nil
+	// OpenAI documents request_counts as optional and may return it absent or
+	// zero while a Batch is still validating. The immutable input file and
+	// opaque metadata establish identity at that point; the exact request count
+	// becomes mandatory for completed and expired Batches because those states
+	// are reconciled against provider files. Validation failure and cancellation
+	// can become terminal before OpenAI has populated the counts, and neither
+	// state publishes item results.
+	if batch.RequestCounts.Total == chunk.RequestCount {
+		return nil
+	}
+	if batch.RequestCounts.Total == 0 && batch.RequestCounts.Completed == 0 && batch.RequestCounts.Failed == 0 && batchCanOmitRequestCounts(batch.Status) {
+		return nil
+	}
+	return errors.New("provider Batch contradicts durable chunk")
+}
+
+func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
+	switch status {
+	case enrichment.BatchStatusValidating, enrichment.BatchStatusInProgress, enrichment.BatchStatusFinalizing,
+		enrichment.BatchStatusFailed, enrichment.BatchStatusCancelling, enrichment.BatchStatusCancelled:
+		return true
+	default:
+		return false
+	}
 }
 
 func batchResultItems(snapshot cardexport.ManifestSnapshot, ordinals []int) ([]enrichment.BatchTranslationItem, map[int]cardexport.ManifestItem, error) {

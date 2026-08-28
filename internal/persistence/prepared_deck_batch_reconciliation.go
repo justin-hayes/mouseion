@@ -133,13 +133,13 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 			if _, err = tx.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash, entry.Translation, entry.Gloss, entry.SentenceTranslation, entry.SentenceTranslationTarget, entry.CachedAt); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
 			}
-			var stored enrichment.CacheEntry
-			stored.CacheKey = entry.CacheKey
-			if err = tx.QueryRow(ctx, `SELECT translation,gloss,sentence_translation,sentence_translation_target,cached_at FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored.Translation, &stored.Gloss, &stored.SentenceTranslation, &stored.SentenceTranslationTarget, &stored.CachedAt); err != nil {
+			// The cache is immutable and first-writer-wins. Another run may have
+			// populated this exact key after this Batch was submitted; that row is
+			// the trusted result the finalizer must consume even when a stochastic
+			// provider returned different text or this attempt has a later timestamp.
+			var stored int
+			if err = tx.QueryRow(ctx, `SELECT 1 FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
-			}
-			if stored.Translation != entry.Translation || stored.Gloss != entry.Gloss || stored.SentenceTranslation != entry.SentenceTranslation || stored.SentenceTranslationTarget != entry.SentenceTranslationTarget || !stored.CachedAt.Equal(entry.CachedAt) {
-				return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
 			}
 		} else if item.CacheEntry != nil {
 			return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
@@ -335,7 +335,8 @@ func (s *PostgresStore) FailPreparedDeckBatchReconciliation(ctx context.Context,
 	if tag.RowsAffected() != 1 {
 		return ErrPreparedDeckClaimLost
 	}
-	tag, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',error_class='reconciliation',error_code=$4,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating'`, owner, preparationID, runID, errorCode)
+	runErrorClass := preparedDeckRunReconciliationErrorClass(errorClass)
+	tag, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',error_class=$4,error_code=$5,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating'`, owner, preparationID, runID, runErrorClass, errorCode)
 	if err != nil {
 		return err
 	}
@@ -346,6 +347,22 @@ func (s *PostgresStore) FailPreparedDeckBatchReconciliation(ctx context.Context,
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// preparedDeckRunReconciliationErrorClass preserves the most useful bounded
+// operator/user recovery category supported by the run schema. Provider
+// messages and arbitrary error codes never reach this projection.
+func preparedDeckRunReconciliationErrorClass(chunkClass string) string {
+	switch chunkClass {
+	case "provider", "upload", "poll", "expired", "cancelled":
+		return "provider"
+	case "validation", "malformed_result", "missing_result", "duplicate_result", "unknown_result":
+		return "validation"
+	case "configuration", "unsupported_model":
+		return "configuration"
+	default:
+		return "reconciliation"
+	}
 }
 
 func (s *PostgresStore) FailPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) error {

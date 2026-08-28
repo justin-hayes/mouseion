@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 )
@@ -109,6 +110,26 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 	}
 	if len(operations) != 7 {
 		t.Fatalf("operations=%v", operations)
+	}
+}
+
+func TestOpenAIBatchClientAcceptsRealisticValidatingFixture(t *testing.T) {
+	fixture, err := os.ReadFile("testdata/openai_batch_validating.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture)
+	}))
+	defer server.Close()
+	client := newStubbedBatchClient(t, server)
+	batch, err := client.GetBatch(context.Background(), "batch-validating")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch.Status != BatchStatusValidating || batch.RequestCounts != (BatchRequestCounts{}) || batch.OutputFileID != "" || batch.ErrorFileID != "" {
+		t.Fatalf("validating Batch=%+v", batch)
 	}
 }
 

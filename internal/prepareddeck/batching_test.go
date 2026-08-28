@@ -111,7 +111,7 @@ func TestPlanBatchChunksRejectsReorderedItems(t *testing.T) {
 	}
 }
 
-func TestBatchMetadataIsOpaqueAndActiveItemsExcludeTerminalOutcomes(t *testing.T) {
+func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing.T) {
 	metadata := batchMetadata("018f64b6-5f2f-7e12-a7a7-832a50f68b7c", "118f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1)
 	if metadataMatches(map[string]string{"mouseion_run": metadata["mouseion_run"], "mouseion_chunk": metadata["mouseion_chunk"], "mouseion_generation": "1", "provider_extra": "ignored"}, metadata) || !metadataMatches(metadata, metadata) {
 		t.Fatal("opaque metadata did not round-trip")
@@ -127,12 +127,12 @@ func TestBatchMetadataIsOpaqueAndActiveItemsExcludeTerminalOutcomes(t *testing.T
 		{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}},
 		{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
 	}}
-	items, err := activeBatchItems(snapshot, []int{0, 1}, map[int]domain.PreparedDeckTranslationOutcome{
+	items, err := submissionBatchItems(snapshot, []int{0, 1}, map[int]domain.PreparedDeckTranslationOutcome{
 		0: {Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted},
 		1: {Ordinal: 1, State: domain.PreparedDeckOutcomePending},
 	})
-	if err != nil || len(items) != 1 || items[0].Ordinal != 1 {
-		t.Fatalf("active items=%+v err=%v", items, err)
+	if err != nil || len(items) != 2 || items[0].Ordinal != 0 || items[1].Ordinal != 1 {
+		t.Fatalf("submission items=%+v err=%v", items, err)
 	}
 }
 
@@ -175,5 +175,18 @@ func TestValidCreatedBatchAcceptsInitialProviderCounts(t *testing.T) {
 
 	if !validCreatedBatch(created, "file_input", metadata) {
 		t.Fatal("accepted validating Batch with initially empty request counts was rejected")
+	}
+}
+
+func TestBoundedProviderCodePreservesOnlyApprovedDiagnostics(t *testing.T) {
+	for _, code := range []string{"batch_identity", "contradictory_counts", "contradictory_result", "missing_provider_file", "provider_5xx", "create_response_lost"} {
+		if got := boundedProviderCode(code); got != code {
+			t.Errorf("boundedProviderCode(%q)=%q", code, got)
+		}
+	}
+	for _, untrusted := range []string{"private provider message", "req-secret-123", "batch_identity/private"} {
+		if got := boundedProviderCode(untrusted); got != "provider_error" {
+			t.Errorf("untrusted code %q was retained as %q", untrusted, got)
+		}
 	}
 }

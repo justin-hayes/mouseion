@@ -295,7 +295,7 @@ type PreparedDeckBatchReconciliationUpdate struct {
 
 // CompletePreparedDeckBatchCacheHits closes exact cache hits while a chunk is
 // fenced for submission. It never broadens identity or changes a running or
-// terminal outcome, so a provider request cannot be caused by a cache hit.
+// terminal outcome.
 func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) (int, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

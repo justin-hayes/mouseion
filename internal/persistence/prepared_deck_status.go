@@ -44,15 +44,7 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	}
 
 	p.Phase = preparationPhase(p.State, run, progress, chunks)
-	p.FailureClass = run.ErrorClass
-	if p.FailureClass == "" {
-		for _, chunk := range chunks {
-			if chunk.ErrorClass != "" {
-				p.FailureClass = chunk.ErrorClass
-				break
-			}
-		}
-	}
+	p.FailureClass = preparedDeckFailureClass(run, chunks)
 	p.TranslationEligible = progress.CandidateCount
 	p.TranslationDone = progress.CompletedCount
 	p.TranslationPending = progress.PendingCount
@@ -90,6 +82,22 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 		p.QualityOmissions = progress.ManifestOmissions
 	}
 	return p, nil
+}
+
+// preparedDeckFailureClass keeps specific, bounded chunk diagnostics visible
+// for rows written before run-level reconciliation classes were preserved.
+// Only the failed chunk is considered; errors on an earlier completed chunk
+// must not replace the current run failure.
+func preparedDeckFailureClass(run domain.PreparedDeckRun, chunks []domain.PreparedDeckBatchChunk) string {
+	if run.ErrorClass != "" && run.ErrorClass != "reconciliation" {
+		return run.ErrorClass
+	}
+	for _, chunk := range chunks {
+		if (chunk.State == domain.PreparedDeckBatchFailed || chunk.State == domain.PreparedDeckBatchAmbiguous) && chunk.ErrorClass != "" {
+			return chunk.ErrorClass
+		}
+	}
+	return run.ErrorClass
 }
 
 func preparationPhase(state domain.DeckPreparationState, run domain.PreparedDeckRun, progress domain.PreparedDeckRunProgress, chunks []domain.PreparedDeckBatchChunk) string {

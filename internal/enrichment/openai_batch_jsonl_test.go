@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
@@ -59,19 +60,25 @@ func TestDecodeBatchResultsCorrelatesUnorderedMixedOutputAndErrors(t *testing.T)
 		{Ordinal: 1, Request: TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}},
 		{Ordinal: 2, Request: TranslationRequest{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN"}},
 	}
-	id1, _ := BatchCustomID("123e4567-e89b-12d3-a456-426614174000", 1, 1)
-	id2, _ := BatchCustomID("123e4567-e89b-12d3-a456-426614174000", 2, 1)
-	output := `{"custom_id":"` + id2 + `","response":{"status_code":200,"body":{"choices":[{"message":{"content":"{\"translation\":\"tree\",\"gloss\":\"woody plant\"}"}}]}}}` + "\n"
-	errorsFile := `{"custom_id":"` + id1 + `","error":{"code":"rate_limit_exceeded","message":"private provider details"}}` + "\n"
-	results, err := codec.DecodeBatchResults("123e4567-e89b-12d3-a456-426614174000", 1, items, strings.NewReader(output), strings.NewReader(errorsFile))
+	output, err := os.Open("testdata/openai_batch_output.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	errorsFile, err := os.Open("testdata/openai_batch_error.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer errorsFile.Close()
+	results, err := codec.DecodeBatchResults("123e4567-e89b-12d3-a456-426614174000", 1, items, output, errorsFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if results[2].Response.Translation != "tree" || results[1].ErrorClass != ProviderErrorRateLimit || results[1].Successful() {
 		t.Fatalf("results=%+v", results)
 	}
-	if strings.Contains(results[1].String(), "private provider details") {
-		t.Fatalf("result leaked provider message: %s", results[1].String())
+	if results[1].StatusCode != 429 || strings.Contains(results[1].String(), "Rate limit reached") {
+		t.Fatalf("result did not preserve bounded HTTP outcome: %s", results[1].String())
 	}
 }
 
