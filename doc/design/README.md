@@ -38,6 +38,8 @@ and surface a material conflict rather than silently choosing one.
 - [`terminology.md`](terminology.md) — canonical learner-facing language.
 - [`screen-inventory.md`](screen-inventory.md) — current screens, goals,
   transitions, and required states.
+- [`roadmap.md`](roadmap.md) — implementation phases, worker-agent issue
+  breakdown, and sequencing for the remaining design rollout.
 
 ### Workflows
 
