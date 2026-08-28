@@ -12,6 +12,8 @@
   --mouseion-color-success: var(--pico-ins-color);
   --mouseion-color-warning: #7a4b00;
   --mouseion-color-danger: var(--pico-del-color);
+  --mouseion-radius: var(--pico-border-radius);
+  --mouseion-focus-width: var(--pico-outline-width);
 
   /* Typography roles. */
   --mouseion-font-application: var(--pico-font-family-sans-serif);
@@ -50,6 +52,26 @@ body {
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface);
   font-family: var(--mouseion-font-application);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: var(--mouseion-space-2);
+  left: var(--mouseion-space-2);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  border-radius: var(--mouseion-radius);
+  background: var(--mouseion-color-surface-raised);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+#main-content:focus-visible {
+  outline: var(--mouseion-focus-width) solid var(--mouseion-color-focus);
+  outline-offset: var(--mouseion-space-2);
 }
 
 .narrow {
@@ -124,6 +146,202 @@ body {
 
 [role="alert"] {
   color: var(--mouseion-color-danger);
+}
+
+/* Reusable interaction and data-display patterns. */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-5);
+}
+
+.page-header__content h1,
+.page-header__content p {
+  margin-bottom: var(--mouseion-space-1);
+}
+
+.page-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+}
+
+.breadcrumb {
+  margin-bottom: var(--mouseion-space-4);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: var(--mouseion-space-1) var(--mouseion-space-3);
+  white-space: nowrap;
+  background: transparent;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 600;
+}
+
+.status-badge--neutral {
+  color: var(--mouseion-color-text);
+}
+
+.status-badge--info {
+  color: var(--mouseion-color-info);
+}
+
+.status-badge--success {
+  color: var(--mouseion-color-success);
+}
+
+.status-badge--warning {
+  color: var(--mouseion-color-warning);
+}
+
+.status-badge--danger {
+  color: var(--mouseion-color-danger);
+}
+
+.feedback {
+  border-left: var(--mouseion-space-1) solid var(--mouseion-color-info);
+  padding: var(--mouseion-space-3) var(--mouseion-space-4);
+  background: var(--mouseion-color-surface-raised);
+}
+
+.feedback > :last-child {
+  margin-bottom: 0;
+}
+
+.feedback--success {
+  border-left-color: var(--mouseion-color-success);
+}
+
+.feedback--warning {
+  border-left-color: var(--mouseion-color-warning);
+}
+
+.feedback--error {
+  border-left-color: var(--mouseion-color-danger);
+}
+
+.empty-state {
+  max-width: var(--mouseion-width-reading);
+  border: 1px dashed var(--mouseion-color-border);
+  text-align: left;
+}
+
+.empty-state__actions,
+.action-group,
+.async-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+  align-items: center;
+}
+
+.empty-state__actions:empty,
+.page-header__actions:empty,
+.async-status__actions:empty {
+  display: none;
+}
+
+.resource-card {
+  margin: 0;
+}
+
+.confirmation {
+  width: 100%;
+  border-top: 1px solid var(--mouseion-color-border);
+  padding-top: var(--mouseion-space-2);
+}
+
+.confirmation summary {
+  font-weight: 600;
+}
+
+.confirmation--danger summary {
+  color: var(--mouseion-color-danger);
+}
+
+.confirmation__body {
+  padding-top: var(--mouseion-space-3);
+}
+
+.stat-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-4);
+}
+
+.stat-group__item {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.stat-group__value {
+  font-size: var(--mouseion-font-size-stat);
+}
+
+.stat-group__detail {
+  color: var(--mouseion-color-text-muted);
+}
+
+.metadata-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--mouseion-space-3) var(--mouseion-space-5);
+}
+
+.metadata-list div {
+  min-width: 0;
+}
+
+.metadata-list dt {
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 600;
+}
+
+.metadata-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.table-region {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: var(--mouseion-radius);
+}
+
+.table-region:focus-visible {
+  outline: var(--mouseion-focus-width) solid var(--mouseion-color-focus);
+  outline-offset: var(--mouseion-focus-width);
+}
+
+.table-region table {
+  min-width: 38rem;
+  margin-bottom: 0;
+}
+
+.async-status {
+  border: 1px solid var(--mouseion-color-border);
+  padding: var(--mouseion-space-4);
+  background: var(--mouseion-color-surface-raised);
+}
+
+.async-status__title {
+  margin-bottom: var(--mouseion-space-1);
+}
+
+.async-status progress {
+  margin-bottom: var(--mouseion-space-3);
 }
 
 .page-heading {
@@ -324,6 +542,7 @@ section[aria-labelledby="campaign-history-heading"] {
 
 /* Compact: content no longer fits comfortably side by side. */
 @media (max-width: 40rem) {
+  .page-header,
   .page-heading,
   .library-list article,
   .campaign-card,
@@ -332,6 +551,25 @@ section[aria-labelledby="campaign-history-heading"] {
   .scope-summary {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .page-header__actions {
+    width: 100%;
+  }
+
+  .page-header__actions > * {
+    width: 100%;
+  }
+
+  .action-group {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action-group > *,
+  .action-group form,
+  .action-group button {
+    width: 100%;
   }
 
   .right {
@@ -355,6 +593,7 @@ section[aria-labelledby="campaign-history-heading"] {
 
 /* Wide: data-dense summaries can use additional horizontal space. */
 @media (min-width: 72rem) {
+  .stat-group,
   .coverage-summary,
   .coverage-thresholds {
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));

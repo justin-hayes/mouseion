@@ -1,0 +1,156 @@
+package webapp
+
+import (
+	"fmt"
+
+	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+type StatusTone string
+
+const (
+	StatusNeutral StatusTone = "neutral"
+	StatusInfo    StatusTone = "info"
+	StatusSuccess StatusTone = "success"
+	StatusWarning StatusTone = "warning"
+	StatusDanger  StatusTone = "danger"
+)
+
+type FeedbackKind string
+
+const (
+	FeedbackInfo    FeedbackKind = "info"
+	FeedbackSuccess FeedbackKind = "success"
+	FeedbackWarning FeedbackKind = "warning"
+	FeedbackError   FeedbackKind = "error"
+)
+
+type StatItem struct {
+	Label  string
+	Value  string
+	Detail string
+}
+
+type MetadataItem struct {
+	Term        string
+	Description string
+}
+
+func statusBadgeClass(tone StatusTone) string {
+	switch tone {
+	case StatusInfo, StatusSuccess, StatusWarning, StatusDanger:
+		return "status-badge status-badge--" + string(tone)
+	default:
+		return "status-badge status-badge--neutral"
+	}
+}
+
+func confirmationClass(tone StatusTone) string {
+	if tone == StatusDanger {
+		return "confirmation confirmation--danger"
+	}
+	return "confirmation"
+}
+
+func statusTone(value string) StatusTone {
+	switch value {
+	case "analyzed", "active", "ready", "complete", "completed":
+		return StatusSuccess
+	case "analyzing", "queued", "running", "preparing":
+		return StatusInfo
+	case "review_required", "degraded":
+		return StatusWarning
+	case "abandoned", "cancelled", "discarded", "failed":
+		return StatusDanger
+	default:
+		return StatusNeutral
+	}
+}
+
+func feedbackClass(kind FeedbackKind) string {
+	switch kind {
+	case FeedbackSuccess, FeedbackWarning, FeedbackError:
+		return "feedback feedback--" + string(kind)
+	default:
+		return "feedback feedback--info"
+	}
+}
+
+func feedbackRole(kind FeedbackKind) string {
+	if kind == FeedbackError {
+		return "alert"
+	}
+	if kind == FeedbackWarning {
+		return "note"
+	}
+	return "status"
+}
+
+func feedbackLive(kind FeedbackKind) string {
+	if kind == FeedbackError {
+		return "assertive"
+	}
+	return "polite"
+}
+
+func feedbackAttributes(kind FeedbackKind) templ.Attributes {
+	if kind == FeedbackError {
+		return templ.Attributes{"tabindex": "-1"}
+	}
+	return nil
+}
+
+func boolString(value bool) string { return fmt.Sprintf("%t", value) }
+
+func jobStatusAttributes(id int64, running bool) templ.Attributes {
+	if !running {
+		return nil
+	}
+	return templ.Attributes{
+		"hx-get":     fmt.Sprintf("/jobs/%d/status", id),
+		"hx-trigger": "every 2s",
+		"hx-swap":    "outerHTML",
+	}
+}
+
+func textProfileStatItems(profile domain.TextProfile) []StatItem {
+	return []StatItem{
+		{Label: "sentences", Value: fmt.Sprintf("%d", profile.SentenceCount)},
+		{Label: "median tokens per sentence", Value: fmt.Sprintf("%.1f", profile.MedianSentenceTokenCount)},
+		{Label: "90th-percentile tokens", Value: fmt.Sprintf("%d", profile.P90SentenceTokenCount)},
+		{Label: "long sentences (>35 tokens)", Value: fmt.Sprintf("%.1f%%", longSentencePercent(profile))},
+	}
+}
+
+func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
+	return []StatItem{
+		{Label: "current-known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage))},
+		{Label: "active-campaign projected coverage", Value: fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(coverage))},
+		{Label: "analyzable tokens", Value: fmt.Sprintf("%d", coverage.AnalyzableTokenCount)},
+		{Label: "distinct lemmas", Value: fmt.Sprintf("%d", coverage.DistinctLemmaCount)},
+	}
+}
+
+func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {
+	items := make([]StatItem, 0, len(thresholds))
+	for _, threshold := range thresholds {
+		if threshold.Reachable {
+			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent), Value: fmt.Sprintf("%d", threshold.LemmaCount)})
+			continue
+		}
+		items = append(items, StatItem{Label: fmt.Sprintf("%d%% cannot be reached with deck-eligible vocabulary", threshold.TargetPercent), Value: "Unavailable"})
+	}
+	return items
+}
+
+func projectionStatItems(projections []domain.CoverageProjection, analyzableTokenCount int64) []StatItem {
+	items := make([]StatItem, 0, len(projections))
+	for _, projection := range projections {
+		items = append(items, StatItem{
+			Label: fmt.Sprintf("after top %d lemmas", projection.TopLemmaCount),
+			Value: fmt.Sprintf("%.1f%%", projectedCoveragePercent(projection, analyzableTokenCount)),
+		})
+	}
+	return items
+}

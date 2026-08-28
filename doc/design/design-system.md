@@ -177,25 +177,21 @@ See [`information-architecture.md`](information-architecture.md),
 [`terminology.md`](terminology.md), and the workflow documents indexed in
 [`README.md`](README.md).
 
-## Proto-patterns for Phase 3
+## Phase 3 reusable component layer
 
-The current implementation contains candidates for reusable Templ components:
+The shared Templ component layer is established in
+[`components.md`](components.md). It defines the application shell, page
+hierarchy, navigation context, status and feedback, empty and resource states,
+action grouping, data display, asynchronous progress, responsive tables, and
+consequential confirmation.
 
-- application shell and current navigation;
-- page heading and supporting action;
-- breadcrumb/back navigation;
-- status label;
-- alert, notice, and live status;
-- empty state;
-- action group;
-- resource list/card;
-- definition-list metadata;
-- summary statistic and threshold group;
-- asynchronous status, retry, cancel, and download;
-- responsive data table;
-- consequential action confirmation.
+The first adoption covers representative surfaces across the core learner
+journey and supporting settings: My Library, book detail and scope review,
+Learning campaigns, analysis jobs, and known-vocabulary management. This is a
+pilot of durable semantic boundaries rather than a mandate to convert every
+legacy element at once.
 
-Before extracting a component, inspect every existing occurrence and specify its
-purpose, content rules, variants, states, keyboard behavior, and responsive
-behavior. Do not turn the token layer into a broad component library before the
-core book workflow proves the reusable boundaries.
+New components require repeated user-goal and behavior evidence. They must use
+the semantic tokens in this document, preserve native server-rendered behavior,
+and document purpose, content, variants, states, focus, keyboard, announcement,
+and responsive contracts before broad adoption.
