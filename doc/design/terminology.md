@@ -30,10 +30,11 @@ upload unless a shipped route and feature contract support it.
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
 | **Analysis result** | One immutable completed analysis and its exact source/scope provenance. | Latest data when identity matters |
 | **Analysis insights** | Coverage, threshold, structural, quality, and unknown-vocabulary information for one completed analysis. | Dashboard metrics, difficulty score |
+| **View analysis result** | Leave operational status and open the exact completed, book-centered result. | View job, latest analysis |
 
 Use **job** only for operational history or implementation-facing detail. A
 book's learner-facing state may be “scope review required,” “ready to analyze,”
-or “insights ready” even when the backend state is expressed differently.
+or “analysis result ready” even when the backend state is expressed differently.
 
 ## Decks and learning
 
@@ -51,6 +52,13 @@ or “insights ready” even when the backend state is expressed differently.
 Do not use **mastered** as a synonym for generated, assigned, exported, or merely
 reviewed. Mouseion records explicit known vocabulary and campaign graduation; it
 does not implement a mastery model.
+
+When the second progress action completes a campaign, prefer an outcome-based
+label such as **Complete campaign and add 132 lemmas to known vocabulary**. A
+generic **Mark complete** label hides the consequential vocabulary transition.
+
+Use **Remove study language** only for deleting a learner preference. Copy must
+state that this does not delete books or known vocabulary for that language.
 
 ## Vocabulary and coverage
 
@@ -78,7 +86,7 @@ Use complete, actionable labels where space permits:
 - analysis running;
 - analysis failed;
 - analysis cancelled;
-- insights ready;
+- analysis result ready;
 - deck preparing;
 - deck ready;
 - queued for learning;

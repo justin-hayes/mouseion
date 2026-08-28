@@ -41,8 +41,14 @@ and surface a material conflict rather than silently choosing one.
 
 ### Workflows
 
+- [`workflows/acquisition-to-library.md`](workflows/acquisition-to-library.md) —
+  catalog setup, browsing, and multi-book acquisition.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
-  the core acquisition-to-deck lifecycle and its current route mapping.
+  the core scoped-analysis-to-deck lifecycle and approved result transition.
+- [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — queue,
+  activation, progress, completion, graduation, and abandonment.
+- [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
+  — Settings ownership, capability degradation, and vocabulary import.
 
 Additional workflow documents should be added only when a cross-screen journey
 has durable rules that cannot be understood from the screen inventory and its

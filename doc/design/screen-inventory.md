@@ -12,10 +12,11 @@ than as independent destinations.
 ## Global shell
 
 Authenticated screens use a shared shell with Mouseion, My Library, Learning,
-Add books, Settings, the username, and Log out. The shell should identify the
-current destination, support keyboard navigation, and preserve a clear path back
-to the parent book or campaign. `/` redirects to `/library`; there is no active
-dashboard screen.
+Add books, Settings, the username, and Log out. My Library, Learning, and
+Settings are destinations; Add books is a persistent workflow action. The shell
+should identify the current destination, distinguish the acquisition action,
+support keyboard navigation, and preserve a clear path back to the parent book
+or campaign. `/` redirects to `/library`; there is no active dashboard screen.
 
 ## Authentication
 
@@ -39,6 +40,22 @@ The accepted lifecycle places analysis insights between completion and deck
 preparation. The current job screen exposes preparation directly; this is a
 known workflow discontinuity, not a new canonical pattern.
 
+### Approved Phase 1 continuity
+
+The approved implementation target separates operational status from the exact
+completed result:
+
+| Surface | Canonical responsibility | Primary exit |
+|---|---|---|
+| Book detail | Show the learner-facing next state and analysis history. Active runs link to status; completed scoped runs link to exact results. | Scope review, analysis status, or exact analysis result |
+| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining book context. | `View analysis result` when complete |
+| Exact analysis result | At `/books/{book-id}/analyses/{analysis-run-id}`, show identity, quality, insights, provenance, and eligible deck preparation for one immutable result. | Prepare deck, return to book, or review scope |
+| Deck preparation | Live on the exact analysis result with a coherent server-rendered status baseline before enhancement. | Download deck or add to learning queue |
+
+The exact-result route is approved design, not yet shipped behavior. Until it is
+implemented, `/jobs/{id}` and `/books/{id}` retain the current split documented
+above.
+
 ## Book acquisition
 
 | Screen | Route | Learner goal | Primary exit | Required states |
@@ -49,6 +66,11 @@ known workflow discontinuity, not a new canonical pattern.
 
 Acquisition copy must say **Add to library** and must not imply that analysis
 starts automatically.
+
+**Add books** is an authenticated-shell workflow action rather than a peer
+destination. It enters `/connections`, where first-time setup or catalog choice
+precedes browsing. The action should remain persistently available while being
+visually distinguishable from My Library, Learning, and Settings.
 
 ## Learning
 
@@ -61,6 +83,14 @@ may graduate all campaign vocabulary into known vocabulary. The screen must
 explain that outcome before the transition and must not call assignment or deck
 review “mastery.”
 
+When one progress condition is already satisfied, the remaining action opens a
+completion confirmation that names the campaign, states how many assigned
+lemmas will be newly added to known vocabulary when available, explains
+coverage recalculation, and
+discloses that completion cannot currently be undone in Mouseion. Abandonment
+has its own confirmation explaining that artifacts remain while reserved
+vocabulary becomes eligible again.
+
 ## Settings and known vocabulary
 
 | Screen | Route | Learner goal | Primary exit | Required states |
@@ -70,7 +100,10 @@ review “mastery.”
 | Direct known-vocabulary page | `GET /known-vocab` | Access the retained standalone form/list outside Settings. | Import result or Settings | Same states as the embedded Settings workflow |
 
 Settings is the canonical primary-navigation entry. `/known-vocab` is a retained
-secondary route and should not independently evolve into a competing IA.
+secondary route and should not independently evolve into a competing IA. The
+approved consolidation target redirects it to `/settings#known-vocabulary`
+while preserving valid language context. Removing a study-language preference
+does not remove books or known vocabulary for that language.
 
 ## Inactive and supporting implementation
 
