@@ -162,7 +162,7 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 		// Never retry this boundary automatically.
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_response_lost")
 	}
-	if created.InputFileID != inputFile.ID || created.Endpoint != enrichment.OpenAIChatCompletionsEndpoint || created.CompletionWindow != "24h" || created.RequestCounts.Total != claimed.RequestCount || !metadataMatches(created.Metadata, metadata) {
+	if !validCreatedBatch(created, inputFile.ID, metadata) {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchAmbiguous, "ambiguous_submission", "create_contract")
 	}
 	err = w.recordSubmitted(ctx, args, claimToken, inputFile.ID, created.ID)
@@ -293,6 +293,10 @@ func metadataMatches(got, want map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func validCreatedBatch(created enrichment.Batch, inputFileID string, metadata map[string]string) bool {
+	return created.ID != "" && created.InputFileID == inputFileID && created.Endpoint == enrichment.OpenAIChatCompletionsEndpoint && created.CompletionWindow == "24h" && metadataMatches(created.Metadata, metadata)
 }
 
 func providerErrorCode(err error) string {

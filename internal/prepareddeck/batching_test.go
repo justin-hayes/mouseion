@@ -160,3 +160,20 @@ func TestBatchSubmissionRecoveryRequiresOneRecentExactMatch(t *testing.T) {
 		t.Fatal("provider listing failure was not surfaced")
 	}
 }
+
+func TestValidCreatedBatchAcceptsInitialProviderCounts(t *testing.T) {
+	metadata := batchMetadata("018f64b6-5f2f-7e12-a7a7-832a50f68b7c", "118f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1)
+	created := enrichment.Batch{
+		ID:               "batch_accepted",
+		InputFileID:      "file_input",
+		Endpoint:         enrichment.OpenAIChatCompletionsEndpoint,
+		CompletionWindow: "24h",
+		Status:           enrichment.BatchStatusValidating,
+		RequestCounts:    enrichment.BatchRequestCounts{Total: 0, Completed: 0, Failed: 0},
+		Metadata:         metadata,
+	}
+
+	if !validCreatedBatch(created, "file_input", metadata) {
+		t.Fatal("accepted validating Batch with initially empty request counts was rejected")
+	}
+}
