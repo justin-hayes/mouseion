@@ -175,6 +175,8 @@ type AnalysisCoverage struct {
 type AnalysisJob struct {
 	ID, DisplayNumber                                                        int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, ReviewedScopeID, Error string
+	AnalysisRunID                                                            string
+	AnalysisState                                                            string
 	Progress                                                                 int
 	CreatedAt, UpdatedAt                                                     time.Time
 }

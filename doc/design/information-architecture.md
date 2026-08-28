@@ -172,9 +172,9 @@ exact result screen after the insights summary. The book detail screen lists
 analysis history: active runs link to operational status and completed scoped
 runs link to their exact result.
 
-The current frontend has not yet implemented this route and still exposes deck
-preparation on `/jobs/{id}`. Treat that as a known implementation gap, not a
-competing pattern. See
+The frontend implements this route with a server-rendered result baseline.
+Completed scoped jobs link here; queued, running, failed, cancelled, and legacy
+jobs remain operational on `/jobs/{id}`. See
 [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md).
 
 ## Result information hierarchy

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -229,6 +230,9 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 	</article>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
+	@BookPageWithHistory(user, csrf, book, coverage, statisticsUnavailable, nil, message)
+}
+templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string) {
 	@Layout(book.Source.Title, &user, csrf) {
 	@Breadcrumb("/library", "My Library")
 	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(book.AnalysisStatus, statusTone(book.AnalysisStatus)))
@@ -299,6 +303,20 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	if statisticsUnavailable {
 		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary and sentence statistics were recorded. Analyze it again to see coverage, projections, and the structural profile.</p></article>
 	}
+	if len(history) > 0 {
+		<section aria-labelledby="book-analysis-history-heading"><h2 id="book-analysis-history-heading">Analysis history</h2><p>Completed scoped analyses remain available as exact historical results. Other runs remain on their operational status page.</p><ul>
+			for _, job := range history {
+				<li>
+					if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+						<a href={ templ.SafeURL(fmt.Sprintf("/books/%s/analyses/%s", book.Source.ID, job.AnalysisRunID)) }>{ fmt.Sprintf("Completed analysis #%d", job.DisplayNumber) }</a>
+					} else {
+						<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("Analysis job #%d", job.DisplayNumber) }</a>
+					}
+					<span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span>
+				</li>
+			}
+		</ul></section>
+	}
 	<div class="book-actions"><article class="resource-card"><h2>Analysis</h2>
 		if book.Source.MediaType == "application/epub+zip" {
 			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review and analyze a new EPUB scope</a></p>
@@ -319,12 +337,111 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 			<a role="button" class="outline" href={ templ.SafeURL(scopeReviewURL(book)) }>Review and confirm scope</a>
 			}
 	</article><article class="resource-card"><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
-		if book.AnalysisStatus == "analyzed" && book.AnalysisJobID > 0 {
+		if book.AnalysisStatus == "analyzed" && completedAnalysisURL(book, history) != "" {
+			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(completedAnalysisURL(book, history)) }>Open analysis result to prepare deck</a>
+		} else if book.AnalysisStatus == "analyzed" && book.AnalysisJobID > 0 {
 			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", book.AnalysisJobID)) }>Open analysis result to prepare deck</a>
 		} else {
 			<button disabled>Available after a scoped analysis</button>
 		}
 	</article></div> }
+}
+
+templ AnalysisResultPage(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool) {
+	@Layout("Analysis result · "+result.Source.Title, &user, csrf) {
+		@Breadcrumb("/books/"+result.Source.ID, result.Source.Title)
+		@PageHeader("Analysis result", result.Source.Title+" · "+result.Source.Language, StatusBadge("Completed", StatusSuccess))
+		<div class="data-width analysis-result">
+			<section aria-labelledby="analysis-identity-heading"><h2 id="analysis-identity-heading">Identity and trust</h2>
+				@MetadataList([]MetadataItem{
+					{Term: "Book", Description: result.Source.Title},
+					{Term: "Language", Description: result.Source.Language},
+					{Term: "Analysis run", Description: result.RunID},
+					{Term: "Reviewed scope", Description: result.ScopeID},
+					{Term: "Source revision", Description: result.Source.ContentRevisionID},
+					{Term: "Unit snapshot", Description: result.SnapshotID},
+					{Term: "Completed", Description: completedAtLabel(result.CompletedAt)},
+				})
+				<p><strong>{ fmt.Sprintf("%d selected units", len(result.Corpus.SelectedUnits)) }</strong> from the reviewed scope were analyzed. These metrics apply to this immutable scope, not necessarily to the full EPUB.</p>
+				<ul>
+					for _, unit := range result.Corpus.SelectedUnits {
+						<li>{ corpusUnitLabel(unit) }</li>
+					}
+				</ul>
+			</section>
+			if coverage != nil && hasAnalysisWarnings(*coverage) {
+				<section aria-labelledby="result-quality-heading"><h2 id="result-quality-heading">Analysis quality</h2><p>These are concrete gaps in the persisted analyzer output. They do not assign a quality grade.</p>
+					if coverage.TextProfile != nil && coverage.TextProfile.SentenceCount == 0 {
+						<article role="note"><strong>No sentences returned.</strong> Sentence-length signals are unavailable.</article>
+					}
+					if coverage.TextProfile != nil && coverage.TextProfile.EmptySentenceCount > 0 {
+						<article role="note"><strong>Empty sentences returned.</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens.", coverage.TextProfile.EmptySentenceCount) }</article>
+					}
+					if coverage.TextProfile != nil && coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
+						<article role="note"><strong>No vocabulary-analyzable tokens.</strong> Coverage and vocabulary projections have no usable token denominator.</article>
+					}
+				</section>
+			}
+			if statisticsUnavailable || coverage == nil {
+				@Feedback(FeedbackWarning, "Analysis insights unavailable", "This completed analysis does not have reproducible vocabulary statistics. No coverage or projection values are shown.")
+			} else {
+				<section aria-labelledby="result-summary-heading"><h2 id="result-summary-heading">Decision summary</h2>
+					@StatGroup(coverageStatItems(*coverage))
+					<p>Current-known coverage is the share of analyzable token occurrences matched by explicitly known vocabulary or vocabulary graduated by a completed campaign. The active-campaign value is a projection, not known vocabulary.</p>
+				</section>
+				<section aria-labelledby="result-vocabulary-heading"><h2 id="result-vocabulary-heading">Vocabulary investment</h2>
+					<p>These thresholds use the full analyzable-token denominator. Counts are additional deck-eligible lemma identities, not a claim that the learner already knows them.</p>
+					@StatGroup(thresholdStatItems(coverage.Thresholds))
+					if len(coverage.TopUnknownLemmas) > 0 {
+						<h3>Highest-impact unknown vocabulary</h3>
+						<ol class="top-unknown">
+							for _, lemma := range coverage.TopUnknownLemmas {
+								if lexical.IsLemma(lemma.CanonicalLemma) {
+									<li><span><strong>{ lemmadisplay.Format(result.Source.Language, lemma.CanonicalLemma, lemma.UPOS) }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
+								}
+							}
+						</ol>
+						<p>The top { fmt.Sprintf("%d", coverage.UnknownConcentration.TopLemmaCount) } deck-eligible lemmas account for <strong>{ fmt.Sprintf("%.1f%%", concentrationPercent(coverage.UnknownConcentration)) }</strong> of eligible unknown occurrences.</p>
+					}
+					if len(coverage.Projections) > 0 {
+						<h3>Projected token coverage</h3><p>Projection after learning the most frequent deck-eligible lemmas:</p>
+						@StatGroup(projectionStatItems(coverage.Projections, coverage.AnalyzableTokenCount))
+					}
+				</section>
+				<section aria-labelledby="result-exclusions-heading"><h2 id="result-exclusions-heading">Vocabulary state and exclusions</h2>
+					<p><strong>{ fmt.Sprintf("%d known token occurrences across %d lemmas", coverage.KnownTokenCount, coverage.KnownLemmaCount) }</strong> are current known vocabulary. <strong>{ fmt.Sprintf("%d occurrences across %d lemmas", coverage.UnknownTokenCount, coverage.UnknownLemmaCount) }</strong> remain unknown.</p>
+					<p>Vocabulary reserved by the active campaign is shown only in projected coverage and remains excluded from a new deck. Generated vocabulary from other books and unattached legacy generated history is also excluded from learn-next projections; generated means assigned for study, not known. Abandoned campaign vocabulary becomes eligible again.</p>
+					if len(coverage.Thresholds) > 0 {
+						<p><strong>{ fmt.Sprintf("%d eligible unknown occurrences", coverage.Thresholds[0].EligibleTokenCount) }</strong> are available to the threshold and learn-next calculations.</p>
+					}
+				</section>
+				if coverage.TextProfile != nil {
+					<section aria-labelledby="result-structure-heading"><h2 id="result-structure-heading">Structural and text signals</h2>
+						@StatGroup(textProfileStatItems(*coverage.TextProfile))
+						<p><strong>{ fmt.Sprintf("%d of %d", coverage.AnalyzableTokenCount, coverage.TextProfile.NormalizedTokenCount) }</strong> normalized tokens contribute to vocabulary coverage. Sentence lengths include every normalized token, including punctuation.</p>
+						<p>These are separate descriptive signals, not a difficulty score or proficiency level.</p>
+					</section>
+				} else {
+					@Feedback(FeedbackWarning, "Text profile unavailable", "Sentence statistics were not persisted for this analysis, so structural signals are not shown.")
+				}
+			}
+			<section aria-labelledby="result-provenance-heading"><h2 id="result-provenance-heading">Provenance and history</h2>
+				@MetadataList([]MetadataItem{
+					{Term: "Analyzer", Description: result.AnalyzerName},
+					{Term: "Analyzer version", Description: result.AnalyzerVersion},
+					{Term: "Analysis configuration", Description: result.ConfigIdentity},
+					{Term: "Normalization", Description: result.Artifact.NormalizationProfile+" · "+result.Artifact.NormalizationVersion},
+					{Term: "Artifact schema", Description: result.Artifact.SchemaVersion},
+					{Term: "Classifier", Description: result.Scope.Classifier.Name+" · "+result.Scope.Classifier.Version},
+					{Term: "Selection mode", Description: string(result.Scope.SelectionMode)},
+				})
+				<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", result.JobID)) }>View operational history for analysis job #{ fmt.Sprintf("%d", result.DisplayNumber) }</a></p>
+			</section>
+			<section aria-labelledby="result-next-heading"><h2 id="result-next-heading">What next?</h2><p>Review the evidence above before taking the next action for this exact completed analysis. Deck preparation is a separate explicit step.</p>
+				<p><a href={ templ.SafeURL("/books/"+result.Source.ID) }>Return to book</a> · <a href={ templ.SafeURL("/books/"+result.Source.ID+"/scope") }>Review a different scope</a></p>
+			</section>
+		</div>
+	}
 }
 
 templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, pageError string, selectedCSV string) {
@@ -475,6 +592,8 @@ func recommendationExplanation(classification domain.EPUBUnitClassification) str
 func hasReferenceLikeEvidence(reasons []domain.EPUBClassificationReason) bool { for _, reason := range reasons { value := strings.ToLower(reason.Signal+" "+reason.Message); if strings.Contains(value, "reference") || strings.Contains(value, "citation") || strings.Contains(value, "bibliograph") || strings.Contains(value, "index") || strings.Contains(value, "register") || strings.Contains(value, "quellen") || strings.Contains(value, "literatur") { return true } }; return false }
 func scopeReviewURL(book domain.SourceMaterialSummary) string { if book.ReviewedScopeID == "" { return "/books/"+book.Source.ID+"/scope" }; return "/books/"+book.Source.ID+"/scope?preset=prior&prior_scope_id="+url.QueryEscape(book.ReviewedScopeID) }
 func scopePresetURL(review epubScopeView, preset string) string { value := "/books/"+review.Book.ID+"/scope?preset="+url.QueryEscape(preset); if review.PriorScope != nil { value += "&prior_scope_id="+url.QueryEscape(review.PriorScope.ScopeID) }; return value }
+func completedAnalysisURL(book domain.SourceMaterialSummary, history []domain.AnalysisJob) string { for _, job := range history { if job.SourceMaterialID == book.Source.ID && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" { return fmt.Sprintf("/books/%s/analyses/%s", book.Source.ID, job.AnalysisRunID) } }; return "" }
+func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {
@@ -736,7 +855,13 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 			@ResponsiveTable("Analysis history") {
 				<thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
-					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a></td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					<tr><td>
+						if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL(fmt.Sprintf("/books/%s/analyses/%s", job.SourceMaterialID, job.AnalysisRunID)) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+						} else {
+							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
+						}
+					</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -764,8 +889,13 @@ templ JobStatus(csrf string, status analysis.Status) {
 		}
 		if status.CorpusID != "" {
 			if status.ScopeID != "" && status.LogicalState == "completed" {
-				<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+					if status.SourceMaterialID != "" && status.RunID != "" {
+						<p>Analysis complete. Review the insights for this immutable analysis result.</p>
+						<a role="button" class="outline" href={ templ.SafeURL(fmt.Sprintf("/books/%s/analyses/%s", status.SourceMaterialID, status.RunID)) }>View analysis result</a>
+					} else {
+						<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
+						<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+					}
 			} else {
 				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
 			}

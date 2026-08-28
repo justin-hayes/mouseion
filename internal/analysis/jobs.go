@@ -60,19 +60,41 @@ type Handle struct {
 }
 
 type Status struct {
-	ID            int64
-	DisplayNumber int64
-	State         rivertype.JobState
-	Progress      int
-	Error         string
-	CorpusID      string
-	Attempt       int
-	CreatedAt     time.Time
-	FinalizedAt   *time.Time
-	RunID         string
-	ScopeID       string
-	LogicalState  string
-	AttemptCount  int
+	ID               int64
+	DisplayNumber    int64
+	SourceMaterialID string
+	State            rivertype.JobState
+	Progress         int
+	Error            string
+	CorpusID         string
+	Attempt          int
+	CreatedAt        time.Time
+	FinalizedAt      *time.Time
+	RunID            string
+	ScopeID          string
+	LogicalState     string
+	AttemptCount     int
+}
+
+// CompletedAnalysis is the immutable, book-bound result used by the learner
+// result page. It is deliberately resolved by analysis-run identity rather
+// than by a mutable book-level latest projection.
+type CompletedAnalysis struct {
+	RunID            string
+	OwnerID          string
+	SourceMaterialID string
+	ScopeID          string
+	SnapshotID       string
+	AnalyzerName     string
+	AnalyzerVersion  string
+	ConfigIdentity   string
+	CompletedAt      *time.Time
+	JobID            int64
+	DisplayNumber    int64
+	Source           domain.SourceMaterial
+	Corpus           domain.Corpus
+	Scope            domain.EPUBReviewedScopeSnapshot
+	Artifact         domain.NormalizedArtifact
 }
 
 const (
@@ -322,8 +344,8 @@ func (s *Service) submitAnalysis(ctx context.Context, owner, sourceID, scopeID s
 func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, error) {
 	var status Status
 	var runID string
-	err := s.pool.QueryRow(ctx, `SELECT river_job_id,display_number,progress,error,COALESCE(corpus_id::text,''),created_at,COALESCE(analysis_run_id::text,'') FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
-		Scan(&status.ID, &status.DisplayNumber, &status.Progress, &status.Error, &status.CorpusID, &status.CreatedAt, &runID)
+	err := s.pool.QueryRow(ctx, `SELECT river_job_id,display_number,source_material_id::text,progress,error,COALESCE(corpus_id::text,''),created_at,COALESCE(analysis_run_id::text,'') FROM analysis_jobs WHERE owner_id=$1 AND river_job_id=$2`, owner, id).
+		Scan(&status.ID, &status.DisplayNumber, &status.SourceMaterialID, &status.Progress, &status.Error, &status.CorpusID, &status.CreatedAt, &runID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Status{}, ErrNotFound
 	}
@@ -362,6 +384,115 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 		status.Error = row.Errors[len(row.Errors)-1].Error
 	}
 	return status, nil
+}
+
+// GetCompletedAnalysis returns a completed scoped analysis only when every
+// identity in the source, scope, run, corpus, artifact, and job chain agrees.
+// All absent, foreign-owner, mismatched-book, and non-completed cases return
+// ErrNotFound so callers do not disclose which part of the chain differed.
+func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, runID string) (CompletedAnalysis, error) {
+	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" {
+		return CompletedAnalysis{}, ErrNotFound
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(sourceID)); err != nil {
+		return CompletedAnalysis{}, ErrNotFound
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(runID)); err != nil {
+		return CompletedAnalysis{}, ErrNotFound
+	}
+
+	var result CompletedAnalysis
+	var completedAt *time.Time
+	var sourceCreatedAt, corpusCreatedAt, scopeCreatedAt, artifactCreatedAt time.Time
+	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
+	var medianSentenceTokenCount *float64
+	var artifactHash, artifactLanguage, artifactSchemaVersion, artifactProfile, artifactNormalizationVersion, artifactAnalyzerName, artifactAnalyzerVersion string
+	var sourceDigest, sourceRevisionID string
+	var sourceDigestVersion int
+	var scopeSchemaVersion, scopeExtractedUnitsSchemaVersion int
+	var scopeClassifierName, scopeClassifierVersion, scopeSelectionMode string
+
+	err := s.pool.QueryRow(ctx, `SELECT r.id::text,r.owner_id::text,r.source_material_id::text,r.scope_id::text,r.snapshot_id::text,
+		r.analyzer_name,r.analyzer_version,r.config_identity,r.completed_at,
+		j.river_job_id,j.display_number,
+		s.language,s.source_identifier,s.title,s.media_type,rev.content_digest,rev.revision_id::text,rev.digest_version,s.created_at,
+		c.id::text,c.artifact_hash,c.status,c.analyzable_token_count,c.distinct_lemma_count,c.sentence_count,c.normalized_token_count,c.empty_sentence_count,c.median_sentence_token_count,c.p90_sentence_token_count,c.long_sentence_count,c.created_at,
+		scope.schema_version,scope.extracted_units_schema_version,scope.classifier_name,scope.classifier_version,scope.selection_mode,scope.created_at,
+		a.language,a.schema_version,a.normalization_profile,a.normalization_version,a.analyzer_name,a.analyzer_version,a.created_at
+		FROM analysis_runs r
+		JOIN analysis_jobs j ON j.owner_id=r.owner_id AND j.analysis_run_id=r.id AND j.source_material_id=r.source_material_id
+		JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
+		JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
+		JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.snapshot_id=r.snapshot_id
+		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.reviewed_scope_id=r.scope_id AND c.analysis_run_id=r.id AND c.status='complete'
+		JOIN normalized_corpus_artifacts a ON a.content_hash=c.artifact_hash
+		WHERE r.owner_id=$1 AND r.source_material_id=$2::uuid AND r.id=$3::uuid AND r.state='completed'`, owner, sourceID, runID).
+		Scan(&result.RunID, &result.OwnerID, &result.SourceMaterialID, &result.ScopeID, &result.SnapshotID,
+			&result.AnalyzerName, &result.AnalyzerVersion, &result.ConfigIdentity, &completedAt,
+			&result.JobID, &result.DisplayNumber,
+			&result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &sourceDigest, &sourceRevisionID, &sourceDigestVersion, &sourceCreatedAt,
+			&result.Corpus.ID, &artifactHash, &result.Corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &corpusCreatedAt,
+			&scopeSchemaVersion, &scopeExtractedUnitsSchemaVersion, &scopeClassifierName, &scopeClassifierVersion, &scopeSelectionMode, &scopeCreatedAt,
+			&artifactLanguage, &artifactSchemaVersion, &artifactProfile, &artifactNormalizationVersion, &artifactAnalyzerName, &artifactAnalyzerVersion, &artifactCreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CompletedAnalysis{}, ErrNotFound
+	}
+	if err != nil {
+		return CompletedAnalysis{}, fmt.Errorf("get completed analysis: %w", err)
+	}
+	result.CompletedAt = completedAt
+	result.Source.ID = result.SourceMaterialID
+	result.Source.OwnerID = result.OwnerID
+	result.Source.ContentHash = sourceDigest
+	result.Source.ContentDigest = sourceDigest
+	result.Source.ContentRevisionID = sourceRevisionID
+	result.Source.ContentDigestVersion = sourceDigestVersion
+	result.Source.CreatedAt = sourceCreatedAt
+	result.Corpus.OwnerID = result.OwnerID
+	result.Corpus.SourceMaterialID = result.SourceMaterialID
+	result.Corpus.ArtifactHash = artifactHash
+	result.Corpus.ReviewedScopeID = result.ScopeID
+	result.Corpus.AnalysisRunID = result.RunID
+	result.Corpus.CreatedAt = corpusCreatedAt
+	result.Scope = domain.EPUBReviewedScopeSnapshot{
+		SchemaVersion:      scopeSchemaVersion,
+		ScopeID:            result.ScopeID,
+		OwnerID:            result.OwnerID,
+		SourceMaterialID:   result.SourceMaterialID,
+		SourceContent:      domain.EPUBContentRevisionIdentity{RevisionID: sourceRevisionID, Digest: sourceDigest, DigestVersion: sourceDigestVersion},
+		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: result.SnapshotID, ExtractedUnitsSchemaVersion: scopeExtractedUnitsSchemaVersion},
+		Classifier:         domain.EPUBClassifierIdentity{Name: scopeClassifierName, Version: scopeClassifierVersion},
+		SelectionMode:      domain.EPUBScopeSelectionMode(scopeSelectionMode),
+		CreatedAt:          scopeCreatedAt,
+	}
+	result.Artifact = domain.NormalizedArtifact{ContentHash: artifactHash, Language: artifactLanguage, SchemaVersion: artifactSchemaVersion, NormalizationProfile: artifactProfile, NormalizationVersion: artifactNormalizationVersion, AnalyzerName: artifactAnalyzerName, AnalyzerVersion: artifactAnalyzerVersion, CreatedAt: artifactCreatedAt}
+	if analyzableTokenCount != nil && distinctLemmaCount != nil {
+		result.Corpus.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
+		if sentenceCount != nil && normalizedTokenCount != nil && emptySentenceCount != nil && medianSentenceTokenCount != nil && p90SentenceTokenCount != nil && longSentenceCount != nil {
+			result.Corpus.Statistics.TextProfile = &domain.TextProfile{SentenceCount: *sentenceCount, NormalizedTokenCount: *normalizedTokenCount, EmptySentenceCount: *emptySentenceCount, MedianSentenceTokenCount: *medianSentenceTokenCount, P90SentenceTokenCount: *p90SentenceTokenCount, LongSentenceCount: *longSentenceCount}
+		}
+	}
+
+	rows, err := s.pool.Query(ctx, `SELECT unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND scope_id=$3 ORDER BY unit_order`, owner, result.Corpus.ID, result.ScopeID)
+	if err != nil {
+		return CompletedAnalysis{}, fmt.Errorf("load completed analysis scope units: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var unit domain.CorpusSelectedUnit
+		if err = rows.Scan(&unit.UnitID, &unit.Order, &unit.SourceHref, &unit.ResolvedHref, &unit.Title, &unit.StartOffset, &unit.EndOffset); err != nil {
+			return CompletedAnalysis{}, fmt.Errorf("load completed analysis scope unit: %w", err)
+		}
+		result.Corpus.SelectedUnits = append(result.Corpus.SelectedUnits, unit)
+		result.Scope.SelectedUnits = append(result.Scope.SelectedUnits, domain.EPUBSelectedUnitReference{UnitID: unit.UnitID, Order: uint64(unit.Order)})
+	}
+	if err = rows.Err(); err != nil {
+		return CompletedAnalysis{}, fmt.Errorf("load completed analysis scope units: %w", err)
+	}
+	if len(result.Corpus.SelectedUnits) == 0 {
+		return CompletedAnalysis{}, ErrNotFound
+	}
+	return result, nil
 }
 
 func logicalStateRiverState(state string) rivertype.JobState {

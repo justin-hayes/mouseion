@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -274,16 +275,56 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='analyze_corpus' AND args->>'run_id'=$1`, status.RunID).Scan(&riverJobCount); err != nil || riverJobCount != 1 {
 		t.Fatalf("duplicate River analysis jobs=%d err=%v", riverJobCount, err)
 	}
+	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 	jobPage := perform(t, h, "GET", fmt.Sprintf("/jobs/%d", germanHandle.ID), nil, cookies)
-	if jobPage.Code != http.StatusOK || !strings.Contains(jobPage.Body.String(), "Succeeded") || !strings.Contains(jobPage.Body.String(), "Prepare a deck from this immutable analysis result") {
+	if jobPage.Code != http.StatusOK || !strings.Contains(jobPage.Body.String(), "Succeeded") || !strings.Contains(jobPage.Body.String(), "View analysis result") {
 		t.Fatalf("completed analysis page=%d %s", jobPage.Code, jobPage.Body.String())
+	}
+	resultPage := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, cookies)
+	if resultPage.Code != http.StatusOK {
+		t.Fatalf("exact German result=%d %s", resultPage.Code, resultPage.Body.String())
+	}
+	for _, want := range []string{"Analysis result", "German Reader", germanScopeID, status.RunID, "Identity and trust", "Decision summary", "Vocabulary investment", "Structural and text signals", "Provenance and history", "What next?", "mouseion-scoped-analyzer", "selection-default-v1", "Deck preparation is a separate explicit step"} {
+		if !strings.Contains(resultPage.Body.String(), want) {
+			t.Errorf("exact result missing %q", want)
+		}
+	}
+	if bobResult := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, bobCookies); bobResult.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner exact result=%d %s", bobResult.Code, bobResult.Body.String())
+	}
+	if mismatched := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", italian.Source.ID, status.RunID), nil, cookies); mismatched.Code != http.StatusNotFound {
+		t.Fatalf("mismatched-book exact result=%d %s", mismatched.Code, mismatched.Body.String())
+	}
+	if missing := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, uuid.NewString()), nil, cookies); missing.Code != http.StatusNotFound {
+		t.Fatalf("missing exact result=%d %s", missing.Code, missing.Body.String())
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID).Scan(new(string)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='running' WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if nonCompleted := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, cookies); nonCompleted.Code != http.StatusNotFound {
+		t.Fatalf("non-completed exact result=%d %s", nonCompleted.Code, nonCompleted.Body.String())
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed' WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if resultPost := perform(t, h, "POST", fmt.Sprintf("/books/%s/analyses/%s/deck/preparations", german.Source.ID, status.RunID), url.Values{"csrf_token": {csrf}}, cookies); resultPost.Code != http.StatusNotFound {
+		t.Fatalf("result deck preparation route=%d %s", resultPost.Code, resultPost.Body.String())
+	}
+	resultPreparation := perform(t, h, "POST", fmt.Sprintf("/books/%s/analyses/%s/deck/preparations", german.Source.ID, status.RunID), url.Values{"csrf_token": {csrf}}, cookies)
+	if resultPreparation.Code != http.StatusSeeOther || !strings.HasPrefix(resultPreparation.Header().Get("Location"), "/deck-preparations/") {
+		t.Fatalf("exact result preparation=%d location=%q %s", resultPreparation.Code, resultPreparation.Header().Get("Location"), resultPreparation.Body.String())
+	}
+	if crossOwnerPreparation := perform(t, h, "POST", fmt.Sprintf("/books/%s/analyses/%s/deck/preparations", german.Source.ID, status.RunID), url.Values{"csrf_token": {bobCSRF}}, bobCookies); crossOwnerPreparation.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner exact preparation=%d %s", crossOwnerPreparation.Code, crossOwnerPreparation.Body.String())
 	}
 	bookPage := perform(t, h, "GET", "/books/"+german.Source.ID, nil, cookies)
 	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Analyzed scope") || !strings.Contains(bookPage.Body.String(), germanScopeID) || !strings.Contains(bookPage.Body.String(), "German Reader renamed") {
 		t.Fatalf("German insights=%d %s", bookPage.Code, bookPage.Body.String())
 	}
 
-	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 	if response := perform(t, h, "POST", fmt.Sprintf("/jobs/%d/deck/preparations", germanHandle.ID), nil, cookies); response.Code != http.StatusForbidden {
 		t.Fatalf("preparation without csrf=%d", response.Code)
 	}

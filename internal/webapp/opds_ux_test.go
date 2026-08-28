@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -172,6 +173,105 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 		if strings.Contains(html, unwanted) {
 			t.Errorf("deck page still contains legacy immediate-download behavior %q", unwanted)
 		}
+	}
+}
+
+func TestAnalysisResultPageUsesExactIdentityAndDocumentedOrder(t *testing.T) {
+	completed := time.Date(2026, time.August, 28, 12, 34, 56, 0, time.UTC)
+	result := analysis.CompletedAnalysis{
+		RunID: "run-it-370", OwnerID: "owner-1", SourceMaterialID: "book-it-370", ScopeID: "scope-it-370",
+		AnalyzerName: "mouseion-scoped-analyzer", AnalyzerVersion: "3", ConfigIdentity: "selection-default-v1", CompletedAt: &completed,
+		JobID: 370, DisplayNumber: 4,
+		Source:   domain.SourceMaterial{ID: "book-it-370", Title: "Il lettore", Language: "it", MediaType: "application/epub+zip"},
+		Corpus:   domain.Corpus{ID: "corpus-it-370", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Order: 0, Title: "Capitolo primo", ResolvedHref: "capitolo.xhtml"}}},
+		Scope:    domain.EPUBReviewedScopeSnapshot{Classifier: domain.EPUBClassifierIdentity{Name: "epub-classifier", Version: "2"}, SelectionMode: domain.EPUBScopeSelectionRecommended},
+		Artifact: domain.NormalizedArtifact{NormalizationProfile: "italian-standard", NormalizationVersion: "1"},
+	}
+	coverage := domain.AnalysisCoverage{
+		AnalyzableTokenCount: 100, DistinctLemmaCount: 40, KnownTokenCount: 70, KnownLemmaCount: 28, UnknownTokenCount: 30, UnknownLemmaCount: 12,
+		ActiveCampaignTokenCount: 8, ActiveCampaignLemmaCount: 3,
+		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 5, EligibleTokenCount: 30}, {TargetPercent: 97, LemmaCount: 8, EligibleTokenCount: 30}, {TargetPercent: 99, Reachable: false, EligibleTokenCount: 30}},
+		TopUnknownLemmas:     []domain.LemmaOccurrence{{Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", OccurrenceCount: 6}},
+		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, EligibleTokenCount: 30, OccurrenceCount: 20},
+		TextProfile:          &domain.TextProfile{SentenceCount: 12, NormalizedTokenCount: 130, MedianSentenceTokenCount: 9.5, P90SentenceTokenCount: 18, LongSentenceCount: 1},
+	}
+	var output bytes.Buffer
+	if err := AnalysisResultPage(domain.User{Username: "learner"}, "csrf", result, &coverage, false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Analysis result", "Il lettore", "run-it-370", "scope-it-370", "2026-08-28 12:34:56 UTC", "Identity and trust", "Decision summary", "Vocabulary investment", "Structural and text signals", "Provenance and history", "mouseion-scoped-analyzer", "casa", "Vocabulary state and exclusions", "What next?"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("analysis result missing %q", want)
+		}
+	}
+	for _, pair := range [][2]string{{"Identity and trust", "Decision summary"}, {"Decision summary", "Vocabulary investment"}, {"Vocabulary investment", "Structural and text signals"}, {"Structural and text signals", "Provenance and history"}, {"Provenance and history", "What next?"}} {
+		if strings.Index(html, pair[0]) > strings.Index(html, pair[1]) {
+			t.Errorf("result sections out of order: %q before %q", pair[0], pair[1])
+		}
+	}
+}
+
+func TestCompletedJobStatusLinksToExactResult(t *testing.T) {
+	status := analysis.Status{ID: 370, DisplayNumber: 4, SourceMaterialID: "book-de-370", RunID: "run-de-370", ScopeID: "scope-de-370", LogicalState: "completed", State: rivertype.JobStateCompleted, CorpusID: "corpus-de-370"}
+	var output bytes.Buffer
+	if err := JobPage(domain.User{Username: "learner"}, "csrf", status).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, `href="/books/book-de-370/analyses/run-de-370"`) || !strings.Contains(html, "View analysis result") {
+		t.Fatalf("completed job did not link exact result: %s", html)
+	}
+	if strings.Contains(html, `<form method="post" action="/jobs/370/deck/preparations"`) {
+		t.Error("completed operational job must not own deck preparation")
+	}
+}
+
+func TestAnalysisResultPageShowsDegradedInsightsWithoutMetrics(t *testing.T) {
+	completed := time.Date(2026, time.August, 28, 12, 34, 56, 0, time.UTC)
+	result := analysis.CompletedAnalysis{
+		RunID: "run-unavailable", SourceMaterialID: "book-unavailable", ScopeID: "scope-unavailable", CompletedAt: &completed,
+		Source: domain.SourceMaterial{ID: "book-unavailable", Title: "Unavailable insights", Language: "de"},
+		Corpus: domain.Corpus{ID: "corpus-unavailable", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Title: "Chapter"}}},
+	}
+	var output bytes.Buffer
+	if err := AnalysisResultPage(domain.User{Username: "learner"}, "csrf", result, nil, true).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "Analysis insights unavailable") || strings.Contains(html, "Decision summary") || strings.Contains(html, "current-known coverage") {
+		t.Fatalf("degraded result rendering=%s", html)
+	}
+}
+
+func TestBookAnalysisHistoryLinksCompletedRunsToExactResults(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Title: "History", Language: "de"}}
+	history := []domain.AnalysisJob{
+		{ID: 11, DisplayNumber: 2, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-completed", CorpusID: "corpus-completed", AnalysisState: "completed"},
+		{ID: 12, DisplayNumber: 3, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-running", AnalysisState: "running"},
+	}
+	var output bytes.Buffer
+	if err := BookPageWithHistory(domain.User{Username: "learner"}, "csrf", book, nil, false, history, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, `href="/books/book-history/analyses/run-completed"`) || !strings.Contains(html, `href="/jobs/12"`) {
+		t.Fatalf("analysis history links=%s", html)
+	}
+}
+
+func TestJobsPageLinksCompletedScopedRunsToExactResults(t *testing.T) {
+	jobs := []domain.AnalysisJob{
+		{ID: 21, DisplayNumber: 4, SourceMaterialID: "book-jobs", AnalysisRunID: "run-jobs", CorpusID: "corpus-jobs", AnalysisState: "completed"},
+		{ID: 22, DisplayNumber: 5, SourceMaterialID: "book-jobs", AnalysisRunID: "run-pending", AnalysisState: "running"},
+	}
+	var output bytes.Buffer
+	if err := JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, `href="/books/book-jobs/analyses/run-jobs"`) || !strings.Contains(html, `href="/jobs/22"`) {
+		t.Fatalf("jobs page links=%s", html)
 	}
 }
 

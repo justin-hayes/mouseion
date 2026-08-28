@@ -384,7 +384,7 @@ func (s *PostgresStore) ListLanguageProfiles(ctx context.Context, owner string) 
 }
 
 func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
-	rows, err := s.pool.Query(ctx, `SELECT river_job_id,display_number,owner_id,source_material_id,content_hash,COALESCE(corpus_id::text,''),COALESCE(reviewed_scope_id::text,''),progress,error,created_at,updated_at FROM analysis_jobs WHERE owner_id=$1 ORDER BY created_at DESC,river_job_id DESC LIMIT 100`, owner)
+	rows, err := s.pool.Query(ctx, `SELECT j.river_job_id,j.display_number,j.owner_id,j.source_material_id,j.content_hash,COALESCE(j.corpus_id::text,''),COALESCE(j.reviewed_scope_id::text,''),COALESCE(j.analysis_run_id::text,''),COALESCE(r.state,''),j.progress,j.error,j.created_at,j.updated_at FROM analysis_jobs j LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id WHERE j.owner_id=$1 ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 100`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +392,7 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 	var out []domain.AnalysisJob
 	for rows.Next() {
 		var job domain.AnalysisJob
-		if err := rows.Scan(&job.ID, &job.DisplayNumber, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.ReviewedScopeID, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
+		if err := rows.Scan(&job.ID, &job.DisplayNumber, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.ReviewedScopeID, &job.AnalysisRunID, &job.AnalysisState, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, job)

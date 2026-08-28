@@ -161,6 +161,9 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 	if _, err = service.Result(ctx, owner.ID, cancelHandle.ID); err == nil {
 		t.Fatal("cancelled scoped analysis produced a result")
 	}
+	if _, err = service.GetCompletedAnalysis(ctx, owner.ID, cancelSource.ID, cancelHandle.RunID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cancelled exact analysis read=%v", err)
+	}
 	if _, err = service.Get(ctx, other.ID, cancelHandle.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner scoped lifecycle read=%v", err)
 	}
@@ -273,6 +276,26 @@ func TestScopedAnalysisPersistsCorpusWithRunIdentity(t *testing.T) {
 	}
 	if status.State != rivertype.JobStateCompleted || status.LogicalState != "completed" || status.CorpusID == "" {
 		t.Fatalf("scoped analysis status = %+v, want completed corpus", status)
+	}
+	completed, err := service.GetCompletedAnalysis(ctx, owner.ID, source.ID, handle.RunID)
+	if err != nil {
+		t.Fatalf("get exact completed analysis: %v", err)
+	}
+	if completed.RunID != handle.RunID || completed.SourceMaterialID != source.ID || completed.ScopeID != scope.ScopeID || completed.Corpus.ID != status.CorpusID || completed.AnalyzerName == "" || completed.AnalyzerVersion == "" || completed.CompletedAt == nil || len(completed.Corpus.SelectedUnits) != 1 {
+		t.Fatalf("exact completed analysis = %+v", completed)
+	}
+	other, err := store.CreateUser(ctx, "scoped-corpus-other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.GetCompletedAnalysis(ctx, other.ID, source.ID, handle.RunID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross-owner exact analysis read = %v", err)
+	}
+	if _, err = service.GetCompletedAnalysis(ctx, owner.ID, uuid.NewString(), handle.RunID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("mismatched-book exact analysis read = %v", err)
+	}
+	if _, err = service.GetCompletedAnalysis(ctx, owner.ID, source.ID, uuid.NewString()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing exact analysis read = %v", err)
 	}
 }
 
