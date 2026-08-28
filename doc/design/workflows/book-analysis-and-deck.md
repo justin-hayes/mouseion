@@ -77,6 +77,11 @@ The interface must answer:
 - Am I reusing or changing a historical decision?
 - What will confirmation do, and what will it not do?
 
+My Library and book detail repeat the same learner-facing next action for this
+state. The scope review itself makes **Confirm this scope** the next action and
+states that confirmation returns the learner to the book page; it does not
+start analysis.
+
 For long books, exception and low-confidence review should take visual priority
 while complete evidence remains available through progressive disclosure.
 

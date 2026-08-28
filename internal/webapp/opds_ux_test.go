@@ -260,6 +260,107 @@ func TestBookAnalysisHistoryLinksCompletedRunsToExactResults(t *testing.T) {
 	}
 }
 
+func TestAnalysisHistoryURLRejectsForeignJobs(t *testing.T) {
+	if got := analysisHistoryURL("book-1", domain.AnalysisJob{ID: 9, SourceMaterialID: "book-2", AnalysisState: "running"}); got != "" {
+		t.Fatalf("foreign history URL=%q", got)
+	}
+	if got := analysisHistoryURL("book-1", domain.AnalysisJob{ID: 9, SourceMaterialID: "book-1", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"}); got != "/books/book-1/analyses/run-1" {
+		t.Fatalf("completed history URL=%q", got)
+	}
+	if got := analysisHistoryLabel(domain.AnalysisJob{DisplayNumber: 2, AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"}); got != "Completed analysis #2" {
+		t.Fatalf("completed history label=%q", got)
+	}
+}
+
+func TestBookLifecycleActionsCoverEachAnalysisState(t *testing.T) {
+	tests := []struct {
+		name, status, state, wantStatus, wantLabel, wantURL string
+		jobID                                               int64
+		scope                                               string
+		runID                                               string
+		corpus                                              string
+	}{
+		{name: "scope review required", status: "not analyzed", wantStatus: "Scope review required", wantLabel: "Review scope", wantURL: "/books/book-1/scope"},
+		{name: "ready to analyze", status: "scope confirmed", scope: "scope-1", wantStatus: "Ready to analyze", wantLabel: "Start analysis", wantURL: "/books/book-1/analyze"},
+		{name: "queued", status: "analyzing", state: "queued", jobID: 41, wantStatus: "Analysis queued", wantLabel: "View analysis status", wantURL: "/jobs/41"},
+		{name: "running", status: "analyzing", state: "running", jobID: 42, wantStatus: "Analysis running", wantLabel: "View analysis status", wantURL: "/jobs/42"},
+		{name: "failed", status: "analysis failed", state: "failed", jobID: 43, wantStatus: "Analysis failed — action required", wantLabel: "Review failed analysis", wantURL: "/jobs/43"},
+		{name: "cancelled", status: "analysis cancelled", state: "cancelled", jobID: 44, wantStatus: "Analysis cancelled", wantLabel: "Review cancelled analysis", wantURL: "/jobs/44"},
+		{name: "exact result", status: "analyzed", state: "completed", runID: "run-1", corpus: "corpus-1", wantStatus: "Analysis result ready", wantLabel: "View analysis result", wantURL: "/books/book-1/analyses/run-1"},
+		{name: "legacy result", status: "analyzed", state: "completed", jobID: 45, wantStatus: "Analysis result ready", wantLabel: "View analysis history", wantURL: "/jobs/45"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", MediaType: "application/epub+zip"}, AnalysisStatus: tt.status, AnalysisState: tt.state, AnalysisRunID: tt.runID, CorpusID: tt.corpus, ConfirmedScopeID: tt.scope, AnalysisJobID: tt.jobID}
+			action := bookLifecycleActionFor(book, nil)
+			if action.Status != tt.wantStatus || action.Label != tt.wantLabel || action.URL != tt.wantURL {
+				t.Fatalf("action=%+v", action)
+			}
+		})
+	}
+}
+
+func TestLibraryRendersOneCanonicalNextAction(t *testing.T) {
+	books := []domain.SourceMaterialSummary{
+		{Source: domain.SourceMaterial{ID: "scope-book", Title: "Scope book", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed"},
+		{Source: domain.SourceMaterial{ID: "ready-book", Title: "Ready book", MediaType: "application/epub+zip"}, AnalysisStatus: "scope confirmed", ConfirmedScopeID: "scope-1"},
+		{Source: domain.SourceMaterial{ID: "result-book", Title: "Result book", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"},
+	}
+	var output bytes.Buffer
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", books, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Scope review required", "Review scope", "Ready to analyze", "Start analysis", "Analysis result ready", "View analysis result", `action="/books/ready-book/analyze"`, `href="/books/result-book/analyses/run-1"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("library missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, "not analyzed") || strings.Contains(html, "scope confirmed") || strings.Contains(html, "analyzed") {
+		t.Errorf("library exposed raw lifecycle state: %s", html)
+	}
+}
+
+func TestBookPromotesExactResultAsTheSingleNextAction(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-result", Title: "Result book", Language: "de", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-result", CorpusID: "corpus-result"}
+	var output bytes.Buffer
+	if err := BookPageWithHistory(domain.User{Username: "learner"}, "csrf", book, nil, false, nil, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Next action", "Analysis result ready", "Inspect the insights for this exact completed analysis.", "View analysis result", `href="/books/book-result/analyses/run-result"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("book page missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, `action="/books/book-result/analyze"`) {
+		t.Error("completed result rendered a start-analysis form")
+	}
+	if strings.Contains(html, "View operational analysis history") || strings.Contains(html, "Review a new EPUB scope") {
+		t.Error("completed book rendered stale competing analysis actions")
+	}
+}
+
+func TestNewerFailedAnalysisKeepsHistoricalExactResultLinkWithoutPromotingIt(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Title: "History", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 52}
+	history := []domain.AnalysisJob{
+		{ID: 52, DisplayNumber: 3, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-failed", AnalysisState: "failed"},
+		{ID: 51, DisplayNumber: 2, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-completed", CorpusID: "corpus-completed", AnalysisState: "completed"},
+	}
+	action := bookLifecycleActionFor(book, history)
+	if action.Status != "Analysis failed — action required" || action.Label != "Review failed analysis" || action.URL != "/jobs/52" {
+		t.Fatalf("action=%+v", action)
+	}
+	var output bytes.Buffer
+	if err := BookPageWithHistory(domain.User{Username: "learner"}, "csrf", book, nil, false, history, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, `href="/books/book-history/analyses/run-completed"`) || !strings.Contains(html, "Review failed analysis") {
+		t.Fatalf("historical result or current failure missing: %s", html)
+	}
+}
+
 func TestJobsPageLinksCompletedScopedRunsToExactResults(t *testing.T) {
 	jobs := []domain.AnalysisJob{
 		{ID: 21, DisplayNumber: 4, SourceMaterialID: "book-jobs", AnalysisRunID: "run-jobs", CorpusID: "corpus-jobs", AnalysisState: "completed"},

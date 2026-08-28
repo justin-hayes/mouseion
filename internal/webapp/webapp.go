@@ -581,6 +581,7 @@ type epubScopeUnitView struct {
 type epubScopeView struct {
 	Book                   domain.SourceMaterial
 	SnapshotID             string
+	History                []domain.AnalysisJob
 	Units                  []epubScopeUnitView
 	Groups                 []epubScopeGroupView
 	DegradedRecommendation bool
@@ -664,6 +665,16 @@ func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner st
 			item.TokenEstimate += byID[id].TokenEstimate
 		}
 		view.Groups = append(view.Groups, item)
+	}
+	jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), owner)
+	if err != nil {
+		fail(w, err)
+		return epubScopeView{}, false
+	}
+	for _, job := range jobs {
+		if job.SourceMaterialID == book.ID {
+			view.History = append(view.History, job)
+		}
 	}
 	return view, true
 }
@@ -1882,10 +1893,4 @@ func knownVocabUPOS(upos string) string {
 		return "Any"
 	}
 	return upos
-}
-func analyzeLabel(status string) string {
-	if status == "not analyzed" {
-		return "Submit to analysis"
-	}
-	return "Re-analyze"
 }

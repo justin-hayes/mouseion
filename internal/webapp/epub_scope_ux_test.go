@@ -219,3 +219,25 @@ func TestEPUBScopeReviewComparisonNamesIDsTitlesAndEstimatedSizes(t *testing.T) 
 		}
 	}
 }
+
+func TestEPUBScopeReviewStatesConfirmationBoundaryAndAnalysisHistory(t *testing.T) {
+	view := epubScopeView{
+		Book:       domain.SourceMaterial{ID: "book-history", Title: "Libro"},
+		SnapshotID: "snapshot-1",
+		Units:      []epubScopeUnitView{{Unit: domain.ExtractedUnit{ID: "unit-1", Order: 0, Title: "Capitolo"}, Classification: domain.EPUBUnitClassification{RecommendedInclusion: true}}},
+		History: []domain.AnalysisJob{
+			{ID: 10, DisplayNumber: 2, SourceMaterialID: "book-history", AnalysisRunID: "run-history", CorpusID: "corpus-history", AnalysisState: "completed"},
+			{ID: 11, DisplayNumber: 3, SourceMaterialID: "book-history", AnalysisState: "running"},
+		},
+	}
+	var output bytes.Buffer
+	if err := EPUBScopeReviewPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Next action", "Confirm this scope", "does not start analysis", "Start analysis", "Analysis history", `href="/books/book-history/analyses/run-history"`, `href="/jobs/11"`, `<form method="post" action="/books/book-history/scope"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("scope review missing %q: %s", want, html)
+		}
+	}
+}
