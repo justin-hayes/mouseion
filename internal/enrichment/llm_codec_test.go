@@ -98,3 +98,15 @@ func TestTranslationCodecRejectsOversizedResponse(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"building\",\"sentence_translation\":\"The house is large.\",\"sentence_translation_target\":\"house\"}"}}],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}`)
+	response, usage, err := codec.DecodeResponseWithUsage(TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}, body)
+	if err != nil || response.Translation != "house" || usage != (TranslationUsage{PromptTokens: 12, CompletionTokens: 8, TotalTokens: 20}) {
+		t.Fatalf("response=%+v usage=%+v err=%v", response, usage, err)
+	}
+}

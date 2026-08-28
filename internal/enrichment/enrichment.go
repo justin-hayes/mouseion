@@ -67,6 +67,15 @@ type TranslationResponse struct {
 	SentenceTranslation       string `json:"sentence_translation"`
 	SentenceTranslationTarget string `json:"sentence_translation_target"`
 }
+
+// TranslationUsage is the bounded usage portion of a provider response. It
+// is exposed for the operator validation harness; it is not part of cache
+// identity or the persisted prepared-deck result.
+type TranslationUsage struct {
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+}
 type TranslationProvider interface {
 	Name() string
 	Version() string

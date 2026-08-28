@@ -287,6 +287,56 @@ validation rules. Record:
 A Batch result that is cheaper or faster but has worse translation or target
 alignment is not an acceptable optimization without an explicit product decision.
 
+### Issue #353 validation harness
+
+Issue #353 provides `cmd/batch-validation`, an operator-only comparison tool.
+It loads the checked-in frozen manifest, exact provider request JSONL, and
+fixed response fixtures under `internal/batchvalidation/testdata`, regenerates
+and verifies the request bytes emitted by the shared Batch codec, then exercises
+the same frozen items through the synchronous decoder and Batch JSONL decoder.
+Rendering is repeated with fixed
+responses and APKG/TSV digests are compared for byte stability. The harness
+records queue, completion, and total latency; token usage or conservative
+estimates and cost; cache hits; provider, retry, error, and expiry counts;
+parse/validation failures; target alignment; completeness/omissions; and
+duplicate or miscorrelated outcomes.
+
+Run the deterministic replay with:
+
+```bash
+go run ./cmd/batch-validation -report /path/to/report.md
+```
+
+Real-provider calls require both `-real-provider` and the exact
+`-acknowledge-paid-provider-calls "I understand this makes paid OpenAI calls"`
+argument. The command requires the configured model to match the frozen
+fixture and uses the official OpenAI endpoint for both transports. It observes
+the Batch until terminal, prints only aggregate status, cancels best-effort on
+operator interrupt, and never consults `MOUSEION_LLM_ENABLED`. It is not run by
+CI, application startup, or the deployed worker.
+
+Supply `-input-cost-per-million` and `-output-cost-per-million` from the
+provider pricing in effect for the recorded model; `-batch-discount` defaults
+to `0.5` and must be recorded with the report. A zero-priced or missing rate
+cannot produce real cost evidence.
+
+The local tests cover deterministic success, partial failure, expiry,
+cancellation, restart replay, and ambiguous submission. Ambiguous submission
+is fail-closed: recent Batches are matched by opaque metadata and exact input
+identity; when creation cannot be proven, the operator must perform manual
+recovery rather than risk duplicate billable work. The checked-in
+[validation report template](../reports/openai-batch-validation-report.md)
+separates synthetic evidence from measured real-provider evidence and has
+quality, correctness, privacy, durability, cost, latency, and operational
+recovery gates. Synthetic results never satisfy those real-provider gates.
+
+The report must explicitly record the ADR-0031 review decision, endpoint
+retirement for custom OpenAI-compatible providers, and approval of the two
+generation, 5,000-request, 30-second-poll, and seven-day-file-expiry defaults.
+If cutover is later approved, rollback remains a code revert before removing
+the synchronous implementation; this validation work adds no runtime
+transport selector or feature flag.
+
 ## Acceptance criteria
 
 ### Functional

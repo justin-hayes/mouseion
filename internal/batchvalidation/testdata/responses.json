@@ -1,0 +1,5 @@
+[
+  {"ordinal": 0, "translation": "house", "gloss": "a building for living", "sentence_translation": "The old house is surprisingly large.", "sentence_translation_target": "house"},
+  {"ordinal": 1, "translation": "to go", "gloss": "to move from one place to another", "sentence_translation": "Today we go home together.", "sentence_translation_target": "go"},
+  {"ordinal": 2, "translation": "to see", "gloss": "to perceive with the eyes", "sentence_translation": "Today we see a bright bird.", "sentence_translation_target": "see"}
+]
