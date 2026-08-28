@@ -26,3 +26,33 @@ func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
 		})
 	}
 }
+
+func TestPreparedDeckFailureClassUsesFailedChunkDiagnostic(t *testing.T) {
+	run := domain.PreparedDeckRun{ErrorClass: "reconciliation"}
+	chunks := []domain.PreparedDeckBatchChunk{
+		{State: domain.PreparedDeckBatchCompleted, ErrorClass: "expired"},
+		{State: domain.PreparedDeckBatchFailed, ErrorClass: "provider"},
+	}
+	if got := preparedDeckFailureClass(run, chunks); got != "provider" {
+		t.Fatalf("failure class=%q want provider", got)
+	}
+	run.ErrorClass = "configuration"
+	if got := preparedDeckFailureClass(run, chunks); got != "configuration" {
+		t.Fatalf("specific run failure class was replaced: %q", got)
+	}
+}
+
+func TestPreparedDeckRunReconciliationErrorClassIsBounded(t *testing.T) {
+	for chunkClass, want := range map[string]string{
+		"provider":         "provider",
+		"cancelled":        "provider",
+		"missing_result":   "validation",
+		"duplicate_result": "validation",
+		"configuration":    "configuration",
+		"private detail":   "reconciliation",
+	} {
+		if got := preparedDeckRunReconciliationErrorClass(chunkClass); got != want {
+			t.Errorf("chunk class %q mapped to %q want %q", chunkClass, got, want)
+		}
+	}
+}

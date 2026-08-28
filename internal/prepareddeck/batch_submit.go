@@ -86,8 +86,16 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	// ordered membership loaded immediately before the claim.
 	claimed.Ordinals = append([]int(nil), chunk.Ordinals...)
 
-	if _, err = w.Store.CompletePreparedDeckBatchCacheHits(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken); err != nil {
+	cacheHits, err := w.Store.CompletePreparedDeckBatchCacheHits(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken)
+	if err != nil {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "cache_lookup")
+	}
+	if cacheHits == claimed.RequestCount {
+		_, finishErr := w.Store.FinishPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, domain.PreparedDeckBatchCompleted, "", "")
+		if finishErr != nil {
+			return finishErr
+		}
+		return w.advanceIfTerminal(ctx, args)
 	}
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
@@ -108,16 +116,14 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	for _, outcome := range outcomes {
 		byOrdinal[outcome.Ordinal] = outcome
 	}
-	items, err := activeBatchItems(snapshot, claimed.Ordinals, byOrdinal)
+	// Keep every immutable member in the uploaded JSONL when only part of the
+	// chunk became a late cache hit. Completed hit outcomes are already fenced
+	// from provider results, while changing the member set here would contradict
+	// the persisted byte count and digest. An all-hit chunk returns above without
+	// crossing the provider boundary.
+	items, err := submissionBatchItems(snapshot, claimed.Ordinals, byOrdinal)
 	if err != nil {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_membership")
-	}
-	if len(items) == 0 {
-		_, finishErr := w.Store.FinishPreparedDeckBatchSubmission(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, domain.PreparedDeckBatchCompleted, "", "")
-		if finishErr != nil {
-			return finishErr
-		}
-		return w.advanceIfTerminal(ctx, args)
 	}
 	if len(items) != claimed.RequestCount || claimed.InputBytes <= 0 || claimed.InputDigest == "" {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_changed")
@@ -259,7 +265,7 @@ func (w *BatchSubmitWorker) findExistingBatch(ctx context.Context, metadata map[
 	return match, nil
 }
 
-func activeBatchItems(snapshot cardexport.ManifestSnapshot, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {
+func submissionBatchItems(snapshot cardexport.ManifestSnapshot, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {
 	byOrdinal := make(map[int]cardexport.ManifestItem, len(snapshot.Items))
 	for _, item := range snapshot.Items {
 		byOrdinal[item.Ordinal] = item
@@ -271,8 +277,8 @@ func activeBatchItems(snapshot cardexport.ManifestSnapshot, ordinals []int, outc
 		if !ok || !outcomeOK || item.Disposition != cardexport.ManifestAccepted || item.CacheKey == nil {
 			return nil, errors.New("invalid durable Batch item")
 		}
-		if outcome.State != domain.PreparedDeckOutcomePending {
-			continue
+		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeCompleted {
+			return nil, errors.New("invalid durable Batch outcome state")
 		}
 		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
 	}
@@ -316,7 +322,9 @@ func boundedProviderCode(value string) string {
 	// used by our bounded classifiers; sanitized arbitrary provider strings can
 	// still contain request IDs or other credential/source-derived data.
 	switch value {
-	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "delete_file":
+	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "provider_5xx", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "contradictory_result", "delete_file",
+		"cache_lookup", "run_load", "frozen_contract", "manifest_load", "outcome_load", "chunk_membership", "chunk_changed", "serialized_chunk", "creation_unconfirmed", "file_contract", "create_response_lost", "create_contract", "poll_dispatch_unavailable",
+		"unsupported_status", "batch_identity", "missing_provider_file", "contradictory_counts", "missing_custom_id", "retry_plan":
 		return value
 	}
 	return "provider_error"
