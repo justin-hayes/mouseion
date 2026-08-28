@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It imports books, analyzes their language, and generates Anki study material for the unknown words needed to reach 97% book coverage. It is multi-user: books, known vocabulary, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current and projected vocabulary coverage, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, learning campaigns, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Feature specifications
 
@@ -20,19 +20,19 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 
 ## Current pipeline
 
-1. **Ingest** — add an EPUB directly or from an owner-scoped OPDS catalog whose credentials are encrypted at rest. OPDS addition does not start analysis and supports adding multiple books without leaving the browser.
+1. **Add to library** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition does not start analysis and supports adding multiple books without leaving the browser.
 2. **Scope review** — review extracted EPUB units and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights** — inspect coverage, threshold, structural, and quality information for that exact completed analysis.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-6. **Coverage selection** — before calculating the denominator, exclude vocabulary the learner explicitly marked known and vocabulary already assigned in a generated deck for another book. Sort the remaining unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
+6. **Coverage selection** — classify explicitly known and graduated vocabulary as known, reserve active-campaign vocabulary without counting it as known, and leave abandoned-campaign vocabulary eligible again. Sort the remaining eligible unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
 7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 8. **Prepared deck and campaign** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`, then optionally add the ready deck
    to the learner's campaign queue. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and mastery are deliberately separate. Generating a card records that the owner was assigned the lemma, with its first book/deck provenance, but never adds it to `known_vocabulary`. Re-generating the same book is safe and does not duplicate cards or provenance; marking a word mastered/known remains an explicit learner action.
+Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Completing both the reading and deck-review conditions of a learning campaign explicitly graduates its assigned vocabulary to known; abandoning the campaign makes that vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
 
 ## Current stack
 
@@ -62,7 +62,7 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 16. [ADR 0016: Separate admin and user account roles](adr/0016-separate-admin-user-roles.md) — makes server administration and learner workflows mutually exclusive account types.
 17. [ADR 0017: Replace frequency-based ranking with coverage-based selection](adr/0017-coverage-based-selection.md) — selects the minimal unknown-lemma set needed for ≥97% text coverage, ordered by first encounter.
 18. [ADR 0018: Remove global frequency dataset (DWDS) import](adr/0018-remove-dwds-frequency.md) — supersedes the DWDS import contract; coverage-based selection does not need corpus-frequency data.
-19. [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — distinguishes explicitly known words from words already assigned in generated decks, with owner/book provenance.
+19. [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — distinguishes explicitly known words from generated-deck provenance; its future-selection semantics are superseded by ADR 0027.
 20. [ADR 0020: Anki package output and Mouseion deck hierarchy](adr/0020-anki-package-output.md) — makes `.apkg` the primary export and standardizes `Mouseion::<language>::<book title>` deck names.
 21. [ADR 0021: Contextual sentence translation cache and privacy](adr/0021-contextual-translation-cache.md) — separates sentence translation from lemma glosses, prevents context collisions, and preserves the external-provider privacy boundary.
 22. [ADR 0022: Asynchronous deck preparation and durable APKG artifacts](adr/0022-prepared-decks.md) — separates preparation from pure download and stores immutable prepared packages durably in PostgreSQL.
