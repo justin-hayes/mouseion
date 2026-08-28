@@ -114,7 +114,7 @@ func TestWriteMarkdownReportSeparatesSyntheticEvidenceAndRealMeasurement(t *test
 	if err := WriteMarkdownReport(&report, Report{FixtureName: fixture.Name, ManifestDigest: "fixture-digest", Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: fixture.PromptVersion}); err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Synthetic replay (not cutover evidence)", "Real-provider measurement", "not run", "quality", "operational recovery", "ADR-0031", "code revert"} {
+	for _, phrase := range []string{"Synthetic replay (not cutover evidence)", "Real-provider measurement", "not run", "quality", "operational recovery", "ADR-0031", "Cutover recommendation", "code revert"} {
 		if !strings.Contains(report.String(), phrase) {
 			t.Fatalf("report missing %q", phrase)
 		}

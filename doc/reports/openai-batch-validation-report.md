@@ -90,6 +90,8 @@ Each gate requires real-provider evidence on the agreed frozen manifests.
 - Endpoint retirement for custom OpenAI-compatible providers: `<yes / no>`
 - Operational defaults (two generations, 5,000 requests, 30-second polling,
   seven-day provider-file expiry): `<approved / not approved>`
+- Cutover recommendation for issue #354: `<pending evidence / GO / NO-GO>` (a GO
+  requires every gate above to pass)
 - Hypotheses/follow-ups (not evidence):
 
 Rollback for a future cutover is a code revert before synchronous support is

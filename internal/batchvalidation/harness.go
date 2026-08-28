@@ -593,6 +593,7 @@ Record measured evidence, not hypotheses, for each gate. A gate is **pass** only
 
 - ADR-0031 accepted: yes / no; endpoint retirement for custom OpenAI-compatible providers: yes / no.
 - Operational defaults approved: two Batch generations, 5,000-request ceiling, 30-second polling, and seven-day provider-file expiry: yes / no.
+- Cutover recommendation for issue #354: pending evidence / GO / NO-GO (a GO requires every gate above to pass).
 - Model, prompt, provider/API version, fixture digest, operator, date, and report artifact location: record here.
 - Hypotheses needing follow-up (never counted as evidence):
 
