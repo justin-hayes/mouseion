@@ -21,7 +21,7 @@
 *.swp
 
 # Build tooling
-vendor/
+/vendor/
 
 # Python
 __pycache__/
