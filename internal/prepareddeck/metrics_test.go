@@ -1,0 +1,47 @@
+package prepareddeck
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestBatchMetricsAggregateOnlyAllowedLabels(t *testing.T) {
+	collector := NewMetricsCollector()
+	collector.ObserveBatch(BatchMetric{Name: MetricBatchRequests, Phase: "reconciling", State: "completed", ErrorClass: "", Provider: "openai", Value: 3})
+	collector.ObserveBatch(BatchMetric{Name: MetricBatchRequests, Phase: "reconciling", State: "completed", ErrorClass: "", Provider: "openai", Value: 2})
+	samples, err := json.Marshal(collector.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(samples)
+	for _, prohibited := range []string{"owner", "preparation", "run", "batch_id", "lemma", "title", "sentence", "prompt", "response", "error_body", "credential"} {
+		if strings.Contains(strings.ToLower(encoded), prohibited) {
+			t.Fatalf("metric contains prohibited label %q: %s", prohibited, encoded)
+		}
+	}
+	if !strings.Contains(encoded, `"Value":5`) {
+		t.Fatalf("metric did not aggregate values: %s", encoded)
+	}
+}
+
+func TestBatchMetricsBoundUnknownLabels(t *testing.T) {
+	collector := NewMetricsCollector()
+	collector.ObserveBatch(BatchMetric{Name: "owner-123", Phase: "run-456", State: "batch-789", ErrorClass: "raw provider error", Provider: "secret-provider", Value: 1})
+	encoded, err := json.Marshal(collector.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ToLower(string(encoded))
+	for _, prohibited := range []string{"owner-123", "run-456", "batch-789", "raw provider error", "secret-provider"} {
+		if strings.Contains(text, prohibited) {
+			t.Fatalf("metric retained unbounded label %q: %s", prohibited, encoded)
+		}
+	}
+}
+
+func TestBoundedProviderFileErrorDoesNotExposeObjectID(t *testing.T) {
+	if got := boundedProviderCode("file_batch_123/provider-secret"); got != "provider_error" {
+		t.Fatalf("bounded provider code=%q", got)
+	}
+}

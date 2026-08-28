@@ -17,10 +17,12 @@ func (RecoveryJobArgs) Kind() string { return "prepared_deck_reconcile" }
 
 type RecoveryWorker struct {
 	river.WorkerDefaults[RecoveryJobArgs]
-	Store    *persistence.PostgresStore
-	Client   riverClient
-	Interval time.Duration
-	Limit    int
+	Store      *persistence.PostgresStore
+	Client     riverClient
+	Interval   time.Duration
+	Limit      int
+	StuckAfter time.Duration
+	Metrics    BatchMetrics
 }
 
 // Work reconstructs missing short jobs only from persisted identities. River
@@ -37,6 +39,15 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 	if err != nil {
 		return err
 	}
+	stuckAfter := w.StuckAfter
+	if stuckAfter <= 0 {
+		stuckAfter = 24 * time.Hour
+	}
+	stuck, err := w.Store.ListPreparedDeckStuckBatches(ctx, stuckAfter, limit)
+	if err != nil {
+		return err
+	}
+	observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchStuckBatches, Phase: "waiting", State: "stuck", Provider: "openai", Value: float64(len(stuck))})
 	for _, item := range work {
 		if err = w.repair(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
 			return err
@@ -71,6 +82,8 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		args = BatchPollJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
 	case "finalizer":
 		args = FinalizeJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Generation: item.Generation}
+	case "batch_cleanup":
+		args = BatchCleanupJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, ChunkID: item.ChunkID, Generation: item.Generation}
 	default:
 		return nil
 	}
@@ -88,6 +101,10 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		err = w.Store.SetPreparedDeckBatchReconciliationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.ChunkID, item.Generation, inserted.Job.ID)
 	case "finalizer":
 		err = w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Generation, inserted.Job.ID)
+	case "batch_cleanup":
+		// Cleanup jobs are idempotent and claim their own short lease. There is
+		// no provider ID in the River args or recovery projection.
+		err = nil
 	}
 	if err != nil {
 		return err

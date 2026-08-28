@@ -174,6 +174,7 @@ type DurableFinalizer struct {
 	Renderer      durableManifestRenderer
 	Now           func() time.Time
 	LeaseDuration time.Duration
+	Metrics       BatchMetrics
 }
 
 // Finalize renders only the frozen manifest and publishes through the existing
@@ -191,12 +192,22 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	if lease <= 0 {
 		lease = 5 * time.Minute
 	}
+	started := now().UTC()
+	var totalStarted time.Time
+	defer func() {
+		observeBatchMetric(f.Metrics, BatchMetric{Name: MetricBatchPhaseLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(started))})
+		if totalStarted.IsZero() {
+			totalStarted = started
+		}
+		observeBatchMetric(f.Metrics, BatchMetric{Name: MetricBatchTotalLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(totalStarted))})
+	}()
 	claimedAt := now().UTC()
 	token := uuid.NewString()
 	run, err := f.Store.ClaimPreparedDeckFinalization(ctx, owner, preparationID, runID, generation, token, claimedAt.Add(lease))
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
+	totalStarted = run.CreatedAt
 	if run.State == domain.PreparedDeckRunCompleted {
 		return f.Store.GetDeckPreparation(ctx, owner, preparationID)
 	}

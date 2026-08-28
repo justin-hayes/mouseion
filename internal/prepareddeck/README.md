@@ -50,3 +50,22 @@ provider/version and sentence hash, applies only enrichment returned under
 those exact identities, and renders TSV/APKG once. Provider failures leave the
 corresponding optional fields empty without repeating selection or database
 reads.
+
+## Durable Batch operations
+
+Durable prepared-deck runs expose `freezing`, `submitting`, `waiting`,
+`reconciling`, `retrying`, and `finalizing` as phase details while retaining
+the public `queued`, `preparing`, `ready`, `failed`, and `cancelled` states.
+Progress is derived from persisted outcome and Batch-chunk rows, not River job
+metadata. The learner-facing status contains aggregate request and retry
+counts, translation completeness, and bounded failure classes; it never
+contains provider object IDs or raw provider errors.
+
+External translation is intentionally offline. OpenAI Batch processing can
+take up to its 24-hour completion window, so
+`MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL` (default `30s`) controls short
+status polls and `MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS` (default `5000`)
+bounds each input file. Provider input/output/error files request seven-day
+expiration and are deleted after reconciliation or cancellation. Cleanup
+failures are persisted, observable, and retried at most three times; a cleanup
+failure never rolls back already reconciled results.

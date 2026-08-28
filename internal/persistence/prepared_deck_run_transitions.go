@@ -399,6 +399,13 @@ func (s *PostgresStore) ListPreparedDeckRecoveryWork(ctx context.Context, limit 
 		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'finalizer',finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now()
 		FROM deck_preparation_runs WHERE state='finalizing' AND translation_state='completed' AND (finalization_claim_token IS NULL OR finalization_lease_expires_at<=now())
 		UNION ALL
+		SELECT owner_id::text,preparation_id::text,run_id::text,id::text,-1,generation,'batch_cleanup',cleanup_claim_token IS NOT NULL AND cleanup_lease_expires_at<=now()
+		FROM deck_preparation_batch_chunks
+		WHERE state IN ('completed','cancelled') AND (cleanup_claim_token IS NULL OR cleanup_lease_expires_at<=now()) AND
+		      ((input_file_id IS NOT NULL AND input_file_cleanup_state IN ('pending','failed') AND input_file_cleanup_attempts < 3) OR
+		       (output_file_id IS NOT NULL AND output_file_cleanup_state IN ('pending','failed') AND output_file_cleanup_attempts < 3) OR
+		       (error_file_id IS NOT NULL AND error_file_cleanup_state IN ('pending','failed') AND error_file_cleanup_attempts < 3))
+		UNION ALL
 		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'translation_completion',false
 		FROM deck_preparation_runs r WHERE state='translating' AND NOT EXISTS (SELECT 1 FROM deck_preparation_translation_outcomes o WHERE o.run_id=r.id AND o.state IN ('pending','running'))
 		ORDER BY 7,3,5 LIMIT $1`, limit)

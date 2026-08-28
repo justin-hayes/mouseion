@@ -148,31 +148,46 @@ func (s PreparedDeckBatchChunkState) CanTransitionTo(next PreparedDeckBatchChunk
 }
 
 type PreparedDeckBatchChunk struct {
-	ID, OwnerID, PreparationID, RunID                            string
-	ChunkIndex, Generation                                       int
-	State                                                        PreparedDeckBatchChunkState
-	ProviderStatus, Model, Endpoint, SplitReason                 string
-	FirstOrdinal, LastOrdinal                                    int
-	InputDigest                                                  string
-	RequestCount                                                 int
-	InputBytes, EstimatedPromptTokens                            int64
-	CompletedCount, FailedCount, ExpiredCount                    int
-	InputFileID, BatchID, OutputFileID, ErrorFileID              string
-	SubmissionJobID, ReconciliationJobID                         int64
-	SubmissionGeneration, ReconciliationGeneration               int
-	SubmissionClaimToken, ReconciliationClaimToken               string
-	ErrorClass, ErrorCode                                        string
-	InputTokens, OutputTokens, TotalTokens                       int64
-	CreatedAt, UpdatedAt                                         time.Time
-	SubmissionClaimedAt, SubmissionLeaseExpiresAt                *time.Time
-	ReconciliationClaimedAt, ReconciliationLeaseExpiresAt        *time.Time
-	SubmittedAt, LastPolledAt, ProviderCompletedAt, ReconciledAt *time.Time
-	Ordinals                                                     []int
+	ID, OwnerID, PreparationID, RunID                                             string
+	ChunkIndex, Generation                                                        int
+	State                                                                         PreparedDeckBatchChunkState
+	ProviderStatus, Model, Endpoint, SplitReason                                  string
+	FirstOrdinal, LastOrdinal                                                     int
+	InputDigest                                                                   string
+	RequestCount                                                                  int
+	InputBytes, EstimatedPromptTokens                                             int64
+	CompletedCount, FailedCount, ExpiredCount                                     int
+	InputFileID, BatchID, OutputFileID, ErrorFileID                               string
+	InputFileCleanupState, OutputFileCleanupState, ErrorFileCleanupState          string
+	InputFileCleanupAttempts, OutputFileCleanupAttempts, ErrorFileCleanupAttempts int
+	CleanupErrorClass, CleanupErrorCode                                           string
+	SubmissionJobID, ReconciliationJobID                                          int64
+	SubmissionGeneration, ReconciliationGeneration                                int
+	SubmissionClaimToken, ReconciliationClaimToken                                string
+	ErrorClass, ErrorCode                                                         string
+	InputTokens, OutputTokens, TotalTokens                                        int64
+	CreatedAt, UpdatedAt                                                          time.Time
+	SubmissionClaimedAt, SubmissionLeaseExpiresAt                                 *time.Time
+	ReconciliationClaimedAt, ReconciliationLeaseExpiresAt                         *time.Time
+	SubmittedAt, LastPolledAt, ProviderCompletedAt, ReconciledAt                  *time.Time
+	CleanupClaimToken                                                             string
+	CleanupClaimedAt, CleanupLeaseExpiresAt, CleanupCompletedAt                   *time.Time
+	Ordinals                                                                      []int
 }
 
 type PreparedDeckRunProgress struct {
-	CandidateCount, PendingCount, RunningCount  int
-	CompletedCount, FailedCount, CancelledCount int
+	CandidateCount, PendingCount, RunningCount                                           int
+	CompletedCount, FailedCount, CancelledCount                                          int
+	ManifestOmissions                                                                    int
+	RetryingCount                                                                        int
+	CardsWithEnglish, CardsWithContextualSentenceTranslations                            int
+	BatchChunkCount, BatchSubmittedChunks, BatchPollingChunks, BatchReconcilingChunks    int
+	BatchCompletedChunks, BatchFailedChunks, BatchCancelledChunks                        int
+	BatchRequestCount, BatchCompletedRequests, BatchFailedRequests, BatchExpiredRequests int
+	BatchInputTokens, BatchOutputTokens                                                  int64
+	BatchAge                                                                             time.Duration
+	Phase                                                                                string
+	FailureClass                                                                         string
 }
 
 // PreparedDeckRecoveryWork is a content-free projection used by later

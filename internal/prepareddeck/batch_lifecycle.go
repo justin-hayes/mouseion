@@ -33,6 +33,7 @@ type BatchPollWorker struct {
 	PollInterval time.Duration
 	Now          func() time.Time
 	Jitter       func(time.Duration) time.Duration
+	Metrics      BatchMetrics
 }
 
 func (w *BatchPollWorker) Work(ctx context.Context, job *river.Job[BatchPollJobArgs]) error {
@@ -48,10 +49,20 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 	if w == nil || w.Store == nil || w.Client == nil || w.Provider == nil || w.Codec == nil || strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.PreparationID) == "" || strings.TrimSpace(args.RunID) == "" || strings.TrimSpace(args.ChunkID) == "" || args.Generation < 0 {
 		return ErrInvalidInput
 	}
+	started := w.now()
+	var totalStarted time.Time
+	defer func() {
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchPhaseLatency, Phase: "waiting", Provider: "openai", Value: seconds(w.now().Sub(started))})
+		if totalStarted.IsZero() {
+			totalStarted = started
+		}
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchTotalLatency, Phase: "waiting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
+	}()
 	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
 	if err != nil {
 		return err
 	}
+	totalStarted = chunk.CreatedAt
 	if chunk.ReconciliationGeneration != args.Generation {
 		return nil
 	}
@@ -77,6 +88,9 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 	}
 	if err = validatePolledBatch(claimed, batch); err != nil {
 		return w.failUntrustworthy(ctx, args, claimToken, string(batch.Status), "validation", "batch_identity")
+	}
+	if string(batch.Status) != claimed.ProviderStatus {
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchProviderTransitions, Phase: "waiting", State: string(batch.Status), Provider: "openai", Value: 1})
 	}
 	if !terminalBatchStatus(batch.Status) {
 		_, err = w.Store.FinishPreparedDeckBatchReconciliation(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, batchReconciliationUpdate(batch, domain.PreparedDeckBatchPolling, "", "", 0))
@@ -198,6 +212,24 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 	if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
 		return nil
 	}
+	if err == nil {
+		// Cleanup is deliberately best effort. The durable recovery projection
+		// will enqueue the bounded retry if this immediate attempt cannot run.
+		if cleaner, ok := w.Provider.(batchFileDeleter); ok {
+			cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
+			_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation})
+		}
+		for _, item := range updates {
+			if item.State == domain.PreparedDeckOutcomePending {
+				observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchRetries, Phase: "reconciling", State: "pending", ErrorClass: item.ErrorClass, Provider: "openai", Value: 1})
+			}
+		}
+		if batch.Status == enrichment.BatchStatusCompleted {
+			observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: float64(successes)})
+		}
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchUsageInputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
+		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
+	}
 	return err
 }
 
@@ -283,6 +315,11 @@ func (w *BatchPollWorker) snoozeAfterPollError(ctx context.Context, chunk domain
 }
 
 func (w *BatchPollWorker) failUntrustworthy(ctx context.Context, args BatchPollJobArgs, token, providerStatus, class, code string) error {
+	metricName := MetricBatchReconciliationErrors
+	if class == "validation" || strings.HasSuffix(class, "result") {
+		metricName = MetricBatchValidationFailures
+	}
+	observeBatchMetric(w.Metrics, BatchMetric{Name: metricName, Phase: "reconciling", State: providerStatus, ErrorClass: class, Provider: "openai", Value: 1})
 	if providerStatus == "" || !terminalBatchStatus(enrichment.BatchStatus(providerStatus)) {
 		providerStatus = string(enrichment.BatchStatusFailed)
 	}

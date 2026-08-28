@@ -36,8 +36,23 @@ type DeckPreparation struct {
 	Artifact                                                                                           []byte
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations                              int
 	QualityOmissions                                                                                   int
-	CreatedAt, UpdatedAt                                                                               time.Time
-	StartedAt, CompletedAt                                                                             *time.Time
+	// The fields below are a derived, owner-scoped status projection. They are
+	// deliberately not part of the public state machine; they describe the
+	// durable run and Batch work behind the existing preparing state.
+	Phase                                                                                string
+	FailureClass                                                                         string
+	BatchAge                                                                             time.Duration
+	TranslationEligible, TranslationDone                                                 int
+	TranslationPending, TranslationRunning                                               int
+	TranslationFailed, TranslationCancelled                                              int
+	TranslationRetrying                                                                  int
+	BatchChunkCount, BatchSubmittedChunks                                                int
+	BatchPollingChunks, BatchReconcilingChunks                                           int
+	BatchCompletedChunks, BatchFailedChunks, BatchCancelledChunks                        int
+	BatchRequestCount, BatchCompletedRequests, BatchFailedRequests, BatchExpiredRequests int
+	BatchInputTokens, BatchOutputTokens                                                  int64
+	CreatedAt, UpdatedAt                                                                 time.Time
+	StartedAt, CompletedAt                                                               *time.Time
 }
 
 type User struct {
