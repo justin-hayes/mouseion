@@ -68,6 +68,30 @@ Before extracting or restyling one, inspect all existing occurrences and define
 its purpose, content rules, variants, states, keyboard behavior, and responsive
 behavior.
 
+## Phase 1 interaction decisions
+
+The information architecture establishes several interaction contracts before
+component extraction begins:
+
+- My Library, Learning, and Settings are destinations; Add books is a persistent
+  global action and should not look like an unselected fourth destination.
+- Operational analysis status and the exact completed analysis result are
+  separate surfaces. A completed status links to the result; it does not place
+  deck preparation ahead of insights.
+- The action that completes a learning campaign is a consequential confirmation
+  with an outcome-based label. Abandonment uses a separate confirmation with
+  different consequences.
+- Settings is the canonical surface for study languages and known vocabulary;
+  retained compatibility routes do not establish separate visual patterns.
+- Server-rendered initial state and error recovery remain coherent before HTMX
+  or custom JavaScript runs.
+
+Future component work should derive navigation, result summary, confirmation,
+and asynchronous-status patterns from these contracts rather than treating each
+workflow as a visual exception. See
+[`information-architecture.md`](information-architecture.md) and the workflow
+documents indexed in [`README.md`](README.md).
+
 ## Foundation work not yet established
 
 Future design-system phases should define:

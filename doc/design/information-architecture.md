@@ -21,7 +21,7 @@ add to library
     -> review and confirm scope
     -> start analysis
     -> monitor analysis
-    -> inspect the completed analysis and insights
+    -> open the exact completed analysis result and insights
     -> prepare and download a deck
     -> queue and activate a learning campaign
     -> finish reading and review the deck
@@ -70,9 +70,11 @@ The authenticated shell currently exposes:
 - **Settings** (`/settings`) — study languages and known vocabulary.
 
 `My Library`, `Learning`, and `Settings` are stable destinations. `Add books` is
-a primary workflow action that enters connection management; future visual work
-may distinguish it from destination navigation without changing its label or
-route.
+a global workflow action rather than a peer destination. It enters the
+acquisition hub at `/connections` and should be visually distinguishable from
+destination navigation without changing its label. The hub shows first-time
+connection setup or lets the learner choose a saved catalog; it does not
+silently select among multiple connections.
 
 The Mouseion brand link points to `/`, which redirects to `/library`. There is no
 active dashboard destination.
@@ -87,6 +89,7 @@ active dashboard destination.
     /books/{id}
         /books/{id}/scope
         /books/{id}/analyze
+        /books/{id}/analyses/{analysis-run-id}
         /jobs/{id}
             /jobs/{id}/status
             /jobs/{id}/deck/preparations
@@ -104,6 +107,7 @@ active dashboard destination.
 
 /settings
     /settings/languages
+    /settings#known-vocabulary
     /known-vocab/import
     /known-vocab/imports/{id}/status
 ```
@@ -114,25 +118,101 @@ mutation endpoints are not separate navigation destinations.
 ## Secondary and inactive surfaces
 
 - `/jobs` and `/jobs/{id}` are secondary operational/history surfaces. A learner
-  reaches an individual analysis after starting it from a book. They are not a
-  primary navigation destination.
+  reaches an active analysis run after starting it from a book. On completion,
+  the primary transition is to the book-centered result at
+  `/books/{book-id}/analyses/{analysis-run-id}`. Jobs are not a primary
+  navigation destination.
 - `/known-vocab` is a secondary direct route retained by the implementation.
   Settings is the canonical navigation entry for study languages and known
-  vocabulary.
+  vocabulary. Route consolidation should redirect it to
+  `/settings#known-vocabulary` while preserving valid language context.
 - The `Dashboard` template is inactive. `/` redirects to the library, and the
   dashboard's older `/languages` link is not part of the current IA. New work
   must not treat this template as an established screen.
 - HTMX fragment and JSON status endpoints support a parent screen; they are not
   user-facing pages in the information architecture.
 
-## Current workflow discontinuity
+## Learner-facing book lifecycle
 
-The accepted lifecycle requires learners to inspect insights for a specific
-completed analysis before requesting deck preparation. The current analysis-job
-page exposes deck preparation directly and does not provide a prominent path to
-the book's analysis insights. Until that frontend gap is resolved, documents
-and copy must not describe the job page as the canonical insights experience.
-See [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md).
+Library rows expose one primary next-step label derived from the learner's most
+relevant state. The approved order is:
+
+1. **Scope review required**;
+2. **Ready to analyze**;
+3. **Analysis queued** or **Analysis running**;
+4. **Analysis failed — action required**;
+5. **Analysis result ready**;
+6. **Deck preparing**;
+7. **Deck ready**;
+8. **Queued for learning**;
+9. **Learning in progress**;
+10. **Campaign complete** or **Campaign abandoned**.
+
+This is a navigation aid, not a replacement for independent resource states.
+Book detail and result screens continue to show analysis, deck, and campaign
+state separately when more than one is relevant. A historical failure does not
+override a newer successful result, and a ready result remains accessible after
+a later campaign transition.
+
+## Analysis continuity decision
+
+The canonical completed-analysis destination is a book-centered, exact result:
+
+```text
+/books/{book-id}/analyses/{analysis-run-id}
+```
+
+It identifies the book, confirmed scope, immutable analysis, quality state,
+insights, and eligible deck action. It is not a mutable “latest analysis” view.
+
+The operational job page remains responsible for queued/running progress,
+cancellation, retry, attempts, and failure recovery. When work completes, its
+primary action becomes **View analysis result**. Deck preparation moves to the
+exact result screen after the insights summary. The book detail screen lists
+analysis history: active runs link to operational status and completed scoped
+runs link to their exact result.
+
+The current frontend has not yet implemented this route and still exposes deck
+preparation on `/jobs/{id}`. Treat that as a known implementation gap, not a
+competing pattern. See
+[`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md).
+
+## Result information hierarchy
+
+An analysis result answers questions in this order:
+
+1. **Identity and trust** — book, scope, analysis identity, and blocking or
+   material quality warnings.
+2. **Decision summary** — current scoped coverage, the most relevant projection,
+   and whether reading now or preparing vocabulary is plausible.
+3. **Vocabulary investment** — threshold counts, top unknowns, concentration,
+   and learn-next projections.
+4. **Structural context** — sentence and extraction signals kept separate from
+   lexical coverage.
+5. **Provenance and history** — exact scope units, classifier/source details,
+   and links to other analyses.
+6. **Next action** — prepare a deck, return to the book, or review a different
+   scope. Deck preparation appears only after material quality warnings and the
+   decision summary have been presented.
+
+The next action may be summarized near the top and repeated after the insights,
+but it must not visually bypass a blocking warning or turn the screen into a
+deck-generation form with metrics below it.
+
+## Settings ownership
+
+Settings owns study-language preferences and known vocabulary. Removing a study
+language removes only the preference; it does not delete books, analyses,
+decks, campaigns, or known vocabulary. Known-vocabulary import is additive and
+does not provide an implicit correction or campaign-reversal path.
+
+## Consequential campaign transitions
+
+The action that satisfies the second campaign-completion condition must disclose
+that assigned vocabulary will graduate to known and that completion cannot
+currently be undone in Mouseion. Abandonment must disclose that artifacts and
+history remain while reserved vocabulary becomes eligible again. Full rules are
+in [`workflows/learning-campaign.md`](workflows/learning-campaign.md).
 
 ## Cross-linking rules
 

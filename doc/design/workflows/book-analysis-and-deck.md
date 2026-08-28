@@ -37,7 +37,7 @@ Catalog browser
     -> Book detail
     -> Start analysis
     -> Analysis status
-    -> Completed analysis insights
+    -> Exact book-centered analysis result
     -> Prepare deck
     -> Deck-preparation status
     -> Download deck or add to learning queue
@@ -105,18 +105,28 @@ they must not replace book identity and next-step guidance.
 **Learner decision:** What does this exact result say about my readiness and the
 vocabulary investment required for this book?
 
-The result identifies its source and confirmed scope. Information hierarchy
-should answer, in order:
+The canonical result route is
+`/books/{book-id}/analyses/{analysis-run-id}`. It identifies its book, source,
+confirmed scope, immutable completed analysis, and position in analysis history.
+It never relies on a mutable “latest analysis” identity.
+
+Information hierarchy answers, in order:
 
 1. Can I trust this result, or are there quality warnings?
 2. What is my current scoped coverage?
 3. What additional vocabulary would reach the documented thresholds?
-4. What structural signals or provenance explain the result?
-5. What can I do next?
+4. What structural signals add context without becoming a difficulty score?
+5. Which provenance and history explain this exact result?
+6. What can I do next?
 
 Current, projected, scoped, token-weighted, and conditional numbers must be
 labeled explicitly. Mouseion does not claim CEFR level, general reading level,
 or a composite difficulty score.
+
+Material quality warnings precede the decision summary and deck action. The
+summary may recommend reading now, preparing vocabulary, or reviewing the scope,
+but it does not make the decision automatically. Deck preparation appears after
+the summary and core insights and may be repeated as the closing action.
 
 ### 5. Prepare and download a deck
 
@@ -154,19 +164,26 @@ The interface must answer:
 - Degraded language-capability discovery preserves saved study preferences but
   blocks unsupported new operations.
 
-## Current implementation gap
+## Approved status-to-result transition
 
 The current route after analysis submission is `/jobs/{id}`. On completion that
 screen exposes deck preparation directly, while insights live on
 `/books/{id}`. It does not provide a prominent analysis-result-to-insights
 transition or consistently foreground the book title.
 
-Until implementation changes, treat this as a known discontinuity:
+The approved implementation target is:
 
-- do not redefine the job page as the canonical insights screen;
-- keep the accepted lifecycle as completion -> insights -> preparation;
-- future work should preserve exact analysis identity while restoring that
-  transition and parent-book context.
+- keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
+  failure recovery;
+- replace the completed job's primary action with **View analysis result**;
+- render the exact result at
+  `/books/{book-id}/analyses/{analysis-run-id}`;
+- move deck preparation to that result after its warnings and insights summary;
+- list analysis history on the book page, linking active runs to status and
+  completed runs to exact results.
+
+Until implementation changes, treat the existing direct job-to-preparation path
+as a known discontinuity rather than a canonical pattern.
 
 Deck preparation also relies on JavaScript to consume its JSON status resource.
 A future workflow change should provide a coherent server-rendered baseline
