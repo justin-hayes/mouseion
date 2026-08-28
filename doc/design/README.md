@@ -56,9 +56,9 @@ feature specification.
 
 ### System
 
-- [`design-system.md`](design-system.md) — current implementation baseline,
-  ownership boundaries, and the work required before Mouseion has a mature
-  reusable design system.
+- [`design-system.md`](design-system.md) — pinned frontend dependencies,
+  semantic tokens, typography, spacing, responsive behavior, accessibility
+  requirements, and the boundary for reusable component work.
 
 ## Required workflow questions
 
