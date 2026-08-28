@@ -241,6 +241,14 @@ func (s *PostgresStore) GetDeckPreparation(ctx context.Context, owner, id string
 	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id))
 }
 
+// GetDeckPreparationForAnalysis returns the one owner-scoped preparation
+// associated with an exact completed analysis. The unique preparation identity
+// makes this lookup safe for result pages and prevents a mutable latest-deck
+// lookup from selecting the wrong analysis.
+func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
+	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid`, owner, sourceMaterialID, analysisRunID))
+}
+
 // ListUnassignedReadyDeckPreparations returns prepared decks that can still be
 // placed in the learner's campaign queue. The owner-scoped anti-join keeps
 // another learner's campaigns from affecting the result.

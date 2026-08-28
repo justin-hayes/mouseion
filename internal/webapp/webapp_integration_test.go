@@ -876,7 +876,11 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/deck-preparations/prep-1/status" || !decks.consent {
 		t.Fatalf("create=%d location=%q consent=%v", created.Code, created.Header().Get("Location"), decks.consent)
 	}
-	status := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
+	statusPage := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
+	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "Deck preparation queued") || !strings.Contains(statusPage.Body.String(), "Cancel preparation") {
+		t.Fatalf("server-rendered status=%d %s", statusPage.Code, statusPage.Body.String())
+	}
+	status := perform(t, h, "GET", created.Header().Get("Location")+"?format=json", nil, aliceCookies)
 	if status.Code != http.StatusOK || status.Header().Get("Content-Type") != "application/json; charset=utf-8" || !strings.Contains(status.Body.String(), `"state":"queued"`) || !strings.Contains(status.Body.String(), `"progress":0`) {
 		t.Fatalf("status=%d headers=%v body=%s", status.Code, status.Header(), status.Body.String())
 	}
@@ -892,14 +896,14 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	if got := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", nil, aliceCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("cancel without csrf=%d", got.Code)
 	}
-	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
 	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), `"state":"cancelled"`) {
 		t.Fatalf("cancel=%d %s", cancelled.Code, cancelled.Body.String())
 	}
 	if got := perform(t, h, "POST", "/deck-preparations/prep-1/retry", nil, aliceCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("retry without csrf=%d", got.Code)
 	}
-	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
 	if retried.Code != http.StatusOK || !strings.Contains(retried.Body.String(), `"state":"queued"`) {
 		t.Fatalf("retry=%d %s", retried.Code, retried.Body.String())
 	}

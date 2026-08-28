@@ -98,6 +98,9 @@ type PreparedDeck interface {
 	Retry(context.Context, string, string, bool) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }
+type PreparedDeckForAnalysis interface {
+	GetForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
+}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -136,6 +139,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
+	h.mux.Handle("POST /books/{id}/analyses/{runID}/deck/preparations", h.user(http.HandlerFunc(h.createAnalysisDeckPreparation)))
 	h.mux.Handle("GET /books/{id}/scope", h.user(http.HandlerFunc(h.reviewEPUBScope)))
 	h.mux.Handle("POST /books/{id}/scope", h.user(http.HandlerFunc(h.confirmEPUBScope)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
@@ -555,6 +559,16 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	var preparation *domain.DeckPreparation
+	if reader, ok := h.services.PreparedDeck.(PreparedDeckForAnalysis); ok {
+		value, preparationErr := reader.GetForAnalysis(r.Context(), u.ID, result.SourceMaterialID, result.RunID)
+		if preparationErr == nil {
+			preparation = &value
+		} else if !errors.Is(preparationErr, persistence.ErrNotFound) {
+			handlePreparationError(w, r, preparationErr)
+			return
+		}
+	}
 	var coverage *domain.AnalysisCoverage
 	statisticsUnavailable := h.services.AnalysisInsights == nil
 	if h.services.AnalysisInsights != nil {
@@ -568,7 +582,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 			coverage = &value
 		}
 	}
-	render(w, r, AnalysisResultPage(u, h.csrf(w, r), result, coverage, statisticsUnavailable))
+	render(w, r, AnalysisResultPageWithPreparation(u, h.csrf(w, r), result, coverage, statisticsUnavailable, preparation))
 }
 
 type epubScopeUnitView struct {
@@ -1391,16 +1405,54 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
 }
 func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	h.createDeckPreparationForAnalysis(w, r, r.PathValue("id"), "")
+}
+
+func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
+	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	u := user(r)
+	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, r.PathValue("id"), r.PathValue("runID"))
+	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if result.OwnerID != u.ID || result.SourceMaterialID != r.PathValue("id") || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
+		http.NotFound(w, r)
+		return
+	}
+	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
+}
+
+func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	h.submitDeckPreparation(w, r, analysisID, sourceMaterialID)
+}
+
+func (h *Handler) submitDeckPreparation(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
 	if h.services.PreparedDeck == nil {
 		http.NotFound(w, r)
 		return
 	}
-	handle, err := h.services.PreparedDeck.Submit(r.Context(), user(r).ID, r.PathValue("id"), r.FormValue("external_translation_consent") == "on")
+	handle, err := h.services.PreparedDeck.Submit(r.Context(), user(r).ID, analysisID, r.FormValue("external_translation_consent") == "on")
 	if err != nil {
 		handlePreparationError(w, r, err)
+		return
+	}
+	if sourceMaterialID != "" && (handle.Preparation.SourceMaterialID != sourceMaterialID || handle.Preparation.AnalysisRunID != analysisID) {
+		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Location", "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status")
@@ -1459,27 +1511,11 @@ type deckBatchResponse struct {
 }
 
 func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
-	progress := 0
-	if p.State == domain.DeckPreparationPreparing {
-		if p.TranslationEligible > 0 {
-			progress = (p.TranslationDone + p.TranslationFailed) * 100 / p.TranslationEligible
-		} else {
-			progress = 50
-		}
-	} else if p.State == domain.DeckPreparationReady || p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
-		progress = 100
-	}
-	if progress < 0 {
-		progress = 0
-	}
-	if progress > 100 {
-		progress = 100
-	}
 	errorMessage := ""
 	if p.State == domain.DeckPreparationFailed {
 		errorMessage = preparationFailureMessage(p.FailureClass)
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: progress, Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	if response.Ready {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
@@ -1518,7 +1554,16 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		handlePreparationError(w, r, err)
 		return
 	}
-	writePreparationStatus(w, p)
+	if wantsPreparationJSON(r) {
+		writePreparationStatus(w, p)
+		return
+	}
+	resultURL := preparationResultURL(p)
+	if r.Header.Get("HX-Request") == "true" {
+		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL))
+		return
+	}
+	render(w, r, DeckPreparationStatusPage(user(r), h.csrf(w, r), p, resultURL))
 }
 
 func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) {
@@ -1534,7 +1579,11 @@ func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) 
 		handlePreparationError(w, r, err)
 		return
 	}
-	writePreparationStatus(w, p)
+	if wantsPreparationJSON(r) {
+		writePreparationStatus(w, p)
+		return
+	}
+	h.redirectToPreparationStatus(w, r)
 }
 
 func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
@@ -1550,7 +1599,26 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 		handlePreparationError(w, r, err)
 		return
 	}
-	writePreparationStatus(w, handle.Preparation)
+	if wantsPreparationJSON(r) {
+		writePreparationStatus(w, handle.Preparation)
+		return
+	}
+	h.redirectToPreparationStatus(w, r)
+}
+
+func wantsPreparationJSON(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json"
+}
+
+func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(r.PathValue("id"))+"/status", http.StatusSeeOther)
+}
+
+func preparationResultURL(p domain.DeckPreparation) string {
+	if p.SourceMaterialID == "" || p.AnalysisRunID == "" {
+		return ""
+	}
+	return "/books/" + url.PathEscape(p.SourceMaterialID) + "/analyses/" + url.PathEscape(p.AnalysisRunID)
 }
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {

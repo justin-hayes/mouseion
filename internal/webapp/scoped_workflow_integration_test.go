@@ -310,9 +310,6 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed' WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID); err != nil {
 		t.Fatal(err)
 	}
-	if resultPost := perform(t, h, "POST", fmt.Sprintf("/books/%s/analyses/%s/deck/preparations", german.Source.ID, status.RunID), url.Values{"csrf_token": {csrf}}, cookies); resultPost.Code != http.StatusNotFound {
-		t.Fatalf("result deck preparation route=%d %s", resultPost.Code, resultPost.Body.String())
-	}
 	resultPreparation := perform(t, h, "POST", fmt.Sprintf("/books/%s/analyses/%s/deck/preparations", german.Source.ID, status.RunID), url.Values{"csrf_token": {csrf}}, cookies)
 	if resultPreparation.Code != http.StatusSeeOther || !strings.HasPrefix(resultPreparation.Header().Get("Location"), "/deck-preparations/") {
 		t.Fatalf("exact result preparation=%d location=%q %s", resultPreparation.Code, resultPreparation.Header().Get("Location"), resultPreparation.Body.String())
