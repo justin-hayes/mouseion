@@ -76,6 +76,9 @@ type Analysis interface {
 	SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
+type CompletedAnalysisReader interface {
+	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
+}
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
 }
@@ -132,6 +135,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
 	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
+	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("GET /books/{id}/scope", h.user(http.HandlerFunc(h.reviewEPUBScope)))
 	h.mux.Handle("POST /books/{id}/scope", h.user(http.HandlerFunc(h.confirmEPUBScope)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
@@ -517,7 +521,54 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			coverage = &value
 		}
 	}
-	render(w, r, BookPage(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, r.URL.Query().Get("message")))
+	history, err := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	bookHistory := make([]domain.AnalysisJob, 0, len(history))
+	for _, job := range history {
+		if job.SourceMaterialID == summary.Source.ID {
+			bookHistory = append(bookHistory, job)
+		}
+	}
+	render(w, r, BookPageWithHistory(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message")))
+}
+
+func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
+	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	u := user(r)
+	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, r.PathValue("id"), r.PathValue("runID"))
+	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if result.OwnerID != u.ID || result.SourceMaterialID != r.PathValue("id") || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
+		http.NotFound(w, r)
+		return
+	}
+	var coverage *domain.AnalysisCoverage
+	statisticsUnavailable := h.services.AnalysisInsights == nil
+	if h.services.AnalysisInsights != nil {
+		value, coverageErr := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, result.Corpus.ID)
+		if errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
+			statisticsUnavailable = true
+		} else if coverageErr != nil {
+			fail(w, coverageErr)
+			return
+		} else {
+			coverage = &value
+		}
+	}
+	render(w, r, AnalysisResultPage(u, h.csrf(w, r), result, coverage, statisticsUnavailable))
 }
 
 type epubScopeUnitView struct {

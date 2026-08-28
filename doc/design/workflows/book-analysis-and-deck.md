@@ -182,12 +182,14 @@ The approved implementation target is:
 - list analysis history on the book page, linking active runs to status and
   completed runs to exact results.
 
-Until implementation changes, treat the existing direct job-to-preparation path
-as a known discontinuity rather than a canonical pattern.
+The completed scoped job-to-preparation path is now represented by the exact
+result link and its result-bound preparation action. The direct job action is
+retained only for legacy compatibility and is not a canonical path for new
+scoped analyses.
 
-Deck preparation also relies on JavaScript to consume its JSON status resource.
-A future workflow change should provide a coherent server-rendered baseline
-before enhancement; status JSON is not itself a learner-facing page.
+Deck preparation may use JavaScript to consume its JSON status resource, but the
+exact result and preparation status retain a coherent server-rendered baseline;
+status JSON is not itself a learner-facing page.
 
 ## Accessibility and responsive contract
 

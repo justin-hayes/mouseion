@@ -32,13 +32,14 @@ or campaign. `/` redirects to `/library`; there is no active dashboard screen.
 | My Library | `GET /library` | Find an owned book and understand what it needs next. | Book detail or Add books | Empty library, acquisition success, scope required, ready to analyze, queued/running/failed/completed analysis, deck/campaign state when available |
 | Book detail and analysis insights | `GET /books/{id}` | Understand one book, its exact analysis provenance, readiness, and next action. | Scope review, start analysis, analysis status, deck/campaign action | Source unavailable, no confirmed scope, scope confirmed, analysis pending/failed/completed, insights unavailable, legacy/full-text result, quality warning, prepared-deck state |
 | Scope review | `GET/POST /books/{id}/scope` | Review recommendations, choose EPUB units, compare/reuse history, and confirm an immutable scope. | Book detail | Recommended/all/prior preset, grouped or flat structure, partially selected group, uncertain units, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
-| Analysis status | `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Analysis insights for the completed result | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
+| Analysis status | `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Exact analysis result when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | `GET /jobs` | Inspect owner-scoped operational analysis history. | Individual analysis status | Empty history, mixed states, historical/legacy records |
-| Deck preparation | Embedded in analysis status; `POST /jobs/{id}/deck/preparations` and `/deck-preparations/{id}/*` | Consent to optional translation, prepare an APKG, recover failure, and download the ready artifact. | Download deck or add to learning queue | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
+| Deck preparation | Embedded in the exact analysis result; `POST /books/{book-id}/analyses/{analysis-run-id}/deck/preparations` and `/deck-preparations/{id}/*` | Consent to optional translation, prepare an APKG, recover failure, and download the ready artifact. | Download deck or add to learning queue | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
 The accepted lifecycle places analysis insights between completion and deck
-preparation. The current job screen exposes preparation directly; this is a
-known workflow discontinuity, not a new canonical pattern.
+preparation. Completed scoped jobs now link from operational status to the
+exact result; legacy jobs retain their operational status without scoped deck
+preparation.
 
 ### Approved Phase 1 continuity
 
@@ -52,9 +53,9 @@ completed result:
 | Exact analysis result | At `/books/{book-id}/analyses/{analysis-run-id}`, show identity, quality, insights, provenance, and eligible deck preparation for one immutable result. | Prepare deck, return to book, or review scope |
 | Deck preparation | Live on the exact analysis result with a coherent server-rendered status baseline before enhancement. | Download deck or add to learning queue |
 
-The exact-result route is approved design, not yet shipped behavior. Until it is
-implemented, `/jobs/{id}` and `/books/{id}` retain the current split documented
-above.
+The exact-result route is the shipped behavior for completed scoped analyses.
+Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
+deck preparation.
 
 ## Book acquisition
 

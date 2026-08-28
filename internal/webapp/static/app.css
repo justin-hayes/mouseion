@@ -441,6 +441,29 @@ section[aria-labelledby="campaign-history-heading"] {
   gap: var(--mouseion-space-4);
 }
 
+.analysis-result {
+  display: grid;
+  gap: var(--mouseion-space-6);
+}
+
+.analysis-result > section,
+.analysis-result > article {
+  margin: 0;
+}
+
+.analysis-result h2 {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+.analysis-result h3 {
+  margin-top: var(--mouseion-space-5);
+}
+
+.analysis-result section[aria-labelledby="analysis-identity-heading"] {
+  border-bottom: 1px solid var(--mouseion-color-border);
+  padding-bottom: var(--mouseion-space-5);
+}
+
 .book-actions article {
   display: flex;
   flex-direction: column;
