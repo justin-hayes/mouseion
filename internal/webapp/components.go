@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -201,6 +202,97 @@ func feedbackAttributes(kind FeedbackKind) templ.Attributes {
 }
 
 func boolString(value bool) string { return fmt.Sprintf("%t", value) }
+
+func deckPreparationAttributes(preparation domain.DeckPreparation) templ.Attributes {
+	attributes := templ.Attributes{"data-deck-preparation": "true"}
+	if deckPreparationActive(preparation) {
+		attributes["hx-get"] = "/deck-preparations/" + url.PathEscape(preparation.ID) + "/status"
+		attributes["hx-trigger"] = "every 3s"
+		attributes["hx-swap"] = "outerHTML"
+	}
+	return attributes
+}
+
+func deckPreparationActive(preparation domain.DeckPreparation) bool {
+	return preparation.State == domain.DeckPreparationQueued || preparation.State == domain.DeckPreparationPreparing
+}
+
+func preparationProgress(preparation domain.DeckPreparation) int {
+	progress := 0
+	if preparation.State == domain.DeckPreparationPreparing {
+		if preparation.TranslationEligible > 0 {
+			progress = (preparation.TranslationDone + preparation.TranslationFailed) * 100 / preparation.TranslationEligible
+		} else {
+			progress = 50
+		}
+	} else if preparation.State == domain.DeckPreparationReady || preparation.State == domain.DeckPreparationFailed || preparation.State == domain.DeckPreparationCancelled {
+		progress = 100
+	}
+	if progress < 0 {
+		return 0
+	}
+	if progress > 100 {
+		return 100
+	}
+	return progress
+}
+
+func deckPreparationStatusLabel(state domain.DeckPreparationState) string {
+	switch state {
+	case domain.DeckPreparationQueued:
+		return "Deck preparation queued"
+	case domain.DeckPreparationPreparing:
+		return "Deck preparation running"
+	case domain.DeckPreparationReady:
+		return "Deck ready"
+	case domain.DeckPreparationFailed:
+		return "Deck preparation failed"
+	case domain.DeckPreparationCancelled:
+		return "Deck preparation cancelled"
+	default:
+		return "Deck preparation"
+	}
+}
+
+func deckPreparationTitle(preparation domain.DeckPreparation) string {
+	return deckPreparationStatusLabel(preparation.State)
+}
+
+func deckPreparationSummary(preparation domain.DeckPreparation) string {
+	if preparation.State == domain.DeckPreparationFailed {
+		return "Preparation stopped and can be retried after reviewing the recovery message below."
+	}
+	if preparation.State == domain.DeckPreparationCancelled {
+		return "Preparation was cancelled before the deck was ready. You can retry this exact analysis when you want to continue."
+	}
+	if preparation.State == domain.DeckPreparationReady {
+		return "The immutable Anki artifact is ready to download."
+	}
+	if preparation.State == domain.DeckPreparationQueued {
+		return "The exact analysis is queued for deck preparation."
+	}
+	phase := map[string]string{
+		"freezing":    "Freezing the selected vocabulary.",
+		"submitting":  "Submitting translation requests.",
+		"waiting":     "Waiting for Batch translation; this may take a while.",
+		"reconciling": "Reconciling translation results.",
+		"retrying":    "Retrying temporary translation failures.",
+		"translating": "Translating selected vocabulary.",
+		"finalizing":  "Finalizing the immutable Anki artifact.",
+	}
+	if summary, ok := phase[preparation.Phase]; ok {
+		return summary
+	}
+	return "Preparing the immutable Anki artifact. You can leave this page and return later."
+}
+
+func analysisResultURL(result analysis.CompletedAnalysis) string {
+	return "/books/" + url.PathEscape(result.Source.ID) + "/analyses/" + url.PathEscape(result.RunID)
+}
+
+func analysisDeckPreparationURL(result analysis.CompletedAnalysis) string {
+	return analysisResultURL(result) + "/deck/preparations"
+}
 
 func jobStatusAttributes(id int64, running bool) templ.Attributes {
 	if !running {

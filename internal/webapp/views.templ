@@ -41,7 +41,7 @@ document.addEventListener('submit', async function (evt) {
   var status = form.parentElement.querySelector('[data-deck-preparation]');
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Queuing deck…'; }
   try {
-    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin'});
+    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}});
     if (!response.ok) {
       var detail = (await response.text()).trim();
       throw new Error(detail || ('Request failed with status ' + response.status));
@@ -57,7 +57,7 @@ document.addEventListener('submit', async function (evt) {
 });
 window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
   try {
-    var response = await fetch(statusURL, {credentials: 'same-origin'});
+    var response = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
     if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
     var preparation = await response.json();
     var stateLabels = {queued: 'Deck queued', preparing: 'Preparing deck', ready: 'Deck ready', failed: 'Deck preparation failed', cancelled: 'Deck preparation cancelled'};
@@ -100,7 +100,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
   var consent = sourceForm.querySelector('[name="external_translation_consent"]');
   if (consent && consent.checked) data.set('external_translation_consent', 'on');
   try {
-    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin'});
+    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin', headers: {'Accept': 'application/json'}});
     if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
     await window.pollDeckPreparation(action.replace(/\/(cancel|retry)$/, '/status'), target, sourceForm);
   } catch (error) {
@@ -335,6 +335,10 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 }
 
 templ AnalysisResultPage(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool) {
+	@AnalysisResultPageWithPreparation(user, csrf, result, coverage, statisticsUnavailable, nil)
+}
+
+templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, preparation *domain.DeckPreparation) {
 	@Layout("Analysis result · "+result.Source.Title, &user, csrf) {
 		@Breadcrumb("/books/"+result.Source.ID, result.Source.Title)
 		@PageHeader("Analysis result", result.Source.Title+" · "+result.Source.Language, StatusBadge("Completed", StatusSuccess))
@@ -424,10 +428,73 @@ templ AnalysisResultPage(user domain.User, csrf string, result analysis.Complete
 				})
 				<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", result.JobID)) }>View operational history for analysis job #{ fmt.Sprintf("%d", result.DisplayNumber) }</a></p>
 			</section>
+			<section aria-labelledby="result-deck-heading"><h2 id="result-deck-heading">Prepare deck</h2>
+				<p>This optional preparation uses only this exact completed analysis and its immutable scope. It does not start a learning campaign.</p>
+				if preparation != nil {
+					@DeckPreparationStatus(csrf, *preparation, analysisResultURL(result))
+				} else {
+					<form method="post" action={ templ.SafeURL(analysisDeckPreparationURL(result)) } data-prepare-deck>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<fieldset><legend>Optional external translation</legend>
+							<p>English translation is optional. If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p>
+							<label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label>
+						</fieldset>
+						<button type="submit">Prepare deck</button>
+					</form>
+					<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+				}
+			</section>
 			<section aria-labelledby="result-next-heading"><h2 id="result-next-heading">What next?</h2><p>Review the evidence above before taking the next action for this exact completed analysis. Deck preparation is a separate explicit step.</p>
 				<p><a href={ templ.SafeURL("/books/"+result.Source.ID) }>Return to book</a> · <a href={ templ.SafeURL("/books/"+result.Source.ID+"/scope") }>Review a different scope</a></p>
 			</section>
 		</div>
+	}
+}
+
+templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string) {
+	@Layout("Deck preparation", &user, csrf) {
+		if resultURL != "" {
+			@Breadcrumb(resultURL, "Analysis result")
+		} else {
+			@Breadcrumb("/books/"+preparation.SourceMaterialID, "Book")
+		}
+		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationStatusLabel(preparation.State), statusTone(string(preparation.State))))
+		@DeckPreparationStatus(csrf, preparation, resultURL)
+	}
+}
+
+templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resultURL string) {
+	@AsyncStatus(deckPreparationAttributes(preparation), "deck-preparation-status", deckPreparationTitle(preparation), deckPreparationSummary(preparation), preparationProgress(preparation), 100, deckPreparationActive(preparation)) {
+		if resultURL != "" {
+			<p><a href={ templ.SafeURL(resultURL) }>Return to analysis result</a></p>
+		}
+		if preparation.TranslationEligible > 0 {
+			<p><strong>Translations:</strong> { fmt.Sprintf("%d complete · %d unavailable · %d retrying · %d waiting", preparation.TranslationDone, preparation.TranslationFailed, preparation.TranslationRetrying, preparation.TranslationPending) }</p>
+		}
+		if preparation.BatchRequestCount > 0 {
+			<p><strong>Batch translation:</strong> { fmt.Sprintf("%d of %d requests complete · %d failed · %d expired", preparation.BatchCompletedRequests, preparation.BatchRequestCount, preparation.BatchFailedRequests, preparation.BatchExpiredRequests) }</p>
+		}
+		if preparation.DeckName != "" {
+			<p><strong>Deck:</strong> <code>{ preparation.DeckName }</code> · <strong>Filename:</strong> <code>{ preparation.Filename }</code></p>
+		}
+		if preparation.State == domain.DeckPreparationReady {
+			<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
+			@ActionGroup() {
+				<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+				<a role="button" class="outline" href="/campaigns">Add to learning queue</a>
+			}
+		} else if deckPreparationActive(preparation) {
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
+		} else {
+			if preparation.State == domain.DeckPreparationFailed {
+				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
+			}
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<fieldset><legend>Optional external translation for the retry</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the retry stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+				<button type="submit">Retry preparation</button>
+			</form>
+		}
 	}
 }
 

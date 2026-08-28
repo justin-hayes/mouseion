@@ -197,6 +197,21 @@ func (s *Service) Get(ctx context.Context, owner, id string) (domain.DeckPrepara
 	return s.Reconcile(ctx, owner, id)
 }
 
+// GetForAnalysis returns the preparation for one exact owner-scoped analysis.
+// Reconciliation is still performed through the preparation identity so a
+// status read can repair a missing queued job without weakening the result
+// binding.
+func (s *Service) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceMaterialID) == "" || strings.TrimSpace(analysisRunID) == "" {
+		return domain.DeckPreparation{}, ErrInvalidInput
+	}
+	p, err := s.store.GetDeckPreparationForAnalysis(ctx, owner, sourceMaterialID, analysisRunID)
+	if err != nil {
+		return p, err
+	}
+	return s.Get(ctx, owner, p.ID)
+}
+
 // Reconcile makes a waiting preparation actionable. A queued preparation with
 // no live River job is safely re-enqueued. A preparing preparation without a
 // live job is failed because it may have been claimed by a worker that died;

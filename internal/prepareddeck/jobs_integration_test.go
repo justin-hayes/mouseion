@@ -111,6 +111,16 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 	if err != nil || repeated.Preparation.ID != handle.Preparation.ID || repeated.JobID != handle.JobID {
 		t.Fatalf("duplicate submit=%+v err=%v", repeated, err)
 	}
+	exact, err := service.GetForAnalysis(ctx, owner.ID, source.ID, analysisHandle.RunID)
+	if err != nil || exact.ID != handle.Preparation.ID || exact.AnalysisRunID != analysisHandle.RunID {
+		t.Fatalf("exact preparation lookup=%+v err=%v", exact, err)
+	}
+	if _, err = service.GetForAnalysis(ctx, other.ID, source.ID, analysisHandle.RunID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("cross-owner exact preparation lookup=%v", err)
+	}
+	if _, err = service.GetForAnalysis(ctx, owner.ID, other.ID, analysisHandle.RunID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("cross-book exact preparation lookup=%v", err)
+	}
 	var submissions sync.WaitGroup
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
