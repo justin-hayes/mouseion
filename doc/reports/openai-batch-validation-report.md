@@ -17,7 +17,7 @@ measured results.
 ## Frozen inputs
 
 - Manifest: `internal/batchvalidation/testdata/manifest.json`
-- Request fixture: `internal/batchvalidation/testdata/requests.jsonl`
+- Request fixture (exact provider JSONL): `internal/batchvalidation/testdata/requests.jsonl`
 - Fixed response fixture: `internal/batchvalidation/testdata/responses.json`
 - Selection, prompt version, model, cache identity, and validator: unchanged
   from the frozen fixture and shared `TranslationCodec`.

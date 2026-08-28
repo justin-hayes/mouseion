@@ -197,17 +197,33 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 		}
 	}
 	batchOutcomes, missing, decodeErr := providerCodec.DecodeBatchResultsPartial(runID, batchvalidation.DefaultGeneration, items, bytes.NewReader(output.Bytes()), bytes.NewReader(providerErrors.Bytes()))
-	batchMetrics := batchvalidation.Metrics{CacheHits: syncMetrics.CacheHits, CacheMisses: syncMetrics.CacheMisses, ProviderCalls: 1, Completed: terminal.RequestCounts.Completed, Failed: terminal.RequestCounts.Failed, InputTokens: terminal.Usage.InputTokens, OutputTokens: terminal.Usage.OutputTokens, TotalLatency: time.Since(batchStart), CompletionLatency: durationBetween(created.CreatedAt, terminalTime(terminal)), QueueLatency: durationBetween(created.CreatedAt, terminal.InProgressAt), ExpiryCount: len(missing)}
+	batchMetrics := batchvalidation.Metrics{CacheHits: syncMetrics.CacheHits, CacheMisses: syncMetrics.CacheMisses, ProviderCalls: 1, Completed: terminal.RequestCounts.Completed, Failed: terminal.RequestCounts.Failed, InputTokens: terminal.Usage.InputTokens, OutputTokens: terminal.Usage.OutputTokens, TotalLatency: time.Since(batchStart), CompletionLatency: durationBetween(created.CreatedAt, terminalTime(terminal)), QueueLatency: durationBetween(created.CreatedAt, terminal.InProgressAt)}
 	if terminal.Status == enrichment.BatchStatusExpired {
-		batchMetrics.ExpiryCount += len(missing)
+		batchMetrics.ExpiryCount = len(missing)
 	}
 	if decodeErr != nil {
-		batchMetrics.ValidationFailures++
+		var resultErr *enrichment.BatchResultError
+		if errors.As(decodeErr, &resultErr) {
+			switch resultErr.Kind {
+			case enrichment.BatchResultMalformed, enrichment.BatchResultContradictory:
+				batchMetrics.ParseFailures++
+			case enrichment.BatchResultDuplicate:
+				batchMetrics.DuplicateOutcomes++
+			case enrichment.BatchResultUnknown:
+				batchMetrics.MiscorrelatedOutcomes++
+			default:
+				batchMetrics.ValidationFailures++
+			}
+		} else {
+			batchMetrics.ValidationFailures++
+		}
 	}
 	batchResponses := make(map[int]enrichment.TranslationResponse, len(batchOutcomes))
 	for ordinal, outcome := range batchOutcomes {
 		if outcome.Successful() {
 			batchResponses[ordinal] = outcome.Response
+		} else if outcome.ErrorClass == enrichment.ProviderErrorInvalidResponse {
+			batchMetrics.ValidationFailures++
 		} else {
 			batchMetrics.ProviderErrors++
 		}
@@ -216,9 +232,6 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 		if fixtureItem, _ := fixtureItemByOrdinal(fixture, ordinal); fixtureItem.CacheHit {
 			batchResponses[ordinal] = response
 		}
-	}
-	if decodeErr != nil && len(batchOutcomes) == 0 {
-		batchMetrics.ParseFailures++
 	}
 	if len(missing) > 0 {
 		batchMetrics.Failed += len(missing)

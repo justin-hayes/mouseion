@@ -290,10 +290,11 @@ alignment is not an acceptable optimization without an explicit product decision
 ### Issue #353 validation harness
 
 Issue #353 provides `cmd/batch-validation`, an operator-only comparison tool.
-It loads the checked-in frozen manifest, request JSONL, and fixed response
-fixtures under `internal/batchvalidation/testdata`, regenerates and verifies
-the request bytes, then exercises the same frozen items through the
-synchronous decoder and Batch JSONL decoder. Rendering is repeated with fixed
+It loads the checked-in frozen manifest, exact provider request JSONL, and
+fixed response fixtures under `internal/batchvalidation/testdata`, regenerates
+and verifies the request bytes emitted by the shared Batch codec, then exercises
+the same frozen items through the synchronous decoder and Batch JSONL decoder.
+Rendering is repeated with fixed
 responses and APKG/TSV digests are compared for byte stability. The harness
 records queue, completion, and total latency; token usage or conservative
 estimates and cost; cache hits; provider, retry, error, and expiry counts;
