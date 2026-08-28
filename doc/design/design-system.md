@@ -185,6 +185,15 @@ hierarchy, navigation context, status and feedback, empty and resource states,
 action grouping, data display, asynchronous progress, responsive tables, and
 consequential confirmation.
 
+The remaining rollout is documented in
+[`roadmap.md`](roadmap.md): Phase 4 pilots the system across the core
+book/result/deck journey, Phase 5 extends it to acquisition, Learning,
+Settings, and operational recovery, and Phase 6 adds browser, accessibility,
+responsive, theme, and reconciliation quality gates. New reusable patterns
+should only be introduced when an existing component contract cannot represent
+the repeated interaction; prefer recording a follow-up in the roadmap over
+scattering one-off markup.
+
 The first adoption covers representative surfaces across the core learner
 journey and supporting settings: My Library, book detail and scope review,
 Learning campaigns, analysis jobs, and known-vocabulary management. This is a
