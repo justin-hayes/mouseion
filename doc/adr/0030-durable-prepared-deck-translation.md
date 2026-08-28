@@ -1,9 +1,9 @@
 # ADR 0030: Durable prepared-deck translation runs
 
-Status: **Proposed** · Date: 2026-08-27 · Author: Justin + Codex
+Status: **Accepted** · Date: 2026-08-28 · Author: Justin + Codex
 
 > **Amendment:** [ADR 0031](0031-openai-batch-prepared-deck-translation.md)
-> proposes OpenAI Batch chunks in place of this ADR's scalar per-item provider
+> supersedes this ADR's scalar per-item provider
 > jobs and leased provider permits. The immutable manifest, exact item outcomes,
 > owner scoping, cancellation, and atomic finalizer remain unchanged.
 
@@ -44,9 +44,9 @@ manifest creation and artifact finalization.
    orchestration, persistence, or identity invariant that prevents a safe
    artifact. A later finalization failure leaves translation completed but
    fails the overall run and public preparation.
-4. Provider concurrency is bounded across decks and process replicas by
-   durable, leased provider permits. A worker must hold both its item claim and
-   a provider permit before crossing the external-provider boundary.
+4. External work is dispatched through the execution layer selected by the
+   accepted Batch amendment. For prepared decks, Batch chunks carry the
+   provider boundary and their submission/reconciliation claims are durable.
 5. One idempotent finalizer reads manifest items in frozen order, reads only the
    manifest's exact cache keys, renders once per finalizer attempt, and uses the
    existing atomic completion boundary to commit APKG bytes, completeness,
@@ -62,7 +62,7 @@ manifest creation and artifact finalization.
    sentences. Prompts, raw provider responses, and raw provider error bodies are
    not persisted as orchestration data.
 
-The detailed state transitions, schema proposal, retry policy, recovery cases,
+The detailed state transitions, schema, retry policy, recovery cases,
 and implementation sequence are specified in the
 [durable prepared-deck translation design](../features/durable-prepared-deck-translation.md).
 
@@ -77,7 +77,7 @@ and implementation sequence are specified in the
   require the same access controls and deletion treatment as other private
   source-derived data.
 - The design adds persistence, River job kinds, reconciliation, and operational
-  controls before the in-memory translation loop can be removed.
+  controls that allow the superseded in-memory translation loop to be removed.
 - Database migrations and retention defaults require owner review. This ADR
   chooses the durable shape, not a retention duration or production concurrency
   value.
@@ -91,7 +91,7 @@ and implementation sequence are specified in the
   owner-scoped finalization contract.
 - **One long-running translation job with an in-memory pool.** Rejected as the
   final architecture because a crash still loses in-flight scheduling state;
-  the current bounded pool remains a rollout fallback.
+  the accepted Batch path provides durable provider scheduling instead.
 - **Render partial artifacts as candidates finish.** Rejected because it breaks
   deterministic order, completeness accounting, and the atomic download
   contract.

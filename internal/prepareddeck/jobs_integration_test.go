@@ -82,11 +82,11 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	workers := river.NewWorkers()
-	AddWorker(workers, store, cardexport.NewService(store), nil)
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	if err != nil {
 		t.Fatal(err)
 	}
+	AddBatchWorker(workers, store, cardexport.NewService(store), client, nil, BatchConfig{}, false)
 	service := NewService(store, client)
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
 	handle, err := service.Submit(ctx, owner.ID, analysisID, true)

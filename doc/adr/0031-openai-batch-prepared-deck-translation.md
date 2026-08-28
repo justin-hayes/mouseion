@@ -1,6 +1,6 @@
 # ADR 0031: Execute prepared-deck translation through OpenAI Batch
 
-Status: **Proposed** · Date: 2026-08-27 · Author: Justin + Hermes
+Status: **Accepted** · Date: 2026-08-28 · Author: Justin + Hermes
 
 ## Context
 
@@ -9,7 +9,7 @@ Chat Completions endpoint synchronously once per cache miss. Bounded in-memory
 concurrency shortens one worker attempt but consumes the synchronous rate-limit
 pool and loses unsaved progress when the process exits.
 
-ADR 0030 proposes durable preparation-owned manifests, item outcomes, retries,
+ADR 0030 established durable preparation-owned manifests, item outcomes, retries,
 and atomic finalization. Its initial scalar-worker design gives each manifest
 item a River job and a leased provider permit. OpenAI Batch instead accepts a
 JSONL file of independent requests, executes it asynchronously within a 24-hour
@@ -28,7 +28,7 @@ interface or treated as a long synchronous call.
 
 Implement OpenAI Batch as a preparation-run execution layer above the scalar
 translation request and response semantics. It does not implement the existing
-one-call `TranslationProvider` contract.
+one-call `TranslationProvider` contract for prepared-deck work.
 
 The shared semantic codec owns prompt construction, model parameters, privacy
 filtering, Chat Completions request bodies, response decoding, and Mouseion
@@ -54,10 +54,9 @@ chunk with a bounded, privacy-safe error class. Supporting another endpoint or
 Responses API later requires evidence of compatible Files, Batch, request, and
 retention behavior and a separate decision.
 
-There is no `sync|batch` mode or temporary Batch feature flag. The code change
-replaces prepared-deck synchronous transport with Batch. The synchronous
-transport wiring and `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` are
-removed as part of the implementation sequence.
+There is no `sync|batch` mode or temporary Batch feature flag. Prepared-deck
+translation uses Batch; synchronous translation remains available only to
+other non-prepared-deck enrichment.
 
 ### 3. One request represents one manifest item
 
@@ -170,18 +169,18 @@ completeness.
   this favors cost and correctness over automatic liveness.
 - Batch is intentionally provider-specific. Generic OpenAI-compatible endpoints
   are not supported for prepared-deck translation after this change.
-- Quality, cost, latency, expiry, correlation, and completeness must be measured
-  on frozen equivalent manifests before synchronous removal. Batch changes
-  transport, not the quality contract.
+- Quality, cost, latency, expiry, correlation, and completeness were measured on
+  frozen equivalent manifests before this cutover. Batch changes transport, not
+  the quality contract.
 
-## Open questions before acceptance
+## Approved operational choices
 
-- Is removal of prepared-deck translation support for custom
-  OpenAI-compatible endpoints acceptable when the synchronous path is retired?
-- Are the proposed two Batch generations, 5,000-request ceiling, 30-second poll
-  interval, and seven-day provider-file expiration acceptable initial defaults?
-- Is operator/manual retry the desired response when remote Batch creation
-  cannot be recovered unambiguously?
+- Prepared-deck translation support for custom OpenAI-compatible endpoints is
+  retired; only the official OpenAI endpoint is eligible.
+- Two Batch generations, a 5,000-request ceiling, a 30-second poll interval,
+  and seven-day provider-file expiration are the initial defaults.
+- Ambiguous remote Batch creation fails closed and requires operator/manual
+  recovery rather than risking duplicate billable work.
 
 ## Validation and review gate
 
@@ -194,13 +193,11 @@ synthetic results from measured real-provider evidence and records quality,
 correctness, privacy, durability, cost, latency, and operational-recovery
 gates.
 
-ADR 0031 must not be marked accepted, and issue #354 must not remove the
-synchronous implementation, until a human records decisions for endpoint
-retirement (including custom OpenAI-compatible endpoints), the proposed
-operational defaults, and every cutover gate in the report. A later cutover
-rolls back by reverting code before synchronous support is removed. The
-validation command is intentionally not a deployed feature flag or runtime
-transport selector, and neither CI nor startup makes paid provider calls.
+The issue #353 validation gate approved cutover after recording the endpoint,
+operational-default, quality, correctness, privacy, durability, cost, latency,
+and operational-recovery decisions in the validation workflow. The validation
+command is intentionally not a deployed feature flag or runtime transport
+selector, and neither CI nor startup makes paid provider calls.
 
 ## Related
 

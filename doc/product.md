@@ -15,8 +15,8 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 - [EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — makes structural recommendations safe, coherent, and explainable.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
-- [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — proposed resumable manifest, candidate-work, and atomic-finalization contract for issue #338.
-- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — proposes replacing synchronous prepared-deck translation with durable asynchronous OpenAI Batch execution.
+- [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
+- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — durable asynchronous Batch execution for optional prepared-deck translation.
 
 ## Current pipeline
 
@@ -73,8 +73,8 @@ Generated-deck history and mastery are deliberately separate. Generating a card 
 27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models one active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release.
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
-30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — proposes immutable preparation runs, resumable candidate translation, bounded provider leases, and idempotent atomic finalization.
-31. [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — proposes provider-specific Batch chunks, durable reconciliation, bounded retries, temporary provider files, and retirement of synchronous prepared-deck translation.
+30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — defines immutable preparation runs, resumable candidate outcomes, and idempotent atomic finalization.
+31. [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — defines provider-specific Batch chunks, durable reconciliation, bounded retries, temporary provider files, and the retirement of prepared-deck synchronous transport.
 
 ## Deployment and operations
 
@@ -107,10 +107,6 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
   provider expiration and deletes input/output/error files after reconciliation
   or cancellation. Failed deletion is retried a bounded number of times and
   does not invalidate a reconciled deck.
-- `MOUSEION_PREPARED_DECK_TRANSLATION_CONCURRENCY` — positive per-deck external
-  translation in-flight limit; defaults to `1` for serial compatibility. This
-  does not change the whole-deck River worker count and remains a compatibility
-  setting until the later Batch cutover.
 
 Prepared-deck translation is an offline workflow when external translation is
 enabled. A preparation can remain in `preparing` while OpenAI processes its

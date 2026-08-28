@@ -99,11 +99,7 @@ func NewConfiguredLLMProvider(cfg LLMConfig, client *http.Client) (TranslationPr
 	if err != nil {
 		return nil, err
 	}
-	version := cfg.Model + "/" + llmPromptVersion
-	if llm.usesReasoningEffort {
-		version += "-reasoning-" + llm.reasoningEffort
-	}
-	return NewLLMProvider("openai-compatible", version, llm)
+	return NewLLMProvider(llm.codec.ProviderName(), llm.codec.ProviderVersion(), llm)
 }
 
 // OpenAITranslationClient implements the OpenAI-compatible Chat Completions

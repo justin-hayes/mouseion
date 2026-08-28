@@ -1,17 +1,21 @@
 # Durable prepared-deck translation
 
-Status: Proposed for approval · Date: 2026-08-27 · Issue: #338
+Status: Accepted · Date: 2026-08-28 · Issue: #338
 
 This document is the implementation contract for making prepared-deck
 translation durable and resumable. It refines the longer-term recommendation in
 [Prepared-deck LLM translation performance](llm-translation-performance.md)
-and the architectural decision proposed in
-[ADR 0030](../adr/0030-durable-prepared-deck-translation.md). It does not
-implement the schema or worker changes.
+and [ADR 0030](../adr/0030-durable-prepared-deck-translation.md).
+
+The implementation uses the accepted ADR 0031 Batch execution amendment:
+prepared-deck cache misses are submitted as durable OpenAI Batch chunks and
+reconciled asynchronously. Any earlier scalar-worker or rollout-sequencing
+language below describes the superseded design; the current runtime has one
+Batch path and no synchronous prepared-deck fallback.
 
 ## Decision and approval notation
 
-- **Decision** means part of the proposed implementation contract. Approval of
+- **Decision** means part of the accepted implementation contract. Acceptance of
   ADR 0030 and this design approves that contract.
 - **Approval required** identifies an operational or retention default that is
   intentionally not selected by this issue.
@@ -20,12 +24,12 @@ implement the schema or worker changes.
 
 ## Problem
 
-The current `prepared_deck` River worker claims a public preparation, builds an
-in-memory `cardexport.Manifest`, performs cache/provider calls in a bounded
-in-memory pool, renders once, and commits the final artifact. Prepared-deck jobs
-are inserted with `MaxAttempts: 1`. Candidate errors leave optional English
-fields empty, while cancellation or a fatal build/commit error fails the whole
-attempt.
+Before the Batch cutover, the `prepared_deck` River worker claimed a public
+preparation, built an in-memory `cardexport.Manifest`, performed cache/provider
+calls in a bounded in-memory pool, rendered once, and committed the final
+artifact. Prepared-deck jobs were inserted with `MaxAttempts: 1`. The accepted
+implementation now freezes the manifest, submits Batch chunks, reconciles
+results durably, and finalizes through the same atomic artifact boundary.
 
 This path has correct exact-cache binding and atomic completion, but the
 manifest and progress disappear when the process exits. Reconciliation can
@@ -46,7 +50,7 @@ phase that produces it is not durable before completion.
 - Make candidate progress, attempts, cancellation, and terminal failures exact
   and owner-scoped.
 - Preserve the existing cache key and immutable first-writer behavior.
-- Bound provider concurrency across decks and process replicas.
+- Bound submitted work with the accepted Batch request and retry limits.
 - Finalize deterministically through the existing all-or-nothing APKG, card,
   completeness, and generated-vocabulary transaction.
 - Preserve the current public preparation and pure-download contracts.
@@ -54,7 +58,7 @@ phase that produces it is not durable before completion.
 
 ## Non-goals
 
-- Provider batching, streaming responses, or a provider-specific bulk API.
+- Synchronous prepared-deck provider calls or a second prepared-deck transport.
 - A new enrichment-cache key, mutable cache entries, cache invalidation, or a
   cache single-flight redesign beyond the exact identity already implemented.
 - Changing coverage selection, sentence quality, recognition-card fields,
@@ -63,7 +67,7 @@ phase that produces it is not durable before completion.
 - Increasing whole-deck throughput before provider and database limits are
   measured.
 - Changing the download endpoint or exposing a partial APKG.
-- Selecting a production retention duration or concurrency value in this
+- Selecting a production retention duration or provider scheduling policy in this
   design issue.
 
 ## Existing contracts that remain authoritative
@@ -162,13 +166,13 @@ submit/retry
 prepared_deck coordinator
     |-- validate owner + completed analysis
     |-- freeze run + immutable manifest in REPEATABLE READ transaction
-    |-- create candidate outcomes and River work in the same transaction
+    |-- create Batch chunks and River work in the same transaction
     v
-candidate translation jobs -- exact cache hit --> completed outcome
-    |                         \
-    |                          provider call --> immutable cache put
-    |                                            + completed outcome
-    |                          retry/exhaustion -> pending/failed outcome
+Batch chunks -- exact cache hit --> completed outcome
+    |                             \
+    |                              provider Batch result --> immutable cache put
+    |                                                        + completed outcomes
+    |                              retry/exhaustion -> pending/failed outcomes
     v
 all outcomes terminal
     |-- mark translation run completed
@@ -192,7 +196,7 @@ idempotent orchestration claim:
    is reconciled rather than failed.
 4. Build the manifest using transaction-bound persistence reads.
 5. Compute exact cache keys before any candidate job is created.
-6. Insert the run, manifest items, outcome rows, provider-permit configuration,
+6. Insert the run, manifest items, outcome rows, Batch chunk configuration,
    and River jobs with `InsertTx`; set `current_run_id` in the same transaction.
 
 An existing run with the expected digest is an idempotent success. A different
@@ -201,10 +205,10 @@ manifest.
 
 ### Translate
 
-The initial scalar implementation creates one River job per accepted,
-translation-eligible manifest item. Job args contain only `owner_id`, `run_id`,
-`ordinal`, and `dispatch_generation`; they do not contain sentence or card
-content.
+The Batch implementation creates one durable chunk per consecutive set of
+accepted, translation-eligible manifest items. River args contain only
+owner, preparation, run, chunk, and generation identities; they do not contain
+sentence or card content.
 
 Each job:
 
@@ -213,8 +217,8 @@ Each job:
 3. claims the item with a random fencing token and a bounded lease;
 4. checks cancellation, then reads the exact cache key;
 5. completes immediately on an exact cache hit;
-6. otherwise acquires a leased global provider permit, rechecks cancellation
-   and its claim, and makes one scalar provider call;
+6. otherwise submits or reconciles a leased provider Batch, rechecking
+   cancellation and its claim;
 7. writes through the existing immutable cache; and
 8. updates the outcome only when the run is still active and the fencing token
    still matches.
@@ -225,7 +229,7 @@ be transactional, provider invocation is at-least-once, not exactly-once.
 
 ### Complete the translation phase
 
-The worker that makes an outcome terminal locks the run and tests whether any
+The reconciliation worker that makes an outcome terminal locks the run and tests whether any
 outcome remains `pending` or `running`. The winner:
 
 - changes the run's translation state to `completed`;
@@ -316,7 +320,7 @@ idempotent success; all other invalid transitions fail closed.
 The progress numerator is terminal `completed + failed`; cancelled runs report
 cancelled items separately. It is never inferred from River job metadata.
 
-## Persistence schema proposal
+## Persistence schema
 
 Names may be shortened mechanically during implementation, but the following
 columns and invariants are required.
@@ -404,19 +408,21 @@ Indexes:
 - unique `(river_job_id)` when non-null; and
 - `(run_id, state)` for progress and terminal checks.
 
-### `external_translation_permits`
+### `deck_preparation_batch_chunks` and `deck_preparation_batch_chunk_items`
 
-Durable global concurrency slots:
+Durable Batch submission and reconciliation state:
 
-- `limiter_key text`, initially the provider name, plus `slot integer` as the
-  primary key;
-- claim token, run/item identity, lease expiry, and heartbeat timestamp; and
-- no candidate content.
+- owner, preparation, run, chunk, and generation identity;
+- chunk ordinal range, input digest, request count, serialized input bytes,
+  estimated prompt tokens, and bounded split reason;
+- provider model, endpoint, input/batch/output/error file IDs, bounded status,
+  aggregate counts, usage, timestamps, and cleanup state; and
+- immutable chunk-to-manifest-item mappings by ordinal, with no owner or source
+  metadata in River arguments.
 
-Workers only consider slots below the approved configured limit. They renew a
-permit while a provider call is active and release it afterward. Expired slots
-are reclaimable. Provider version is deliberately not part of `limiter_key`,
-so a model/prompt rollout cannot multiply the endpoint's call budget.
+Submission, polling, reconciliation, and provider-file cleanup use leased
+claims. Failed or expired items are assigned to a new Batch generation without
+resubmitting successful items.
 
 ### Migration order
 
@@ -425,10 +431,10 @@ so a model/prompt rollout cannot multiply the endpoint's call budget.
 2. Add `deck_preparations.current_run_id` and its composite foreign key after
    the run table exists.
 3. Add indexes and immutability triggers.
-4. Deploy dual-read-compatible application code while the old in-memory worker
-   remains available; new nullable columns require no historical backfill.
-5. Enable durable creation behind configuration, observe it, then remove the
-   old path in a later PR.
+4. Deploy the durable Batch application code; new nullable columns require no
+   historical backfill.
+5. Enable Batch preparation after the accepted validation gate and remove the
+   superseded scalar path.
 
 The down migration must remove the current-run foreign key/column before the
 new tables. No migration may rewrite existing ready artifacts or cache rows.
@@ -450,7 +456,7 @@ operational contract. Candidate provider attempts are application-controlled
 so their count and next time are durable even when River snoozes do not count
 as attempts.
 
-Default policy proposed for validation:
+Accepted default policy:
 
 - maximum five provider attempts per candidate;
 - retry timeout, HTTP 408, 429, 5xx, transient transport, and cache availability
@@ -605,16 +611,14 @@ IDs belong in structured events, not metric labels.
 
 Operational controls:
 
-- global provider permits default to a conservative value approved before
-  rollout;
-- the existing per-deck concurrency setting remains a compatibility ceiling
-  during dual-run rollout;
+- Batch request limits use the approved 5,000-request ceiling and 30-second
+  polling interval;
 - worker timeout, application lease, provider attempt budget, and backoff are
   explicit configuration with validation;
 - a stuck-run alert fires when no progress or heartbeat occurs beyond the
   derived lease/retry horizon, not merely because a large run is old; and
-- rollback disables new durable runs while allowing already committed runs to
-  drain or be cancelled.
+- a code revert preserves already committed Batch runs, which can drain or be
+  cancelled.
 
 ## Security, privacy, and retention
 
@@ -643,19 +647,17 @@ ready artifacts, and the shared enrichment cache. Cleanup must never delete a
 manifest or exact cache row needed by a live run or retained ready artifact,
 and must expose audit counts before destructive deletion is enabled.
 
-## Batching compatibility
+## Batch execution
 
-Provider batching is a future option, not an initial slice. The durable unit
-remains one manifest item and one exact cache identity. A future batch worker
-must:
+The durable unit remains one manifest item and one exact cache identity. The
+accepted Batch worker:
 
 - map responses by candidate digest rather than response position;
 - validate and commit each successful item independently;
-- leave missing, duplicated, malformed, or retryable items pending for scalar
-  fallback;
+- leave missing, duplicated, malformed, or retryable items pending for a new
+  Batch generation;
 - never roll back successful cache rows because another batch item failed; and
-- retain the scalar job path for providers without batching and for partial
-  retry.
+- never invoke a synchronous prepared-deck fallback.
 
 No batch response may be published directly to a manifest or artifact.
 
@@ -681,7 +683,8 @@ integration tests for:
 - owner isolation, consent false/provider disabled, German and Italian
   manifests, privacy-safe job args/events/errors, and pure repeated download;
   and
-- dual-path rollout and restart with a mix of legacy and durable preparations.
+- Batch-only restart with a mix of completed, retryable, cancelled, and
+  finalizing durable preparations.
 
 Tests use local stub providers and injected clocks; they never call a real
 external provider. Documentation verification must check all relative links
@@ -702,7 +705,7 @@ owner-scoped queries. Do not register new production workers.
 
 Acceptance criteria:
 
-- migrations enforce the proposed composite ownership, state checks,
+- migrations enforce the accepted composite ownership, state checks,
   uniqueness, indexes, and manifest immutability;
 - manifest round trips reconstruct the current `cardexport.Manifest` inputs
   without external fields;
@@ -713,13 +716,13 @@ Acceptance criteria:
 
 This migration PR requires CODEOWNERS review.
 
-### B. Freeze manifests and dispatch candidate work transactionally
+### B. Freeze manifests and dispatch Batch work transactionally
 
 **Depends on:** A.
 
 Make the prepared-deck coordinator resumable, freeze through one repeatable-read
 transaction, snapshot consent/provider identity, create outcomes, and insert
-candidate jobs with the run. Keep durable execution disabled by default.
+Batch chunk jobs with the run.
 
 Acceptance criteria:
 
@@ -727,13 +730,13 @@ Acceptance criteria:
 - coordinator retry reuses a committed run and never reselects it;
 - crash-before-commit and duplicate coordinator tests produce one run;
 - consent/provider changes after freeze do not change work; and
-- the legacy in-memory path remains available for rollback.
+- Batch submission jobs contain only opaque durable identities.
 
-### C. Execute durable scalar translation with leases and cancellation
+### C. Execute durable Batch translation with leases and cancellation
 
 **Depends on:** A and B.
 
-Implement candidate workers, application fencing, provider permits, typed retry
+Implement Batch workers, application fencing, typed retry
 classification/backoff, cancellation guards, and the proactive reconciler.
 
 Acceptance criteria:
@@ -742,9 +745,9 @@ Acceptance criteria:
 - cache-put-before-crash resumes as an exact hit;
 - timeout, retry exhaustion, permanent failure, stale generation, lost lease,
   and cancellation semantics match this design;
-- simultaneous decks never exceed the database-backed global permit count;
+- simultaneous runs respect the configured Batch request ceiling;
 - job args, events, and stored errors pass privacy assertions; and
-- scalar operation works for every currently configured provider.
+- Batch operation fails closed for endpoints without the accepted capability.
 
 ### D. Finalize exactly once through the atomic publication boundary
 
@@ -768,22 +771,22 @@ Acceptance criteria:
 
 Return internal phase/candidate progress through the existing status surface,
 emit the required content-free telemetry, add stuck-run operational queries and
-alerts, document configuration, and canary the durable path.
+alerts, and document the accepted Batch configuration.
 
 Acceptance criteria:
 
 - progress is derived from outcome rows and is monotonic within a run;
 - metrics/events contain no prohibited content or high-cardinality labels;
 - stuck/expired work is detectable and reconciliation outcomes are visible;
-- rollback stops new durable runs without stranding committed runs; and
-- serial compatibility and configured limits are covered by end-to-end tests.
+- code-revert recovery does not strand committed Batch runs; and
+- configured Batch limits are covered by end-to-end tests.
 
-### F. Retire the legacy loop and decide cleanup policy
+### F. Retire the legacy loop and keep approved cleanup policy
 
 **Depends on:** successful canary of E and explicit retention approval.
 
-Remove the in-memory prepared-deck translation loop and orphan-fail
-reconciliation, then implement only the approved cleanup policy. Keep
+The accepted Batch cutover removes the in-memory prepared-deck translation loop
+and keeps reconciliation durable. Keep
 `internal/enrichmentjob` available for non-prepared bulk enrichment unless a
 separate issue changes it.
 
@@ -791,16 +794,9 @@ Acceptance criteria:
 
 - every new preparation uses durable runs;
 - no code can reselect a committed run or publish from a cancelled run;
-- cleanup dry-run/audit counts and live-run/cache-reference exclusions are
+- cleanup dry-run/audit counts and live-run/cache-reference exclusions remain
   verified before deletion; and
 - operations and recovery documentation reflect the final configuration.
-
-### Future: provider batching
-
-**Depends on:** durable scalar production evidence and a separate quality,
-privacy, cost, and provider-capability review.
-
-This is not required to close the durable implementation milestone.
 
 ## Decision register
 
@@ -809,11 +805,11 @@ This is not required to close the durable implementation milestone.
 | Public identity | stable preparation ID plus immutable per-retry run ID |
 | Manifest | owner-scoped, schema-versioned, insert-only, digest-verified |
 | Cache | reuse the exact existing immutable key and first-writer behavior |
-| Work unit | one scalar candidate outcome; batching may only wrap those units |
+| Work unit | one manifest item/outcome, submitted in Batch chunks |
 | Delivery | at-least-once provider calls, fenced idempotent persistence |
 | Optional failure | terminal failed candidate; translation run may complete |
 | Run failure | only an invariant that prevents trustworthy finalization |
-| Concurrency | database-leased provider permits across replicas |
+| Concurrency | provider-managed Batch scheduling with a 5,000-request chunk ceiling |
 | Finalization | one retriable finalizer and one atomic publication transaction |
 | Cancellation | database state wins; River cancellation is best effort |
 | Download | unchanged pure read of ready bytes |
@@ -824,9 +820,8 @@ This is not required to close the durable implementation milestone.
 - Duplicate billable provider calls remain possible across timeout/lease
   ambiguity. Exact-once external side effects are not achievable without a
   provider idempotency contract.
-- Durable permit leases depend on database time, heartbeat health, and a call
-  timeout shorter than the lease. Clock and network-partition tests are
-  required.
+- Batch polling and provider-file expiry depend on durable timestamps and
+  reconciliation health; stuck-run monitoring is required.
 - Manifest rows intentionally duplicate private render inputs for durability,
   increasing database and backup size.
 - The current cache key does not include tested target. This design preserves

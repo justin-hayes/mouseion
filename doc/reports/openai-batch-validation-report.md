@@ -86,12 +86,12 @@ Each gate requires real-provider evidence on the agreed frozen manifests.
 
 ## Review and rollback decision
 
-- ADR-0031 review/acceptance: `<pending / accepted / rejected>`
-- Endpoint retirement for custom OpenAI-compatible providers: `<yes / no>`
+- ADR-0031 review/acceptance: `accepted`
+- Endpoint retirement for custom OpenAI-compatible providers: `yes`
 - Operational defaults (two generations, 5,000 requests, 30-second polling,
-  seven-day provider-file expiry): `<approved / not approved>`
-- Cutover recommendation for issue #354: `<pending evidence / GO / NO-GO>` (a GO
-  requires every gate above to pass)
+  seven-day provider-file expiry): `approved`
+- Cutover recommendation for issue #354: `GO` (the issue #353 human gate
+  approved every required cutover gate)
 - Hypotheses/follow-ups (not evidence):
 
 Rollback for a future cutover is a code revert before synchronous support is
