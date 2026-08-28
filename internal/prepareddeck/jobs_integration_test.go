@@ -26,7 +26,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
+func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -87,7 +87,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	AddBatchWorker(workers, store, cardexport.NewService(store), client, nil, BatchConfig{}, false)
-	service := NewService(store, client)
+	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
 	handle, err := service.Submit(ctx, owner.ID, analysisID, true)
 	if err != nil {
@@ -249,6 +249,20 @@ func (c *failingRiverClient) InsertTx(context.Context, pgx.Tx, river.JobArgs, *r
 
 func (*failingRiverClient) JobCancel(context.Context, int64) (*rivertype.JobRow, error) {
 	return nil, errors.New("unexpected job cancellation")
+}
+
+type unconfirmedRiverClient struct{ client *river.Client[pgx.Tx] }
+
+func (c *unconfirmedRiverClient) InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	_, err := c.client.InsertTx(ctx, tx, args, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &rivertype.JobInsertResult{}, nil
+}
+
+func (c *unconfirmedRiverClient) JobCancel(ctx context.Context, id int64) (*rivertype.JobRow, error) {
+	return c.client.JobCancel(ctx, id)
 }
 
 func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
