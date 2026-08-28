@@ -1,0 +1,87 @@
+# Mouseion product design
+
+This directory is the durable source of truth for Mouseion's cross-feature user
+experience and reusable interface rules. It describes how accepted product
+behavior is organized and presented to learners; it does not replace feature
+specifications or architecture decision records.
+
+## Document responsibilities
+
+Use the narrowest durable artifact that owns the decision:
+
+- [`../product.md`](../product.md) summarizes the present product and pipeline.
+- [`../features/`](../features/) defines feature behavior, motivation, scope, and
+  acceptance requirements.
+- [`../adr/`](../adr/) records significant product-boundary and architecture
+  decisions and their rationale.
+- This directory defines current information architecture, workflow continuity,
+  terminology, visual and interaction principles, and reusable UI rules.
+- GitHub issues define bounded implementation work. Planning alternatives and
+  unaccepted exploration remain outside the repository, as described by
+  [`../documentation-governance.md`](../documentation-governance.md).
+
+When documents disagree, follow the precedence in [`../../AGENTS.md`](../../AGENTS.md)
+and surface a material conflict rather than silently choosing one.
+
+## Index
+
+### Direction
+
+- [`principles.md`](principles.md) — project design priorities.
+- [`experience-direction.md`](experience-direction.md) — desired product
+  character: a digital scholarly reading desk.
+
+### Product structure
+
+- [`information-architecture.md`](information-architecture.md) — product
+  objects, navigation, route hierarchy, and the role of secondary surfaces.
+- [`terminology.md`](terminology.md) — canonical learner-facing language.
+- [`screen-inventory.md`](screen-inventory.md) — current screens, goals,
+  transitions, and required states.
+
+### Workflows
+
+- [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
+  the core acquisition-to-deck lifecycle and its current route mapping.
+
+Additional workflow documents should be added only when a cross-screen journey
+has durable rules that cannot be understood from the screen inventory and its
+feature specification.
+
+### System
+
+- [`design-system.md`](design-system.md) — current implementation baseline,
+  ownership boundaries, and the work required before Mouseion has a mature
+  reusable design system.
+
+## Required workflow questions
+
+Before changing a workflow, document or confirm:
+
+1. What is the learner trying to accomplish?
+2. What is the starting state and desired outcome?
+3. What is the primary path?
+4. What questions must each screen answer?
+5. Which existing pattern should be reused?
+6. What are the loading, empty, error, disabled, success, historical, and
+   degraded states?
+7. How does the workflow behave with a keyboard, assistive technology, a narrow
+   viewport, delayed JavaScript, or failed enhancement?
+8. Which feature document or ADR owns the underlying product behavior?
+
+## Maintenance rules
+
+Update the relevant design document when a frontend change:
+
+- adds, removes, renames, or reorders a primary destination;
+- changes an end-to-end workflow or the next action after a state transition;
+- introduces or changes learner-facing terminology;
+- introduces a reusable visual or interaction pattern;
+- changes the meaning or presentation of status, progress, errors, empty states,
+  or consequential actions;
+- changes responsive or accessibility behavior shared by more than one screen.
+
+Do not copy complete feature requirements into design documents. Link to the
+owning feature or ADR and document only the cross-feature experience rule. Keep
+screen and workflow documents synchronized with shipped behavior; do not use
+this directory for speculative mockups or session notes.
