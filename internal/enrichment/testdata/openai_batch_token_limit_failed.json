@@ -1,0 +1,40 @@
+{
+  "id": "batch-token-limit",
+  "object": "batch",
+  "endpoint": "/v1/chat/completions",
+  "errors": {
+    "object": "list",
+    "data": [
+      {
+        "code": "token_limit_exceeded",
+        "line": null,
+        "message": "Enqueued token limit reached for the configured model. Please try again once some in_progress batches have been completed.",
+        "param": null
+      }
+    ]
+  },
+  "input_file_id": "file-input",
+  "completion_window": "24h",
+  "status": "failed",
+  "output_file_id": null,
+  "error_file_id": null,
+  "created_at": 1787947200,
+  "in_progress_at": null,
+  "expires_at": 1788033600,
+  "finalizing_at": null,
+  "completed_at": null,
+  "failed_at": 1787947260,
+  "expired_at": null,
+  "cancelling_at": null,
+  "cancelled_at": null,
+  "request_counts": {
+    "total": 0,
+    "completed": 0,
+    "failed": 0
+  },
+  "metadata": {
+    "mouseion_run": "018f64b6-5f2f-7e12-a7a7-832a50f68b7c",
+    "mouseion_chunk": "118f64b6-5f2f-7e12-a7a7-832a50f68b7c",
+    "mouseion_generation": "1"
+  }
+}

@@ -338,6 +338,20 @@ func (s *PostgresStore) FinishPreparedDeckBatchSubmission(ctx context.Context, o
 	return chunk, err
 }
 
+// RetryPreparedDeckBatchSubmission releases a pre-creation provider failure
+// back to pending. It must never be used after CreateBatch may have reached the
+// provider, because that boundary requires ambiguous-submission recovery.
+func (s *PostgresStore) RetryPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token, errorClass, errorCode string) (domain.PreparedDeckBatchChunk, error) {
+	if err := validateBoundedError(errorClass, errorCode); err != nil {
+		return domain.PreparedDeckBatchChunk{}, err
+	}
+	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='pending',error_class=$7,error_code=$8,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND c.input_file_id IS NULL AND c.batch_id IS NULL AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, errorClass, errorCode))
+	if err != nil && errors.Is(err, ErrNotFound) {
+		return chunk, ErrPreparedDeckClaimLost
+	}
+	return chunk, err
+}
+
 // VerifyPreparedDeckBatchSubmissionClaim closes the read/prepare gap before
 // the external boundary. Cancellation or supersession that wins first makes
 // the provider call ineligible.

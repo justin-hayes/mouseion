@@ -122,6 +122,7 @@ type BatchUsage struct {
 
 type BatchIssue struct {
 	Class ProviderErrorClass
+	Code  string
 	Line  int
 }
 
@@ -457,7 +458,7 @@ func (w batchWire) batch() (Batch, error) {
 	if w.Errors != nil {
 		result.Errors = make([]BatchIssue, len(w.Errors.Data))
 		for i, issue := range w.Errors.Data {
-			result.Errors[i] = BatchIssue{Class: classifyProviderCode(issue.Code), Line: issue.Line}
+			result.Errors[i] = BatchIssue{Class: classifyProviderCode(issue.Code), Code: boundedProviderIssueCode(issue.Code), Line: issue.Line}
 		}
 	}
 	return result, nil
@@ -542,6 +543,8 @@ func classifyProviderCode(code string) ProviderErrorClass {
 		return ProviderErrorExpired
 	case normalized == "batch_cancelled":
 		return ProviderErrorCancelled
+	case normalized == "token_limit_exceeded":
+		return ProviderErrorRateLimit
 	case normalized == "request_timeout" || strings.Contains(normalized, "timeout"):
 		return ProviderErrorTimeout
 	case strings.Contains(normalized, "rate_limit"):
@@ -553,6 +556,14 @@ func classifyProviderCode(code string) ProviderErrorClass {
 	default:
 		return ProviderErrorRequestFailed
 	}
+}
+
+func boundedProviderIssueCode(code string) string {
+	normalized := strings.ToLower(strings.TrimSpace(code))
+	if normalized == "token_limit_exceeded" {
+		return normalized
+	}
+	return string(classifyProviderCode(normalized))
 }
 
 func privacySafeFilename(filename string) bool {

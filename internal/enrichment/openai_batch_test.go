@@ -133,6 +133,26 @@ func TestOpenAIBatchClientAcceptsRealisticValidatingFixture(t *testing.T) {
 	}
 }
 
+func TestOpenAIBatchClientClassifiesQueuedTokenValidationFailure(t *testing.T) {
+	fixture, err := os.ReadFile("testdata/openai_batch_token_limit_failed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(fixture)
+	}))
+	defer server.Close()
+	client := newStubbedBatchClient(t, server)
+	batch, err := client.GetBatch(context.Background(), "batch-token-limit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch.Status != BatchStatusFailed || len(batch.Errors) != 1 || batch.Errors[0].Class != ProviderErrorRateLimit || batch.Errors[0].Code != "token_limit_exceeded" {
+		t.Fatalf("queued-token Batch=%+v", batch)
+	}
+}
+
 func TestOpenAIBatchClientRejectsIneligibleEndpoints(t *testing.T) {
 	for _, baseURL := range []string{
 		"http://api.openai.com/v1",

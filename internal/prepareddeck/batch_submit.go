@@ -157,6 +157,9 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	filename := fmt.Sprintf("batch_%s.jsonl", claimed.ID)
 	inputFile, err := w.Provider.UploadFile(ctx, filename, content)
 	if err != nil {
+		if temporaryProviderError(err) {
+			return w.snoozeAfterSubmissionError(ctx, args, claimToken, providerErrorCode(err))
+		}
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "upload", providerErrorCode(err))
 	}
 	if inputFile.ID == "" || inputFile.Bytes != claimed.InputBytes {
@@ -213,6 +216,17 @@ func (w *BatchSubmitWorker) finishSubmissionFailure(ctx context.Context, args Ba
 		return nil
 	}
 	return err
+}
+
+func (w *BatchSubmitWorker) snoozeAfterSubmissionError(ctx context.Context, args BatchSubmitJobArgs, token, code string) error {
+	_, err := w.Store.RetryPreparedDeckBatchSubmission(context.WithoutCancel(ctx), args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, "upload", boundedProviderCode(code))
+	if errors.Is(err, persistence.ErrPreparedDeckClaimLost) || errors.Is(err, persistence.ErrInvalidTransition) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return river.JobSnooze(DefaultBatchPollInterval)
 }
 
 func (w *BatchSubmitWorker) advanceIfTerminal(ctx context.Context, args BatchSubmitJobArgs) error {
@@ -313,6 +327,11 @@ func providerErrorCode(err error) string {
 	return "provider_error"
 }
 
+func temporaryProviderError(err error) bool {
+	var providerErr *enrichment.ProviderError
+	return errors.As(err, &providerErr) && providerErr.Temporary()
+}
+
 func boundedProviderCode(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
@@ -322,7 +341,7 @@ func boundedProviderCode(value string) string {
 	// used by our bounded classifiers; sanitized arbitrary provider strings can
 	// still contain request IDs or other credential/source-derived data.
 	switch value {
-	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "provider_5xx", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "contradictory_result", "delete_file",
+	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "token_limit_exceeded", "provider_5xx", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "contradictory_result", "delete_file",
 		"cache_lookup", "run_load", "frozen_contract", "manifest_load", "outcome_load", "chunk_membership", "chunk_changed", "serialized_chunk", "creation_unconfirmed", "file_contract", "create_response_lost", "create_contract", "poll_dispatch_unavailable",
 		"unsupported_status", "batch_identity", "missing_provider_file", "contradictory_counts", "missing_custom_id", "retry_plan":
 		return value

@@ -127,6 +127,23 @@ func TestBatchFailureClassesChooseBoundedRetryAndTerminalOutcomes(t *testing.T) 
 	}
 }
 
+func TestRetryableFailedBatchUsesBoundedItemReconciliation(t *testing.T) {
+	batch := enrichment.Batch{
+		Status: enrichment.BatchStatusFailed,
+		Errors: []enrichment.BatchIssue{{Class: enrichment.ProviderErrorRateLimit, Code: "token_limit_exceeded"}},
+	}
+	if terminalBatchFailsRun(batch) {
+		t.Fatal("retryable provider Batch validation failure would fail the whole run")
+	}
+	if got := terminalBatchErrorCode(batch); got != "token_limit_exceeded" {
+		t.Fatalf("durable diagnostic=%q", got)
+	}
+	batch.Errors[0] = enrichment.BatchIssue{Class: enrichment.ProviderErrorInvalidRequest, Code: "invalid_request"}
+	if !terminalBatchFailsRun(batch) {
+		t.Fatal("permanent Batch validation failure was made retryable")
+	}
+}
+
 func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
 	if err != nil {
