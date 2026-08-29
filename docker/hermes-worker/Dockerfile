@@ -29,7 +29,7 @@ ENV GOPATH=/opt/go \
 COPY --from=go-toolchain /usr/local/go /usr/local/go
 
 # Create the non-root runtime user. The base image already ships a user at
-# uid 1000 (the `node` user), so use a unique uid. For a host-mounted
+# uid 1000 (the `pn` user), so use a unique uid. For a host-mounted
 # /workspace to stay writable, Hermes should run the container as the host
 # user (docker_run_as_host_user: true) rather than relying on a uid match.
 # We give it a real shell because Hermes' docker backend spawns a persistent
