@@ -198,7 +198,7 @@ func FrozenRequests(codec *enrichment.TranslationCodec, f Fixture, runID string,
 		if fItem, _ := f.item(item.Ordinal); fItem.CacheHit {
 			continue
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
 	}
 	requests := make([]RequestFixture, 0, len(items))
 	for _, item := range items {
@@ -357,7 +357,7 @@ func decodeFixedSync(ctx context.Context, codec *enrichment.TranslationCodec, f 
 		if err != nil {
 			return nil, Metrics{}, err
 		}
-		decoded, err := codec.DecodeResponse(enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}, body)
+		decoded, err := codec.DecodeResponse(enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}, body)
 		if err != nil {
 			metrics.ValidationFailures++
 			return nil, Metrics{}, err

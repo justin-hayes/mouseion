@@ -391,7 +391,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		if provider != "" {
 			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: targetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash}
 		}
-		calculated, digestErr := cardexport.CandidateDigest(item)
+		calculated, digestErr := cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
 		if digestErr != nil || calculated != candidateDigest {
 			return snapshot, "", ErrPreparedDeckIdentity
 		}

@@ -36,7 +36,7 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantDigest = "1e8f4112b54cb863b2beba9e2a6be9715f3e9e468fecedee2165d8937cb2c50c"
+	const wantDigest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
 	if digest != wantDigest {
 		t.Fatalf("digest=%q want=%q", digest, wantDigest)
 	}

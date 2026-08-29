@@ -83,7 +83,7 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	// A second user's identity cannot affect the shared key because it is not
 	// accepted by either Candidate identity or TranslationRequest.
 	second := s.Enrich(context.Background(), []Candidate{c})[0]
-	want := TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
+	want := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	if len(provider.requests) != 1 || provider.requests[0] != want {
 		t.Fatalf("requests=%+v", provider.requests)
 	}

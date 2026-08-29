@@ -133,7 +133,7 @@ func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnap
 			}
 		}
 		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{
-			Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
+			Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
 			TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence,
 		}})
 	}

@@ -60,7 +60,7 @@ type PronunciationProvider interface {
 
 // TranslationRequest is deliberately the complete external-provider input.
 // Adding user, document, corpus, or reading metadata to it is prohibited.
-type TranslationRequest struct{ Language, CanonicalLemma, UPOS, TargetWord, ExampleSentence string }
+type TranslationRequest struct{ Language, TargetLanguage, CanonicalLemma, UPOS, TargetWord, ExampleSentence string }
 type TranslationResponse struct {
 	Translation               string `json:"translation"`
 	Gloss                     string `json:"gloss"`
@@ -332,7 +332,7 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 	if target == "" {
 		target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
 	}
-	req := TranslationRequest{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
+	req := TranslationRequest{Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS)}
 	if sentence != "" {
 		req.TargetWord = target
 	}
