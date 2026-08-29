@@ -15,6 +15,10 @@ import (
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
+	@ShellLayout(title, user, csrf, navigationContextForTitle(title))
+}
+
+templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-2.0.7.min.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -107,16 +111,16 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
     target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
   }
 };
-</script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav aria-label="Primary navigation"><ul><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+</script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
-		<ul>
-		<li><a href="/library">My Library</a></li><li><a href="/campaigns">Learning</a></li><li><a href="/connections">Add books</a></li><li><a href="/settings">Settings</a></li>
+		<ul class="site-header__navigation">
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Library</a></li><li><a href="/campaigns" { destinationAttributes(context, NavigationLearning)... }>Learning</a></li><li><a href="/connections" { acquisitionAttributes(context)... }>Add books</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
-	@Layout("My Library", &user, csrf) {
+	@ShellLayout("My Library", &user, csrf, NavigationLibrary) {
 		@PageHeader("My Library", "Track each book's next step from scope review to learning.", nil) {
 			<a role="button" href="/connections">Add a book</a>
 		}
@@ -143,7 +147,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	}
 }
 templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string) {
-	@Layout("Learning", &user, csrf) {
+	@ShellLayout("Learning", &user, csrf, NavigationLearning) {
 		@PageHeader("Learning campaigns", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
 		}
@@ -235,7 +239,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 	@BookPageWithHistory(user, csrf, book, coverage, statisticsUnavailable, nil, message)
 }
 templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string) {
-	@Layout(book.Source.Title, &user, csrf) {
+	@ShellLayout(book.Source.Title, &user, csrf, NavigationLibrary) {
 	@Breadcrumb("/library", "My Library")
 	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
 		@LifecycleActionControl(bookLifecycleActionFor(book, history), csrf)
@@ -339,7 +343,7 @@ templ AnalysisResultPage(user domain.User, csrf string, result analysis.Complete
 }
 
 templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, preparation *domain.DeckPreparation) {
-	@Layout("Analysis result · "+result.Source.Title, &user, csrf) {
+	@ShellLayout("Analysis result · "+result.Source.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/books/"+result.Source.ID, result.Source.Title)
 		@PageHeader("Analysis result", result.Source.Title+" · "+result.Source.Language, StatusBadge("Completed", StatusSuccess))
 		<div class="data-width analysis-result">
@@ -452,7 +456,7 @@ templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result an
 }
 
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string) {
-	@Layout("Deck preparation", &user, csrf) {
+	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
 		if resultURL != "" {
 			@Breadcrumb(resultURL, "Analysis result")
 		} else {
@@ -499,7 +503,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 }
 
 templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, pageError string, selectedCSV string) {
-	@Layout("Review analysis scope", &user, csrf) {
+	@ShellLayout("Review analysis scope", &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/books/"+review.Book.ID, review.Book.Title)
 		@PageHeader("Review analysis scope", "Choose the readable EPUB units that should be used by a future analysis.", nil)
 		if pageError != "" {
@@ -732,7 +736,7 @@ templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile
 	@Layout("Dashboard", &user, csrf) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
 templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	@Layout("Settings", &user, csrf) {
+	@ShellLayout("Settings", &user, csrf, NavigationSettings) {
 	@PageHeader("Account settings", "Choose the languages you study and optionally import words you already know for each one.", nil)
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
@@ -768,7 +772,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
-	@Layout("Add books", &user, csrf) { <h1>Add books</h1>
+	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) { <h1>Add books</h1>
 	<p>Configure your OPDS catalogs, then browse them to add EPUB books to My Library. Credentials are encrypted at rest and private to your account.</p>
 	if message != "" {
 		<p role="status">{ message }</p>
@@ -784,7 +788,7 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 	</div> }
 }
 templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool) {
-	@Layout(connection.Name, &user, csrf) { <p><a href="/connections">← Catalog connections</a></p><header class="page-heading"><div><h1>{ connection.Name }</h1><p>Browse collections or search for a book to import and analyze.</p></div></header>
+	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) { <p><a href="/connections">← Catalog connections</a></p><header class="page-heading"><div><h1>{ connection.Name }</h1><p>Browse collections or search for a book to import and analyze.</p></div></header>
 	if degraded {
 		<p role="alert">NLP language discovery is temporarily unavailable. Catalog browsing and import are paused.</p>
 	} else if len(languages) > 0 {
@@ -905,7 +909,7 @@ templ AcquisitionFailureCard(csrf, connectionID, language, returnTo, message str
 	<article><h3>{ entry.Title }</h3><p role="alert">{ message }</p>@AcquisitionForm(csrf, connectionID, language, returnTo, entry, href)</article>
 }
 templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
-	@Layout("Jobs", &user, csrf) {
+	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
 		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
@@ -933,7 +937,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	}
 }
 templ JobPage(user domain.User, csrf string, status analysis.Status) {
-	@Layout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf) {
+	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
 		@JobStatus(csrf, status)
 	}
@@ -970,7 +974,7 @@ templ KnownVocabPage(user domain.User, csrf string, profiles []domain.LanguagePr
 	@KnownVocabPageWithResult(user, csrf, profiles, language, nil, known, "")
 }
 templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	@Layout("Known vocabulary", &user, csrf) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
+	@ShellLayout("Known vocabulary", &user, csrf, NavigationSettings) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
 	<article><form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-encoding="multipart/form-data" hx-target="#known-vocab-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>Language code<input name="language" value={ language } list="study-languages" placeholder="de" required/></label><datalist id="study-languages">
 	for _, profile := range profiles {
 		<option value={ profile.Language }>{ profile.DisplayName }</option>

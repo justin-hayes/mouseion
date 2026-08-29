@@ -69,6 +69,49 @@ body {
   transform: translateY(0);
 }
 
+.site-header {
+  padding-block: var(--mouseion-space-3);
+}
+
+.site-header__nav {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.site-header__brand,
+.site-header__navigation {
+  align-items: center;
+}
+
+.site-header__navigation {
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+}
+
+.site-nav__link,
+.site-nav__action {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.site-nav__link--current,
+.site-nav__action--current {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 0.15em;
+  text-underline-offset: 0.25em;
+}
+
+.site-nav__action {
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-1) var(--mouseion-space-2);
+}
+
+.site-nav__action--current {
+  background: var(--mouseion-color-surface-raised);
+}
+
 #main-content:focus-visible {
   outline: var(--mouseion-focus-width) solid var(--mouseion-color-focus);
   outline-offset: var(--mouseion-space-2);
@@ -592,6 +635,19 @@ section[aria-labelledby="campaign-history-heading"] {
 
 /* Compact: content no longer fits comfortably side by side. */
 @media (max-width: 40rem) {
+  .site-header__nav {
+    align-items: stretch;
+  }
+
+  .site-header__brand,
+  .site-header__navigation {
+    width: 100%;
+  }
+
+  .site-header__navigation {
+    gap: var(--mouseion-space-1) var(--mouseion-space-2);
+  }
+
   .page-header,
   .page-heading,
   .library-list article,
