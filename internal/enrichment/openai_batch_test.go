@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
@@ -43,7 +44,9 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 			if header.Filename != "run-opaque.jsonl" || string(content) != "{\"custom_id\":\"opaque\"}\n" {
 				t.Errorf("filename=%q content=%q", header.Filename, content)
 			}
-			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch"}`)
+			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"uploaded"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-input":
+			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"processed"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-output/content":
 			w.Header().Set("Content-Type", "application/jsonl")
 			_, _ = io.WriteString(w, "result-line\n")
@@ -108,8 +111,86 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 	if err != nil || cancelled.Status != BatchStatusCancelling {
 		t.Fatalf("cancelled=%+v err=%v", cancelled, err)
 	}
-	if len(operations) != 7 {
+	if len(operations) != 8 {
 		t.Fatalf("operations=%v", operations)
+	}
+}
+
+func TestOpenAIBatchClientWaitsForFileProcessing(t *testing.T) {
+	var fileGets int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
+			_, _ = io.WriteString(w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-pending":
+			fileGets++
+			status := "pending"
+			if fileGets == 2 {
+				status = "processed"
+			}
+			_, _ = fmt.Fprintf(w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":%q}`, status)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newStubbedBatchClient(t, server)
+	file, err := client.UploadFile(context.Background(), "run.jsonl", strings.NewReader("{\"custom_id\":\"opaque\"}\n"))
+	if err != nil || file.Status != "processed" || fileGets != 2 {
+		t.Fatalf("file=%+v gets=%d err=%v", file, fileGets, err)
+	}
+}
+
+func TestOpenAIBatchClientReportsFileProcessingFailureWithoutProviderDetails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
+			_, _ = io.WriteString(w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-error":
+			_, _ = io.WriteString(w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"error","status_details":"private source text"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newStubbedBatchClient(t, server)
+	_, err := client.UploadFile(context.Background(), "run.jsonl", strings.NewReader("x"))
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) || providerErr.Class != ProviderErrorFileProcessing || providerErr.Operation != "wait for file processing" {
+		t.Fatalf("err=%v", err)
+	}
+	for _, forbidden := range []string{"file-error", "private", "source"} {
+		if strings.Contains(err.Error(), forbidden) {
+			t.Fatalf("error leaked %q: %v", forbidden, err)
+		}
+	}
+}
+
+func TestOpenAIBatchClientTimesOutWaitingForFileProcessing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
+			_, _ = io.WriteString(w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-timeout":
+			_, _ = io.WriteString(w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"pending"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newStubbedBatchClient(t, server)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	_, err := client.UploadFile(ctx, "run.jsonl", strings.NewReader("x"))
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) || providerErr.Class != ProviderErrorTimeout || providerErr.Operation != "wait for file processing" {
+		t.Fatalf("err=%v", err)
 	}
 }
 

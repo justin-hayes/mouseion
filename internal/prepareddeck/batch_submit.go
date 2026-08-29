@@ -341,7 +341,7 @@ func boundedProviderCode(value string) string {
 	// used by our bounded classifiers; sanitized arbitrary provider strings can
 	// still contain request IDs or other credential/source-derived data.
 	switch value {
-	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "token_limit_exceeded", "provider_5xx", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "contradictory_result", "delete_file",
+	case "invalid_request", "ineligible_endpoint", "authentication", "permission", "rate_limit", "token_limit_exceeded", "provider_5xx", "timeout", "provider_unavailable", "transport", "malformed_response", "response_too_large", "invalid_translation_response", "expired", "cancelled", "request_failed", "file_processing_failed", "validating", "in_progress", "finalizing", "cancelling", "missing_result", "duplicate_result", "unknown_result", "malformed_result", "contradictory_result", "delete_file",
 		"cache_lookup", "run_load", "frozen_contract", "manifest_load", "outcome_load", "chunk_membership", "chunk_changed", "serialized_chunk", "creation_unconfirmed", "file_contract", "create_response_lost", "create_contract", "poll_dispatch_unavailable",
 		"unsupported_status", "batch_identity", "missing_provider_file", "contradictory_counts", "missing_custom_id", "retry_plan":
 		return value

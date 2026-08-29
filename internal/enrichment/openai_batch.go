@@ -22,6 +22,9 @@ const (
 	openAIBatchFileExpiration     = 7 * 24 * time.Hour
 	maxOpenAIJSONResponseBytes    = 4 << 20
 	maxOpenAIBatchFileBytes       = 200 << 20
+	openAIFileReadyTimeout        = 30 * time.Second
+	openAIFileInitialPollInterval = 250 * time.Millisecond
+	openAIFileMaxPollInterval     = 2 * time.Second
 )
 
 var errBatchFileTooLarge = errors.New("Batch file exceeds provider limit")
@@ -46,6 +49,7 @@ const (
 	ProviderErrorExpired            ProviderErrorClass = "expired"
 	ProviderErrorCancelled          ProviderErrorClass = "cancelled"
 	ProviderErrorRequestFailed      ProviderErrorClass = "request_failed"
+	ProviderErrorFileProcessing     ProviderErrorClass = "file_processing_failed"
 )
 
 // ProviderError omits URLs, object IDs, provider bodies, credentials, prompts,
@@ -104,6 +108,7 @@ type OpenAIFile struct {
 	ExpiresAt int64  `json:"expires_at,omitempty"`
 	Filename  string `json:"filename"`
 	Purpose   string `json:"purpose"`
+	Status    string `json:"status"`
 }
 
 type OpenAIFileDeletion struct {
@@ -232,10 +237,95 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 	if err != nil {
 		return OpenAIFile{}, err
 	}
-	if file.ID == "" || file.Object != "file" || file.Purpose != "batch" || file.Bytes < 0 || file.Bytes > maxOpenAIBatchFileBytes {
+	if !validOpenAIFile(file) {
 		return OpenAIFile{}, providerError("upload file", ProviderErrorMalformedResponse, 0, nil)
 	}
+	return c.waitForFileReady(ctx, file)
+}
+
+// GetFile returns a Batch input file using the same authenticated client that
+// uploaded it. File processing is asynchronous, so callers must not infer
+// Batch readiness from the upload response alone.
+func (c *OpenAIBatchClient) GetFile(ctx context.Context, fileID string) (OpenAIFile, error) {
+	if c == nil || !validProviderObjectID(fileID) {
+		return OpenAIFile{}, providerError("get file", ProviderErrorInvalidRequest, 0, nil)
+	}
+	req, err := c.newRequest(ctx, http.MethodGet, "/files/"+url.PathEscape(fileID), nil)
+	if err != nil {
+		return OpenAIFile{}, err
+	}
+	var file OpenAIFile
+	if err = c.doJSON(req, "get file", &file); err != nil {
+		return OpenAIFile{}, err
+	}
+	if !validOpenAIFile(file) {
+		return OpenAIFile{}, providerError("get file", ProviderErrorMalformedResponse, 0, nil)
+	}
 	return file, nil
+}
+
+func validOpenAIFile(file OpenAIFile) bool {
+	if file.ID == "" || file.Object != "file" || file.Purpose != "batch" || file.Bytes < 0 || file.Bytes > maxOpenAIBatchFileBytes {
+		return false
+	}
+	switch file.Status {
+	case "uploaded", "pending", "processed", "error":
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *OpenAIBatchClient) waitForFileReady(ctx context.Context, uploaded OpenAIFile) (OpenAIFile, error) {
+	pollCtx, cancel := context.WithTimeout(ctx, openAIFileReadyTimeout)
+	defer cancel()
+
+	interval := openAIFileInitialPollInterval
+	for {
+		file, err := c.GetFile(pollCtx, uploaded.ID)
+		if err != nil {
+			if errors.Is(pollCtx.Err(), context.DeadlineExceeded) {
+				return OpenAIFile{}, fileReadinessTimeoutError()
+			}
+			if !temporaryOpenAIError(err) {
+				return OpenAIFile{}, err
+			}
+		} else {
+			switch file.Status {
+			case "processed":
+				return file, nil
+			case "error":
+				return OpenAIFile{}, providerError("wait for file processing", ProviderErrorFileProcessing, 0, errors.New("provider reported terminal file processing failure"))
+			}
+		}
+
+		timer := time.NewTimer(interval)
+		select {
+		case <-pollCtx.Done():
+			if errors.Is(pollCtx.Err(), context.DeadlineExceeded) {
+				timer.Stop()
+				return OpenAIFile{}, fileReadinessTimeoutError()
+			}
+			timer.Stop()
+			return OpenAIFile{}, providerError("wait for file processing", ProviderErrorTransport, 0, pollCtx.Err())
+		case <-timer.C:
+		}
+		if interval < openAIFileMaxPollInterval {
+			interval *= 2
+			if interval > openAIFileMaxPollInterval {
+				interval = openAIFileMaxPollInterval
+			}
+		}
+	}
+}
+
+func fileReadinessTimeoutError() error {
+	return providerError("wait for file processing", ProviderErrorTimeout, 0, errors.New("file processing did not complete before the provider readiness deadline"))
+}
+
+func temporaryOpenAIError(err error) bool {
+	var providerErr *ProviderError
+	return errors.As(err, &providerErr) && providerErr.Temporary()
 }
 
 func writeBatchMultipart(writer *multipart.Writer, filename string, content io.Reader) error {
