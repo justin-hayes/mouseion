@@ -178,7 +178,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 }
 
 func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) ([]preparedDeckBatchMember, error) {
-	rows, err := tx.Query(ctx, `SELECT ci.ordinal,mi.language,mi.canonical_lemma,mi.upos,COALESCE(mi.provider,''),COALESCE(mi.provider_version,''),COALESCE(mi.sentence_hash,'') FROM deck_preparation_batch_chunk_items ci JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal WHERE ci.owner_id=$1 AND ci.preparation_id=$2 AND ci.run_id=$3 AND ci.chunk_id=$4 ORDER BY ci.position`, params.OwnerID, params.PreparationID, params.RunID, params.ChunkID)
+	rows, err := tx.Query(ctx, `SELECT ci.ordinal,mi.language,mi.canonical_lemma,mi.upos,COALESCE(mi.target_language,''),COALESCE(mi.provider,''),COALESCE(mi.provider_version,''),COALESCE(mi.sentence_hash,'') FROM deck_preparation_batch_chunk_items ci JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal WHERE ci.owner_id=$1 AND ci.preparation_id=$2 AND ci.run_id=$3 AND ci.chunk_id=$4 ORDER BY ci.position`, params.OwnerID, params.PreparationID, params.RunID, params.ChunkID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +186,10 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 	var members []preparedDeckBatchMember
 	for rows.Next() {
 		var member preparedDeckBatchMember
-		if err = rows.Scan(&member.Ordinal, &member.Key.Language, &member.Key.CanonicalLemma, &member.Key.UPOS, &member.Key.Provider, &member.Key.ProviderVersion, &member.Key.SentenceHash); err != nil {
+		if err = rows.Scan(&member.Ordinal, &member.Key.Language, &member.Key.CanonicalLemma, &member.Key.UPOS, &member.Key.TargetLanguage, &member.Key.Provider, &member.Key.ProviderVersion, &member.Key.SentenceHash); err != nil {
 			return nil, err
 		}
-		if member.Key.Provider == "" || member.Key.ProviderVersion == "" {
+		if member.Key.Provider == "" || member.Key.ProviderVersion == "" || member.Key.TargetLanguage == "" {
 			return nil, ErrPreparedDeckIdentity
 		}
 		members = append(members, member)
