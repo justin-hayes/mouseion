@@ -278,7 +278,17 @@ current operational logging policy permits it.
 | Status/UI | `internal/persistence/prepared_deck_status.go`; `internal/webapp/webapp.go`; `views.templ` and generated file/tests | Expose execution mode and mode-aware phases/counts; remove Batch language from standard jobs. |
 | Metrics/smoke | `internal/prepareddeck/metrics.go`; `cmd/batch-validation`; new/extended validation command; `doc/reports/` | Generalize metrics and add an explicit paid standard-path smoke/report workflow plus APKG compatibility check. |
 
-## Dependency waves
+## Implementation issues and dependency waves
+
+| Wave | Issue | Purpose | Depends on |
+|---|---|---|---|
+| 1 | [#403](https://github.com/justin-hayes/mouseion/issues/403) | Freeze executor mode and target-language cache identity. | ADR 0032 acceptance |
+| 1 | [#404](https://github.com/justin-hayes/mouseion/issues/404) | Version the strict item-correlated translation codec. | ADR 0032 acceptance |
+| 2 | [#405](https://github.com/justin-hayes/mouseion/issues/405) | Select standard by default and dispatch durable scalar work. | #403, #404 |
+| 3 | [#406](https://github.com/justin-hayes/mouseion/issues/406) | Execute standard item requests with persisted retries/recovery. | #403, #404, #405 |
+| 4 | [#407](https://github.com/justin-hayes/mouseion/issues/407) | Enforce complete translated APKGs and expose honest progress. | #403, #405, #406 |
+| 5 | [#408](https://github.com/justin-hayes/mouseion/issues/408) | Add mode-neutral telemetry, safe validation tooling, and reconcile current-state docs. | #404, #406, #407 |
+| 6 | [#409](https://github.com/justin-hayes/mouseion/issues/409) | Run the paid real-provider smoke and validate the APKG. | #404, #406, #407, #408 |
 
 ### Wave 0 — decision review
 
