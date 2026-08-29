@@ -32,6 +32,7 @@ var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrActiveCampaign = errors.New("persistence: owner already has an active learning campaign")
+var ErrStaleCampaignState = errors.New("persistence: learning campaign state is stale")
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")

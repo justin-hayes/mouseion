@@ -146,7 +146,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 		}
 	}
 }
-templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string) {
+templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string, activeCampaignID string) {
 	@ShellLayout("Learning", &user, csrf, NavigationLearning) {
 		@PageHeader("Learning campaigns", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
@@ -156,10 +156,13 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
+			if activeCampaignID != "" {
+				<p><a href={ templ.SafeURL("#"+campaignAnchorID(activeCampaignID)) }>Return to the active campaign</a></p>
+			}
 		}
 		<section aria-labelledby="active-campaign-heading"><h2 id="active-campaign-heading">Active campaign</h2>
 			if !hasCampaignStatus(campaigns, domain.CampaignActive) {
-				<p>No campaign is active. Start one from your queue below.</p>
+				<p>No campaign is active. Only one campaign can be active at a time; start one from your queue below.</p>
 			}
 			for _, item := range campaigns {
 				if item.Campaign.Status == domain.CampaignActive {
@@ -167,6 +170,13 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 				}
 			}
 		</section>
+		if len(prepared) > 0 {
+			<section aria-labelledby="prepared-books-heading"><h2 id="prepared-books-heading">Prepared books and decks ready to add</h2><p>These eligible prepared decks are actions, not queued or known vocabulary. Add one to the learning queue when you are ready.</p><div class="campaign-list">
+				for _, item := range prepared {
+					<article class="resource-card"><div><h3>{ item.Book.Source.Title }</h3><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
+				}
+			</div></section>
+		}
 		<section aria-labelledby="campaign-queue-heading"><h2 id="campaign-queue-heading">Queue</h2>
 			if !hasCampaignStatus(campaigns, domain.CampaignQueued) {
 				<p>Your learning queue is empty.</p>
@@ -177,13 +187,6 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 				}
 			}
 		</section>
-		if len(prepared) > 0 {
-			<section aria-labelledby="prepared-books-heading"><h2 id="prepared-books-heading">Prepared books</h2><p>Add a ready book and deck to your learning queue.</p><div class="campaign-list">
-				for _, item := range prepared {
-					<article class="resource-card"><div><h3>{ item.Book.Source.Title }</h3><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
-				}
-			</div></section>
-		}
 		<section aria-labelledby="campaign-history-heading"><h2 id="campaign-history-heading">History</h2>
 			if !hasCampaignHistory(campaigns) {
 				<p>No completed or abandoned campaigns yet.</p>
@@ -197,43 +200,71 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 	}
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article class="resource-card campaign-card"><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
 	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
 		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
 	}
 	if item.Campaign.CompletedAt != nil {
 		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
 	}
+	if item.Campaign.Status == domain.CampaignQueued {
+		<p class="campaign-queue-position"><strong>Queue position:</strong> <span class="numeric">{ fmt.Sprintf("%d", item.QueuePosition) }</span></p><p>Queued behind the single active campaign. Starting reserves this campaign's assigned vocabulary for learning; it is not counted as known.</p>
+	}
+	if item.Campaign.Status == domain.CampaignComplete {
+		<p>Assigned vocabulary was graduated to known vocabulary. Generated provenance and this prepared deck remain available.</p>
+	}
+	if item.Campaign.Status == domain.CampaignAbandoned {
+		<p>This campaign remains in history with its book and prepared deck. Ungraduated vocabulary is eligible again unless independently known.</p>
+	}
 	<p><a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download prepared deck</a></p></div>
 	if activatable {
-		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Start learning</button></form>
+		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Start learning</button></form>
 	}
-	if item.Campaign.Status == domain.CampaignActive {
+	if item.Campaign.Status == domain.CampaignActive || item.Campaign.Status == domain.CampaignQueued {
+		if item.Campaign.Status == domain.CampaignActive {
+		<section aria-labelledby={ campaignAnchorID("remaining-"+item.Campaign.ID) } class="campaign-remaining"><h4 id={ campaignAnchorID("remaining-"+item.Campaign.ID) }>Remaining before completion</h4><ul>
+			<li>Book: { campaignBookLabel(item.Campaign.BookProgress) }{ campaignRemainingBookText(item.Campaign.BookProgress) }</li>
+			<li>Deck: { campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignRemainingDeckText(item.Campaign.DeckProgress) }</li>
+		</ul><p>When both conditions are finished, Mouseion adds the campaign's assigned vocabulary to known vocabulary while preserving generated provenance, recalculating coverage and queue projections, and making no claim about mastery or a spaced-repetition grade.</p></section>
+		}
 		@ActionGroup() {
+			if item.Campaign.Status == domain.CampaignActive {
 			if item.Campaign.BookProgress != domain.BookFinished {
 				if item.Campaign.DeckProgress == domain.DeckReviewed {
-					@Confirmation("Mark book finished and complete campaign", "Completing this campaign adds its assigned vocabulary to known vocabulary and cannot currently be undone in Mouseion.", StatusNeutral) {
-						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Complete campaign</button></form>
+					@Confirmation(campaignCompletionLabel(item), "Review this consequential transition before submitting.", StatusNeutral) {
+						@CampaignCompletionDetails(item)
+						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>{ campaignCompletionLabel(item) }</button></form>
 					}
 				} else {
-					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark book finished</button></form>
+					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Mark book finished — campaign remains active</button></form>
 				}
 			}
 			if item.Campaign.DeckProgress != domain.DeckReviewed {
 				if item.Campaign.BookProgress == domain.BookFinished {
-					@Confirmation("Mark deck reviewed and complete campaign", "Completing this campaign adds its assigned vocabulary to known vocabulary and cannot currently be undone in Mouseion.", StatusNeutral) {
-						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Complete campaign</button></form>
+					@Confirmation(campaignCompletionLabel(item), "Review this consequential transition before submitting.", StatusNeutral) {
+						@CampaignCompletionDetails(item)
+						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>{ campaignCompletionLabel(item) }</button></form>
 					}
 				} else {
-					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Mark deck reviewed</button></form>
+					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Mark deck reviewed — campaign remains active</button></form>
 				}
 			}
-			@Confirmation("Abandon campaign", "The prepared deck and learning history remain available. Reserved vocabulary is released for future decks.", StatusDanger) {
-				<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Confirm abandonment</button></form>
+			}
+			@Confirmation("Abandon campaign", "This abandons the campaign without deleting it. The book, prepared deck, generated provenance, and campaign history remain available; any active reservation is released and its vocabulary can be eligible for future decks again unless independently known.", StatusDanger) {
+				<p>Book: { item.Book.Source.Title } · Prepared deck: { item.Deck.DeckName }</p><p>Abandonment is not deletion, and there is no completion or mastery claim.</p>
+				<p>{ campaignAbandonmentOutcome(item.Campaign.Status) }</p>
+				<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button class="outline">Confirm abandonment</button></form>
 			}
 		}
 	}
 	</article>
+}
+
+templ CampaignCompletionDetails(item campaignView) {
+		<dl class="metadata-list"><div><dt>Book</dt><dd>{ item.Book.Source.Title } — Finished</dd></div><div><dt>Prepared deck</dt><dd>{ item.Deck.DeckName } — Reviewed</dd></div></dl>
+		<p>{ campaignGraduationOutcome(item) }</p>
+		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage and future queue projections will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
+		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
 	@BookPageWithHistory(user, csrf, book, coverage, statisticsUnavailable, nil, message)

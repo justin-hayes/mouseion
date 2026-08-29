@@ -1172,20 +1172,24 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 		t.Fatalf("activate without csrf=%d", got.Code)
 	}
 	activate := func(campaign domain.LearningCampaign) {
-		response := perform(t, h, "POST", "/campaigns/"+campaign.ID+"/activate", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+		response := perform(t, h, "POST", "/campaigns/"+campaign.ID+"/activate", campaignForm(aliceCSRF, campaign), aliceCookies)
 		if response.Code != http.StatusSeeOther {
 			t.Fatalf("activate %s=%d %s", campaign.ID, response.Code, response.Body.String())
 		}
 	}
 	activate(completedCampaign)
-	conflict := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/activate", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	stale := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", campaignForm(aliceCSRF, completedCampaign), aliceCookies)
+	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "changed+since+this+page+was+loaded") {
+		t.Fatalf("stale campaign form=%d location=%q", stale.Code, stale.Header().Get("Location"))
+	}
+	conflict := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/activate", campaignForm(aliceCSRF, abandonedCampaign), aliceCookies)
 	if conflict.Code != http.StatusSeeOther || !strings.Contains(conflict.Header().Get("Location"), "Finish+or+abandon") {
 		t.Fatalf("second active=%d location=%q", conflict.Code, conflict.Header().Get("Location"))
 	}
 	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", nil, aliceCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("finish book without csrf=%d", got.Code)
 	}
-	finished := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	finished := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", campaignForm(aliceCSRF, domain.LearningCampaign{ID: completedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying}), aliceCookies)
 	if finished.Code != http.StatusSeeOther || !strings.Contains(finished.Header().Get("Location"), "Book+marked+finished") {
 		t.Fatalf("finish book=%d location=%q", finished.Code, finished.Header().Get("Location"))
 	}
@@ -1193,10 +1197,10 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if body := progressPage.Body.String(); !strings.Contains(body, "Book</dt><dd>Finished · ") || strings.Contains(body, "Mark book finished") || !strings.Contains(body, "Mark deck reviewed") {
 		t.Fatalf("book progress page=%s", body)
 	}
-	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", campaignForm(bobCSRF, domain.LearningCampaign{ID: completedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookFinished, DeckProgress: domain.DeckStudying}), bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner review=%d", got.Code)
 	}
-	reviewed := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	reviewed := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", campaignForm(aliceCSRF, domain.LearningCampaign{ID: completedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookFinished, DeckProgress: domain.DeckStudying}), aliceCookies)
 	if reviewed.Code != http.StatusSeeOther || !strings.Contains(reviewed.Header().Get("Location"), "Campaign+complete") {
 		t.Fatalf("review deck=%d location=%q", reviewed.Code, reviewed.Header().Get("Location"))
 	}
@@ -1207,7 +1211,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='lernen'`, alice.ID).Scan(&generated); err != nil || generated != 1 {
 		t.Fatalf("generated history=%d err=%v", generated, err)
 	}
-	repeated := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	repeated := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", campaignForm(aliceCSRF, domain.LearningCampaign{ID: completedCampaign.ID, Status: domain.CampaignComplete, BookProgress: domain.BookFinished, DeckProgress: domain.DeckReviewed}), aliceCookies)
 	if repeated.Code != http.StatusSeeOther || !strings.Contains(repeated.Header().Get("Location"), "Only+the+active") {
 		t.Fatalf("repeat review=%d location=%q", repeated.Code, repeated.Header().Get("Location"))
 	}
@@ -1215,14 +1219,14 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if got := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", nil, aliceCookies); got.Code != http.StatusForbidden {
 		t.Fatalf("abandon without csrf=%d", got.Code)
 	}
-	if got := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", campaignForm(bobCSRF, domain.LearningCampaign{ID: abandonedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying}), bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner abandon=%d", got.Code)
 	}
-	abandoned := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	abandoned := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", campaignForm(aliceCSRF, domain.LearningCampaign{ID: abandonedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying}), aliceCookies)
 	if abandoned.Code != http.StatusSeeOther || !strings.Contains(abandoned.Header().Get("Location"), "Campaign+abandoned") {
 		t.Fatalf("abandon=%d location=%q", abandoned.Code, abandoned.Header().Get("Location"))
 	}
-	repeatedAbandon := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
+	repeatedAbandon := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", campaignForm(aliceCSRF, domain.LearningCampaign{ID: abandonedCampaign.ID, Status: domain.CampaignAbandoned, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned}), aliceCookies)
 	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Campaign+abandoned") {
 		t.Fatalf("repeat abandon=%d location=%q", repeatedAbandon.Code, repeatedAbandon.Header().Get("Location"))
 	}
@@ -1235,12 +1239,28 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 			t.Fatalf("campaign page missing %q: %s", expected, body)
 		}
 	}
-	if got := perform(t, h, "POST", "/campaigns/"+queuedCampaign.ID+"/activate", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/campaigns/"+queuedCampaign.ID+"/activate", campaignForm(bobCSRF, queuedCampaign), bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner activation=%d", got.Code)
 	}
 	bobPage := perform(t, h, "GET", "/campaigns", nil, bobCookies)
 	if bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Active Book") {
 		t.Fatalf("bob campaign page=%d %s", bobPage.Code, bobPage.Body.String())
+	}
+	queuedAbandoned := perform(t, h, "POST", "/campaigns/"+queuedCampaign.ID+"/abandon", campaignForm(aliceCSRF, queuedCampaign), aliceCookies)
+	if queuedAbandoned.Code != http.StatusSeeOther || !strings.Contains(queuedAbandoned.Header().Get("Location"), "Campaign+abandoned") {
+		t.Fatalf("queued abandon=%d location=%q", queuedAbandoned.Code, queuedAbandoned.Header().Get("Location"))
+	}
+	if queuedCampaign, err = store.GetLearningCampaign(ctx, alice.ID, queuedCampaign.ID); err != nil || queuedCampaign.Status != domain.CampaignAbandoned {
+		t.Fatalf("queued campaign after endpoint abandonment=%+v err=%v", queuedCampaign, err)
+	}
+}
+
+func campaignForm(csrf string, campaign domain.LearningCampaign) url.Values {
+	return url.Values{
+		"csrf_token":               {csrf},
+		"expected_campaign_status": {string(campaign.Status)},
+		"expected_book_progress":   {string(campaign.BookProgress)},
+		"expected_deck_progress":   {string(campaign.DeckProgress)},
 	}
 }
 

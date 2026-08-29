@@ -490,6 +490,17 @@ section[aria-labelledby="campaign-history-heading"] {
   gap: var(--mouseion-space-4);
 }
 
+.campaign-card--active {
+  display: grid;
+  align-items: initial;
+  grid-template-columns: 1fr;
+}
+
+.campaign-card--active .campaign-remaining,
+.campaign-card--active .action-group {
+  width: 100%;
+}
+
 .campaign-card h3,
 .campaign-list h3 {
   margin-bottom: var(--mouseion-space-2);
@@ -504,6 +515,19 @@ section[aria-labelledby="campaign-history-heading"] {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
+}
+
+.campaign-remaining {
+  flex: 1 1 100%;
+  margin-top: var(--mouseion-space-4);
+}
+
+.campaign-remaining h4 {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+.campaign-remaining p:last-child {
+  margin-bottom: 0;
 }
 
 .campaign-progress {
