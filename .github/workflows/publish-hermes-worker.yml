@@ -10,7 +10,7 @@ on:
     paths:
       - 'docker/hermes-worker/**'
       - 'Makefile'
-      - '.github/workflows/publish-hermes-worker.yaml'
+      - '.github/workflows/publish-hermes-worker.yml'
   workflow_dispatch:
 
 concurrency:
