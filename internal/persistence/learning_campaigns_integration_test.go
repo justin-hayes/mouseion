@@ -44,7 +44,7 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 		t.Fatalf("campaign creation promoted generated history: count=%d err=%v", known, err)
 	}
 
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookReading, domain.DeckQueued)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, campaignExpectedState(campaign), domain.BookReading, domain.DeckStudying)
 	if err != nil || campaign.Status != domain.CampaignActive || campaign.ActivatedAt == nil || campaign.BookFinishedAt != nil || campaign.DeckReviewedAt != nil {
 		t.Fatalf("activate campaign = %+v, %v", campaign, err)
 	}
@@ -65,15 +65,15 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, queued2.ID, domain.BookQueued, domain.DeckStudying); !errors.Is(err, ErrActiveCampaign) {
+	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, queued2.ID, campaignExpectedState(queued2), domain.BookReading, domain.DeckStudying); !errors.Is(err, ErrActiveCampaign) {
 		t.Fatalf("second active campaign error = %v", err)
 	}
 
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookFinished, domain.DeckStudying)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, campaignExpectedState(campaign), domain.BookFinished, domain.DeckStudying)
 	if err != nil || campaign.Status != domain.CampaignActive || campaign.BookFinishedAt == nil || campaign.DeckReviewedAt != nil {
 		t.Fatalf("independent progress = %+v, %v", campaign, err)
 	}
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookFinished, domain.DeckReviewed)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, campaignExpectedState(campaign), domain.BookFinished, domain.DeckReviewed)
 	if err != nil || campaign.Status != domain.CampaignComplete || campaign.CompletedAt == nil || campaign.DeckReviewedAt == nil || campaign.VocabularyGraduatedAt == nil {
 		t.Fatalf("complete campaign = %+v, %v", campaign, err)
 	}
@@ -84,7 +84,7 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 		t.Fatalf("graduated vocabulary count=%d err=%v", known, err)
 	}
 	completedAt, graduatedAt := *campaign.CompletedAt, *campaign.VocabularyGraduatedAt
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookFinished, domain.DeckReviewed)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, campaignExpectedState(campaign), domain.BookFinished, domain.DeckReviewed)
 	if err != nil || campaign.CompletedAt == nil || !campaign.CompletedAt.Equal(completedAt) || campaign.VocabularyGraduatedAt == nil || !campaign.VocabularyGraduatedAt.Equal(graduatedAt) {
 		t.Fatalf("idempotent completion = %+v, %v", campaign, err)
 	}
@@ -99,11 +99,11 @@ func TestLearningCampaignLifecycleAndCompatibility(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='Alt')`, alice.ID).Scan(&legacyKnown); err != nil || legacyKnown {
 		t.Fatalf("legacy generated row was promoted: known=%v err=%v", legacyKnown, err)
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookReading, domain.DeckReviewed); !errors.Is(err, ErrInvalidTransition) {
+	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, campaignExpectedState(campaign), domain.BookReading, domain.DeckReviewed); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("regressive transition error = %v", err)
 	}
 
-	queued2, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, queued2.ID, domain.BookReading, domain.DeckQueued)
+	queued2, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, queued2.ID, campaignExpectedState(queued2), domain.BookReading, domain.DeckStudying)
 	if err != nil || queued2.Status != domain.CampaignActive {
 		t.Fatalf("activate next campaign = %+v, %v", queued2, err)
 	}
@@ -182,11 +182,11 @@ func TestAbandonedCampaignDoesNotGraduateVocabulary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, domain.BookReading, domain.DeckStudying)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign), domain.BookReading, domain.DeckStudying)
 	if err != nil {
 		t.Fatal(err)
 	}
-	campaign, err = store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID)
+	campaign, err = store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign))
 	if err != nil || campaign.Status != domain.CampaignAbandoned || campaign.AbandonedAt == nil || campaign.VocabularyGraduatedAt != nil {
 		t.Fatalf("abandon campaign = %+v, %v", campaign, err)
 	}
@@ -202,13 +202,146 @@ func TestAbandonedCampaignDoesNotGraduateVocabulary(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='Frei')`, owner.ID).Scan(&known); err != nil || known {
 		t.Fatalf("abandoned vocabulary graduated: known=%v err=%v", known, err)
 	}
-	repeated, err := store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID)
+	repeated, err := store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign))
 	if err != nil || repeated.AbandonedAt == nil || !repeated.AbandonedAt.Equal(*campaign.AbandonedAt) {
 		t.Fatalf("idempotent abandonment=%+v err=%v", repeated, err)
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, domain.BookAbandoned, domain.DeckStudying); !errors.Is(err, ErrInvalidTransition) {
+	if _, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign), domain.BookAbandoned, domain.DeckStudying); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("abandoned campaign transition error = %v", err)
 	}
+}
+
+func TestLearningCampaignMutationsRejectStaleStateAtomically(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, _ := store.CreateUser(ctx, "campaign-stale", false)
+	source, prep := readyCampaignFixture(t, ctx, store, owner.ID, "stale")
+	campaign, err := store.CreateLearningCampaign(ctx, owner.ID, source.ID, prep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := campaignExpectedState(campaign)
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, initial, domain.BookReading, domain.DeckStudying)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, initial, domain.BookReading, domain.DeckStudying); !errors.Is(err, ErrStaleCampaignState) {
+		t.Fatalf("stale progress error = %v", err)
+	}
+	if _, err = store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID, initial); !errors.Is(err, ErrStaleCampaignState) {
+		t.Fatalf("stale abandonment error = %v", err)
+	}
+	current, err := store.GetLearningCampaign(ctx, owner.ID, campaign.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Status != domain.CampaignActive || current.BookProgress != domain.BookReading || current.DeckProgress != domain.DeckStudying {
+		t.Fatalf("stale mutation changed campaign = %+v", current)
+	}
+}
+
+func TestCampaignGraduationUsesWildcardKnownVocabulary(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, _ := store.CreateUser(ctx, "campaign-wildcard", false)
+	source, prep := readyCampaignFixture(t, ctx, store, owner.ID, "wildcard")
+	deck, err := store.PutDeck(ctx, owner.ID, "de", "Wildcard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lemma := range []struct{ lemma, upos string }{{"bekannt", "NOUN"}, {"neu", "VERB"}} {
+		if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: owner.ID, Language: "de", CanonicalLemma: lemma.lemma, UPOS: lemma.upos, FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "bekannt", ""); err != nil {
+		t.Fatal(err)
+	}
+	campaign, err := store.CreateLearningCampaign(ctx, owner.ID, source.ID, prep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, countErr := store.CountCampaignVocabularyToGraduate(ctx, owner.ID, campaign.ID); countErr != nil || count != 1 {
+		t.Fatalf("wildcard graduation count=%d err=%v", count, countErr)
+	}
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign), domain.BookReading, domain.DeckStudying)
+	if err != nil {
+		t.Fatal(err)
+	}
+	campaign, err = store.UpdateLearningCampaignProgress(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign), domain.BookFinished, domain.DeckReviewed)
+	if err != nil || campaign.Status != domain.CampaignComplete {
+		t.Fatalf("complete wildcard campaign=%+v err=%v", campaign, err)
+	}
+	var exactKnown, wildcardKnown, graduatedState, wildcardState, provenance int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='bekannt' AND upos='NOUN'`, owner.ID).Scan(&exactKnown); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='bekannt' AND upos=''`, owner.ID).Scan(&wildcardKnown); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_states WHERE owner_id=$1 AND canonical_lemma='neu' AND upos='VERB' AND state='known'`, owner.ID).Scan(&graduatedState); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_states WHERE owner_id=$1 AND canonical_lemma='bekannt'`, owner.ID).Scan(&wildcardState); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary WHERE owner_id=$1 AND campaign_id=$2 AND graduated_at IS NOT NULL`, owner.ID, campaign.ID).Scan(&provenance); err != nil {
+		t.Fatal(err)
+	}
+	if exactKnown != 0 || wildcardKnown != 1 || graduatedState != 1 || wildcardState != 0 || provenance != 2 {
+		t.Fatalf("wildcard completion exact=%d wildcard=%d graduated state=%d wildcard state=%d provenance=%d", exactKnown, wildcardKnown, graduatedState, wildcardState, provenance)
+	}
+}
+
+func TestQueuedCampaignCanBeAbandonedWithoutDeletingArtifacts(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, _ := store.CreateUser(ctx, "campaign-queued-abandon", false)
+	source, prep := readyCampaignFixture(t, ctx, store, owner.ID, "queued-abandon")
+	deck, err := store.PutDeck(ctx, owner.ID, "de", "Queued abandon")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: owner.ID, Language: "de", CanonicalLemma: "frei", UPOS: "ADJ", FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID}); err != nil {
+		t.Fatal(err)
+	}
+	campaign, err := store.CreateLearningCampaign(ctx, owner.ID, source.ID, prep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abandoned, err := store.AbandonLearningCampaign(ctx, owner.ID, campaign.ID, campaignExpectedState(campaign))
+	if err != nil || abandoned.Status != domain.CampaignAbandoned || abandoned.AbandonedAt == nil {
+		t.Fatalf("queued abandonment=%+v err=%v", abandoned, err)
+	}
+	if stored, getErr := store.GetDeckPreparation(ctx, owner.ID, prep.ID); getErr != nil || stored.State != domain.DeckPreparationReady || len(stored.Artifact) == 0 {
+		t.Fatalf("queued abandonment removed deck=%+v err=%v", stored, getErr)
+	}
+	var vocabulary, generated int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary WHERE owner_id=$1 AND campaign_id=$2`, owner.ID, campaign.ID).Scan(&vocabulary); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='frei'`, owner.ID).Scan(&generated); err != nil {
+		t.Fatal(err)
+	}
+	if vocabulary != 1 || generated != 1 {
+		t.Fatalf("queued abandonment provenance vocabulary=%d generated=%d", vocabulary, generated)
+	}
+}
+
+func campaignExpectedState(campaign domain.LearningCampaign) LearningCampaignExpectedState {
+	return LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}
 }
 
 func readyCampaignFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.SourceMaterial, domain.DeckPreparation) {

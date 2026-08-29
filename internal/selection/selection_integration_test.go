@@ -78,7 +78,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, domain.BookReading, domain.DeckStudying); err != nil {
+	if campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, persistence.LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}, domain.BookReading, domain.DeckStudying); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.PutVocabularyState(ctx, alice.ID, "de", "alt", "ADJ", "ignored"); err != nil {
@@ -119,7 +119,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if err != nil || state.State != "candidate" {
 		t.Fatalf("state=%+v err=%v", state, err)
 	}
-	if _, err = store.AbandonLearningCampaign(ctx, alice.ID, campaign.ID); err != nil {
+	if _, err = store.AbandonLearningCampaign(ctx, alice.ID, campaign.ID, persistence.LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}); err != nil {
 		t.Fatal(err)
 	}
 	got, err = svc.Select(ctx, alice.ID, fixture(tok("reserviert", "reserviert", "ADJ", false)), DefaultConfig("book-after-abandonment"))

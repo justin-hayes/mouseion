@@ -12,6 +12,15 @@ import (
 
 const learningCampaignColumns = `id::text,owner_id::text,source_material_id::text,deck_preparation_id::text,book_status,deck_status,status,created_at,updated_at,activated_at,book_finished_at,deck_reviewed_at,completed_at,abandoned_at,vocabulary_graduated_at`
 
+// LearningCampaignExpectedState is the state rendered with a campaign
+// mutation form. It is checked while the campaign row is locked, before any
+// mutation in that transaction, so an old form cannot overwrite newer state.
+type LearningCampaignExpectedState struct {
+	Status       domain.CampaignStatus
+	BookProgress domain.BookProgress
+	DeckProgress domain.DeckProgress
+}
+
 func scanLearningCampaign(row rowScanner) (domain.LearningCampaign, error) {
 	var c domain.LearningCampaign
 	err := row.Scan(&c.ID, &c.OwnerID, &c.SourceMaterialID, &c.DeckPreparationID, &c.BookProgress, &c.DeckProgress, &c.Status, &c.CreatedAt, &c.UpdatedAt, &c.ActivatedAt, &c.BookFinishedAt, &c.DeckReviewedAt, &c.CompletedAt, &c.AbandonedAt, &c.VocabularyGraduatedAt)
@@ -76,9 +85,10 @@ func (s *PostgresStore) GetActiveLearningCampaign(ctx context.Context, owner str
 	return scanLearningCampaign(s.pool.QueryRow(ctx, `SELECT `+learningCampaignColumns+` FROM learning_campaigns WHERE owner_id=$1 AND status='active'`, owner))
 }
 
-// AbandonLearningCampaign releases the owner's active campaign while retaining
-// its immutable generated-vocabulary and campaign-vocabulary provenance.
-func (s *PostgresStore) AbandonLearningCampaign(ctx context.Context, owner, id string) (domain.LearningCampaign, error) {
+// AbandonLearningCampaign abandons an active or queued campaign while
+// retaining its immutable generated-vocabulary and campaign-vocabulary
+// provenance. The expected state is checked in the same transaction.
+func (s *PostgresStore) AbandonLearningCampaign(ctx context.Context, owner, id string, expected LearningCampaignExpectedState) (domain.LearningCampaign, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.LearningCampaign{}, err
@@ -88,13 +98,16 @@ func (s *PostgresStore) AbandonLearningCampaign(ctx context.Context, owner, id s
 	if err != nil {
 		return domain.LearningCampaign{}, err
 	}
+	if !campaignStateMatches(current, expected) {
+		return domain.LearningCampaign{}, ErrStaleCampaignState
+	}
 	if current.Status == domain.CampaignAbandoned {
 		return current, tx.Commit(ctx)
 	}
-	if current.Status != domain.CampaignActive {
+	if current.Status != domain.CampaignActive && current.Status != domain.CampaignQueued {
 		return domain.LearningCampaign{}, ErrInvalidTransition
 	}
-	updated, err := scanLearningCampaign(tx.QueryRow(ctx, `UPDATE learning_campaigns SET book_status='abandoned',deck_status='abandoned',status='abandoned',abandoned_at=COALESCE(abandoned_at,now()),updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, id))
+	updated, err := scanLearningCampaign(tx.QueryRow(ctx, `UPDATE learning_campaigns SET book_status='abandoned',deck_status='abandoned',abandoned_at=COALESCE(abandoned_at,now()),updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, id))
 	if err != nil {
 		return domain.LearningCampaign{}, err
 	}
@@ -119,6 +132,21 @@ func (s *PostgresStore) ListLearningCampaignVocabulary(ctx context.Context, owne
 		vocabulary = append(vocabulary, item)
 	}
 	return vocabulary, rows.Err()
+}
+
+// CountCampaignVocabularyToGraduate reports the campaign vocabulary that is
+// not already independently known. It is an informational read for the
+// completion confirmation; the completion transaction remains authoritative.
+func (s *PostgresStore) CountCampaignVocabularyToGraduate(ctx context.Context, owner, campaignID string) (int, error) {
+	var count int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary cv
+		WHERE cv.owner_id=$1 AND cv.campaign_id=$2 AND cv.graduated_at IS NULL
+		AND NOT EXISTS (
+			SELECT 1 FROM known_vocabulary kv
+			WHERE kv.owner_id=cv.owner_id AND kv.language=cv.language
+				AND kv.canonical_lemma=cv.canonical_lemma AND (kv.upos=cv.upos OR kv.upos='')
+		)`, owner, campaignID).Scan(&count)
+	return count, err
 }
 
 // ListActiveLearningCampaignVocabulary returns the vocabulary temporarily
@@ -171,8 +199,9 @@ func (s *PostgresStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner
 
 // UpdateLearningCampaignProgress records independent monotonic book/deck
 // progress. Status and lifecycle timestamps are derived atomically; completing
-// both facts graduates only the campaign's snapshotted vocabulary.
-func (s *PostgresStore) UpdateLearningCampaignProgress(ctx context.Context, owner, id string, book domain.BookProgress, deck domain.DeckProgress) (domain.LearningCampaign, error) {
+// both facts graduates only the campaign's snapshotted vocabulary. The
+// expected state is checked in the same transaction as the mutation.
+func (s *PostgresStore) UpdateLearningCampaignProgress(ctx context.Context, owner, id string, expected LearningCampaignExpectedState, book domain.BookProgress, deck domain.DeckProgress) (domain.LearningCampaign, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.LearningCampaign{}, err
@@ -183,7 +212,16 @@ func (s *PostgresStore) UpdateLearningCampaignProgress(ctx context.Context, owne
 	if err != nil {
 		return domain.LearningCampaign{}, err
 	}
+	if !campaignStateMatches(current, expected) {
+		return domain.LearningCampaign{}, ErrStaleCampaignState
+	}
 	if current.Status == domain.CampaignAbandoned && (current.BookProgress != book || current.DeckProgress != deck) {
+		return domain.LearningCampaign{}, ErrInvalidTransition
+	}
+	if current.Status != domain.CampaignQueued && current.Status != domain.CampaignActive && (current.BookProgress != book || current.DeckProgress != deck) {
+		return domain.LearningCampaign{}, ErrInvalidTransition
+	}
+	if current.Status == domain.CampaignQueued && (book != domain.BookReading || deck != domain.DeckStudying) {
 		return domain.LearningCampaign{}, ErrInvalidTransition
 	}
 	if !current.BookProgress.CanTransitionTo(book) || !current.DeckProgress.CanTransitionTo(deck) {
@@ -195,8 +233,7 @@ func (s *PostgresStore) UpdateLearningCampaignProgress(ctx context.Context, owne
 		activated_at=CASE WHEN $5 IN ('active','complete') THEN COALESCE(activated_at,now()) ELSE activated_at END,
 		book_finished_at=CASE WHEN $3='finished' THEN COALESCE(book_finished_at,now()) ELSE book_finished_at END,
 		deck_reviewed_at=CASE WHEN $4='reviewed' THEN COALESCE(deck_reviewed_at,now()) ELSE deck_reviewed_at END,
-		completed_at=CASE WHEN $5='complete' THEN COALESCE(completed_at,now()) ELSE completed_at END,
-		abandoned_at=CASE WHEN $5='abandoned' THEN COALESCE(abandoned_at,now()) ELSE abandoned_at END
+		completed_at=CASE WHEN $5='complete' THEN COALESCE(completed_at,now()) ELSE completed_at END
 		WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, id, book, deck, nextStatus))
 	if err != nil {
 		return domain.LearningCampaign{}, campaignConstraintError(err)
@@ -216,16 +253,31 @@ func (s *PostgresStore) UpdateLearningCampaignProgress(ctx context.Context, owne
 	return updated, nil
 }
 
+func campaignStateMatches(current domain.LearningCampaign, expected LearningCampaignExpectedState) bool {
+	return current.Status == expected.Status && current.BookProgress == expected.BookProgress && current.DeckProgress == expected.DeckProgress
+}
+
 func graduateCampaignVocabulary(ctx context.Context, tx pgx.Tx, owner, campaignID string) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos)
-		SELECT owner_id,language,canonical_lemma,upos FROM learning_campaign_vocabulary
-		WHERE owner_id=$1 AND campaign_id=$2 ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, campaignID); err != nil {
-		return fmt.Errorf("graduate campaign vocabulary: %w", err)
-	}
 	if _, err := tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state)
 		SELECT owner_id,language,canonical_lemma,upos,'known' FROM learning_campaign_vocabulary
-		WHERE owner_id=$1 AND campaign_id=$2
-		ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state='known',updated_at=now()`, owner, campaignID); err != nil {
+		WHERE owner_id=$1 AND campaign_id=$2 AND NOT EXISTS (
+			SELECT 1 FROM known_vocabulary kv
+			WHERE kv.owner_id=learning_campaign_vocabulary.owner_id
+				AND kv.language=learning_campaign_vocabulary.language
+				AND kv.canonical_lemma=learning_campaign_vocabulary.canonical_lemma
+				AND (kv.upos=learning_campaign_vocabulary.upos OR kv.upos='')
+		) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state='known',updated_at=now()`, owner, campaignID); err != nil {
+		return fmt.Errorf("graduate campaign vocabulary: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos)
+		SELECT owner_id,language,canonical_lemma,upos FROM learning_campaign_vocabulary
+		WHERE owner_id=$1 AND campaign_id=$2 AND NOT EXISTS (
+			SELECT 1 FROM known_vocabulary kv
+			WHERE kv.owner_id=learning_campaign_vocabulary.owner_id
+				AND kv.language=learning_campaign_vocabulary.language
+				AND kv.canonical_lemma=learning_campaign_vocabulary.canonical_lemma
+				AND (kv.upos=learning_campaign_vocabulary.upos OR kv.upos='')
+		) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, campaignID); err != nil {
 		return fmt.Errorf("record graduated vocabulary state: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE learning_campaign_vocabulary SET graduated_at=COALESCE(graduated_at,now()) WHERE owner_id=$1 AND campaign_id=$2`, owner, campaignID); err != nil {

@@ -63,8 +63,8 @@ type Store interface {
 	ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error)
 	GetLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
 	CreateLearningCampaign(context.Context, string, string, string) (domain.LearningCampaign, error)
-	UpdateLearningCampaignProgress(context.Context, string, string, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
-	AbandonLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
+	UpdateLearningCampaignProgress(context.Context, string, string, persistence.LearningCampaignExpectedState, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
+	AbandonLearningCampaign(context.Context, string, string, persistence.LearningCampaignExpectedState) (domain.LearningCampaign, error)
 	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
 	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
@@ -751,10 +751,16 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 }
 
 type campaignView struct {
-	Campaign domain.LearningCampaign
-	Book     domain.SourceMaterialSummary
-	Deck     domain.DeckPreparation
-	Coverage *domain.AnalysisCoverage
+	Campaign              domain.LearningCampaign
+	Book                  domain.SourceMaterialSummary
+	Deck                  domain.DeckPreparation
+	Coverage              *domain.AnalysisCoverage
+	GraduatableLemmaCount *int
+	QueuePosition         int
+}
+
+type campaignVocabularyCounter interface {
+	CountCampaignVocabularyToGraduate(context.Context, string, string) (int, error)
 }
 
 type preparedCampaignOption struct {
@@ -783,6 +789,7 @@ func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
 		bookByID[book.Source.ID] = book
 	}
 	views := make([]campaignView, 0, len(campaigns))
+	queuedPosition := 0
 	for _, campaign := range campaigns {
 		deck, deckErr := h.services.PreparedDeck.Get(r.Context(), u.ID, campaign.DeckPreparationID)
 		if deckErr != nil {
@@ -791,6 +798,17 @@ func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
 		}
 		book := bookByID[campaign.SourceMaterialID]
 		view := campaignView{Campaign: campaign, Book: book, Deck: deck}
+		if campaign.Status == domain.CampaignQueued {
+			queuedPosition++
+			view.QueuePosition = queuedPosition
+		}
+		if campaign.Status == domain.CampaignActive {
+			if counter, ok := h.services.Store.(campaignVocabularyCounter); ok {
+				if count, countErr := counter.CountCampaignVocabularyToGraduate(r.Context(), u.ID, campaign.ID); countErr == nil {
+					view.GraduatableLemmaCount = &count
+				}
+			}
+		}
 		if campaign.Status == domain.CampaignQueued && book.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
 			coverage, coverageErr := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, book.CorpusID)
 			if coverageErr != nil && !errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
@@ -814,7 +832,20 @@ func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
 			options = append(options, preparedCampaignOption{Book: book, Deck: deck})
 		}
 	}
-	render(w, r, CampaignsPage(u, h.csrf(w, r), views, options, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+	activeCampaignID := r.URL.Query().Get("active_campaign_id")
+	if activeCampaignID != "" {
+		found := false
+		for _, item := range views {
+			if item.Campaign.ID == activeCampaignID && item.Campaign.Status == domain.CampaignActive {
+				found = true
+				break
+			}
+		}
+		if !found {
+			activeCampaignID = ""
+		}
+	}
+	render(w, r, CampaignsPage(u, h.csrf(w, r), views, options, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
 }
 
 func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
@@ -832,7 +863,7 @@ func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		fail(w, err)
+		redirectCampaignMutationFailure(w, r, "The campaign could not be added to the queue. Your prepared deck was not changed; review Learning and try again.")
 		return
 	}
 	if _, err = h.services.Store.CreateLearningCampaign(r.Context(), u.ID, deck.SourceMaterialID, deck.ID); err != nil {
@@ -840,7 +871,7 @@ func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
 			redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a ready, unassigned deck can be added to the queue."))
 			return
 		}
-		fail(w, err)
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("The campaign could not be added to the queue. Your prepared deck was not changed; review Learning and try again."))
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Book and deck added to your learning queue."))
@@ -850,13 +881,27 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	_, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), user(r).ID, r.PathValue("id"), domain.BookReading, domain.DeckStudying)
+	expected, ok := campaignExpectedState(r)
+	if !ok {
+		redirectCampaignStale(w, r)
+		return
+	}
+	if expected.Status != domain.CampaignQueued || expected.BookProgress != domain.BookQueued || expected.DeckProgress != domain.DeckQueued {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a queued campaign can be started."))
+		return
+	}
+	u := user(r)
+	_, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), u.ID, r.PathValue("id"), expected, domain.BookReading, domain.DeckStudying)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
+	if errors.Is(err, persistence.ErrStaleCampaignState) {
+		redirectCampaignStale(w, r)
+		return
+	}
 	if errors.Is(err, persistence.ErrActiveCampaign) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Finish or abandon the active campaign before starting another."))
+		h.redirectCampaignActivationBlocked(w, r, u.ID)
 		return
 	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
@@ -864,7 +909,7 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		fail(w, err)
+		redirectCampaignMutationFailure(w, r, "The campaign could not be started. Your queue was not changed; review Learning and try again.")
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Learning campaign started."))
@@ -882,17 +927,31 @@ func (h *Handler) abandonCampaign(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	_, err := h.services.Store.AbandonLearningCampaign(r.Context(), user(r).ID, r.PathValue("id"))
+	expected, ok := campaignExpectedState(r)
+	if !ok {
+		redirectCampaignStale(w, r)
+		return
+	}
+	if expected.Status != domain.CampaignActive && expected.Status != domain.CampaignQueued {
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only an active or queued campaign can be abandoned."))
+		return
+	}
+	u := user(r)
+	_, err := h.services.Store.AbandonLearningCampaign(r.Context(), u.ID, r.PathValue("id"), expected)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
+	if errors.Is(err, persistence.ErrStaleCampaignState) {
+		redirectCampaignStale(w, r)
+		return
+	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be abandoned."))
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only an active or queued campaign can be abandoned."))
 		return
 	}
 	if err != nil {
-		fail(w, err)
+		redirectCampaignMutationFailure(w, r, "The campaign could not be abandoned. Its book, deck, and history are unchanged; review Learning and try again.")
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Campaign abandoned. Its ungraduated vocabulary is available again."))
@@ -902,21 +961,17 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	u := user(r)
-	campaign, err := h.services.Store.GetLearningCampaign(r.Context(), u.ID, r.PathValue("id"))
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
+	expected, ok := campaignExpectedState(r)
+	if !ok {
+		redirectCampaignStale(w, r)
 		return
 	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if campaign.Status != domain.CampaignActive {
+	if expected.Status != domain.CampaignActive {
 		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be updated."))
 		return
 	}
-	nextBook, nextDeck := campaign.BookProgress, campaign.DeckProgress
+	u := user(r)
+	nextBook, nextDeck := expected.BookProgress, expected.DeckProgress
 	message := "Deck marked reviewed."
 	if finishBook {
 		nextBook = domain.BookFinished
@@ -924,23 +979,61 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 	} else {
 		nextDeck = domain.DeckReviewed
 	}
-	updated, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), u.ID, campaign.ID, nextBook, nextDeck)
+	updated, err := h.services.Store.UpdateLearningCampaignProgress(r.Context(), u.ID, r.PathValue("id"), expected, nextBook, nextDeck)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
+	if errors.Is(err, persistence.ErrStaleCampaignState) {
+		redirectCampaignStale(w, r)
+		return
+	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Campaign progress could not be updated."))
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be updated."))
 		return
 	}
 	if err != nil {
-		fail(w, err)
+		redirectCampaignMutationFailure(w, r, "Campaign progress could not be updated. No progress was changed; review Learning and try again.")
 		return
 	}
 	if updated.Status == domain.CampaignComplete {
 		message = "Campaign complete. Its vocabulary is now known."
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape(message))
+}
+
+func campaignExpectedState(r *http.Request) (persistence.LearningCampaignExpectedState, bool) {
+	expected := persistence.LearningCampaignExpectedState{
+		Status:       domain.CampaignStatus(r.FormValue("expected_campaign_status")),
+		BookProgress: domain.BookProgress(r.FormValue("expected_book_progress")),
+		DeckProgress: domain.DeckProgress(r.FormValue("expected_deck_progress")),
+	}
+	return expected, expected.Status != "" && expected.BookProgress != "" && expected.DeckProgress != ""
+}
+
+func redirectCampaignStale(w http.ResponseWriter, r *http.Request) {
+	redirect(w, r, "/campaigns?error="+url.QueryEscape("This campaign changed since this page was loaded. Its current state is unchanged by this request; review Learning before trying again."))
+}
+
+func redirectCampaignMutationFailure(w http.ResponseWriter, r *http.Request, message string) {
+	redirect(w, r, "/campaigns?error="+url.QueryEscape(message))
+}
+
+func (h *Handler) redirectCampaignActivationBlocked(w http.ResponseWriter, r *http.Request, owner string) {
+	activeCampaignID := ""
+	if campaigns, err := h.services.Store.ListLearningCampaigns(r.Context(), owner); err == nil {
+		for _, campaign := range campaigns {
+			if campaign.Status == domain.CampaignActive {
+				activeCampaignID = campaign.ID
+				break
+			}
+		}
+	}
+	location := "/campaigns?error=" + url.QueryEscape("Finish or abandon the active campaign before starting another.")
+	if activeCampaignID != "" {
+		location += "&active_campaign_id=" + url.QueryEscape(activeCampaignID)
+	}
+	redirect(w, r, location)
 }
 func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -2531,6 +2624,50 @@ func hasCampaignStatus(campaigns []campaignView, status domain.CampaignStatus) b
 	}
 	return false
 }
+func campaignAnchorID(id string) string { return "campaign-" + id }
+
+func campaignCardClass(status domain.CampaignStatus) string {
+	if status == domain.CampaignActive {
+		return "resource-card campaign-card campaign-card--active"
+	}
+	return "resource-card campaign-card"
+}
+
+func campaignRemainingBookText(status domain.BookProgress) string {
+	if status == domain.BookFinished {
+		return ""
+	}
+	return " — finish the book to complete this condition."
+}
+
+func campaignRemainingDeckText(status domain.DeckProgress) string {
+	if status == domain.DeckReviewed {
+		return ""
+	}
+	return " — review the prepared deck to complete this condition."
+}
+
+func campaignCompletionLabel(item campaignView) string {
+	if item.GraduatableLemmaCount == nil {
+		return "Complete campaign and add its vocabulary to known"
+	}
+	return fmt.Sprintf("Complete campaign and add %d lemmas to known vocabulary", *item.GraduatableLemmaCount)
+}
+
+func campaignGraduationOutcome(item campaignView) string {
+	if item.GraduatableLemmaCount == nil {
+		return "The assigned campaign vocabulary will be added to known vocabulary when this campaign completes."
+	}
+	return fmt.Sprintf("%d assigned lemmas not already independently known will be added to known vocabulary when this campaign completes.", *item.GraduatableLemmaCount)
+}
+
+func campaignAbandonmentOutcome(status domain.CampaignStatus) string {
+	if status == domain.CampaignQueued {
+		return "This queued campaign has no active reservation to release; its assigned vocabulary remains eligible for future decks unless independently known."
+	}
+	return "Any active reservation is released, so ungraduated vocabulary can be eligible for future decks again unless independently known."
+}
+
 func hasCampaignHistory(campaigns []campaignView) bool {
 	return hasCampaignStatus(campaigns, domain.CampaignComplete) || hasCampaignStatus(campaigns, domain.CampaignAbandoned)
 }
