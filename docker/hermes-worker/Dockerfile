@@ -6,11 +6,10 @@ FROM golang:${GO_VERSION}-bookworm AS go-toolchain
 # This is a disposable Hermes terminal image, not the Mouseion app image; the
 # workspace is mounted by Hermes at /workspace at runtime. It is based on the
 # same Python 3.11 + Node 20 image that Hermes uses for its docker backend by
-# default, plus the build tooling needed by the Mouseion repository. A
-# dedicated `worker` user is created here rather than inheriting one
-# from the agent runtime image. Hermes should run the container as the host
-# user (docker_run_as_host_user: true) so a host-mounted /workspace stays
-# writable.
+# default, plus the build tooling needed by the Mouseion repository. We keep
+# the base image's non-root `pn` user (uid 1000) as the runtime user: its uid
+# matches the default host user on most dev machines, so a host-mounted
+# /workspace stays writable without relying on a uid mapping workaround.
 FROM nikolaik/python-nodejs:python3.11-nodejs20@sha256:8f958bdc1b4a422bfafd97cab4f69836401f616ae985d4b57a53d254f5bcb038
 
 ARG TARGETARCH
@@ -27,16 +26,6 @@ ENV GOPATH=/opt/go \
     PATH=/usr/local/go/bin:/opt/go/bin:/opt/codex/bin:${PATH}
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
-
-# Create the non-root runtime user. The base image already ships a user at
-# uid 1000 (the `pn` user), so use a unique uid. For a host-mounted
-# /workspace to stay writable, Hermes should run the container as the host
-# user (docker_run_as_host_user: true) rather than relying on a uid match.
-# We give it a real shell because Hermes' docker backend spawns a persistent
-# shell as the runtime user; it gets no credentials and only its CODEX_HOME
-# persists.
-RUN useradd --create-home --uid 1001 --user-group --shell /bin/bash worker \
-    && chown worker:worker /home/worker
 
 # Keep the package set small while making the repository's normal build and
 # Git workflows work without installing anything into the session.
@@ -79,16 +68,16 @@ RUN mkdir -p /opt/go/bin \
     && GOBIN=/opt/go/bin go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 \
     && GOBIN=/opt/go/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1 \
     && rm -rf /opt/go/pkg /root/.cache/go-build \
-    && chown -R worker:worker /opt/go
+    && chown -R pn:pn /opt/go
 
 # Install Codex without credentials. The release archive is placed in the
 # image, while CODEX_HOME remains writable only inside each runtime container.
 RUN mkdir -p /opt/codex/bin /opt/codex/home \
-    && chown -R worker:worker /opt/codex
+    && chown -R pn:pn /opt/codex
 
-RUN mkdir -p /workspace && chown worker:worker /workspace
+RUN mkdir -p /workspace && chown pn:pn /workspace
 
-USER worker
+USER pn
 
 RUN curl -fsSL --retry 3 --retry-all-errors https://chatgpt.com/codex/install.sh \
     | CODEX_HOME=/opt/codex/home \
@@ -100,6 +89,6 @@ RUN curl -fsSL --retry 3 --retry-all-errors https://chatgpt.com/codex/install.sh
 # user). These define the fast/normal/deep model profiles used by agent
 # sessions; they reference OPENCODE_GO_API_KEY only by env_key name, so no
 # secrets are embedded in the image. The key itself is forwarded per-session.
-COPY --chown=worker:worker codex/ /opt/codex/home/
+COPY --chown=pn:pn codex/ /opt/codex/home/
 
 WORKDIR /workspace
