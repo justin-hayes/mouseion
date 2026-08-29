@@ -71,7 +71,9 @@ RUN mkdir -p /opt/go/bin \
     && chown -R pn:pn /opt/go
 
 # Install Codex without credentials. The release archive is placed in the
-# image, while CODEX_HOME remains writable only inside each runtime container.
+# image, while CODEX_HOME is populated at runtime from a host ~/.codex mounted
+# over /opt/codex/home (see README). No profile configs or credentials are
+# baked in.
 RUN mkdir -p /opt/codex/bin /opt/codex/home \
     && chown -R pn:pn /opt/codex
 
@@ -84,11 +86,5 @@ RUN curl -fsSL --retry 3 --retry-all-errors https://chatgpt.com/codex/install.sh
       CODEX_INSTALL_DIR=/opt/codex/bin \
       CODEX_NON_INTERACTIVE=true \
       sh -s -- --release "${CODEX_VERSION}"
-
-# Bake the Codex profile configs into CODEX_HOME (~/.codex for the runtime
-# user). These define the fast/normal/deep model profiles used by agent
-# sessions; they reference OPENCODE_GO_API_KEY only by env_key name, so no
-# secrets are embedded in the image. The key itself is forwarded per-session.
-COPY --chown=pn:pn codex/ /opt/codex/home/
 
 WORKDIR /workspace
