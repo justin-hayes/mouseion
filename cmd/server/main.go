@@ -30,6 +30,9 @@ import (
 )
 
 func main() {
+	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+		log.Fatalf("invalid MOUSEION_SECRET: %v", err)
+	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("MOUSEION_DATABASE_URL is required")
@@ -120,7 +123,11 @@ func main() {
 	}
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	mux.Handle("/static/", webapp.StaticHandler())
-	mux.Handle("/", webapp.New(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, SecureCookies: secureCookies, SessionLifetime: lifetime}))
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	if err != nil {
+		log.Fatalf("initialize web application: %v", err)
+	}
+	mux.Handle("/", webHandler)
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }
