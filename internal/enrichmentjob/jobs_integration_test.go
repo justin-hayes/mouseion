@@ -93,7 +93,7 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 		t.Fatalf("status = %+v", status)
 	}
 	for _, candidate := range candidates {
-		key := enrichment.CacheKey{Language: "de", CanonicalLemma: candidate.CanonicalLemma, UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 		entry, found, err := store.Get(ctx, key)
 		if err != nil || !found || entry.Translation != "house" || entry.CachedAt.IsZero() {
 			t.Fatalf("cache entry=%+v found=%v err=%v", entry, found, err)

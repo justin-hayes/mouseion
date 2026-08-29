@@ -83,8 +83,8 @@ type TranslationProvider interface {
 }
 
 type CacheKey struct {
-	Language, CanonicalLemma, UPOS, Provider, ProviderVersion string
-	SentenceHash                                              string
+	Language, TargetLanguage, CanonicalLemma, UPOS, Provider, ProviderVersion string
+	SentenceHash                                                              string
 }
 type CacheEntry struct {
 	CacheKey
@@ -272,7 +272,7 @@ func (s *Service) ExternalCacheKey(c Candidate) (CacheKey, bool) {
 		}
 	}
 	return CacheKey{
-		Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
+		Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
 		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
 	}, true
 }

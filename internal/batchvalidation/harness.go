@@ -120,7 +120,7 @@ func (f Fixture) Validate() error {
 		if item.Ordinal != i || strings.TrimSpace(item.Language) == "" || strings.TrimSpace(item.Lemma) == "" || item.UPOS == "" || item.UPOS != strings.ToUpper(item.UPOS) {
 			return fmt.Errorf("batchvalidation: invalid frozen item %d", i)
 		}
-		if item.Disposition == cardexport.ManifestAccepted && strings.TrimSpace(item.CacheKey.Provider) == "" {
+		if item.Disposition == cardexport.ManifestAccepted && (strings.TrimSpace(item.CacheKey.Provider) == "" || item.CacheKey.TargetLanguage != "en") {
 			return fmt.Errorf("batchvalidation: accepted item %d has no cache identity", i)
 		}
 		if item.Disposition != cardexport.ManifestAccepted && item.Disposition != cardexport.ManifestQualityOmitted {

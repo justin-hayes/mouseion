@@ -187,7 +187,7 @@ func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) 
 	if !first.SentenceTranslationTarget.Available || first.SentenceTranslationTarget.Value != "house" || len(provider.requests) != 1 {
 		t.Fatalf("result=%+v requests=%d", first, len(provider.requests))
 	}
-	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
+	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
 		t.Fatalf("cache=%+v", cache.values)
 	}
 }

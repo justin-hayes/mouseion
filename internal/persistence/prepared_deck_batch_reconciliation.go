@@ -130,7 +130,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 				return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
 			}
 			entry := item.CacheEntry
-			if _, err = tx.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash, entry.Translation, entry.Gloss, entry.SentenceTranslation, entry.SentenceTranslationTarget, entry.CachedAt); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO enrichment_cache(language,target_language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`, entry.Language, entry.TargetLanguage, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash, entry.Translation, entry.Gloss, entry.SentenceTranslation, entry.SentenceTranslationTarget, entry.CachedAt); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
 			}
 			// The cache is immutable and first-writer-wins. Another run may have
@@ -138,7 +138,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 			// the trusted result the finalizer must consume even when a stochastic
 			// provider returned different text or this attempt has a later timestamp.
 			var stored int
-			if err = tx.QueryRow(ctx, `SELECT 1 FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored); err != nil {
+			if err = tx.QueryRow(ctx, `SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7`, entry.Language, entry.TargetLanguage, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
 			}
 		} else if item.CacheEntry != nil {

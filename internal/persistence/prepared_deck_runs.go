@@ -25,6 +25,7 @@ const (
 
 type PreparedDeckRunConfig struct {
 	ExternalTranslationConsent, ExternalTranslationConfigured bool
+	ExecutionMode, TargetLanguage                             string
 	ContextMode, Provider, ProviderVersion, Endpoint, Model   string
 	RetryPolicyVersion, MaxProviderAttempts                   int
 	MaxBatchGenerations, BatchMaxRequests                     int
@@ -132,7 +133,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		}
 		key := item.CacheKey
 		var found bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6)`, key.Language, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7)`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 		if found {
@@ -181,7 +182,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		}
 		return nil
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_runs(id,owner_id,preparation_id,run_number,state,translation_state,external_translation_consent,external_translation_configured,context_mode,provider,provider_version,endpoint,model,manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,translation_completed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`, runID, params.OwnerID, params.PreparationID, runNumber, runState, translationState, config.ExternalTranslationConsent, config.ExternalTranslationConfigured, nullable(config.ContextMode), nullable(config.Provider), nullable(config.ProviderVersion), nullable(config.Endpoint), nullable(config.Model), params.Manifest.SchemaVersion, config.RetryPolicyVersion, config.MaxProviderAttempts, config.MaxBatchGenerations, config.BatchMaxRequests, config.BatchMaxBytes, acceptedCount, completedCount, translationCompletedAt)
+	_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_runs(id,owner_id,preparation_id,run_number,state,translation_state,execution_mode,target_language,external_translation_consent,external_translation_configured,context_mode,provider,provider_version,endpoint,model,manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,translation_completed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`, runID, params.OwnerID, params.PreparationID, runNumber, runState, translationState, config.ExecutionMode, config.TargetLanguage, config.ExternalTranslationConsent, config.ExternalTranslationConfigured, nullable(config.ContextMode), nullable(config.Provider), nullable(config.ProviderVersion), nullable(config.Endpoint), nullable(config.Model), params.Manifest.SchemaVersion, config.RetryPolicyVersion, config.MaxProviderAttempts, config.MaxBatchGenerations, config.BatchMaxRequests, config.BatchMaxBytes, acceptedCount, completedCount, translationCompletedAt)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -202,7 +203,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		if item.CacheKey != nil {
 			provider, providerVersion, sentenceHash = item.CacheKey.Provider, item.CacheKey.ProviderVersion, item.CacheKey.SentenceHash
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_manifest_items(owner_id,preparation_id,run_id,ordinal,disposition,language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,provider,provider_version,sentence_hash,candidate_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, params.OwnerID, params.PreparationID, runID, item.Ordinal, item.Disposition, item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS, item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter, item.Quality.Score, item.Quality.Reasons, renderPayload, provider, providerVersion, sentenceHash, candidateDigest)
+		_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_manifest_items(owner_id,preparation_id,run_id,ordinal,disposition,language,target_language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,provider,provider_version,sentence_hash,candidate_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`, params.OwnerID, params.PreparationID, runID, item.Ordinal, item.Disposition, item.Entry.Language, config.TargetLanguage, item.Entry.CanonicalLemma, item.Entry.UPOS, item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter, item.Quality.Score, item.Quality.Reasons, renderPayload, provider, providerVersion, sentenceHash, candidateDigest)
 		if err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
@@ -258,6 +259,12 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 }
 
 func validatePreparedDeckRunConfig(config PreparedDeckRunConfig) (PreparedDeckRunConfig, error) {
+	if config.ExecutionMode == "" {
+		config.ExecutionMode = "batch"
+	}
+	if config.TargetLanguage == "" {
+		config.TargetLanguage = "en"
+	}
 	if config.RetryPolicyVersion == 0 {
 		config.RetryPolicyVersion = PreparedDeckRetryPolicyVersion
 	}
@@ -272,6 +279,9 @@ func validatePreparedDeckRunConfig(config PreparedDeckRunConfig) (PreparedDeckRu
 	}
 	if config.BatchMaxBytes == 0 {
 		config.BatchMaxBytes = DefaultBatchMaxBytes
+	}
+	if (config.ExecutionMode != "standard" && config.ExecutionMode != "batch") || config.TargetLanguage != "en" {
+		return config, fmt.Errorf("%w: invalid frozen execution identity", ErrInvalidTransition)
 	}
 	requested := config.ExternalTranslationConsent && config.ExternalTranslationConfigured
 	if requested {
@@ -324,14 +334,14 @@ func validateChunkPlans(plans []PreparedDeckBatchChunkPlan, config PreparedDeckR
 
 func runConfigMatches(run domain.PreparedDeckRun, config PreparedDeckRunConfig) bool {
 	validated, err := validatePreparedDeckRunConfig(config)
-	return err == nil && run.ExternalTranslationConsent == validated.ExternalTranslationConsent && run.ExternalTranslationConfigured == validated.ExternalTranslationConfigured && run.ContextMode == validated.ContextMode && run.Provider == validated.Provider && run.ProviderVersion == validated.ProviderVersion && run.Endpoint == validated.Endpoint && run.Model == validated.Model && run.RetryPolicyVersion == validated.RetryPolicyVersion && run.MaxProviderAttempts == validated.MaxProviderAttempts && run.MaxBatchGenerations == validated.MaxBatchGenerations && run.BatchMaxRequests == validated.BatchMaxRequests && run.BatchMaxBytes == validated.BatchMaxBytes
+	return err == nil && run.ExecutionMode == domain.PreparedDeckExecutionMode(validated.ExecutionMode) && run.TargetLanguage == validated.TargetLanguage && run.ExternalTranslationConsent == validated.ExternalTranslationConsent && run.ExternalTranslationConfigured == validated.ExternalTranslationConfigured && run.ContextMode == validated.ContextMode && run.Provider == validated.Provider && run.ProviderVersion == validated.ProviderVersion && run.Endpoint == validated.Endpoint && run.Model == validated.Model && run.RetryPolicyVersion == validated.RetryPolicyVersion && run.MaxProviderAttempts == validated.MaxProviderAttempts && run.MaxBatchGenerations == validated.MaxBatchGenerations && run.BatchMaxRequests == validated.BatchMaxRequests && run.BatchMaxBytes == validated.BatchMaxBytes
 }
 
-const preparedDeckRunColumns = `id::text,owner_id::text,preparation_id::text,run_number,state,translation_state,external_translation_consent,external_translation_configured,COALESCE(context_mode,''),COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(endpoint,''),COALESCE(model,''),manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,failed_count,finalization_dispatch_generation,finalization_dispatch_count,COALESCE(finalization_job_id,0),COALESCE(finalization_claim_token::text,''),finalization_claimed_at,finalization_lease_expires_at,error_class,error_code,created_at,updated_at,translation_completed_at,completed_at`
+const preparedDeckRunColumns = `id::text,owner_id::text,preparation_id::text,run_number,state,translation_state,execution_mode,target_language,external_translation_consent,external_translation_configured,COALESCE(context_mode,''),COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(endpoint,''),COALESCE(model,''),manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,failed_count,finalization_dispatch_generation,finalization_dispatch_count,COALESCE(finalization_job_id,0),COALESCE(finalization_claim_token::text,''),finalization_claimed_at,finalization_lease_expires_at,error_class,error_code,created_at,updated_at,translation_completed_at,completed_at`
 
 func scanPreparedDeckRun(row rowScanner) (domain.PreparedDeckRun, error) {
 	var run domain.PreparedDeckRun
-	err := row.Scan(&run.ID, &run.OwnerID, &run.PreparationID, &run.RunNumber, &run.State, &run.TranslationState, &run.ExternalTranslationConsent, &run.ExternalTranslationConfigured, &run.ContextMode, &run.Provider, &run.ProviderVersion, &run.Endpoint, &run.Model, &run.ManifestSchemaVersion, &run.RetryPolicyVersion, &run.MaxProviderAttempts, &run.MaxBatchGenerations, &run.BatchMaxRequests, &run.BatchMaxBytes, &run.CandidateCount, &run.CompletedCount, &run.FailedCount, &run.FinalizationDispatchGeneration, &run.FinalizationDispatchCount, &run.FinalizationJobID, &run.FinalizationClaimToken, &run.FinalizationClaimedAt, &run.FinalizationLeaseExpiresAt, &run.ErrorClass, &run.ErrorCode, &run.CreatedAt, &run.UpdatedAt, &run.TranslationCompletedAt, &run.CompletedAt)
+	err := row.Scan(&run.ID, &run.OwnerID, &run.PreparationID, &run.RunNumber, &run.State, &run.TranslationState, &run.ExecutionMode, &run.TargetLanguage, &run.ExternalTranslationConsent, &run.ExternalTranslationConfigured, &run.ContextMode, &run.Provider, &run.ProviderVersion, &run.Endpoint, &run.Model, &run.ManifestSchemaVersion, &run.RetryPolicyVersion, &run.MaxProviderAttempts, &run.MaxBatchGenerations, &run.BatchMaxRequests, &run.BatchMaxBytes, &run.CandidateCount, &run.CompletedCount, &run.FailedCount, &run.FinalizationDispatchGeneration, &run.FinalizationDispatchCount, &run.FinalizationJobID, &run.FinalizationClaimToken, &run.FinalizationClaimedAt, &run.FinalizationLeaseExpiresAt, &run.ErrorClass, &run.ErrorCode, &run.CreatedAt, &run.UpdatedAt, &run.TranslationCompletedAt, &run.CompletedAt)
 	return run, missing(err)
 }
 
@@ -360,7 +370,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		return snapshot, "", missing(err)
 	}
 	snapshot.Owner = owner
-	rows, err := s.pool.Query(ctx, `SELECT ordinal,disposition,language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(sentence_hash,''),candidate_digest FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 ORDER BY ordinal`, owner, preparationID, runID)
+	rows, err := s.pool.Query(ctx, `SELECT ordinal,disposition,language,target_language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(sentence_hash,''),candidate_digest FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 ORDER BY ordinal`, owner, preparationID, runID)
 	if err != nil {
 		return snapshot, "", err
 	}
@@ -368,8 +378,8 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 	for rows.Next() {
 		var item cardexport.ManifestItem
 		var payload []byte
-		var provider, providerVersion, sentenceHash, candidateDigest string
-		if err = rows.Scan(&item.Ordinal, &item.Disposition, &item.Entry.Language, &item.Entry.CanonicalLemma, &item.Entry.UPOS, &item.Entry.Sentence, &item.Entry.TargetWord, &item.Entry.FirstEncounter, &item.Quality.Score, &item.Quality.Reasons, &payload, &provider, &providerVersion, &sentenceHash, &candidateDigest); err != nil {
+		var provider, providerVersion, sentenceHash, candidateDigest, targetLanguage string
+		if err = rows.Scan(&item.Ordinal, &item.Disposition, &item.Entry.Language, &targetLanguage, &item.Entry.CanonicalLemma, &item.Entry.UPOS, &item.Entry.Sentence, &item.Entry.TargetWord, &item.Entry.FirstEncounter, &item.Quality.Score, &item.Quality.Reasons, &payload, &provider, &providerVersion, &sentenceHash, &candidateDigest); err != nil {
 			return snapshot, "", err
 		}
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
@@ -379,7 +389,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		}
 		item.Entry.Morphology, item.Entry.SourceDocument, item.Entry.Notes = render.Morphology, render.SourceDocument, render.Notes
 		if provider != "" {
-			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash}
+			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: targetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash}
 		}
 		calculated, digestErr := cardexport.CandidateDigest(item)
 		if digestErr != nil || calculated != candidateDigest {

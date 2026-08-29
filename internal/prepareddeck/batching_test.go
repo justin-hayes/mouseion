@@ -124,8 +124,8 @@ func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing
 		}
 	}
 	snapshot := cardexport.ManifestSnapshot{SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner", DeckName: "deck", Filename: cardexport.DownloadFilename("deck"), Items: []cardexport.ManifestItem{
-		{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}},
-		{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
+		{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}},
+		{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
 	}}
 	items, err := submissionBatchItems(snapshot, []int{0, 1}, map[int]domain.PreparedDeckTranslationOutcome{
 		0: {Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted},

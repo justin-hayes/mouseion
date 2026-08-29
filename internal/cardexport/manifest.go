@@ -179,7 +179,12 @@ type canonicalSentenceQuality struct {
 }
 
 type canonicalCacheKey struct {
-	Language        string `json:"language"`
+	Language string `json:"language"`
+	// TargetLanguage is validated and retained in the in-memory snapshot, but
+	// omitted from the v1 canonical payload so existing manifest digests remain
+	// stable. A future manifest schema must include it if it becomes a digest
+	// input.
+	TargetLanguage  string `json:"-"`
 	CanonicalLemma  string `json:"canonical_lemma"`
 	UPOS            string `json:"upos"`
 	Provider        string `json:"provider"`
@@ -249,10 +254,10 @@ func canonicalizeManifestItem(item ManifestItem) (canonicalManifestItem, error) 
 	}
 	var key *canonicalCacheKey
 	if item.CacheKey != nil {
-		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
+		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || item.CacheKey.TargetLanguage == "" || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
 			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
 		}
-		key = &canonicalCacheKey{Language: item.CacheKey.Language, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
+		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
 	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,

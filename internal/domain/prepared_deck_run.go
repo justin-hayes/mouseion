@@ -4,6 +4,13 @@ import "time"
 
 type PreparedDeckRunState string
 
+type PreparedDeckExecutionMode string
+
+const (
+	PreparedDeckExecutionStandard PreparedDeckExecutionMode = "standard"
+	PreparedDeckExecutionBatch    PreparedDeckExecutionMode = "batch"
+)
+
 const (
 	PreparedDeckRunTranslating PreparedDeckRunState = "translating"
 	PreparedDeckRunFinalizing  PreparedDeckRunState = "finalizing"
@@ -54,6 +61,8 @@ type PreparedDeckRun struct {
 	ID, OwnerID, PreparationID                        string
 	RunNumber                                         int
 	State                                             PreparedDeckRunState
+	ExecutionMode                                     PreparedDeckExecutionMode
+	TargetLanguage                                    string
 	TranslationState                                  PreparedDeckTranslationState
 	ExternalTranslationConsent                        bool
 	ExternalTranslationConfigured                     bool
