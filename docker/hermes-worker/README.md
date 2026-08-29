@@ -1,6 +1,6 @@
 # Mouseion Hermes worker image
 
-This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `nikolaik/python-nodejs:python3.11-nodejs20` — the same image Hermes uses for its docker backend by default — and adds the tools used by Mouseion agent sessions under a non-root `worker` user (uid 1000):
+This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `nikolaik/python-nodejs:python3.11-nodejs20` — the same image Hermes uses for its docker backend by default — and adds the tools used by Mouseion agent sessions under a non-root `worker` user:
 
 - Go 1.24.6
 - protoc 29.3
@@ -36,6 +36,7 @@ terminal:
   cwd: /workspace
   docker_image: ghcr.io/OWNER/REPOSITORY/hermes-worker:latest
   docker_mount_cwd_to_workspace: true
+  docker_run_as_host_user: true
   container_persistent: false
   lifetime_seconds: 300
   docker_forward_env: []

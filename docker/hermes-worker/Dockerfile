@@ -7,9 +7,10 @@ FROM golang:${GO_VERSION}-bookworm AS go-toolchain
 # workspace is mounted by Hermes at /workspace at runtime. It is based on the
 # same Python 3.11 + Node 20 image that Hermes uses for its docker backend by
 # default, plus the build tooling needed by the Mouseion repository. A
-# dedicated `worker` user (uid 1000) is created here rather than inheriting one
-# from the agent runtime image, so the host-mounted /workspace stays writable
-# when the host user is uid 1000.
+# dedicated `worker` user is created here rather than inheriting one
+# from the agent runtime image. Hermes should run the container as the host
+# user (docker_run_as_host_user: true) so a host-mounted /workspace stays
+# writable.
 FROM nikolaik/python-nodejs:python3.11-nodejs20@sha256:8f958bdc1b4a422bfafd97cab4f69836401f616ae985d4b57a53d254f5bcb038
 
 ARG TARGETARCH
@@ -27,11 +28,14 @@ ENV GOPATH=/opt/go \
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
 
-# Create the non-root runtime user. uid 1000 matches the default host user on
-# most dev machines, which keeps a host-mounted /workspace writable. We give it
-# a real shell because Hermes' docker backend spawns a persistent shell as the
-# runtime user; it gets no credentials and only its CODEX_HOME persists.
-RUN useradd --create-home --uid 1000 --user-group --shell /bin/bash worker \
+# Create the non-root runtime user. The base image already ships a user at
+# uid 1000 (the `node` user), so use a unique uid. For a host-mounted
+# /workspace to stay writable, Hermes should run the container as the host
+# user (docker_run_as_host_user: true) rather than relying on a uid match.
+# We give it a real shell because Hermes' docker backend spawns a persistent
+# shell as the runtime user; it gets no credentials and only its CODEX_HOME
+# persists.
+RUN useradd --create-home --uid 1001 --user-group --shell /bin/bash worker \
     && chown worker:worker /home/worker
 
 # Keep the package set small while making the repository's normal build and
