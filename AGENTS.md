@@ -140,11 +140,20 @@ multiple issues.
 
 ## Coding-agent escalation
 
-Start Codex in `normal` mode for all repository work, including substantial or
-cross-cutting issues. Escalate to Sol/deep only when a concrete blocker
-requires it, such as architectural ambiguity or a repeated implementation or
-test failure. Keep the escalation narrowly scoped to resolving that blocker,
-then return to normal mode for the remaining implementation and verification.
+Start Codex in fast mode for repository implementation work, including
+substantial or cross-cutting issues, when the task is reasonably well specified.
+Do not escalate based on task size or number of affected files alone.
+
+Escalate to normal only when a concrete blocker indicates that additional
+reasoning is needed, such as architectural ambiguity, uncertainty about the
+correct implementation approach, or a repeated implementation or test failure
+that cannot be resolved in fast mode.
+
+Escalate to deep only when normal cannot resolve a concrete blocker or the
+task requires unusually difficult architectural reasoning or debugging.
+
+Keep each escalation narrowly scoped to resolving the blocker, then return to
+fast mode for routine implementation and verification whenever practical.
 
 ## Autonomous implementation
 
