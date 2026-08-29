@@ -40,6 +40,55 @@ type MetadataItem struct {
 	Description string
 }
 
+// NavigationContext identifies the authenticated shell context. Acquisition
+// is intentionally separate from the three peer destinations so the shell can
+// keep Add books available without presenting it as a destination.
+type NavigationContext string
+
+const (
+	NavigationNone        NavigationContext = ""
+	NavigationLibrary     NavigationContext = "library"
+	NavigationLearning    NavigationContext = "learning"
+	NavigationAcquisition NavigationContext = "acquisition"
+	NavigationSettings    NavigationContext = "settings"
+)
+
+func navigationContextForTitle(title string) NavigationContext {
+	switch {
+	case title == "My Library":
+		return NavigationLibrary
+	case title == "Learning":
+		return NavigationLearning
+	case title == "Settings", title == "Known vocabulary":
+		return NavigationSettings
+	case title == "Add books":
+		return NavigationAcquisition
+	default:
+		return NavigationNone
+	}
+}
+
+func destinationAttributes(context, destination NavigationContext) templ.Attributes {
+	attributes := templ.Attributes{"class": "site-nav__link"}
+	if context == destination {
+		attributes["aria-current"] = "page"
+		attributes["class"] = "site-nav__link site-nav__link--current"
+	}
+	return attributes
+}
+
+func acquisitionAttributes(context NavigationContext) templ.Attributes {
+	attributes := templ.Attributes{
+		"class":                "site-nav__action",
+		"data-navigation-role": "workflow-action",
+	}
+	if context == NavigationAcquisition {
+		attributes["aria-current"] = "page"
+		attributes["class"] = "site-nav__action site-nav__action--current"
+	}
+	return attributes
+}
+
 func statusBadgeClass(tone StatusTone) string {
 	switch tone {
 	case StatusInfo, StatusSuccess, StatusWarning, StatusDanger:
