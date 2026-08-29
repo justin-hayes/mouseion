@@ -28,6 +28,7 @@ import (
 
 var ErrNotFound = errors.New("persistence: not found")
 var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
+var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrActiveCampaign = errors.New("persistence: owner already has an active learning campaign")
@@ -163,10 +164,20 @@ func missing(err error) error {
 
 // Passwords are encrypted with AES-256-GCM. The key is derived from the
 // deployment's MOUSEION_SECRET; changing it makes existing credentials unreadable.
+func ValidateSecret(secret string) error {
+	if strings.TrimSpace(secret) == "" {
+		return ErrSecretRequired
+	}
+	if len([]byte(secret)) < 32 {
+		return ErrSecretWeak
+	}
+	return nil
+}
+
 func credentialAEAD() (cipher.AEAD, error) {
 	secret := os.Getenv("MOUSEION_SECRET")
-	if secret == "" {
-		return nil, ErrSecretRequired
+	if err := ValidateSecret(secret); err != nil {
+		return nil, err
 	}
 	key := sha256.Sum256([]byte(secret))
 	block, err := aes.NewCipher(key[:])

@@ -4,7 +4,11 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -15,6 +19,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -38,6 +43,9 @@ import (
 )
 
 const csrfCookie = "mouseion_csrf"
+const acquisitionCookie = "mouseion_acquisition"
+const maxAcquisitionEntries = 40
+const maxAcquisitionCookieBytes = 3072
 
 type Store interface {
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
@@ -66,9 +74,12 @@ type Store interface {
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
+	BrowsePage(context.Context, string, string, string) (opds.Feed, error)
 	Languages(context.Context, string, string) (opds.Feed, error)
 	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
+	BrowseLanguagePage(context.Context, string, string, string, string) (opds.Feed, error)
 	Search(context.Context, string, string, string) (opds.Feed, error)
+	SearchPage(context.Context, string, string, string, string) (opds.Feed, error)
 	Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
 type Analysis interface {
@@ -116,19 +127,37 @@ type Services struct {
 	Capabilities     analyzer.CapabilityProvider
 	SecureCookies    bool
 	SessionLifetime  time.Duration
+	// These are optional explicit key injections for deterministic tests or
+	// another deliberately managed key provider. Production uses MOUSEION_SECRET.
+	AcquisitionKey       []byte
+	AcquisitionTargetKey []byte
 }
 
 type Handler struct {
-	services Services
-	mux      *http.ServeMux
+	services       Services
+	mux            *http.ServeMux
+	acquisitionKey []byte
+	targetKey      []byte
 }
 
 func New(s Services) *Handler {
-	h := &Handler{services: s, mux: http.NewServeMux()}
+	h, err := NewWithError(s)
+	if err != nil {
+		panic(err)
+	}
+	return h
+}
+
+func NewWithError(s Services) (*Handler, error) {
+	cookieKey, targetKey, err := webKeys(s)
+	if err != nil {
+		return nil, err
+	}
+	h := &Handler{services: s, mux: http.NewServeMux(), acquisitionKey: cookieKey, targetKey: targetKey}
 	h.mux.HandleFunc("GET /login", h.loginPage)
 	h.mux.HandleFunc("POST /login", h.login)
 	h.mux.HandleFunc("POST /onboarding", h.onboard)
-	h.mux.Handle("POST /logout-all", s.WebAuth)
+	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
@@ -171,7 +200,7 @@ func New(s Services) *Handler {
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	h.mux.Handle("POST /known-vocab/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /known-vocab/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
-	return h
+	return h, nil
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
 func (h *Handler) user(next http.Handler) http.Handler              { return h.services.WebAuth.RequireUser(next) }
@@ -217,11 +246,390 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 func isHTMX(r *http.Request) bool      { return r.Header.Get("HX-Request") == "true" }
 
-func acquisitionReturnPath(raw string) string {
-	if strings.TrimSpace(raw) == "" {
-		return "/library"
+type acquisitionEntryState struct {
+	Connection string `json:"connection"`
+	Language   string `json:"language"`
+	EntryID    string `json:"entry_id"`
+	Href       string `json:"href"`
+	HrefDigest string `json:"href_digest,omitempty"`
+	SourceID   string `json:"source_id"`
+}
+
+type acquisitionCookiePayload struct {
+	OwnerID     string                  `json:"owner_id"`
+	SessionHash string                  `json:"session_hash"`
+	Entries     []acquisitionEntryState `json:"entries"`
+}
+
+func (h *Handler) acquisitionState(r *http.Request) []acquisitionEntryState {
+	cookie, err := r.Cookie(acquisitionCookie)
+	ownerID, sessionHash, ok := acquisitionBinding(r)
+	if err != nil || cookie.Value == "" || !ok {
+		return nil
 	}
-	return webauth.SafeReturnPath(raw)
+	return h.acquisitionStateFor(cookie.Value, ownerID, sessionHash)
+}
+
+func (h *Handler) acquisitionStateFor(value, ownerID, sessionHash string) []acquisitionEntryState {
+	if value == "" || ownerID == "" || sessionHash == "" {
+		return nil
+	}
+	encoded := strings.Split(value, ".")
+	if len(encoded) != 2 {
+		return nil
+	}
+	data, err := base64.RawURLEncoding.DecodeString(encoded[0])
+	if err != nil {
+		return nil
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(encoded[1])
+	if err != nil || !validAcquisitionMAC(h.acquisitionKey, data, signature) {
+		return nil
+	}
+	var payload acquisitionCookiePayload
+	if json.Unmarshal(data, &payload) != nil || payload.OwnerID != ownerID || payload.SessionHash != sessionHash {
+		return nil
+	}
+	if len(payload.Entries) > maxAcquisitionEntries {
+		payload.Entries = payload.Entries[len(payload.Entries)-maxAcquisitionEntries:]
+	}
+	return payload.Entries
+}
+
+func acquisitionEntrySource(entries []acquisitionEntryState, connection, language string, entry opds.Entry, href string) string {
+	safeHref := safeAcquisitionURL(href)
+	for _, item := range entries {
+		hrefDigest := acquisitionHrefDigest(href)
+		if isAcquisitionTargetToken(href) {
+			parts := strings.SplitN(strings.TrimPrefix(href, acquisitionTargetTokenPrefix), ".", 2)
+			if len(parts) == 2 {
+				hrefDigest = parts[0]
+			}
+		}
+		matchesHref := item.HrefDigest != "" && item.HrefDigest == hrefDigest
+		if item.HrefDigest == "" {
+			matchesHref = item.Href == safeHref
+		}
+		if item.Connection == connection && item.Language == language && item.EntryID == entry.ID && matchesHref {
+			return item.SourceID
+		}
+	}
+	return ""
+}
+
+func (h *Handler) rememberAcquisition(w http.ResponseWriter, r *http.Request, connection, language string, entry opds.Entry, href, sourceID string) {
+	if sourceID == "" || connection == "" || entry.ID == "" {
+		return
+	}
+	ownerID, sessionHash, ok := acquisitionBinding(r)
+	if !ok {
+		return
+	}
+	entries := h.acquisitionState(r)
+	updated := acquisitionEntryState{Connection: connection, Language: language, EntryID: entry.ID, HrefDigest: acquisitionHrefDigest(href), SourceID: sourceID}
+	filtered := make([]acquisitionEntryState, 0, len(entries)+1)
+	for _, item := range entries {
+		if item.Connection == updated.Connection && item.Language == updated.Language && item.EntryID == updated.EntryID && ((item.HrefDigest != "" && item.HrefDigest == updated.HrefDigest) || (item.HrefDigest == "" && item.Href == updated.Href)) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	filtered = append(filtered, updated)
+	if len(filtered) > maxAcquisitionEntries {
+		filtered = filtered[len(filtered)-maxAcquisitionEntries:]
+	}
+	payload := acquisitionCookiePayload{OwnerID: ownerID, SessionHash: sessionHash, Entries: filtered}
+	value, boundedEntries := boundedAcquisitionCookie(h.acquisitionKey, payload)
+	if value == "" || len(boundedEntries) == 0 {
+		h.clearAcquisition(w)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: acquisitionCookie, Value: value, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
+}
+
+func acquisitionHrefDigest(href string) string {
+	sum := sha256.Sum256([]byte(href))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func acquisitionBinding(r *http.Request) (string, string, bool) {
+	u, ok := webauth.UserFromContext(r.Context())
+	if !ok || u.ID == "" {
+		return "", "", false
+	}
+	session, err := r.Cookie(webauth.CookieName)
+	if err != nil || session.Value == "" {
+		return "", "", false
+	}
+	return u.ID, auth.HashSessionToken(session.Value), true
+}
+
+func encodeAcquisitionCookie(key []byte, payload acquisitionCookiePayload) ([]byte, string, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, "", err
+	}
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(data)
+	value := base64.RawURLEncoding.EncodeToString(data) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return data, value, nil
+}
+
+func boundedAcquisitionCookie(key []byte, payload acquisitionCookiePayload) (string, []acquisitionEntryState) {
+	entries := payload.Entries
+	for len(entries) > 0 {
+		payload.Entries = entries
+		_, value, err := encodeAcquisitionCookie(key, payload)
+		if err == nil && len(value) <= maxAcquisitionCookieBytes {
+			return value, entries
+		}
+		entries = entries[1:]
+	}
+	return "", nil
+}
+
+func validAcquisitionMAC(key, data, signature []byte) bool {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(data)
+	return hmac.Equal(mac.Sum(nil), signature)
+}
+
+func (h *Handler) clearAcquisition(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{Name: acquisitionCookie, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+}
+
+func webKeyFromSecret(secret, purpose string) ([]byte, error) {
+	if err := persistence.ValidateSecret(secret); err != nil {
+		return nil, fmt.Errorf("webapp: initialize %s key: %w", purpose, err)
+	}
+	sum := sha256.Sum256([]byte("mouseion-webapp-" + purpose + "-v1\x00" + secret))
+	return sum[:], nil
+}
+
+func webKeys(s Services) ([]byte, []byte, error) {
+	if len(s.AcquisitionKey) > 0 || len(s.AcquisitionTargetKey) > 0 {
+		if len(s.AcquisitionKey) != 32 || len(s.AcquisitionTargetKey) != 32 {
+			return nil, nil, errors.New("webapp: explicitly injected acquisition keys must each be 32 bytes")
+		}
+		return append([]byte(nil), s.AcquisitionKey...), append([]byte(nil), s.AcquisitionTargetKey...), nil
+	}
+	cookieKey, err := webKeyFromSecret(os.Getenv("MOUSEION_SECRET"), "cookie")
+	if err != nil {
+		return nil, nil, err
+	}
+	targetKey, err := webKeyFromSecret(os.Getenv("MOUSEION_SECRET"), "target")
+	if err != nil {
+		return nil, nil, err
+	}
+	return cookieKey, targetKey, nil
+}
+
+type acquisitionTarget struct {
+	Connection string     `json:"connection"`
+	Language   string     `json:"language"`
+	Entry      opds.Entry `json:"entry"`
+	Href       string     `json:"href"`
+}
+
+const acquisitionTargetTokenPrefix = "m1."
+
+func encodeAcquisitionTarget(key []byte, target acquisitionTarget) string {
+	data, err := json.Marshal(target)
+	if err != nil {
+		return ""
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return ""
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return ""
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = rand.Read(nonce); err != nil {
+		return ""
+	}
+	digest := acquisitionHrefDigest(target.Href)
+	return acquisitionTargetTokenPrefix + digest + "." + base64.RawURLEncoding.EncodeToString(gcm.Seal(nonce, nonce, data, nil))
+}
+
+func decodeAcquisitionTarget(key []byte, token string) (acquisitionTarget, error) {
+	if !strings.HasPrefix(token, acquisitionTargetTokenPrefix) {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	parts := strings.SplitN(strings.TrimPrefix(token, acquisitionTargetTokenPrefix), ".", 2)
+	if len(parts) != 2 || parts[0] == "" {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	data, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return acquisitionTarget{}, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil || len(data) < gcm.NonceSize() {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	plain, err := gcm.Open(nil, data[:gcm.NonceSize()], data[gcm.NonceSize():], nil)
+	if err != nil {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	var target acquisitionTarget
+	if err := json.Unmarshal(plain, &target); err != nil || target.Connection == "" || target.Href == "" || acquisitionHrefDigest(target.Href) != parts[0] {
+		return acquisitionTarget{}, errors.New("invalid acquisition token")
+	}
+	return target, nil
+}
+
+func isAcquisitionTargetToken(value string) bool {
+	return strings.HasPrefix(value, acquisitionTargetTokenPrefix)
+}
+
+func (h *Handler) clientTargetToken(connection, language string, entry *opds.Entry, href string) string {
+	if isAcquisitionTargetToken(href) {
+		return href
+	}
+	target := acquisitionTarget{Connection: connection, Language: language, Href: href}
+	if entry != nil {
+		target.Entry = opds.Entry{ID: entry.ID, Title: entry.Title}
+	}
+	return encodeAcquisitionTarget(h.targetKey, target)
+}
+
+func (h *Handler) decodeClientTarget(token, connection, language string) (string, error) {
+	if token == "" {
+		return "", nil
+	}
+	if !isAcquisitionTargetToken(token) {
+		return token, nil
+	}
+	target, err := decodeAcquisitionTarget(h.targetKey, token)
+	if err != nil || target.Connection != connection || target.Language != "" && target.Language != language {
+		return "", errors.New("invalid catalog target")
+	}
+	return target.Href, nil
+}
+
+func (h *Handler) prepareFeedForClient(connection, language string, feed opds.Feed) opds.Feed {
+	prepared := feed
+	prepared.Links = append([]opds.Link(nil), feed.Links...)
+	for i := range prepared.Links {
+		if prepared.Links[i].Href != "" {
+			prepared.Links[i].Href = h.clientTargetToken(connection, language, nil, prepared.Links[i].Href)
+		}
+	}
+	prepared.Entries = make([]opds.Entry, len(feed.Entries))
+	for i, entry := range feed.Entries {
+		prepared.Entries[i] = entry
+		prepared.Entries[i].Links = append([]opds.Link(nil), entry.Links...)
+		for j, link := range prepared.Entries[i].Links {
+			if link.Href == "" {
+				continue
+			}
+			var targetEntry *opds.Entry
+			isAcquisition := link.Rel == opds.AcquisitionRel || strings.HasPrefix(link.Rel, opds.AcquisitionRel+"/")
+			isEPUB := strings.EqualFold(strings.TrimSpace(strings.Split(link.Type, ";")[0]), opds.EPUBMediaType)
+			if isAcquisition && isEPUB {
+				targetEntry = &entry
+			}
+			prepared.Entries[i].Links[j].Href = h.clientTargetToken(connection, language, targetEntry, link.Href)
+		}
+	}
+	return prepared
+}
+
+func (h *Handler) acquisitionEntryForClient(connection, language string, entry opds.Entry, href string) (opds.Entry, string) {
+	token := h.clientTargetToken(connection, language, &entry, href)
+	entry.Links = []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: token}}
+	return entry, token
+}
+
+func (h *Handler) acquisitionReturnPath(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return "/connections"
+	}
+	path := webauth.SafeReturnPath(raw)
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return "/"
+	}
+	query := parsed.Query()
+	connection, language := query.Get("connection"), query.Get("language")
+	for key, values := range query {
+		for i, value := range values {
+			switch key {
+			case "url", "target":
+				if value != "" {
+					values[i] = h.clientTargetToken(connection, language, nil, value)
+				}
+			case "trail":
+				parts := strings.SplitN(value, "\x1f", 2)
+				if len(parts) == 2 && parts[1] != "" {
+					parts[1] = h.clientTargetToken(connection, language, nil, parts[1])
+					values[i] = strings.Join(parts, "\x1f")
+				}
+			}
+		}
+		query[key] = values
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.RequestURI()
+}
+
+func safeAcquisitionURL(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	parsed.User = nil
+	query := parsed.Query()
+	for key := range query {
+		if sensitiveURLParameter(key) {
+			query.Del(key)
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func connectionURLForEdit(connection domain.OpdsConnection) string {
+	if connectionURLContainsCredentials(connection.URL) {
+		return ""
+	}
+	return connection.URL
+}
+
+func connectionURLContainsCredentials(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return true
+	}
+	if parsed.User != nil {
+		return true
+	}
+	for key := range parsed.Query() {
+		if sensitiveURLParameter(key) {
+			return true
+		}
+	}
+	return false
+}
+
+func sensitiveURLParameter(key string) bool {
+	parts := strings.FieldsFunc(strings.ToLower(strings.TrimSpace(key)), func(r rune) bool {
+		return r == '_' || r == '-' || r == '.' || r == ' '
+	})
+	for _, part := range parts {
+		switch part {
+		case "pass", "password", "passwd", "pwd", "passcode", "secret", "token", "auth", "authorization", "credential", "credentials", "session", "cookie", "signature", "sig", "key", "apikey", "accesskey":
+			return true
+		}
+	}
+	return false
 }
 
 func addQueryMessage(raw, message string) string {
@@ -289,7 +697,12 @@ func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		h.services.WebAuth.ServeHTTP(w, r)
+		if c, err := r.Cookie(webauth.CookieName); err == nil {
+			_ = h.services.Auth.Logout(r.Context(), c.Value)
+		}
+		h.clearSession(w)
+		h.clearAcquisition(w)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	if !h.checkCSRF(w, r) {
@@ -299,6 +712,29 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		_ = h.services.Auth.Logout(r.Context(), c.Value)
 	}
 	h.clearSession(w)
+	h.clearAcquisition(w)
+	redirect(w, r, "/login")
+}
+func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		if err := h.services.Auth.LogoutEverywhere(r.Context(), user(r).ID); err != nil {
+			http.Error(w, "unable to invalidate sessions", http.StatusInternalServerError)
+			return
+		}
+		h.clearSession(w)
+		h.clearAcquisition(w)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if err := h.services.Auth.LogoutEverywhere(r.Context(), user(r).ID); err != nil {
+		fail(w, err)
+		return
+	}
+	h.clearSession(w)
+	h.clearAcquisition(w)
 	redirect(w, r, "/login")
 }
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -1013,7 +1449,12 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: r.FormValue("password")})
+	connectionURL, err := opds.NormalizeCatalogURL(r.FormValue("url"))
+	if err != nil {
+		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
+		return
+	}
+	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
 	if e != nil {
 		fail(w, e)
 		return
@@ -1034,7 +1475,16 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if password == "" {
 		password = current.Password
 	}
-	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: strings.TrimSpace(r.FormValue("url")), Username: r.FormValue("username"), Password: password})
+	connectionURL := strings.TrimSpace(r.FormValue("url"))
+	if connectionURL == "" {
+		connectionURL = current.URL
+	}
+	connectionURL, e = opds.NormalizeCatalogURL(connectionURL)
+	if e != nil {
+		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
+		return
+	}
+	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: password})
 	if e != nil {
 		fail(w, e)
 		return
@@ -1068,104 +1518,210 @@ func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
-	if _, ok := h.supportedLanguage(w, r, language); !ok {
+	if _, err := h.supportedLanguage(r, language); err != nil {
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), err, r.URL.RequestURI())
 		return
 	}
 	u := user(r)
-	feed, e := h.services.OPDS.Browse(r.Context(), u.ID, r.URL.Query().Get("connection"), r.URL.Query().Get("url"))
+	connection, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.URL.Query().Get("connection"))
 	if e != nil {
-		opdsFail(w, e)
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), e, "/connections")
 		return
 	}
+	target, targetErr := h.decodeClientTarget(r.URL.Query().Get("url"), connection.ID, language)
+	if targetErr != nil {
+		h.catalogFailure(w, r, connection.ID, targetErr, r.URL.RequestURI())
+		return
+	}
+	feed, e := h.services.OPDS.BrowsePage(r.Context(), u.ID, connection.ID, target)
+	if e != nil {
+		h.catalogFailure(w, r, connection.ID, e, r.URL.RequestURI())
+		return
+	}
+	feed = h.prepareFeedForClient(connection.ID, language, feed)
 	trail := decodeTrail(r.URL.Query()["trail"])
 	currentURL := r.URL.Query().Get("url")
+	owned := h.acquisitionState(r)
 	if currentURL == "" {
-		render(w, r, CatalogRootFragment(r.URL.Query().Get("connection"), language, feed))
+		component := CatalogRootResults(h.csrf(w, r), connection.ID, language, h.acquisitionReturnPath(r.URL.RequestURI()), r.URL.Query().Get("message"), feed, owned)
+		if isHTMX(r) {
+			render(w, r, component)
+		} else {
+			render(w, r, CatalogRootPage(u, h.csrf(w, r), connection, language, r.URL.Query().Get("message"), feed, owned))
+		}
 		return
 	}
 	trail = append(trail, CatalogCrumb{Title: feed.Title, URL: currentURL})
-	render(w, r, FeedFragment(h.csrf(w, r), r.URL.Query().Get("connection"), language, r.URL.RequestURI(), r.URL.Query().Get("message"), feed, trail))
+	if isHTMX(r) {
+		render(w, r, FeedFragmentWithState(h.csrf(w, r), connection.ID, language, h.acquisitionReturnPath(r.URL.RequestURI()), r.URL.Query().Get("message"), feed, trail, owned))
+	} else {
+		render(w, r, CatalogFeedPage(u, h.csrf(w, r), connection, feed, trail, language, h.acquisitionReturnPath(r.URL.RequestURI()), r.URL.Query().Get("message"), owned))
+	}
 }
 func (h *Handler) browseLanguage(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
 	if language == "" {
-		render(w, r, CatalogNotice("Choose a language to browse its EPUB books."))
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), errors.New("Choose a language to browse its EPUB books."), "/catalog?connection="+url.QueryEscape(r.URL.Query().Get("connection")))
 		return
 	}
-	capability, ok := h.supportedLanguage(w, r, language)
-	if !ok {
+	capability, err := h.supportedLanguage(r, language)
+	if err != nil {
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), err, "/catalog?connection="+url.QueryEscape(r.URL.Query().Get("connection")))
 		return
 	}
 	u := user(r)
 	connectionID := r.URL.Query().Get("connection")
-	languages, e := h.services.OPDS.Languages(r.Context(), u.ID, connectionID)
+	connection, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, connectionID)
 	if e != nil {
-		opdsFail(w, e)
+		h.catalogFailure(w, r, connectionID, e, "/connections")
 		return
 	}
-	languageID := catalogLanguageID(capability, languages)
-	if languageID == "" {
-		http.Error(w, "The catalog does not advertise the selected language.", http.StatusBadRequest)
-		return
+	var feed opds.Feed
+	if target := r.URL.Query().Get("url"); target != "" {
+		decodedTarget, targetErr := h.decodeClientTarget(target, connectionID, language)
+		if targetErr != nil {
+			h.catalogFailure(w, r, connectionID, targetErr, r.URL.RequestURI())
+			return
+		}
+		feed, e = h.services.OPDS.BrowsePage(r.Context(), u.ID, connectionID, decodedTarget)
+		feed = opds.FilterEPUBEntries(feed)
+	} else {
+		languages, languageErr := h.services.OPDS.Languages(r.Context(), u.ID, connectionID)
+		if languageErr != nil {
+			h.catalogFailure(w, r, connectionID, languageErr, r.URL.RequestURI())
+			return
+		}
+		languageID := catalogLanguageID(capability, languages)
+		if languageID == "" {
+			h.catalogFailure(w, r, connectionID, errors.New("The catalog does not advertise the selected ready language."), "/catalog?connection="+url.QueryEscape(connectionID))
+			return
+		}
+		feed, e = h.services.OPDS.BrowseLanguagePage(r.Context(), u.ID, connectionID, languageID, r.URL.Query().Get("url"))
 	}
-	feed, e := h.services.OPDS.BrowseLanguage(r.Context(), u.ID, connectionID, languageID)
 	if e != nil {
-		opdsFail(w, e)
+		h.catalogFailure(w, r, connectionID, e, r.URL.RequestURI())
 		return
 	}
-	render(w, r, LanguageResults(h.csrf(w, r), connectionID, language, r.URL.RequestURI(), r.URL.Query().Get("message"), feed))
+	feed = h.prepareFeedForClient(connectionID, language, feed)
+	owned := h.acquisitionState(r)
+	returnTo := h.acquisitionReturnPath(r.URL.RequestURI())
+	if isHTMX(r) {
+		render(w, r, LanguageResultsWithState(h.csrf(w, r), connectionID, language, returnTo, r.URL.Query().Get("message"), feed, owned))
+	} else {
+		render(w, r, CatalogLanguagePage(u, h.csrf(w, r), connection, language, returnTo, r.URL.Query().Get("message"), feed, owned))
+	}
 }
 func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
-	if _, ok := h.supportedLanguage(w, r, language); !ok {
+	if _, err := h.supportedLanguage(r, language); err != nil {
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), err, "/catalog?connection="+url.QueryEscape(r.URL.Query().Get("connection")))
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
-		render(w, r, CatalogNotice("Enter a title or author to search this catalog."))
+		h.catalogFailure(w, r, r.URL.Query().Get("connection"), errors.New("Enter a title or author to search this catalog."), r.URL.RequestURI())
 		return
 	}
 	u := user(r)
-	feed, e := h.services.OPDS.Search(r.Context(), u.ID, r.URL.Query().Get("connection"), query)
+	connectionID := r.URL.Query().Get("connection")
+	connection, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, connectionID)
 	if e != nil {
-		if errors.Is(e, opds.ErrSearchUnavailable) {
-			render(w, r, CatalogNotice("Search is not available for this catalog. Browse its collections instead."))
-			return
-		}
-		opdsFail(w, e)
+		h.catalogFailure(w, r, connectionID, e, "/connections")
 		return
 	}
-	render(w, r, SearchResults(h.csrf(w, r), r.URL.Query().Get("connection"), language, r.URL.RequestURI(), r.URL.Query().Get("message"), query, feed))
+	var feed opds.Feed
+	if target := r.URL.Query().Get("url"); target != "" {
+		decodedTarget, targetErr := h.decodeClientTarget(target, connectionID, language)
+		if targetErr != nil {
+			h.catalogFailure(w, r, connectionID, targetErr, r.URL.RequestURI())
+			return
+		}
+		feed, e = h.services.OPDS.BrowsePage(r.Context(), u.ID, connectionID, decodedTarget)
+	} else {
+		feed, e = h.services.OPDS.SearchPage(r.Context(), u.ID, connectionID, query, "")
+	}
+	if e != nil {
+		if errors.Is(e, opds.ErrSearchUnavailable) {
+			h.catalogFailure(w, r, connectionID, errors.New("Search is not available for this catalog. Browse its collections instead."), "/catalog?connection="+url.QueryEscape(connectionID))
+			return
+		}
+		h.catalogFailure(w, r, connectionID, e, r.URL.RequestURI())
+		return
+	}
+	feed = h.prepareFeedForClient(connectionID, language, feed)
+	queryValues := r.URL.Query()
+	queryValues.Del("return_to")
+	returnTo := h.acquisitionReturnPath("/opds/search?" + queryValues.Encode())
+	backTo := searchBackPath(connectionID, language, r.URL.Query().Get("return_to"), decodeTrail(r.URL.Query()["trail"]))
+	owned := h.acquisitionState(r)
+	if isHTMX(r) {
+		render(w, r, SearchResultsWithState(h.csrf(w, r), connectionID, language, returnTo, backTo, r.URL.Query().Get("message"), query, feed, owned))
+	} else {
+		render(w, r, CatalogSearchPage(u, h.csrf(w, r), connection, language, returnTo, backTo, query, r.URL.Query().Get("message"), feed, owned))
+	}
 }
 func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)
-	language := strings.TrimSpace(r.FormValue("language"))
-	if _, ok := h.supportedLanguage(w, r, language); !ok {
+	target, decodeErr := decodeAcquisitionTarget(h.targetKey, r.FormValue("acquisition"))
+	if decodeErr != nil {
+		h.catalogFailure(w, r, r.FormValue("connection"), errors.New("invalid acquisition entry: return to the catalog and choose an EPUB entry"), h.acquisitionReturnPath(r.FormValue("return_to")))
 		return
 	}
-	entry := opds.Entry{ID: r.FormValue("entry_id"), Title: r.FormValue("title"), Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: r.FormValue("href")}}}
-	result, e := h.services.OPDS.Acquire(r.Context(), u.ID, r.FormValue("connection"), language, entry)
+	language := target.Language
+	if _, err := h.supportedLanguage(r, language); err != nil {
+		h.catalogFailure(w, r, target.Connection, err, h.acquisitionReturnPath(r.FormValue("return_to")))
+		return
+	}
+	connectionID := target.Connection
+	if r.FormValue("connection") != "" && r.FormValue("connection") != connectionID || r.FormValue("language") != "" && r.FormValue("language") != language {
+		h.catalogFailure(w, r, connectionID, errors.New("invalid acquisition entry: catalog context changed"), h.acquisitionReturnPath(r.FormValue("return_to")))
+		return
+	}
+	connection, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, connectionID)
 	if e != nil {
-		if isHTMX(r) && !errors.Is(e, persistence.ErrNotFound) {
-			render(w, r, AcquisitionFailureCard(h.csrf(w, r), r.FormValue("connection"), language, r.FormValue("return_to"), opdsErrorMessage(e), entry, r.FormValue("href")))
+		h.catalogFailure(w, r, connectionID, e, "/connections")
+		return
+	}
+	if target.Entry.ID == "" || strings.TrimSpace(target.Entry.Title) == "" {
+		h.catalogFailure(w, r, connectionID, errors.New("invalid acquisition entry"), h.acquisitionReturnPath(r.FormValue("return_to")))
+		return
+	}
+	target.Entry.Links = []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: target.Href}}
+	href := target.Href
+	entry := target.Entry
+	result, acquireErr := h.services.OPDS.Acquire(r.Context(), u.ID, connectionID, language, entry)
+	e = acquireErr
+	if acquireErr == nil {
+		h.rememberAcquisition(w, r, connectionID, language, entry, href, result.Source.ID)
+		if isHTMX(r) {
+			render(w, r, AcquisitionSuccessCardWithReturn(entry, result.Source.ID, result.AlreadyPresent, h.acquisitionReturnPath(r.FormValue("return_to"))))
 			return
 		}
-		opdsFail(w, e)
+		returnTo := h.acquisitionReturnPath(r.FormValue("return_to"))
+		message := "Added to My Library. Continue browsing or open the owned book; analysis starts separately."
+		if result.AlreadyPresent {
+			message = "That book is already in My Library. Continue browsing or open the existing book."
+		}
+		redirect(w, r, addQueryMessage(returnTo, message))
 		return
 	}
-	if isHTMX(r) {
-		render(w, r, AcquisitionSuccessCard(entry, result.Source.ID, result.AlreadyPresent))
+	if e != nil {
+		message := opdsErrorMessage(e)
+		clientEntry, clientHref := h.acquisitionEntryForClient(connectionID, language, entry, href)
+		if isHTMX(r) && !errors.Is(e, persistence.ErrNotFound) {
+			renderStatus(w, r, catalogFailureStatus(e), AcquisitionFailureCard(h.csrf(w, r), connection.ID, connection.Name, language, r.FormValue("return_to"), message, clientEntry, clientHref))
+			return
+		}
+		if errors.Is(e, persistence.ErrNotFound) {
+			h.catalogFailure(w, r, connection.ID, e, "/connections")
+			return
+		}
+		renderStatus(w, r, catalogFailureStatus(e), AcquisitionFailurePage(user(r), h.csrf(w, r), connection, language, h.acquisitionReturnPath(r.FormValue("return_to")), message, clientEntry, clientHref))
 		return
 	}
-	returnTo := acquisitionReturnPath(r.FormValue("return_to"))
-	message := "Added to My Library. Review its scope when you are ready."
-	if result.AlreadyPresent {
-		message = "That book is already in My Library."
-	}
-	redirect(w, r, addQueryMessage(returnTo, message))
 }
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -1698,8 +2254,54 @@ func fail(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
+func renderStatus(w http.ResponseWriter, r *http.Request, status int, component interface {
+	Render(context.Context, io.Writer) error
+}) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	if err := component.Render(r.Context(), w); err != nil {
+		http.Error(w, "unable to render page", http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) catalogFailure(w http.ResponseWriter, r *http.Request, connectionID string, err error, retryURL string) {
+	if errors.Is(err, persistence.ErrNotFound) {
+		opdsFail(w, err)
+		return
+	}
+	connection, connectionErr := h.services.Store.GetOpdsConnection(r.Context(), user(r).ID, connectionID)
+	if connectionErr != nil {
+		opdsFail(w, connectionErr)
+		return
+	}
+	message := opdsErrorMessage(err)
+	if retryURL == "" {
+		retryURL = "/catalog?connection=" + url.QueryEscape(connection.ID)
+	}
+	retryURL = h.acquisitionReturnPath(retryURL)
+	component := CatalogFailureFragment(connection, message, retryURL)
+	status := catalogFailureStatus(err)
+	if isHTMX(r) {
+		renderStatus(w, r, status, component)
+	} else {
+		renderStatus(w, r, status, CatalogFailurePage(user(r), h.csrf(w, r), connection, message, retryURL))
+	}
+}
+
+func catalogFailureStatus(err error) int {
+	lower := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(lower, "discovery") || strings.Contains(lower, "temporarily unavailable"):
+		return http.StatusServiceUnavailable
+	case strings.Contains(lower, "unsupported"), strings.Contains(lower, "choose a language"), strings.Contains(lower, "does not advertise"), strings.Contains(lower, "invalid acquisition"), strings.Contains(lower, "invalid epub"), strings.Contains(lower, "no epub"), strings.Contains(lower, "incompatible media"):
+		return http.StatusBadRequest
+	default:
+		return http.StatusBadGateway
+	}
+}
+
 func opdsFail(w http.ResponseWriter, err error) {
-	log.Printf("mouseion: OPDS: %v", err)
+	log.Printf("mouseion: OPDS: %s", opdsErrorMessage(err))
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.Error(w, "catalog not found", http.StatusNotFound)
 		return
@@ -1717,8 +2319,12 @@ func opdsErrorMessage(err error) string {
 		message = "The catalog rejected the credentials. Update the connection username and password."
 	case strings.Contains(lower, "parse atom"), strings.Contains(lower, "html"):
 		message = "The catalog returned a web page instead of an OPDS feed. Check the catalog URL."
+	case errors.Is(err, epub.ErrInvalidEPUB), strings.Contains(lower, "invalid epub"):
+		message = "The catalog item was not a valid EPUB. No book was added; choose another item or try again."
 	case strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
 		message = "The downloaded EPUB could not be added. Choose another book or try again."
+	case strings.Contains(lower, "invalid acquisition"):
+		message = "This acquisition request is invalid. No book was added; return to the catalog and choose an EPUB entry."
 	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
 		message = "The catalog could not be reached. Check its URL and network availability, then try again."
 	}
@@ -1747,19 +2353,17 @@ func catalogLanguageID(language domain.SupportedLanguage, feed opds.Feed) string
 	return ""
 }
 
-func (h *Handler) supportedLanguage(w http.ResponseWriter, r *http.Request, language string) (domain.SupportedLanguage, bool) {
+func (h *Handler) supportedLanguage(r *http.Request, language string) (domain.SupportedLanguage, error) {
 	supported, degraded := h.supportedNLP(r.Context())
 	if degraded {
-		http.Error(w, "NLP language discovery is temporarily unavailable", http.StatusServiceUnavailable)
-		return domain.SupportedLanguage{}, false
+		return domain.SupportedLanguage{}, errors.New("NLP language discovery is temporarily unavailable")
 	}
 	for _, candidate := range supported {
 		if candidate.Language == language {
-			return candidate, true
+			return candidate, nil
 		}
 	}
-	http.Error(w, "unsupported analysis language", http.StatusBadRequest)
-	return domain.SupportedLanguage{}, false
+	return domain.SupportedLanguage{}, errors.New("unsupported analysis language")
 }
 
 func decodeTrail(values []string) []CatalogCrumb {
@@ -1797,6 +2401,24 @@ func browseURLForLanguage(connectionID, language, target string, trail []Catalog
 	return "/opds/browse?" + values.Encode()
 }
 
+func languagePageURL(connectionID, language, target string) string {
+	values := url.Values{"connection": {connectionID}, "language": {language}, "url": {target}}
+	return "/opds/language?" + values.Encode()
+}
+
+func searchPageURL(connectionID, language, query, backTo, target string) string {
+	values := url.Values{"connection": {connectionID}, "language": {language}, "q": {query}, "return_to": {webauth.SafeReturnPath(backTo)}, "url": {target}}
+	return "/opds/search?" + values.Encode()
+}
+
+func searchBackPath(connectionID, language, returnTo string, trail []CatalogCrumb) string {
+	backTo := webauth.SafeReturnPath(returnTo)
+	if strings.TrimSpace(returnTo) == "" || backTo == "/" {
+		return browseURLForLanguage(connectionID, language, "", trail)
+	}
+	return backTo
+}
+
 func navigationLink(e opds.Entry) string {
 	for _, l := range e.Links {
 		if l.Rel == "subsection" || l.Rel == "alternate" || (l.Type == "application/atom+xml" && len(opds.FindEPUBs(e)) == 0) {
@@ -1811,6 +2433,38 @@ func acquisitionLink(e opds.Entry) *opds.Link {
 		return &links[0]
 	}
 	return nil
+}
+
+func feedLink(feed opds.Feed, rel string) string {
+	for _, link := range feed.Links {
+		for _, value := range strings.Fields(link.Rel) {
+			if value == rel {
+				return link.Href
+			}
+		}
+	}
+	return ""
+}
+
+func catalogFailureKind(message string) FeedbackKind {
+	if strings.Contains(strings.ToLower(message), "degraded") || strings.Contains(strings.ToLower(message), "temporarily") {
+		return FeedbackWarning
+	}
+	return FeedbackError
+}
+
+func catalogFailureTitle(message string) string {
+	lower := strings.ToLower(message)
+	switch {
+	case strings.Contains(lower, "credential"):
+		return "Authentication failed"
+	case strings.Contains(lower, "language"):
+		return "Language selection needs attention"
+	case strings.Contains(lower, "search"):
+		return "Search unavailable"
+	default:
+		return "Catalog request failed"
+	}
 }
 func credentialSummary(connection domain.OpdsConnection) string {
 	if connection.Username != "" {

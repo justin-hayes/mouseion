@@ -187,6 +187,22 @@ body {
   margin-top: auto;
 }
 
+.catalog-loading {
+  display: none;
+  color: var(--mouseion-color-info);
+}
+
+.catalog-loading.htmx-request {
+  display: block;
+}
+
+.catalog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-3);
+  margin-top: var(--mouseion-space-4);
+}
+
 [role="alert"] {
   color: var(--mouseion-color-danger);
 }

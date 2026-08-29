@@ -61,15 +61,17 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/atom+xml")
 		switch r.URL.Path {
-		case "/opds":
+		case "/opds", "/opds/language":
 			_, _ = fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Workflow catalog</title><entry><id>1</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/opds/language/1"/></entry><entry><id>2</id><title>Italian</title><link rel="subsection" type="application/atom+xml" href="/opds/language/2"/></entry></feed>`)
 		case "/opds/language/1":
 			_, _ = fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>workflow-german</id><title>German Reader</title><link rel="%s" type="%s" href="/workflow-german.epub"/></entry></feed>`, opds.AcquisitionRel, opds.EPUBMediaType)
 		case "/opds/language/2":
 			_, _ = fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Italian</title><entry><id>workflow-italian</id><title>Lettore italiano</title><link rel="%s" type="%s" href="/workflow-italian.epub"/></entry></feed>`, opds.AcquisitionRel, opds.EPUBMediaType)
 		case "/workflow-german.epub":
+			w.Header().Set("Content-Type", opds.EPUBMediaType)
 			_, _ = w.Write(germanBytes)
 		case "/workflow-italian.epub":
+			w.Header().Set("Content-Type", opds.EPUBMediaType)
 			_, _ = w.Write(italianBytes)
 		default:
 			http.NotFound(w, r)
@@ -128,15 +130,18 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	})
 	cookies, csrf := loginCookies(t, h, alice.Username, "alice-password")
 
+	languagePages := make(map[string]string, 2)
 	for _, language := range []string{"de", "it"} {
 		page := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language="+language, nil, cookies)
 		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Add to library") {
 			t.Fatalf("%s catalog page=%d %s", language, page.Code, page.Body.String())
 		}
+		languagePages[language] = page.Body.String()
 	}
-	acquire := func(entryID, title, language, href string) *httptest.ResponseRecorder {
+	acquire := func(language string) *httptest.ResponseRecorder {
 		t.Helper()
-		form := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {language}, "entry_id": {entryID}, "title": {title}, "href": {catalog.URL + href}}
+		token := hiddenInputValue(t, languagePages[language], "acquisition")
+		form := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {language}, "acquisition": {token}}
 		r := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(form.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("HX-Request", "true")
@@ -147,13 +152,13 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	if response := acquire("workflow-german", "German Reader", "de", "/workflow-german.epub"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
+	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
 		t.Fatalf("German acquisition=%d %s", response.Code, response.Body.String())
 	}
-	if response := acquire("workflow-italian", "Lettore italiano", "it", "/workflow-italian.epub"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
+	if response := acquire("it"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
 		t.Fatalf("Italian acquisition=%d %s", response.Code, response.Body.String())
 	}
-	if response := acquire("workflow-german", "German Reader", "de", "/workflow-german.epub"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Already in My Library") {
+	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Already in My Library") {
 		t.Fatalf("duplicate acquisition=%d %s", response.Code, response.Body.String())
 	}
 	books, err := store.ListSourceMaterials(ctx, alice.ID)

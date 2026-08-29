@@ -3,8 +3,12 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +18,20 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/riverqueue/river/rivertype"
 )
+
+func explicitTestWebKey(purpose string) []byte {
+	sum := sha256.Sum256([]byte("issue-374-explicit-test-key-" + purpose))
+	return sum[:]
+}
+
+type catalogFailureStore struct {
+	Store
+	connection domain.OpdsConnection
+}
+
+func (s catalogFailureStore) GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error) {
+	return s.connection, nil
+}
 
 func TestBrowseURLRoundTripsBreadcrumbTrail(t *testing.T) {
 	want := []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}, {Title: "A–C", URL: "https://catalog.example/a-c"}}
@@ -26,6 +44,13 @@ func TestBrowseURLRoundTripsBreadcrumbTrail(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("trail[%d]=%+v want %+v", i, got[i], want[i])
 		}
+	}
+}
+
+func TestSearchBackPathDefaultsToSelectedCatalog(t *testing.T) {
+	got := searchBackPath("connection-1", "de", "", []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}})
+	if !strings.Contains(got, "/opds/browse?") || !strings.Contains(got, "connection=connection-1") || !strings.Contains(got, "language=de") || strings.Contains(got, "/connections") {
+		t.Fatalf("search fallback=%q", got)
 	}
 }
 
@@ -51,13 +76,16 @@ func TestCatalogUsesReadyNLPCodeSeparatelyFromCatalogLanguageID(t *testing.T) {
 
 func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 	var output bytes.Buffer
-	connections := []domain.OpdsConnection{{ID: "connection-1", Name: "Library", URL: "https://catalog.example/opds"}}
+	connections := []domain.OpdsConnection{{ID: "connection-1", Name: "Library", URL: "https://catalog.example/opds", Username: "reader", Password: "super-secret"}}
 	if err := ConnectionsPage(domain.User{}, "csrf", connections, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	if strings.Contains(html, "Book language") || strings.Contains(html, `name="language"`) {
 		t.Fatalf("connection forms still contain a language field: %s", html)
+	}
+	if strings.Contains(html, "super-secret") || strings.Contains(html, `name="password" value=`) {
+		t.Fatalf("connection secret rendered into the page: %s", html)
 	}
 	for _, want := range []string{`class="confirmation confirmation--danger"`, "Delete catalog connection", "Confirm deletion"} {
 		if !strings.Contains(html, want) {
@@ -66,6 +94,54 @@ func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 	}
 	if strings.Contains(html, "window.confirm") || strings.Contains(html, "onsubmit=") {
 		t.Fatalf("connection deletion must use the server-rendered confirmation pattern: %s", html)
+	}
+}
+
+func TestConnectionsPageDistinguishesFirstSetupFromCatalogChoice(t *testing.T) {
+	var first bytes.Buffer
+	if err := ConnectionsPage(domain.User{}, "csrf", nil, "").Render(context.Background(), &first); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Add your first catalog connection", "A connection tells Mouseion where to look for EPUB books"} {
+		if !strings.Contains(first.String(), want) {
+			t.Errorf("first-connection page missing %q: %s", want, first.String())
+		}
+	}
+
+	var configured bytes.Buffer
+	connections := []domain.OpdsConnection{
+		{ID: "connection-1", Name: "Home library", URL: "https://home.example/opds"},
+		{ID: "connection-2", Name: "Work library", URL: "https://work.example/opds"},
+	}
+	if err := ConnectionsPage(domain.User{}, "csrf", connections, "").Render(context.Background(), &configured); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Choose a catalog to browse", "Catalog maintenance", "Home library", "Work library"} {
+		if !strings.Contains(configured.String(), want) {
+			t.Errorf("configured-connection page missing %q: %s", want, configured.String())
+		}
+	}
+}
+
+func TestCatalogPageExplainsCapabilityBoundaryWhenNoLanguageIsReady(t *testing.T) {
+	var output bytes.Buffer
+	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Home library"}, nil, false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"No ready analysis languages", "NLP service", "Return later"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("no-ready-language page missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func TestCatalogPageShowsDegradedReadinessWithoutOfferingBrowse(t *testing.T) {
+	var output bytes.Buffer
+	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Home library"}, []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}, true).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Language readiness is degraded") || !strings.Contains(output.String(), "return later") || strings.Contains(output.String(), "Browse language") {
+		t.Fatalf("degraded catalog page offered an unsafe browse action: %s", output.String())
 	}
 }
 
@@ -83,6 +159,330 @@ func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 	if !strings.Contains(output.String(), `name="language" value="de"`) {
 		t.Fatalf("language results did not carry NLP code: %s", output.String())
 	}
+	if !strings.Contains(output.String(), `name="acquisition"`) || strings.Contains(output.String(), `name="href"`) || strings.Contains(output.String(), `name="entry_id"`) || strings.Contains(output.String(), `name="title"`) {
+		t.Fatalf("acquisition form exposes client-controlled target fields: %s", output.String())
+	}
+}
+
+func TestLanguageResultsProvideSearchAndCatalogReturnPath(t *testing.T) {
+	feed := opds.Feed{Title: "German", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}}}
+	var output bytes.Buffer
+	if err := LanguageResults("csrf", "connection-1", "de", "/opds/language?connection=connection-1&language=de", "", feed).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Search this catalog", "name=\"return_to\"", "← Back to catalog", "/opds/browse?connection=connection-1"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("language results missing %q: %s", want, html)
+		}
+	}
+}
+
+func TestCatalogResultFragmentsReplaceTheirTarget(t *testing.T) {
+	feed := opds.Feed{Title: "German", Links: []opds.Link{{Rel: "next", Href: "https://catalog.example/page-2"}}}
+	var output bytes.Buffer
+	if err := CatalogPage(domain.User{}, "csrf", domain.OpdsConnection{ID: "connection-1", Name: "Library"}, []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}, false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `hx-swap="outerHTML"`) {
+		t.Fatalf("language form does not replace result target: %s", output.String())
+	}
+	output.Reset()
+	if err := FeedFragmentWithState("csrf", "connection-1", "de", "/opds/browse", "", feed, nil, nil).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Count(html, `id="catalog-results"`) != 1 || !strings.Contains(html, `hx-swap="outerHTML"`) {
+		t.Fatalf("feed fragment replacement contract broken: %s", html)
+	}
+}
+
+func TestHTMXCatalogFailurePreservesFragmentAndStatus(t *testing.T) {
+	h := &Handler{services: Services{Store: catalogFailureStore{connection: domain.OpdsConnection{ID: "connection-1", Name: "Library"}}}, targetKey: explicitTestWebKey("target")}
+	r := httptest.NewRequest("GET", "/opds/browse?connection=connection-1&language=de", nil)
+	r.Header.Set("HX-Request", "true")
+	w := httptest.NewRecorder()
+	h.catalogFailure(w, r, "connection-1", errors.New("upstream temporarily unavailable"), r.URL.RequestURI())
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("HTMX failure status=%d want %d body=%s", w.Code, http.StatusServiceUnavailable, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `<section id="catalog-results"`) || strings.Contains(w.Body.String(), "<!doctype html>") {
+		t.Fatalf("HTMX failure did not preserve fragment rendering: %s", w.Body.String())
+	}
+}
+
+func TestCatalogURLsDoNotRenderUserinfoOrSensitiveQueryValues(t *testing.T) {
+	var output bytes.Buffer
+	connection := domain.OpdsConnection{ID: "connection-1", Name: "Library", URL: "https://reader:password@catalog.example/opds?access_token=secret-value&view=books"}
+	if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, forbidden := range []string{"reader:password", "password@", "secret-value"} {
+		if strings.Contains(html, forbidden) {
+			t.Fatalf("catalog credential rendered in page (%q): %s", forbidden, html)
+		}
+	}
+	if !strings.Contains(html, `name="url" value=""`) || strings.Contains(html, "[redacted]") {
+		t.Fatalf("credential-bearing edit URL did not use keep-current contract: %s", html)
+	}
+}
+
+func TestCredentialBearingCatalogEditUsesKeepCurrentContract(t *testing.T) {
+	connection := domain.OpdsConnection{URL: "https://catalog.example/opds?access_token=keep-this&view=books"}
+	if got := connectionURLForEdit(connection); got != "" {
+		t.Fatalf("credential-bearing URL was rendered into edit input: %q", got)
+	}
+	if got := safeAcquisitionURL(connection.URL); got != "https://catalog.example/opds?view=books" {
+		t.Fatalf("safe URL=%q", got)
+	}
+	if strings.Contains(safeAcquisitionURL(connection.URL), "[redacted]") {
+		t.Fatal("safe URL rendered a redacted placeholder")
+	}
+	plain := domain.OpdsConnection{URL: "https://catalog.example/opds?view=books"}
+	if got := connectionURLForEdit(plain); got != plain.URL {
+		t.Fatalf("plain URL=%q want %q", got, plain.URL)
+	}
+}
+
+func TestSensitiveCatalogQueryNamesAreRedactedWithoutHidingUnrelatedValues(t *testing.T) {
+	for _, name := range []string{"key", "apikey", "api-key", "accesskey", "access_key", "access-key", "access_token", "client_secret", "X-Amz-Signature"} {
+		t.Run(name, func(t *testing.T) {
+			connection := domain.OpdsConnection{URL: "https://catalog.example/opds?author=Le%20Guin&" + name + "=secret-value&view=books"}
+			if got := connectionURLForEdit(connection); got != "" {
+				t.Fatalf("credential-bearing URL was rendered into edit input: %q", got)
+			}
+			if got := safeAcquisitionURL(connection.URL); got != "https://catalog.example/opds?author=Le+Guin&view=books" {
+				t.Fatalf("safe URL=%q", got)
+			}
+			var output bytes.Buffer
+			if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "").Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(output.String(), "secret-value") {
+				t.Fatalf("catalog query secret rendered: %s", output.String())
+			}
+		})
+	}
+
+	plain := domain.OpdsConnection{URL: "https://catalog.example/opds?author=Le%20Guin&monkey=business&view=books"}
+	if got := connectionURLForEdit(plain); got != plain.URL {
+		t.Fatalf("unrelated query names were hidden: %q", got)
+	}
+	if got := safeAcquisitionURL(plain.URL); got != "https://catalog.example/opds?author=Le+Guin&monkey=business&view=books" {
+		t.Fatalf("unrelated query values changed: %q", got)
+	}
+}
+
+func TestCatalogTargetTokensPreserveExactSignedLinksWithoutRenderingThem(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "target-token-test-secret")
+	cookieKey := explicitTestWebKey("cookie")
+	targetKey := explicitTestWebKey("target")
+	if bytes.Equal(cookieKey, targetKey) {
+		t.Fatal("cookie and target keys are not separated")
+	}
+	h := &Handler{targetKey: targetKey}
+	exact := "https://catalog.example/book.epub?X-Amz-Signature=keep-this&access_token=keep-that"
+	token := h.clientTargetToken("connection-1", "de", nil, exact)
+	if strings.Contains(token, "keep-this") || strings.Contains(token, "keep-that") {
+		t.Fatalf("target token exposed query credentials: %q", token)
+	}
+	decoded, err := decodeAcquisitionTarget(targetKey, token)
+	if err != nil || decoded.Href != exact {
+		t.Fatalf("decoded target=%+v err=%v", decoded, err)
+	}
+	path := browseURL("connection-1", token, nil)
+	if strings.Contains(path, "[redacted]") || !strings.Contains(path, url.QueryEscape(token)) {
+		t.Fatalf("browse path changed opaque target: %q", path)
+	}
+	if _, err := decodeAcquisitionTarget(cookieKey, token); err == nil {
+		t.Fatal("target token accepted cookie MAC key")
+	}
+}
+
+func TestAcquisitionFormTokenUsesExplicitInjectedHandlerKey(t *testing.T) {
+	h := &Handler{targetKey: explicitTestWebKey("target")}
+	entry := opds.Entry{ID: "book-1", Title: "Book"}
+	token := h.clientTargetToken("connection-1", "de", &entry, "https://catalog.example/book.epub?access_token=keep-secret")
+	var output bytes.Buffer
+	if err := AcquisitionForm("csrf", "connection-1", "de", "/opds/language", entry, token).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	marker := `name="acquisition" value="`
+	start := strings.Index(output.String(), marker)
+	if start < 0 {
+		t.Fatalf("acquisition token absent: %s", output.String())
+	}
+	got := strings.Split(output.String()[start+len(marker):], `"`)[0]
+	if got != token {
+		t.Fatalf("form token=%q want %q", got, token)
+	}
+	decoded, err := decodeAcquisitionTarget(h.targetKey, got)
+	if err != nil || decoded.Href != "https://catalog.example/book.epub?access_token=keep-secret" {
+		t.Fatalf("decoded target=%+v err=%v", decoded, err)
+	}
+}
+
+func TestAcquisitionSuccessOffersContinueAndOwnedBookChoices(t *testing.T) {
+	var output bytes.Buffer
+	if err := AcquisitionSuccessCard(opds.Entry{Title: "Book"}, "book-1", false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Continue browsing", "Open owned book", "/books/book-1"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("acquisition success missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func TestFullPageCatalogReturnsPreserveAcquisitionMessagesWithOwnedState(t *testing.T) {
+	connection := domain.OpdsConnection{ID: "connection-1", Name: "Library"}
+	entry := opds.Entry{ID: "book-1", Title: "Book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}
+	owned := []acquisitionEntryState{{Connection: connection.ID, Language: "de", EntryID: entry.ID, HrefDigest: acquisitionHrefDigest(entry.Links[0].Href), SourceID: "source-1"}}
+	feed := opds.Feed{Title: "Books", Entries: []opds.Entry{entry}}
+	messageTests := []struct {
+		name, message string
+	}{
+		{name: "added", message: "Added to My Library. Continue browsing or open the owned book; analysis starts separately."},
+		{name: "already present", message: "That book is already in My Library. Continue browsing or open the existing book."},
+	}
+	pageRenderers := map[string]func(string, *bytes.Buffer) error{
+		"root": func(message string, output *bytes.Buffer) error {
+			return CatalogRootPage(domain.User{}, "csrf", connection, "de", message, feed, owned).Render(context.Background(), output)
+		},
+		"feed": func(message string, output *bytes.Buffer) error {
+			return CatalogFeedPage(domain.User{}, "csrf", connection, feed, nil, "de", "/opds/browse", message, owned).Render(context.Background(), output)
+		},
+		"language": func(message string, output *bytes.Buffer) error {
+			return CatalogLanguagePage(domain.User{}, "csrf", connection, "de", "/opds/language", message, feed, owned).Render(context.Background(), output)
+		},
+		"search": func(message string, output *bytes.Buffer) error {
+			return CatalogSearchPage(domain.User{}, "csrf", connection, "de", "/opds/search", "/opds/language", "Book", message, feed, owned).Render(context.Background(), output)
+		},
+	}
+	for page, renderPage := range pageRenderers {
+		for _, test := range messageTests {
+			t.Run(page+"/"+test.name, func(t *testing.T) {
+				var output bytes.Buffer
+				if err := renderPage(test.message, &output); err != nil {
+					t.Fatal(err)
+				}
+				html := output.String()
+				if !strings.Contains(html, test.message) || !strings.Contains(html, "Already in My Library") || !strings.Contains(html, "/books/source-1") {
+					t.Fatalf("full-page acquisition state lost message or owned book: %s", html)
+				}
+			})
+		}
+	}
+}
+
+func TestAcquisitionStateIsSessionLocalAndContainsNoCredentials(t *testing.T) {
+	h := &Handler{services: Services{SessionLifetime: time.Hour}, acquisitionKey: explicitTestWebKey("cookie")}
+	entry := opds.Entry{ID: "entry-1", Title: "Book"}
+	payload := acquisitionCookiePayload{OwnerID: "user-1", SessionHash: "session-1", Entries: []acquisitionEntryState{{Connection: "connection-1", Language: "de", EntryID: entry.ID, Href: "https://catalog.example/book.epub", SourceID: "book-1"}}}
+	_, value, err := encodeAcquisitionCookie(h.acquisitionKey, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := &http.Cookie{Name: acquisitionCookie, Value: value}
+	if strings.Contains(cookie.Value, "password") || strings.Contains(cookie.Value, "secret") {
+		t.Fatalf("acquisition cookie contains credential material: %q", cookie.Value)
+	}
+	next := httptest.NewRequest("GET", "/opds/language", nil)
+	next.AddCookie(cookie)
+	if got := acquisitionEntrySource(h.acquisitionStateFor(value, "user-1", "session-1"), "connection-1", "de", entry, "https://catalog.example/book.epub"); got != "book-1" {
+		t.Fatalf("session acquisition state=%q", got)
+	}
+	if got := h.acquisitionStateFor(value, "user-2", "session-1"); got != nil {
+		t.Fatalf("state crossed user boundary: %+v", got)
+	}
+	if got := h.acquisitionStateFor(value+"x", "user-1", "session-1"); got != nil {
+		t.Fatalf("tampered state accepted: %+v", got)
+	}
+}
+
+func TestAcquisitionCookieEvictsOldestEntriesWithinByteLimit(t *testing.T) {
+	entries := make([]acquisitionEntryState, 0, maxAcquisitionEntries)
+	for i := 0; i < maxAcquisitionEntries; i++ {
+		entries = append(entries, acquisitionEntryState{Connection: "connection-1", Language: "de", EntryID: fmt.Sprintf("entry-%d", i), Href: "https://catalog.example/" + strings.Repeat("x", 100), SourceID: fmt.Sprintf("book-%d", i)})
+	}
+	value, retained := boundedAcquisitionCookie(explicitTestWebKey("cookie"), acquisitionCookiePayload{OwnerID: "user-1", SessionHash: "session-1", Entries: entries})
+	if value == "" || len(value) > maxAcquisitionCookieBytes || len(retained) >= len(entries) || retained[0].EntryID == "entry-0" {
+		t.Fatalf("cookie bound=%d retained=%d first=%q", len(value), len(retained), retained[0].EntryID)
+	}
+}
+
+func TestCatalogResultsPreserveBrowseContextAndPagination(t *testing.T) {
+	feed := opds.Feed{Title: "A–C", Links: []opds.Link{{Rel: "search", Href: "https://catalog.example/search{?q}"}, {Rel: "previous", Href: "https://catalog.example/a-c?page=1"}, {Rel: "next", Href: "https://catalog.example/a-c?page=2"}}, Entries: []opds.Entry{{Title: "Book"}}}
+	trail := []CatalogCrumb{{Title: "Authors", URL: "https://catalog.example/authors"}, {Title: "A–C", URL: "https://catalog.example/a-c"}}
+	returnTo := "/opds/browse?connection=connection-1&language=de&url=https%3A%2F%2Fcatalog.example%2Fa-c&trail=Authors%1Fhttps%3A%2F%2Fcatalog.example%2Fauthors"
+	var output bytes.Buffer
+	if err := FeedFragmentWithState("csrf", "connection-1", "de", returnTo, "", feed, trail, nil).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"name=\"return_to\"", "name=\"trail\"", "Authors", "A–C", "Previous page", "Next page", "url="} {
+		if !strings.Contains(html, want) {
+			t.Errorf("browse context missing %q: %s", want, html)
+		}
+	}
+}
+
+func TestAlreadyOwnedEntryReplacesAcquisitionAction(t *testing.T) {
+	feed := opds.Feed{Title: "German", Entries: []opds.Entry{{ID: "book-1", Title: "Book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}}
+	owned := []acquisitionEntryState{{Connection: "connection-1", Language: "de", EntryID: "book-1", Href: "https://catalog.example/book.epub", SourceID: "source-1"}}
+	var output bytes.Buffer
+	if err := LanguageResultsWithState("csrf", "connection-1", "de", "/opds/language?connection=connection-1&language=de", "", feed, owned).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Already in My Library") || !strings.Contains(output.String(), "/books/source-1") || strings.Contains(output.String(), "Add to library") {
+		t.Fatalf("owned entry still offered acquisition: %s", output.String())
+	}
+}
+
+func TestConnectionFailureFragmentNamesRecoveryTarget(t *testing.T) {
+	var output bytes.Buffer
+	connection := domain.OpdsConnection{ID: "connection-1", Name: "Home library"}
+	if err := CatalogFailureFragment(connection, "The catalog rejected the credentials. Update the connection username and password.", "/opds/browse?connection=connection-1&language=de").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Authentication failed", "Home library", "Edit connection", "Retry", "connection-1"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("failure recovery missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func TestAcquisitionFailuresKeepInvalidEPUBDistinct(t *testing.T) {
+	message := opdsErrorMessage(errors.New("opds: ingest downloaded EPUB: epub: invalid EPUB: missing container.xml"))
+	for _, want := range []string{"not a valid EPUB", "No book was added"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("invalid EPUB message missing %q: %s", want, message)
+		}
+	}
+}
+
+func TestSearchResultsExplainEmptySearchAndRevision(t *testing.T) {
+	var output bytes.Buffer
+	if err := SearchResults("csrf", "connection-1", "de", "/opds/search?connection=connection-1&language=de&q=missing", "", "missing", opds.Feed{}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"No matching books were found", "Revise search", "connection-1", "de"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("search result missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func cookieNamedForTest(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie {
+	t.Helper()
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	t.Fatalf("cookie %s absent", name)
+	return nil
 }
 
 func TestCatalogRootFragmentShowsSearchWithoutCategories(t *testing.T) {
@@ -101,6 +501,23 @@ func TestCatalogRootFragmentShowsSearchWithoutCategories(t *testing.T) {
 		if strings.Contains(html, unwanted) {
 			t.Errorf("root fragment unexpectedly contains %q: %s", unwanted, html)
 		}
+	}
+}
+
+func TestCatalogRootResultsShowsOpaquePaginationControls(t *testing.T) {
+	feed := opds.Feed{Title: "Catalog", Links: []opds.Link{{Rel: "previous", Href: "m1.previous"}, {Rel: "next", Href: "m1.next"}}}
+	var output bytes.Buffer
+	if err := CatalogRootResults("csrf", "connection-1", "de", "/opds/browse?connection=connection-1&language=de", "", feed, nil).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Previous page", "Next page", "url=m1.previous", "url=m1.next"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("root pagination missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, "[redacted]") {
+		t.Fatal("root pagination rendered a redacted target")
 	}
 }
 
