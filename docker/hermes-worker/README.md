@@ -7,9 +7,10 @@ This is a disposable Docker terminal image for [Hermes Agent](https://hermes-age
 - `protoc-gen-go` v1.36.12
 - `protoc-gen-go-grpc` v1.5.1
 - Codex CLI 0.150.1
+- Codex profile configs (`fast`, `normal`, `deep`) at `CODEX_HOME=/opt/codex/home`, referencing `OPENCODE_GO_API_KEY` by name (no secrets baked in)
 - build-essential, CMake, Git, OpenSSH client, jq, ripgrep, and pkg-config
 
-The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. The Docker build context is this directory and no files are copied into the image except the toolchain stages. Hermes mounts the selected checkout separately at `/workspace`.
+The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. The Docker build context is this directory and only the toolchain stages plus the Codex profile configs are copied into the image. Hermes mounts the selected checkout separately at `/workspace`.
 
 ## Build and smoke-test locally
 

@@ -92,4 +92,10 @@ RUN curl -fsSL --retry 3 --retry-all-errors https://chatgpt.com/codex/install.sh
       CODEX_NON_INTERACTIVE=true \
       sh -s -- --release "${CODEX_VERSION}"
 
+# Bake the Codex profile configs into CODEX_HOME (~/.codex for the runtime
+# user). These define the fast/normal/deep model profiles used by agent
+# sessions; they reference OPENCODE_GO_API_KEY only by env_key name, so no
+# secrets are embedded in the image. The key itself is forwarded per-session.
+COPY --chown=worker:worker codex/ /opt/codex/home/
+
 WORKDIR /workspace
