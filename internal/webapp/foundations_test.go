@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -197,7 +198,7 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 		`catalog browse language is chosen independently`,
 		`New study-language additions are disabled`,
 		`vocabulary, books, analyses, prepared decks, and campaigns for German remain`,
-		`action="/known-vocab/import"`,
+		`action="/known-vocab/import?language=de`,
 		`enctype="multipart/form-data"`,
 		`hx-encoding="multipart/form-data"`,
 		`Graduated from completed campaign`,
@@ -233,6 +234,12 @@ func TestKnownVocabSettingsTargetPreservesOnlyValidLanguage(t *testing.T) {
 	if got := knownVocabSettingsTarget("it", profiles); got != "/settings#known-vocabulary" {
 		t.Fatalf("invalid target = %q", got)
 	}
+	if got := knownVocabImportRecoveryTarget("de"); got != "/settings?language=de#known-vocabulary" {
+		t.Fatalf("recovery target = %q", got)
+	}
+	if got := knownVocabImportRecoveryTarget(""); got != "/settings#known-vocabulary" {
+		t.Fatalf("empty recovery target = %q", got)
+	}
 }
 
 func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.T) {
@@ -263,6 +270,79 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 			html := output.String()
 			if !strings.Contains(html, test.want) || !strings.Contains(html, "2 new") || !strings.Contains(html, "1 duplicates") || (test.table != strings.Contains(html, `class="table-region"`)) {
 				t.Fatalf("status missing result contract: %s", html)
+			}
+			if test.state == rivertype.JobStateDiscarded || test.state == rivertype.JobStateCancelled {
+				for _, want := range []string{
+					`Selected language: <code>de</code>`,
+					`href="/settings?language=de#known-vocabulary"`,
+					"Return to Known vocabulary settings to retry the import",
+				} {
+					if !strings.Contains(html, want) {
+						t.Errorf("recovery status missing %q: %s", want, html)
+					}
+				}
+			}
+		})
+	}
+}
+
+type knownVocabContextStore struct {
+	Store
+	profiles []domain.LanguageProfile
+}
+
+func (s knownVocabContextStore) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
+	return s.profiles, nil
+}
+
+func (knownVocabContextStore) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
+	return []domain.KnownVocabulary{}, nil
+}
+
+func TestKnownVocabImportContextUsesParsedFormAndURLFallback(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/known-vocab/import?language=it&return_to=known-vocab", nil)
+	if gotLanguage, gotReturnTo := knownVocabImportContext(request); gotLanguage != "it" || gotReturnTo != "known-vocab" {
+		t.Fatalf("URL context = %q, %q", gotLanguage, gotReturnTo)
+	}
+	request.Form = url.Values{"language": {" de "}, "return_to": {" settings "}}
+	if gotLanguage, gotReturnTo := knownVocabImportContext(request); gotLanguage != "de" || gotReturnTo != "settings" {
+		t.Fatalf("form context = %q, %q", gotLanguage, gotReturnTo)
+	}
+}
+
+func TestKnownVocabImportParseFailuresPreserveSettingsContext(t *testing.T) {
+	h := &Handler{services: Services{Store: knownVocabContextStore{
+		profiles: []domain.LanguageProfile{{Language: "de", DisplayName: "German"}},
+	}}}
+
+	var oversized bytes.Buffer
+	oversized.WriteString("--known-vocabulary\r\nContent-Disposition: form-data; name=\"vocabulary_file\"; filename=\"words.txt\"\r\nContent-Type: text/plain\r\n\r\n")
+	oversized.Write(bytes.Repeat([]byte("word\n"), 1<<20))
+
+	for _, test := range []struct {
+		name string
+		body *bytes.Reader
+	}{
+		{name: "malformed", body: bytes.NewReader([]byte("not a multipart body"))},
+		{name: "oversized", body: bytes.NewReader(oversized.Bytes())},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/known-vocab/import?language=de&return_to=settings", test.body)
+			request.Header.Set("Content-Type", `multipart/form-data; boundary=known-vocabulary`)
+			response := httptest.NewRecorder()
+			h.importKnownVocab(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusOK, response.Body.String())
+			}
+			for _, want := range []string{
+				"The import is too large or could not be read.",
+				"German <code>de</code>",
+				`id="known-vocabulary"`,
+			} {
+				if !strings.Contains(response.Body.String(), want) {
+					t.Errorf("parse failure response missing %q: %s", want, response.Body.String())
+				}
 			}
 		})
 	}

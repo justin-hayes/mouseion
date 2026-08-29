@@ -1499,10 +1499,7 @@ func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result 
 		fail(w, err)
 		return
 	}
-	language := strings.TrimSpace(r.FormValue("language"))
-	if language == "" {
-		language = strings.TrimSpace(r.URL.Query().Get("language"))
-	}
+	language, _ := knownVocabImportContext(r)
 	if known == nil && language != "" {
 		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
 		if err != nil {
@@ -1942,14 +1939,15 @@ func knownVocabSettingsTarget(requestedLanguage string, profiles []domain.Langua
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
-		h.renderKnownVocabResult(w, r, "", nil, nil, "The import is too large or could not be read.")
+		language, _ := knownVocabImportContext(r)
+		h.renderKnownVocabResult(w, r, language, nil, nil, "The import is too large or could not be read.")
 		return
 	}
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)
-	language := strings.TrimSpace(r.FormValue("language"))
+	language, _ := knownVocabImportContext(r)
 	var input bytes.Buffer
 	file, header, err := r.FormFile("vocabulary_file")
 	if err == nil {
@@ -2037,7 +2035,8 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		render(w, r, KnownVocabResult(language, result, known, message))
 		return
 	}
-	if r.FormValue("return_to") == "settings" {
+	_, returnTo := knownVocabImportContext(r)
+	if returnTo == "settings" {
 		h.renderSettings(w, r, result, known, message)
 		return
 	}
@@ -2048,6 +2047,48 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
+}
+
+func knownVocabImportContext(r *http.Request) (language, returnTo string) {
+	language = strings.TrimSpace(r.URL.Query().Get("language"))
+	returnTo = strings.TrimSpace(r.URL.Query().Get("return_to"))
+	if r.Form == nil {
+		return language, returnTo
+	}
+	if values, ok := r.Form["language"]; ok {
+		language = ""
+		if len(values) > 0 {
+			language = strings.TrimSpace(values[0])
+		}
+	}
+	if values, ok := r.Form["return_to"]; ok {
+		returnTo = ""
+		if len(values) > 0 {
+			returnTo = strings.TrimSpace(values[0])
+		}
+	}
+	return language, returnTo
+}
+
+func knownVocabImportAction(language, returnTo string) string {
+	query := url.Values{}
+	if language = strings.TrimSpace(language); language != "" {
+		query.Set("language", language)
+	}
+	if returnTo = strings.TrimSpace(returnTo); returnTo != "" {
+		query.Set("return_to", returnTo)
+	}
+	if len(query) == 0 {
+		return "/known-vocab/import"
+	}
+	return "/known-vocab/import?" + query.Encode()
+}
+
+func knownVocabImportRecoveryTarget(language string) string {
+	if language = strings.TrimSpace(language); language == "" {
+		return "/settings#known-vocabulary"
+	}
+	return "/settings?language=" + url.QueryEscape(language) + "#known-vocabulary"
 }
 func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	h.createDeckPreparationForAnalysis(w, r, r.PathValue("id"), "")
