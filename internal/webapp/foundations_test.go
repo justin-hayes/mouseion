@@ -149,7 +149,7 @@ func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	if err := Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `Request failed:`, `aria-label="Deck preparation progress"`} {
+	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `could not be updated:`, `aria-label="Deck preparation progress"`} {
 		if !strings.Contains(output.String(), pattern) {
 			t.Errorf("application shell missing %q: %s", pattern, output.String())
 		}
@@ -173,7 +173,9 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		`aria-label="Contextual translation progress"`,
+		`aria-label="Contextual translations: Running progress"`,
+		`data-workflow="contextual translation"`,
+		`hx-trigger="every 2s"`,
 		`method="post"`,
 		`action="/enrichment-jobs/7/cancel"`,
 		`hx-post="/enrichment-jobs/7/cancel"`,
@@ -181,6 +183,24 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 		if !strings.Contains(progress.String(), want) {
 			t.Errorf("enrichment status missing %q: %s", want, progress.String())
 		}
+	}
+}
+
+func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
+	var output bytes.Buffer
+	if err := EnrichmentJobStatus(enrichmentjob.Status{ID: 7, State: rivertype.JobStateCompleted, Completed: 5, Total: 5}, "csrf").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "hx-trigger") || strings.Contains(output.String(), "hx-get") {
+		t.Fatalf("completed enrichment status still polls: %s", output.String())
+	}
+
+	output.Reset()
+	if err := KnownVocabImportStatus(knownvocab.Status{ID: 12, State: rivertype.JobStateCancelled, Language: "de"}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "hx-trigger") || strings.Contains(output.String(), "hx-get") {
+		t.Fatalf("cancelled vocabulary import still polls: %s", output.String())
 	}
 }
 

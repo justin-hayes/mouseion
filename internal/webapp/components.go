@@ -8,6 +8,8 @@ import (
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
 func studyLanguageSaved(profiles []domain.LanguageProfile, language string) bool {
@@ -299,7 +301,7 @@ func feedbackAttributes(kind FeedbackKind) templ.Attributes {
 func boolString(value bool) string { return fmt.Sprintf("%t", value) }
 
 func deckPreparationAttributes(preparation domain.DeckPreparation) templ.Attributes {
-	attributes := templ.Attributes{"data-deck-preparation": "true"}
+	attributes := templ.Attributes{"data-deck-preparation": "true", "data-workflow": "deck preparation"}
 	if deckPreparationActive(preparation) {
 		attributes["hx-get"] = "/deck-preparations/" + url.PathEscape(preparation.ID) + "/status"
 		attributes["hx-trigger"] = "every 3s"
@@ -390,14 +392,71 @@ func analysisDeckPreparationURL(result analysis.CompletedAnalysis) string {
 }
 
 func jobStatusAttributes(id int64, running bool) templ.Attributes {
+	attributes := templ.Attributes{"data-workflow": "analysis"}
 	if !running {
-		return nil
+		return attributes
 	}
-	return templ.Attributes{
-		"hx-get":     fmt.Sprintf("/jobs/%d/status", id),
-		"hx-trigger": "every 2s",
-		"hx-swap":    "outerHTML",
+	attributes["hx-get"] = fmt.Sprintf("/jobs/%d/status", id)
+	attributes["hx-trigger"] = "every 2s"
+	attributes["hx-swap"] = "outerHTML"
+	return attributes
+}
+
+func knownVocabImportAttributes(status knownvocab.Status) templ.Attributes {
+	attributes := templ.Attributes{"data-workflow": "known-vocabulary import"}
+	if knownVocabJobBusy(string(status.State)) {
+		attributes["hx-get"] = fmt.Sprintf("/known-vocab/imports/%d/status", status.ID)
+		attributes["hx-trigger"] = "every 2s"
+		attributes["hx-swap"] = "outerHTML"
 	}
+	return attributes
+}
+
+func knownVocabImportTitle(status knownvocab.Status) string {
+	return "Known-vocabulary import: " + knownVocabJobLabel(string(status.State))
+}
+
+func knownVocabImportSummary(status knownvocab.Status) string {
+	if knownVocabJobBusy(string(status.State)) {
+		if status.Total > 0 {
+			return fmt.Sprintf("%d of %d rows processed. You can leave this page; the import will continue.", status.Processed, status.Total)
+		}
+		return "The import is continuing in the background. You can leave this page and return later."
+	}
+	switch status.State {
+	case "completed":
+		return "The import is complete. Review the updated known vocabulary in Settings."
+	case "cancelled":
+		return "The import was cancelled before a complete result was available. Upload the file again when ready."
+	case "discarded":
+		return "The import failed after repeated attempts. Correct the file or configuration and upload it again."
+	default:
+		return "Review the import result and choose the next action below."
+	}
+}
+
+func enrichmentJobAttributes(status enrichmentjob.Status) templ.Attributes {
+	attributes := templ.Attributes{"data-workflow": "contextual translation"}
+	if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
+		attributes["hx-get"] = fmt.Sprintf("/enrichment-jobs/%d/status", status.ID)
+		attributes["hx-trigger"] = "every 2s"
+		attributes["hx-swap"] = "outerHTML"
+	}
+	return attributes
+}
+
+func enrichmentJobSummary(status enrichmentjob.Status) string {
+	if status.Total == 0 {
+		return "Contextual translation work is being processed."
+	}
+	return fmt.Sprintf("%d of %d translations complete. Attempt %d.", status.Completed, status.Total, maxOne(status.Attempt))
+}
+
+func maxOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
 }
 
 func textProfileStatItems(profile domain.TextProfile) []StatItem {
