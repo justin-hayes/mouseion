@@ -1,12 +1,16 @@
 # syntax=docker/dockerfile:1
-
+#
 ARG GO_VERSION=1.24.6
 FROM golang:${GO_VERSION}-bookworm AS go-toolchain
 
-# The official Hermes image supplies the agent runtime and its non-root
-# `hermes` user. This is a disposable terminal image, not the Mouseion app
-# image; the workspace is mounted by Hermes at /workspace at runtime.
-FROM nousresearch/hermes-agent:latest@sha256:4d2cd7c731010bb991f8c033082884970f7310765141653156e0d686c530bf85
+# This is a disposable Hermes terminal image, not the Mouseion app image; the
+# workspace is mounted by Hermes at /workspace at runtime. It is based on the
+# same Python 3.11 + Node 20 image that Hermes uses for its docker backend by
+# default, plus the build tooling needed by the Mouseion repository. A
+# dedicated `worker` user (uid 1000) is created here rather than inheriting one
+# from the agent runtime image, so the host-mounted /workspace stays writable
+# when the host user is uid 1000.
+FROM nikolaik/python-nodejs:python3.11-nodejs20
 
 ARG TARGETARCH
 ARG PROTOC_VERSION=29.3
@@ -22,6 +26,13 @@ ENV GOPATH=/opt/go \
     PATH=/usr/local/go/bin:/opt/go/bin:/opt/codex/bin:${PATH}
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
+
+# Create the non-root runtime user. uid 1000 matches the default host user on
+# most dev machines, which keeps a host-mounted /workspace writable. We give it
+# a real shell because Hermes' docker backend spawns a persistent shell as the
+# runtime user; it gets no credentials and only its CODEX_HOME persists.
+RUN useradd --create-home --uid 1000 --user-group --shell /bin/bash worker \
+    && chown worker:worker /home/worker
 
 # Keep the package set small while making the repository's normal build and
 # Git workflows work without installing anything into the session.
@@ -64,16 +75,16 @@ RUN mkdir -p /opt/go/bin \
     && GOBIN=/opt/go/bin go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 \
     && GOBIN=/opt/go/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1 \
     && rm -rf /opt/go/pkg /root/.cache/go-build \
-    && chown -R hermes:hermes /opt/go
+    && chown -R worker:worker /opt/go
 
 # Install Codex without credentials. The release archive is placed in the
 # image, while CODEX_HOME remains writable only inside each runtime container.
 RUN mkdir -p /opt/codex/bin /opt/codex/home \
-    && chown -R hermes:hermes /opt/codex
+    && chown -R worker:worker /opt/codex
 
-RUN mkdir -p /workspace && chown hermes:hermes /workspace
+RUN mkdir -p /workspace && chown worker:worker /workspace
 
-USER hermes
+USER worker
 
 RUN curl -fsSL --retry 3 --retry-all-errors https://chatgpt.com/codex/install.sh \
     | CODEX_HOME=/opt/codex/home \
