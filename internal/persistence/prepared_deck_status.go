@@ -74,7 +74,7 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 		if err = s.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE COALESCE(ec.translation,'') <> ''), count(*) FILTER (WHERE COALESCE(ec.sentence_translation,'') <> '')
 			FROM deck_preparation_manifest_items mi
 			JOIN deck_preparation_translation_outcomes o ON o.owner_id=mi.owner_id AND o.preparation_id=mi.preparation_id AND o.run_id=mi.run_id AND o.ordinal=mi.ordinal AND o.state='completed'
-			LEFT JOIN enrichment_cache ec ON ec.language=mi.language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
+			LEFT JOIN enrichment_cache ec ON ec.language=mi.language AND ec.target_language=mi.target_language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
 			WHERE mi.owner_id=$1 AND mi.preparation_id=$2 AND mi.run_id=$3 AND mi.disposition='accepted'`, owner, preparationID, run.ID).Scan(&p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations); err != nil {
 			return p, err
 		}

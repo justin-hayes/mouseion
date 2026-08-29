@@ -120,7 +120,7 @@ func (f Fixture) Validate() error {
 		if item.Ordinal != i || strings.TrimSpace(item.Language) == "" || strings.TrimSpace(item.Lemma) == "" || item.UPOS == "" || item.UPOS != strings.ToUpper(item.UPOS) {
 			return fmt.Errorf("batchvalidation: invalid frozen item %d", i)
 		}
-		if item.Disposition == cardexport.ManifestAccepted && strings.TrimSpace(item.CacheKey.Provider) == "" {
+		if item.Disposition == cardexport.ManifestAccepted && (strings.TrimSpace(item.CacheKey.Provider) == "" || item.CacheKey.TargetLanguage != "en") {
 			return fmt.Errorf("batchvalidation: accepted item %d has no cache identity", i)
 		}
 		if item.Disposition != cardexport.ManifestAccepted && item.Disposition != cardexport.ManifestQualityOmitted {
@@ -198,7 +198,7 @@ func FrozenRequests(codec *enrichment.TranslationCodec, f Fixture, runID string,
 		if fItem, _ := f.item(item.Ordinal); fItem.CacheHit {
 			continue
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
 	}
 	requests := make([]RequestFixture, 0, len(items))
 	for _, item := range items {
@@ -357,7 +357,7 @@ func decodeFixedSync(ctx context.Context, codec *enrichment.TranslationCodec, f 
 		if err != nil {
 			return nil, Metrics{}, err
 		}
-		decoded, err := codec.DecodeResponse(enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}, body)
+		decoded, err := codec.DecodeResponse(enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}, body)
 		if err != nil {
 			metrics.ValidationFailures++
 			return nil, Metrics{}, err

@@ -71,11 +71,11 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	if !reflect.DeepEqual(progress, [][2]int{{1, 2}, {2, 2}}) {
 		t.Fatalf("progress = %v", progress)
 	}
-	want := enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
+	want := enrichment.TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	if len(provider.requests) != 3 || provider.requests[0] != want || provider.requests[1] != want {
 		t.Fatalf("requests = %+v", provider.requests)
 	}
-	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	entry := cache.values[key]
 	if entry.Translation != "house" || entry.Gloss != "building" || entry.CachedAt.IsZero() {
 		t.Fatalf("cache/provenance = %+v", entry)

@@ -17,7 +17,7 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	}
 	manifest := NewManifest("owner-1", "Buch", entries)
 	candidate := manifest.EnrichmentCandidates()[0]
-	key := enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantDigest = "1e8f4112b54cb863b2beba9e2a6be9715f3e9e468fecedee2165d8937cb2c50c"
+	const wantDigest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
 	if digest != wantDigest {
 		t.Fatalf("digest=%q want=%q", digest, wantDigest)
 	}
@@ -76,7 +76,7 @@ func TestManifestSnapshotRejectsPartialIdentityAndNoncontiguousOrder(t *testing.
 		{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", FirstEncounter: 2},
 	}
 	snapshot := NewManifest("owner-1", "Buch", entries).Snapshot()
-	snapshot.Items[0].CacheKey = &enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(entries[0].Sentence)}
+	snapshot.Items[0].CacheKey = &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(entries[0].Sentence)}
 	if _, err := snapshot.Digest(); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("partial cache identity error=%v", err)
 	}

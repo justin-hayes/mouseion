@@ -67,6 +67,8 @@ func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	config := persistence.PreparedDeckRunConfig{
 		ExternalTranslationConsent:    consent,
 		ExternalTranslationConfigured: consent && p.ExternalEnabled,
+		ExecutionMode:                 "batch",
+		TargetLanguage:                "en",
 		BatchMaxRequests:              p.BatchConfig.MaxRequests,
 		BatchMaxBytes:                 persistence.DefaultBatchMaxBytes,
 	}
@@ -88,6 +90,7 @@ func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{
 			Language:        candidate.Language,
+			TargetLanguage:  config.TargetLanguage,
 			CanonicalLemma:  candidate.CanonicalLemma,
 			UPOS:            strings.ToUpper(candidate.UPOS),
 			Provider:        config.Provider,
@@ -122,7 +125,7 @@ func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnap
 		if tx != nil {
 			var found bool
 			key := item.CacheKey
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6)`, key.Language, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7)`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
 				return nil, err
 			}
 			if found {
@@ -130,7 +133,7 @@ func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnap
 			}
 		}
 		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{
-			Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
+			Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
 			TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence,
 		}})
 	}

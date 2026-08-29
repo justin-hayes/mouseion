@@ -648,7 +648,7 @@ func TestManifestExactEnrichmentMatchesLegacyRenderAndIsDeterministic(t *testing
 	keys := make([]enrichment.CacheKey, len(candidates))
 	outcomes := make([]ExactEnrichment, len(candidates))
 	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 		provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "2"}
 		outcomes[i] = ExactEnrichment{CacheKey: keys[i], Result: enrichment.Result{
 			Candidate:                 candidate,
@@ -690,7 +690,7 @@ func TestManifestRejectsProviderVersionAndSentenceIdentityMismatch(t *testing.T)
 	entry := Entry{OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: "Book", FirstEncounter: 10}
 	manifest := NewManifest("alice", "Book", []Entry{entry})
 	candidate := manifest.EnrichmentCandidates()[0]
-	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	if err != nil {
 		t.Fatal(err)

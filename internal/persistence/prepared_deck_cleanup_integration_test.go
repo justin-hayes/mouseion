@@ -39,7 +39,7 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 		t.Fatal(err)
 	}
 	manifest := cardexport.NewManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus.", TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
-	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus.")}
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus.")}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	if err != nil {
 		t.Fatal(err)

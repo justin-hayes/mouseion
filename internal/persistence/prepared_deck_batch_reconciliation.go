@@ -130,7 +130,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 				return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
 			}
 			entry := item.CacheEntry
-			if _, err = tx.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash, entry.Translation, entry.Gloss, entry.SentenceTranslation, entry.SentenceTranslationTarget, entry.CachedAt); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO enrichment_cache(language,target_language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`, entry.Language, entry.TargetLanguage, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash, entry.Translation, entry.Gloss, entry.SentenceTranslation, entry.SentenceTranslationTarget, entry.CachedAt); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
 			}
 			// The cache is immutable and first-writer-wins. Another run may have
@@ -138,7 +138,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 			// the trusted result the finalizer must consume even when a stochastic
 			// provider returned different text or this attempt has a later timestamp.
 			var stored int
-			if err = tx.QueryRow(ctx, `SELECT 1 FROM enrichment_cache WHERE language=$1 AND canonical_lemma=$2 AND upos=$3 AND provider=$4 AND provider_version=$5 AND sentence_hash=$6`, entry.Language, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored); err != nil {
+			if err = tx.QueryRow(ctx, `SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7`, entry.Language, entry.TargetLanguage, entry.CanonicalLemma, entry.UPOS, entry.Provider, entry.ProviderVersion, entry.SentenceHash).Scan(&stored); err != nil {
 				return PreparedDeckBatchReconcileResult{}, err
 			}
 		} else if item.CacheEntry != nil {
@@ -178,7 +178,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 }
 
 func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) ([]preparedDeckBatchMember, error) {
-	rows, err := tx.Query(ctx, `SELECT ci.ordinal,mi.language,mi.canonical_lemma,mi.upos,COALESCE(mi.provider,''),COALESCE(mi.provider_version,''),COALESCE(mi.sentence_hash,'') FROM deck_preparation_batch_chunk_items ci JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal WHERE ci.owner_id=$1 AND ci.preparation_id=$2 AND ci.run_id=$3 AND ci.chunk_id=$4 ORDER BY ci.position`, params.OwnerID, params.PreparationID, params.RunID, params.ChunkID)
+	rows, err := tx.Query(ctx, `SELECT ci.ordinal,mi.language,mi.canonical_lemma,mi.upos,COALESCE(mi.target_language,''),COALESCE(mi.provider,''),COALESCE(mi.provider_version,''),COALESCE(mi.sentence_hash,'') FROM deck_preparation_batch_chunk_items ci JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal WHERE ci.owner_id=$1 AND ci.preparation_id=$2 AND ci.run_id=$3 AND ci.chunk_id=$4 ORDER BY ci.position`, params.OwnerID, params.PreparationID, params.RunID, params.ChunkID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +186,10 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 	var members []preparedDeckBatchMember
 	for rows.Next() {
 		var member preparedDeckBatchMember
-		if err = rows.Scan(&member.Ordinal, &member.Key.Language, &member.Key.CanonicalLemma, &member.Key.UPOS, &member.Key.Provider, &member.Key.ProviderVersion, &member.Key.SentenceHash); err != nil {
+		if err = rows.Scan(&member.Ordinal, &member.Key.Language, &member.Key.CanonicalLemma, &member.Key.UPOS, &member.Key.TargetLanguage, &member.Key.Provider, &member.Key.ProviderVersion, &member.Key.SentenceHash); err != nil {
 			return nil, err
 		}
-		if member.Key.Provider == "" || member.Key.ProviderVersion == "" {
+		if member.Key.Provider == "" || member.Key.ProviderVersion == "" || member.Key.TargetLanguage == "" {
 			return nil, ErrPreparedDeckIdentity
 		}
 		members = append(members, member)

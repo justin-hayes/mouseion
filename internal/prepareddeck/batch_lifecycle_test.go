@@ -210,7 +210,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	}
 	serial := make([]cardexport.ExactEnrichment, len(candidates))
 	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 		provenance := enrichment.Provenance{Provider: "openai", ProviderVersion: "v1", External: true}
 		serial[i] = cardexport.ExactEnrichment{CacheKey: keys[i], Result: enrichment.Result{Candidate: candidate,
 			Translation:               enrichment.Field[string]{Value: responses[i].Translation, Available: true, Provenance: provenance},

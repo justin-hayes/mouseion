@@ -402,7 +402,7 @@ func batchResultItems(snapshot cardexport.ManifestSnapshot, ordinals []int) ([]e
 			return nil, nil, errors.New("invalid Batch manifest item")
 		}
 		selected[ordinal] = item
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
 	}
 	return items, selected, nil
 }

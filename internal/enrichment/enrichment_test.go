@@ -83,7 +83,7 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	// A second user's identity cannot affect the shared key because it is not
 	// accepted by either Candidate identity or TranslationRequest.
 	second := s.Enrich(context.Background(), []Candidate{c})[0]
-	want := TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
+	want := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	if len(provider.requests) != 1 || provider.requests[0] != want {
 		t.Fatalf("requests=%+v", provider.requests)
 	}
@@ -187,7 +187,7 @@ func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) 
 	if !first.SentenceTranslationTarget.Available || first.SentenceTranslationTarget.Value != "house" || len(provider.requests) != 1 {
 		t.Fatalf("result=%+v requests=%d", first, len(provider.requests))
 	}
-	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
+	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
 		t.Fatalf("cache=%+v", cache.values)
 	}
 }

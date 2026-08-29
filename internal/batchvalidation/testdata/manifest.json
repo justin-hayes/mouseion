@@ -19,7 +19,7 @@
       "source_document": "Frozen book",
       "first_encounter": 10,
       "quality": {"Accepted": true, "Score": 110, "Reasons": ["usable length", "useful context window", "target present", "valid source location", "complete sentence boundaries", "no obvious structural noise"]},
-      "cache_key": {"Language": "de", "CanonicalLemma": "haus", "UPOS": "NOUN", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
+      "cache_key": {"Language": "de", "TargetLanguage": "en", "CanonicalLemma": "haus", "UPOS": "NOUN", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
       "cache_hit": true
     },
     {
@@ -33,7 +33,7 @@
       "source_document": "Frozen book",
       "first_encounter": 20,
       "quality": {"Accepted": true, "Score": 110, "Reasons": ["usable length", "useful context window", "target present", "valid source location", "complete sentence boundaries", "no obvious structural noise"]},
-      "cache_key": {"Language": "de", "CanonicalLemma": "gehen", "UPOS": "VERB", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
+      "cache_key": {"Language": "de", "TargetLanguage": "en", "CanonicalLemma": "gehen", "UPOS": "VERB", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
       "cache_hit": false
     },
     {
@@ -47,7 +47,7 @@
       "source_document": "Frozen book",
       "first_encounter": 30,
       "quality": {"Accepted": true, "Score": 110, "Reasons": ["usable length", "useful context window", "target present", "valid source location", "complete sentence boundaries", "no obvious structural noise"]},
-      "cache_key": {"Language": "de", "CanonicalLemma": "sehen", "UPOS": "VERB", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
+      "cache_key": {"Language": "de", "TargetLanguage": "en", "CanonicalLemma": "sehen", "UPOS": "VERB", "Provider": "openai", "ProviderVersion": "gpt-test/translation-v6-target-alignment-json", "SentenceHash": ""},
       "cache_hit": false
     },
     {

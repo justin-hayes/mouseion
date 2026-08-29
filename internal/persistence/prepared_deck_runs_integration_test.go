@@ -54,7 +54,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	candidates := manifest.EnrichmentCandidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	}
 	manifest, err = manifest.BindCacheKeys(keys)
 	if err != nil {
@@ -102,6 +102,40 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	}
 	if !repeated.Existing || repeated.Run.ID != result.Run.ID || repeated.ManifestDigest != result.ManifestDigest {
 		t.Fatalf("idempotent freeze=%+v want run=%s", repeated, result.Run.ID)
+	}
+	changedMode := params
+	changedMode.Config.ExecutionMode = "standard"
+	changedModeResult, changedModeErr := func() (FreezePreparedDeckRunResult, error) {
+		changedTx, beginErr := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+		if beginErr != nil {
+			return FreezePreparedDeckRunResult{}, beginErr
+		}
+		result, freezeErr := store.FreezePreparedDeckRunTx(ctx, changedTx, changedMode)
+		if freezeErr != nil {
+			_ = changedTx.Rollback(ctx)
+			return result, freezeErr
+		}
+		return result, changedTx.Commit(ctx)
+	}()
+	if changedModeErr == nil || !errors.Is(changedModeErr, ErrImmutable) || changedModeResult.Existing {
+		t.Fatalf("changed execution mode result=%+v err=%v", changedModeResult, changedModeErr)
+	}
+	changedTarget := params
+	changedTarget.Config.TargetLanguage = "de"
+	changedTargetResult, changedTargetErr := func() (FreezePreparedDeckRunResult, error) {
+		changedTx, beginErr := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+		if beginErr != nil {
+			return FreezePreparedDeckRunResult{}, beginErr
+		}
+		result, freezeErr := store.FreezePreparedDeckRunTx(ctx, changedTx, changedTarget)
+		if freezeErr != nil {
+			_ = changedTx.Rollback(ctx)
+			return result, freezeErr
+		}
+		return result, changedTx.Commit(ctx)
+	}()
+	if changedTargetErr == nil || changedTargetResult.Existing {
+		t.Fatalf("changed target result=%+v err=%v", changedTargetResult, changedTargetErr)
 	}
 	if current, getErr := store.GetDeckPreparation(ctx, owner.ID, preparation.ID); getErr != nil || current.State != domain.DeckPreparationPreparing || current.CurrentRunID != result.Run.ID {
 		t.Fatalf("current preparation=%+v err=%v", current, getErr)
@@ -250,7 +284,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	}
 	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
 	candidate := manifest.EnrichmentCandidates()[0]
-	key := enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	if err != nil {
 		t.Fatal(err)
@@ -353,7 +387,7 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	candidates := manifest.EnrichmentCandidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	}
 	manifest, err = manifest.BindCacheKeys(keys)
 	if err != nil {

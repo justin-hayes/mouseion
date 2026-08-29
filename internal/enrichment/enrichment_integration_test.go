@@ -47,7 +47,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	}
 	defer store.Close()
 	when := time.Date(2026, 8, 21, 2, 3, 4, 0, time.UTC)
-	key := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", CachedAt: when})
 	if err != nil {
 		t.Fatal(err)

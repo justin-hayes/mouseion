@@ -12,7 +12,10 @@ import (
 
 // ManifestSchemaVersion identifies the canonical durable manifest codec. A
 // new version is required for any change that alters digest inputs.
-const ManifestSchemaVersion = 1
+const (
+	LegacyManifestSchemaVersion = 1
+	ManifestSchemaVersion       = 2
+)
 
 type ManifestDisposition string
 
@@ -89,21 +92,38 @@ func (s ManifestSnapshot) Digest() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest: %w", err)
 	}
-	sum := sha256.Sum256(append([]byte("mouseion-prepared-deck-manifest-v1\x00"), payload...))
+	prefix := "mouseion-prepared-deck-manifest-v2\x00"
+	if s.SchemaVersion == LegacyManifestSchemaVersion {
+		prefix = "mouseion-prepared-deck-manifest-v1\x00"
+	}
+	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
 }
 
 // CandidateDigest returns the durable identity of one ordered decision.
 func CandidateDigest(item ManifestItem) (string, error) {
-	canonical, err := canonicalizeManifestItem(item)
+	return CandidateDigestVersion(item, ManifestSchemaVersion)
+}
+
+// CandidateDigestVersion preserves the v1 digest codec for durable manifests
+// written before target language became part of the frozen identity.
+func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error) {
+	canonical, err := canonicalizeManifestItem(item, schemaVersion)
 	if err != nil {
 		return "", err
+	}
+	if schemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
+		canonical.CacheKey.TargetLanguage = ""
 	}
 	payload, err := json.Marshal(canonical)
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest item: %w", err)
 	}
-	sum := sha256.Sum256(append([]byte("mouseion-prepared-deck-candidate-v1\x00"), payload...))
+	prefix := "mouseion-prepared-deck-candidate-v2\x00"
+	if schemaVersion == LegacyManifestSchemaVersion {
+		prefix = "mouseion-prepared-deck-candidate-v1\x00"
+	}
+	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
 }
 
@@ -180,6 +200,7 @@ type canonicalSentenceQuality struct {
 
 type canonicalCacheKey struct {
 	Language        string `json:"language"`
+	TargetLanguage  string `json:"target_language,omitempty"`
 	CanonicalLemma  string `json:"canonical_lemma"`
 	UPOS            string `json:"upos"`
 	Provider        string `json:"provider"`
@@ -188,7 +209,7 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if s.SchemaVersion != ManifestSchemaVersion || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -198,11 +219,14 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 		if item.Ordinal != i {
 			return canonicalSnapshot{}, fmt.Errorf("%w: manifest ordinal %d is not contiguous", ErrInvalidInput, item.Ordinal)
 		}
-		canonical, err := canonicalizeManifestItem(item)
+		canonical, err := canonicalizeManifestItem(item, s.SchemaVersion)
 		if err != nil {
 			return canonicalSnapshot{}, fmt.Errorf("manifest item %d: %w", i, err)
 		}
-		digest, err := CandidateDigest(item)
+		if s.SchemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
+			canonical.CacheKey.TargetLanguage = ""
+		}
+		digest, err := CandidateDigestVersion(item, s.SchemaVersion)
 		if err != nil {
 			return canonicalSnapshot{}, err
 		}
@@ -225,7 +249,7 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 	return result, nil
 }
 
-func canonicalizeManifestItem(item ManifestItem) (canonicalManifestItem, error) {
+func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalManifestItem, error) {
 	entry := item.Entry
 	if strings.TrimSpace(entry.OwnerID) != "" || entry.Translation != "" || entry.SentenceTranslation != "" || entry.SentenceTranslationTarget != "" || strings.TrimSpace(entry.Language) == "" || strings.TrimSpace(entry.CanonicalLemma) == "" || strings.TrimSpace(entry.UPOS) == "" || entry.UPOS != strings.ToUpper(entry.UPOS) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid or external manifest entry fields", ErrInvalidInput)
@@ -249,10 +273,17 @@ func canonicalizeManifestItem(item ManifestItem) (canonicalManifestItem, error) 
 	}
 	var key *canonicalCacheKey
 	if item.CacheKey != nil {
-		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
+		// Legacy v1 manifests persisted cache keys with an empty target
+		// language (it was never part of the v1 digest). v2 requires an
+		// explicit target language.
+		targetOK := item.CacheKey.TargetLanguage != ""
+		if schemaVersion == LegacyManifestSchemaVersion {
+			targetOK = item.CacheKey.TargetLanguage == ""
+		}
+		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
 			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
 		}
-		key = &canonicalCacheKey{Language: item.CacheKey.Language, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
+		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
 	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,

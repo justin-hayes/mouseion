@@ -308,7 +308,7 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 		FROM deck_preparation_batch_chunk_items ci
 		JOIN deck_preparation_batch_chunks c ON c.owner_id=ci.owner_id AND c.preparation_id=ci.preparation_id AND c.run_id=ci.run_id AND c.id=ci.chunk_id AND c.generation=ci.generation
 		JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal
-		JOIN enrichment_cache ec ON ec.language=mi.language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
+		JOIN enrichment_cache ec ON ec.language=mi.language AND ec.target_language=mi.target_language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
 		WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=ci.ordinal AND o.state='pending' AND c.id=$4 AND c.generation=$5 AND c.state='submitting' AND c.submission_claim_token=$6
 		RETURNING o.ordinal
 	) SELECT count(*) FROM hit`, owner, preparationID, runID, chunkID, generation, token).Scan(&count)
