@@ -1,6 +1,6 @@
 # Mouseion Hermes worker image
 
-This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `nikolaik/python-nodejs:python3.11-nodejs20` — the same image Hermes uses for its docker backend by default — and adds the tools used by Mouseion agent sessions under a non-root `worker` user:
+This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `nikolaik/python-nodejs:python3.11-nodejs20` — the same image Hermes uses for its docker backend by default — and adds the tools used by Mouseion agent sessions, running as the base image's non-root `pn` user (uid 1000):
 
 - Go 1.24.6
 - protoc 29.3
@@ -36,11 +36,12 @@ terminal:
   cwd: /workspace
   docker_image: ghcr.io/OWNER/REPOSITORY/hermes-worker:latest
   docker_mount_cwd_to_workspace: true
-  docker_run_as_host_user: true
   container_persistent: false
   lifetime_seconds: 300
   docker_forward_env: []
 ```
+
+The image runs as the base image's `pn` user (uid 1000), which matches the default host user on most dev machines — so a host-mounted `/workspace` is writable by default. If your host user's uid differs, set `docker_run_as_host_user: true` so Hermes runs the container as your host uid (appends `--user $(id -u):$(id -g)` to `docker run`).
 
 `container_persistent: false` gives each session a fresh container; `lifetime_seconds` controls how long an idle session is retained before cleanup. The mounted checkout remains the only project filesystem supplied by the operator. Keep `docker_forward_env` empty unless a task specifically needs a credential: forwarded variables and Hermes-mounted credential files are readable by code running in the session. The image contains compilers and network-capable tools, so Docker isolation reduces host exposure but is not a substitute for reviewing the workspace and credentials made available to an agent.
 
