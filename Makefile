@@ -3,9 +3,10 @@ VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
+HERMES_WORKER_IMAGE ?= mouseion-hermes-worker:local
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration lint gen templ dev clean go-tmp
+.PHONY: setup build test test-integration lint gen templ dev clean go-tmp hermes-worker-smoke
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -42,6 +43,19 @@ gen:
 	protoc -I proto --go_out=gen/go --go_opt=paths=source_relative --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative --python_out=gen/python $(PROTO_FILE)
 	$(VENV_BIN)/python -m grpc_tools.protoc -I proto --grpc_python_out=gen/python $(PROTO_FILE)
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
+
+hermes-worker-smoke:
+	docker run --rm --entrypoint /bin/sh $(HERMES_WORKER_IMAGE) -ceu '\
+		command -v go >/dev/null; \
+		command -v protoc >/dev/null; \
+		command -v protoc-gen-go >/dev/null; \
+		command -v protoc-gen-go-grpc >/dev/null; \
+		command -v codex >/dev/null; \
+		go version; \
+		protoc --version; \
+		protoc-gen-go --version; \
+		protoc-gen-go-grpc --version; \
+		codex --version'
 
 dev: go-tmp
 	go run ./cmd/server
