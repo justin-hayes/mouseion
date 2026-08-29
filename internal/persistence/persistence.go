@@ -541,12 +541,30 @@ func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lem
 	return
 }
 func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT kv.id,kv.owner_id,kv.language,kv.canonical_lemma,kv.upos,
+		CASE WHEN EXISTS (
+			SELECT 1 FROM learning_campaign_vocabulary cv
+			JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
+			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
+				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
+				AND cv.graduated_at IS NOT NULL AND c.status='complete'
+		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
+		kv.created_at
+		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Provenance, &v.CreatedAt)
 	err = missing(err)
 	return
 }
 func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND language=$2 ORDER BY canonical_lemma,upos,id`, owner, lang)
+	rows, err := s.pool.Query(ctx, `SELECT kv.id,kv.owner_id,kv.language,kv.canonical_lemma,kv.upos,
+		CASE WHEN EXISTS (
+			SELECT 1 FROM learning_campaign_vocabulary cv
+			JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
+			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
+				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
+				AND cv.graduated_at IS NOT NULL AND c.status='complete'
+		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
+		kv.created_at
+		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.language=$2 ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -554,7 +572,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	var result []domain.KnownVocabulary
 	for rows.Next() {
 		var value domain.KnownVocabulary
-		if err := rows.Scan(&value.ID, &value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.CreatedAt); err != nil {
+		if err := rows.Scan(&value.ID, &value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.Provenance, &value.CreatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, value)

@@ -313,6 +313,38 @@ body {
   margin: 0;
 }
 
+.settings-language-list {
+  display: grid;
+  gap: var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-5);
+}
+
+.settings-language-item {
+  min-width: 0;
+}
+
+.settings-language-item h3 {
+  margin-bottom: var(--mouseion-space-1);
+}
+
+.settings-language-item .page-heading {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+.settings-language-picker {
+  max-width: var(--mouseion-width-form);
+}
+
+#study-languages,
+#known-vocabulary {
+  min-width: 0;
+  margin-bottom: var(--mouseion-space-7);
+}
+
+#known-vocabulary-results {
+  min-width: 0;
+}
+
 .next-action {
   border-left: var(--mouseion-space-1) solid var(--mouseion-color-accent);
   padding: var(--mouseion-space-3) var(--mouseion-space-4);
@@ -406,6 +438,11 @@ body {
 .table-region table {
   min-width: 38rem;
   margin-bottom: 0;
+}
+
+.table-region td,
+.table-region th {
+  overflow-wrap: anywhere;
 }
 
 .async-status {

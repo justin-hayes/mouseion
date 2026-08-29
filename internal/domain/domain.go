@@ -199,7 +199,11 @@ type SharedLemma struct {
 }
 type KnownVocabulary struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS string
-	CreatedAt                                   time.Time
+	// Provenance is a presentation-only projection. Explicitly recorded
+	// entries have no durable source column; completed campaign graduation is
+	// available when the campaign relationship can be joined.
+	Provenance string
+	CreatedAt  time.Time
 }
 type GeneratedVocabulary struct {
 	OwnerID, Language, CanonicalLemma, UPOS string

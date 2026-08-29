@@ -448,7 +448,7 @@ func TestNLPCapabilityDiscoveryAndDegradedBehavior(t *testing.T) {
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
 	settings := perform(t, h, "GET", "/settings", nil, cookies)
-	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), "French (fr)") || strings.Contains(settings.Body.String(), "Italian (it)") {
+	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), "French") || !strings.Contains(settings.Body.String(), "(fr)") || strings.Contains(settings.Body.String(), "Italian") {
 		t.Fatalf("capability settings=%d %s", settings.Code, settings.Body.String())
 	}
 
@@ -863,12 +863,12 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
-	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known words") {
+	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known vocabulary") || !strings.Contains(settingsPage.Body.String(), `id="known-vocabulary"`) {
 		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
 	}
 	knownPage := perform(t, h, "GET", "/known-vocab?language=de", nil, cookies)
-	if knownPage.Code != 200 || !strings.Contains(knownPage.Body.String(), "Known vocabulary") || strings.Contains(knownPage.Body.String(), "textarea") || strings.Contains(knownPage.Body.String(), "Universal POS") || !strings.Contains(knownPage.Body.String(), `accept="text/plain,.txt"`) {
-		t.Fatalf("known vocab page=%d %s", knownPage.Code, knownPage.Body.String())
+	if knownPage.Code != http.StatusSeeOther || knownPage.Header().Get("Location") != "/settings?language=de#known-vocabulary" {
+		t.Fatalf("known vocab redirect=%d location=%q", knownPage.Code, knownPage.Header().Get("Location"))
 	}
 	if got := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"language": "de"}, "Daß\nbad\tNOPE\n"); got.Code != http.StatusForbidden {
 		t.Fatalf("known vocab without csrf=%d", got.Code)
@@ -878,7 +878,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
 	}
 	importStatus := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, cookies)
-	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 imported") || !strings.Contains(importStatus.Body.String(), "no tab-separated columns") || !strings.Contains(importStatus.Body.String(), "<td>2</td>") {
+	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 new") || !strings.Contains(importStatus.Body.String(), "no tab-separated columns") || !strings.Contains(importStatus.Body.String(), "<td>2</td>") {
 		t.Fatalf("known vocab status=%d %s", importStatus.Code, importStatus.Body.String())
 	}
 	bobLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {bob.Username}, "password": {"bob-password"}}, []*http.Cookie{cookies[0]})
@@ -925,8 +925,8 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if got := perform(t, h, "POST", "/settings/languages/remove", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}}, bobCookies); got.Code != http.StatusSeeOther {
 		t.Fatalf("remove study language=%d", got.Code)
 	}
-	if got := perform(t, h, "GET", "/known-vocab?language=de", nil, bobCookies); got.Code != 200 || strings.Contains(got.Body.String(), "dass") {
-		t.Fatalf("bob known vocabulary leaked: %d %s", got.Code, got.Body.String())
+	if got := perform(t, h, "GET", "/known-vocab?language=de", nil, bobCookies); got.Code != http.StatusSeeOther || got.Header().Get("Location") != "/settings#known-vocabulary" {
+		t.Fatalf("bob known vocabulary redirect=%d location=%q", got.Code, got.Header().Get("Location"))
 	}
 	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("bob read alice book: %d", got.Code)
