@@ -10,7 +10,7 @@ FROM golang:${GO_VERSION}-bookworm AS go-toolchain
 # dedicated `worker` user (uid 1000) is created here rather than inheriting one
 # from the agent runtime image, so the host-mounted /workspace stays writable
 # when the host user is uid 1000.
-FROM nikolaik/python-nodejs:python3.11-nodejs20
+FROM nikolaik/python-nodejs:python3.11-nodejs20@sha256:8f958bdc1b4a422bfafd97cab4f69836401f616ae985d4b57a53d254f5bcb038
 
 ARG TARGETARCH
 ARG PROTOC_VERSION=29.3
