@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
+	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -83,6 +84,9 @@ func TestAppStylesExposeMouseionFoundations(t *testing.T) {
 		".reading-text",
 		".metadata",
 		".numeric",
+		".table-region",
+		"overflow-x: auto",
+		".table-region td",
 		"@media (max-width: 40rem)",
 		"@media (min-width: 72rem)",
 	} {
@@ -176,5 +180,90 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 		if !strings.Contains(progress.String(), want) {
 			t.Errorf("enrichment status missing %q: %s", want, progress.String())
 		}
+	}
+}
+
+func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
+	var output bytes.Buffer
+	known := []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provenance: "Graduated from completed campaign", CreatedAt: time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)}}
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true, "de", &knownvocab.ImportResult{Imported: 1}, known, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{
+		`id="study-languages"`,
+		`id="known-vocabulary"`,
+		`German <code>de</code>`,
+		`catalog browse language is chosen independently`,
+		`New study-language additions are disabled`,
+		`vocabulary, books, analyses, prepared decks, and campaigns for German remain`,
+		`action="/known-vocab/import"`,
+		`enctype="multipart/form-data"`,
+		`hx-encoding="multipart/form-data"`,
+		`Graduated from completed campaign`,
+		`1 new`,
+		`0 duplicates`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("settings missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, `action="/settings/languages"`) && strings.Contains(html, "New study-language additions are disabled") {
+		t.Error("degraded settings must not expose an add-language form")
+	}
+
+	output.Reset()
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, false, "", nil, nil, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	readyHTML := output.String()
+	if !strings.Contains(readyHTML, "Italian") || strings.Contains(readyHTML, "No analysis languages are currently ready") {
+		t.Fatalf("ready addable capability missing: %s", readyHTML)
+	}
+	if strings.Count(readyHTML, `<option value="de">German (de)</option>`) > 1 {
+		t.Errorf("saved language was offered as a new addition: %s", readyHTML)
+	}
+}
+
+func TestKnownVocabSettingsTargetPreservesOnlyValidLanguage(t *testing.T) {
+	profiles := []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}
+	if got := knownVocabSettingsTarget("de", profiles); got != "/settings?language=de#known-vocabulary" {
+		t.Fatalf("valid target = %q", got)
+	}
+	if got := knownVocabSettingsTarget("it", profiles); got != "/settings#known-vocabulary" {
+		t.Fatalf("invalid target = %q", got)
+	}
+}
+
+func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.T) {
+	var processing bytes.Buffer
+	if err := KnownVocabImportStatus(knownvocab.Status{ID: 12, Language: "de", State: rivertype.JobStateRunning, Processed: 1, Total: 3}).Render(context.Background(), &processing); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(processing.String(), "Processing") || !strings.Contains(processing.String(), "You can leave this page") || !strings.Contains(processing.String(), `aria-busy="true"`) {
+		t.Fatalf("processing status missing safe-leave contract: %s", processing.String())
+	}
+
+	for _, test := range []struct {
+		name  string
+		state rivertype.JobState
+		want  string
+		table bool
+	}{
+		{name: "partial", state: rivertype.JobStateCompleted, want: "partial rejection", table: true},
+		{name: "failed", state: rivertype.JobStateDiscarded, want: "Import failed"},
+		{name: "cancelled", state: rivertype.JobStateCancelled, want: "Import cancelled"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			status := knownvocab.Status{ID: 12, Language: "de", State: test.state, Imported: 2, AlreadyKnown: 1, Rejected: []knownvocab.Rejection{{Row: 3, Original: "bad\tline", Error: "expected exactly one lemma"}}}
+			if err := KnownVocabImportStatus(status).Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			html := output.String()
+			if !strings.Contains(html, test.want) || !strings.Contains(html, "2 new") || !strings.Contains(html, "1 duplicates") || (test.table != strings.Contains(html, `class="table-region"`)) {
+				t.Fatalf("status missing result contract: %s", html)
+			}
+		})
 	}
 }

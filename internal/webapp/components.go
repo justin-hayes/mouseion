@@ -10,6 +10,52 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+func studyLanguageSaved(profiles []domain.LanguageProfile, language string) bool {
+	for _, profile := range profiles {
+		if profile.Language == language {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAddableStudyLanguage(supported []domain.SupportedLanguage, profiles []domain.LanguageProfile) bool {
+	for _, language := range supported {
+		if !studyLanguageSaved(profiles, language.Language) {
+			return true
+		}
+	}
+	return false
+}
+
+func studyLanguageStatus(profile domain.LanguageProfile, supported []domain.SupportedLanguage, degraded bool) string {
+	if degraded {
+		return "NLP readiness cannot currently be verified; this saved preference is retained."
+	}
+	for _, language := range supported {
+		if language.Language == profile.Language {
+			return "NLP analysis ready."
+		}
+	}
+	return "NLP analysis is not currently ready; this saved preference is retained."
+}
+
+func studyLanguageName(profiles []domain.LanguageProfile, language string) string {
+	for _, profile := range profiles {
+		if profile.Language == language {
+			return profile.DisplayName
+		}
+	}
+	return language
+}
+
+func knownVocabProvenance(entry domain.KnownVocabulary) string {
+	if entry.Provenance != "" {
+		return entry.Provenance
+	}
+	return "Explicitly recorded"
+}
+
 type StatusTone string
 
 const (

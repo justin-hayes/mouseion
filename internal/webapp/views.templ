@@ -764,7 +764,7 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	</article> }
 }
 templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
-	@ShellLayout("Dashboard", &user, csrf, navigationContextForTitle("Dashboard")) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
+	@ShellLayout("Dashboard", &user, csrf, navigationContextForTitle("Dashboard")) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/settings#study-languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
 }
 templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@ShellLayout("Settings", &user, csrf, NavigationSettings) {
@@ -772,34 +772,65 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
 	}
-	<article class="resource-card"><h2>Study languages</h2>
+	<section id="study-languages" aria-labelledby="study-languages-heading">
+		<h2 id="study-languages-heading">Study languages</h2>
+		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, while a catalog browse language is chosen independently and does not change these preferences.</p>
 		if degraded {
-			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged.")
+			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged. New study-language additions are disabled until readiness can be checked.")
 		}
-		if len(supported) == 0 {
-			if !degraded {
-				<p>No analysis languages are currently ready.</p>
+		<h3>Saved study preferences</h3>
+		if len(profiles) == 0 {
+			<p>No study languages are saved yet. Choose a ready NLP language below when one is available.</p>
+		} else {
+			<div class="settings-language-list">
+			for _, profile := range profiles {
+				<article class="resource-card settings-language-item"><header class="page-heading"><div><h3>{ profile.DisplayName } <code>{ profile.Language }</code></h3><p class="metadata">Saved study preference</p></div></header><p>{ studyLanguageStatus(profile, supported, degraded) }</p>
+				@Confirmation("Remove study language", fmt.Sprintf("Remove %s as a study preference only. Your vocabulary, books, analyses, prepared decks, and campaigns for %s remain.", profile.DisplayName, profile.DisplayName), StatusDanger) {<form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Confirm removal</button></form>}
+				</article>
 			}
+			</div>
 		}
-		if len(supported) > 0 {
-			<form method="post" action="/settings/languages"><input type="hidden" name="csrf_token" value={ csrf }/><label>Add a supported language<select name="language" required><option value="">Choose a language</option>
+		if degraded {
+			<p class="metadata">Ready NLP capabilities cannot be verified right now, so only existing preferences remain actionable.</p>
+		} else if len(supported) == 0 {
+			<p>No analysis languages are currently ready. Readiness is provided by the NLP service and cannot be enabled by changing a preference.</p>
+		} else if !hasAddableStudyLanguage(supported, profiles) {
+			<p>All currently ready NLP languages are already saved as study preferences.</p>
+		} else {
+			<h3>Add a ready NLP language</h3>
+			<form method="post" action="/settings/languages"><input type="hidden" name="csrf_token" value={ csrf }/><label>Ready language<select name="language" required><option value="">Choose a language</option>
 			for _, candidate := range supported {
-				<option value={ candidate.Language }>{ candidate.DisplayName } ({ candidate.Language })</option>
+				if !studyLanguageSaved(profiles, candidate.Language) {
+					<option value={ candidate.Language }>{ candidate.DisplayName } ({ candidate.Language })</option>
+				}
 			}
 			</select></label><button>Add study language</button></form>
 		}
-	</article>
-	if len(profiles) == 0 {
-		@EmptyState("No study languages yet", "Select at least one study language to manage known vocabulary.")
-	}
-	for _, profile := range profiles {
-		<article class="resource-card"><header class="page-heading"><div><h2>{ profile.DisplayName } <code>{ profile.Language }</code></h2><p>Known vocabulary is private to your account and used to filter generated decks.</p></div><form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Remove</button></form></header>
-		<form method="post" action="/known-vocab/import" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ profile.Language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known words</button></form>
-		if language == profile.Language {
-			<section>@KnownVocabResult(language, result, known, "")</section>
+	</section>
+	<section id="known-vocabulary" aria-labelledby="known-vocabulary-heading">
+		<h2 id="known-vocabulary-heading">Known vocabulary</h2>
+		<p>Known vocabulary is private to your account and language-scoped. It includes words you explicitly record and vocabulary graduated by a completed campaign; generated or active-campaign vocabulary is not counted as known.</p>
+		if len(profiles) == 0 {
+			@EmptyState("No study language to select", "Save a study language before importing or viewing its known vocabulary.")
+		} else {
+			<form method="get" action="/settings#known-vocabulary" class="settings-language-picker"><label>Language<select name="language" required><option value="">Choose a study language</option>
+			for _, profile := range profiles {
+				<option value={ profile.Language } selected?={ language == profile.Language }>{ profile.DisplayName } ({ profile.Language })</option>
+			}
+			</select></label><button class="outline">View known vocabulary</button></form>
+			if language == "" {
+				<p>Select a study language to view its known vocabulary or import a lemma file.</p>
+			} else {
+				<p>Viewing <strong>{ studyLanguageName(profiles, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
+				if studyLanguageSaved(profiles, language) {
+					<form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-encoding="multipart/form-data" hx-target="#known-vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+				} else {
+					<p>This language is no longer a saved study preference. Existing known vocabulary remains available; save a ready study language before importing more.</p>
+				}
+				<section id="known-vocabulary-results">@KnownVocabResult(language, result, known, "")</section>
+			}
 		}
-		</article>
-	}
+	</section>
 	}
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
@@ -1181,7 +1212,7 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 		@Feedback(FeedbackError, "Import not completed", message)
 	}
 	if result != nil {
-		<article class="resource-card"><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d imported", result.Imported) }</strong> · { fmt.Sprintf("%d already known", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
+		<article class="resource-card"><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d new", result.Imported) }</strong> · { fmt.Sprintf("%d duplicates", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
 		if len(result.Rejected) > 0 {
 			<h3>Rejected rows</h3>
 			@ResponsiveTable("Rejected vocabulary rows") {
@@ -1194,20 +1225,20 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 		}
 		</article>
 	}
-	<h2>Previously imported
+	<h2>Known vocabulary
 	if language != "" {
-		<small> · { language }</small>
+		<small> · language code { language }</small>
 	}
 	</h2>
 	if language == "" {
 		<p>Choose a language to view known vocabulary.</p>
 	} else if len(known) == 0 {
-		<p>No known vocabulary imported for this language yet.</p>
+		<p>No known vocabulary has been recorded for this language yet. This does not mean the language is unavailable or that the learner knows no words.</p>
 	} else {
-		@ResponsiveTable("Previously imported known vocabulary") {
-			<thead><tr><th>Lemma</th><th>Part of speech</th><th>Imported</th></tr></thead><tbody>
+		@ResponsiveTable("Known vocabulary") {
+			<thead><tr><th>Lemma</th><th>Part of speech</th><th>Provenance</th><th>Recorded</th></tr></thead><tbody>
 			for _, entry := range known {
-				<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
+				<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ knownVocabProvenance(entry) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
 			}
 			</tbody>
 		}
@@ -1215,9 +1246,9 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 }
 templ KnownVocabImportStatus(status knownvocab.Status) {
 	if status.State != "completed" && status.State != "discarded" && status.State != "cancelled" {
-		<article id="known-vocab-import-status" hx-get={ fmt.Sprintf("/known-vocab/imports/%d/status", status.ID) } hx-trigger="load delay:500ms" hx-swap="outerHTML">@knownVocabImportStatusBody(status)</article>
+		<article id="known-vocab-import-status" role="status" aria-live="polite" aria-atomic="true" aria-busy={ boolString(knownVocabJobBusy(string(status.State))) } hx-get={ fmt.Sprintf("/known-vocab/imports/%d/status", status.ID) } hx-trigger="load delay:500ms" hx-swap="outerHTML">@knownVocabImportStatusBody(status)</article>
 	} else {
-		<article id="known-vocab-import-status">@knownVocabImportStatusBody(status)</article>
+		<article id="known-vocab-import-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="false">@knownVocabImportStatusBody(status)</article>
 	}
 }
 templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
@@ -1246,18 +1277,40 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			<span> · { fmt.Sprintf("%d of %d rows processed", status.Processed, status.Total) }</span>
 		}
 		</p>
-		if status.State == "completed" {
-			<p><strong>{ fmt.Sprintf("%d imported", status.Imported) }</strong> · { fmt.Sprintf("%d already known", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
-			if len(status.Rejected) > 0 {
-				<h3>Rejected rows</h3><table><thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
-				for _, rejection := range status.Rejected {
-					<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
-				}
-				</tbody></table>
-			}
-			<p><a href={ templ.SafeURL("/known-vocab?language="+status.Language) }>View imported vocabulary</a></p>
+		if knownVocabJobBusy(string(status.State)) {
+			<p>You can leave this page; the import will continue and this status can be reopened from the saved result.</p>
 		}
-		if status.Error != "" {
-			<p role="alert">Import failed: { status.Error }</p>
+		if status.State == "completed" {
+			if len(status.Rejected) > 0 {
+				<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>
+			} else {
+				<p><strong>Import complete.</strong></p>
+			}
+			if len(status.Rejected) > 0 {
+				<h3>Rejected rows</h3>@ResponsiveTable("Rejected vocabulary rows") {
+					<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
+					for _, rejection := range status.Rejected {
+						<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+					}
+					</tbody>
+				}
+				}
+				<p><a href={ templ.SafeURL("/settings?language="+url.QueryEscape(status.Language)+"#known-vocabulary") }>Review known vocabulary</a></p>
+		}
+		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
+			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
+		}
+		if status.Error != "" && status.State != "cancelled" && status.State != "discarded" {
+			<p role="alert"><strong>Import failed:</strong> { status.Error } Upload the original file again after correcting the problem.</p>
+		}
+		if status.State == "cancelled" {
+			<p role="alert"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>
+		}
+		if status.State == "discarded" {
+			<p role="alert"><strong>Import failed.</strong>
+			if status.Error != "" {
+				{ status.Error }
+			}
+			The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>
 		}
 }

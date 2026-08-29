@@ -1487,7 +1487,8 @@ func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/settings?message=Study+language+removed")
+	language := strings.TrimSpace(r.FormValue("language"))
+	redirect(w, r, "/settings?language="+url.QueryEscape(language)+"&message="+url.QueryEscape("Study language removed; only the preference was removed. Your vocabulary, books, analyses, prepared decks, and campaigns remain."))
 }
 
 func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
@@ -1926,21 +1927,16 @@ func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	language := ""
+	redirect(w, r, knownVocabSettingsTarget(requestedLanguage, profiles))
+}
+
+func knownVocabSettingsTarget(requestedLanguage string, profiles []domain.LanguageProfile) string {
 	for _, profile := range profiles {
 		if requestedLanguage == profile.Language {
-			language = requestedLanguage
+			return "/settings?language=" + url.QueryEscape(requestedLanguage) + "#known-vocabulary"
 		}
 	}
-	if language == "" && len(profiles) > 0 {
-		language = profiles[0].Language
-	}
-	known, err := h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, KnownVocabPage(u, h.csrf(w, r), profiles, language, known))
+	return "/settings#known-vocabulary"
 }
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
@@ -2720,17 +2716,29 @@ func campaignProgressTime(value *time.Time) string {
 func knownVocabJobLabel(status string) string {
 	switch status {
 	case "available", "scheduled", "retryable", "pending":
-		return "Queued"
+		return "Processing queued"
 	case "running":
-		return "Running"
+		return "Processing"
 	case "completed":
-		return "Completed"
-	case "discarded", "cancelled":
+		return "Complete"
+	case "discarded":
 		return "Failed"
+	case "cancelled":
+		return "Cancelled"
 	default:
 		return status
 	}
 }
+
+func knownVocabJobBusy(status string) bool {
+	switch status {
+	case "completed", "cancelled", "discarded":
+		return false
+	default:
+		return true
+	}
+}
+
 func enrichmentJobLabel(status string) string {
 	switch status {
 	case "available", "scheduled", "retryable", "pending":
