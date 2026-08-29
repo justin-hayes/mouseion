@@ -2635,10 +2635,15 @@ func jobState(status analysis.Status) string {
 	}
 }
 func analysisStatusSummary(status analysis.Status) string {
-	attempt := status.Attempt
-	if attempt < 1 {
-		attempt = 1
+	switch status.LogicalState {
+	case "completed":
+		return "Analysis complete. Open the exact result to review its insights."
+	case "failed":
+		return "Analysis failed. Review the message and retry the confirmed scope when it is still valid."
+	case "cancelled":
+		return "Analysis cancelled. Retry the confirmed scope when you are ready."
 	}
+	attempt := maxOne(status.Attempt)
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
 }
 func jobRetryable(status analysis.Status) bool {

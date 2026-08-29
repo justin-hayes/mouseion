@@ -29,7 +29,9 @@ document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
   var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
-  target.innerHTML = '<article role="alert"><strong>Request failed:</strong> ' + window.escapeHtml(text) + '<p><small>Review the affected item or try again.</small></p></article>';
+  var workflowNode = target.closest && target.closest('[data-workflow]');
+  var workflow = workflowNode ? workflowNode.getAttribute('data-workflow') : 'This operation';
+  target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + '<p><small>Review this operation or try again.</small></p></article>';
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
@@ -1171,7 +1173,7 @@ templ JobPage(user domain.User, csrf string, status analysis.Status) {
 templ JobStatus(csrf string, status analysis.Status) {
 	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status)) {
 		if status.Error != "" {
-			@Feedback(FeedbackError, "Action needed", status.Error)
+			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when the confirmed scope is still valid.")
 		}
 		@ActionGroup() {
 			if jobRetryable(status) {
@@ -1245,40 +1247,23 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 	}
 }
 templ KnownVocabImportStatus(status knownvocab.Status) {
-	if status.State != "completed" && status.State != "discarded" && status.State != "cancelled" {
-		<article id="known-vocab-import-status" role="status" aria-live="polite" aria-atomic="true" aria-busy={ boolString(knownVocabJobBusy(string(status.State))) } hx-get={ fmt.Sprintf("/known-vocab/imports/%d/status", status.ID) } hx-trigger="load delay:500ms" hx-swap="outerHTML">@knownVocabImportStatusBody(status)</article>
-	} else {
-		<article id="known-vocab-import-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="false">@knownVocabImportStatusBody(status)</article>
+	@AsyncStatus(knownVocabImportAttributes(status), "known-vocab-import-status", knownVocabImportTitle(status), knownVocabImportSummary(status), int(status.Processed), int(status.Total), knownVocabJobBusy(string(status.State))) {
+		@knownVocabImportStatusBody(status)
 	}
 }
 templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
-	<article id="enrichment-job-status"
-		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			hx-get={ fmt.Sprintf("/enrichment-jobs/%d/status", status.ID) }
-			hx-trigger="every 2s"
-			hx-swap="outerHTML"
-		}>
-		<h3>Contextual translations</h3><p role="status"><strong>{ enrichmentJobLabel(string(status.State)) }</strong> · { fmt.Sprintf("%d of %d completed · attempt %d", status.Completed, status.Total, status.Attempt) }</p>
-		if status.Total > 0 {
-			<progress aria-label="Contextual translation progress" value={ fmt.Sprintf("%d", status.Completed) } max={ fmt.Sprintf("%d", status.Total) }></progress>
-		}
+	@AsyncStatus(enrichmentJobAttributes(status), "enrichment-job-status", "Contextual translations: "+enrichmentJobLabel(string(status.State)), enrichmentJobSummary(status), int(status.Completed), int(status.Total), status.State != "completed" && status.State != "cancelled" && status.State != "discarded") {
 		if status.Error != "" {
-			<p role="alert">Latest error: { status.Error }</p>
+			@Feedback(FeedbackError, "Translation needs attention", status.Error+" Review the affected book and try again when the provider is available.")
 		}
 		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
 			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel translations</button></form>
 		}
-	</article>
+	}
 }
 templ knownVocabImportStatusBody(status knownvocab.Status) {
-		<h2>Import status</h2>
-		<p role="status"><strong>{ knownVocabJobLabel(string(status.State)) }</strong>
-		if status.Total > 0 {
-			<span> · { fmt.Sprintf("%d of %d rows processed", status.Processed, status.Total) }</span>
-		}
-		</p>
 		if knownVocabJobBusy(string(status.State)) {
-			<p>You can leave this page; the import will continue and this status can be reopened from the saved result.</p>
+			<p>Return to Settings to review the result after processing finishes.</p>
 		}
 		if status.State == "completed" {
 			if len(status.Rejected) > 0 {
@@ -1295,7 +1280,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 					</tbody>
 				}
 				}
-				<p><a href={ templ.SafeURL("/settings?language="+url.QueryEscape(status.Language)+"#known-vocabulary") }>Review known vocabulary</a></p>
+				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Review known vocabulary</a></p>
 		}
 		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
 			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
