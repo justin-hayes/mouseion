@@ -823,7 +823,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 			} else {
 				<p>Viewing <strong>{ studyLanguageName(profiles, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
 				if studyLanguageSaved(profiles, language) {
-					<form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-encoding="multipart/form-data" hx-target="#known-vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+					<form method="post" action={ templ.SafeURL(knownVocabImportAction(language, "settings")) } enctype="multipart/form-data" hx-post={ knownVocabImportAction(language, "settings") } hx-encoding="multipart/form-data" hx-target="#known-vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
 				} else {
 					<p>This language is no longer a saved study preference. Existing known vocabulary remains available; save a ready study language before importing more.</p>
 				}
@@ -1305,6 +1305,10 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 		}
 		if status.State == "cancelled" {
 			<p role="alert"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>
+			if status.Language != "" {
+				<p>Selected language: <code>{ status.Language }</code></p>
+			}
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Known vocabulary settings to retry the import</a></p>
 		}
 		if status.State == "discarded" {
 			<p role="alert"><strong>Import failed.</strong>
@@ -1312,5 +1316,9 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 				{ status.Error }
 			}
 			The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>
+			if status.Language != "" {
+				<p>Selected language: <code>{ status.Language }</code></p>
+			}
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Known vocabulary settings to retry the import</a></p>
 		}
 }
