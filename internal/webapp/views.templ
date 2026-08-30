@@ -284,7 +284,7 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 	if coverage != nil {
 		<section aria-labelledby="analyzed-scope-heading"><h2 id="analyzed-scope-heading">Analyzed scope</h2>
 			if coverage.ReviewedScopeID != "" {
-				<p><strong>{ fmt.Sprintf("%d selected units", len(coverage.SelectedUnits)) }</strong> from this EPUB were analyzed. Coverage, thresholds, projections, highest-impact unknown vocabulary, and structural metrics apply only to these selected units, not necessarily to the full EPUB.</p>
+				<p class="reading-width"><strong>{ fmt.Sprintf("%d selected units", len(coverage.SelectedUnits)) }</strong> from this EPUB were analyzed. Coverage, thresholds, projections, highest-impact unknown vocabulary, and structural metrics apply only to these selected units, not necessarily to the full EPUB.</p>
 				<p><small>Reviewed scope <code>{ coverage.ReviewedScopeID }</code></small></p>
 				<ul>
 					for _, unit := range coverage.SelectedUnits {
@@ -390,7 +390,7 @@ templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result an
 					{Term: "Unit snapshot", Description: result.SnapshotID},
 					{Term: "Completed", Description: completedAtLabel(result.CompletedAt)},
 				})
-				<p><strong>{ fmt.Sprintf("%d selected units", len(result.Corpus.SelectedUnits)) }</strong> from the reviewed scope were analyzed. These metrics apply to this immutable scope, not necessarily to the full EPUB.</p>
+				<p class="reading-width"><strong>{ fmt.Sprintf("%d selected units", len(result.Corpus.SelectedUnits)) }</strong> from the reviewed scope were analyzed. These metrics apply to this immutable scope, not necessarily to the full EPUB.</p>
 				<ul>
 					for _, unit := range result.Corpus.SelectedUnits {
 						<li>{ corpusUnitLabel(unit) }</li>
