@@ -18,31 +18,28 @@ USER root
 # Runtime layout:
 #
 #   /workspace
-#     Repository mount point.
+#     Repository mount point used by Hermes.
 #
-#   /opt/go
-#     Immutable Go tooling installed into the image.
+#   /usr/local/go
+#     Go toolchain copied from the official Go image.
 #
-#   /usr/local/bin/codex
-#     Immutable Codex executable installed into the image.
+#   /opt/go/bin
+#     Additional Go tooling installed into the image.
 #
-#   /tmp/hermes-home
-#     Disposable HOME for the arbitrary numeric UID/GID supplied by Hermes.
+#   /home/hermes
+#     Conventional runtime HOME.
 #
-# Codex therefore uses the standard:
-#
-#   $HOME/.codex
-#
-# location. Selected files such as config.toml, auth.json, and the Codex
-# profile config files are mounted individually by Hermes at runtime.
+# Hermes starts the container using the host account's numeric UID/GID via
+# docker_run_as_host_user=true. The image therefore remains generic and does
+# not bake in a host-specific UID or GID.
 ENV GOPATH=/opt/go \
     GOBIN=/opt/go/bin \
-    HOME=/tmp/hermes-home \
-    PATH=/usr/local/go/bin:/opt/go/bin:/usr/local/bin:${PATH}
+    HOME=/home/hermes \
+    PATH=/usr/local/go/bin:/opt/go/bin:/usr/local/bin:/usr/bin:/bin
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
 
-# General development tooling needed by Mouseion and the agent environment.
+# General development tooling required by Mouseion and the Hermes worker.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \
@@ -57,8 +54,14 @@ RUN apt-get update \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
+# Verify that the copied Go toolchain is present and reachable through PATH.
+RUN set -eux; \
+    test -x /usr/local/go/bin/go; \
+    command -v go; \
+    go version
+
 # Install a pinned protoc release instead of relying on Debian's older
-# protobuf compiler. The archive also includes protobuf's well-known types.
+# protobuf compiler. The archive also contains protobuf's standard includes.
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \
         amd64) \
@@ -82,12 +85,10 @@ RUN set -eux; \
     unzip -q /tmp/protoc.zip -d /tmp/protoc; \
     install -m 0755 /tmp/protoc/bin/protoc /usr/local/bin/protoc; \
     cp -a /tmp/protoc/include/. /usr/local/include/; \
-    rm -rf /tmp/protoc /tmp/protoc.zip
+    rm -rf /tmp/protoc /tmp/protoc.zip; \
+    protoc --version
 
 # Install the protobuf Go generators required by the repository.
-#
-# These are immutable image tools. Runtime module/build caches should live
-# under HOME rather than requiring /opt/go to be writable.
 RUN set -eux; \
     mkdir -p /opt/go/bin; \
     GOBIN=/opt/go/bin \
@@ -95,58 +96,65 @@ RUN set -eux; \
     GOBIN=/opt/go/bin \
         go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1; \
     rm -rf /opt/go/pkg /root/.cache/go-build; \
-    chmod -R a+rX /opt/go
+    chmod -R a+rX /opt/go; \
+    command -v protoc-gen-go; \
+    command -v protoc-gen-go-grpc
 
-# Install Codex into a temporary location, then copy only the executable into
-# immutable image space.
+# Install Codex globally into immutable image space.
 #
-# This keeps the binary separate from ~/.codex so mounting Codex configuration
-# files at runtime cannot shadow or replace the executable.
+# The executable is independent of ~/.codex, so individual config/auth files
+# can be bind-mounted without shadowing the CLI installation.
 RUN set -eux; \
-    mkdir -p /tmp/codex-install/bin /tmp/codex-install/home; \
-    curl -fsSL --retry 3 --retry-all-errors \
-        https://chatgpt.com/codex/install.sh \
-        | CODEX_HOME=/tmp/codex-install/home \
-          CODEX_INSTALL_DIR=/tmp/codex-install/bin \
-          CODEX_NON_INTERACTIVE=true \
-          sh -s -- --release "${CODEX_VERSION}"; \
-    test -x /tmp/codex-install/bin/codex; \
-    install -m 0755 /tmp/codex-install/bin/codex /usr/local/bin/codex; \
-    rm -rf /tmp/codex-install; \
+    npm install --global "@openai/codex@${CODEX_VERSION}"; \
     command -v codex; \
     codex --version
 
-# Create the runtime directories expected by Hermes and Codex.
+# Create runtime directories.
 #
-# Hermes launches this container with docker_run_as_host_user=true, which means
-# the runtime UID/GID may not correspond to any user in /etc/passwd.
+# The runtime UID/GID is supplied by Hermes and may not correspond to an
+# /etc/passwd entry inside the image, so these locations must be writable by
+# an arbitrary numeric user.
 #
-# A writable synthetic HOME avoids relying on the base image's `pn` account.
+# Hermes is expected to bind-mount selected Codex files into:
 #
-# ~/.codex is created separately because Hermes will bind-mount individual
-# files into it:
-#
-#   auth.json
-#   config.toml
-#   fast.config.toml
-#   normal.config.toml
-#   deep.config.toml
-#
-# Any other Codex state remains local to the disposable worker.
+#   /home/hermes/.codex/auth.json
+#   /home/hermes/.codex/config.toml
+#   /home/hermes/.codex/fast.config.toml
+#   /home/hermes/.codex/normal.config.toml
+#   /home/hermes/.codex/deep.config.toml
 RUN set -eux; \
     mkdir -p \
         /workspace \
-        /tmp/hermes-home/.codex; \
+        /home/hermes/.codex \
+        /home/hermes/.cache \
+        /home/hermes/.config \
+        /home/hermes/.local; \
     chmod 0777 /workspace; \
-    chmod 1777 /tmp/hermes-home; \
-    chmod 0777 /tmp/hermes-home/.codex
+    chmod 0777 /home/hermes; \
+    chmod 0777 /home/hermes/.codex; \
+    chmod 0777 /home/hermes/.cache; \
+    chmod 0777 /home/hermes/.config; \
+    chmod 0777 /home/hermes/.local
+
+# Fail the image build immediately if essential tools are not available on
+# the final configured PATH.
+RUN set -eux; \
+    echo "PATH=${PATH}"; \
+    command -v go; \
+    go version; \
+    command -v codex; \
+    codex --version; \
+    command -v protoc; \
+    protoc --version; \
+    command -v protoc-gen-go; \
+    command -v protoc-gen-go-grpc
 
 # Do not set a final USER.
 #
-# Hermes supplies the host account's numeric UID/GID at runtime via:
+# Hermes supplies the host user's numeric UID/GID at runtime using:
 #
 #   docker_run_as_host_user: true
 #
-# This keeps files created in the mounted repository owned by the host Hermes
-# account while avoiding assumptions about the base image's `pn` UID/GID.
+# This preserves correct ownership for files written to /workspace while
+# allowing the same GHCR image to run on hosts with different UIDs/GIDs.
 WORKDIR /workspace
