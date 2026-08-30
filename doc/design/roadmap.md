@@ -27,9 +27,9 @@ phase; the rest are linked from it and from the Milestone.
 | 1 | Product and interaction decisions | Merged | #367 |
 | 2 | Visual and design foundations | Merged | #368 |
 | 3 | Reusable interaction/component layer | Merged | #369 |
-| 4 | Core book workflow | Open — see Milestone 1 | #370 |
-| 5 | Workflow extension | Open — see Milestone 2 | #373 |
-| 6 | Quality gates | Open — see Milestone 3 | #378 |
+| 4 | Core book workflow | Merged | #370 |
+| 5 | Workflow extension | Merged | #373 |
+| 6 | Quality gates | Merged | #378 |
 
 ## Sequencing and concurrency
 
@@ -128,7 +128,10 @@ UI controls without a separate product contract:
 
 ## Current known limitations
 
-- Browser-based visual verification is not yet automated; that is Phase 6.
+- Browser-based visual verification is automated by the Phase 6 fixture-driven
+  harness (#378); the keyboard, focus, and asynchronous-state gate (#379) and
+  the responsive, theme, and realistic-content gate (#380) have landed. The
+  reconciliation pass (#381) ships this final residual-consistency gate.
 - A full local stack (PostgreSQL, NLP service, Go web server) is required for
   integration tests; Phase 6 fixtures remove the external-network dependency
   for browser acceptance.

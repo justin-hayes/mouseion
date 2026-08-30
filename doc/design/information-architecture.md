@@ -97,9 +97,8 @@ active dashboard destination.
         /books/{id}/analyses/{analysis-run-id}
         /jobs/{id}
             /jobs/{id}/status
-            /jobs/{id}/deck/preparations
-                /deck-preparations/{id}/status
-                /deck-preparations/{id}/download
+        /deck-preparations/{id}/status
+        /deck-preparations/{id}/download
 
 /connections
     /catalog
@@ -127,10 +126,16 @@ mutation endpoints are not separate navigation destinations.
   the primary transition is to the book-centered result at
   `/books/{book-id}/analyses/{analysis-run-id}`. Jobs are not a primary
   navigation destination.
-- `/known-vocab` is a secondary direct route retained by the implementation.
+- `POST /jobs/{id}/deck/preparations` is retained only as a compatibility
+  submission route for older job pages. New scoped analyses use the exact
+  result's `POST /books/{book-id}/analyses/{analysis-run-id}/deck/preparations`
+  route; preparation status and download remain under
+  `/deck-preparations/{id}/...`.
+- `/known-vocab` is a compat surface redirected to Settings. `GET /known-vocab`
+  redirects to `/settings#known-vocabulary`, preserving valid language context
+  as a `?language=` query parameter when the requested language is saved;
   Settings is the canonical navigation entry for study languages and known
-  vocabulary. Route consolidation should redirect it to
-  `/settings#known-vocabulary` while preserving valid language context.
+  vocabulary.
 - The `Dashboard` template is inactive. `/` redirects to the library, and the
   dashboard's older `/languages` link is not part of the current IA. New work
   must not treat this template as an established screen.

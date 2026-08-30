@@ -55,7 +55,9 @@ completed result:
 
 The exact-result route is the shipped behavior for completed scoped analyses.
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
-deck preparation.
+deck preparation. The older `POST /jobs/{id}/deck/preparations` submission is
+retained only for compatibility with legacy job pages and is not a competing
+primary destination.
 
 ## Book acquisition
 
@@ -98,13 +100,12 @@ vocabulary becomes eligible again.
 |---|---|---|---|---|
 | Settings | `GET /settings` and `/settings/languages` mutations | Manage study-language preferences and known vocabulary. | Remain in Settings | No profile, ready languages, saved language while capability discovery is degraded, no newly available languages, add/remove success or failure |
 | Known-vocabulary import | Embedded in Settings; `POST /known-vocab/import` and import status endpoint | Upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
-| Direct known-vocabulary page | `GET /known-vocab` | Access the retained standalone form/list outside Settings. | Import result or Settings | Same states as the embedded Settings workflow |
+| Direct known-vocabulary page | `GET /known-vocab` | Retained compatibility route that redirects to Settings. | Settings | Redirect to `/settings#known-vocabulary`; remaining states are the embedded Settings-known-vocabulary states |
 
 Settings is the canonical primary-navigation entry. `/known-vocab` is a retained
-secondary route and should not independently evolve into a competing IA. The
-approved consolidation target redirects it to `/settings#known-vocabulary`
-while preserving valid language context. Removing a study-language preference
-does not remove books or known vocabulary for that language.
+secondary route that redirects to `/settings#known-vocabulary` while preserving
+valid language context; it is not a competing IA. Removing a study-language
+preference does not remove books or known vocabulary for that language.
 
 ## Inactive and supporting implementation
 

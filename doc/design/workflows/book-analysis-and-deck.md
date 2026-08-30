@@ -169,28 +169,19 @@ The interface must answer:
 - Degraded language-capability discovery preserves saved study preferences but
   blocks unsupported new operations.
 
-## Approved status-to-result transition
-
-The current route after analysis submission is `/jobs/{id}`. On completion that
-screen exposes deck preparation directly, while insights live on
-`/books/{id}`. It does not provide a prominent analysis-result-to-insights
-transition or consistently foreground the book title.
-
-The approved implementation target is:
+## Shipped status-to-result transition
 
 - keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
   failure recovery;
-- replace the completed job's primary action with **View analysis result**;
-- render the exact result at
+- completed scoped jobs expose **View analysis result**, rendered at
   `/books/{book-id}/analyses/{analysis-run-id}`;
-- move deck preparation to that result after its warnings and insights summary;
+- deck preparation is submitted from that exact result after its warnings and
+  insights summary;
 - list analysis history on the book page, linking active runs to status and
   completed runs to exact results.
 
-The completed scoped job-to-preparation path is now represented by the exact
-result link and its result-bound preparation action. The direct job action is
-retained only for legacy compatibility and is not a canonical path for new
-scoped analyses.
+The direct `POST /jobs/{id}/deck/preparations` action is retained only for
+legacy compatibility and is not a canonical path for new scoped analyses.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
 exact result and preparation status retain a coherent server-rendered baseline;

@@ -28,7 +28,7 @@ markup.
 
 ## Component index
 
-| Pattern           | Purpose                                                                    | Variants or states                                | Current pilot surfaces                                     |
+| Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
 | `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | Library, book, scope review, Learning, Jobs, Settings      |
