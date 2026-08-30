@@ -155,7 +155,7 @@ func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"building\",\"sentence_translation\":\"\",\"sentence_translation_target\":\"\"}"}}]}},"error":null}`+"\n", customID)
+	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":%q}}]}},"error":null}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":"house","gloss":"building","sentence_translation":"","sentence_translation_target":""}`, customID))
 	outcomes, missing, err := codec.DecodeBatchResultsPartial(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(output), nil)
 	if err != nil || len(missing) != 0 || outcomes[item.Ordinal].StatusCode != 200 || outcomes[item.Ordinal].ErrorClass != enrichment.ProviderErrorInvalidResponse {
 		t.Fatalf("outcomes=%+v missing=%v err=%v", outcomes, missing, err)
@@ -230,7 +230,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	var output strings.Builder
 	for _, ordinal := range []int{1, 0} {
 		customID, _ := enrichment.BatchCustomID(runID, ordinal, 1)
-		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"translation":%q,"gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, responses[ordinal].Translation, responses[ordinal].Gloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
+		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].Gloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)
 	if err != nil {
