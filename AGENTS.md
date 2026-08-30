@@ -217,7 +217,13 @@ Use:
 
 ```bash
 export PATH="$HOME/go/bin:$PATH"
-export TMPDIR=/root/tmp-go
+# GitHub Actions runners run as root, but the hermes-worker container runs as
+# the host numeric UID/GID with a `noexec` `/tmp` and an unwritable `/root`.
+# Point the Go scratch dirs at a writable location under the working tree so
+# the same block works in both environments (the Makefile already uses
+# `$(CURDIR)/.tmp/go` for GOTMPDIR).
+mkdir -p "$(pwd)/.tmp/gopath" "$(pwd)/.tmp/go-cache" "$(pwd)/.tmp/go-tmp"
+export GOPATH="$(pwd)/.tmp/gopath" GOCACHE="$(pwd)/.tmp/go-cache" TMPDIR="$(pwd)/.tmp/go-tmp"
 
 templ generate
 git diff --exit-code -- 'internal/webapp/*_templ.go'
@@ -232,8 +238,6 @@ make lint
 git diff --exit-code
 ```
 
-Use `TMPDIR=/root/tmp-go` when the execution environment has a `noexec` `/tmp`.
-
 Run integration tests with the repository's PostgreSQL/Testcontainers harness
 when the environment supports them.
 
@@ -247,6 +251,32 @@ If a required check cannot run locally:
 Do not weaken, skip, or modify tests merely to obtain a passing result unless
 the test itself is demonstrably incorrect because of an approved behavior
 change.
+
+## Worker runtime environment
+
+Implementation agents run in the `mouseion-hermes-worker` container (see
+`docker/hermes-worker/Dockerfile`). Non-obvious facts that avoid a failed first
+attempt:
+
+* `gh` (GitHub CLI) is pre-installed and authenticates via the `GH_TOKEN` /
+  `GITHUB_TOKEN` environment variable.
+* `CODEX_HOME=/home/hermes/.codex`; the image makes it world-writable (chmod
+  `0777`) so the numeric runtime UID from `docker_run_as_host_user` can write
+  it. If it is not writable in a given runtime, point `CODEX_HOME` at a
+  writable path such as `/workspace/.tmp/codex-home` before invoking `codex`,
+  otherwise Codex exits with "failed to initialize in-process app-server
+  client: permission denied".
+* The Docker socket (`/var/run/docker.sock`) is mounted and the runtime user is
+  in the docker group, so Testcontainers integration tests run locally
+  **without** a `docker` CLI — just run `go test -tags=integration ./...`.
+  The default CI job runs only `go test ./...` (no integration tag); verify
+  integration locally or in a dedicated job.
+* Authenticate `git` from the environment token instead of editing the remote
+  URL, e.g.:
+  `git config credential.helper '!f() { echo username=x-access-token; echo password="$GITHUB_TOKEN"; }; f'`
+* Fetch all refs with `git fetch origin` (or `git fetch --all --prune`), not
+  `git fetch origin <branch>`, which only updates `FETCH_HEAD` and leaves
+  `refs/remotes/origin/<branch>` stale.
 
 ## Completion criteria
 
