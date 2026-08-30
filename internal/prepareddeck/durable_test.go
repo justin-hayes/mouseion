@@ -43,6 +43,10 @@ func (s *finalizerStoreStub) GetDeckPreparation(context.Context, string, string)
 	return s.preparation, nil
 }
 
+func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error {
+	return nil
+}
+
 type finalizerRendererStub struct {
 	artifact cardexport.Artifact
 	err      error

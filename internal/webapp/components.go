@@ -371,11 +371,12 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 	phase := map[string]string{
 		"freezing":    "Freezing the selected vocabulary.",
 		"submitting":  "Submitting translation requests.",
-		"waiting":     "Waiting for Batch translation; this may take a while.",
+		"waiting":     "Waiting for Batch translation; it can take hours (up to 24h).",
 		"reconciling": "Reconciling translation results.",
 		"retrying":    "Retrying temporary translation failures.",
 		"translating": "Translating selected vocabulary.",
 		"finalizing":  "Finalizing the immutable Anki artifact.",
+		"assembling":  "Assembling the immutable Anki artifact.",
 	}
 	if summary, ok := phase[preparation.Phase]; ok {
 		return summary

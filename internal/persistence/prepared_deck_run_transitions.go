@@ -138,13 +138,23 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 		return domain.PreparedDeckTranslationOutcome{}, run, err
 	}
 	if nonterminal == 0 {
-		run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='finalizing',translation_state='completed',completed_count=$4,failed_count=$5,translation_completed_at=COALESCE(translation_completed_at,now()),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount))
-		if err != nil {
-			return domain.PreparedDeckTranslationOutcome{}, run, err
-		}
-		if insertFinalizer != nil {
-			if err = insertFinalizer(ctx, tx, run); err != nil {
+		if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
+			run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',completed_count=$4,failed_count=$5,error_class=$6,error_code=$7,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount, update.ErrorClass, update.ErrorCode))
+			if err != nil {
 				return domain.PreparedDeckTranslationOutcome{}, run, err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='failed',error='prepared-deck translation was incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND current_run_id=$3 AND state='preparing'`, owner, preparationID, runID); err != nil {
+				return domain.PreparedDeckTranslationOutcome{}, run, err
+			}
+		} else {
+			run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='finalizing',translation_state='completed',completed_count=$4,failed_count=$5,translation_completed_at=COALESCE(translation_completed_at,now()),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount))
+			if err != nil {
+				return domain.PreparedDeckTranslationOutcome{}, run, err
+			}
+			if insertFinalizer != nil {
+				if err = insertFinalizer(ctx, tx, run); err != nil {
+					return domain.PreparedDeckTranslationOutcome{}, run, err
+				}
 			}
 		}
 	} else {

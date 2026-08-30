@@ -192,6 +192,7 @@ type durableFinalizerStore interface {
 	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error)
 	CompletePreparedDeckRun(context.Context, string, string, string, string, cardexport.Artifact) (domain.DeckPreparation, error)
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
+	FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error
 }
 
 type durableManifestRenderer interface {
@@ -242,6 +243,9 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	manifest, exact, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckIdentity) {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
+		}
 		return domain.DeckPreparation{}, err
 	}
 	artifact, err := f.Renderer.RenderManifest(ctx, manifest, exact)
