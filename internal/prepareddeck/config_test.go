@@ -77,7 +77,9 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 	} {
 		t.Run(test.env+"="+test.value, func(t *testing.T) {
 			t.Setenv(test.env, test.value)
-			if _, err := PreparedDeckConfigFromEnv(); err == nil { t.Fatalf("accepted invalid %s=%q", test.env, test.value) }
+			if _, err := PreparedDeckConfigFromEnv(); err == nil {
+				t.Fatalf("accepted invalid %s=%q", test.env, test.value)
+			}
 		})
 	}
 }

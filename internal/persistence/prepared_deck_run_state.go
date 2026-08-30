@@ -170,7 +170,7 @@ func (s *PostgresStore) SetPreparedDeckTranslationJobTx(ctx context.Context, tx 
 	if jobID < 1 {
 		return ErrInvalidTransition
 	}
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET river_job_id=$7 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='pending' AND river_job_id IS NULL`, owner, preparationID, runID, ordinal, generation, jobID)
+	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET river_job_id=$6 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='pending' AND river_job_id IS NULL`, owner, preparationID, runID, ordinal, generation, jobID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrPreparedDeckClaimLost
 	}
