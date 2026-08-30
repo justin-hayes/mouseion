@@ -765,9 +765,6 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	}
 	</article> }
 }
-templ Dashboard(user domain.User, csrf string, profiles []domain.LanguageProfile, connections []domain.OpdsConnection, jobs []domain.AnalysisJob) {
-	@ShellLayout("Dashboard", &user, csrf, navigationContextForTitle("Dashboard")) { <h1>Welcome, { user.Username }</h1><div class="grid"><article><h2>Study languages</h2><p>{ fmt.Sprintf("%d configured", len(profiles)) }</p><a href="/settings#study-languages">Configure</a></article><article><h2>My OPDS catalogs</h2><p>{ fmt.Sprintf("%d connected", len(connections)) }</p><a href="/connections">Manage catalogs</a></article><article><h2>Analysis</h2><p>{ fmt.Sprintf("%d recent jobs", len(jobs)) }</p><a href="/jobs">View jobs</a></article></div> }
-}
 templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@ShellLayout("Settings", &user, csrf, NavigationSettings) {
 	@PageHeader("Account settings", "Choose the languages you study and optionally import words you already know for each one.", nil)
@@ -1197,9 +1194,6 @@ templ JobStatus(csrf string, status analysis.Status) {
 			}
 		}
 	}
-}
-templ KnownVocabPage(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, known []domain.KnownVocabulary) {
-	@KnownVocabPageWithResult(user, csrf, profiles, language, nil, known, "")
 }
 templ KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.LanguageProfile, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@ShellLayout("Known vocabulary", &user, csrf, NavigationSettings) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
