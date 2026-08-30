@@ -254,6 +254,9 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 		if !ok || (outcome.State != domain.PreparedDeckOutcomeCompleted && outcome.State != domain.PreparedDeckOutcomeFailed) || item.CacheKey == nil {
 			return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
 		}
+		if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && outcome.State != domain.PreparedDeckOutcomeCompleted {
+			return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
+		}
 		result := enrichment.Result{Candidate: enrichment.Candidate{Identity: enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS}, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}}
 		if outcome.State == domain.PreparedDeckOutcomeCompleted {
 			entry, found, cacheErr := s.Get(ctx, *item.CacheKey)
@@ -261,6 +264,9 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 				return cardexport.Manifest{}, nil, cacheErr
 			}
 			if !found {
+				return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
+			}
+			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && !enrichment.HasRequiredTranslationFields(entry, item.Entry.Sentence) {
 				return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
 			}
 			provenance := enrichment.Provenance{Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, CachedAt: entry.CachedAt, External: true}

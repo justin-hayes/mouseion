@@ -62,7 +62,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "waiting",
 			prep: domain.DeckPreparation{ID: "prep-waiting", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationPreparing, Phase: "waiting", TranslationEligible: 10, TranslationDone: 6, TranslationFailed: 1, TranslationPending: 3, BatchRequestCount: 10, BatchCompletedRequests: 7},
-			want: []string{"Deck preparation running", "Waiting for Batch translation", "6 complete", "7 of 10 requests complete", `action="/deck-preparations/prep-waiting/cancel"`},
+			want: []string{"Deck preparation running", "Waiting for Batch translation", "can take hours (up to 24h)", "6 complete", "7 of 10 requests complete", `action="/deck-preparations/prep-waiting/cancel"`},
 			omit: []string{"Retry preparation", "Download deck"},
 		},
 		{

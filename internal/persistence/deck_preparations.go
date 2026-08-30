@@ -199,6 +199,28 @@ func (s *PostgresStore) FailDeckPreparation(ctx context.Context, owner, id, mess
 	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationFailed, message, "preparing")
 }
 
+// FailPreparedDeckFinalization fences a completeness failure after a run has
+// advanced to finalizing. No artifact is written, and the public preparation
+// receives only a bounded message.
+func (s *PostgresStore) FailPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID, claimToken, errorClass, errorCode string) error {
+	if err := validateBoundedError(errorClass, errorCode); err != nil {
+		return err
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var runState domain.PreparedDeckRunState
+	if err = tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',error_class=$5,error_code=$6,finalization_claim_token=NULL,finalization_claimed_at=NULL,finalization_lease_expires_at=NULL,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='finalizing' AND finalization_claim_token=$4 RETURNING state`, owner, preparationID, runID, claimToken, errorClass, errorCode).Scan(&runState); err != nil {
+		return missing(err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='failed',error='prepared-deck translation was incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND current_run_id=$3 AND state='preparing'`, owner, preparationID, runID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func (s *PostgresStore) CancelDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	return s.CancelCurrentPreparedDeckRun(ctx, owner, id)
 }

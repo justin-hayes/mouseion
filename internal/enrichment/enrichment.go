@@ -91,6 +91,17 @@ type CacheEntry struct {
 	Translation, Gloss, SentenceTranslation, SentenceTranslationTarget string
 	CachedAt                                                           time.Time
 }
+
+// HasRequiredTranslationFields reports whether a cached result satisfies the
+// frozen prepared-deck translation contract. The target phrase is optional:
+// the codec permits it to be empty when there is no reliable literal match.
+func HasRequiredTranslationFields(entry CacheEntry, sourceSentence string) bool {
+	if strings.TrimSpace(entry.Translation) == "" || strings.TrimSpace(entry.Gloss) == "" {
+		return false
+	}
+	return strings.TrimSpace(sourceSentence) == "" || strings.TrimSpace(entry.SentenceTranslation) != ""
+}
+
 type ExternalCache interface {
 	Get(context.Context, CacheKey) (CacheEntry, bool, error)
 	Put(context.Context, CacheEntry) (CacheEntry, error)

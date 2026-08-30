@@ -112,6 +112,9 @@ func preparationPhase(state domain.DeckPreparationState, run domain.PreparedDeck
 		return "cancelled"
 	}
 	if run.State == domain.PreparedDeckRunFinalizing {
+		if run.ExecutionMode == domain.PreparedDeckExecutionStandard {
+			return "assembling"
+		}
 		return "finalizing"
 	}
 	if run.State == domain.PreparedDeckRunFailed {

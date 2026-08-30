@@ -27,6 +27,17 @@ func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
 	}
 }
 
+func TestPreparationPhasesExposeStandardTranslationAndAssembly(t *testing.T) {
+	standard := domain.PreparedDeckRun{ExecutionMode: domain.PreparedDeckExecutionStandard, State: domain.PreparedDeckRunTranslating}
+	if got := preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil); got != "translating" {
+		t.Fatalf("standard translating phase=%q", got)
+	}
+	standard.State = domain.PreparedDeckRunFinalizing
+	if got := preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil); got != "assembling" {
+		t.Fatalf("standard assembling phase=%q", got)
+	}
+}
+
 func TestPreparedDeckFailureClassUsesFailedChunkDiagnostic(t *testing.T) {
 	run := domain.PreparedDeckRun{ErrorClass: "reconciliation"}
 	chunks := []domain.PreparedDeckBatchChunk{

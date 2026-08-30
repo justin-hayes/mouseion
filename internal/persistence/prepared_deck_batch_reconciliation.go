@@ -272,6 +272,16 @@ func advancePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, run domain.Prepare
 	if run.State != domain.PreparedDeckRunTranslating {
 		return run, nil
 	}
+	if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && failed > 0 {
+		run, err := scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',completed_count=$4,failed_count=$5,error_class='translation',error_code='incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, run.OwnerID, run.PreparationID, run.ID, completed, failed))
+		if err != nil {
+			return run, err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='failed',error='prepared-deck translation was incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND current_run_id=$3 AND state='preparing'`, run.OwnerID, run.PreparationID, run.ID); err != nil {
+			return run, err
+		}
+		return run, nil
+	}
 	run, err := scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='finalizing',translation_state='completed',completed_count=$4,failed_count=$5,translation_completed_at=COALESCE(translation_completed_at,now()),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, run.OwnerID, run.PreparationID, run.ID, completed, failed))
 	if err != nil {
 		return run, err

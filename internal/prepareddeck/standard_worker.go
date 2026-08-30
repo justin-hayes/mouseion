@@ -66,7 +66,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	key := *item.CacheKey
 	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
 		return w.fail(ctx, args, token, "persistence", "cache_lookup", false, false)
-	} else if hit {
+	} else if hit && enrichment.HasRequiredTranslationFields(entry, item.Entry.Sentence) {
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
 		return finishErr
 	} else {

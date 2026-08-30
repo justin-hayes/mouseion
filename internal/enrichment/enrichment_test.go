@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+func TestHasRequiredTranslationFields(t *testing.T) {
+	complete := CacheEntry{Translation: "house", Gloss: "dwelling", SentenceTranslation: "The house."}
+	if !HasRequiredTranslationFields(complete, "Das Haus.") {
+		t.Fatal("complete cache entry was rejected")
+	}
+	for _, entry := range []CacheEntry{{Gloss: "dwelling", SentenceTranslation: "The house."}, {Translation: "house", SentenceTranslation: "The house."}, {Translation: "house", Gloss: "dwelling"}} {
+		if HasRequiredTranslationFields(entry, "Das Haus.") {
+			t.Fatalf("incomplete cache entry accepted: %+v", entry)
+		}
+	}
+	if !HasRequiredTranslationFields(CacheEntry{Translation: "house", Gloss: "dwelling"}, "") {
+		t.Fatal("lemma-only cache entry was rejected")
+	}
+}
+
 type memoryCache struct {
 	values     map[CacheKey]CacheEntry
 	gets, puts int
