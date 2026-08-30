@@ -23,9 +23,11 @@ test.describe('authenticated learner smoke', () => {
   test('exact analysis result and deck status are reachable', async ({ page }) => {
     await page.goto('/books/fixture-book/analyses/fixture-run');
     await expect(page.getByRole('heading', { name: /analysis result/i })).toBeVisible();
-    await expect(page.getByText('Der lange Weg nach Hause')).toBeVisible();
+    // The book title appears in the breadcrumb, heading, and result body; assert
+    // it is present without tripping Playwright strict mode.
+    await expect(page.getByText('Der lange Weg nach Hause').first()).toBeVisible();
     await page.goto('/deck-preparations/fixture-preparation/status');
-    await expect(page.getByText(/Fixture German deck/i)).toBeVisible();
+    await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
   });
 
   test('acquisition, Learning, Settings, and operational jobs are reachable', async ({ page }) => {
@@ -33,20 +35,23 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Fixture catalog')).toBeVisible();
     await page.goto('/catalog?connection=fixture-connection');
     await expect(page.getByRole('heading', { name: 'Fixture catalog' })).toBeVisible();
-    // The catalog page offers the language browse form (German/Italian).
-    await expect(page.getByText('German')).toBeVisible();
-    await expect(page.getByText('Italian')).toBeVisible();
+    // The catalog page offers a language browse form: a visible select with
+    // German and Italian options (options themselves are collapsed/hidden).
+    const languageSelect = page.locator('form[action="/opds/language"] select[name="language"]');
+    await expect(languageSelect).toBeVisible();
+    await expect(languageSelect.locator('option[value="de"]')).toContainText('German');
+    await expect(languageSelect.locator('option[value="it"]')).toContainText('Italian');
     // Browse a language via the server-rendered path and assert feed entries.
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
-    await expect(page.getByText('Ein deutsches Buch')).toBeVisible();
-    await expect(page.getByText('Un libro italiano')).toBeVisible();
+    await expect(page.getByText('Ein deutsches Buch').first()).toBeVisible();
+    await expect(page.getByText('Un libro italiano').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /add to library/i }).first()).toBeVisible();
     await page.goto('/campaigns');
     await expect(page.getByRole('heading', { name: /learning/i })).toBeVisible();
-    await expect(page.getByText(/Der lange Weg nach Hause/)).toBeVisible();
+    await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await page.goto('/settings');
-    await expect(page.getByText('German')).toBeVisible();
-    await expect(page.getByText('Italian')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Italian/ })).toBeVisible();
     await page.goto('/jobs');
     await expect(page.getByText(/Analysis job/i).first()).toBeVisible();
   });
