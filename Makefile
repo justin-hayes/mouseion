@@ -6,7 +6,7 @@ PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
 HERMES_WORKER_IMAGE ?= mouseion-hermes-worker:local
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration lint gen templ dev clean go-tmp hermes-worker-smoke
+.PHONY: setup build test test-integration lint gen templ dev clean go-tmp hermes-worker-smoke browser-smoke
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -58,6 +58,9 @@ hermes-worker-smoke:
 		protoc-gen-go-grpc --version; \
 		codex --version; \
 		gh --version'
+
+browser-smoke:
+	cd e2e && npm ci --ignore-scripts && npx playwright install chromium && npx playwright test
 
 dev: go-tmp
 	go run ./cmd/server
