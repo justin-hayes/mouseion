@@ -49,6 +49,39 @@ func TestBatchConfigFromEnv(t *testing.T) {
 	}
 }
 
+func TestPreparedDeckConfigFromEnv(t *testing.T) {
+	for _, name := range []string{TranslationModeEnv, StandardMaxConcurrencyEnv, StandardMaxAttemptsEnv, StandardRetryBaseDelayEnv, StandardRetryMaxDelayEnv} {
+		unsetenv(t, name)
+	}
+	got, err := PreparedDeckConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PreparedDeckConfig{TranslationMode: "standard", StandardMaxConcurrency: 4, StandardMaxAttempts: 3, StandardRetryBaseDelay: time.Second, StandardRetryMaxDelay: 30 * time.Second}
+	if got != want {
+		t.Fatalf("defaults=%+v want=%+v", got, want)
+	}
+	t.Setenv(TranslationModeEnv, "batch")
+	t.Setenv(StandardMaxConcurrencyEnv, "8")
+	t.Setenv(StandardMaxAttemptsEnv, "7")
+	t.Setenv(StandardRetryBaseDelayEnv, "2s")
+	t.Setenv(StandardRetryMaxDelayEnv, "1m")
+	got, err = PreparedDeckConfigFromEnv()
+	if err != nil || got.TranslationMode != "batch" || got.StandardMaxConcurrency != 8 || got.StandardMaxAttempts != 7 || got.StandardRetryBaseDelay != 2*time.Second || got.StandardRetryMaxDelay != time.Minute {
+		t.Fatalf("custom=%+v err=%v", got, err)
+	}
+	for _, test := range []struct{ env, value string }{
+		{TranslationModeEnv, "other"}, {StandardMaxConcurrencyEnv, "0"}, {StandardMaxConcurrencyEnv, "65"},
+		{StandardMaxAttemptsEnv, "0"}, {StandardMaxAttemptsEnv, "21"}, {StandardRetryBaseDelayEnv, "0s"},
+		{StandardRetryMaxDelayEnv, "500ms"},
+	} {
+		t.Run(test.env+"="+test.value, func(t *testing.T) {
+			t.Setenv(test.env, test.value)
+			if _, err := PreparedDeckConfigFromEnv(); err == nil { t.Fatalf("accepted invalid %s=%q", test.env, test.value) }
+		})
+	}
+}
+
 func unsetenv(t *testing.T, name string) {
 	t.Helper()
 	previous, existed := os.LookupEnv(name)

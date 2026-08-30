@@ -21,6 +21,7 @@ import (
 )
 
 const Queue = "prepared_decks"
+const TranslationQueue = "prepared_deck_translation"
 
 const orphanedPreparationError = "the preparation worker is no longer active; retry the preparation"
 
@@ -45,6 +46,21 @@ type JobArgs struct {
 	ContentHash                string `json:"content_hash"`
 	AnalysisRunID              string `json:"analysis_run_id,omitempty"`
 	ExternalTranslationConsent bool   `json:"external_translation_consent"`
+}
+
+// StandardTranslationWorker is deliberately a no-op until provider execution
+// is implemented. The durable job kind and queue are established now so the
+// later provider worker can resume from the frozen outcome safely.
+type StandardTranslationWorker struct {
+	river.WorkerDefaults[StandardTranslationJobArgs]
+}
+
+func (w *StandardTranslationWorker) Work(context.Context, *river.Job[StandardTranslationJobArgs]) error {
+	return nil
+}
+
+func AddStandardTranslationWorker(workers *river.Workers) {
+	river.AddWorker(workers, &StandardTranslationWorker{})
 }
 
 func (JobArgs) Kind() string { return "prepared_deck" }

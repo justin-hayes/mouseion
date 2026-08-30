@@ -51,11 +51,45 @@ type BatchPlanner struct {
 	BatchConfig     BatchConfig
 }
 
+// StandardPlanner freezes the same manifest and cache identity as BatchPlanner
+// but leaves provider work as one durable scalar job per miss.
+type StandardPlanner struct {
+	*BatchPlanner
+	StandardConfig PreparedDeckConfig
+}
+
+func NewStandardPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, standardConfig PreparedDeckConfig) *StandardPlanner {
+	if standardConfig.StandardMaxAttempts == 0 {
+		standardConfig.StandardMaxAttempts = DefaultStandardMaxAttempts
+	}
+	return &StandardPlanner{BatchPlanner: NewBatchPlanner(builder, codec, externalEnabled, batchConfig), StandardConfig: standardConfig}
+}
+
+// PreparedDeckPlanner selects the executor once, when a new run is frozen.
+// DurableCoordinator intentionally bypasses it for an existing run.
+func NewPreparedDeckPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, config PreparedDeckConfig) DurableRunPlanner {
+	if config.TranslationMode == "batch" {
+		return NewBatchPlanner(builder, codec, externalEnabled, batchConfig)
+	}
+	return NewStandardPlanner(builder, codec, externalEnabled, batchConfig, config)
+}
+
 func NewBatchPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig) *BatchPlanner {
 	return &BatchPlanner{Builder: builder, Codec: codec, ExternalEnabled: externalEnabled, BatchConfig: batchConfig}
 }
 
 func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
+	return p.planPreparedDeckRun(ctx, tx, preparation, consent, domain.PreparedDeckExecutionBatch, 0)
+}
+
+func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
+	if p == nil || p.BatchPlanner == nil {
+		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
+	}
+	return p.BatchPlanner.planPreparedDeckRun(ctx, tx, preparation, consent, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
+}
+
+func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
 	if p == nil || p.Builder == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
 	}
@@ -67,17 +101,20 @@ func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	config := persistence.PreparedDeckRunConfig{
 		ExternalTranslationConsent:    consent,
 		ExternalTranslationConfigured: consent && p.ExternalEnabled,
-		ExecutionMode:                 "batch",
+		ExecutionMode:                 string(mode),
 		TargetLanguage:                "en",
 		BatchMaxRequests:              p.BatchConfig.MaxRequests,
 		BatchMaxBytes:                 persistence.DefaultBatchMaxBytes,
+	}
+	if mode == domain.PreparedDeckExecutionStandard && standardAttempts > 0 {
+		config.MaxProviderAttempts = standardAttempts
 	}
 	runID := uuid.NewString()
 	if !config.ExternalTranslationConfigured {
 		return persistence.FreezePreparedDeckRunParams{RunID: runID, Manifest: manifest.Snapshot(), Config: config}, nil
 	}
 	if p.Codec == nil {
-		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible OpenAI Batch endpoint")
+		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible translation endpoint")
 	}
 	config.ContextMode = string(enrichment.SentenceContext)
 	config.Provider = p.Codec.ProviderName()
@@ -107,7 +144,7 @@ func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("find prepared deck cache misses: %w", err)
 	}
 	var chunks []persistence.PreparedDeckBatchChunkPlan
-	if len(items) > 0 {
+	if mode == domain.PreparedDeckExecutionBatch && len(items) > 0 {
 		chunks, err = PlanBatchChunks(p.Codec, runID, 1, config.Model, config.Endpoint, items, BatchChunkLimits{MaxRequests: config.BatchMaxRequests, MaxBytes: config.BatchMaxBytes})
 		if err != nil {
 			return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("plan prepared deck Batch chunks: %w", err)
@@ -189,5 +226,10 @@ func (w *Worker) fail(ctx context.Context, args JobArgs, cause error) error {
 
 func AddBatchWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, externalEnabled bool) {
 	planner := NewBatchPlanner(export, codec, externalEnabled, batchConfig)
+	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
+}
+
+func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool) {
+	planner := NewPreparedDeckPlanner(export, codec, externalEnabled, batchConfig, preparedConfig)
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
 }

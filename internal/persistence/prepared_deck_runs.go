@@ -52,11 +52,12 @@ type FreezePreparedDeckRunParams struct {
 }
 
 type FreezePreparedDeckRunResult struct {
-	Run            domain.PreparedDeckRun
-	ManifestDigest string
-	Chunks         []domain.PreparedDeckBatchChunk
-	Existing       bool
-	NeedsFinalizer bool
+	Run             domain.PreparedDeckRun
+	ManifestDigest  string
+	Chunks          []domain.PreparedDeckBatchChunk
+	Existing        bool
+	NeedsFinalizer  bool
+	PendingOrdinals []int
 }
 
 // PreparedDeckRunJobInserter lets a terminal outcome enqueue finalization in
@@ -157,8 +158,12 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: manifest cache identity contradicts context mode", ErrImmutable)
 		}
 	}
-	if err = validateChunkPlans(params.Chunks, config, pending); err != nil {
-		return FreezePreparedDeckRunResult{}, err
+	if config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) {
+		if err = validateChunkPlans(params.Chunks, config, pending); err != nil {
+			return FreezePreparedDeckRunResult{}, err
+		}
+	} else if len(params.Chunks) != 0 {
+		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: standard runs cannot contain Batch chunks", ErrImmutable)
 	}
 	var runNumber int
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(run_number),0)+1 FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2`, params.OwnerID, params.PreparationID).Scan(&runNumber); err != nil {
@@ -229,7 +234,13 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
-	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
+	pendingOrdinals := make([]int, 0, len(pending))
+	for _, item := range params.Manifest.Items {
+		if _, ok := pending[item.Ordinal]; ok {
+			pendingOrdinals = append(pendingOrdinals, item.Ordinal)
+		}
+	}
+	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
 }
 
 func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, _ PreparedDeckRunConfig, runID string, pending map[int]cardexport.ManifestItem) ([]domain.PreparedDeckBatchChunk, error) {

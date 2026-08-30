@@ -166,6 +166,17 @@ func (s *PostgresStore) SetPreparedDeckBatchSubmissionJobTx(ctx context.Context,
 	return err
 }
 
+func (s *PostgresStore) SetPreparedDeckTranslationJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, ordinal, generation int, jobID int64) error {
+	if jobID < 1 {
+		return ErrInvalidTransition
+	}
+	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET river_job_id=$7 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='pending' AND river_job_id IS NULL`, owner, preparationID, runID, ordinal, generation, jobID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrPreparedDeckClaimLost
+	}
+	return err
+}
+
 // PreparedDeckBatchPollJobInserter inserts the short polling job while the
 // transaction that attaches the provider Batch ID is still open.
 type PreparedDeckBatchPollJobInserter func(context.Context, pgx.Tx, domain.PreparedDeckBatchChunk) (int64, error)

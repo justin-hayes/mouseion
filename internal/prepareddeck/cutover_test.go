@@ -68,3 +68,15 @@ func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 		t.Fatalf("plan=%+v", plan)
 	}
 }
+
+func TestPreparedDeckPlannerDefaultsToStandardWithoutBatchChunks(t *testing.T) {
+	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
+	planner := NewPreparedDeckPlanner(builder, nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: DefaultTranslationMode})
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Config.ExecutionMode != string(domain.PreparedDeckExecutionStandard) || len(plan.Chunks) != 0 || plan.Config.ExternalTranslationConfigured {
+		t.Fatalf("plan=%+v", plan)
+	}
+}

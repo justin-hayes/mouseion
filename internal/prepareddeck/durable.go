@@ -28,6 +28,19 @@ type BatchSubmitJobArgs struct {
 	Generation    int    `json:"generation"`
 }
 
+// StandardTranslationJobArgs carries only the frozen run identity. Provider
+// execution is intentionally a later issue; this job is the durable dispatch
+// boundary and its full argument set is the idempotency key.
+type StandardTranslationJobArgs struct {
+	OwnerID       string `json:"owner_id"`
+	PreparationID string `json:"preparation_id"`
+	RunID         string `json:"run_id"`
+	Ordinal       int    `json:"ordinal" river:"unique"`
+	Generation    int    `json:"generation"`
+}
+
+func (StandardTranslationJobArgs) Kind() string { return "prepared_deck_translation" }
+
 func (BatchSubmitJobArgs) Kind() string { return "prepared_deck_batch_submit" }
 
 // BatchPollJobArgs is intentionally short-lived work. It identifies one
@@ -138,6 +151,21 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		chunk.SubmissionGeneration = chunk.Generation
 		if err = c.store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, chunk.ID, chunk.Generation, inserted.Job.ID); err != nil {
 			return persistence.FreezePreparedDeckRunResult{}, err
+		}
+	}
+	if result.Run.ExecutionMode == domain.PreparedDeckExecutionStandard {
+		for _, ordinal := range result.PendingOrdinals {
+			args := StandardTranslationJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, Ordinal: ordinal, Generation: 0}
+			inserted, insertErr := c.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: TranslationQueue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+			if insertErr != nil {
+				return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("enqueue standard translation ordinal %d: %w", ordinal, insertErr)
+			}
+			if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+				return persistence.FreezePreparedDeckRunResult{}, errors.New("River did not return a live standard translation job")
+			}
+			if err = c.store.SetPreparedDeckTranslationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, ordinal, 0, inserted.Job.ID); err != nil {
+				return persistence.FreezePreparedDeckRunResult{}, err
+			}
 		}
 	}
 	if result.NeedsFinalizer {
