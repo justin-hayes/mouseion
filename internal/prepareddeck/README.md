@@ -24,9 +24,3 @@ learner-facing status exposes aggregate counts and bounded failure classes, not
 provider object IDs, prompts, responses, source sentences, credentials, or raw
 provider errors. Provider files expire after seven days and are deleted
 best-effort after reconciliation or cancellation.
-
-The operator-only `cmd/batch-validation` command replays frozen fixtures through
-the mode-neutral standard/synchronous and Batch validation harness
-without network access by default. It may make paid synchronous and Batch
-provider calls only when explicitly requested with the required acknowledgement;
-it is not used by startup, CI, or the deployed worker.
