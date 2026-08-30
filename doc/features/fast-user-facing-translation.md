@@ -1,6 +1,6 @@
 # Fast user-facing prepared-deck translation
 
-Status: **Proposed** · Date: 2026-08-29 · Owner: Mouseion
+Status: **Implemented** · Date: 2026-08-29 · Owner: Mouseion
 
 ## Summary
 
@@ -318,31 +318,31 @@ the planner issue.
 
 ## Acceptance criteria
 
-- [ ] The existing interactive preparation path freezes `standard` and does not
+- [x] The existing interactive preparation path freezes `standard` and does not
   create, upload, or submit OpenAI Batch work.
-- [ ] Batch remains reachable only through an explicit non-default mode.
-- [ ] Standard provider calls run concurrently with a tested hard configured bound.
-- [ ] Each River item attempt performs at most one external call.
-- [ ] Retryable failures persist bounded exponential backoff with jitter and survive
+- [x] Batch remains reachable only through an explicit non-default mode.
+- [x] Standard provider calls run concurrently with a tested hard configured bound.
+- [x] Each River item attempt performs at most one external call.
+- [x] Retryable failures persist bounded exponential backoff with jitter and survive
   restart; terminal failures do not loop.
-- [ ] Strict decoding rejects malformed JSON, wrong IDs/languages, missing fields,
+- [x] Strict decoding rejects malformed JSON, wrong IDs/languages, missing fields,
   duplicates, unexpected output, and empty required translations.
-- [ ] Each successful result is committed to the exact immutable cache and item
+- [x] Each successful result is committed to the exact immutable cache and item
   outcome before the run completes.
-- [ ] Restart recovery skips completed items and repairs pending or expired scalar
+- [x] Restart recovery skips completed items and repairs pending or expired scalar
   jobs without duplicate cards or stale writes.
-- [ ] Cache identity explicitly includes target language and versioned provider/model/
+- [x] Cache identity explicitly includes target language and versioned provider/model/
   prompt/schema semantics; existing rows backfill safely to English.
-- [ ] A consented standard run cannot become ready with a failed/missing required
+- [x] A consented standard run cannot become ready with a failed/missing required
   translation.
-- [ ] The ready APKG and download contract remain immutable, owner-scoped, and
+- [x] The ready APKG and download contract remain immutable, owner-scoped, and
   importable.
-- [ ] Status distinguishes standard translating from Batch waiting and reports
+- [x] Status distinguishes standard translating from Batch waiting and reports
   honest persisted progress.
-- [ ] Tests cover mode selection, queue bounds, retry timing/classification,
+- [x] Tests cover mode selection, queue bounds, retry timing/classification,
   malformed responses, incremental persistence, restart, stale generations, cache
   identity, finalization gating, and Batch regression.
-- [ ] An explicitly acknowledged real standard-endpoint smoke test records measured
+- [x] An explicitly acknowledged real standard-endpoint smoke test records measured
   duration, request count/latency, retries, tokens/cost, translation checks, and
   APKG importability; fake tests are not presented as latency evidence.
 
