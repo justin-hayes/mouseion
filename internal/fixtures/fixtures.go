@@ -23,14 +23,16 @@ import (
 )
 
 const (
-	OwnerID     = "fixture-learner"
-	Username    = "fixture-learner"
-	Password    = "fixture-password"
-	BookID      = "fixture-book"
-	ResultRunID = "fixture-run"
-	DeckID      = "fixture-deck"
-	CampaignID  = "fixture-campaign"
-	PrepID      = "fixture-preparation"
+	OwnerID          = "fixture-learner"
+	Username         = "fixture-learner"
+	Password         = "fixture-password"
+	BookID           = "fixture-book"
+	ResultRunID      = "fixture-run"
+	DeckID           = "fixture-deck"
+	CampaignID       = "fixture-campaign"
+	QueuedCampaignID = "fixture-queued-campaign"
+	PrepID           = "fixture-preparation"
+	QueuedPrepID     = "fixture-queued-preparation"
 )
 
 var errNotFound = errors.New("fixture: not found")
@@ -52,11 +54,17 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
 		},
-		jobs:        []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed"}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "fixture analysis failed"}},
-		campaigns:   []domain.LearningCampaign{{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive}},
+		jobs: []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed"}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "fixture analysis failed"}},
+		campaigns: []domain.LearningCampaign{
+			{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
+			{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
+		},
 		profiles:    []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
 		connections: []domain.OpdsConnection{{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"}},
-		preps:       []domain.DeckPreparation{{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}},
+		preps: []domain.DeckPreparation{
+			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
+			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
+		},
 	}
 }
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
@@ -118,13 +126,24 @@ func (s *Store) CreateLearningCampaign(_ context.Context, o, b, d string) (domai
 	return c, nil
 }
 func (s *Store) UpdateLearningCampaignProgress(_ context.Context, o, id string, _ persistence.LearningCampaignExpectedState, b domain.BookProgress, d domain.DeckProgress) (domain.LearningCampaign, error) {
-	c, e := s.GetLearningCampaign(context.Background(), o, id)
-	if e != nil {
-		return c, e
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var c domain.LearningCampaign
+	found := false
+	for i := range s.campaigns {
+		if s.campaigns[i].ID == id && s.campaigns[i].OwnerID == o {
+			c = s.campaigns[i]
+			c.BookProgress = b
+			c.DeckProgress = d
+			c.Status = domain.DeriveCampaignStatus(b, d)
+			s.campaigns[i] = c
+			found = true
+			break
+		}
 	}
-	c.BookProgress = b
-	c.DeckProgress = d
-	c.Status = domain.DeriveCampaignStatus(b, d)
+	if !found {
+		return c, errNotFound
+	}
 	return c, nil
 }
 func (s *Store) AbandonLearningCampaign(_ context.Context, o, id string, _ persistence.LearningCampaignExpectedState) (domain.LearningCampaign, error) {
@@ -142,16 +161,41 @@ func (s *Store) GetSourceMaterial(_ context.Context, o, id string) (domain.Sourc
 	return domain.SourceMaterial{}, errNotFound
 }
 func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error) {
-	return "fixture-snapshot", domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion}, nil
+	text := "Haus. Ein kurzer deutscher Satz."
+	second := "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."
+	return "fixture-snapshot", domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+		{ID: domain.EPUBUnitID(0, "fixture-001"), Order: 0, SpineIndex: 0, ManifestID: "fixture-001", Title: "Chapter one", Text: text, StartOffset: 0, EndOffset: uint64(len([]rune(text))), MediaType: "application/xhtml+xml", Linear: true},
+		{ID: domain.EPUBUnitID(1, "fixture-002"), Order: 1, SpineIndex: 1, ManifestID: "fixture-002", Title: "Chapter two", Text: second, StartOffset: uint64(len([]rune(text)) + 2), EndOffset: uint64(len([]rune(text)) + 2 + len([]rune(second))), MediaType: "application/xhtml+xml", Linear: true},
+	}}, nil
 }
 func (s *Store) GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error) {
-	return nil, nil
+	return []domain.EPUBUnitClassification{
+		fixtureClassification("fixture-001", 0), fixtureClassification("fixture-002", 1),
+	}, nil
 }
 func (s *Store) GetEPUBReviewedScope(context.Context, string, string, string) (domain.EPUBReviewedScopeSnapshot, error) {
 	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
 }
-func (s *Store) CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error) {
-	return domain.EPUBReviewedScopeSnapshot{}, nil
+func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].Source.ID == scope.SourceMaterialID && s.books[i].Source.OwnerID == scope.OwnerID {
+			s.books[i].ReviewedScopeID = scope.ScopeID
+			return scope, nil
+		}
+	}
+	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
+}
+
+func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnitClassification {
+	return domain.EPUBUnitClassification{
+		SchemaVersion:      domain.EPUBClassificationSchemaVersion,
+		Classifier:         domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion},
+		SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: "fixture-snapshot", ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion, UnitID: domain.EPUBUnitID(spineIndex, manifestID)},
+		Category:           domain.EPUBCategoryMainMatter, Confidence: domain.EPUBConfidenceHighMinimum, RecommendedInclusion: true,
+		Reasons: []domain.EPUBClassificationReason{{Signal: "fixture", Message: "Fixture main-matter unit."}},
+	}
 }
 
 type AuthStore struct {
@@ -201,8 +245,15 @@ func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle
 func (Analysis) SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
 }
-func (Analysis) Get(context.Context, string, int64) (analysis.Status, error) {
+
+func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
+	if id == 43 {
+		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "fixture analysis failed", LogicalState: "failed"}, nil
+	}
 	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: BookID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
+}
+func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
+	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
 }
 func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error) {
 	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: BookID, ScopeID: "fixture-scope", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 12, DistinctLemmaCount: 8}}}, nil
