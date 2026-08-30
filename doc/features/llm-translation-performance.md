@@ -1,6 +1,6 @@
 # Prepared-deck translation performance
 
-Status: Superseded by accepted Batch cutover · Date: 2026-08-28
+Status: Superseded by accepted standard-first cutover · Date: 2026-08-28
 
 This investigation recorded the latency and scheduling concerns that led to
 durable prepared-deck translation and OpenAI Batch. Its former per-deck
@@ -8,16 +8,15 @@ translation scheduling is no longer a prepared-deck runtime path.
 
 Prepared-deck preparation now freezes selection, sentence and target decisions,
 quality omissions, order, and exact cache identities in a durable run. Cache
-misses are serialized as one request per eligible item in deterministic Batch
-chunks. River workers submit, poll, reconcile, retry, and finalize the run;
-they do not make synchronous per-item provider calls or hold a provider job in
-memory while waiting.
+misses are executed as one durable standard request per eligible item by
+default; explicit Batch work uses deterministic chunks. River workers persist,
+retry, and finalize the run.
 
 The shared translation codec remains responsible for the request body,
 provider input privacy boundary, response decoding, and quality validation.
 The existing synchronous client remains available to non-prepared-deck
-enrichment and to the operator-only validation harness, but is not wired into
-prepared-deck preparation.
+enrichment and is the provider boundary used by the default standard worker
+and operator-only validation harness.
 
 The accepted prepared-deck operational settings are:
 

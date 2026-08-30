@@ -1,6 +1,6 @@
 # Prepared-deck translation operations
 
-Prepared-deck translation uses durable OpenAI Batch chunks. The coordinator
+Prepared-deck translation uses durable standard item work by default. The coordinator
 freezes selection, order, sentence and target decisions, quality omissions,
 and exact cache identities before any provider work. Batch submission,
 polling, reconciliation, retry, cancellation, cleanup, and finalization are
@@ -25,7 +25,8 @@ provider object IDs, prompts, responses, source sentences, credentials, or raw
 provider errors. Provider files expire after seven days and are deleted
 best-effort after reconciliation or cancellation.
 
-The operator-only `cmd/batch-validation` command replays frozen fixtures
+The operator-only `cmd/batch-validation` command replays frozen fixtures through
+the mode-neutral standard/synchronous and Batch validation harness
 without network access by default. It may make paid synchronous and Batch
 provider calls only when explicitly requested with the required acknowledgement;
 it is not used by startup, CI, or the deployed worker.

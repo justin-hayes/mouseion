@@ -47,7 +47,7 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 	if err != nil {
 		return err
 	}
-	observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchStuckBatches, Phase: "waiting", State: "stuck", Provider: "openai", Value: float64(len(stuck))})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchStuckBatches, Phase: "waiting", State: "stuck", Provider: "openai", Value: float64(len(stuck))})
 	for _, item := range work {
 		if err = w.repair(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
 			return err

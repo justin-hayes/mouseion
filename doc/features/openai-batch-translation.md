@@ -11,11 +11,11 @@ Mouseion sends Chat Completions requests, and OpenAI Batch supports
 `POST /v1/chat/completions`. It is a throughput and cost optimization, not a
 translation-quality improvement.
 
-Prepared-deck translation uses Batch. A normal preparation submits one Batch
-job containing one request per eligible translation item. Batch integrates with
-the durable prepared-deck translation-run design and is not hidden inside an
-in-memory worker loop. The synchronous transport remains available only for
-other non-prepared-deck enrichment.
+Prepared-deck translation uses durable standard requests by default. Batch
+remains an explicit transport for offline/economy work and submits one request
+per eligible translation item. Both transports integrate with the durable
+prepared-deck translation-run design. The synchronous transport remains
+available to non-prepared-deck enrichment and the operator validation harness.
 
 ## Evidence from the current implementation
 
@@ -101,11 +101,10 @@ This feature does not promise to:
 
 ## Product behavior
 
-Use Batch as the prepared-deck translation execution model. There is no
-temporary `sync|batch` deployment mode or Batch feature flag: the implementation
-changes the prepared-deck path to Batch. OpenAI schedules requests in the
-submitted Batch; Mouseion has no prepared-deck transport selector or Batch
-feature flag.
+Use standard requests as the default prepared-deck translation execution model;
+Batch is explicit offline/economy work. There is no learner-facing transport
+selector or deployed validation flag. OpenAI schedules requests in a submitted
+Batch when that mode is selected.
 
 The Batch implementation uses the existing LLM configuration plus these
 operational settings defined by ADR 0031:
@@ -253,7 +252,7 @@ alignment is not an acceptable optimization without an explicit product decision
 
 ### Issue #353 validation harness
 
-Issue #353 provides `cmd/batch-validation`, an operator-only comparison tool.
+Issue #353 provides `cmd/batch-validation`, an operator-only mode-neutral comparison tool.
 It loads the checked-in frozen manifest, exact provider request JSONL, and
 fixed response fixtures under `internal/batchvalidation/testdata`, regenerates
 and verifies the request bytes emitted by the shared Batch codec, then exercises
@@ -304,8 +303,8 @@ runtime transport selector or feature flag.
 
 ### Functional
 
-- Batch is the prepared-deck translation execution model after rollout.
-- Prepared-deck translation uses only the durable Batch transport.
+- Standard is the default prepared-deck translation execution model after rollout.
+- Prepared-deck translation uses durable standard work by default, with Batch retained for explicit offline/economy execution.
 - Batch requests use the same semantic request contract as the current sync
   requests.
 - Every request has a deterministic unique `custom_id`.

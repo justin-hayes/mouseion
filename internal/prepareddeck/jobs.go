@@ -57,6 +57,7 @@ type StandardTranslationWorker struct {
 	Store          *persistence.PostgresStore
 	Client         riverClient
 	Provider       enrichment.TranslationProvider
+	Metrics        BatchMetrics
 	Config         PreparedDeckConfig
 	AttemptTimeout time.Duration
 	Now            func() time.Time
@@ -74,8 +75,12 @@ func AddStandardTranslationWorker(workers *river.Workers) {
 	river.AddWorker(workers, &StandardTranslationWorker{})
 }
 
-func AddStandardTranslationWorkerWithDependencies(workers *river.Workers, store *persistence.PostgresStore, client riverClient, provider enrichment.TranslationProvider, config PreparedDeckConfig, timeout time.Duration) {
-	river.AddWorker(workers, &StandardTranslationWorker{Store: store, Client: client, Provider: provider, Config: config, AttemptTimeout: timeout})
+func AddStandardTranslationWorkerWithDependencies(workers *river.Workers, store *persistence.PostgresStore, client riverClient, provider enrichment.TranslationProvider, config PreparedDeckConfig, timeout time.Duration, metrics ...BatchMetrics) {
+	var collector BatchMetrics
+	if len(metrics) > 0 {
+		collector = metrics[0]
+	}
+	river.AddWorker(workers, &StandardTranslationWorker{Store: store, Client: client, Provider: provider, Config: config, AttemptTimeout: timeout, Metrics: collector})
 }
 
 func (JobArgs) Kind() string { return "prepared_deck" }

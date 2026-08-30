@@ -1,6 +1,6 @@
 # ADR 0031: Execute prepared-deck translation through OpenAI Batch
 
-Status: **Accepted** · Date: 2026-08-28 · Author: Justin + Hermes
+Status: **Superseded by ADR 0032** · Date: 2026-08-28 · Author: Justin + Hermes
 
 ## Context
 

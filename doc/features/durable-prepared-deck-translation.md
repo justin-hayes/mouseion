@@ -7,11 +7,10 @@ translation durable and resumable. It refines the longer-term recommendation in
 [Prepared-deck LLM translation performance](llm-translation-performance.md)
 and [ADR 0030](../adr/0030-durable-prepared-deck-translation.md).
 
-The implementation uses the accepted ADR 0031 Batch execution amendment:
-prepared-deck cache misses are submitted as durable OpenAI Batch chunks and
-reconciled asynchronously. Any earlier scalar-worker or rollout-sequencing
-language below describes the superseded design; the current runtime has one
-Batch path and no synchronous prepared-deck fallback.
+The implementation uses the accepted ADR 0032 standard-first execution:
+prepared-deck cache misses are executed as durable standard item work by
+default and reconciled through the common run/finalizer state. Explicit Batch
+execution remains supported for offline/economy work.
 
 ## Decision and approval notation
 
@@ -787,7 +786,7 @@ Acceptance criteria:
 
 **Depends on:** successful canary of E and explicit retention approval.
 
-The accepted Batch cutover removes the in-memory prepared-deck translation loop
+The accepted standard-first cutover removes the in-memory prepared-deck translation loop
 and keeps reconciliation durable. Keep
 `internal/enrichmentjob` available for non-prepared bulk enrichment unless a
 separate issue changes it.
