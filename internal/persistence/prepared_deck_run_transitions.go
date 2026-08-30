@@ -58,7 +58,7 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, err
 	}
-	outcome, err := scanPreparedDeckOutcome(s.pool.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes o SET state='pending',provider_attempt_count=provider_attempt_count+1,next_attempt_at=$7,claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,error_class=$8,error_code=$9,updated_at=now()
+	outcome, err := scanPreparedDeckOutcome(s.pool.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes o SET state='pending',provider_attempt_count=provider_attempt_count+1,next_attempt_at=$7,dispatch_generation=dispatch_generation+1,river_job_id=NULL,claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,error_class=$8,error_code=$9,updated_at=now()
 		FROM deck_preparation_runs r WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=$4 AND o.dispatch_generation=$5 AND o.claim_token=$6 AND o.state='running' AND o.provider_attempt_count<o.max_provider_attempts
 		AND r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id AND r.state='translating' AND r.translation_state IN ('pending','running') RETURNING `+qualifiedColumns("o", preparedDeckOutcomeColumns), owner, preparationID, runID, ordinal, generation, token, nextAttemptAt, errorClass, errorCode))
 	if err != nil {
