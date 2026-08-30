@@ -55,7 +55,9 @@ completed result:
 
 The exact-result route is the shipped behavior for completed scoped analyses.
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
-deck preparation.
+deck preparation. The older `POST /jobs/{id}/deck/preparations` submission is
+retained only for compatibility with legacy job pages and is not a competing
+primary destination.
 
 ## Book acquisition
 
