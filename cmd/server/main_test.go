@@ -20,6 +20,7 @@ func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 		{name: "finalize", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.FinalizeWorker{}) }},
 		{name: "batch cleanup", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchCleanupWorker{}) }},
 		{name: "recovery", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.RecoveryWorker{}) }},
+		{name: "standard translation", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.StandardTranslationWorker{}) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if err := test.add(); err == nil {

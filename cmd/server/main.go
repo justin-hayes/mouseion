@@ -78,6 +78,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	preparedDeckConfig, err := prepareddeck.PreparedDeckConfigFromEnv()
+	if err != nil {
+		log.Fatalf("invalid prepared-deck configuration: %v", err)
+	}
 	var batchProvider *enrichment.OpenAIBatchClient
 	var batchCodec *enrichment.TranslationCodec
 	if llmConfig.Enabled {
@@ -95,11 +99,11 @@ func main() {
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	exportService := cardexport.NewService(store)
-	riverClient, err := analysis.NewClient(store.Pool(), nlp, selectionService, workers)
+	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
-	prepareddeck.AddBatchWorker(workers, store, exportService, riverClient, batchCodec, batchConfig, llmConfig.Enabled)
+	prepareddeck.AddPreparedDeckWorker(workers, store, exportService, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkers(workers, store, exportService, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics)
 	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
 		log.Fatal(err)
@@ -133,6 +137,7 @@ func main() {
 }
 
 func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
+	prepareddeck.AddStandardTranslationWorker(workers)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, provider, codec, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, Provider: provider, Codec: codec, PollInterval: pollInterval, Metrics: metrics})
 	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: export, Metrics: metrics})

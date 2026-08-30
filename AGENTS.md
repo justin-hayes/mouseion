@@ -140,20 +140,24 @@ multiple issues.
 
 ## Coding-agent escalation
 
-Start Codex in fast mode for repository implementation work, including
-substantial or cross-cutting issues, when the task is reasonably well specified.
-Do not escalate based on task size or number of affected files alone.
+Use Codex for repository implementation work.
 
-Escalate to normal only when a concrete blocker indicates that additional
-reasoning is needed, such as architectural ambiguity, uncertainty about the
-correct implementation approach, or a repeated implementation or test failure
-that cannot be resolved in fast mode.
+Choose the Codex profile based on task complexity:
 
-Escalate to deep only when normal cannot resolve a concrete blocker or the
-task requires unusually difficult architectural reasoning or debugging.
+- `fast`: use for small, mechanical, low-risk, tightly specified changes such
+  as documentation edits, lint fixes, straightforward renames, simple tests,
+  and repetitive transformations.
+- `normal`: default for substantive implementation, debugging, refactoring,
+  testing, and feature work.
+- `deep`: use only when a concrete blocker requires stronger reasoning, such
+  as architectural ambiguity, repeated implementation or test failure with
+  `normal`, or unusually difficult cross-cutting debugging.
 
-Keep each escalation narrowly scoped to resolving the blocker, then return to
-fast mode for routine implementation and verification whenever practical.
+When uncertain between `fast` and `normal`, use `normal`.
+
+Do not use `deep` merely because a task is large. Keep escalation narrowly
+scoped to resolving the blocker, then return to `normal` for the remaining
+implementation and verification.
 
 ## Autonomous implementation
 

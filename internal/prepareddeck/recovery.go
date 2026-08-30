@@ -62,8 +62,32 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 
 func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
 	if item.Kind == "outcome" {
-		// Scalar outcome repair was superseded by ADR 0031's Batch chunks.
-		return nil
+		run, err := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
+		if err != nil {
+			return err
+		}
+		// The persisted execution mode is the only authority during recovery.
+		// Batch outcomes are repaired by their durable chunk jobs.
+		if run.ExecutionMode != domain.PreparedDeckExecutionStandard {
+			return nil
+		}
+		tx, err := w.Store.Pool().Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: item.Generation}
+		inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
+		if err != nil {
+			return err
+		}
+		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+			return errors.New("River did not return live standard translation recovery work")
+		}
+		if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, item.Generation, inserted.Job.ID); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
 	}
 	if item.Kind == "translation_completion" {
 		_, err := w.Store.AdvancePreparedDeckRunIfTerminal(ctx, item.OwnerID, item.PreparationID, item.RunID, w.insertFinalizer)
@@ -110,6 +134,12 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func durableInsertOptsForQueue(queue string) *river.InsertOpts {
+	opts := durableInsertOpts()
+	opts.Queue = queue
+	return opts
 }
 
 func (w *RecoveryWorker) insertFinalizer(ctx context.Context, tx pgx.Tx, run domain.PreparedDeckRun) error {
