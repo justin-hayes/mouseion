@@ -7,9 +7,13 @@ presentation](recognition-card-sentence-presentation.md) and
 [ADR 0029](../adr/0029-recognition-card-sentence-presentation.md).
 
 New exports use the complete selected source sentence in `Text`, with the
-tested German target visibly bolded. The note fields are `Text`, `Lemma`,
-`POS`, `Morph`, `English`, `EnglishSentence`, and `BookTitle`, followed by TSV
-tags. `SourceSentence` is not exported because it duplicates `Text`.
+tested German target visibly bolded. The note fields are `Identity`, `Text`,
+`Article`, `Lemma`, `POS`, `English`, `EnglishSentence`, and `BookTitle`, followed
+by TSV tags. `Identity` is the deterministic owner-scoped hash over the
+representative identity columns and is used by Anki as the sort/deduplication
+field. `Article` is the noun's definite article rendered before the lemma.
+Morphology is consumed to derive the article and is not emitted as a verbose
+JSON card field. `SourceSentence` is not exported because it duplicates `Text`.
 
 The source sentence is selected deterministically and long examples are
 quality-gated deterministically. Mouseion does not ask a provider to shorten,

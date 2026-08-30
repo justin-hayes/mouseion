@@ -83,7 +83,7 @@ func TestBoldTargetEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", POS: "NOUN", Morph: `{"Gender":"Neut"}`, English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", POS: "NOUN", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
 	missingSentenceTranslation := note
 	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
 	missingSentenceTranslation.Identity = strings.Repeat("b", 64)
@@ -135,7 +135,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Text}}"`) || !strings.Contains(modelsJSON, `{{Morph}}`) || strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || !strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
+	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Text}}"`) || strings.Contains(modelsJSON, `{{Morph}}`) || strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
 		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
 	}
 	var models map[string]struct {
@@ -162,18 +162,18 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	serializedFields := strings.Split(fields, "\x1f")
-	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 7 || serializedFields[0] != note.Text || serializedFields[1] != note.Lemma || serializedFields[2] != note.POS || serializedFields[3] != note.Morph || serializedFields[4] != note.English || serializedFields[5] != note.EnglishSentence || sortField != note.Text || checksum != fieldChecksum(note.Text) || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
+	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 8 || serializedFields[0] != note.Identity || serializedFields[1] != note.Text || serializedFields[2] != note.Article || serializedFields[3] != note.Lemma || serializedFields[4] != note.POS || serializedFields[5] != note.English || serializedFields[6] != note.EnglishSentence || serializedFields[7] != note.BookTitle || sortField != note.Identity || checksum != fieldChecksum(note.Identity) || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
 		t.Fatalf("note id=%d fields=%q sfld=%q checksum=%d tags=%q", noteID, fields, sortField, checksum, tags)
 	}
 	if err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields); err != nil {
 		t.Fatal(err)
 	}
 	serializedFields = strings.Split(fields, "\x1f")
-	if len(serializedFields) != 7 || serializedFields[5] != "" {
+	if len(serializedFields) != 8 || serializedFields[6] != "" {
 		t.Fatalf("missing sentence translation fields=%q", fields)
 	}
 	var distinctSortFields int64
-	if err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields); err != nil || distinctSortFields != 1 {
+	if err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields); err != nil || distinctSortFields != 2 {
 		t.Fatalf("distinct identity sort fields=%d err=%v", distinctSortFields, err)
 	}
 	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
@@ -396,8 +396,92 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 	}
 }
 
+func TestAnkiCardSchemaRegressionContract(t *testing.T) {
+	if !reflect.DeepEqual(fieldNames, []string{"Identity", "Text", "Article", "Lemma", "POS", "English", "EnglishSentence", "BookTitle"}) {
+		t.Fatalf("field names = %v", fieldNames)
+	}
+	model := modelMetadata(1, 2)
+	modelFields := model["flds"].([]map[string]any)
+	modelNames := make([]string, len(modelFields))
+	for i, field := range modelFields {
+		modelNames[i] = field["name"].(string)
+	}
+	if !reflect.DeepEqual(modelNames, fieldNames) || containsString(modelNames, "Morph") || containsString(modelNames, "SourceSentence") {
+		t.Fatalf("model field names = %v", modelNames)
+	}
+	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
+	if !strings.Contains(template, "{{#Article}}{{Article}} {{/Article}}{{Lemma}}") || strings.Contains(template, "{{Morph}}") || strings.Contains(template, "{{SourceSentence}}") {
+		t.Fatalf("answer template = %q", template)
+	}
+
+	german, err := makeNote("alice", Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Dieses Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if german.Article != "das" || !strings.HasPrefix(german.BackExtra, "das Haus\n") {
+		t.Fatalf("German noun article = %q, back = %q", german.Article, german.BackExtra)
+	}
+	italian, err := makeNote("alice", Entry{Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Sentence: "Domani Lucia porterà il pane fresco alla famiglia.", TargetWord: "porterà", Morphology: `{"Mood":"Ind"}`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if italian.Article != "" {
+		t.Fatalf("Italian verb article = %q", italian.Article)
+	}
+
+	path := t.TempDir() + "/collection.anki2"
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	first := german
+	first.Key = strings.Repeat("a", 64)
+	first.Identity = "identity-a"
+	second := german
+	second.Key = strings.Repeat("b", 64)
+	second.Identity = "identity-b"
+	second.Article = "der"
+	if err := writeCollection(db, "deck", []Note{first, second}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Query(`SELECT flds,sfld,csum FROM notes`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	seen := make(map[string]bool, 2)
+	for rows.Next() {
+		var fields, sortField string
+		var checksum int64
+		if err := rows.Scan(&fields, &sortField, &checksum); err != nil {
+			t.Fatal(err)
+		}
+		serialized := strings.Split(fields, "\x1f")
+		if len(serialized) != 8 || serialized[0] != sortField || checksum != fieldChecksum(sortField) || (sortField != first.Identity && sortField != second.Identity) {
+			t.Fatalf("fields=%q sfld=%q csum=%d", fields, sortField, checksum)
+		}
+		seen[sortField] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("distinct identity sort fields = %v", seen)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
-	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", POS: "NOUN", Morph: `{"Case":"Nom"}`, English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
+	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", POS: "NOUN", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n})
 	if err != nil {
 		t.Fatal(err)
@@ -408,7 +492,7 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || len(rows[0]) != 8 || rows[0][0] != n.Text || rows[0][1] != "Welt" || rows[0][2] != "NOUN" || rows[0][3] != n.Morph || rows[0][7] != "Mouseion lang::de source::My_Book" {
+	if len(rows) != 1 || len(rows[0]) != 9 || strings.Join(rows[0][:8], "\x1f") != strings.Join(noteFields(n), "\x1f") || rows[0][8] != "Mouseion lang::de source::My_Book" {
 		t.Fatalf("rows=%#v", rows)
 	}
 }
@@ -558,7 +642,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	notesByLemma := make(map[string]Note, len(first.Generated))
 	for _, generated := range first.Generated {
 		notesByLemma[generated.Entry.CanonicalLemma] = generated.Note
-		for _, value := range []string{generated.Note.Identity, generated.Note.Text, generated.Note.Article, generated.Note.Lemma, generated.Note.POS, generated.Note.Morph, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.BackExtra} {
+		for _, value := range []string{generated.Note.Identity, generated.Note.Text, generated.Note.Article, generated.Note.Lemma, generated.Note.POS, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.BackExtra} {
 			if strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`) {
 				t.Fatalf("legacy or raw analyzer content in note %q: %+v", value, generated.Note)
 			}
@@ -601,24 +685,24 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != len(fixtures)-1 || len(rows[0]) != 8 || strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "\tNOUN\t") || strings.Contains(first.TSV, "{{c1::") {
+	if len(rows) != len(fixtures)-1 || len(rows[0]) != 9 || strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "\tNOUN\t") || strings.Contains(first.TSV, "{{c1::") {
 		t.Fatalf("TSV rows=%#v TSV=%q", rows, first.TSV)
 	}
 	for i, generated := range first.Generated {
-		if strings.Join(rows[i][:7], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
+		if strings.Join(rows[i][:8], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
 			t.Fatalf("TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
 		}
 	}
 	modelsJSON, apkgRows := readAPKGNotes(t, first.APKG)
-	if len(apkgRows) != len(fixtures)-1 || strings.Contains(strings.ToLower(modelsJSON), "cloze") || !strings.Contains(modelsJSON, `"name":"Morph"`) {
+	if len(apkgRows) != len(fixtures)-1 || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || strings.Contains(modelsJSON, `{{Morph}}`) {
 		t.Fatalf("APKG model=%s rows=%#v", modelsJSON, apkgRows)
 	}
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		if len(row) != 7 || strings.Contains(row[0], "{{c1::") || strings.Contains(row[1], "geleiten|leiten") || strings.Contains(row[3], `"Case"`) {
+		if len(row) != 8 || strings.Contains(row[1], "{{c1::") || strings.Contains(row[3], "geleiten|leiten") || strings.Contains(row[3], `"Case"`) {
 			t.Fatalf("APKG row=%#v", row)
 		}
-		apkgByLemma[row[1]] = row
+		apkgByLemma[row[3]] = row
 	}
 	for _, generated := range first.Generated {
 		row, ok := apkgByLemma[generated.Note.Lemma]

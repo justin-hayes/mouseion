@@ -117,7 +117,7 @@ CREATE INDEX ix_revlog_cid ON revlog (cid);`
 		nid, cid := stableID("note|"+note.Key), stableID("card|"+note.Key)
 		fields := strings.Join(noteFields(note), "\x1f")
 		tags := " " + strings.Join(note.Tags, " ") + " "
-		if _, err = tx.Exec(`INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, nid, note.Key[:20], modelID, 0, -1, tags, fields, note.Text, fieldChecksum(note.Text), 0, ""); err != nil {
+		if _, err = tx.Exec(`INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, nid, note.Key[:20], modelID, 0, -1, tags, fields, note.Identity, fieldChecksum(note.Identity), 0, ""); err != nil {
 			return fmt.Errorf("insert note: %w", err)
 		}
 		if _, err = tx.Exec(`INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, cid, nid, deckID, 0, 0, -1, 0, 0, i+1, 0, 0, 0, 0, 0, 0, 0, 0, ""); err != nil {
@@ -176,7 +176,7 @@ func modelMetadata(modelID, deckID int64) map[string]any {
 		fields[i] = map[string]any{"name": name, "ord": i, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}}
 	}
 	qfmt := `{{Text}}`
-	afmt := `{{Text}}<hr id="answer"><div class="meta"><b>{{Lemma}}</b> · {{Morph}} · {{POS}}</div><div class="english">{{English}}</div><div class="sentence">{{EnglishSentence}}</div>`
+	afmt := `{{Text}}<hr id="answer"><div class="meta"><b>{{#Article}}{{Article}} {{/Article}}{{Lemma}}</b> · {{POS}}</div><div class="english">{{English}}</div><div class="sentence">{{EnglishSentence}}</div>`
 	return map[string]any{"id": modelID, "name": noteTypeName, "type": 0, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Recognition", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": `.card { font-family: Arial; font-size: 20px; text-align: left; color: #222; background: #fff; line-height: 1.45; } .meta { margin-top: 1em; } .sentence, .english { max-width: 42em; margin: .65em auto 0; text-align: left; }`, "latexPre": "", "latexPost": "", "req": []any{[]any{0, "all", []any{0}}}, "vers": []any{}, "tags": []any{}}
 }
 

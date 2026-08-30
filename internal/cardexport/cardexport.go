@@ -33,9 +33,9 @@ type Entry struct {
 }
 
 type Note struct {
-	Key, Identity, Text, Article, Lemma, POS, Morph, English, EnglishSentence, BookTitle string
-	BackExtra                                                                            string
-	Tags                                                                                 []string
+	Key, Identity, Text, Article, Lemma, POS, English, EnglishSentence, BookTitle string
+	BackExtra                                                                     string
+	Tags                                                                          []string
 }
 
 type Artifact struct {
@@ -569,14 +569,14 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
-		Morph: escapeField(entry.Morphology), English: escapeField(entry.Translation),
+		English:         escapeField(entry.Translation),
 		EnglishSentence: HighlightEnglishTarget(entry.SentenceTranslation, entry.SentenceTranslationTarget), BookTitle: escapeField(entry.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
 		articleLemma = note.Article + " " + note.Lemma
 	}
-	note.BackExtra = strings.Join([]string{articleLemma, note.Morph, note.POS, note.English, note.EnglishSentence}, "\n")
+	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.English, note.EnglishSentence}, "\n")
 	return note, nil
 }
 
@@ -615,12 +615,12 @@ func RenderTSV(notes []Note) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Text, n.Lemma, n.POS, n.Morph, n.English, n.EnglishSentence, n.BookTitle}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.POS, n.English, n.EnglishSentence, n.BookTitle}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Text", "Lemma", "POS", "Morph", "English", "EnglishSentence", "BookTitle"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "POS", "English", "EnglishSentence", "BookTitle"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
