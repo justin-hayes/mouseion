@@ -32,9 +32,15 @@ USER root
 # Hermes starts the container using the host account's numeric UID/GID via
 # docker_run_as_host_user=true. The image therefore remains generic and does
 # not bake in a host-specific UID or GID.
+#
+# CODEX_HOME is declared explicitly so it unambiguously matches where Hermes
+# bind-mounts the host's ~/.codex config and auth (see the mkdir/chmod below).
+# It must equal the container path used in terminal.docker_volumes, otherwise
+# Codex silently reads an empty home and reports "Not logged in".
 ENV GOPATH=/opt/go \
     GOBIN=/opt/go/bin \
     HOME=/home/hermes \
+    CODEX_HOME=/home/hermes/.codex \
     PATH=/usr/local/go/bin:/opt/go/bin:/usr/local/bin:/usr/bin:/bin
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
