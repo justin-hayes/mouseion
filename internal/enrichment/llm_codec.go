@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-const llmSystemPrompt = "Translate the supplied lemma into English. Return exactly one JSON object with exactly these four string fields and no markdown or additional keys: translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and sentence_translation_target (the plain-text English word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence). When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
+const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object with exactly these seven string fields and no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
 
 const maxTranslationResponseBytes = 1 << 20
 
@@ -96,19 +97,53 @@ type chatMessage struct {
 	Content string `json:"content"`
 }
 
+// TranslationItemID returns the stable opaque identity used by synchronous
+// requests. It contains no owner identity or source text.
+func TranslationItemID(input TranslationRequest) string {
+	// The digest is deliberately opaque and contains no owner or source text.
+	// Hashing the sentence keeps distinct contextual items distinct without
+	// placing the sentence itself in provider-visible identity.
+	sentenceDigest := sha256.Sum256([]byte(input.ExampleSentence))
+	canonical := strings.Join([]string{input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, fmt.Sprintf("%x", sentenceDigest)}, "\x00")
+	digest := sha256.Sum256([]byte(canonical))
+	return "translation-item-" + fmt.Sprintf("%x", digest[:16])
+}
+
+func translationTargetLanguage(input TranslationRequest) string {
+	if strings.TrimSpace(input.TargetLanguage) == "" {
+		return "en"
+	}
+	return strings.TrimSpace(input.TargetLanguage)
+}
+
 // EncodeRequest returns the canonical Chat Completions body for one approved
 // external-provider input.
 func (c *TranslationCodec) EncodeRequest(input TranslationRequest) ([]byte, error) {
+	return c.encodeRequest(input, TranslationItemID(input))
+}
+
+// EncodeBatchRequestForValidation is used by the offline harness to reproduce
+// the exact request body whose echoed item ID is the Batch custom ID.
+func (c *TranslationCodec) EncodeBatchRequestForValidation(input TranslationRequest, itemID string) ([]byte, error) {
+	return c.encodeRequest(input, itemID)
+}
+
+func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string) ([]byte, error) {
 	if c == nil {
 		return nil, errors.New("encode LLM request: nil translation codec")
 	}
+	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(translationTargetLanguage(input)) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" || strings.TrimSpace(itemID) == "" {
+		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
+	}
 	privateInput, err := json.Marshal(struct {
+		ItemID          string `json:"item_id"`
 		Language        string `json:"language"`
+		TargetLanguage  string `json:"target_language"`
 		CanonicalLemma  string `json:"canonical_lemma"`
 		UPOS            string `json:"upos"`
 		TargetWord      string `json:"target_word,omitempty"`
 		ExampleSentence string `json:"example_sentence,omitempty"`
-	}{input.Language, input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence})
+	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence})
 	if err != nil {
 		return nil, fmt.Errorf("encode LLM translation input: %w", err)
 	}
@@ -143,6 +178,10 @@ func (c *TranslationCodec) DecodeResponse(input TranslationRequest, body []byte)
 // DecodeResponseWithUsage applies the same decoder and validator as
 // DecodeResponse while returning provider-reported usage for evaluation.
 func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, body []byte) (TranslationResponse, TranslationUsage, error) {
+	return c.decodeResponseWithItemID(input, body, TranslationItemID(input))
+}
+
+func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, body []byte, expectedItemID string) (TranslationResponse, TranslationUsage, error) {
 	if c == nil {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: nil translation codec")
 	}
@@ -165,8 +204,18 @@ func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, bod
 	if len(decoded.Choices) == 0 {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: no choices")
 	}
-	var result TranslationResponse
+	var result struct {
+		ItemID         string `json:"item_id"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		TranslationResponse
+	}
 	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
+	if duplicate, err := hasDuplicateObjectKey(decoded.Choices[0].Message.Content); err != nil {
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM translation: %w", err)
+	} else if duplicate {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: duplicate field")
+	}
 	resultDecoder.DisallowUnknownFields()
 	if err := resultDecoder.Decode(&result); err != nil {
 		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LLM translation: %w", err)
@@ -174,11 +223,23 @@ func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, bod
 	if err := resultDecoder.Decode(&struct{}{}); err != io.EOF {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: trailing JSON content")
 	}
+	result.ItemID = strings.TrimSpace(result.ItemID)
+	result.SourceLanguage = strings.TrimSpace(result.SourceLanguage)
+	result.TargetLanguage = strings.TrimSpace(result.TargetLanguage)
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.Gloss = strings.TrimSpace(result.Gloss)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
 	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
-	if result.Translation == "" {
+	if result.ItemID == "" || result.ItemID != expectedItemID {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: item_id mismatch")
+	}
+	if result.SourceLanguage == "" || result.SourceLanguage != strings.TrimSpace(input.Language) {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: source_language mismatch")
+	}
+	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: target_language mismatch")
+	}
+	if result.Translation == "" || result.Gloss == "" {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
@@ -187,7 +248,43 @@ func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, bod
 	if decoded.Usage.PromptTokens < 0 || decoded.Usage.CompletionTokens < 0 || decoded.Usage.TotalTokens < 0 {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: invalid usage")
 	}
-	return result, decoded.Usage, nil
+	if hasMarkup(result.Translation) || hasMarkup(result.Gloss) || hasMarkup(result.SentenceTranslation) || hasMarkup(result.SentenceTranslationTarget) {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: HTML or markup is not allowed")
+	}
+	return result.TranslationResponse, decoded.Usage, nil
+}
+
+func hasMarkup(value string) bool { return strings.ContainsAny(value, "<>") }
+
+func hasDuplicateObjectKey(value string) (bool, error) {
+	decoder := json.NewDecoder(strings.NewReader(value))
+	token, err := decoder.Token()
+	if err != nil {
+		return false, err
+	}
+	if delimiter, ok := token.(json.Delim); !ok || delimiter != '{' {
+		return false, nil
+	}
+	seen := map[string]struct{}{}
+	for decoder.More() {
+		token, err = decoder.Token()
+		if err != nil {
+			return false, err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return false, errors.New("object field name is not a string")
+		}
+		if _, exists := seen[key]; exists {
+			return true, nil
+		}
+		seen[key] = struct{}{}
+		var raw json.RawMessage
+		if err = decoder.Decode(&raw); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
 }
 
 func parseLLMBaseURL(value string) (string, *url.URL, error) {

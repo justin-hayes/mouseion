@@ -128,7 +128,7 @@ func (c *TranslationCodec) WriteBatchJSONL(dst io.Writer, runID string, generati
 		if customIDErr != nil {
 			return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, customIDErr)
 		}
-		body, encodeErr := c.EncodeRequest(item.Request)
+		body, encodeErr := c.encodeRequest(item.Request, customID)
 		if encodeErr != nil {
 			return 0, providerError("encode Batch JSONL", ProviderErrorInvalidRequest, 0, encodeErr)
 		}
@@ -277,7 +277,7 @@ func (c *TranslationCodec) decodeBatchResultLine(wire batchResultWire, ordinal i
 		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)
 		return outcome, nil
 	}
-	response, err := c.DecodeResponse(request, wire.Response.Body)
+	response, _, err := c.decodeResponseWithItemID(request, wire.Response.Body, wire.CustomID)
 	if err != nil {
 		outcome.ErrorClass = ProviderErrorInvalidResponse
 		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)

@@ -2,7 +2,9 @@ package enrichment
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -104,9 +106,54 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := []byte(`{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"building\",\"sentence_translation\":\"The house is large.\",\"sentence_translation_target\":\"house\"}"}}],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}`)
-	response, usage, err := codec.DecodeResponseWithUsage(TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}, body)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}
+	content := struct {
+		ItemID         string `json:"item_id"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		TranslationResponse
+	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}}
+	contentBytes, _ := json.Marshal(content)
+	body, _ := json.Marshal(struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		}
+		Usage TranslationUsage `json:"usage"`
+	}{Choices: []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	}{{Message: struct {
+		Content string `json:"content"`
+	}{string(contentBytes)}}}, Usage: TranslationUsage{PromptTokens: 12, CompletionTokens: 8, TotalTokens: 20}})
+	response, usage, err := codec.DecodeResponseWithUsage(input, body)
 	if err != nil || response.Translation != "house" || usage != (TranslationUsage{PromptTokens: 12, CompletionTokens: 8, TotalTokens: 20}) {
 		t.Fatalf("response=%+v usage=%+v err=%v", response, usage, err)
+	}
+}
+
+func TestTranslationCodecRejectsIdentityAndLanguageDrift(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
+	base := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","gloss":"dwelling","sentence_translation":"","sentence_translation_target":""}`
+	for name, content := range map[string]string{
+		"missing":           strings.Replace(base, `"item_id":"`+TranslationItemID(input)+`",`, "", 1),
+		"duplicate":         strings.Replace(base, `,"source_language"`, `,"item_id":"other","source_language"`, 1),
+		"unexpected":        strings.Replace(base, `,"translation"`, `,"unexpected":"x","translation"`, 1),
+		"mismatched item":   strings.Replace(base, TranslationItemID(input), "translation-item-other", 1),
+		"mismatched source": strings.Replace(base, `"source_language":"de"`, `"source_language":"fr"`, 1),
+		"mismatched target": strings.Replace(base, `"target_language":"en"`, `"target_language":"de"`, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+			if _, err := codec.DecodeResponse(input, []byte(body)); err == nil {
+				t.Fatal("invalid correlated response accepted")
+			}
+		})
 	}
 }

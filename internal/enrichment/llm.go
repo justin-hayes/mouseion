@@ -18,7 +18,7 @@ const (
 	defaultLLMBaseURL      = "https://api.openai.com/v1"
 	defaultLLMTimeout      = 30 * time.Second
 	defaultReasoningEffort = "low"
-	llmPromptVersion       = "translation-v6-target-alignment-json"
+	llmPromptVersion       = "translation-v7-item-correlated-json"
 	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
 	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )

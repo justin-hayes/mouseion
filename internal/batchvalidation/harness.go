@@ -202,11 +202,11 @@ func FrozenRequests(codec *enrichment.TranslationCodec, f Fixture, runID string,
 	}
 	requests := make([]RequestFixture, 0, len(items))
 	for _, item := range items {
-		body, err := codec.EncodeRequest(item.Request)
+		customID, err := enrichment.BatchCustomID(runID, item.Ordinal, generation)
 		if err != nil {
 			return nil, nil, err
 		}
-		customID, err := enrichment.BatchCustomID(runID, item.Ordinal, generation)
+		body, err := codec.EncodeBatchRequestForValidation(item.Request, customID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -353,7 +353,7 @@ func decodeFixedSync(ctx context.Context, codec *enrichment.TranslationCodec, f 
 		if !ok {
 			return nil, Metrics{}, fmt.Errorf("missing fixed response for ordinal %d", item.Ordinal)
 		}
-		body, err := responseBody(response)
+		body, err := responseBody(response, enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}, "")
 		if err != nil {
 			return nil, Metrics{}, err
 		}
@@ -377,11 +377,11 @@ func fixedBatchOutput(codec *enrichment.TranslationCodec, f Fixture, items []enr
 		if !ok {
 			return nil, fmt.Errorf("missing fixed response for ordinal %d", item.Ordinal)
 		}
-		body, err := responseBody(response)
+		customID, err := enrichment.BatchCustomID(runID, item.Ordinal, generation)
 		if err != nil {
 			return nil, err
 		}
-		customID, err := enrichment.BatchCustomID(runID, item.Ordinal, generation)
+		body, err := responseBody(response, item.Request, customID)
 		if err != nil {
 			return nil, err
 		}
@@ -403,7 +403,7 @@ func fixedBatchOutput(codec *enrichment.TranslationCodec, f Fixture, items []enr
 	return bytes.Join(lines, []byte{'\n'}), nil
 }
 
-func responseBody(response FixtureResponse) ([]byte, error) {
+func responseBody(response FixtureResponse, request enrichment.TranslationRequest, itemID string) ([]byte, error) {
 	payload := struct {
 		Choices []struct {
 			Message struct {
@@ -416,12 +416,20 @@ func responseBody(response FixtureResponse) ([]byte, error) {
 		} `json:"message"`
 	}{{Message: struct {
 		Content string `json:"content"`
-	}{Content: mustJSON(response)}}}}
+	}{Content: mustJSON(response, request, itemID)}}}}
 	return json.Marshal(payload)
 }
 
-func mustJSON(response FixtureResponse) string {
-	payload, _ := json.Marshal(enrichment.TranslationResponse{Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget})
+func mustJSON(response FixtureResponse, request enrichment.TranslationRequest, itemID string) string {
+	if itemID == "" {
+		itemID = enrichment.TranslationItemID(request)
+	}
+	payload, _ := json.Marshal(struct {
+		ItemID         string `json:"item_id"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		enrichment.TranslationResponse
+	}{itemID, request.Language, request.TargetLanguage, enrichment.TranslationResponse{Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget}})
 	return string(payload)
 }
 
@@ -470,7 +478,7 @@ func buildResult(ctx context.Context, transport string, codec *enrichment.Transl
 		for _, request := range requests {
 			metrics.InputTokens += int64((len(request.Body) + 3) / 4)
 			if response, ok := responses[request.Ordinal]; ok {
-				encoded := mustJSON(FixtureResponse{Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget})
+				encoded, _ := json.Marshal(response)
 				metrics.OutputTokens += int64((len(encoded) + 3) / 4)
 			}
 		}

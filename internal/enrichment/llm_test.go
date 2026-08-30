@@ -14,6 +14,7 @@ import (
 )
 
 func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/chat/completions" || r.Header.Get("Authorization") != "Bearer secret" {
@@ -23,7 +24,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 			t.Error(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"{\"translation\":\"house\",\"gloss\":\"a dwelling\",\"sentence_translation\":\"The house is large.\",\"sentence_translation_target\":\"house\"}"}}]}`)
+		_, _ = io.WriteString(w, testChatResponse(input, TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
 	}))
 	defer server.Close()
 
@@ -31,7 +32,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."})
+	got, err := client.Translate(context.Background(), input)
 	if err != nil || got != (TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}) {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
@@ -43,16 +44,16 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	}
 	messages := received["messages"].([]any)
 	system := messages[0].(map[string]any)["content"].(string)
-	if !strings.Contains(system, "exactly one JSON object") || !strings.Contains(system, "exactly these four string fields") || strings.Contains(strings.ToLower(system), "verbosity") {
+	if !strings.Contains(system, "exactly one JSON object") || !strings.Contains(system, "exactly these seven string fields") || strings.Contains(strings.ToLower(system), "verbosity") {
 		t.Fatalf("prompt does not enforce concise strict JSON output: %q", system)
 	}
 	user := messages[1].(map[string]any)["content"].(string)
-	var input map[string]any
-	if err := json.Unmarshal([]byte(user), &input); err != nil {
+	var externalInput map[string]any
+	if err := json.Unmarshal([]byte(user), &externalInput); err != nil {
 		t.Fatal(err)
 	}
-	if len(input) != 5 || input["language"] != "de" || input["canonical_lemma"] != "Haus" || input["upos"] != "NOUN" || input["target_word"] != "Haus" || input["example_sentence"] != "Das Haus ist groß." {
-		t.Fatalf("external input=%v", input)
+	if len(externalInput) != 7 || externalInput["language"] != "de" || externalInput["target_language"] != "en" || externalInput["canonical_lemma"] != "Haus" || externalInput["upos"] != "NOUN" || externalInput["target_word"] != "Haus" || externalInput["example_sentence"] != "Das Haus ist groß." {
+		t.Fatalf("external input=%v", externalInput)
 	}
 	if received["temperature"] != float64(0) || received["reasoning_effort"] != nil {
 		t.Fatalf("unknown endpoint request compatibility fields: %v", received)
@@ -60,12 +61,13 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 }
 
 func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature(t *testing.T) {
+	requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Error(err)
 		}
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"dwelling\"}"}}]}`)
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
 	}))
 	defer server.Close()
 
@@ -79,7 +81,7 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}); err != nil {
+	if _, err := client.Translate(context.Background(), requestInput); err != nil {
 		t.Fatal(err)
 	}
 	if received["reasoning_effort"] != "low" {
@@ -91,12 +93,13 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 }
 
 func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T) {
+	requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"dwelling\"}"}}]}`)
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
 	}))
 	defer server.Close()
 	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
-	_, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."})
+	_, err := client.Translate(context.Background(), requestInput)
 	if err == nil || !strings.Contains(err.Error(), "sentence_translation is empty") {
 		t.Fatalf("err=%v", err)
 	}
@@ -120,6 +123,7 @@ func TestOpenAITranslationClientRedactsProviderErrorBody(t *testing.T) {
 }
 
 func TestOpenAITranslationClientLemmaOnlyOmitsSentence(t *testing.T) {
+	requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
 	var userContent string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -127,16 +131,36 @@ func TestOpenAITranslationClientLemmaOnlyOmitsSentence(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		userContent = body.Messages[1].Content
-		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"\"}"}}]}`)
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
 	}))
 	defer server.Close()
 	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
-	if _, err := client.Translate(context.Background(), TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}); err != nil {
+	if _, err := client.Translate(context.Background(), requestInput); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(userContent, "example_sentence") {
 		t.Fatalf("lemma-only request included sentence field: %s", userContent)
 	}
+}
+
+func testChatResponse(input TranslationRequest, response TranslationResponse) string {
+	type message struct {
+		Content string `json:"content"`
+	}
+	type choice struct {
+		Message message `json:"message"`
+	}
+	payload := struct {
+		ItemID         string `json:"item_id"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		TranslationResponse
+	}{TranslationItemID(input), input.Language, "en", response}
+	content, _ := json.Marshal(payload)
+	body, _ := json.Marshal(struct {
+		Choices []choice `json:"choices"`
+	}{Choices: []choice{{Message: message{Content: string(content)}}}})
+	return string(body)
 }
 
 func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
@@ -150,6 +174,7 @@ func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
 			statuses := strings.Split(test.statuses, ",")
 			calls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -163,7 +188,7 @@ func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
 					}
 					return
 				}
-				_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"translation\":\"house\",\"gloss\":\"dwelling\"}"}}]}`)
+				_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
 			}))
 			defer server.Close()
 			client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
@@ -196,7 +221,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v6-target-alignment-json-reasoning-medium" || cfg.Timeout != 4*time.Second || cfg.ReasoningEffort != "medium" || !cfg.SupportsReasoningEffort {
+	if provider.Name() != "openai-compatible" || provider.Version() != "gpt-test/translation-v7-item-correlated-json-reasoning-medium" || cfg.Timeout != 4*time.Second || cfg.ReasoningEffort != "medium" || !cfg.SupportsReasoningEffort {
 		t.Fatalf("provider=%s/%s config=%+v", provider.Name(), provider.Version(), cfg)
 	}
 }
