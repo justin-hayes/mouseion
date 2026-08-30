@@ -34,12 +34,13 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 	if err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,'de','cleanup-book','Cleanup Book','text/plain','cleanup-hash','Haus','Haus') RETURNING id::text`, owner.ID).Scan(&sourceID); err != nil {
 		t.Fatal(err)
 	}
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: sourceID, Filename: "cleanup.apkg", DeckName: "Cleanup", ContentHash: "cleanup-hash"})
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: sourceID, Filename: "Cleanup.apkg", DeckName: "Cleanup", ContentHash: "cleanup-hash"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest := cardexport.NewManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus.", TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
-	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus.")}
+	sentence := "Das Haus steht am Ende der stillen Straße."
+	manifest := cardexport.NewManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence, TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(sentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	if err != nil {
 		t.Fatal(err)

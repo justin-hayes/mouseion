@@ -107,6 +107,7 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepareddeck.AddBatchWorker(workers, store, cardexport.NewService(store), analysisClient, nil, prepareddeck.BatchConfig{}, false)
+	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: cardexport.NewService(store)})
 	if err = analysisClient.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +283,7 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	}
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 	jobPage := perform(t, h, "GET", fmt.Sprintf("/jobs/%d", germanHandle.ID), nil, cookies)
-	if jobPage.Code != http.StatusOK || !strings.Contains(jobPage.Body.String(), "Succeeded") || !strings.Contains(jobPage.Body.String(), "View analysis result") {
+	if jobPage.Code != http.StatusOK || !strings.Contains(jobPage.Body.String(), "Completed") || !strings.Contains(jobPage.Body.String(), "View analysis result") {
 		t.Fatalf("completed analysis page=%d %s", jobPage.Code, jobPage.Body.String())
 	}
 	resultPage := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, cookies)

@@ -212,10 +212,11 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	createBook := func(owner, language, identifier, firstTitle, secondTitle string) (domain.SourceMaterial, domain.ExtractedUnits) {
 		t.Helper()
 		firstText, secondText := "Erstes Kapitel.", "Bibliografia finale."
+		firstManifestID, secondManifestID := identifier+"-chapter", identifier+"-bibliography"
 		fullText := firstText + "\n\n" + secondText
 		units := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{
-			{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/chapter.xhtml", ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
-			{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/bibliography.xhtml", ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
+			{ID: domain.EPUBUnitID(0, firstManifestID), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/chapter.xhtml", ManifestID: firstManifestID, MediaType: "application/xhtml+xml", Linear: true},
+			{ID: domain.EPUBUnitID(1, secondManifestID), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/bibliography.xhtml", ManifestID: secondManifestID, MediaType: "application/xhtml+xml", Linear: true},
 		}}
 		if language == "de" {
 			units.Units[0].NavigationLabels = []string{"Teil Eins"}
@@ -339,18 +340,22 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&cloneScopeID); err != nil {
 		t.Fatal(err)
 	}
-	if cloneScopeID == priorScopeID {
-		t.Fatalf("clone reused prior scope %q", priorScopeID)
+	if cloneScopeID != priorScopeID {
+		t.Fatalf("idempotent clone created a new scope %q instead of reusing %q", cloneScopeID, priorScopeID)
 	}
 	var cloneCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 1 {
 		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
 	}
 	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, cloneScopeID)
 	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot || cloned.Classifier != expanded.Classifier {
 		t.Fatalf("same-scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
 	}
-	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {domain.EPUBUnitID(0, "chapter")}}, cookies)
+	_, italianUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, italian.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {italianUnits.Units[0].ID}}, cookies)
 	if recommended.Code != http.StatusSeeOther {
 		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
 	}
@@ -899,7 +904,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)
-	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "1 of 2 completed") || !strings.Contains(statusPage.Body.String(), "attempt 2") || !strings.Contains(statusPage.Body.String(), "temporary provider failure") {
+	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "Contextual translations: Running") || !strings.Contains(statusPage.Body.String(), "1 of 2 translations complete. Attempt 2.") || !strings.Contains(statusPage.Body.String(), "Translation needs attention") || !strings.Contains(statusPage.Body.String(), `aria-busy="true"`) {
 		t.Fatalf("enrichment status=%d %s", statusPage.Code, statusPage.Body.String())
 	}
 	if got := perform(t, h, "POST", "/enrichment-jobs/88/cancel", nil, cookies); got.Code != http.StatusForbidden {
@@ -1179,7 +1184,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	}
 	activate(completedCampaign)
 	stale := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/book-finished", campaignForm(aliceCSRF, completedCampaign), aliceCookies)
-	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "changed+since+this+page+was+loaded") {
+	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "Only+the+active+campaign+can+be+updated.") {
 		t.Fatalf("stale campaign form=%d location=%q", stale.Code, stale.Header().Get("Location"))
 	}
 	conflict := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/activate", campaignForm(aliceCSRF, abandonedCampaign), aliceCookies)
@@ -1194,7 +1199,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 		t.Fatalf("finish book=%d location=%q", finished.Code, finished.Header().Get("Location"))
 	}
 	progressPage := perform(t, h, "GET", "/campaigns", nil, aliceCookies)
-	if body := progressPage.Body.String(); !strings.Contains(body, "Book</dt><dd>Finished · ") || strings.Contains(body, "Mark book finished") || !strings.Contains(body, "Mark deck reviewed") {
+	if body := progressPage.Body.String(); !strings.Contains(body, "Book</dt><dd>Finished · ") || strings.Contains(body, "Mark book finished") || !strings.Contains(body, "Complete campaign and add") {
 		t.Fatalf("book progress page=%s", body)
 	}
 	if got := perform(t, h, "POST", "/campaigns/"+completedCampaign.ID+"/deck-reviewed", campaignForm(bobCSRF, domain.LearningCampaign{ID: completedCampaign.ID, Status: domain.CampaignActive, BookProgress: domain.BookFinished, DeckProgress: domain.DeckStudying}), bobCookies); got.Code != http.StatusNotFound {
@@ -1227,7 +1232,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 		t.Fatalf("abandon=%d location=%q", abandoned.Code, abandoned.Header().Get("Location"))
 	}
 	repeatedAbandon := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", campaignForm(aliceCSRF, domain.LearningCampaign{ID: abandonedCampaign.ID, Status: domain.CampaignAbandoned, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned}), aliceCookies)
-	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Campaign+abandoned") {
+	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Only+an+active+or+queued+campaign+can+be+abandoned.") {
 		t.Fatalf("repeat abandon=%d location=%q", repeatedAbandon.Code, repeatedAbandon.Header().Get("Location"))
 	}
 	activate(activeCampaign)
