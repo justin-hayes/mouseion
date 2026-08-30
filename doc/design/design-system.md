@@ -185,20 +185,20 @@ hierarchy, navigation context, status and feedback, empty and resource states,
 action grouping, data display, asynchronous progress, responsive tables, and
 consequential confirmation.
 
-The remaining rollout is documented in
-[`roadmap.md`](roadmap.md): Phase 4 pilots the system across the core
-book/result/deck journey, Phase 5 extends it to acquisition, Learning,
-Settings, and operational recovery, and Phase 6 adds browser, accessibility,
+The rollout is complete and documented in
+[`roadmap.md`](roadmap.md): Phase 4 shipped the component layer across the core
+book/result/deck journey, Phase 5 extended it to acquisition, Learning,
+Settings, and operational recovery, and Phase 6 shipped browser, accessibility,
 responsive, theme, and reconciliation quality gates. New reusable patterns
 should only be introduced when an existing component contract cannot represent
 the repeated interaction; prefer recording a follow-up in the roadmap over
 scattering one-off markup.
 
-The first adoption covers representative surfaces across the core learner
-journey and supporting settings: My Library, book detail and scope review,
-Learning campaigns, analysis jobs, and known-vocabulary management. This is a
-pilot of durable semantic boundaries rather than a mandate to convert every
-legacy element at once.
+Adoption now covers the core learner journey and supporting settings across My
+Library, book detail and scope review, Learning campaigns, analysis jobs, and
+known-vocabulary management. These component contracts are the durable
+semantic boundaries; convert remaining one-off markup to a shared component
+only when the repeated interaction and behavior evidence justify it.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,

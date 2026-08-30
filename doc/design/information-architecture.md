@@ -127,10 +127,11 @@ mutation endpoints are not separate navigation destinations.
   the primary transition is to the book-centered result at
   `/books/{book-id}/analyses/{analysis-run-id}`. Jobs are not a primary
   navigation destination.
-- `/known-vocab` is a secondary direct route retained by the implementation.
+- `/known-vocab` is a compat surface redirected to Settings. `GET /known-vocab`
+  redirects to `/settings#known-vocabulary`, preserving valid language context
+  as a `?language=` query parameter when the requested language is saved;
   Settings is the canonical navigation entry for study languages and known
-  vocabulary. Route consolidation should redirect it to
-  `/settings#known-vocabulary` while preserving valid language context.
+  vocabulary.
 - The `Dashboard` template is inactive. `/` redirects to the library, and the
   dashboard's older `/languages` link is not part of the current IA. New work
   must not treat this template as an established screen.

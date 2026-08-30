@@ -23,11 +23,11 @@ known vocabulary. The screen has two explicit sections:
 2. **Known vocabulary** — owner-scoped vocabulary by language, including file
    import.
 
-The retained `/known-vocab` page is compatibility surface, not an independent
-product area. Future route consolidation should redirect it to
-`/settings#known-vocabulary`, preserving a valid language selection when
-possible. Until that implementation ships, both routes use the same terms and
-behavior; new functionality belongs in Settings first.
+The retained `/known-vocab` route is compatibility surface, not an independent
+product area. The implementation redirects `GET /known-vocab` to
+`/settings#known-vocabulary`, preserving a valid language selection as a
+`?language=` query parameter when that language is saved; Settings is
+canonical. New functionality belongs in Settings first.
 
 ## Study-language model
 
