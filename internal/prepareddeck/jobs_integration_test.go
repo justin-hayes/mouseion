@@ -212,6 +212,7 @@ func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	AddBatchWorker(workers, store, cardexport.NewService(store), client, nil, BatchConfig{}, false)
 	service := NewService(store, client)
 	queued, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "queued.apkg", DeckName: "queued", ContentHash: "queued-hash"})
 	if err != nil {
