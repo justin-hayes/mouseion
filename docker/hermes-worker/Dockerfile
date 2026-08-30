@@ -41,7 +41,6 @@ ENV GOPATH=/opt/go \
     GOBIN=/opt/go/bin \
     HOME=/home/hermes \
     CODEX_HOME=/home/hermes/.codex \
-    TMPDIR=/workspace/.tmp \
     PATH=/usr/local/go/bin:/opt/go/bin:/usr/local/bin:/usr/bin:/bin
 
 COPY --from=go-toolchain /usr/local/go /usr/local/go
@@ -97,7 +96,7 @@ RUN set -eux; \
 
 # Install the protobuf Go generators required by the repository.
 RUN set -eux; \
-    mkdir -p /opt/go/bin /workspace/.tmp; \
+    mkdir -p /opt/go/bin; \
     GOBIN=/opt/go/bin \
         go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12; \
     GOBIN=/opt/go/bin \
@@ -132,13 +131,11 @@ RUN set -eux; \
 RUN set -eux; \
     mkdir -p \
         /workspace \
-        /workspace/.tmp \
         /home/hermes/.codex \
         /home/hermes/.cache \
         /home/hermes/.config \
         /home/hermes/.local; \
     chmod 0777 /workspace; \
-    chmod 0777 /workspace/.tmp; \
     chmod 0777 /home/hermes; \
     chmod 0777 /home/hermes/.codex; \
     chmod 0777 /home/hermes/.cache; \
