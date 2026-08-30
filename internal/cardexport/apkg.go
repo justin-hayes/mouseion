@@ -163,7 +163,7 @@ type legacyDeckConfig struct {
 func defaultDeckConfig() legacyDeckConfig {
 	return legacyDeckConfig{
 		ID: 1, Name: "Default", Mod: 0, USN: 0, MaxTaken: 60, Autoplay: true, Timer: 0, ReplayQ: true,
-		New:   map[string]any{"delays": []int{1, 10}, "ints": []int{1, 4}, "initialFactor": 2500, "order": 1, "perDay": 20, "bury": false},
+		New:   map[string]any{"delays": []int{1, 10}, "ints": []int{1, 4}, "initialFactor": 2500, "order": 0, "perDay": 20, "bury": false},
 		Rev:   map[string]any{"perDay": 200, "ivlFct": 1, "ease4": 1.3, "maxIvl": 36500, "hardFactor": 1.2, "bury": false},
 		Lapse: map[string]any{"delays": []int{10}, "mult": 0, "minInt": 1, "leechFails": 8, "leechAction": 0},
 		Dyn:   false,

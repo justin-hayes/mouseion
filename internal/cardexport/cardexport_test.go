@@ -471,6 +471,89 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	}
 }
 
+// TestAnkiNewCardOrderFollowsTextPosition pins the deck configuration so new
+// cards are introduced in the order they appear in the source text. The export
+// writes notes sorted by first encounter and binds each card's Anki position
+// (due) to that index; the deck config must use ordered new-card presentation
+// (order: 0 = "in order added") rather than randomizing (order: 1), or the
+// text-order position encoded in due is discarded at review time.
+func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
+	notes := []Note{
+		{Key: DedupKey("de", "wort", "NOUN", "alice"), Identity: "i1", Text: "Erstes <b>Wort</b>.", Article: "das", Lemma: "Wort", POS: "NOUN", English: "word", EnglishSentence: "First word.", BookTitle: "Buch"},
+		{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: "i2", Text: "Zweites <b>Haus</b>.", Article: "das", Lemma: "Haus", POS: "NOUN", English: "house", EnglishSentence: "Second house.", BookTitle: "Buch"},
+		{Key: DedupKey("de", "buch", "NOUN", "alice"), Identity: "i3", Text: "Drittes <b>Buch</b>.", Article: "das", Lemma: "Buch", POS: "NOUN", English: "book", EnglishSentence: "Third book.", BookTitle: "Buch"},
+	}
+	a, err := renderAPKG(DeckName("de", "Buch"), notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(a), int64(len(a)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var db *sql.DB
+	for _, f := range zr.File {
+		if f.Name != "collection.anki2" {
+			continue
+		}
+		rc, _ := f.Open()
+		dbBytes, _ := io.ReadAll(rc)
+		rc.Close()
+		path := t.TempDir() + "/collection.anki2"
+		if err = os.WriteFile(path, dbBytes, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		db, err = sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		break
+	}
+	defer db.Close()
+	var dconfJSON string
+	if err = db.QueryRow(`SELECT dconf FROM col`).Scan(&dconfJSON); err != nil {
+		t.Fatal(err)
+	}
+	// dconf serializes a single keyed deck config named "1".
+	var configs map[string]struct {
+		New struct {
+			Order float64 `json:"order"`
+		} `json:"new"`
+	}
+	if err = json.Unmarshal([]byte(dconfJSON), &configs); err != nil {
+		t.Fatal(err)
+	}
+	var order float64
+	for _, cfg := range configs {
+		order = cfg.New.Order
+	}
+	if order != 0 {
+		t.Fatalf("new.card order = %v, want 0 (in order added), so text-position due is honored", order)
+	}
+	// Every card's position must ascend 1..N, bound to text order.
+	rows, err := db.Query(`SELECT due FROM cards ORDER BY due`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var dues []int64
+	for rows.Next() {
+		var due int64
+		if err = rows.Scan(&due); err != nil {
+			t.Fatal(err)
+		}
+		dues = append(dues, due)
+	}
+	if len(dues) != len(notes) {
+		t.Fatalf("card due positions = %v, want len %d", dues, len(notes))
+	}
+	for i, due := range dues {
+		if due != int64(i+1) {
+			t.Fatalf("card due positions = %v, want 1..%d in text order", dues, len(notes))
+		}
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
