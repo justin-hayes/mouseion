@@ -184,10 +184,21 @@ func (f Fixture) Response(ordinal int) (FixtureResponse, bool) {
 }
 
 func FrozenRequests(codec *enrichment.TranslationCodec, f Fixture, runID string, generation int) ([]RequestFixture, []enrichment.BatchTranslationItem, error) {
+	return frozenRequests(codec, f, runID, generation, false)
+}
+
+// FrozenRequestsForModelOverride regenerates requests for an explicitly
+// selected provider model while retaining the fixture's item and prompt
+// validation. The frozen model check remains enforced by FrozenRequests.
+func FrozenRequestsForModelOverride(codec *enrichment.TranslationCodec, f Fixture, runID string, generation int) ([]RequestFixture, []enrichment.BatchTranslationItem, error) {
+	return frozenRequests(codec, f, runID, generation, true)
+}
+
+func frozenRequests(codec *enrichment.TranslationCodec, f Fixture, runID string, generation int, allowModelOverride bool) ([]RequestFixture, []enrichment.BatchTranslationItem, error) {
 	if err := f.Validate(); err != nil {
 		return nil, nil, err
 	}
-	if codec == nil || codec.Model() != f.Model || codec.PromptVersion() != f.PromptVersion {
+	if codec == nil || (!allowModelOverride && codec.Model() != f.Model) || codec.PromptVersion() != f.PromptVersion {
 		return nil, nil, errors.New("batchvalidation: codec does not match frozen model or prompt version")
 	}
 	snapshot := f.Snapshot()
@@ -274,6 +285,18 @@ type Result struct {
 // synchronous decoder and Batch decoder. It is deterministic and never makes
 // a network call.
 func ReplayFixedResponses(ctx context.Context, codec *enrichment.TranslationCodec, f Fixture, requestFixture []byte, runID string, generation int) (Result, Result, error) {
+	return replayFixedResponses(ctx, codec, f, requestFixture, runID, generation, false, true)
+}
+
+// ReplayFixedResponsesForModelOverride validates fixed responses and artifacts
+// using requests generated for a selected provider model. It intentionally
+// skips only comparison with the frozen request-file bytes, whose model name
+// is part of that byte identity.
+func ReplayFixedResponsesForModelOverride(ctx context.Context, codec *enrichment.TranslationCodec, f Fixture, requestFixture []byte, runID string, generation int) (Result, Result, error) {
+	return replayFixedResponses(ctx, codec, f, requestFixture, runID, generation, true, false)
+}
+
+func replayFixedResponses(ctx context.Context, codec *enrichment.TranslationCodec, f Fixture, requestFixture []byte, runID string, generation int, allowModelOverride, requireFrozenRequest bool) (Result, Result, error) {
 	if codec == nil {
 		return Result{}, Result{}, errors.New("batchvalidation: nil codec")
 	}
@@ -284,7 +307,13 @@ func ReplayFixedResponses(ctx context.Context, codec *enrichment.TranslationCode
 	if err != nil {
 		return Result{}, Result{}, err
 	}
-	requests, items, err := FrozenRequests(codec, f, runID, generation)
+	var requests []RequestFixture
+	var items []enrichment.BatchTranslationItem
+	if allowModelOverride {
+		requests, items, err = FrozenRequestsForModelOverride(codec, f, runID, generation)
+	} else {
+		requests, items, err = FrozenRequests(codec, f, runID, generation)
+	}
 	if err != nil {
 		return Result{}, Result{}, err
 	}
@@ -295,7 +324,7 @@ func ReplayFixedResponses(ctx context.Context, codec *enrichment.TranslationCode
 	if !bytes.Equal(canonicalRequestFile(requests), regenerated.Bytes()) {
 		return Result{}, Result{}, errors.New("batchvalidation: request metadata does not match generated Batch JSONL")
 	}
-	if len(requestFixture) > 0 && !bytes.Equal(regenerated.Bytes(), requestFixture) {
+	if requireFrozenRequest && len(requestFixture) > 0 && !bytes.Equal(regenerated.Bytes(), requestFixture) {
 		return Result{}, Result{}, fmt.Errorf("batchvalidation: regenerated requests differ from frozen request fixture (got %s)", regenerated.Bytes())
 	}
 	syncOutcomes, syncMetrics, err := decodeFixedSync(ctx, codec, f, manifest, items)
@@ -580,6 +609,7 @@ type Report struct {
 }
 
 type Comparison struct {
+	Model       string `json:"model"`
 	Synchronous Result `json:"synchronous"`
 	Standard    Result `json:"standard"`
 	Batch       Result `json:"batch"`
@@ -595,7 +625,7 @@ func WriteMarkdownReport(w io.Writer, report Report) error {
 	}
 	fmt.Fprint(w, "## Evidence classification\n\nSynthetic replay is deterministic harness evidence only; it is not a provider, production, quality, or cost claim. The real-provider section is measured evidence and remains `not run` until an operator runs the explicit command. Hypotheses and decisions belong in the review fields below.\n\n")
 	writeComparison := func(title string, comparison Comparison) error {
-		if _, err := fmt.Fprintf(w, "## %s\n\n| Measure | Synchronous | Batch |\n|---|---:|---:|\n| queue latency | %s | %s |\n| completion latency | %s | %s |\n| total latency | %s | %s |\n| cache-hit ratio | %.2f%% | %.2f%% |\n| input/output tokens | %d / %d | %d / %d |\n| estimated cost (USD) | %.6f | %.6f |\n| provider calls / retries / errors | %d / %d / %d | %d / %d / %d |\n| expiry / parse failures / validation failures | %d / %d / %d | %d / %d / %d |\n| omissions | %d | %d |\n| duplicate / miscorrelated outcomes | %d / %d | %d / %d |\n| target-aligned / translation review | %d / %s | %d / %s |\n| artifact byte stable | %t | %t |\n\n", title, comparison.Synchronous.Metrics.QueueLatency, comparison.Batch.Metrics.QueueLatency, comparison.Synchronous.Metrics.CompletionLatency, comparison.Batch.Metrics.CompletionLatency, comparison.Synchronous.Metrics.TotalLatency, comparison.Batch.Metrics.TotalLatency, ratio(comparison.Synchronous.Metrics), ratio(comparison.Batch.Metrics), comparison.Synchronous.Metrics.InputTokens, comparison.Synchronous.Metrics.OutputTokens, comparison.Batch.Metrics.InputTokens, comparison.Batch.Metrics.OutputTokens, comparison.Synchronous.Metrics.EstimatedCostUSD, comparison.Batch.Metrics.EstimatedCostUSD, comparison.Synchronous.Metrics.ProviderCalls, comparison.Synchronous.Metrics.Retries, comparison.Synchronous.Metrics.ProviderErrors, comparison.Batch.Metrics.ProviderCalls, comparison.Batch.Metrics.Retries, comparison.Batch.Metrics.ProviderErrors, comparison.Synchronous.Metrics.ExpiryCount, comparison.Synchronous.Metrics.ParseFailures, comparison.Synchronous.Metrics.ValidationFailures, comparison.Batch.Metrics.ExpiryCount, comparison.Batch.Metrics.ParseFailures, comparison.Batch.Metrics.ValidationFailures, comparison.Synchronous.Metrics.Omissions, comparison.Batch.Metrics.Omissions, comparison.Synchronous.Metrics.DuplicateOutcomes, comparison.Synchronous.Metrics.MiscorrelatedOutcomes, comparison.Batch.Metrics.DuplicateOutcomes, comparison.Batch.Metrics.MiscorrelatedOutcomes, comparison.Synchronous.Quality.TargetAligned, comparison.Synchronous.Quality.ReviewStatus, comparison.Batch.Quality.TargetAligned, comparison.Batch.Quality.ReviewStatus, comparison.Synchronous.ArtifactStable, comparison.Batch.ArtifactStable); err != nil {
+		if _, err := fmt.Fprintf(w, "## %s\n\nModel: `%s`\n\n| Measure | Synchronous | Batch |\n|---|---:|---:|\n| queue latency | %s | %s |\n| completion latency | %s | %s |\n| total latency | %s | %s |\n| cache-hit ratio | %.2f%% | %.2f%% |\n| input/output tokens | %d / %d | %d / %d |\n| estimated cost (USD) | %.6f | %.6f |\n| provider calls / retries / errors | %d / %d / %d | %d / %d / %d |\n| expiry / parse failures / validation failures | %d / %d / %d | %d / %d / %d |\n| omissions | %d | %d |\n| duplicate / miscorrelated outcomes | %d / %d | %d / %d |\n| target-aligned / translation review | %d / %s | %d / %s |\n| artifact byte stable | %t | %t |\n\n", title, comparison.Model, comparison.Synchronous.Metrics.QueueLatency, comparison.Batch.Metrics.QueueLatency, comparison.Synchronous.Metrics.CompletionLatency, comparison.Batch.Metrics.CompletionLatency, comparison.Synchronous.Metrics.TotalLatency, comparison.Batch.Metrics.TotalLatency, ratio(comparison.Synchronous.Metrics), ratio(comparison.Batch.Metrics), comparison.Synchronous.Metrics.InputTokens, comparison.Synchronous.Metrics.OutputTokens, comparison.Batch.Metrics.InputTokens, comparison.Batch.Metrics.OutputTokens, comparison.Synchronous.Metrics.EstimatedCostUSD, comparison.Batch.Metrics.EstimatedCostUSD, comparison.Synchronous.Metrics.ProviderCalls, comparison.Synchronous.Metrics.Retries, comparison.Synchronous.Metrics.ProviderErrors, comparison.Batch.Metrics.ProviderCalls, comparison.Batch.Metrics.Retries, comparison.Batch.Metrics.ProviderErrors, comparison.Synchronous.Metrics.ExpiryCount, comparison.Synchronous.Metrics.ParseFailures, comparison.Synchronous.Metrics.ValidationFailures, comparison.Batch.Metrics.ExpiryCount, comparison.Batch.Metrics.ParseFailures, comparison.Batch.Metrics.ValidationFailures, comparison.Synchronous.Metrics.Omissions, comparison.Batch.Metrics.Omissions, comparison.Synchronous.Metrics.DuplicateOutcomes, comparison.Synchronous.Metrics.MiscorrelatedOutcomes, comparison.Batch.Metrics.DuplicateOutcomes, comparison.Batch.Metrics.MiscorrelatedOutcomes, comparison.Synchronous.Quality.TargetAligned, comparison.Synchronous.Quality.ReviewStatus, comparison.Batch.Quality.TargetAligned, comparison.Batch.Quality.ReviewStatus, comparison.Synchronous.ArtifactStable, comparison.Batch.ArtifactStable); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintf(w, "Artifact digests: APKG `%s` / `%s`; TSV `%s` / `%s`.\n\n", comparison.Synchronous.Artifact.APKG, comparison.Batch.Artifact.APKG, comparison.Synchronous.Artifact.TSV, comparison.Batch.Artifact.TSV); err != nil {

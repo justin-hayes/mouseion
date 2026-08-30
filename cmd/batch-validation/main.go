@@ -22,7 +22,7 @@ import (
 const paidCallAcknowledgement = "I understand this makes paid OpenAI calls"
 
 func main() {
-	var fixtureDir, reportPath, runID, acknowledgement string
+	var fixtureDir, reportPath, runID, acknowledgement, modelOverride string
 	var jsonReportPath string
 	var realProvider bool
 	var pollInterval time.Duration
@@ -32,6 +32,7 @@ func main() {
 	flag.StringVar(&jsonReportPath, "json-report", "", "optional machine-readable JSON report path")
 	flag.StringVar(&runID, "run-id", batchvalidation.DefaultRunID, "opaque run UUID used for Batch custom IDs")
 	flag.BoolVar(&realProvider, "real-provider", false, "run the explicitly requested synchronous and OpenAI Batch provider comparison")
+	flag.StringVar(&modelOverride, "model", "", "real-provider model override; must be used with -real-provider and bypasses frozen request-byte comparison")
 	flag.StringVar(&acknowledgement, "acknowledge-paid-provider-calls", "", "must exactly acknowledge paid calls when -real-provider is set")
 	flag.DurationVar(&pollInterval, "poll-interval", 30*time.Second, "real-provider Batch observation interval")
 	flag.Float64Var(&inputCostPerMillion, "input-cost-per-million", 0, "provider input-token price in USD per million tokens (required for real-provider evidence)")
@@ -39,6 +40,10 @@ func main() {
 	flag.Float64Var(&batchDiscount, "batch-discount", 0.5, "Batch price multiplier used for the estimate")
 	flag.Parse()
 
+	modelOverride = strings.TrimSpace(modelOverride)
+	if modelOverride != "" && !realProvider {
+		fatalf("-model requires -real-provider")
+	}
 	if realProvider && acknowledgement != paidCallAcknowledgement {
 		fatalf("-real-provider requires -acknowledge-paid-provider-calls=%q", paidCallAcknowledgement)
 	}
@@ -68,11 +73,11 @@ func main() {
 	if err != nil {
 		fatalf("synthetic replay: %v", err)
 	}
-	report := batchvalidation.Report{FixtureName: fixture.Name, ManifestDigest: manifestDigest, Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: codec.PromptVersion(), Synthetic: batchvalidation.Comparison{Synchronous: syntheticSync, Standard: standardSynthetic, Batch: syntheticBatch}}
+	report := batchvalidation.Report{FixtureName: fixture.Name, ManifestDigest: manifestDigest, Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: codec.PromptVersion(), Synthetic: batchvalidation.Comparison{Model: fixture.Model, Synchronous: syntheticSync, Standard: standardSynthetic, Batch: syntheticBatch}}
 	if realProvider {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		realComparison, runErr := runReal(ctx, fixture, frozenRequests, codec, runID, pollInterval, inputCostPerMillion, outputCostPerMillion, batchDiscount)
+		realComparison, runErr := runReal(ctx, fixture, frozenRequests, codec, runID, modelOverride, pollInterval, inputCostPerMillion, outputCostPerMillion, batchDiscount)
 		if runErr != nil {
 			fatalf("real-provider validation: %v", runErr)
 		}
@@ -92,12 +97,15 @@ func main() {
 	}
 }
 
-func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequests []byte, codec *enrichment.TranslationCodec, runID string, pollInterval time.Duration, inputCostPerMillion, outputCostPerMillion, batchDiscount float64) (batchvalidation.Comparison, error) {
+func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequests []byte, codec *enrichment.TranslationCodec, runID, modelOverride string, pollInterval time.Duration, inputCostPerMillion, outputCostPerMillion, batchDiscount float64) (batchvalidation.Comparison, error) {
 	cfg := enrichment.LLMConfig{APIKey: strings.TrimSpace(os.Getenv("MOUSEION_LLM_API_KEY")), Model: strings.TrimSpace(os.Getenv("MOUSEION_LLM_MODEL")), BaseURL: strings.TrimSpace(os.Getenv("MOUSEION_LLM_BASE_URL")), Timeout: 30 * time.Second}
+	if modelOverride != "" {
+		cfg.Model = modelOverride
+	}
 	if cfg.APIKey == "" || cfg.Model == "" {
 		return batchvalidation.Comparison{}, errors.New("MOUSEION_LLM_API_KEY and MOUSEION_LLM_MODEL are required; MOUSEION_LLM_ENABLED is not consulted")
 	}
-	if cfg.Model != fixture.Model {
+	if modelOverride == "" && cfg.Model != fixture.Model {
 		return batchvalidation.Comparison{}, fmt.Errorf("configured model %q does not match frozen fixture model %q", cfg.Model, fixture.Model)
 	}
 	if fixture.Provider != "openai" || fixture.PromptVersion != codec.PromptVersion() {
@@ -115,11 +123,15 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 	if err != nil {
 		return batchvalidation.Comparison{}, err
 	}
-	if providerCodec.PromptVersion() != codec.PromptVersion() || providerCodec.Model() != fixture.Model {
+	if providerCodec.PromptVersion() != codec.PromptVersion() || (modelOverride == "" && providerCodec.Model() != fixture.Model) {
 		return batchvalidation.Comparison{}, errors.New("provider codec does not match frozen request contract")
 	}
-	if _, _, err = batchvalidation.ReplayFixedResponses(context.Background(), providerCodec, fixture, frozenRequests, runID, batchvalidation.DefaultGeneration); err != nil {
-		return batchvalidation.Comparison{}, fmt.Errorf("provider codec changed frozen request/response semantics: %w", err)
+	if modelOverride == "" {
+		if _, _, err = batchvalidation.ReplayFixedResponses(context.Background(), providerCodec, fixture, frozenRequests, runID, batchvalidation.DefaultGeneration); err != nil {
+			return batchvalidation.Comparison{}, fmt.Errorf("provider codec changed frozen request/response semantics: %w", err)
+		}
+	} else if _, _, err = batchvalidation.ReplayFixedResponsesForModelOverride(context.Background(), providerCodec, fixture, frozenRequests, runID, batchvalidation.DefaultGeneration); err != nil {
+		return batchvalidation.Comparison{}, fmt.Errorf("provider codec changed fixed response semantics: %w", err)
 	}
 	syncClient, err := enrichment.NewOpenAITranslationClient(cfg, nil)
 	if err != nil {
@@ -129,7 +141,13 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 	if err != nil {
 		return batchvalidation.Comparison{}, err
 	}
-	requests, items, err := batchvalidation.FrozenRequests(providerCodec, fixture, runID, batchvalidation.DefaultGeneration)
+	var requests []batchvalidation.RequestFixture
+	var items []enrichment.BatchTranslationItem
+	if modelOverride != "" {
+		requests, items, err = batchvalidation.FrozenRequestsForModelOverride(providerCodec, fixture, runID, batchvalidation.DefaultGeneration)
+	} else {
+		requests, items, err = batchvalidation.FrozenRequests(providerCodec, fixture, runID, batchvalidation.DefaultGeneration)
+	}
 	if err != nil {
 		return batchvalidation.Comparison{}, err
 	}
@@ -259,7 +277,7 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 	}
 	standardResult := syncResult
 	standardResult.Transport = "standard"
-	return batchvalidation.Comparison{Synchronous: syncResult, Standard: standardResult, Batch: batchResult}, nil
+	return batchvalidation.Comparison{Model: providerCodec.Model(), Synchronous: syncResult, Standard: standardResult, Batch: batchResult}, nil
 }
 
 func estimateCost(inputTokens, outputTokens int64, inputCostPerMillion, outputCostPerMillion, multiplier float64) float64 {
