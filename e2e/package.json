@@ -1,0 +1,6 @@
+{
+  "name": "mouseion-browser-acceptance",
+  "private": true,
+  "scripts": { "smoke": "playwright test" },
+  "devDependencies": { "@playwright/test": "1.52.0" }
+}

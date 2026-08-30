@@ -1,0 +1,41 @@
+// Command fixtureserver serves the deterministic browser-acceptance fixture.
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/webapp"
+	"github.com/justin-hayes/mouseion/internal/webauth"
+)
+
+func main() {
+	addr := os.Getenv("MOUSEION_FIXTURE_ADDR")
+	if addr == "" {
+		addr = "127.0.0.1:8099"
+	}
+	authStore := fixtures.NewAuthStore()
+	authService := auth.New(authStore, auth.DefaultSessionLifetime)
+	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
+	store := fixtures.NewStore()
+	h, err := webapp.NewWithError(webapp.Services{
+		Auth: authService, WebAuth: authHandler, Store: store, OPDS: fixtures.OPDS{},
+		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
+		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{}, Capabilities: fixtures.Capabilities{},
+		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
+		AcquisitionKey: []byte("12345678901234567890123456789012"), AcquisitionTargetKey: []byte("abcdefghijklmnopqrstuvwxzy123456"),
+	})
+	if err != nil {
+		log.Fatalf("initialize fixture webapp: %v", err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = fmt.Fprintln(w, "ok") })
+	mux.Handle("/static/", webapp.StaticHandler())
+	mux.Handle("/", h)
+	log.Printf("mouseion fixture server listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
+}

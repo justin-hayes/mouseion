@@ -23,6 +23,15 @@
 # Build tooling
 /vendor/
 
+# Browser acceptance artifacts
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+/.tmp/
+
+# Codex delegation briefs (untracked scratch)
+.codex-*-brief.md
+
 # Python
 __pycache__/
 *.py[cod]
