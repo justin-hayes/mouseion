@@ -5,6 +5,7 @@ package fixtures
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -35,6 +36,8 @@ const (
 	QueuedPrepID     = "fixture-queued-preparation"
 )
 
+const edgeBookID = "fixture-edge-content"
+
 var errNotFound = errors.New("fixture: not found")
 
 type Store struct {
@@ -53,12 +56,10 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
+			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze und die außergewöhnlich langen Untertitel für einen lesbaren Randfall", MediaType: "application/epub+zip", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 		},
-		jobs: []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed"}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "fixture analysis failed"}},
-		campaigns: []domain.LearningCampaign{
-			{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
-			{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
-		},
+		jobs:      fixtureJobs(),
+		campaigns: fixtureCampaigns(),
 		profiles:    []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
 		connections: []domain.OpdsConnection{{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"}},
 		preps: []domain.DeckPreparation{
@@ -198,6 +199,25 @@ func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnit
 	}
 }
 
+func fixtureJobs() []domain.AnalysisJob {
+	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nReload the confirmed scope and retry this analysis.", Progress: 42}}
+	for i := int64(3); i <= 18; i++ {
+		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: "fixture-history-" + fmt.Sprint(i), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
+	}
+	return jobs
+}
+
+func fixtureCampaigns() []domain.LearningCampaign {
+	campaigns := []domain.LearningCampaign{
+		{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
+		{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
+	}
+	for i := 1; i <= 6; i++ {
+		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})
+	}
+	return campaigns
+}
+
 type AuthStore struct {
 	mu       sync.Mutex
 	user     domain.User
@@ -245,10 +265,9 @@ func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle
 func (Analysis) SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
 }
-
 func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
 	if id == 43 {
-		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "fixture analysis failed", LogicalState: "failed"}, nil
+		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nReload the confirmed scope and retry this analysis.", LogicalState: "failed", Progress: 42}, nil
 	}
 	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: BookID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
 }
@@ -256,13 +275,22 @@ func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
 	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
 }
 func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error) {
-	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: BookID, ScopeID: "fixture-scope", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 12, DistinctLemmaCount: 8}}}, nil
+	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: BookID, ScopeID: "fixture-scope", SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "fixture-001", Title: "Chapter one"}, {UnitID: "fixture-002", Title: "Chapter two"}}, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
 }
 
 type Insights struct{}
 
 func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
-	return domain.AnalysisCoverage{SourceMaterialID: BookID, AnalysisRunID: ResultRunID, AnalyzableTokenCount: 12, DistinctLemmaCount: 8, KnownTokenCount: 4, UnknownTokenCount: 8, TopUnknownLemmas: []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 4}}}, nil
+	lemmas := make([]domain.LemmaOccurrence, 0, 18)
+	for i := 1; i <= 18; i++ {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: "de", CanonicalLemma: fmt.Sprintf("Randlemma-%02d", i), UPOS: "NOUN", OccurrenceCount: int64(100 - i)})
+	}
+	projections := make([]domain.CoverageProjection, 0, 8)
+	for i := int64(1); i <= 8; i++ {
+		projections = append(projections, domain.CoverageProjection{TopLemmaCount: i * 3, SelectedLemmaCount: i * 3, OccurrenceCount: i * 2400, EligibleTokenCount: 80000, ProjectedTokenCount: 50000 + i*7000})
+	}
+	thresholds := []domain.CoverageThreshold{{TargetPercent: 90, LemmaCount: 120, OccurrenceCount: 90000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 95, LemmaCount: 240, OccurrenceCount: 95000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 97, LemmaCount: 390, OccurrenceCount: 97000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 99, LemmaCount: 999, OccurrenceCount: 0, EligibleTokenCount: 100000, Reachable: false}}
+	return domain.AnalysisCoverage{SourceMaterialID: BookID, AnalysisRunID: ResultRunID, ReviewedScopeID: "fixture-scope", AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
 }
 
 type KnownVocab struct{}
@@ -331,5 +359,5 @@ func (OPDS) Acquire(context.Context, string, string, string, opds.Entry) (epub.I
 	return epub.ImportResult{Source: domain.SourceMaterial{ID: "fixture-acquired", OwnerID: OwnerID, Language: "de", Title: "Erworbenes Buch"}}, nil
 }
 func feed() opds.Feed {
-	return opds.Feed{Title: "Fixture catalog", Entries: []opds.Entry{{ID: "fixture-entry", Title: "Ein deutsches Buch", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://fixture.invalid/book.epub"}}}, {ID: "fixture-entry-it", Title: "Un libro italiano"}}}
+	return opds.Feed{Title: "Fixture catalog", Entries: []opds.Entry{{ID: "fixture-entry", Title: "Ein deutsches Buch — Donaudampfschifffahrtsgesellschaftskapitänsmütze und ein besonders langer OPDS-Untertitel", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://fixture.invalid/book.epub"}}}, {ID: "fixture-entry-it", Title: "Un libro italiano: una passeggiata luminosa tra le colline e le biblioteche"}}}
 }

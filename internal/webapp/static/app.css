@@ -162,6 +162,10 @@ body {
   margin: 0;
 }
 
+.site-header .inline button {
+  min-height: 44px;
+}
+
 .right {
   float: right;
 }
