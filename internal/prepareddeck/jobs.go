@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -48,19 +49,33 @@ type JobArgs struct {
 	ExternalTranslationConsent bool   `json:"external_translation_consent"`
 }
 
-// StandardTranslationWorker is deliberately a no-op until provider execution
-// is implemented. The durable job kind and queue are established now so the
-// later provider worker can resume from the frozen outcome safely.
+// StandardTranslationWorker executes one durable manifest item per River
+// invocation. Its dependencies are optional so worker registration tests can
+// still validate the job type without a database or provider.
 type StandardTranslationWorker struct {
 	river.WorkerDefaults[StandardTranslationJobArgs]
+	Store          *persistence.PostgresStore
+	Client         riverClient
+	Provider       enrichment.TranslationProvider
+	Config         PreparedDeckConfig
+	AttemptTimeout time.Duration
+	Now            func() time.Time
+	Jitter         func(time.Duration) time.Duration
 }
 
-func (w *StandardTranslationWorker) Work(context.Context, *river.Job[StandardTranslationJobArgs]) error {
-	return nil
+func (w *StandardTranslationWorker) Work(ctx context.Context, job *river.Job[StandardTranslationJobArgs]) error {
+	if job == nil {
+		return ErrInvalidInput
+	}
+	return w.execute(ctx, job.Args)
 }
 
 func AddStandardTranslationWorker(workers *river.Workers) {
 	river.AddWorker(workers, &StandardTranslationWorker{})
+}
+
+func AddStandardTranslationWorkerWithDependencies(workers *river.Workers, store *persistence.PostgresStore, client riverClient, provider enrichment.TranslationProvider, config PreparedDeckConfig, timeout time.Duration) {
+	river.AddWorker(workers, &StandardTranslationWorker{Store: store, Client: client, Provider: provider, Config: config, AttemptTimeout: timeout})
 }
 
 func (JobArgs) Kind() string { return "prepared_deck" }

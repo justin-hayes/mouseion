@@ -416,7 +416,7 @@ func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMa
 	if content == nil {
 		content = []byte{}
 	}
-	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET language=excluded.language,title=excluded.title,media_type=excluded.media_type RETURNING id`, v.OwnerID, v.Language, v.SourceIdentifier, v.MediaType, v.ContentHash, content, v.FullText).Scan(&out.ID)
+	err = s.pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(owner_id,source_identifier) DO UPDATE SET language=excluded.language,title=excluded.title,media_type=excluded.media_type RETURNING id`, v.OwnerID, v.Language, v.SourceIdentifier, v.Title, v.MediaType, v.ContentHash, content, v.FullText).Scan(&out.ID)
 	if err != nil {
 		return out, err
 	}
