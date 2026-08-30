@@ -13,6 +13,10 @@ ARG PROTOC_SHA256_ARM64=6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8
 
 ARG CODEX_VERSION=0.150.1
 
+ARG GH_VERSION=2.98.0
+ARG GH_SHA256_AMD64=3b8ac6b30336802fc1a858d7c084e11cdf24ac1a761ca90b68022d7d729208de
+ARG GH_SHA256_ARM64=cf689084f3a3618f7eae4a2420d335d74626d65f5e594b9828d125d69f800d86
+
 USER root
 
 # Runtime layout:
@@ -115,6 +119,25 @@ RUN set -eux; \
     command -v codex; \
     codex --version
 
+# Install the GitHub CLI (gh) for autonomous repo operations (PRs, issues,
+# checks). Pinned release + SHA256, mirrored into immutable /usr/local.
+# gh has no system-package install in this base image and is a hard dependency
+# of the issue→PR agent workflow, so it is baked in and verified here.
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+        amd64) gh_suffix=amd64; gh_checksum="${GH_SHA256_AMD64}" ;;\
+        arm64) gh_suffix=arm64; gh_checksum="${GH_SHA256_ARM64}" ;;\
+        *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;;\
+    esac; \
+    curl -fsSL --retry 3 --retry-all-errors \
+        -o /tmp/gh.tar.gz \
+        "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_suffix}.tar.gz"; \
+    printf '%s  %s\n' "${gh_checksum}" /tmp/gh.tar.gz | sha256sum -c -; \
+    tar -xzf /tmp/gh.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${gh_suffix}/bin/gh" /usr/local/bin/gh; \
+    rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${gh_suffix}"; \
+    gh --version
+
 # Create runtime directories.
 #
 # The runtime UID/GID is supplied by Hermes and may not correspond to an
@@ -150,6 +173,8 @@ RUN set -eux; \
     go version; \
     command -v codex; \
     codex --version; \
+    command -v gh; \
+    gh --version; \
     command -v protoc; \
     protoc --version; \
     command -v protoc-gen-go; \

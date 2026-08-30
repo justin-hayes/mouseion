@@ -51,11 +51,13 @@ hermes-worker-smoke:
 		command -v protoc-gen-go >/dev/null; \
 		command -v protoc-gen-go-grpc >/dev/null; \
 		command -v codex >/dev/null; \
+		command -v gh >/dev/null; \
 		go version; \
 		protoc --version; \
 		protoc-gen-go --version; \
 		protoc-gen-go-grpc --version; \
-		codex --version'
+		codex --version; \
+		gh --version'
 
 dev: go-tmp
 	go run ./cmd/server
