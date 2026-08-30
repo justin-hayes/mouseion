@@ -40,6 +40,26 @@ func TestBatchMetricsBoundUnknownLabels(t *testing.T) {
 	}
 }
 
+func TestMetricsAggregateByModeAndBoundUnknownMode(t *testing.T) {
+	collector := NewMetricsCollector()
+	collector.ObserveBatch(BatchMetric{Mode: "standard", Name: MetricBatchRequests, Phase: "provider", State: "completed", Provider: "openai", Value: 1})
+	collector.ObserveBatch(BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: 2})
+	collector.ObserveBatch(BatchMetric{Mode: "run-id", Name: MetricBatchRequests, Value: 3})
+	samples := collector.Snapshot()
+	if len(samples) != 3 {
+		t.Fatalf("samples=%+v", samples)
+	}
+	seen := map[string]bool{}
+	for _, sample := range samples {
+		seen[sample.Mode] = true
+	}
+	for _, mode := range []string{"standard", "batch", "unknown"} {
+		if !seen[mode] {
+			t.Fatalf("mode %q missing from samples: %+v", mode, samples)
+		}
+	}
+}
+
 func TestBoundedProviderFileErrorDoesNotExposeObjectID(t *testing.T) {
 	if got := boundedProviderCode("file_batch_123/provider-secret"); got != "provider_error" {
 		t.Fatalf("bounded provider code=%q", got)

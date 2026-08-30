@@ -63,13 +63,16 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	if !found || item.CacheKey == nil {
 		return w.fail(ctx, args, token, "identity", "manifest_item", true, false)
 	}
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
 	key := *item.CacheKey
 	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
 		return w.fail(ctx, args, token, "persistence", "cache_lookup", false, false)
 	} else if hit && enrichment.HasRequiredTranslationFields(entry, item.Entry.Sentence) {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
 		return finishErr
 	} else {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
 		_ = entry
 	}
 
@@ -80,17 +83,32 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		timeout = 30 * time.Second
 	}
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
-	response, callErr := w.Provider.Translate(callCtx, request)
+	var usage enrichment.TranslationUsage
+	var response enrichment.TranslationResponse
+	var callErr error
+	if usageProvider, ok := w.Provider.(interface {
+		TranslateWithUsage(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, enrichment.TranslationUsage, error)
+	}); ok {
+		response, usage, callErr = usageProvider.TranslateWithUsage(callCtx, request)
+	} else {
+		response, callErr = w.Provider.Translate(callCtx, request)
+	}
 	cancel()
 	providerLatency := w.now().Sub(started)
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchRequests, Phase: "provider", State: "completed", Provider: "openai", Value: 1})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderRequestLatency, Phase: "provider", State: "completed", Provider: "openai", Value: seconds(providerLatency)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageInputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.PromptTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchUsageOutputTokens, Phase: "provider", State: "completed", Provider: "openai", Value: float64(usage.CompletionTokens)})
 	if callErr != nil {
 		class, code, retryable := classifyStandardProviderError(callErr, ctx)
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
 		if retryable && claimed.ProviderAttemptCount+1 < claimed.MaxProviderAttempts {
 			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, class, code)
 		}
 		return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
 	}
 	if strings.TrimSpace(response.Translation) == "" || strings.TrimSpace(response.Gloss) == "" || (request.ExampleSentence != "" && strings.TrimSpace(response.SentenceTranslation) == "") || strings.ContainsAny(response.Translation+response.Gloss+response.SentenceTranslation+response.SentenceTranslationTarget, "<>") {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
 	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
@@ -100,6 +118,9 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	}
 	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency}, w.finalizer)
 	_ = stored
+	if err == nil {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
+	}
 	return err
 }
 
@@ -131,6 +152,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 		}
 		return err
 	}
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchRetries, Phase: "translating", State: "retrying", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
 	newArgs := args
 	newArgs.Generation = updated.DispatchGeneration
 	tx, err := w.Store.Pool().Begin(ctx)
@@ -176,8 +198,28 @@ func (w *StandardTranslationWorker) fail(ctx context.Context, args StandardTrans
 }
 
 func (w *StandardTranslationWorker) failWithLatency(ctx context.Context, args StandardTranslationJobArgs, token, class, code string, providerAttempt bool, providerLatency time.Duration) error {
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
 	_, _, err := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeFailed, ErrorClass: class, ErrorCode: code, ProviderAttempt: providerAttempt, ProviderCall: providerAttempt, ProviderLatency: providerLatency}, w.finalizer)
 	return err
+}
+
+func standardMetricErrorClass(class, code string) string {
+	switch {
+	case code == "http_429", code == "rate_limit":
+		return "rate_limit"
+	case code == "transport_timeout" || code == "http_408":
+		return "timeout"
+	case strings.HasPrefix(code, "http_5"):
+		return "provider_5xx"
+	case class == "validation":
+		return "validation"
+	case class == "configuration":
+		return "configuration"
+	case class == "cancellation":
+		return "cancelled"
+	default:
+		return "terminal"
+	}
 }
 
 func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, run domain.PreparedDeckRun) error {

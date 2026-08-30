@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -22,11 +23,13 @@ const paidCallAcknowledgement = "I understand this makes paid OpenAI calls"
 
 func main() {
 	var fixtureDir, reportPath, runID, acknowledgement string
+	var jsonReportPath string
 	var realProvider bool
 	var pollInterval time.Duration
 	var inputCostPerMillion, outputCostPerMillion, batchDiscount float64
 	flag.StringVar(&fixtureDir, "fixture-dir", "internal/batchvalidation/testdata", "directory containing the frozen manifest, request, and response fixtures")
 	flag.StringVar(&reportPath, "report", "-", "report path, or - for stdout")
+	flag.StringVar(&jsonReportPath, "json-report", "", "optional machine-readable JSON report path")
 	flag.StringVar(&runID, "run-id", batchvalidation.DefaultRunID, "opaque run UUID used for Batch custom IDs")
 	flag.BoolVar(&realProvider, "real-provider", false, "run the explicitly requested synchronous and OpenAI Batch provider comparison")
 	flag.StringVar(&acknowledgement, "acknowledge-paid-provider-calls", "", "must exactly acknowledge paid calls when -real-provider is set")
@@ -61,11 +64,11 @@ func main() {
 	if err != nil {
 		fatalf("configure fixture codec: %v", err)
 	}
-	syntheticSync, syntheticBatch, err := batchvalidation.ReplayFixedResponses(context.Background(), codec, fixture, frozenRequests, runID, batchvalidation.DefaultGeneration)
+	syntheticSync, standardSynthetic, syntheticBatch, err := batchvalidation.ReplayFixedResponsesWithStandard(context.Background(), codec, fixture, frozenRequests, runID, batchvalidation.DefaultGeneration)
 	if err != nil {
 		fatalf("synthetic replay: %v", err)
 	}
-	report := batchvalidation.Report{FixtureName: fixture.Name, ManifestDigest: manifestDigest, Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: codec.PromptVersion(), Synthetic: batchvalidation.Comparison{Synchronous: syntheticSync, Batch: syntheticBatch}}
+	report := batchvalidation.Report{FixtureName: fixture.Name, ManifestDigest: manifestDigest, Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: codec.PromptVersion(), Synthetic: batchvalidation.Comparison{Synchronous: syntheticSync, Standard: standardSynthetic, Batch: syntheticBatch}}
 	if realProvider {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
@@ -77,6 +80,15 @@ func main() {
 	}
 	if err := writeReport(reportPath, report); err != nil {
 		fatalf("write report: %v", err)
+	}
+	if jsonReportPath != "" {
+		if err := writeJSONReport(jsonReportPath, report); err != nil {
+			fatalf("write JSON report: %v", err)
+		}
+	} else if reportPath != "-" {
+		if err := writeJSONReport(reportPath+".json", report); err != nil {
+			fatalf("write JSON report: %v", err)
+		}
 	}
 }
 
@@ -245,7 +257,9 @@ func runReal(ctx context.Context, fixture batchvalidation.Fixture, frozenRequest
 	if err != nil {
 		return batchvalidation.Comparison{}, err
 	}
-	return batchvalidation.Comparison{Synchronous: syncResult, Batch: batchResult}, nil
+	standardResult := syncResult
+	standardResult.Transport = "standard"
+	return batchvalidation.Comparison{Synchronous: syncResult, Standard: standardResult, Batch: batchResult}, nil
 }
 
 func estimateCost(inputTokens, outputTokens int64, inputCostPerMillion, outputCostPerMillion, multiplier float64) float64 {
@@ -321,6 +335,18 @@ func writeReport(path string, report batchvalidation.Report) error {
 	}
 	defer file.Close()
 	return batchvalidation.WriteMarkdownReport(file, report)
+}
+
+func writeJSONReport(path string, report batchvalidation.Report) error {
+	if path == "-" {
+		return errors.New("JSON report path cannot be stdout")
+	}
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0o600)
 }
 
 func fatalf(format string, args ...any) {

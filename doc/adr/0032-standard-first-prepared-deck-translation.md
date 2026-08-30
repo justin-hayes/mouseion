@@ -1,6 +1,6 @@
 # ADR 0032: Make standard requests the interactive prepared-deck translation default
 
-Status: **Proposed** · Date: 2026-08-29 · Author: Justin + Hermes
+Status: **Accepted** · Date: 2026-08-29 · Author: Justin + Hermes
 
 ## Context
 
@@ -15,8 +15,9 @@ predictable preparation workflow, not an offline processing window. Batch remain
 useful for cache prewarming and other delayed work, but its latency contract does
 not fit the primary learner-facing path.
 
-The implementation already contains most of the durable scalar foundation that
-ADR 0030 introduced before ADR 0031 superseded its dispatch path:
+The implementation now contains the durable scalar foundation and standard
+worker described here, including the foundation that ADR 0030 introduced
+before ADR 0031 superseded its dispatch path:
 
 - `deck_preparation_runs`, immutable manifests, and per-item
   `deck_preparation_translation_outcomes`;
@@ -45,7 +46,7 @@ economy work. The initial change does not add a learner-visible economy selector
 Changing process configuration must not change an already-frozen run's mode.
 There is no automatic standard-to-Batch fallback after timeout or retry exhaustion.
 
-After this ADR is accepted, it supersedes ADR 0031 sections 2 and 7 only where
+This accepted ADR supersedes ADR 0031 sections 2 and 7 only where
 they require Batch as the sole prepared-deck transport and define prepared decks
 as an offline workflow. ADR 0031's Batch submission, correlation, reconciliation,
 cancellation, cleanup, and file-retention decisions continue to govern `batch`

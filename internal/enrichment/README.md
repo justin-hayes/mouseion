@@ -1,10 +1,10 @@
 # External LLM translation
 
 Mouseion supports OpenAI-compatible Chat Completions endpoints through
-`NewConfiguredLLMProvider` for non-prepared-deck enrichment. Prepared-deck
-translation uses the separate durable OpenAI Batch adapter and therefore
-requires the official OpenAI API base URL. The administrator controls the
-shared provider with:
+`NewConfiguredLLMProvider` for non-prepared-deck enrichment and the default
+prepared-deck standard path. Explicit Batch work uses the separate durable
+OpenAI Batch adapter and therefore requires the official OpenAI API base URL.
+The administrator controls the shared provider with:
 
 - `MOUSEION_LLM_ENABLED`: set to `true` to enable external translation.
 - `MOUSEION_LLM_API_KEY`: bearer credential (required when enabled).

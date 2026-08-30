@@ -84,13 +84,13 @@ func (w *BatchCleanupWorker) Cleanup(ctx context.Context, args BatchCleanupJobAr
 		_, deleteErr := w.Provider.DeleteFile(ctx, id)
 		if deleteErr == nil || providerFileGone(deleteErr) {
 			*next = "deleted"
-			observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchFileCleanup, Phase: "cleanup", State: "deleted", Provider: "openai", Value: 1})
+			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "deleted", Provider: "openai", Value: 1})
 			return
 		}
 		*next = "failed"
 		cleanupErrorClass = "provider"
 		cleanupErrorCode = "delete_file"
-		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: cleanupErrorClass, Provider: "openai", Value: 1})
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchFileCleanup, Phase: "cleanup", State: "failed", ErrorClass: cleanupErrorClass, Provider: "openai", Value: 1})
 	}
 	updateFile(claimed.InputFileID, claimed.InputFileCleanupState, &update.InputFileAttempts, &update.InputFileState)
 	updateFile(claimed.OutputFileID, claimed.OutputFileCleanupState, &update.OutputFileAttempts, &update.OutputFileState)

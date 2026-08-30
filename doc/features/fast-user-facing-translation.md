@@ -65,9 +65,8 @@ without returning to one long, in-memory preparation attempt.
    status.
 2. `internal/prepareddeck/jobs.go` creates the `deck_preparations` row and the
    `prepared_deck` River job.
-3. `cmd/server/main.go` currently calls `prepareddeck.AddBatchWorker`, making
-   `internal/prepareddeck/cutover.go`'s `BatchPlanner` the only prepared-deck
-   planner when external translation is configured.
+3. `cmd/server/main.go` registers the standard worker by default while retaining
+   the Batch planner for explicitly configured Batch runs.
 4. `BatchPlanner` calls the existing card-export builder, freezes a durable run and
    immutable manifest through `internal/persistence/prepared_deck_runs.go`, plans
    deterministic chunks, and inserts Batch submission jobs.
@@ -276,7 +275,7 @@ current operational logging policy permits it.
 | Standard worker | new `internal/prepareddeck/standard_*.go`; `recovery.go` | One claimed item and provider attempt per River job; cache hit, strict request, persisted retry, terminal failure, and restart repair. |
 | Runtime config | `internal/prepareddeck/config.go`; `cmd/server/main.go`; `internal/analysis/jobs.go`; `.env.example`; `compose.yaml` | Parse settings, create dedicated queue, wire standard provider and workers, retain Batch workers when configured. |
 | Status/UI | `internal/persistence/prepared_deck_status.go`; `internal/webapp/webapp.go`; `views.templ` and generated file/tests | Expose execution mode and mode-aware phases/counts; remove Batch language from standard jobs. |
-| Metrics/smoke | `internal/prepareddeck/metrics.go`; `cmd/batch-validation`; new/extended validation command; `doc/reports/` | Generalize metrics and add an explicit paid standard-path smoke/report workflow plus APKG compatibility check. |
+| Metrics/smoke | `internal/prepareddeck/metrics.go`; mode-neutral `cmd/batch-validation`; `doc/reports/` | Generalize telemetry across standard and Batch and validate both transports with an explicit paid standard-path smoke/report workflow plus APKG compatibility check. |
 
 ## Implementation issues and dependency waves
 

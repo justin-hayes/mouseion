@@ -224,18 +224,23 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	started := now().UTC()
 	var totalStarted time.Time
+	mode := ""
 	defer func() {
-		observeBatchMetric(f.Metrics, BatchMetric{Name: MetricBatchPhaseLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(started))})
+		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricBatchPhaseLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(started))})
 		if totalStarted.IsZero() {
 			totalStarted = started
 		}
-		observeBatchMetric(f.Metrics, BatchMetric{Name: MetricBatchTotalLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(totalStarted))})
+		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricBatchTotalLatency, Phase: "finalizing", Provider: "openai", Value: seconds(now().Sub(totalStarted))})
 	}()
 	claimedAt := now().UTC()
 	token := uuid.NewString()
 	run, err := f.Store.ClaimPreparedDeckFinalization(ctx, owner, preparationID, runID, generation, token, claimedAt.Add(lease))
 	if err != nil {
 		return domain.DeckPreparation{}, err
+	}
+	mode = string(run.ExecutionMode)
+	if mode != "standard" && mode != "batch" {
+		mode = "unknown"
 	}
 	totalStarted = run.CreatedAt
 	if run.State == domain.PreparedDeckRunCompleted {
@@ -250,7 +255,14 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	artifact, err := f.Renderer.RenderManifest(ctx, manifest, exact)
 	if err != nil {
+		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)
 	}
-	return f.Store.CompletePreparedDeckRun(ctx, owner, preparationID, runID, token, artifact)
+	result, err := f.Store.CompletePreparedDeckRun(ctx, owner, preparationID, runID, token, artifact)
+	if err != nil {
+		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
+		return domain.DeckPreparation{}, err
+	}
+	observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
+	return result, nil
 }

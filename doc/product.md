@@ -74,7 +74,8 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
 30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — defines immutable preparation runs, resumable candidate outcomes, and idempotent atomic finalization.
-31. [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — defines provider-specific Batch chunks, durable reconciliation, bounded retries, temporary provider files, and the retirement of prepared-deck synchronous transport.
+31. [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — superseded by ADR 0032; retains the historical Batch transport and reconciliation decisions.
+32. [ADR 0032: Standard-first prepared-deck translation](adr/0032-standard-first-prepared-deck-translation.md) — makes durable standard execution the interactive default while retaining Batch for explicit offline/economy work.
 
 ## Deployment and operations
 
@@ -108,12 +109,13 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
   or cancellation. Failed deletion is retried a bounded number of times and
   does not invalidate a reconciled deck.
 
-Prepared-deck translation is an offline workflow when external translation is
-enabled. A preparation can remain in `preparing` while OpenAI processes its
-Batch for up to the provider's 24-hour completion window; the status endpoint
-reports the current phase, durable counts, retrying items, and cancellation
-control. Cancellation stops local publication first, while provider file
-cleanup remains best effort.
+Prepared-deck translation uses durable standard execution by default when
+external translation is enabled. Batch remains available for explicit
+offline/economy work; those preparations can remain in `preparing` while
+OpenAI processes a Batch for up to the provider's 24-hour completion window.
+The status endpoint reports the current phase, durable counts, retrying items,
+and cancellation control. Cancellation stops local publication first, while
+provider file cleanup remains best effort.
 
 The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
 

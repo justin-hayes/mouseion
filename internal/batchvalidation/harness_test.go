@@ -28,12 +28,15 @@ func TestFrozenFixtureReplaysBothTransportsWithStableArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncResult, batchResult, err := ReplayFixedResponses(context.Background(), codec, fixture, frozenRequests, DefaultRunID, DefaultGeneration)
+	syncResult, standardResult, batchResult, err := ReplayFixedResponsesWithStandard(context.Background(), codec, fixture, frozenRequests, DefaultRunID, DefaultGeneration)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if syncResult.Artifact != batchResult.Artifact {
 		t.Fatalf("fixed-response artifacts differ: sync=%+v batch=%+v", syncResult.Artifact, batchResult.Artifact)
+	}
+	if standardResult.Transport != "standard" || !standardResult.APKGValid || standardResult.APKGValidationStatus != "valid" {
+		t.Fatalf("standard APKG/report result=%+v", standardResult)
 	}
 	if syncResult.Metrics.CacheHits != 1 || syncResult.Metrics.CacheMisses != 2 || batchResult.Metrics.ProviderCalls != 1 || syncResult.Completeness.QualityOmitted != 1 {
 		t.Fatalf("unexpected replay metrics: sync=%+v batch=%+v", syncResult.Metrics, batchResult.Metrics)
@@ -114,7 +117,7 @@ func TestWriteMarkdownReportSeparatesSyntheticEvidenceAndRealMeasurement(t *test
 	if err := WriteMarkdownReport(&report, Report{FixtureName: fixture.Name, ManifestDigest: "fixture-digest", Provider: fixture.Provider, ProviderVersion: fixture.ProviderVersion, Model: fixture.Model, Prompt: fixture.PromptVersion}); err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Synthetic replay (not cutover evidence)", "Real-provider measurement", "not run", "quality", "operational recovery", "ADR-0031", "Cutover recommendation", "code revert"} {
+	for _, phrase := range []string{"Synthetic replay (not cutover evidence)", "Real-provider measurement", "not run", "quality", "operational recovery", "ADR-0031", "Cutover recommendation", "code revert", "Standard transport", "APKG valid"} {
 		if !strings.Contains(report.String(), phrase) {
 			t.Fatalf("report missing %q", phrase)
 		}

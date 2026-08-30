@@ -4,6 +4,7 @@
 package batchvalidation
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -257,14 +258,16 @@ type Quality struct {
 }
 
 type Result struct {
-	Transport      string                                 `json:"transport"`
-	Requests       []RequestFixture                       `json:"requests"`
-	Metrics        Metrics                                `json:"metrics"`
-	Quality        Quality                                `json:"quality"`
-	Completeness   cardexport.Completeness                `json:"completeness"`
-	Artifact       ArtifactDigests                        `json:"artifact"`
-	ArtifactStable bool                                   `json:"artifact_byte_stable"`
-	Responses      map[int]enrichment.TranslationResponse `json:"-"`
+	Transport            string                                 `json:"transport"`
+	Requests             []RequestFixture                       `json:"requests"`
+	Metrics              Metrics                                `json:"metrics"`
+	Quality              Quality                                `json:"quality"`
+	Completeness         cardexport.Completeness                `json:"completeness"`
+	Artifact             ArtifactDigests                        `json:"artifact"`
+	ArtifactStable       bool                                   `json:"artifact_byte_stable"`
+	APKGValid            bool                                   `json:"apkg_valid"`
+	APKGValidationStatus string                                 `json:"apkg_validation_status,omitempty"`
+	Responses            map[int]enrichment.TranslationResponse `json:"-"`
 }
 
 // ReplayFixedResponses runs the same fixed response set through both the
@@ -331,6 +334,20 @@ func ReplayFixedResponses(ctx context.Context, codec *enrichment.TranslationCode
 	syncResult.Quality.ReviewStatus = "not_reviewed_synthetic"
 	batchResult.Quality.ReviewStatus = "not_reviewed_synthetic"
 	return syncResult, batchResult, nil
+}
+
+// ReplayFixedResponsesWithStandard exposes the standard execution label in
+// addition to the historical synchronous and Batch results. Standard uses the
+// same one-item provider contract and frozen responses, so replay does not
+// duplicate synthetic or paid calls.
+func ReplayFixedResponsesWithStandard(ctx context.Context, codec *enrichment.TranslationCodec, f Fixture, requestFixture []byte, runID string, generation int) (Result, Result, Result, error) {
+	synchronous, batch, err := ReplayFixedResponses(ctx, codec, f, requestFixture, runID, generation)
+	if err != nil {
+		return Result{}, Result{}, Result{}, err
+	}
+	standard := synchronous
+	standard.Transport = "standard"
+	return synchronous, standard, batch, nil
 }
 
 func decodeFixedSync(ctx context.Context, codec *enrichment.TranslationCodec, f Fixture, manifest cardexport.Manifest, items []enrichment.BatchTranslationItem) (map[int]enrichment.TranslationResponse, Metrics, error) {
@@ -499,7 +516,21 @@ func buildResult(ctx context.Context, transport string, codec *enrichment.Transl
 			}
 		}
 	}
-	return Result{Transport: transport, Requests: requests, Metrics: metrics, Quality: quality, Completeness: artifact.Completeness, Artifact: ArtifactDigests{APKG: digest(artifact.APKG), TSV: digest([]byte(artifact.TSV))}, ArtifactStable: bytes.Equal(artifact.APKG, again.APKG) && artifact.TSV == again.TSV}, nil
+	apkgValid, apkgStatus := validateAPKG(artifact.APKG)
+	return Result{Transport: transport, Requests: requests, Metrics: metrics, Quality: quality, Completeness: artifact.Completeness, Artifact: ArtifactDigests{APKG: digest(artifact.APKG), TSV: digest([]byte(artifact.TSV))}, ArtifactStable: bytes.Equal(artifact.APKG, again.APKG) && artifact.TSV == again.TSV, APKGValid: apkgValid, APKGValidationStatus: apkgStatus}, nil
+}
+
+func validateAPKG(payload []byte) (bool, string) {
+	archive, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	if err != nil {
+		return false, "invalid_zip"
+	}
+	for _, file := range archive.File {
+		if file.Name == "collection.anki2" {
+			return true, "valid"
+		}
+	}
+	return false, "missing_collection"
 }
 
 // BuildResult renders a provider run against the frozen manifest. It is used
@@ -550,6 +581,7 @@ type Report struct {
 
 type Comparison struct {
 	Synchronous Result `json:"synchronous"`
+	Standard    Result `json:"standard"`
 	Batch       Result `json:"batch"`
 }
 
@@ -569,7 +601,8 @@ func WriteMarkdownReport(w io.Writer, report Report) error {
 		if _, err := fmt.Fprintf(w, "Artifact digests: APKG `%s` / `%s`; TSV `%s` / `%s`.\n\n", comparison.Synchronous.Artifact.APKG, comparison.Batch.Artifact.APKG, comparison.Synchronous.Artifact.TSV, comparison.Batch.Artifact.TSV); err != nil {
 			return err
 		}
-		return nil
+		_, err := fmt.Fprintf(w, "Standard transport: `%s`; APKG valid: `%t` (`%s`); artifact byte stable: `%t`.\n\n", comparison.Standard.Transport, comparison.Standard.APKGValid, comparison.Standard.APKGValidationStatus, comparison.Standard.ArtifactStable)
+		return err
 	}
 	if err := writeComparison("Synthetic replay (not cutover evidence)", report.Synthetic); err != nil {
 		return err

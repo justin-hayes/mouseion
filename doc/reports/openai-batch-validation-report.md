@@ -1,4 +1,4 @@
-# OpenAI Batch prepared-deck validation report
+# Prepared-deck translation validation report
 
 Fixture: `<name>`<br>
 Manifest digest: `<sha256>`<br>

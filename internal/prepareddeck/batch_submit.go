@@ -52,11 +52,11 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	started := w.now()
 	var totalStarted time.Time
 	defer func() {
-		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchPhaseLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(started))})
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchPhaseLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(started))})
 		if totalStarted.IsZero() {
 			totalStarted = started
 		}
-		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchTotalLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchTotalLatency, Phase: "submitting", Provider: "openai", Value: seconds(w.now().Sub(totalStarted))})
 	}()
 	chunk, err := w.Store.GetPreparedDeckBatchChunk(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID)
 	if err != nil {
@@ -176,10 +176,10 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	}
 	err = w.recordSubmitted(ctx, args, claimToken, inputFile.ID, created.ID)
 	if err == nil {
-		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchSubmissions, Phase: "submitting", State: "submitted", Provider: "openai", Value: 1})
-		observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchRequests, Phase: "submitting", State: "submitted", Provider: "openai", Value: float64(claimed.RequestCount)})
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchSubmissions, Phase: "submitting", State: "submitted", Provider: "openai", Value: 1})
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "submitting", State: "submitted", Provider: "openai", Value: float64(claimed.RequestCount)})
 		if !claimed.CreatedAt.IsZero() {
-			observeBatchMetric(w.Metrics, BatchMetric{Name: MetricBatchQueueAge, Phase: "submitting", State: "submitted", Provider: "openai", Value: seconds(w.now().Sub(claimed.CreatedAt))})
+			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchQueueAge, Phase: "submitting", State: "submitted", Provider: "openai", Value: seconds(w.now().Sub(claimed.CreatedAt))})
 		}
 	}
 	return err
