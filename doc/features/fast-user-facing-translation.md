@@ -275,7 +275,7 @@ current operational logging policy permits it.
 | Standard worker | new `internal/prepareddeck/standard_*.go`; `recovery.go` | One claimed item and provider attempt per River job; cache hit, strict request, persisted retry, terminal failure, and restart repair. |
 | Runtime config | `internal/prepareddeck/config.go`; `cmd/server/main.go`; `internal/analysis/jobs.go`; `.env.example`; `compose.yaml` | Parse settings, create dedicated queue, wire standard provider and workers, retain Batch workers when configured. |
 | Status/UI | `internal/persistence/prepared_deck_status.go`; `internal/webapp/webapp.go`; `views.templ` and generated file/tests | Expose execution mode and mode-aware phases/counts; remove Batch language from standard jobs. |
-| Metrics/smoke | `internal/prepareddeck/metrics.go`; mode-neutral `cmd/batch-validation`; `doc/reports/` | Generalize telemetry across standard and Batch and validate both transports with an explicit paid standard-path smoke/report workflow plus APKG compatibility check. |
+| Metrics/smoke | `internal/prepareddeck/metrics.go` | Generalize telemetry across standard and Batch. |
 
 ## Implementation issues and dependency waves
 
@@ -380,22 +380,6 @@ git diff --exit-code
 
 Run `make test-nlp` only when NLP service files change. Generated `*_templ.go` files
 must be committed with template changes.
-
-### Paid manual smoke
-
-Extend or add an operator-only command that is offline by default and requires an
-explicit acknowledgement before paid calls. Run a representative prepared deck
-through the real standard endpoint and record:
-
-- model, prompt/schema version, item and request count;
-- wall-clock duration plus average and tail request latency;
-- retries, rate limits, validation failures, cache hits/misses;
-- provider token usage and configured cost calculation;
-- all required translated fields present;
-- generated archive/database structure and Anki importability;
-- comparison with the existing Batch validation report.
-
-Do not hard-code an SLO from one run.
 
 ## Risks and mitigations
 
