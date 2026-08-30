@@ -4,8 +4,12 @@ Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
 
 > **Card-output amendment (2026-08-27):** New APKG and TSV notes use a
 > recognition presentation with the complete source sentence and a visibly
-> bolded target. The owner/language/canonical-lemma/UPOS key remains the stable
-> Anki GUID and persistence key; the duplicate `SourceSentence` field is gone.
+> bolded target. The deterministic owner-scoped `Identity` hash over the
+> representative identity columns is Anki's sort/deduplication field. The
+> owner/language/canonical-lemma/UPOS key remains the stable Anki GUID and
+> persistence key; the duplicate `SourceSentence` field is gone. `Article` is
+> the noun's definite article rendered before the lemma. Morphology is consumed
+> to derive that article and is not emitted as verbose JSON card content.
 
 ## Context
 
@@ -25,11 +29,11 @@ These were Open Question 5 in `product.md` and consolidated as issue #27. The pr
 
 ### 2. A custom recognition note type with a stable deduplication key
 
-- **Note type:** a recognition note whose **first exported field is the complete source sentence**. The stable identity-based deduplication key remains the Anki GUID:
+- **Note type:** a recognition note whose front remains the complete source sentence with the tested target visibly bolded. Its first note field is the deterministic `Identity` value, which Anki uses as the sort/deduplication field. The stable identity-based deduplication key remains the Anki GUID:
   `hash(language | canonical_lemma | upos | user_id)`.
   - This is what Anki uses to deduplicate on re-import. Because the key derives from identity (ADR 0005) plus the owning user (ADR 0002), re-importing the same item is **idempotent** — a second example sentence for the same word updates/replaces rather than spawning a duplicate card.
   - The source sentence is complete and the target form is visibly bolded; it is never clozed or shortened.
-- **Fields (order):** `Text`, `Lemma`, `POS`, `Morph`, `English`, `EnglishSentence`, `BookTitle`, then tags. `SourceSentence` is deliberately absent because `Text` is the one learner-facing German source sentence.
+- **Fields (order):** `Identity`, `Text`, `Article`, `Lemma`, `POS`, `English`, `EnglishSentence`, `BookTitle`, then tags. `Article` is the noun's definite article rendered before `Lemma`. Morphology is used internally to derive the article and is not emitted as a verbose JSON card field. `SourceSentence` is deliberately absent because `Text` is the one learner-facing German source sentence.
 - **Tags:** `Mouseion`, plus language, POS, and source book — so decks can be filtered per language/book.
 - **Artifact: TSV only in v1.** `.apkg` (Anki's zip-of-SQLite-and-media container) is heavier to generate and would need the note type embedded; deferred as a later enhancement.
 
