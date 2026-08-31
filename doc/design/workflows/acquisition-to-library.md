@@ -2,9 +2,11 @@
 
 Status: **Canonical learner-facing design workflow.** The shipped acquisition
 contract currently uses **Add to library** and stores acquired EPUBs. The target
-label **Add to My Books** must ship only with planner/feature-contract
-reconciliation for the broader My Books model; this document does not redefine
-source ownership or persistence.
+label **Add to My Books** ships with the staged implementation of
+[ADR 0035](../../adr/0035-my-books-membership-and-source-provenance.md), not as a
+copy-only change. This workflow acquires an EPUB while creating or restoring My
+Books membership; My Books can also contain metadata-only Books outside this
+acquisition path.
 
 ## Goal
 
@@ -17,6 +19,7 @@ The product behavior is defined primarily by:
 - [Explicit Scoped-Analysis Workflow](../../features/explicit-scoped-analysis-workflow.md)
 - [Language Support](../../features/language-support.md)
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
+- [ADR 0035: My Books membership and source provenance](../../adr/0035-my-books-membership-and-source-provenance.md)
 
 ## Entry and destination decision
 
@@ -46,7 +49,7 @@ Add books
     -> Browse, search, or follow a collection
     -> Add to My Books
     -> Remain in catalog context
-    -> Add another book or open the owned book
+    -> Add another book or open the acquired book
 ```
 
 ### 1. Configure a catalog connection
@@ -95,18 +98,24 @@ An upstream failure is not presented as an indefinitely loading feed.
 **Learner question:** Was this EPUB safely added, and can I continue browsing?
 
 Each eligible entry uses **Add to My Books**. The action downloads and validates
-the EPUB, stores immutable source content and extracted-unit identity, and does
-not confirm a scope or start analysis.
+the EPUB, resolves the owner-scoped Book and duplicate rules from ADR 0035,
+stores immutable source content and extracted-unit identity, creates or restores
+My Books membership, and does not confirm a scope or start analysis. A Book that
+was already in My Books as metadata-only becomes acquired only after the full
+validated snapshot is stored; no partial source state is published.
 
 Success updates the entry in place and keeps the learner in the current feed.
 The post-success choices are:
 
 1. continue adding books;
-2. open the owned book to review its scope.
+2. open the acquired book to review its scope.
 
 Opening the book is secondary to preserving the multi-add workflow. Repeated
-acquisition resolves to the existing owned book and says so without presenting
-an error.
+acquisition resolves by owner-scoped Book aliases and immutable content digest.
+It reports an existing acquired revision without error, or creates a new
+immutable revision when the same source identifier now supplies different
+bytes. Ambiguous identity conflicts are actionable and never silently merge
+Books or replace source evidence.
 
 ## State model
 
@@ -121,8 +130,8 @@ an error.
 | Search empty | Retain the query and selected catalog. | Revise search |
 | Upstream/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
 | Adding EPUB | Disable duplicate submission and announce progress. | None |
-| Added | Replace the entry action with owned state and an optional book link. | Continue browsing |
-| Already owned | Link to the existing book without treating idempotency as failure. | Continue browsing or open book |
+| Added | Replace the entry action with acquired state and an optional book link. | Continue browsing |
+| Already acquired | Link to the existing Book without treating idempotency as failure. | Continue browsing or open book |
 | Invalid/non-EPUB acquisition | Explain that no usable book was added. | Return to feed |
 
 ## Navigation and responsive rules
