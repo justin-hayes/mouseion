@@ -41,14 +41,15 @@ const edgeBookID = "fixture-edge-content"
 var errNotFound = errors.New("fixture: not found")
 
 type Store struct {
-	mu          sync.Mutex
-	books       []domain.SourceMaterialSummary
-	jobs        []domain.AnalysisJob
-	campaigns   []domain.LearningCampaign
-	profiles    []domain.LanguageProfile
-	connections []domain.OpdsConnection
-	preps       []domain.DeckPreparation
-	myBooks     []domain.MyBook
+	mu           sync.Mutex
+	books        []domain.SourceMaterialSummary
+	jobs         []domain.AnalysisJob
+	campaigns    []domain.LearningCampaign
+	profiles     []domain.LanguageProfile
+	connections  []domain.OpdsConnection
+	preps        []domain.DeckPreparation
+	myBooks      []domain.MyBook
+	primaryGoals map[string]domain.PrimaryGoal
 }
 
 func NewStore() *Store {
@@ -67,6 +68,7 @@ func NewStore() *Store {
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
+		primaryGoals: make(map[string]domain.PrimaryGoal),
 	}
 }
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
@@ -264,6 +266,78 @@ func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, 
 }
 func (s *Store) MoveReadingJourneyEntry(_ context.Context, _ string, _ string, _ int, expectedRevision int64) (int64, error) {
 	return expectedRevision, nil
+}
+func (s *Store) GetPrimaryGoal(_ context.Context, owner string) (domain.PrimaryGoal, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, ok := s.primaryGoals[owner]
+	if !ok {
+		return domain.PrimaryGoal{}, nil
+	}
+	return goal, nil
+}
+func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (domain.PrimaryGoal, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal := domain.PrimaryGoal{OwnerID: owner, BookID: bookID}
+	if err := goal.Validate(); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
+	if !s.fixtureBookExists(owner, bookID) {
+		return domain.PrimaryGoal{}, errNotFound
+	}
+	if _, ok := s.primaryGoals[owner]; ok {
+		return domain.PrimaryGoal{}, persistence.ErrGoalExists
+	}
+	now := time.Now()
+	goal.CreatedAt, goal.UpdatedAt = now, now
+	s.primaryGoals[owner] = goal
+	return goal, nil
+}
+func (s *Store) ChangePrimaryGoal(_ context.Context, owner, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, ok := s.primaryGoals[owner]
+	if !ok {
+		return domain.PrimaryGoal{}, persistence.ErrNotFound
+	}
+	if goal.BookID != expectedBookID {
+		return domain.PrimaryGoal{}, persistence.ErrGoalStale
+	}
+	if !s.fixtureBookExists(owner, bookID) {
+		return domain.PrimaryGoal{}, errNotFound
+	}
+	goal.BookID = bookID
+	goal.UpdatedAt = time.Now()
+	s.primaryGoals[owner] = goal
+	return goal, nil
+}
+func (s *Store) ClearPrimaryGoal(_ context.Context, owner, expectedBookID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, ok := s.primaryGoals[owner]
+	if !ok {
+		return persistence.ErrNotFound
+	}
+	if goal.BookID != expectedBookID {
+		return persistence.ErrGoalStale
+	}
+	delete(s.primaryGoals, owner)
+	return nil
+}
+
+func (s *Store) fixtureBookExists(owner, bookID string) bool {
+	for _, source := range s.books {
+		if source.Source.OwnerID == owner && source.Source.ID == bookID {
+			return true
+		}
+	}
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID {
+			return true
+		}
+	}
+	return false
 }
 
 func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnitClassification {
