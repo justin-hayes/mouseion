@@ -12,12 +12,16 @@ test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('login and library expose representative content', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /library|welcome/i }).first()).toBeVisible();
-    await page.getByRole('link', { name: /library/i }).first().click();
+    await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
+    await page.getByRole('link', { name: /my books/i }).first().click();
     await expect(page).toHaveURL(/\/library/);
-    await expect(page.getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.getByText('Fehlgeschlagene Analyse')).toBeVisible();
-    await expect(page.getByText('Empty chapter')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My Books' })).toBeVisible();
+    await expect(page.locator('section[aria-labelledby="acquired-books-heading"]')).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toBeVisible();
+    await expect(page.getByText('Analysis failed — action required')).toBeVisible();
+    await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
   test('exact analysis result and deck status are reachable', async ({ page }) => {
@@ -30,7 +34,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
   });
 
-  test('acquisition, Learning, Settings, and operational jobs are reachable', async ({ page }) => {
+  test('acquisition, Reading Journey, Settings, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/connections');
     await expect(page.getByText('Fixture catalog')).toBeVisible();
     await page.goto('/catalog?connection=fixture-connection');
@@ -45,9 +49,9 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
     await expect(page.getByText('Ein deutsches Buch').first()).toBeVisible();
     await expect(page.getByText('Un libro italiano').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /add to library/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /add to my books/i }).first()).toBeVisible();
     await page.goto('/campaigns');
-    await expect(page.getByRole('heading', { name: /learning/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();

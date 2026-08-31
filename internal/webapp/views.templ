@@ -116,41 +116,59 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Library</a></li><li><a href="/campaigns" { destinationAttributes(context, NavigationLearning)... }>Learning</a></li><li><a href="/connections" { acquisitionAttributes(context)... }>Add books</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/campaigns" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/connections" { acquisitionAttributes(context)... }>Add books</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
-	@ShellLayout("My Library", &user, csrf, NavigationLibrary) {
-		@PageHeader("My Library", "Track each book's next step from scope review to learning.", nil) {
+	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
+		@PageHeader("My Books", "Track each book's next step from scope review to learning.", nil) {
 			<a role="button" href="/connections">Add a book</a>
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
 		if len(books) == 0 {
-			@EmptyState("Your library is empty", "Browse a catalog and add a book to begin.") {
-				<a href="/connections">Browse catalogs</a>
+			@EmptyState("No books in My Books yet", "Add an acquired book when you are ready to start building your collection.") {
+				<a href="/connections">Add books</a>
 			}
 		}
 		if len(books) > 0 {
-			<div class="library-list">
+			// This is the currently available acquired subset. Broader My Books
+			// membership from ADR 0034 can provide additional rows here later.
+			<section class="library-list" aria-labelledby="acquired-books-heading">
+				<h2 id="acquired-books-heading">Acquired books</h2>
 				for _, book := range books {
-					@ResourceCard() {
-						<div><h2 class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2><p class="metadata"><code>{ book.Source.Language }</code> · imported { book.Source.CreatedAt.Format("2006-01-02") }</p></div>
-						@StatusBadge(bookLifecycleActionFor(book, nil).Status, bookLifecycleActionFor(book, nil).Tone)
-						<p class="library-next-action"><strong>Next action:</strong> { bookLifecycleActionFor(book, nil).Description }</p>
-						@LifecycleActionControl(bookLifecycleActionFor(book, nil), csrf)
-					}
+					<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Source.ID }>
+						<div class="library-book__identity">
+							<h2 id={ "book-title-" + book.Source.ID } class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2>
+							<p class="metadata">
+								if book.Source.Language != "" {
+									<span>{ book.Source.Language }</span>
+								}
+								if book.Source.MediaType != "" {
+									<span>{ book.Source.MediaType }</span>
+								}
+								if !book.Source.CreatedAt.IsZero() {
+									<span>acquired { book.Source.CreatedAt.Format("2006-01-02") }</span>
+								}
+							</p>
+						</div>
+						<div class="library-book__supporting">
+							@StatusBadge(bookLifecycleActionFor(book, nil).Status, bookLifecycleActionFor(book, nil).Tone)
+							<p class="library-next-action"><strong>Next action:</strong> { bookLifecycleActionFor(book, nil).Description }</p>
+							@LifecycleActionControl(bookLifecycleActionFor(book, nil), csrf)
+						</div>
+					</article>
 				}
-			</div>
+			</section>
 		}
 	}
 }
 templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string, activeCampaignID string) {
-	@ShellLayout("Learning", &user, csrf, NavigationLearning) {
-		@PageHeader("Learning campaigns", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
+	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
+		@PageHeader("Reading Journey", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
 		}
 		if message != "" {
@@ -273,7 +291,7 @@ templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary,
 }
 templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string) {
 	@ShellLayout(book.Source.Title, &user, csrf, NavigationLibrary) {
-	@Breadcrumb("/library", "My Library")
+	@Breadcrumb("/library", "My Books")
 	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
 		@LifecycleActionControl(bookLifecycleActionFor(book, history), csrf)
 	}
@@ -834,7 +852,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
-		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Library.", nil)
+		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil)
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
@@ -855,13 +873,13 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-			<article id={ "connection-" + c.ID }><header><strong>{ c.Name }</strong></header><p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Library and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+			<article id={ "connection-" + c.ID }><header><strong>{ c.Name }</strong></header><p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
 }
 templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) { <p><a href="/connections">← Catalog connections</a></p>@PageHeader(connection.Name, "Browse this catalog and add EPUB books to My Library. Analysis starts separately.", nil)
+	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) { <p><a href="/connections">← Catalog connections</a></p>@PageHeader(connection.Name, "Browse this catalog and add EPUB books to My Books. Analysis starts separately.", nil)
 	if degraded {
 		@Feedback(FeedbackWarning, "Language readiness is degraded", "The NLP service could not confirm current capabilities. Saved language choices remain unchanged; return later before browsing or adding books.")
 	} else if len(languages) > 0 {
@@ -1063,7 +1081,7 @@ templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.
 	if returnTo != "" {
 		<input type="hidden" name="return_to" value={ returnTo }/>
 	}
-	<button type="submit">Add to library</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
+	<button type="submit">Add to My Books</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
 }
 templ AcquisitionSuccessCard(entry opds.Entry, sourceID string, alreadyPresent bool) {
 	@AcquisitionSuccessCardWithReturn(entry, sourceID, alreadyPresent, "#catalog-results")
@@ -1071,14 +1089,14 @@ templ AcquisitionSuccessCard(entry opds.Entry, sourceID string, alreadyPresent b
 templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alreadyPresent bool, returnTo string) {
 	<article data-acquisition-result="settled"><h3>{ entry.Title }</h3>
 	if alreadyPresent {
-		<p>Already in My Library; this acquisition resolved to the existing book.</p>
+		<p>Already in My Books; this acquisition resolved to the existing book.</p>
 	} else {
-		<p>Added to My Library.</p>
+		<p>Added to My Books.</p>
 	}
 	<p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a> when you are ready.</p><a href={ templ.SafeURL(returnTo) }>Continue browsing</a></article>
 }
 templ AcquisitionOwnedCard(entry opds.Entry, sourceID string) {
-	<article class="acquisition-owned"><p role="status"><strong>Already in My Library</strong></p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a></article>
+	<article class="acquisition-owned"><p role="status"><strong>Already in My Books</strong></p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a></article>
 }
 templ AcquisitionFailureCard(csrf, connectionID, connectionName, language, returnTo, message string, entry opds.Entry, href string) {
 	<article><h3>{ entry.Title }</h3><p role="alert">{ message }</p><p><strong>Affected connection:</strong> { connectionName }</p><p><a href={ templ.SafeURL("/connections#connection-"+connectionID) }>Edit connection</a> or retry the acquisition.</p>@AcquisitionForm(csrf, connectionID, language, returnTo, entry, href)</article>
@@ -1141,7 +1159,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 		}
 		if len(jobs) == 0 {
 			@EmptyState("No analysis runs yet", "Start analysis from a book after confirming its scope.") {
-				<a href="/library">Go to My Library</a>
+				<a href="/library">Go to My Books</a>
 			}
 		}
 		if len(jobs) > 0 {

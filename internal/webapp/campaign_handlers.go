@@ -139,7 +139,7 @@ func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be added to the queue. Your prepared deck was not changed; review Learning and try again.")
+		redirectCampaignMutationFailure(w, r, "The campaign could not be added to the queue. Your prepared deck was not changed; review Reading Journey and try again.")
 		return
 	}
 	if _, err = h.services.Store.CreateLearningCampaign(r.Context(), u.ID, deck.SourceMaterialID, deck.ID); err != nil {
@@ -147,7 +147,7 @@ func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
 			redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a ready, unassigned deck can be added to the queue."))
 			return
 		}
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("The campaign could not be added to the queue. Your prepared deck was not changed; review Learning and try again."))
+		redirect(w, r, "/campaigns?error="+url.QueryEscape("The campaign could not be added to the queue. Your prepared deck was not changed; review Reading Journey and try again."))
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Book and deck added to your learning queue."))
@@ -185,7 +185,7 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be started. Your queue was not changed; review Learning and try again.")
+		redirectCampaignMutationFailure(w, r, "The campaign could not be started. Your queue was not changed; review Reading Journey and try again.")
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Learning campaign started."))
@@ -227,7 +227,7 @@ func (h *Handler) abandonCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be abandoned. Its book, deck, and history are unchanged; review Learning and try again.")
+		redirectCampaignMutationFailure(w, r, "The campaign could not be abandoned. Its book, deck, and history are unchanged; review Reading Journey and try again.")
 		return
 	}
 	redirect(w, r, "/campaigns?message="+url.QueryEscape("Campaign abandoned. Its ungraduated vocabulary is available again."))
@@ -269,7 +269,7 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "Campaign progress could not be updated. No progress was changed; review Learning and try again.")
+		redirectCampaignMutationFailure(w, r, "Campaign progress could not be updated. No progress was changed; review Reading Journey and try again.")
 		return
 	}
 	if updated.Status == domain.CampaignComplete {
@@ -288,7 +288,7 @@ func campaignExpectedState(r *http.Request) (persistence.LearningCampaignExpecte
 }
 
 func redirectCampaignStale(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, "/campaigns?error="+url.QueryEscape("This campaign changed since this page was loaded. Its current state is unchanged by this request; review Learning before trying again."))
+	redirect(w, r, "/campaigns?error="+url.QueryEscape("This campaign changed since this page was loaded. Its current state is unchanged by this request; review Reading Journey before trying again."))
 }
 
 func redirectCampaignMutationFailure(w http.ResponseWriter, r *http.Request, message string) {

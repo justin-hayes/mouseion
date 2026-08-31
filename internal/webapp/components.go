@@ -94,19 +94,20 @@ type MetadataItem struct {
 type NavigationContext string
 
 const (
-	NavigationNone        NavigationContext = ""
-	NavigationLibrary     NavigationContext = "library"
-	NavigationLearning    NavigationContext = "learning"
-	NavigationAcquisition NavigationContext = "acquisition"
-	NavigationSettings    NavigationContext = "settings"
+	NavigationNone            NavigationContext = ""
+	NavigationLibrary         NavigationContext = "library"
+	NavigationReadingJourney  NavigationContext = "reading-journey"
+	NavigationLearning        NavigationContext = NavigationReadingJourney
+	NavigationAcquisition     NavigationContext = "acquisition"
+	NavigationSettings        NavigationContext = "settings"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
 	switch {
-	case title == "My Library":
+	case title == "My Books", title == "My Library":
 		return NavigationLibrary
-	case title == "Learning":
-		return NavigationLearning
+	case title == "Reading Journey", title == "Learning":
+		return NavigationReadingJourney
 	case title == "Settings", title == "Known vocabulary":
 		return NavigationSettings
 	case title == "Add books":

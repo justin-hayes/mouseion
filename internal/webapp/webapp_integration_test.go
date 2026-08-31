@@ -694,17 +694,17 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	contextCookies := append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue)
 	addedReturn := perform(t, h, "GET", acquired.Header().Get("Location"), nil, contextCookies)
-	if addedReturn.Code != http.StatusOK || !strings.Contains(addedReturn.Body.String(), "Added to My Library") || !strings.Contains(addedReturn.Body.String(), "Already in My Library") {
+	if addedReturn.Code != http.StatusOK || !strings.Contains(addedReturn.Body.String(), "Added to My Books") || !strings.Contains(addedReturn.Body.String(), "Already in My Books") {
 		t.Fatalf("added full-page return=%d %s", addedReturn.Code, addedReturn.Body.String())
 	}
 	rememberedFeed := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, contextCookies)
-	if rememberedFeed.Code != http.StatusOK || !strings.Contains(rememberedFeed.Body.String(), "Already in My Library") || !strings.Contains(rememberedFeed.Body.String(), "Open owned book") {
+	if rememberedFeed.Code != http.StatusOK || !strings.Contains(rememberedFeed.Body.String(), "Already in My Books") || !strings.Contains(rememberedFeed.Body.String(), "Open owned book") {
 		t.Fatalf("remembered acquisition state=%d %s", rememberedFeed.Code, rememberedFeed.Body.String())
 	}
 	duplicateFullPage := perform(t, h, "POST", "/opds/acquire", acquireForm, contextCookies)
 	duplicateAcquisitionCookie := cookieNamed(t, duplicateFullPage.Result().Cookies(), acquisitionCookie)
 	duplicateReturn := perform(t, h, "GET", duplicateFullPage.Header().Get("Location"), nil, append(append([]*http.Cookie{}, cookies...), duplicateAcquisitionCookie))
-	if duplicateFullPage.Code != http.StatusSeeOther || duplicateReturn.Code != http.StatusOK || !strings.Contains(duplicateReturn.Body.String(), "That book is already in My Library") || !strings.Contains(duplicateReturn.Body.String(), "Already in My Library") {
+	if duplicateFullPage.Code != http.StatusSeeOther || duplicateReturn.Code != http.StatusOK || !strings.Contains(duplicateReturn.Body.String(), "That book is already in My Books") || !strings.Contains(duplicateReturn.Body.String(), "Already in My Books") {
 		t.Fatalf("duplicate full-page return=%d location=%q body=%s", duplicateFullPage.Code, duplicateFullPage.Header().Get("Location"), duplicateReturn.Body.String())
 	}
 	logout := perform(t, h, "POST", "/logout", url.Values{"csrf_token": {csrf}}, cookies)
@@ -741,7 +741,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	cookies, csrf = loginCookies(t, h, "alice", "alice-password")
 	acquireForm.Set("csrf_token", csrf)
 	stale := append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue)
-	if stalePage := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, stale); stalePage.Code != http.StatusOK || strings.Contains(stalePage.Body.String(), "Already in My Library") {
+	if stalePage := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, stale); stalePage.Code != http.StatusOK || strings.Contains(stalePage.Body.String(), "Already in My Books") {
 		t.Fatalf("stale acquisition state survived session rotation: %d %s", stalePage.Code, stalePage.Body.String())
 	}
 	library := perform(t, h, "GET", "/library", nil, cookies)
@@ -767,7 +767,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	secondResponse := httptest.NewRecorder()
 	h.ServeHTTP(secondResponse, secondRequest)
-	if secondResponse.Code != http.StatusOK || !strings.Contains(secondResponse.Body.String(), "Added to My Library") || !strings.Contains(secondResponse.Body.String(), "/books/") {
+	if secondResponse.Code != http.StatusOK || !strings.Contains(secondResponse.Body.String(), "Added to My Books") || !strings.Contains(secondResponse.Body.String(), "/books/") {
 		t.Fatalf("second OPDS acquisition=%d %s", secondResponse.Code, secondResponse.Body.String())
 	}
 	duplicateResponse := httptest.NewRecorder()
@@ -778,7 +778,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		duplicateRequest.AddCookie(cookie)
 	}
 	h.ServeHTTP(duplicateResponse, duplicateRequest)
-	if duplicateResponse.Code != http.StatusOK || !strings.Contains(duplicateResponse.Body.String(), "Already in My Library") {
+	if duplicateResponse.Code != http.StatusOK || !strings.Contains(duplicateResponse.Body.String(), "Already in My Books") {
 		t.Fatalf("duplicate OPDS acquisition=%d %s", duplicateResponse.Code, duplicateResponse.Body.String())
 	}
 	books, err = store.ListSourceMaterials(ctx, alice.ID)

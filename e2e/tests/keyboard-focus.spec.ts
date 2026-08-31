@@ -26,14 +26,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Library', 'Learning', 'Add books', 'Settings'];
+    const destinations = ['My Books', 'Reading Journey', 'Add books', 'Settings'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Library': '\\/library', Learning: '\\/campaigns', 'Add books': '\\/connections', Settings: '\\/settings',
+        'My Books': '\\/library', 'Reading Journey': '\\/campaigns', 'Add books': '\\/connections', Settings: '\\/settings',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -48,7 +48,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'My Library' })).toBeFocused();
+    await expect(page.getByRole('link', { name: 'My Books' })).toBeFocused();
     const focusStyle = await page.evaluate(() => {
       const element = document.activeElement;
       if (!element) return { outline: 'none', width: '0px', boxShadow: 'none' };
@@ -56,6 +56,16 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       return { outline: style.outlineStyle, width: style.outlineWidth, boxShadow: style.boxShadow };
     });
     expect(focusStyle.outline !== 'none' || focusStyle.width !== '0px' || focusStyle.boxShadow !== 'none').toBeTruthy();
+  });
+
+  test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    await expect(page.getByRole('heading', { name: 'My Books' })).toBeVisible();
+    const title = page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    await title.focus();
+    await expect(title).toBeFocused();
+    await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
   test('scope confirmation is keyboard-only, returns to the book, and does not start analysis', async ({ page }) => {
@@ -123,11 +133,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page);
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
     const entry = page.getByRole('heading', { name: 'Ein deutsches Buch' }).locator('..');
-    const add = entry.getByRole('button', { name: 'Add to library' });
+    const add = entry.getByRole('button', { name: 'Add to My Books' });
     await add.focus();
     await add.press('Enter');
-    await expect(entry).toContainText('Added to My Library');
-    await expect(page.getByRole('button', { name: 'Add to library' })).toHaveCount(0);
+    await expect(entry).toContainText('Added to My Books');
+    await expect(page.getByRole('button', { name: 'Add to My Books' })).toHaveCount(0);
 
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Analysis history' });
