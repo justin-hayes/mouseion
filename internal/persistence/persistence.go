@@ -36,6 +36,9 @@ var ErrStaleCampaignState = errors.New("persistence: learning campaign state is 
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")
+var ErrAliasConflict = errors.New("persistence: book alias conflict")
+var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")
+var ErrBookNotFound = ErrNotFound
 
 type Store interface {
 	Ping(context.Context) error
@@ -429,11 +432,12 @@ func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string)
 }
 
 // FindSourceMaterialForAcquisition returns an existing owner-scoped source
-// when either its extracted source identity or downloaded content matches an
-// OPDS acquisition. Normal source imports retain their existing upsert
-// behavior; this lookup is only used to make OPDS repeats idempotent.
+// when the current bytes match an OPDS acquisition, either through its source
+// identity or through its content digest. A changed download for an existing
+// source identity must pass through the immutable revision path instead of
+// being incorrectly reported as AlreadyPresent.
 func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, owner, sourceIdentifier, contentHash string) (v domain.SourceMaterial, found bool, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND (s.source_identifier=$2 OR r.content_digest=$3 OR s.content_hash=$3) ORDER BY (s.source_identifier=$2) DESC,s.created_at,s.id LIMIT 1`, owner, sourceIdentifier, contentHash).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.ContentDigest, &v.Content, &v.FullText, &v.ContentRevisionID, &v.ContentDigestVersion, &v.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.content,s.content),COALESCE(r.full_text,s.full_text),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at FROM source_materials s LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND ((s.source_identifier=$2 AND CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END=$3) OR r.content_digest=$3 OR s.content_hash=$3) ORDER BY (s.source_identifier=$2) DESC,s.created_at,s.id LIMIT 1`, owner, sourceIdentifier, contentHash).Scan(&v.ID, &v.OwnerID, &v.Language, &v.SourceIdentifier, &v.Title, &v.MediaType, &v.ContentHash, &v.ContentDigest, &v.Content, &v.FullText, &v.ContentRevisionID, &v.ContentDigestVersion, &v.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SourceMaterial{}, false, nil
 	}

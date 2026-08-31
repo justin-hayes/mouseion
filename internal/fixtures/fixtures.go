@@ -189,6 +189,31 @@ func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBRevi
 	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
 }
 
+// My Books persistence is not part of the browser fixture yet; these methods
+// keep the fixture's webapp.Store contract explicit until the later UI work.
+func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
+func (s *Store) GetBook(context.Context, string, string) (domain.Book, error) {
+	return domain.Book{}, errNotFound
+}
+func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, error) {
+	return book, nil
+}
+func (s *Store) UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error) {
+	return domain.Book{}, errNotFound
+}
+func (s *Store) AddBookToMyBooks(context.Context, string, string) error      { return nil }
+func (s *Store) RemoveBookFromMyBooks(context.Context, string, string) error { return nil }
+func (s *Store) ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error) {
+	return domain.Book{}, false, nil
+}
+func (s *Store) AddBookAlias(context.Context, string, string, string, string, string) error {
+	return nil
+}
+func (s *Store) LinkSourceToBook(context.Context, string, string, string) error { return nil }
+func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error) {
+	return "", errNotFound
+}
+
 func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnitClassification {
 	return domain.EPUBUnitClassification{
 		SchemaVersion:      domain.EPUBClassificationSchemaVersion,
