@@ -1,8 +1,8 @@
 # ADR 0027: Single-active learning campaigns and vocabulary graduation
 
-Status: **Accepted** · Date: 2026-08-24 · Author: Justin + Hermes
+Status: **Accepted (completion and graduation semantics superseded by ADR 0035)** · Date: 2026-08-24 · Author: Justin + Hermes
 
-Supersedes the future-selection semantics of [ADR 0019](0019-generated-vocabulary-exclusion.md) while retaining its distinction between explicit knowledge, generated provenance, and learner ownership.
+Supersedes the future-selection semantics of [ADR 0019](0019-generated-vocabulary-exclusion.md) while retaining its distinction between explicit knowledge, generated provenance, and learner ownership. The Campaign object and its reservations/graduation remain valid internal state; ADR 0035 supersedes the learner-facing completion and vocabulary-graduation transitions (a deck-independent Primary Goal, reading-only operation, and a single graduated path keyed on snapshotted, provenance-linked identities plus justified study confirmation).
 
 ## Context
 

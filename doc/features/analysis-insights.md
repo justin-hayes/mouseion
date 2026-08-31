@@ -40,6 +40,11 @@ vocabulary state is applied. Explicitly known occurrences and vocabulary
 graduated by completed campaigns contribute to the numerator. Active-campaign
 vocabulary remains a separate projection and is not counted as known.
 Abandoned campaign vocabulary is unknown and eligible again.
+Graduation follows the single justified transition in
+[ADR 0035](../adr/0035-primary-goal-justified-graduation.md): only
+`learning_campaign_vocabulary` identities atomically linked to generated
+provenance and confirmed by deck review graduate; reading-finished alone
+graduates nothing.
 
 The UI should also show distinct lemma counts and occurrence counts because
 lemma coverage and token coverage answer different questions. Percentages use
@@ -71,7 +76,9 @@ every UPOS for that language. An entry with a UPOS covers only the matching
 lemma+UPOS identity. Previously generated identities may be annotated as
 already assigned, but they remain part of the learner's unknown-to-learn pool.
 The separate deck-generation calculation continues to exclude active or
-reserved vocabulary according to the learning-campaign lifecycle in ADR 0027.
+reserved vocabulary according to the learning-campaign lifecycle in
+[ADR 0027](../adr/0027-learning-campaigns.md), as governed by
+[ADR 0035](../adr/0035-primary-goal-justified-graduation.md).
 
 Initial targets:
 
