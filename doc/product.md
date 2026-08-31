@@ -32,7 +32,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
    to the learner's campaign queue. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Completing both the reading and deck-review conditions of a learning campaign explicitly graduates its assigned vocabulary to known; abandoning the campaign makes that vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
+Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0035](adr/0035-primary-goal-justified-graduation.md): a `learning_campaign_vocabulary` identity atomically linked to generated provenance, once study is confirmed by deck review; reading-finished alone graduates nothing. Abandoning the campaign makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
 
 ## Current stack
 
@@ -70,7 +70,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 24. [ADR 0024: Learner-owned catalogs and removal of the admin role](adr/0024-learner-owned-catalogs-no-admin.md) — moves OPDS ownership to learners and removes the obsolete in-app administrator role.
 25. [ADR 0025: Analysis coverage and threshold metric contract](adr/0025-analysis-coverage-threshold-metrics.md) — defines analyzable-token coverage, learner-state categories, threshold denominators, and deterministic selection.
 26. [ADR 0026: Explainable structural text profile](adr/0026-structural-text-profile.md) — persists sentence-length and analysis-coverage signals without a composite difficulty or proficiency claim.
-27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models one active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release.
+27. [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — models the internal one-active book/deck workflow, explicit completion, vocabulary graduation, and abandoned-campaign release; its learner-facing completion and graduation semantics are superseded by ADR 0035 but the Campaign reservation object remains valid.
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — separates acquisition, scope confirmation, analysis, insights, and preparation while preserving source and artifact history.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
 30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — defines immutable preparation runs, resumable candidate outcomes, and idempotent atomic finalization.
@@ -78,6 +78,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 32. [ADR 0032: Standard-first prepared-deck translation](adr/0032-standard-first-prepared-deck-translation.md) — makes durable standard execution the interactive default while retaining Batch for explicit offline/economy work.
 33. [ADR 0033: Deterministic in-memory fixture server driven by Playwright for browser acceptance](adr/0033-browser-acceptance-harness.md) — adds a fixture-driven browser acceptance harness (Go in-memory fixture server + Playwright) as the Phase 6 quality-gate substrate.
 34. [ADR 0034: One implicit Reading Journey with learner-canonical ordering and campaign-queue migration](adr/0034-reading-journey-identity-ordering.md) — makes Reading Journey the single learner-canonical, owner-scoped, freely-reorderable plan and replaces the derived Campaign queue while retaining Campaign history/vocabulary provenance.
+35. [ADR 0035: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0035-primary-goal-justified-graduation.md) — defines one Primary Goal per learner, meaningful before analysis/deck and readable without Anki, with the single justified graduation path (snapshotted, provenance-linked identities + confirmed deck review) and deterministic residual-vocabulary / new-Goal behavior.
 
 ## Deployment and operations
 
