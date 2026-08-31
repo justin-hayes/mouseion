@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -18,12 +19,66 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	books, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+	var books []domain.MyBook
+	var err error
+	if reader, ok := h.services.Store.(interface {
+		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	}); ok {
+		books, err = reader.ListMyBooksWithEvidence(r.Context(), u.ID)
+	} else {
+		// Compatibility for lightweight stores used by older web tests. The
+		// production PostgresStore always supplies the complete read model.
+		var acquired []domain.SourceMaterialSummary
+		acquired, err = h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+		for _, source := range acquired {
+			books = append(books, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: domain.MyBookAnalyzed})
+		}
+	}
 	if err != nil {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page."))
+		return
+	}
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	state := strings.TrimSpace(r.FormValue("language_state"))
+	tag := strings.TrimSpace(r.FormValue("language_tag"))
+	book, err := domain.NewBook(u.ID, strings.TrimSpace(r.FormValue("title")), domain.MetadataProvenanceManualEntry, state, tag)
+	if err != nil {
+		redirect(w, r, "/library?error="+url.QueryEscape("The book was not added. Enter a title and choose an explicit language state."))
+		return
+	}
+	created, err := h.services.Store.CreateBook(r.Context(), book)
+	if err != nil {
+		redirect(w, r, "/library?error="+url.QueryEscape("The book could not be added to My Books. Check the details and try again."))
+		return
+	}
+	if err = h.services.Store.AddBookToMyBooks(r.Context(), u.ID, created.ID); err != nil {
+		redirect(w, r, "/library?error="+url.QueryEscape("The book identity was recorded, but My Books membership could not be activated. Refresh and try again."))
+		return
+	}
+	redirect(w, r, "/library?message="+url.QueryEscape("Book added to My Books. It has metadata only until you acquire an EPUB."))
+}
+
+func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	if err := h.services.Store.RemoveBookFromMyBooks(r.Context(), u.ID, r.PathValue("id")); err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		fail(w, err)
 		return
 	}
-	render(w, r, LibraryPage(u, h.csrf(w, r), books, r.URL.Query().Get("message")))
+	redirect(w, r, "/library?message="+url.QueryEscape("Book removed from My Books. Acquired content and history remain."))
 }
 
 type campaignView struct {

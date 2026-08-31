@@ -28,6 +28,10 @@ type AcquisitionSourceLookup interface {
 	FindSourceMaterialForAcquisition(context.Context, string, string, string) (domain.SourceMaterial, bool, error)
 }
 
+type AcquisitionBookResolver interface {
+	ResolveOrCreateBookForAcquisitionForBook(context.Context, string, string, string, string, string) (string, error)
+}
+
 type Service struct {
 	store Store
 	now   func() time.Time
@@ -61,6 +65,20 @@ func (s *Service) Import(ctx context.Context, ownerID, language string, content 
 // source without rewriting its extracted snapshot or processing history.
 // Direct imports continue to use Import and retain their existing behavior.
 func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language string, content []byte) (ImportResult, error) {
+	return s.importForAcquisition(ctx, ownerID, language, "", content)
+}
+
+// ImportForAcquisitionForBook is the explicit promotion path from a
+// metadata-only My Books identity. The selected Book is owner-validated by
+// persistence before source evidence is linked.
+func (s *Service) ImportForAcquisitionForBook(ctx context.Context, ownerID, language, bookID string, content []byte) (ImportResult, error) {
+	if bookID == "" {
+		return ImportResult{}, errors.New("epub: acquisition book is required")
+	}
+	return s.importForAcquisition(ctx, ownerID, language, bookID, content)
+}
+
+func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, bookID string, content []byte) (ImportResult, error) {
 	if ownerID == "" {
 		return ImportResult{}, ErrUnauthenticated
 	}
@@ -78,22 +96,26 @@ func (s *Service) ImportForAcquisition(ctx context.Context, ownerID, language st
 			return ImportResult{}, fmt.Errorf("epub: look up existing source material: %w", lookupErr)
 		}
 		if found {
-			if err = s.linkAcquiredSource(ctx, ownerID, language, existing, book.Title); err != nil {
+			if err = s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
 				return ImportResult{}, err
 			}
 			return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
 		}
 	}
-	return s.importBook(ctx, ownerID, language, content, book)
+	return s.importBookForBook(ctx, ownerID, language, bookID, content, book)
 }
 
 func (s *Service) importBook(ctx context.Context, ownerID, language string, content []byte, book ExtractedBook) (ImportResult, error) {
+	return s.importBookForBook(ctx, ownerID, language, "", content, book)
+}
+
+func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, book ExtractedBook) (ImportResult, error) {
 	contentHash := domain.EPUBContentDigest(content)
 	source, err := s.store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
 	}
-	if err = s.linkAcquiredSource(ctx, ownerID, language, source, book.Title); err != nil {
+	if err = s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, source, book.Title); err != nil {
 		return ImportResult{}, fmt.Errorf("epub: link source material to My Books: %w", err)
 	}
 	snapshotID, persistedUnits, err := s.store.GetExtractedUnitSnapshot(ctx, ownerID, source.ID)
@@ -124,11 +146,25 @@ func (s *Service) importBook(ctx context.Context, ownerID, language string, cont
 }
 
 func (s *Service) linkAcquiredSource(ctx context.Context, ownerID, language string, source domain.SourceMaterial, fallbackTitle string) error {
+	return s.linkAcquiredSourceForBook(ctx, ownerID, language, "", source, fallbackTitle)
+}
+
+func (s *Service) linkAcquiredSourceForBook(ctx context.Context, ownerID, language, requestedBookID string, source domain.SourceMaterial, fallbackTitle string) error {
 	title := source.Title
 	if title == "" {
 		title = fallbackTitle
 	}
-	bookID, err := s.store.ResolveOrCreateBookForAcquisition(ctx, ownerID, source.SourceIdentifier, language, title)
+	bookID := requestedBookID
+	var err error
+	if bookID != "" {
+		resolver, ok := s.store.(AcquisitionBookResolver)
+		if !ok {
+			return errors.New("epub: selected acquisition book cannot be promoted")
+		}
+		bookID, err = resolver.ResolveOrCreateBookForAcquisitionForBook(ctx, ownerID, bookID, source.SourceIdentifier, language, title)
+	} else {
+		bookID, err = s.store.ResolveOrCreateBookForAcquisition(ctx, ownerID, source.SourceIdentifier, language, title)
+	}
 	if err != nil {
 		return fmt.Errorf("resolve acquisition book: %w", err)
 	}

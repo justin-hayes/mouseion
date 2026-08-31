@@ -67,9 +67,13 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		t.Fatalf("backfilled source links=%d err=%v", linkedCount, err)
 	}
 
-	metadataOnly, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: "manual", LanguageState: domain.LanguageUnknown})
+	metadataOnly, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
+	}
+	retriedMetadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil || retriedMetadata.ID != metadataOnly.ID {
+		t.Fatalf("repeated metadata create book=%q want=%q err=%v", retriedMetadata.ID, metadataOnly.ID, err)
 	}
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	if err != nil || !containsBook(books, metadataOnly.ID) {
@@ -77,6 +81,53 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	}
 	if _, err = store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{OwnerID: alice.ID, SourceMaterialID: metadataOnly.ID}); !errors.Is(err, domain.ErrEPUBReviewedScopeUnavailable) {
 		t.Fatalf("metadata-only scope creation error=%v", err)
+	}
+	view, err := store.ListMyBooksWithEvidence(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadataView *domain.MyBook
+	for i := range view {
+		if view[i].Book.ID == metadataOnly.ID {
+			metadataView = &view[i]
+			break
+		}
+	}
+	if metadataView == nil || metadataView.Acquired != nil || metadataView.EvidenceState != domain.MyBookNotAcquired || metadataView.Book.LanguageState != domain.LanguageUnknown {
+		t.Fatalf("metadata-only read model=%+v", metadataView)
+	}
+
+	promotion, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Promote this book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	promotionSource := putBookSource(t, ctx, store, alice.ID, "promotion-source", "Promoted", []byte("promotion-epub"), "promoted")
+	resolvedPromotion, err := store.ResolveOrCreateBookForAcquisitionForBook(ctx, alice.ID, promotion.ID, promotionSource.SourceIdentifier, promotionSource.Language, promotionSource.Title)
+	if err != nil || resolvedPromotion != promotion.ID {
+		t.Fatalf("promotion resolved book=%q want=%q err=%v", resolvedPromotion, promotion.ID, err)
+	}
+	if err = store.LinkSourceToBook(ctx, alice.ID, promotion.ID, promotionSource.ID); err != nil {
+		t.Fatal(err)
+	}
+	if repeated, repeatErr := store.ResolveOrCreateBookForAcquisitionForBook(ctx, alice.ID, promotion.ID, promotionSource.SourceIdentifier, promotionSource.Language, promotionSource.Title); repeatErr != nil || repeated != promotion.ID {
+		t.Fatalf("repeated promotion book=%q want=%q err=%v", repeated, promotion.ID, repeatErr)
+	}
+	view, err = store.ListMyBooksWithEvidence(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundPromotion := false
+	for i := range view {
+		if view[i].Book.ID == promotion.ID {
+			foundPromotion = true
+			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageChosen || view[i].EvidenceState != domain.MyBookAcquiredUnassessed {
+				t.Fatalf("promoted read model=%+v", view[i])
+			}
+			break
+		}
+	}
+	if !foundPromotion {
+		t.Fatalf("promoted book missing from My Books read model: %+v", view)
 	}
 
 	first := putBookSource(t, ctx, store, alice.ID, "acquisition-source", "Acquired", []byte("epub-one"), "readable")

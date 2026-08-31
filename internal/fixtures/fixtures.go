@@ -48,6 +48,7 @@ type Store struct {
 	profiles    []domain.LanguageProfile
 	connections []domain.OpdsConnection
 	preps       []domain.DeckPreparation
+	myBooks     []domain.MyBook
 }
 
 func NewStore() *Store {
@@ -103,6 +104,20 @@ func (s *Store) UpdateOpdsConnection(_ context.Context, _ string, c domain.OpdsC
 func (s *Store) DeleteOpdsConnection(context.Context, string, string) error { return nil }
 func (s *Store) ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error) {
 	return append([]domain.SourceMaterialSummary(nil), s.books...), nil
+}
+func (s *Store) ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]domain.MyBook, 0, len(s.books)+len(s.myBooks))
+	for _, source := range s.books {
+		state := domain.MyBookAcquiredUnassessed
+		if source.AnalysisStatus == "analyzed" {
+			state = domain.MyBookAnalyzed
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
+	}
+	out = append(out, s.myBooks...)
+	return out, nil
 }
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
@@ -192,17 +207,42 @@ func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBRevi
 // My Books persistence is not part of the browser fixture yet; these methods
 // keep the fixture's webapp.Store contract explicit until the later UI work.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
-func (s *Store) GetBook(context.Context, string, string) (domain.Book, error) {
+
+func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID {
+			return book.Book, nil
+		}
+	}
+	for _, source := range s.books {
+		if source.Source.OwnerID == owner && source.Source.ID == bookID {
+			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, nil
+		}
+	}
 	return domain.Book{}, errNotFound
 }
 func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	book.ID = fmt.Sprintf("fixture-metadata-%d", len(s.myBooks)+1)
+	s.myBooks = append(s.myBooks, domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired})
 	return book, nil
 }
 func (s *Store) UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error) {
 	return domain.Book{}, errNotFound
 }
-func (s *Store) AddBookToMyBooks(context.Context, string, string) error      { return nil }
-func (s *Store) RemoveBookFromMyBooks(context.Context, string, string) error { return nil }
+func (s *Store) AddBookToMyBooks(context.Context, string, string) error { return nil }
+func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.myBooks {
+		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
+			s.myBooks = append(s.myBooks[:i], s.myBooks[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
 func (s *Store) ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error) {
 	return domain.Book{}, false, nil
 }

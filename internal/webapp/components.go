@@ -94,12 +94,12 @@ type MetadataItem struct {
 type NavigationContext string
 
 const (
-	NavigationNone            NavigationContext = ""
-	NavigationLibrary         NavigationContext = "library"
-	NavigationReadingJourney  NavigationContext = "reading-journey"
-	NavigationLearning        NavigationContext = NavigationReadingJourney
-	NavigationAcquisition     NavigationContext = "acquisition"
-	NavigationSettings        NavigationContext = "settings"
+	NavigationNone           NavigationContext = ""
+	NavigationLibrary        NavigationContext = "library"
+	NavigationReadingJourney NavigationContext = "reading-journey"
+	NavigationLearning       NavigationContext = NavigationReadingJourney
+	NavigationAcquisition    NavigationContext = "acquisition"
+	NavigationSettings       NavigationContext = "settings"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
@@ -162,11 +162,98 @@ func statusTone(value string) StatusTone {
 		return StatusInfo
 	case "review_required", "degraded", "scope review required":
 		return StatusWarning
+	case "unavailable":
+		return StatusDanger
+	case "not acquired":
+		return StatusNeutral
+	case "acquired — unassessed", "stale analysis":
+		return StatusWarning
 	case "abandoned", "cancelled", "discarded", "failed", "analysis failed", "analysis cancelled", "analysis failed — action required":
 		return StatusDanger
 	default:
 		return StatusNeutral
 	}
+}
+
+func myBookEvidenceStateFor(book domain.MyBook) domain.MyBookEvidenceState {
+	if book.EvidenceState != "" {
+		return book.EvidenceState
+	}
+	if book.Acquired == nil {
+		return domain.MyBookNotAcquired
+	}
+	if book.Acquired.Source.ContentRevisionID == "" {
+		return domain.MyBookUnavailable
+	}
+	if strings.EqualFold(book.Acquired.AnalysisStatus, "analyzed") {
+		return domain.MyBookAnalyzed
+	}
+	return domain.MyBookAcquiredUnassessed
+}
+
+func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
+	out := make([]domain.MyBook, 0, len(books))
+	for _, source := range books {
+		state := domain.MyBookAcquiredUnassessed
+		if strings.EqualFold(source.AnalysisStatus, "analyzed") {
+			state = domain.MyBookAnalyzed
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
+	}
+	return out
+}
+
+func myBookEvidenceLabel(state domain.MyBookEvidenceState) string {
+	switch state {
+	case domain.MyBookUnavailable:
+		return "Unavailable"
+	case domain.MyBookNotAcquired:
+		return "Not acquired"
+	case domain.MyBookAcquiredUnassessed:
+		return "Acquired — unassessed"
+	case domain.MyBookAnalyzed:
+		return "Analyzed"
+	case domain.MyBookStale:
+		return "Stale analysis"
+	default:
+		return "Evidence unavailable"
+	}
+}
+
+func myBookAnalysisLabel(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "not analyzed":
+		return "No analysis run"
+	case "scope confirmed":
+		return "Scope confirmed"
+	case "analyzed", "analysis result ready":
+		return "Analysis complete"
+	case "analysis failed":
+		return "Analysis failed"
+	case "analysis cancelled":
+		return "Analysis cancelled"
+	case "analyzing":
+		return "Analysis in progress"
+	default:
+		return status
+	}
+}
+
+func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
+	state := myBookEvidenceStateFor(book)
+	if book.Acquired == nil || state == domain.MyBookUnavailable {
+		return bookLifecycleAction{
+			Status:      myBookEvidenceLabel(state),
+			Description: "No usable acquired EPUB evidence is available for assessment. Choose an acquisition path before using later actions.",
+			Label:       "Acquire this book",
+			URL:         "/connections?book_id=" + url.QueryEscape(book.Book.ID),
+			Tone:        statusTone(myBookEvidenceLabel(state)),
+		}
+	}
+	if state == domain.MyBookStale {
+		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Review the scope again before starting analysis.", Label: "Review scope", URL: scopeReviewActionURL(*book.Acquired), Tone: StatusWarning}
+	}
+	return bookLifecycleActionFor(*book.Acquired, nil)
 }
 
 type bookLifecycleAction struct {

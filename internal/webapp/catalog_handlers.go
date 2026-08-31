@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -23,7 +24,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	render(w, r, ConnectionsPage(u, h.csrf(w, r), c, r.URL.Query().Get("message")))
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id")))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -40,7 +41,11 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/connections?message=Catalog+added")
+	location := "/connections?message=Catalog+added"
+	if bookID := strings.TrimSpace(r.FormValue("book_id")); bookID != "" {
+		location += "&book_id=" + url.QueryEscape(bookID)
+	}
+	redirect(w, r, location)
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -95,7 +100,7 @@ func (h *Handler) catalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	languages, degraded := h.supportedNLP(r.Context())
-	render(w, r, CatalogPage(u, h.csrf(w, r), c, languages, degraded))
+	render(w, r, CatalogPageForBook(u, h.csrf(w, r), c, languages, degraded, r.URL.Query().Get("book_id")))
 }
 func (h *Handler) browse(w http.ResponseWriter, r *http.Request) {
 	language := strings.TrimSpace(r.URL.Query().Get("language"))
@@ -273,7 +278,29 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 	target.Entry.Links = []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: target.Href}}
 	href := target.Href
 	entry := target.Entry
-	result, acquireErr := h.services.OPDS.Acquire(r.Context(), u.ID, connectionID, language, entry)
+	bookID := bookIDFromReturnPath(r.FormValue("return_to"))
+	var result epub.ImportResult
+	var acquireErr error
+	if bookID != "" {
+		if _, bookErr := h.services.Store.GetBook(r.Context(), u.ID, bookID); bookErr != nil {
+			if errors.Is(bookErr, persistence.ErrNotFound) {
+				redirect(w, r, "/library?error="+url.QueryEscape("That My Books entry is no longer available. Refresh My Books and choose an active entry."))
+				return
+			}
+			fail(w, bookErr)
+			return
+		}
+		acquirer, ok := h.services.OPDS.(interface {
+			AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
+		})
+		if !ok {
+			h.catalogFailure(w, r, connectionID, errors.New("the selected My Books entry cannot be promoted by this catalog service"), h.acquisitionReturnPath(r.FormValue("return_to")))
+			return
+		}
+		result, acquireErr = acquirer.AcquireForBook(r.Context(), u.ID, connectionID, language, bookID, entry)
+	} else {
+		result, acquireErr = h.services.OPDS.Acquire(r.Context(), u.ID, connectionID, language, entry)
+	}
 	e = acquireErr
 	if acquireErr == nil {
 		h.rememberAcquisition(w, r, connectionID, language, entry, href, result.Source.ID)

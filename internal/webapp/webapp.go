@@ -154,6 +154,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
+	h.mux.Handle("POST /library/books", h.user(http.HandlerFunc(h.createMetadataBook)))
+	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
 	h.mux.Handle("POST /campaigns", h.user(http.HandlerFunc(h.queueCampaign)))
 	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))
