@@ -2,6 +2,14 @@
 
 Status: Implemented · Date: 2026-08-26
 
+This document retains the shipped **My Library** and **Add to library** labels
+because they describe implemented behavior. In the target architecture, each
+of those acquired entries backfills to an acquired Book with active My Books
+membership under
+[ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md). That
+compatibility mapping does not mean every My Books Book has an EPUB; metadata-only
+membership cannot enter the scope, analysis, or preparation lifecycle below.
+
 ## Goal
 
 Let learners collect EPUBs, decide exactly what to analyze, inspect completed

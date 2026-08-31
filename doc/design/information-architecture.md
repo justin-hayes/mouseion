@@ -111,10 +111,12 @@ later Journey books committed.
 
 These objects remain important, but they do not define principal navigation:
 
-- **Book** — learner-facing bibliographic identity and the center of reading,
-  analysis, and Journey relationships.
+- **Book** — owner-scoped learner-facing bibliographic identity and the center
+  of My Books membership, reading, analysis, and Journey relationships. It may
+  exist without acquired content; ADR 0035 defines its identity and lifecycle.
 - **Source snapshot** — immutable acquired EPUB content and extracted units;
-  provenance rather than a destination.
+  provenance rather than a destination. It is linked after acquisition and is
+  never a metadata-only placeholder.
 - **Reviewed scope** — immutable learner-confirmed source-unit selection.
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
@@ -346,44 +348,46 @@ questions remain deliberately unresolved and must be handled through the normal
 feature-planning and ADR process before implementation. This document does not
 choose tables, identifiers, APIs, migrations, or compatibility behavior.
 
-1. **Broader My Books membership.** Current acquisition contracts model owned
-   EPUBs in My Library. My Books also needs to represent desired,
-   metadata-only, unavailable, or otherwise unacquired works without weakening
-   source/provenance identity.
-2. **Reading Journey identity and ordering.** Current contracts have a campaign
+Broader My Books membership is resolved by
+[ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
+owner-scoped bibliographic Book and its My Books membership are distinct from
+immutable acquired source evidence. Its staged implementation remains pending
+and must preserve the shipped acquisition contract during compatibility rollout.
+
+1. **Reading Journey identity and ordering.** Current contracts have a campaign
    queue, not provisional learner-selected membership, free ordering, or
    historical/current route comparison. Persistence, concurrency, and stale
    recalculation behavior require a product contract.
-   Resolved by [ADR 0034: One implicit Reading Journey with learner-canonical
+Resolved by [ADR 0034: One implicit Reading Journey with learner-canonical
    ordering and campaign-queue migration](../adr/0034-reading-journey-identity-ordering.md).
-3. **Primary Goal identity.** ADR 0027 requires a prepared deck before a
+2. **Primary Goal identity.** ADR 0027 requires a prepared deck before a
    Campaign exists. Primary Goal must support commitment before analysis or
    deck preparation and possibly reading without Anki. Its relationship to an
    internal Campaign is unresolved.
-4. **Completion and vocabulary graduation.** ADR 0027 atomically completes a
+3. **Completion and vocabulary graduation.** ADR 0027 atomically completes a
    Campaign only after both book-finished and deck-reviewed facts, then
    graduates assigned vocabulary. The accepted experience treats reading
    completion as a factual outcome even when vocabulary work remains. The
    transition and copy cannot be split or relabeled without revisiting that
    contract.
-5. **A new Goal while vocabulary work remains.** The accepted Where next?
+4. **A new Goal while vocabulary work remains.** The accepted Where next?
    experience permits reconsideration after the book is finished, while the
    current single-active Campaign may still reserve vocabulary. Whether another
    Goal can become current, and how reservation/projection semantics behave,
    requires an explicit decision.
-6. **Queue replacement and history.** The provisional Journey must not coexist
+5. **Queue replacement and history.** The provisional Journey must not coexist
    with a learner-facing commitment queue. Migration or compatibility for
    queued, active, complete, and abandoned Campaign records requires planning;
    historical evidence must remain understandable.
-   Resolved by [ADR 0034](../adr/0034-reading-journey-identity-ordering.md):
+Resolved by [ADR 0034](../adr/0034-reading-journey-identity-ordering.md):
    queued records migrate into Journey membership in creation order, active
    records remain the current Campaign, and completed/abandoned records remain
    history.
-7. **Cross-book projection and route comparison.** The exact optimization
+6. **Cross-book projection and route comparison.** The exact optimization
    objective, eligible evidence, threshold assumptions, transition assumptions,
    handling of incomparable books, and invalidation rules need a reproducible
    product/analysis contract. No composite score should be invented.
-8. **Routes and terminology rollout.** My Books and Reading Journey need one
+7. **Routes and terminology rollout.** My Books and Reading Journey need one
    coherent navigation model across redirects, deep links, breadcrumbs, and
    tests. Route names are implementation decisions; learner-facing terminology
    must not drift during staged rollout.
