@@ -65,6 +65,10 @@ type Store interface {
 	AddBookAlias(context.Context, string, string, string, string, string) error
 	LinkSourceToBook(context.Context, string, string, string) error
 	ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error)
+	GetReadingJourney(context.Context, string) (domain.ReadingJourney, error)
+	AddToReadingJourney(context.Context, string, string, int64) (int64, error)
+	RemoveFromReadingJourney(context.Context, string, string, int64) (int64, error)
+	MoveReadingJourneyEntry(context.Context, string, string, int, int64) (int64, error)
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)

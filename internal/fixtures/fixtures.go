@@ -253,6 +253,18 @@ func (s *Store) LinkSourceToBook(context.Context, string, string, string) error 
 func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error) {
 	return "", errNotFound
 }
+func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.ReadingJourney, error) {
+	return domain.ReadingJourney{OwnerID: owner}, nil
+}
+func (s *Store) AddToReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
+	return expectedRevision, nil
+}
+func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
+	return expectedRevision, nil
+}
+func (s *Store) MoveReadingJourneyEntry(_ context.Context, _ string, _ string, _ int, expectedRevision int64) (int64, error) {
+	return expectedRevision, nil
+}
 
 func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnitClassification {
 	return domain.EPUBUnitClassification{
