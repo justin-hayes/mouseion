@@ -65,7 +65,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const title = page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
-    await expect(page.getByRole('link', { name: 'Review failed analysis' })).toHaveAttribute('href', '/jobs/43');
+    await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
   test('scope confirmation is keyboard-only, returns to the book, and does not start analysis', async ({ page }) => {

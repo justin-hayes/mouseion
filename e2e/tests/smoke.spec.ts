@@ -21,7 +21,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toBeVisible();
     await expect(page.getByText('Analysis failed — action required')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Review failed analysis' })).toHaveAttribute('href', '/jobs/43');
+    await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
   test('exact analysis result and deck status are reachable', async ({ page }) => {
