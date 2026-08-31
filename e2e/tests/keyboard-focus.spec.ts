@@ -33,7 +33,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', 'Reading Journey': '\\/campaigns', 'Add books': '\\/connections', Settings: '\\/settings',
+        'My Books': '\\/library', 'Reading Journey': '\\/journey', 'Add books': '\\/connections', Settings: '\\/settings',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -66,6 +66,21 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await title.focus();
     await expect(title).toBeFocused();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
+  });
+
+  test('Reading Journey keeps goal-first keyboard order and announces feedback', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/journey?message=Journey%20updated');
+    const goalHeading = page.locator('#primary-goal-heading');
+    const provisionalHeading = page.locator('#provisional-journey-heading');
+    const operationsHeading = page.locator('#campaign-operations-heading');
+    await expect(goalHeading).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('Journey updated');
+    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    expect(await provisionalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#campaign-operations-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    const goalLink = page.locator('.journey-book--goal a').first();
+    await goalLink.focus();
+    await expect(goalLink).toBeFocused();
   });
 
   test('scope confirmation is keyboard-only, returns to the book, and does not start analysis', async ({ page }) => {
@@ -149,12 +164,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('learning completion and abandonment confirmations support cancel/confirm focus return', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
-    await signIn(page);
-    await page.goto('/campaigns');
+    await signIn(page, true);
+    await page.goto('/journey');
     const active = page.locator('#campaign-fixture-campaign');
     const finishBook = active.getByRole('button', { name: /Mark book finished/ });
     await finishBook.press('Enter');
-    await expect(page).toHaveURL(/\/campaigns\?message=/);
+    await expect(page).toHaveURL(/\/journey\?message=/);
     const completionDisclosure = page.locator('#campaign-fixture-campaign details').filter({ hasText: /Complete campaign/ }).first();
     await expect(completionDisclosure).toBeVisible();
     await completionDisclosure.locator('summary').press('Enter');
@@ -164,7 +179,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await completionDisclosure.locator('summary').press('Enter');
     await expect(completionDisclosure).toHaveAttribute('open', '');
     await completionDisclosure.getByRole('button', { name: /Complete campaign/ }).press('Enter');
-    await expect(page).toHaveURL(/\/campaigns\?message=/);
+    await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.getByText('Campaign complete')).toBeVisible();
 
     const abandonment = page.locator('#campaign-fixture-queued-campaign');
@@ -177,7 +192,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await abandonSummary.press('Enter');
     await expect(abandonDisclosure).toHaveAttribute('open', '');
     await abandonDisclosure.getByRole('button', { name: 'Confirm abandonment' }).press('Enter');
-    await expect(page).toHaveURL(/\/campaigns\?message=/);
+    await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.getByText('Campaign abandoned')).toBeVisible();
   });
 

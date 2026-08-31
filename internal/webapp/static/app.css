@@ -546,10 +546,29 @@ body {
 }
 
 .campaign-list,
-section[aria-labelledby="campaign-queue-heading"],
-section[aria-labelledby="campaign-history-heading"] {
+section[aria-labelledby="campaign-operations-heading"] {
   display: grid;
   gap: var(--mouseion-space-4);
+}
+
+.journey-list {
+  display: grid;
+  gap: var(--mouseion-space-4);
+}
+
+.journey-book {
+  margin: 0;
+}
+
+.journey-book--goal {
+  border-left: var(--mouseion-space-1) solid var(--mouseion-color-info);
+  box-shadow: 0 0 0 1px var(--mouseion-color-info);
+}
+
+.journey-secondary {
+  margin-top: var(--mouseion-space-7);
+  border-top: 1px solid var(--mouseion-color-border);
+  padding-top: var(--mouseion-space-5);
 }
 
 .campaign-card,
@@ -762,6 +781,7 @@ section[aria-labelledby="campaign-history-heading"] {
   .page-heading,
   .library-list article,
   .campaign-card,
+  .journey-book,
   .campaign-list article,
   .campaign-progress,
   .scope-summary {
@@ -802,11 +822,13 @@ section[aria-labelledby="campaign-history-heading"] {
   }
 
   .campaign-card form,
+  .journey-book form,
   .campaign-list form {
     width: 100%;
   }
 
   .campaign-card form button,
+  .journey-book form button,
   .campaign-list form button {
     width: 100%;
   }

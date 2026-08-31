@@ -1182,7 +1182,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	aliceCookies, aliceCSRF := loginCookies(t, h, "campaign-web-alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "campaign-web-bob", "bob-password")
 
-	page := perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	page := perform(t, h, "GET", "/journey", nil, aliceCookies)
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Prepared books") || !strings.Contains(page.Body.String(), "Completed Book") || !strings.Contains(page.Body.String(), "Deck ready") {
 		t.Fatalf("prepared campaign page=%d %s", page.Code, page.Body.String())
 	}
@@ -1195,7 +1195,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	}
 	for _, preparation := range ready {
 		queued := perform(t, h, "POST", "/campaigns", url.Values{"csrf_token": {aliceCSRF}, "deck_preparation_id": {preparation.ID}}, aliceCookies)
-		if queued.Code != http.StatusSeeOther || !strings.HasPrefix(queued.Header().Get("Location"), "/campaigns?message=") {
+		if queued.Code != http.StatusSeeOther || !strings.HasPrefix(queued.Header().Get("Location"), "/journey?message=") {
 			t.Fatalf("queue=%d location=%q body=%s", queued.Code, queued.Header().Get("Location"), queued.Body.String())
 		}
 	}
@@ -1241,7 +1241,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if finished.Code != http.StatusSeeOther || !strings.Contains(finished.Header().Get("Location"), "Book+marked+finished") {
 		t.Fatalf("finish book=%d location=%q", finished.Code, finished.Header().Get("Location"))
 	}
-	progressPage := perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	progressPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
 	if body := progressPage.Body.String(); !strings.Contains(body, "Book</dt><dd>Finished · ") || strings.Contains(body, "Mark book finished") || !strings.Contains(body, "Complete campaign and add") {
 		t.Fatalf("book progress page=%s", body)
 	}
@@ -1275,14 +1275,14 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 		t.Fatalf("abandon=%d location=%q", abandoned.Code, abandoned.Header().Get("Location"))
 	}
 	repeatedAbandon := perform(t, h, "POST", "/campaigns/"+abandonedCampaign.ID+"/abandon", campaignForm(aliceCSRF, domain.LearningCampaign{ID: abandonedCampaign.ID, Status: domain.CampaignAbandoned, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned}), aliceCookies)
-	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Only+an+active+or+queued+campaign+can+be+abandoned.") {
+	if repeatedAbandon.Code != http.StatusSeeOther || !strings.Contains(repeatedAbandon.Header().Get("Location"), "Only+an+active+or+prepared+campaign+can+be+abandoned.") {
 		t.Fatalf("repeat abandon=%d location=%q", repeatedAbandon.Code, repeatedAbandon.Header().Get("Location"))
 	}
 	activate(activeCampaign)
 
-	page = perform(t, h, "GET", "/campaigns", nil, aliceCookies)
+	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
 	body := page.Body.String()
-	for _, expected := range []string{"Active campaign", "Queue", "History", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Queued<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying", "Completed 20", "Mark book finished", "Mark deck reviewed", "Abandon campaign"} {
+	for _, expected := range []string{"Campaign history &amp; operations", "Completed Book", "Abandoned Book", "Active Book", "Queued Book", ">Complete<", ">Abandoned<", ">Active<", ">Prepared<", "Book</dt><dd>Reading", "Deck</dt><dd>Studying", "Completed 20", "Mark book finished", "Mark deck reviewed", "Abandon campaign"} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("campaign page missing %q: %s", expected, body)
 		}
@@ -1290,7 +1290,7 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if got := perform(t, h, "POST", "/campaigns/"+queuedCampaign.ID+"/activate", campaignForm(bobCSRF, queuedCampaign), bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner activation=%d", got.Code)
 	}
-	bobPage := perform(t, h, "GET", "/campaigns", nil, bobCookies)
+	bobPage := perform(t, h, "GET", "/journey", nil, bobCookies)
 	if bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Active Book") {
 		t.Fatalf("bob campaign page=%d %s", bobPage.Code, bobPage.Body.String())
 	}
