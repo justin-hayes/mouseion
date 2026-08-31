@@ -125,6 +125,30 @@ has not occurred, the vocabulary work is **residual**:
   vocabulary gap: finishing reading never rewrites reserved vocabulary as known,
   and the residual work never blocks the finished reading record.
 
+### Finish outcome: four beats, then explicit Where next?
+
+Finishing a Primary Goal is a **four-beat outcome** — each beat is a distinct,
+independently-verifiable fact, and the beats never become a single unlabelled
+"done":
+
+1. **Reading outcome.** State that the book was finished as a factual reading
+   record.
+2. **Justified vocabulary transition, or explicit absence.** State either the
+   exact set of identities that graduated (per the single justified transition)
+   or that no vocabulary graduated because study is not yet confirmed — never
+   imply readiness gains that did not happen.
+3. **Recalculation from actual state.** Replace any prior projection for each
+   remaining Journey book with a recalculation from the current known-vocabulary
+   and reservation facts; show current-versus-projected values separately,
+   never as one number.
+4. **Where next?** End with the learner's explicit available next decisions —
+   choose a new Goal, continue residual vocabulary work, reorder the Journey, or
+   pause. The terminal copy offers choices; it never auto-selects, never
+   auto-advances, and never implies the residual vocabulary work is complete.
+
+**A Goal is never auto-selected.** Choosing the next Primary Goal is always an
+explicit learner action; the four-beat outcome surfaces options and stops.
+
 ### Choosing a new Goal while residual vocabulary work exists
 
 A learner may choose a new Primary Goal while the previous book's vocabulary
