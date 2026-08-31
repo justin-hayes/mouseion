@@ -83,6 +83,11 @@ The Journey:
 The first provisional book is a natural candidate for a future Primary Goal,
 not an automatic commitment or recommendation.
 
+Journey identity, owner-scoped membership, learner-canonical ordering,
+concurrency, stale-write behavior, and the migration of Campaign queue/history
+into the Journey are decided in
+[ADR 0034](../adr/0034-reading-journey-identity-ordering.md).
+
 ### Primary Goal
 
 **Primary Goal** is the one book the learner currently intends to finish. It is
@@ -197,7 +202,11 @@ Library, Learning, queue, or Campaign as primary learner-facing concepts.
 Whether `/library` is retained for My Books, whether `/campaigns` redirects or
 is replaced, and what route owns Reading Journey are planner/implementation
 questions. New templates must not invent a second competing navigation system
-while that work is unresolved.
+while that work is unresolved. ADR 0034 decides the queue side of this: the
+derived Campaign queue is retired in favour of Reading Journey, `GET /campaigns`
+redirects to the Journey surface, and book-centered Campaign actions (history,
+graduation control) are reachable from the book detail / operational surfaces
+without presenting a second learner-facing plan.
 
 Existing nested analysis and artifact routes remain secondary surfaces:
 
@@ -345,6 +354,8 @@ choose tables, identifiers, APIs, migrations, or compatibility behavior.
    queue, not provisional learner-selected membership, free ordering, or
    historical/current route comparison. Persistence, concurrency, and stale
    recalculation behavior require a product contract.
+   Resolved by [ADR 0034: One implicit Reading Journey with learner-canonical
+   ordering and campaign-queue migration](../adr/0034-reading-journey-identity-ordering.md).
 3. **Primary Goal identity.** ADR 0027 requires a prepared deck before a
    Campaign exists. Primary Goal must support commitment before analysis or
    deck preparation and possibly reading without Anki. Its relationship to an
@@ -364,6 +375,10 @@ choose tables, identifiers, APIs, migrations, or compatibility behavior.
    with a learner-facing commitment queue. Migration or compatibility for
    queued, active, complete, and abandoned Campaign records requires planning;
    historical evidence must remain understandable.
+   Resolved by [ADR 0034](../adr/0034-reading-journey-identity-ordering.md):
+   queued records migrate into Journey membership in creation order, active
+   records remain the current Campaign, and completed/abandoned records remain
+   history.
 7. **Cross-book projection and route comparison.** The exact optimization
    objective, eligible evidence, threshold assumptions, transition assumptions,
    handling of incomparable books, and invalidation rules need a reproducible
