@@ -1,6 +1,7 @@
 # Design system
 
-Status: **Foundation established**
+Status: **Foundation established; frozen experience direction documented for
+future reconciliation**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -8,9 +9,11 @@ calm digital scholarly reading desk. Pico remains a replaceable foundation;
 Mouseion-owned tokens, typography roles, responsive rules, and interaction
 contracts are the durable system.
 
-The system is intentionally small. Phase 2 establishes foundations. Shared
-Templ components and complete pattern specifications remain incremental Phase 3
-work driven by the core book workflow.
+The system is intentionally small. The foundation and first reusable Templ
+component layer are shipped. Canonical patterns for My Books, Reading Journey,
+and Primary Goal are documented in [`components.md`](components.md) as target
+interaction guidance; they are not claims that the new architecture is
+implemented or that its component boundaries are settled.
 
 ## Implementation ownership
 
@@ -56,7 +59,7 @@ Pico variables. The token implementation may map to Pico internally.
 | `--mouseion-color-info`           | Neutral processing or explanatory state                 |
 | `--mouseion-color-success`        | Successful or ready state                               |
 | `--mouseion-color-warning`        | Non-blocking risk or degraded quality                   |
-| `--mouseion-color-danger`         | Error, failure, abandonment, or destructive consequence |
+| `--mouseion-color-danger`         | Error, failure, or destructive consequence              |
 
 Surface, text, accent, focus, success, and danger tokens alias the active Pico
 light/dark palette so they preserve its theme behavior. Mouseion supplies an
@@ -75,7 +78,7 @@ never carries state alone; pair it with visible text or an accessible name.
 | ----------------------------- | ------------------------------------------------------------------------------ |
 | `--mouseion-font-application` | Navigation, controls, forms, and explanatory UI                                |
 | `--mouseion-font-reading`     | Book titles, quotations, and sustained source-text samples                     |
-| `--mouseion-font-size-stat`   | Prominent comparable coverage and threshold values                             |
+| `--mouseion-font-size-stat`   | Comparable coverage and threshold values; supporting evidence, not page heroes |
 | `.bibliographic-title`        | Bibliographic titles; serif, restrained, and visually textual                  |
 | `.reading-text`               | Source passages or reading samples with a readable measure and 1.7 line height |
 | `.metadata`                   | Dates, language, media type, provenance summary, and secondary labels          |
@@ -124,12 +127,16 @@ Breakpoints are named by the layout pressure they resolve, not by device type:
 
 Use when peer content and actions no longer fit comfortably side by side.
 
-- page headings, library rows, campaign cards, campaign progress, and sticky
-  scope summaries stack vertically;
-- campaign form actions become full width;
+- page headings, bibliographic rows, Primary Goal summary, Journey controls, and
+  sticky scope summaries stack vertically;
+- book identity remains before relationship, evidence, and action;
+- Journey move controls remain adjacent to their book, and side-by-side route
+  alternatives become two complete stacked lists;
+- current Campaign form actions become full width while that compatibility
+  surface remains;
 - floated secondary actions return to document flow;
 - the scope summary stops sticking so it cannot dominate a short viewport;
-- reading order remains content before action.
+- reading and keyboard order remain content before action.
 
 ### Standard — above `40rem` and below `72rem`
 
@@ -154,6 +161,11 @@ scrollable data table must label and contain its own overflow.
 - Keep Pico's visible focus behavior and map any custom focus treatment through
   `--mouseion-color-focus`.
 - Use semantic status text in addition to color.
+- Preserve an ordered-list reading structure for Reading Journey. Visible
+  keyboard-operable move controls and text announcements are required; drag is
+  optional enhancement only.
+- Label current, prior, projected, and remaining evidence in words. Position,
+  connectors, color, and signed deltas are supplemental.
 - Respect reduced-motion preferences supplied by Pico; new motion must do the
   same.
 - Maintain a minimum WCAG 2.2 AA contrast ratio of 4.5:1 for normal text and
@@ -161,13 +173,24 @@ scrollable data table must label and contain its own overflow.
 - Test compact, standard, and wide behavior with realistic long titles, error
   messages, and dense analysis content.
 
-## Established interaction contracts
+## Established and canonical interaction contracts
 
-- My Library, Learning, and Settings are destinations; Add books is a persistent
-  workflow action.
+- Canonical authenticated destinations are My Books, Reading Journey, and
+  Settings; Add books is a persistent workflow action. Primary Goal is embedded
+  in Reading Journey.
+- Books and learner relationships lead; evidence supports. Readiness never ranks
+  what the learner ought to read.
+- Reading Journey has one learner-controlled order, later books are provisional,
+  and no Journey completion/progress model is shown.
+- A vocabulary-efficient alternative is optional comparative evidence over the
+  same learner-selected books. Manual order changes receive neutral
+  recalculation, not warning or correction.
+- Current knowledge, conditional projection, reading completion, preparation,
+  and vocabulary transition remain visibly distinct.
 - Operational analysis status and the exact completed result are separate
   surfaces. Deck preparation follows the result's trust and insight summary.
-- Campaign completion and abandonment use distinct consequential confirmations.
+- Current Campaign completion and abandonment retain distinct consequential
+  confirmations until planner/ADR reconciliation defines Primary Goal behavior.
 - Settings is canonical for study languages and known vocabulary.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
@@ -177,30 +200,29 @@ See [`information-architecture.md`](information-architecture.md),
 [`terminology.md`](terminology.md), and the workflow documents indexed in
 [`README.md`](README.md).
 
-## Phase 3 reusable component layer
+## Reusable component layer
 
-The shared Templ component layer is established in
-[`components.md`](components.md). It defines the application shell, page
-hierarchy, navigation context, status and feedback, empty and resource states,
-action grouping, data display, asynchronous progress, responsive tables, and
-consequential confirmation.
+The shipped shared Templ component layer and canonical target patterns are
+documented in [`components.md`](components.md). Established components define
+the application shell, page hierarchy, current navigation context, status and
+feedback, empty and resource states, action grouping, data display,
+asynchronous progress, responsive tables, and consequential confirmation.
 
-The rollout is complete and documented in
-[`roadmap.md`](roadmap.md): Phase 4 shipped the component layer across the core
-book/result/deck journey, Phase 5 extended it to acquisition, Learning,
-Settings, and operational recovery, and Phase 6 shipped browser, accessibility,
-responsive, theme, and reconciliation quality gates. New reusable patterns
-should only be introduced when an existing component contract cannot represent
-the repeated interaction; prefer recording a follow-up in the roadmap over
-scattering one-off markup.
+The first rollout is complete and preserved as history in
+[`roadmap.md`](roadmap.md): it shipped the component layer across the existing
+book/result/deck journey and extended it to acquisition, current Campaign,
+Settings, operational recovery, and quality gates. The roadmap does not plan the
+frozen My Books / Reading Journey / Primary Goal architecture.
 
-Adoption now covers the core learner journey and supporting settings across My
-Library, book detail and scope review, Learning campaigns, analysis jobs, and
-known-vocabulary management. These component contracts are the durable
-semantic boundaries; convert remaining one-off markup to a shared component
-only when the repeated interaction and behavior evidence justify it.
+Current implementation adoption covers the library route, book detail and scope
+review, Campaigns, analysis jobs, and known-vocabulary management. Canonical
+target patterns add bibliographic book identity, the one Primary Goal, a fluid
+Journey order, route comparison, explicit evidence deltas, and the Where next?
+outcome. Do not disguise those new contracts as mere component renames.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,
 and document purpose, content, variants, states, focus, keyboard, announcement,
-and responsive contracts before broad adoption.
+and responsive contracts before broad adoption. Prefer extending an existing
+pattern when it can preserve the accepted hierarchy without contortion; avoid
+scattering one-off markup or introducing generic cards for every new region.

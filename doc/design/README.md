@@ -33,13 +33,14 @@ and surface a material conflict rather than silently choosing one.
 
 ### Product structure
 
-- [`information-architecture.md`](information-architecture.md) — product
-  objects, navigation, route hierarchy, and the role of secondary surfaces.
+- [`information-architecture.md`](information-architecture.md) — canonical
+  **My Books / Reading Journey / Primary Goal** architecture, navigation,
+  secondary surfaces, and explicit planner/ADR boundaries.
 - [`terminology.md`](terminology.md) — canonical learner-facing language.
-- [`screen-inventory.md`](screen-inventory.md) — current screens, goals,
-  transitions, and required states.
-- [`roadmap.md`](roadmap.md) — implementation phases, worker-agent issue
-  breakdown, and sequencing for the remaining design rollout.
+- [`screen-inventory.md`](screen-inventory.md) — canonical screen goals,
+  transitions, states, and current-route compatibility notes.
+- [`roadmap.md`](roadmap.md) — historical record of the completed first design
+  rollout; it is not the plan for implementing the frozen architecture.
 
 ### Workflows
 
@@ -47,14 +48,28 @@ and surface a material conflict rather than silently choosing one.
   catalog setup, browsing, and multi-book acquisition.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
   the core scoped-analysis-to-deck lifecycle and approved result transition.
-- [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — queue,
-  activation, progress, completion, graduation, and abandonment.
+- [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
+  learner-facing Reading Journey and Primary Goal workflow, with explicit
+  boundaries around the current internal Campaign contract.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
   — Settings ownership, capability degradation, and vocabulary import.
 
 Additional workflow documents should be added only when a cross-screen journey
 has durable rules that cannot be understood from the screen inventory and its
 feature specification.
+
+### Historical design evidence
+
+- [`corpus-campaign-horizon-discovery.md`](corpus-campaign-horizon-discovery.md)
+  preserves the discovery reasoning that preceded the frozen architecture. Its
+  Corpus / Campaign / Reading Horizon learner model is superseded.
+- [`../../prototypes/stitch/reading-horizon/`](../../prototypes/stitch/reading-horizon/)
+  preserves prompts, reassessments, and view synthesis from visual exploration.
+  These artifacts explain why decisions were made; they are not specifications.
+
+Historical evidence is not rewritten to resemble the accepted answer. Add a
+short status note and a link to the canonical document when an assumption is
+superseded.
 
 ### System
 
@@ -93,6 +108,10 @@ Update the relevant design document when a frontend change:
 - changes responsive or accessibility behavior shared by more than one screen.
 
 Do not copy complete feature requirements into design documents. Link to the
-owning feature or ADR and document only the cross-feature experience rule. Keep
-screen and workflow documents synchronized with shipped behavior; do not use
-this directory for speculative mockups or session notes.
+owning feature or ADR and document only the cross-feature experience rule. When
+an accepted design direction conflicts with a current contract, record the
+mismatch explicitly and require planner/ADR reconciliation; do not silently
+invent domain behavior or disguise the mismatch as copy. Keep shipped-state
+claims synchronized with implementation, and label target design direction as
+such until it ships. Do not use this directory for speculative mockups or
+session notes.

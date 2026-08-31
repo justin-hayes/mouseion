@@ -1,9 +1,18 @@
 # Design roadmap
 
-This document is the living implementation plan for the Mouseion design system.
-It maps the canonical product architecture and accepted interaction decisions
-(Phases 0 and 1) and the visual/component foundations (Phases 2 and 3) to
-concrete implementation phases and bounded worker-agent issues.
+Status: **Historical rollout record.** The phases and issue references below
+record the completed first design-system rollout against the then-current My
+Library / Learning / Campaign experience. They are preserved rather than
+rewritten. This file does not plan implementation of the frozen My Books /
+Reading Journey / Primary Goal architecture; that work requires the explicit
+planner/ADR reconciliation listed in
+[`information-architecture.md`](information-architecture.md#contract-changes-requiring-planneradr-work).
+
+This document was the implementation plan for the first Mouseion design-system
+rollout. It is now retained to explain delivered scope and sequencing.
+It mapped the then-canonical product architecture and accepted interaction
+decisions (Phases 0 and 1) and the visual/component foundations (Phases 2 and 3)
+to concrete implementation phases and bounded worker-agent issues.
 
 Phases 0 through 3 are merged. Their durable decisions live in:
 

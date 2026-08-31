@@ -1,239 +1,392 @@
 # Information architecture
 
-Mouseion is organized around a learner moving one owned book through a durable
-reading-and-study lifecycle. The interface should foreground books, passages,
-vocabulary, and the next learner decision rather than backend jobs or a generic
+Status: **Canonical learner-facing design direction.** This document defines the
+accepted experience architecture, not a persistence model or a claim that every
+surface is already shipped. Conflicts with current feature documents, ADRs, and
+routes are explicit under
+[Contract changes requiring planner/ADR work](#contract-changes-requiring-planneradr-work).
+
+Mouseion is organized around literature the learner cares about, one current
+reading commitment, and the changed possibilities that follow from justified
+learning. It foregrounds books, bibliographic identity, learner intention, and
+the next decision rather than backend jobs, preparation mechanics, or a generic
 dashboard.
 
 ## Learner goals
 
-The product supports four top-level goals:
+The product supports these top-level goals:
 
-1. collect books from a learner-owned OPDS catalog;
-2. decide what part of a book to analyze and understand the result;
-3. prepare and study one book-and-deck learning campaign at a time;
-4. maintain study languages and known vocabulary.
+1. keep a broad personal collection of books Mouseion knows about;
+2. choose and revise a provisional Reading Journey;
+3. commit to finishing one Primary Goal at a time, when desired;
+4. understand trustworthy current and conditional preparation evidence;
+5. review how actual vocabulary changes affect books ahead;
+6. maintain study languages and known vocabulary.
 
-The canonical lifecycle is:
+The recurring experience rhythm is:
 
 ```text
-add to library
-    -> review and confirm scope
-    -> start analysis
-    -> monitor analysis
-    -> open the exact completed analysis result and insights
-    -> prepare and download a deck
-    -> queue and activate a learning campaign
-    -> finish reading and review the deck
-    -> graduate the campaign vocabulary to known
+My Books
+    -> shape or reconsider Reading Journey
+    -> choose one Primary Goal
+    -> prepare and read without conflating those facts
+    -> finish the book
+    -> apply only justified vocabulary transitions
+    -> recalculate the books ahead from actual state
+    -> Where next?
 ```
 
-Acquisition, scope confirmation, analysis, deck preparation, and campaign
-completion are separate explicit transitions. The UI must not imply that one
-automatically performs the next.
+This rhythm does not imply a required pipeline for every book. Acquisition,
+scope confirmation, analysis, deck preparation, Journey membership, Primary
+Goal choice, reading completion, and vocabulary graduation remain separate
+transitions.
 
-## Product objects
+## Principal learner-facing model
 
-- **Book** — the learner-facing center of the experience. It owns bibliographic
-  identity and links the source, reviewed scopes, analyses, prepared decks, and
-  campaigns that came from it.
-- **Source snapshot** — immutable acquired EPUB content and extracted units. It
-  is provenance, not a primary navigation destination.
-- **Reviewed scope** — an immutable learner-confirmed selection of source units.
-- **Analysis run** — an asynchronous attempt to analyze one confirmed scope.
-  Queue and retry details are operational state.
-- **Analysis result** — the immutable completed corpus and provenance used by
+### My Books
+
+**My Books** is the broad collection of books Mouseion knows about for the
+learner. It can include:
+
+- acquired and metadata-only books;
+- assessed and unassessed books;
+- currently desired, formerly desired, and low-interest books;
+- books in or outside Reading Journey;
+- the current Primary Goal;
+- completed books;
+- books with stale, questionable, incomplete, or unavailable evidence.
+
+My Books is a searchable bibliographic catalogue, not a readiness ranking or a
+list of obligations. Title, author, edition when relevant, and learner intent
+precede analysis status. Processing state appears only to explain available
+evidence or the next relevant action.
+
+### Reading Journey
+
+**Reading Journey** is a fluid, provisional ordering of learner-selected books
+they currently imagine reading. It is not a queue, curriculum, project plan,
+calendar, or promise to finish the sequence.
+
+The Journey:
+
+- may be empty;
+- has explicit and reversible membership;
+- can be reordered freely;
+- has no final destination or completion state;
+- has no dates, overdue states, or progress percentage;
+- preserves one clear learner order;
+- may compare that order with a vocabulary-efficient alternative using only the
+  same learner-selected books;
+- responds to changes with neutral recalculation, not warnings;
+- keeps unassessed or incomparable books visible without inventing readiness.
+
+The first provisional book is a natural candidate for a future Primary Goal,
+not an automatic commitment or recommendation.
+
+### Primary Goal
+
+**Primary Goal** is the one book the learner currently intends to finish. It is
+the only meaningful commitment in the principal architecture and is embedded
+at the beginning of Reading Journey rather than exposed as a peer destination.
+A learner may have no Primary Goal.
+
+The Primary Goal brings together the book's bibliographic identity and the
+ordinary facts needed to serve the current undertaking:
+
+- reading state;
+- preparation and vocabulary-work state;
+- current evidence and explicitly conditional projections;
+- the next available learner decision.
+
+It does not erase the distinction between reading, deck review, vocabulary
+knowledge, analysis provenance, or prepared artifacts. It also does not make
+later Journey books committed.
+
+## Supporting product objects
+
+These objects remain important, but they do not define principal navigation:
+
+- **Book** — learner-facing bibliographic identity and the center of reading,
+  analysis, and Journey relationships.
+- **Source snapshot** — immutable acquired EPUB content and extracted units;
+  provenance rather than a destination.
+- **Reviewed scope** — immutable learner-confirmed source-unit selection.
+- **Analysis run** — asynchronous analysis attempt; queue and retry details are
+  operational state.
+- **Analysis result** — immutable completed corpus and provenance used by
   insights and deck preparation.
-- **Prepared deck** — an immutable APKG artifact produced asynchronously from
-  one completed analysis result.
-- **Learning campaign** — one book plus one prepared deck moving through queued,
-  active, complete, or abandoned state. At most one campaign is active.
+- **Prepared deck** — immutable APKG artifact from one exact analysis result.
+- **Learning campaign** — current accepted domain object for one book/deck
+  workflow and its vocabulary reservation/graduation semantics. It remains an
+  internal or secondary concept until its contract is deliberately reconciled
+  with Primary Goal.
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
-  graduated by completing a learning campaign.
-- **Catalog connection** — a learner-owned OPDS endpoint and encrypted
-  credentials used to find books.
-- **Study language** — an owner-scoped language preference selected from the
-  capabilities advertised as ready by the NLP service.
+  graduated through an accepted transition.
+- **Catalog connection** — learner-owned OPDS endpoint and credentials.
+- **Study language** — owner-scoped preference selected from capabilities
+  advertised as ready by the NLP service.
 
-Learner-facing book state is broader than operational analysis-job state. Pages
-should answer what the book needs next rather than exposing only the latest
-backend status.
-
-My Library rows and book detail use the same single next-action projection for
-the current book state. Scope review required, ready to analyze, active or
-failed analysis, and an exact completed result each expose one clear action;
-operational history and alternate scope choices remain secondary links.
+A relationship graph, not a strict containment hierarchy, connects these
+objects. A book can exist without a Journey or Primary Goal. A Journey entry
+does not own a book or analysis. A Primary Goal does not make a projection
+actual. An analysis result remains historically addressable after vocabulary or
+Journey state changes.
 
 ## Primary navigation
 
-The authenticated shell currently exposes:
+The authenticated shell exposes three principal destinations:
 
-- **My Library** (`/library`) — the canonical home and book collection.
-- **Learning** (`/campaigns`) — active campaign, queue, and history.
-- **Add books** (`/connections`) — the entry action for catalog setup and
-  browsing.
-- **Settings** (`/settings`) — study languages and known vocabulary.
+- **My Books** — the canonical home and broad book collection;
+- **Reading Journey** — the current Primary Goal, provisional sequence, route
+  evidence, and Where next? transition;
+- **Settings** — study languages and known vocabulary.
 
-`My Library`, `Learning`, and `Settings` are stable destinations. `Add books` is
-a global workflow action rather than a peer destination. It enters the
-acquisition hub at `/connections` and should be visually distinguishable from
-destination navigation without changing its label. The hub shows first-time
-connection setup or lets the learner choose a saved catalog; it does not
-silently select among multiple connections.
+**Add books** is a persistent global workflow action, not a fourth destination.
+It enters catalog setup and browsing and remains visually distinguishable from
+navigation.
 
-The Mouseion brand link points to `/`, which redirects to `/library`. There is no
-active dashboard destination.
+Primary Goal is never a separate top-level destination. Analysis jobs, deck
+preparation, catalog connections, and campaign history are supporting surfaces.
+There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
+canonical learner-facing architecture.
 
 ## Route and screen hierarchy
 
+The hierarchy below identifies conceptual ownership. It deliberately does not
+choose new route names or storage APIs before planner/ADR work.
+
 ```text
-/login
-    first-account onboarding or sign in
+Authentication
+    sign in or first-account onboarding
 
-/library
-    /books/{id}
-        /books/{id}/scope
-        /books/{id}/analyze
-        /books/{id}/analyses/{analysis-run-id}
-        /jobs/{id}
-            /jobs/{id}/status
-        /deck-preparations/{id}/status
-        /deck-preparations/{id}/download
+My Books
+    book detail
+        scope review
+        analysis status
+        exact analysis result
+        deck preparation and download
 
-/connections
-    /catalog
-        /opds/language
-        /opds/browse
-        /opds/search
-        /opds/acquire
+Reading Journey
+    embedded Primary Goal, when present
+    provisional ordered books
+    route comparison and reorder preview
+    completion outcome
+    Where next?
 
-/campaigns
+Add books
+    acquisition hub
+    catalog connection setup/maintenance
+    catalog browse, search, and acquisition
 
-/settings
-    /settings/languages
-    /settings#known-vocabulary
-    /known-vocab/import
-    /known-vocab/imports/{id}/status
+Settings
+    study languages
+    known vocabulary and import
+
+Secondary history
+    operational analysis history
+    reading, preparation, and vocabulary-transition history
 ```
 
-The route hierarchy shows ownership and transitions; asynchronous status and
-mutation endpoints are not separate navigation destinations.
+### Current route compatibility
 
-## Secondary and inactive surfaces
+The current application uses `/library` for its owned-book collection and
+`/campaigns` for the active-campaign queue/history screen. `/` redirects to
+`/library`. Those routes are implementation facts, not permission to retain My
+Library, Learning, queue, or Campaign as primary learner-facing concepts.
 
-- `/jobs` and `/jobs/{id}` are secondary operational/history surfaces. A learner
-  reaches an active analysis run after starting it from a book. On completion,
-  the primary transition is to the book-centered result at
-  `/books/{book-id}/analyses/{analysis-run-id}`. Jobs are not a primary
-  navigation destination.
-- `POST /jobs/{id}/deck/preparations` is retained only as a compatibility
-  submission route for older job pages. New scoped analyses use the exact
-  result's `POST /books/{book-id}/analyses/{analysis-run-id}/deck/preparations`
-  route; preparation status and download remain under
-  `/deck-preparations/{id}/...`.
-- `/known-vocab` is a compat surface redirected to Settings. `GET /known-vocab`
-  redirects to `/settings#known-vocabulary`, preserving valid language context
-  as a `?language=` query parameter when the requested language is saved;
-  Settings is the canonical navigation entry for study languages and known
-  vocabulary.
-- The `Dashboard` template is inactive. `/` redirects to the library, and the
-  dashboard's older `/languages` link is not part of the current IA. New work
-  must not treat this template as an established screen.
-- HTMX fragment and JSON status endpoints support a parent screen; they are not
-  user-facing pages in the information architecture.
+Whether `/library` is retained for My Books, whether `/campaigns` redirects or
+is replaced, and what route owns Reading Journey are planner/implementation
+questions. New templates must not invent a second competing navigation system
+while that work is unresolved.
 
-## Learner-facing book lifecycle
+Existing nested analysis and artifact routes remain secondary surfaces:
 
-Library rows expose one primary next-step label derived from the learner's most
-relevant state. The approved order is:
+```text
+/books/{id}
+/books/{id}/scope
+/books/{id}/analyze
+/books/{id}/analyses/{analysis-run-id}
+/jobs/{id}
+/deck-preparations/{id}/status
+/deck-preparations/{id}/download
+/connections
+/catalog and /opds/*
+/settings and known-vocabulary support routes
+```
 
-1. **Scope review required**;
-2. **Ready to analyze**;
-3. **Analysis queued** or **Analysis running**;
-4. **Analysis failed — action required**;
-5. **Analysis result ready**;
-6. **Deck preparing**;
-7. **Deck ready**;
-8. **Queued for learning**;
-9. **Learning in progress**;
-10. **Campaign complete** or **Campaign abandoned**.
+Mutation, fragment, and JSON status endpoints support a parent screen; they are
+not learner-facing destinations.
 
-This is a navigation aid, not a replacement for independent resource states.
-Book detail and result screens continue to show analysis, deck, and campaign
-state separately when more than one is relevant. A historical failure does not
-override a newer successful result, and a ready result remains accessible after
-a later campaign transition.
+## My Books information hierarchy
 
-## Analysis continuity decision
+My Books answers questions in this order:
 
-The canonical completed-analysis destination is a book-centered, exact result:
+1. What literature do I care about or want to find again?
+2. Which book is my Primary Goal, and which are in my Journey?
+3. Which books have trustworthy current evidence?
+4. Which books are unassessed, stale, or cannot currently be assessed?
+5. What can I do with this book next?
+
+Rows lead with title, author, and edition/year/language where useful. Learner
+intent and Journey/Goal relationship precede concise evidence state. Search,
+filtering, and sorting support finding books but do not turn readiness into the
+default ranking.
+
+Book detail remains the place for full lifecycle state, exact analysis history,
+scope, provenance, and actions. My Books should be moderately dense and should
+not place every book in a large card.
+
+## Reading Journey information hierarchy
+
+Reading Journey answers questions in this order:
+
+1. What am I committed to finishing now, if anything?
+2. What do I currently imagine reading after it?
+3. Which order is mine and how can I change it?
+4. What current and conditional preparation evidence is trustworthy?
+5. How would a vocabulary-efficient alternative change one stated lexical
+   property?
+6. What happens if I keep my preference?
+
+The Primary Goal is visually distinct but remains book-led rather than a large
+metric card. Everything after it is explicitly provisional and directly
+reorderable with keyboard-operable controls. Drag may enhance but never replace
+**Move earlier** and **Move later**.
+
+The learner's order is always the active order. A vocabulary-efficient
+alternative is optional comparison evidence. Its method, planning threshold,
+scopes, evidence recency, and vocabulary-transition assumptions must be
+available. Aggregate totals are supporting detail; lead with book order and the
+plain-language consequence.
+
+Unassessed or incomparable books stay in the Journey at the learner's chosen
+position. Mouseion explains the evidence gap and excludes them from totals
+rather than moving or demoting them silently.
+
+## Primary Goal completion and Where next?
+
+Reading completion and vocabulary knowledge are independent facts. When reading
+is finished, the book no longer occupies the current Primary Goal role; it
+remains in My Books and history, and unfinished vocabulary work remains visible
+without blocking **Where next?** No next Goal is automatic. Implementing that
+role transition against the current Campaign contract requires planner/ADR work.
+
+Completion proceeds in four beats:
+
+1. state the factual reading outcome;
+2. state the justified vocabulary transition or its explicit absence;
+3. replace old forecasts with recalculation from actual state and show what
+   changed or remained conditional;
+4. return attention to Reading Journey with **Where next?**
+
+Two required branches are:
+
+- **Reading finished and the justified vocabulary transition is complete.** Add
+  only eligible vocabulary through the accepted transition, recalculate later
+  books from actual known vocabulary, and show precise before/after evidence.
+- **Reading finished while vocabulary work remains.** Acknowledge the reading
+  achievement, state that no vocabulary has yet been added to known, keep
+  current values unchanged, and preserve any future effect as conditional.
+
+The first remaining Journey book may be presented as **first in your current
+order**, never **optimal next text**. **Choose as Primary Goal**, reorder, remove,
+add from My Books, and choose another book are peer choices. No next Goal is
+automatic. An empty Journey returns calmly to My Books; it is not a failed or
+completed plan.
+
+## Analysis continuity
+
+The canonical completed-analysis destination remains the book-centered exact
+result:
 
 ```text
 /books/{book-id}/analyses/{analysis-run-id}
 ```
 
 It identifies the book, confirmed scope, immutable analysis, quality state,
-insights, and eligible deck action. It is not a mutable “latest analysis” view.
-
-The operational job page remains responsible for queued/running progress,
-cancellation, retry, attempts, and failure recovery. When work completes, its
-primary action becomes **View analysis result**. Deck preparation moves to the
-exact result screen after the insights summary. The book detail screen lists
-analysis history: active runs link to operational status and completed scoped
-runs link to their exact result.
-
-The frontend implements this route with a server-rendered result baseline.
-Completed scoped jobs link here; queued, running, failed, cancelled, and legacy
-jobs remain operational on `/jobs/{id}`. See
-[`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md).
-
-## Result information hierarchy
+insights, and eligible deck action. The operational job page remains responsible
+for queued/running progress, cancellation, retry, attempts, and failure
+recovery. When work completes, its primary action is **View analysis result**.
 
 An analysis result answers questions in this order:
 
-1. **Identity and trust** — book, scope, analysis identity, and blocking or
-   material quality warnings.
-2. **Decision summary** — current scoped coverage, the most relevant projection,
-   and whether reading now or preparing vocabulary is plausible.
-3. **Vocabulary investment** — threshold counts, top unknowns, concentration,
-   and learn-next projections.
-4. **Structural context** — sentence and extraction signals kept separate from
-   lexical coverage.
-5. **Provenance and history** — exact scope units, classifier/source details,
-   and links to other analyses.
-6. **Next action** — prepare a deck, return to the book, or review a different
-   scope. Deck preparation appears only after material quality warnings and the
-   decision summary have been presented.
+1. identity and trust;
+2. current scoped coverage and the most relevant conditional projection;
+3. vocabulary investment;
+4. structural context kept separate from lexical coverage;
+5. provenance and history;
+6. available next actions.
 
-The next action may be summarized near the top and repeated after the insights,
-but it must not visually bypass a blocking warning or turn the screen into a
-deck-generation form with metrics below it.
+Deck preparation follows material warnings and the evidence summary. It does
+not automatically add a book to Reading Journey, choose a Primary Goal, or mark
+vocabulary known.
 
 ## Settings ownership
 
-Settings owns study-language preferences and known vocabulary. Removing a study
-language removes only the preference; it does not delete books, analyses,
-decks, campaigns, or known vocabulary. Known-vocabulary import is additive and
-does not provide an implicit correction or campaign-reversal path.
+Settings owns study-language preferences and known vocabulary. Under the current
+contract, removing a study language removes only the preference; it does not
+delete books, analyses, decks, internal Campaigns, or known vocabulary.
+Known-vocabulary import remains additive and does not imply a correction or
+reversal path. Future Journey/Goal relationships must not be described as
+deleted or preserved until their contract exists.
 
-## Consequential campaign transitions
+## Contract changes requiring planner/ADR work
 
-The action that satisfies the second campaign-completion condition must disclose
-that assigned vocabulary will graduate to known and that completion cannot
-currently be undone in Mouseion. Abandonment must disclose that artifacts and
-history remain while reserved vocabulary becomes eligible again. Full rules are
-in [`workflows/learning-campaign.md`](workflows/learning-campaign.md).
+The learner-facing architecture above is accepted. The following product/domain
+questions remain deliberately unresolved and must be handled through the normal
+feature-planning and ADR process before implementation. This document does not
+choose tables, identifiers, APIs, migrations, or compatibility behavior.
+
+1. **Broader My Books membership.** Current acquisition contracts model owned
+   EPUBs in My Library. My Books also needs to represent desired,
+   metadata-only, unavailable, or otherwise unacquired works without weakening
+   source/provenance identity.
+2. **Reading Journey identity and ordering.** Current contracts have a campaign
+   queue, not provisional learner-selected membership, free ordering, or
+   historical/current route comparison. Persistence, concurrency, and stale
+   recalculation behavior require a product contract.
+3. **Primary Goal identity.** ADR 0027 requires a prepared deck before a
+   Campaign exists. Primary Goal must support commitment before analysis or
+   deck preparation and possibly reading without Anki. Its relationship to an
+   internal Campaign is unresolved.
+4. **Completion and vocabulary graduation.** ADR 0027 atomically completes a
+   Campaign only after both book-finished and deck-reviewed facts, then
+   graduates assigned vocabulary. The accepted experience treats reading
+   completion as a factual outcome even when vocabulary work remains. The
+   transition and copy cannot be split or relabeled without revisiting that
+   contract.
+5. **A new Goal while vocabulary work remains.** The accepted Where next?
+   experience permits reconsideration after the book is finished, while the
+   current single-active Campaign may still reserve vocabulary. Whether another
+   Goal can become current, and how reservation/projection semantics behave,
+   requires an explicit decision.
+6. **Queue replacement and history.** The provisional Journey must not coexist
+   with a learner-facing commitment queue. Migration or compatibility for
+   queued, active, complete, and abandoned Campaign records requires planning;
+   historical evidence must remain understandable.
+7. **Cross-book projection and route comparison.** The exact optimization
+   objective, eligible evidence, threshold assumptions, transition assumptions,
+   handling of incomparable books, and invalidation rules need a reproducible
+   product/analysis contract. No composite score should be invented.
+8. **Routes and terminology rollout.** My Books and Reading Journey need one
+   coherent navigation model across redirects, deep links, breadcrumbs, and
+   tests. Route names are implementation decisions; learner-facing terminology
+   must not drift during staged rollout.
+
+Until these contracts are accepted, existing feature documents and ADRs remain
+authoritative for domain behavior. Canonical design language may describe the
+target experience, but must not be used to conceal a semantic mismatch.
 
 ## Cross-linking rules
 
-Every primary screen should make four things clear:
+Every principal or nested screen makes clear:
 
-1. which book, campaign, or setting is in context;
-2. the learner-facing current state;
-3. the recommended next action and why it is available;
-4. how to return to the parent object without reconstructing the route through
+1. which book, Goal, Journey, analysis, or setting is in context;
+2. which facts are current and which are conditional;
+3. the learner's available next decision and why it is available;
+4. how to return to the parent context without reconstructing the route through
    global navigation.
 
 Operational identifiers, attempt counts, provenance, and classifier versions
-remain available where useful, but they should not displace the book title,
-learner decision, or next step.
+remain available where useful, but they must not displace book title, author,
+learner intention, or the next meaningful choice.

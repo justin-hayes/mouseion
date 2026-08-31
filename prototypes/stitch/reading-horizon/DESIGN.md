@@ -126,6 +126,13 @@ components:
 
 # Mouseion design context
 
+Status: **Historical Stitch generation context.** Its visual character remains
+consistent with Mouseion, but it is not a canonical design-system specification.
+Use [`doc/design/design-system.md`](../../../doc/design/design-system.md),
+[`components.md`](../../../doc/design/components.md), and
+[`information-architecture.md`](../../../doc/design/information-architecture.md)
+for current guidance.
+
 ## Character
 
 Mouseion is a **digital scholarly reading desk**: calm, serious, approachable, book-centered, and information-rich without feeling busy. It should feel like a place for sustained literary intention, not administration. The page should first communicate works, authors, reading commitments, and meaningful choices; application chrome and quantitative analysis remain supporting structure.

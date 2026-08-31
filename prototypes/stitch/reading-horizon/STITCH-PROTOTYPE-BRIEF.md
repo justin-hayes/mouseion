@@ -1,6 +1,10 @@
 # Stitch prototype brief — Explore / Reading Horizon
 
-Status: **Superseded by [`STITCH-CONNECTED-EXPERIENCE-PROMPTS.md`](STITCH-CONNECTED-EXPERIENCE-PROMPTS.md); retained as exploration history.**
+Status: **Superseded visual-exploration prompt; retained as historical evidence.**
+Its Explore / Reading Horizon destination, active Campaign language, and
+threshold-led structure are not canonical. See
+[`information-architecture.md`](../../../doc/design/information-architecture.md)
+and the later connected prompt/synthesis.
 
 Paste the **Initial prompt** and **Sample content** together into Stitch. Use the companion `DESIGN.md` as persistent design context.
 

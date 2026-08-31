@@ -1,23 +1,50 @@
 # Terminology
 
+Status: **Canonical learner-facing design language.** Terms that conflict with
+accepted feature documents or ADRs are design changes awaiting the
+planner/ADR work listed in
+[`information-architecture.md`](information-architecture.md#contract-changes-requiring-planneradr-work).
+They must not be implemented by relabeling a control while preserving
+contradictory behavior.
+
 Use these terms consistently in navigation, headings, actions, status messages,
-feature documents, and tests. Backend names may remain in code, APIs, logs, and
-operational detail, but should not become the primary learner-facing language
-without a product reason.
+future feature documents, and tests. Backend names may remain in code, APIs,
+logs, and operational detail, but should not become primary learner-facing
+language without a product reason.
+
+## Principal learner-facing concepts
+
+| Canonical term | Meaning and usage | Avoid |
+|---|---|---|
+| **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
+| **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible. | Learning queue, backlog, curriculum, plan, roadmap |
+| **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, not a separate destination. | Active campaign, target destination, current project |
+| **Where next?** | The choice after a Primary Goal is finished or when no Goal exists. It invites selection or reconsideration without urgency or automatic advancement. | Start next, continue plan, complete Journey |
+
+Only the Primary Goal carries commitment. A learner may have no Primary Goal,
+an empty Reading Journey, or books in My Books that never enter the Journey.
+The Journey has no destination, schedule, overdue state, completion state, or
+progress percentage.
+
+**Reading Horizon** may remain an internal design metaphor for changing
+possibility. **Campaign**, **milestone**, **destination**, and **Journey
+completion** are not primary learner-facing concepts.
 
 ## Books and acquisition
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Add books** | Navigation/action that enters catalog setup and browsing. | Import books, ingest books |
-| **Add to library** | Acquire and validate an EPUB from OPDS without starting analysis. | Import and analyze, analyze now |
-| **My Library** | The learner's owned books and their current lifecycle state. | Dashboard, corpora |
+| **Add books** | Persistent shell action that enters catalog setup and browsing. | Import books, ingest books |
+| **Add to My Books** | Add a book Mouseion can identify to the learner's collection without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
-| **Book** | The learner-facing bibliographic object. | Source, corpus, artifact when referring to the book |
+| **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it.
+upload unless a shipped route and feature contract support it. The existing
+acquisition contract uses **Add to library** and only stores owned EPUBs;
+promoting **Add to My Books** and a broader collection requires planner/feature
+contract work rather than a copy-only change.
 
 ## Scope and analysis
 
@@ -33,72 +60,90 @@ upload unless a shipped route and feature contract support it.
 | **View analysis result** | Leave operational status and open the exact completed, book-centered result. | View job, latest analysis |
 
 Use **job** only for operational history or implementation-facing detail. A
-book's learner-facing state may be “scope review required,” “ready to analyze,”
-or “analysis result ready” even when the backend state is expressed differently.
+book's learner-facing state may be **scope review required**, **ready to
+analyze**, or **analysis result ready** even when backend state is expressed
+differently.
 
-## Decks and learning
-
-| Canonical term | Meaning and usage | Avoid |
-|---|---|---|
-| **Prepare deck** | Start asynchronous creation of an APKG from a completed analysis. | Generate cards when referring to the whole workflow |
-| **Prepared deck** | The immutable ready APKG artifact and its preparation record. | Export job |
-| **Download deck** | Retrieve an already prepared APKG without changing product state. | Generate deck |
-| **Learning campaign** | One prepared deck and its source book moving through the reading-and-study workflow. | Project, session |
-| **Learning queue** | Campaigns waiting behind the single active campaign. | Backlog |
-| **Active campaign** | The one campaign currently reserved for reading and study. | Current deck when the book is also part of the state |
-| **Complete campaign** | Both the book is finished and the deck has been reviewed; assigned vocabulary graduates to known. | Finish deck when describing the combined transition |
-| **Abandon campaign** | Stop the campaign and make its assigned vocabulary eligible again unless independently known. | Delete campaign |
-
-Do not use **mastered** as a synonym for generated, assigned, exported, or merely
-reviewed. Mouseion records explicit known vocabulary and campaign graduation; it
-does not implement a mastery model.
-
-When the second progress action completes a campaign, prefer an outcome-based
-label such as **Complete campaign and add 132 lemmas to known vocabulary**. A
-generic **Mark complete** label hides the consequential vocabulary transition.
-
-Use **Remove study language** only for deleting a learner preference. Copy must
-state that this does not delete books or known vocabulary for that language.
-
-## Vocabulary and coverage
+## Journey and route evidence
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Known vocabulary** | Lemmas explicitly imported/marked known or graduated by a completed campaign. | Generated vocabulary, mastered vocabulary |
-| **Active-campaign vocabulary** | Lemmas reserved by the active campaign but not counted as known. | Known, learned |
+| **Your order** | The learner's current, canonical order of books in Reading Journey. | Manual preference, assigned order |
+| **Vocabulary-efficient alternative** | An optional order of the same learner-selected books, optimized only for an explicitly stated lexical property and assumptions. | Best route, optimal Journey, recommended order |
+| **Modeled additional vocabulary identities** | Exact lemma-identity preparation counts under named threshold, scope, sequence, and transition assumptions. | Total coverage mapped, effort score, cost without a unit |
+| **Move earlier / Move later** | Visible keyboard-operable controls for reordering. Drag may supplement them. | Fix order, improve route |
+| **Choose as Primary Goal** | Make one learner-chosen book the current commitment. | Begin optimal text, promote milestone |
+| **Add to Reading Journey** | Include a book in the provisional sequence without committing to it. | Queue for learning, schedule book |
+| **Remove from Reading Journey** | Remove provisional membership without deleting the book from My Books. | Delete book, abandon campaign |
+
+Learner order always remains the active order unless the learner explicitly
+adopts an alternative. Recalculation after reordering uses neutral language:
+**Moving this book here changes the modeled preparation across the remaining
+Journey by …** Never style a preference change as an error or warning.
+
+## Reading, preparation, and vocabulary
+
+| Canonical term | Meaning and usage | Avoid |
+|---|---|---|
+| **Reading in progress** | The learner has recorded that they are reading the book. | Learning in progress when only reading is meant |
+| **Reading finished** | The learner has recorded finishing the book. This does not imply vocabulary knowledge. | Completed when the completed fact is unclear |
+| **Vocabulary work in progress** | Preparation or review activity remains incomplete. | Nearly mastered |
+| **Vocabulary work complete** | The product's accepted review condition has been recorded; any resulting knowledge transition must still be stated explicitly. | Mastered |
+| **Known vocabulary** | Lemmas explicitly imported/marked known or graduated through an accepted transition. | Generated vocabulary, mastered vocabulary |
+| **Active-campaign vocabulary** | Internal term for lemmas reserved by the accepted active-campaign contract but not counted as known. | Known, learned |
 | **Generated vocabulary** | Immutable provenance that a lemma was assigned to a deck. | Known vocabulary |
-| **Graduated vocabulary** | Vocabulary promoted to known when its campaign completes. | Automatically mastered |
-| **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by the active campaign. | Difficult words |
-| **Current coverage** | Coverage from current known vocabulary under the accepted metric contract. | Reading level |
-| **Projected coverage** | A clearly labeled hypothetical result after learning additional vocabulary. | Coverage when the condition is omitted |
-| **Coverage threshold** | A target derived from token-weighted coverage, such as 95%, 97%, or 99%. | Difficulty score |
+| **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
+| **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by the accepted active-campaign contract. | Difficult words |
 
-Always state whether a number is current, projected, token-weighted, scoped, or
-conditional. Do not imply CEFR proficiency or general book difficulty.
+Do not use **mastered** as a synonym for generated, assigned, exported, merely
+reviewed, or encountered while reading. Reading history, preparation state,
+and vocabulary knowledge remain independent facts.
+
+Current ADR 0027 combines book-finished and deck-reviewed conditions into one
+Campaign completion that graduates vocabulary. The canonical experience must
+present those facts in ordinary reading language, but changing or splitting the
+underlying transition requires planner/ADR work. Until then, do not imply that
+**Reading finished** alone changes known vocabulary.
+
+## Coverage and projection
+
+| Canonical term | Meaning and usage | Avoid |
+|---|---|---|
+| **Current coverage** | Coverage from current known vocabulary under the accepted metric contract. | Reading level |
+| **Projected coverage** | A clearly labeled hypothetical result after a named vocabulary transition. | Coverage when the condition is omitted |
+| **Coverage threshold** | A planning marker derived from token-weighted coverage, such as 95%, 97%, or 99%. | Difficulty score, readiness rank |
+| **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
+| **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
+| **Cannot currently assess** | Mouseion lacks a supported source, language capability, or other prerequisite and should state which. | Unsupported with no explanation |
+
+Always state whether a number is current, projected, token-weighted, scoped,
+conditional, stale, or unavailable. A selected threshold is a planning aid, not
+a literary judgment or claim that the learner can or cannot read a book.
 
 ## Status and feedback
 
-Use complete, actionable labels where space permits:
+Use complete, factual labels where space permits:
 
+- Primary Goal;
+- in Reading Journey;
+- reading in progress;
+- reading finished;
+- vocabulary work in progress;
+- vocabulary work complete;
 - scope review required;
 - ready to analyze;
-- analysis queued;
-- analysis running;
-- analysis failed;
-- analysis cancelled;
-- analysis result ready;
-- deck preparing;
-- deck ready;
-- queued for learning;
-- learning in progress;
-- campaign complete;
-- campaign abandoned.
+- analysis queued, running, failed, cancelled, or result ready;
+- deck preparing or deck ready;
+- evidence needs review;
+- not assessed;
+- cannot currently assess.
 
-Raw values such as `analyzed`, `ready`, or `complete` are ambiguous without the
-resource they describe. Status text must identify the resource or appear within
-an unambiguous labeled context.
+Avoid ambiguous pills such as **Reading**, **Completed**, **Ready**, or **Active**
+without naming the resource or fact. Primary Goal is a role, not a generic
+success status.
 
 Use **error** for a failed request or operation, **warning** for risk or degraded
-quality that does not block progress, **notice** for neutral contextual
-information, and **success** for a completed user action. Messages should say
-what happened and, when applicable, what the learner can do next.
+quality that does not block all progress, **notice** for neutral contextual
+information, and **success** for a completed learner action. Messages say what
+happened, what remained unchanged when material, and what the learner can do
+next.

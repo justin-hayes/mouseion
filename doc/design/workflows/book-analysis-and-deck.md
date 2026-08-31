@@ -1,5 +1,11 @@
 # Book analysis and deck workflow
 
+Status: **Canonical supporting workflow.** Analysis and deck preparation serve a
+book and, when present, its Primary Goal. The shipped Campaign queue remains
+contract-bound by ADR 0027; replacing its learner-facing transition requires
+the planner/ADR reconciliation in
+[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
+
 ## Goal
 
 Help a learner move an owned EPUB from acquisition to a trustworthy, scoped
@@ -20,17 +26,18 @@ The primary path starts with an EPUB available in a learner-owned OPDS catalog.
 It ends with either:
 
 - an immutable completed analysis whose insights the learner can inspect; or
-- an immutable ready APKG that may be downloaded and added to the learning
-  queue.
+- an immutable ready APKG that may be downloaded and used in support of the
+  book or its Primary Goal.
 
-Neither outcome marks vocabulary known. Campaign completion is the graduation
-boundary defined by ADR 0027.
+Neither outcome adds the book to Reading Journey, selects a Primary Goal, marks
+reading complete, or marks vocabulary known. The current internal Campaign
+completion remains the graduation boundary defined by ADR 0027.
 
 ## Primary path
 
 ```text
 Catalog browser
-    -> Add to library
+    -> Add to My Books
     -> Book detail
     -> Scope review
     -> Confirm scope
@@ -40,17 +47,21 @@ Catalog browser
     -> Exact book-centered analysis result
     -> Prepare deck
     -> Deck-preparation status
-    -> Download deck or add to learning queue
+    -> Download deck or return to the book / Primary Goal
 ```
 
-### 1. Add to library
+### 1. Add to My Books
 
-**Learner decision:** Which book do I want to consider?
+**Learner decision:** Which book do I want Mouseion to know about?
 
-The acquisition control says **Add to library**. It validates and stores the
-EPUB source and extracted-unit snapshot, then updates the catalog entry in place.
-It does not start analysis, confirm a scope, prepare a deck, or mark vocabulary
+The canonical acquisition control says **Add to My Books**. It validates and
+stores the EPUB source and extracted-unit snapshot, then updates the catalog
+entry in place. It does not start analysis, confirm a scope, add the book to
+Reading Journey, choose a Primary Goal, prepare a deck, or mark vocabulary
 known.
+
+The current feature contract and shipped copy say **Add to library**. The target
+label must not ship before the broader My Books contract is reconciled.
 
 The interface must answer:
 
@@ -77,7 +88,7 @@ The interface must answer:
 - Am I reusing or changing a historical decision?
 - What will confirmation do, and what will it not do?
 
-My Library and book detail repeat the same learner-facing next action for this
+My Books and book detail repeat the same learner-facing next action for this
 state. The scope review itself makes **Confirm this scope** the next action and
 states that confirmation returns the learner to the book page; it does not
 start analysis.
@@ -128,10 +139,12 @@ Current, projected, scoped, token-weighted, and conditional numbers must be
 labeled explicitly. Mouseion does not claim CEFR level, general reading level,
 or a composite difficulty score.
 
-Material quality warnings precede the decision summary and deck action. The
-summary may recommend reading now, preparing vocabulary, or reviewing the scope,
-but it does not make the decision automatically. Deck preparation appears after
-the summary and core insights and may be repeated as the closing action.
+Material quality warnings precede the evidence interpretation and deck action.
+The interpretation may say that the learner's selected threshold is already
+met, that a stated amount of vocabulary preparation would reach it, or that the
+scope/evidence needs review. It does not decide whether the learner should read
+the book. Deck preparation appears after the interpretation and core insights
+and may be repeated as the closing action.
 
 ### 5. Prepare and download a deck
 
@@ -150,7 +163,7 @@ The interface must answer:
   ready?
 - Are any cards incomplete, retried, or excluded?
 - Can I safely leave and return later?
-- When ready, can I download or add the deck to the learning queue?
+- When ready, can I download the artifact and return to the book or Primary Goal?
 
 ## Alternate and edge paths
 

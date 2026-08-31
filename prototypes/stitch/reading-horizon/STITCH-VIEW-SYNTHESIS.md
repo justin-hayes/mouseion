@@ -1,6 +1,9 @@
 # Stitch view synthesis — My Books / Reading Journey / Primary Goal
 
-Status: **Design evidence for review — not a specification or canonical product decision**
+Status: **Approved design evidence.** Its Adopt/Adapt/Reject synthesis has been
+promoted into canonical design documentation. The supplied Stitch views remain
+visual evidence, not specifications. See
+[`doc/design/`](../../../doc/design/README.md).
 
 ## Evidence reviewed
 

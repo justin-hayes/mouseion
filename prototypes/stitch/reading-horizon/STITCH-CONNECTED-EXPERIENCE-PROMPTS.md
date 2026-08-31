@@ -1,5 +1,10 @@
 # Stitch prompts — connected Mouseion experience
 
+Status: **Historical visual-exploration prompt.** The architecture it explored is
+now canonical; generated layouts and detailed interaction treatments are not.
+Current guidance lives in
+[`doc/design/`](../../../doc/design/README.md).
+
 Use the companion [`DESIGN.md`](DESIGN.md) as Stitch's persistent design context. Paste the **Primary prompt** and **Sample dataset** together for the first generation.
 
 ## Primary prompt

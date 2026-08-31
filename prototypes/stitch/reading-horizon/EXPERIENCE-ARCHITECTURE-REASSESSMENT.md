@@ -1,6 +1,10 @@
 # Experience architecture reassessment
 
-Status: **Conceptual direction frozen for visual exploration — not yet accepted product behavior**
+Status: **Historical decision input.** Its My Books / Reading Journey / Primary
+Goal direction has been accepted and promoted to the canonical
+[`information-architecture.md`](../../../doc/design/information-architecture.md).
+Its open domain and persistence questions remain unresolved until planner/ADR
+work; this artifact is not itself a product contract.
 
 This note reassesses the prior Corpus / Campaign / Horizon proposal after the Reading Journey exploration. Its purpose is subtraction.
 

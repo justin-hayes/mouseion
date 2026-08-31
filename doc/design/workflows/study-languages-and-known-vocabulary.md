@@ -1,5 +1,10 @@
 # Study languages and known vocabulary workflow
 
+Status: **Canonical supporting workflow.** Campaign remains an internal accepted
+contract where needed for vocabulary provenance; learner-facing copy uses
+reading, preparation, and vocabulary-transition facts as defined in
+[`terminology.md`](../terminology.md).
+
 ## Goal
 
 Give a learner one coherent Settings destination for maintaining study-language
@@ -99,16 +104,18 @@ leave and return while durable processing continues.
 
 ## Vocabulary provenance and correction boundary
 
-The Settings list may contain explicitly imported and campaign-graduated known
-vocabulary. It must not label generated or active-campaign vocabulary as known.
-Where provenance is available, the interface may distinguish imported from
-campaign-graduated entries without implying different coverage weight.
+The Settings list may contain explicitly imported vocabulary and vocabulary
+added through a justified completed transition. It must not label generated,
+reserved, or unfinished-work vocabulary as known. Where provenance is
+available, the interface may distinguish imported entries from entries added
+through the accepted transition without implying different coverage weight.
 
 The current product supports additive import but not learner-facing removal of
 individual known-vocabulary entries. Settings must not imply that removing a
-study language deletes vocabulary or that a completed campaign can be undone.
-A future removal/correction workflow requires an explicit product contract for
-provenance, wildcard entries, campaign graduation, and coverage recalculation.
+a study language deletes vocabulary or that a completed vocabulary transition
+can be undone. A future removal/correction workflow requires an explicit product
+contract for provenance, wildcard entries, internal Campaign graduation, and
+coverage recalculation.
 
 ## Screen hierarchy
 

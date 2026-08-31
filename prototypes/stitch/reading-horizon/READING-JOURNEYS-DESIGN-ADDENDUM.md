@@ -1,6 +1,10 @@
 # Reading Journeys: design addendum
 
-Status: **Superseded as learner-facing architecture by [`EXPERIENCE-ARCHITECTURE-REASSESSMENT.md`](EXPERIENCE-ARCHITECTURE-REASSESSMENT.md); retained as exploration history.**
+Status: **Historical exploration evidence.** Its Horizon / Milestone / Campaign
+learner model and route-optimization proposal are superseded. The retained
+insights—learner-selected books, provisional order, explicit lexical assumptions,
+and desire before optimization—are reflected in the canonical
+[`information-architecture.md`](../../../doc/design/information-architecture.md).
 
 Date: 2026-08-31
 
