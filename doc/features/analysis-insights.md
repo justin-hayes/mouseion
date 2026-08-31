@@ -156,6 +156,23 @@ The repository feature document is the product source of truth. Stable metric de
 The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
 and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).
 
+## Cross-book projections and advisory Journey ordering
+
+Per-book analysis insights are the technical seed for the Reading Journey route
+comparison. The accepted cross-book contract is recorded in
+[ADR 0037](../adr/0037-cross-book-projection-advisory-ordering.md): the
+vocabulary-efficient alternative to the learner's canonical Journey order
+optimizes exactly one named lexical property — current known-token coverage — using
+a reproducible objective over the learner-selected comparable books and
+fixed-order constraints. It reuses ADR 0025's per-book coverage, denominator, and
+integer comparison without introducing a new aggregate or composite score. Current
+and conditional projected coverage states remain distinct, incomparable books stay
+at the learner's position without a fabricated rank, and the alternative is
+computed on demand and never persisted as stale truth. The learner's canonical
+order is always the active order; the alternative is advisory comparison evidence
+only and never auto-reorders, auto-selects a Primary Goal, or implies literary or
+difficulty judgment.
+
 Thresholds, learner coverage, and projections are computed on demand from the
 persisted corpus statistics and current owner-scoped vocabulary state. This
 keeps the learner-specific values current after known-vocabulary or generated-
