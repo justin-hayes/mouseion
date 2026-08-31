@@ -12,8 +12,8 @@ test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('login and library expose representative content', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /library|welcome/i }).first()).toBeVisible();
-    await page.getByRole('link', { name: /library/i }).first().click();
+    await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
+    await page.getByRole('link', { name: /my books/i }).first().click();
     await expect(page).toHaveURL(/\/library/);
     await expect(page.getByRole('heading', { name: 'My Books' })).toBeVisible();
     await expect(page.locator('section[aria-labelledby="acquired-books-heading"]')).toBeVisible();
@@ -49,9 +49,9 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
     await expect(page.getByText('Ein deutsches Buch').first()).toBeVisible();
     await expect(page.getByText('Un libro italiano').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /add to library/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /add to my books/i }).first()).toBeVisible();
     await page.goto('/campaigns');
-    await expect(page.getByRole('heading', { name: /learning/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();
