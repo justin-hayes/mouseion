@@ -1,6 +1,6 @@
 # ADR 0025: Analysis coverage and threshold metric contract
 
-Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036** · Date: 2026-08-24 · Author: Justin + Codex
+Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036; cross-book route comparison extended by ADR 0037** · Date: 2026-08-24 · Author: Justin + Codex
 
 Clarifies **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and **ADR 0019** (Explicit generated-vocabulary exclusion policy).
@@ -56,7 +56,10 @@ comparison because generated or otherwise excluded occurrences remain unknown,
 the target is explicitly unreachable and no lemma count is presented. Initial
 targets are 95, 97, and 99. The deck-generation path continues to select 97% of
 its eligible unknown pool under ADR 0019; its count can therefore differ from an
-insight threshold with the same numeric label.
+insight threshold with the same numeric label. The cross-book route comparison
+reuses this exact per-book coverage, denominator, and integer semantics as the
+named lexical property it optimizes; it introduces no new denominator or
+composite — see [ADR 0037](0037-cross-book-projection-advisory-ordering.md).
 
 ## Consequences
 
@@ -95,3 +98,4 @@ insight threshold with the same numeric label.
 - [ADR 0017: Replace frequency-based ranking with coverage-based selection](0017-coverage-based-selection.md)
 - [ADR 0019: Explicit generated-vocabulary exclusion policy](0019-generated-vocabulary-exclusion.md)
 - [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](0036-primary-goal-justified-graduation.md) — defines the single justified path by which identity graduates into the `known_vocabulary` that feeds this metric's numerator; the denominator, integer comparison, and threshold selection here are unchanged.
+- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](0037-cross-book-projection-advisory-ordering.md) — the route comparison over Reading Journey books that reuses this metric as its named lexical property.

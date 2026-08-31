@@ -76,7 +76,9 @@ The Journey:
 - has no dates, overdue states, or progress percentage;
 - preserves one clear learner order;
 - may compare that order with a vocabulary-efficient alternative using only the
-  same learner-selected books;
+  same learner-selected books —
+  [ADR 0037](../adr/0037-cross-book-projection-advisory-ordering.md) fixes that
+  comparison's reproducible objective, transitions, and invalidation rules;
 - responds to changes with neutral recalculation, not warnings;
 - keeps unassessed or incomparable books visible without inventing readiness.
 
@@ -401,6 +403,14 @@ Resolved by [ADR 0034](../adr/0034-reading-journey-identity-ordering.md):
    objective, eligible evidence, threshold assumptions, transition assumptions,
    handling of incomparable books, and invalidation rules need a reproducible
    product/analysis contract. No composite score should be invented.
+   Resolved by [ADR 0037: Cross-book vocabulary projection and advisory Journey
+   ordering](../adr/0037-cross-book-projection-advisory-ordering.md): the
+   vocabulary-efficient alternative optimizes exactly one named lexical property
+   (current known-token coverage) over the learner-selected comparable books and
+   fixed-order constraints, keeps current and conditional projected states
+   distinct, leaves incomparable books at the learner's position without a
+   fabricated rank, recalculates on demand, and never overrides the canonical
+   learner order or invents a composite score.
 7. **Routes and terminology rollout.** My Books and Reading Journey need one
    coherent navigation model across redirects, deep links, breadcrumbs, and
    tests. Route names are implementation decisions; learner-facing terminology
