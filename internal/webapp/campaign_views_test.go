@@ -149,8 +149,8 @@ func TestCampaignsPageRendersAbandonmentAndRecoveryStates(t *testing.T) {
 		want     []string
 	}{
 		{name: "blocked activation", message: "Finish or abandon the active campaign before starting another.", campaign: "active", want: []string{"Action needed", "Finish or abandon the active campaign", `href="#campaign-active"`, "Return to the active campaign"}},
-		{name: "stale submission", message: "This campaign changed since this page was loaded. Its current state is unchanged by this request; review Learning before trying again.", want: []string{"Action needed", "changed since this page was loaded", "current state is unchanged"}},
-		{name: "mutation failure", message: "Campaign progress could not be updated. No progress was changed; review Learning and try again.", want: []string{"Action needed", "No progress was changed", "review Learning and try again"}},
+		{name: "stale submission", message: "This campaign changed since this page was loaded. Its current state is unchanged by this request; review Reading Journey before trying again.", want: []string{"Action needed", "changed since this page was loaded", "current state is unchanged"}},
+		{name: "mutation failure", message: "Campaign progress could not be updated. No progress was changed; review Reading Journey and try again.", want: []string{"Action needed", "No progress was changed", "review Reading Journey and try again"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			html := renderCampaignPage(t, []campaignView{active}, nil, "", test.message, test.campaign)

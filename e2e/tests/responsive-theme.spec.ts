@@ -9,7 +9,7 @@ async function signIn(page: Page) {
 }
 
 const representativePages: Array<[string, RegExp]> = [
-  ['/library', /My Library/],
+  ['/library', /My Books/],
   ['/books/fixture-book', /Der lange Weg nach Hause/],
   ['/books/fixture-book/scope', /Review analysis scope/],
   ['/jobs/42', /Analysis job #1/],
@@ -18,7 +18,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/jobs', /Analysis jobs/],
   ['/connections', /Add books/],
   ['/catalog?connection=fixture-connection', /Fixture catalog/],
-  ['/campaigns', /Learning campaigns/],
+  ['/campaigns', /Reading Journey/],
   ['/settings?language=de', /Account settings/],
 ];
 
@@ -49,9 +49,14 @@ test.describe('responsive and theme regression coverage', () => {
       if (test.info().project.name.startsWith('compact')) await expectNoPageOverflow(page);
     }
     await page.goto('/library');
-    await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/)).toBeVisible();
-    await expect(page.getByText('Empty chapter')).toBeVisible();
-    await expect(page.getByText('Fehlgeschlagene Analyse')).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-edge-content"]')).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-empty"]')).toBeVisible();
+    await expect(page.locator('a[href="/books/fixture-failed"]')).toBeVisible();
+    await expect(page.locator('.library-book')).toHaveCount(4);
+    if (test.info().project.name.startsWith('compact')) {
+      await expect(page.locator('.library-book').last()).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
+      await expect(page.locator('.library-book').last()).toBeVisible();
+    }
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
     await expect(page.getByText(/Un libro italiano/)).toBeVisible();
     await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/)).toBeVisible();

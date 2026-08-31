@@ -282,9 +282,9 @@ func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		returnTo := h.acquisitionReturnPath(r.FormValue("return_to"))
-		message := "Added to My Library. Continue browsing or open the owned book; analysis starts separately."
+		message := "Added to My Books. Continue browsing or open the owned book; analysis starts separately."
 		if result.AlreadyPresent {
-			message = "That book is already in My Library. Continue browsing or open the existing book."
+			message = "That book is already in My Books. Continue browsing or open the existing book."
 		}
 		redirect(w, r, addQueryMessage(returnTo, message))
 		return

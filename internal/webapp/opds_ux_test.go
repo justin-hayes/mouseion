@@ -151,7 +151,7 @@ func TestLanguageResultsShowOnlyProvidedEPUBEntries(t *testing.T) {
 	if err := LanguageResults("csrf", "connection-1", "de", "/opds/language?connection=connection-1&language=de", "", feed).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Add to library", "Analysis starts separately"} {
+	for _, want := range []string{"German", "Showing EPUB editions only", "Book", "Add to My Books", "Analysis starts separately"} {
 		if !strings.Contains(output.String(), want) {
 			t.Errorf("language results missing %q: %s", want, output.String())
 		}
@@ -343,8 +343,8 @@ func TestFullPageCatalogReturnsPreserveAcquisitionMessagesWithOwnedState(t *test
 	messageTests := []struct {
 		name, message string
 	}{
-		{name: "added", message: "Added to My Library. Continue browsing or open the owned book; analysis starts separately."},
-		{name: "already present", message: "That book is already in My Library. Continue browsing or open the existing book."},
+		{name: "added", message: "Added to My Books. Continue browsing or open the owned book; analysis starts separately."},
+		{name: "already present", message: "That book is already in My Books. Continue browsing or open the existing book."},
 	}
 	pageRenderers := map[string]func(string, *bytes.Buffer) error{
 		"root": func(message string, output *bytes.Buffer) error {
@@ -368,7 +368,7 @@ func TestFullPageCatalogReturnsPreserveAcquisitionMessagesWithOwnedState(t *test
 					t.Fatal(err)
 				}
 				html := output.String()
-				if !strings.Contains(html, test.message) || !strings.Contains(html, "Already in My Library") || !strings.Contains(html, "/books/source-1") {
+				if !strings.Contains(html, test.message) || !strings.Contains(html, "Already in My Books") || !strings.Contains(html, "/books/source-1") {
 					t.Fatalf("full-page acquisition state lost message or owned book: %s", html)
 				}
 			})
@@ -435,7 +435,7 @@ func TestAlreadyOwnedEntryReplacesAcquisitionAction(t *testing.T) {
 	if err := LanguageResultsWithState("csrf", "connection-1", "de", "/opds/language?connection=connection-1&language=de", "", feed, owned).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "Already in My Library") || !strings.Contains(output.String(), "/books/source-1") || strings.Contains(output.String(), "Add to library") {
+	if !strings.Contains(output.String(), "Already in My Books") || !strings.Contains(output.String(), "/books/source-1") || strings.Contains(output.String(), "Add to My Books") {
 		t.Fatalf("owned entry still offered acquisition: %s", output.String())
 	}
 }

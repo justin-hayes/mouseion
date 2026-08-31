@@ -134,7 +134,7 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	languagePages := make(map[string]string, 2)
 	for _, language := range []string{"de", "it"} {
 		page := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language="+language, nil, cookies)
-		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Add to library") {
+		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Add to My Books") {
 			t.Fatalf("%s catalog page=%d %s", language, page.Code, page.Body.String())
 		}
 		languagePages[language] = page.Body.String()
@@ -153,13 +153,13 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
+	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Books") {
 		t.Fatalf("German acquisition=%d %s", response.Code, response.Body.String())
 	}
-	if response := acquire("it"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Library") {
+	if response := acquire("it"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Added to My Books") {
 		t.Fatalf("Italian acquisition=%d %s", response.Code, response.Body.String())
 	}
-	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Already in My Library") {
+	if response := acquire("de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Already in My Books") {
 		t.Fatalf("duplicate acquisition=%d %s", response.Code, response.Body.String())
 	}
 	books, err := store.ListSourceMaterials(ctx, alice.ID)

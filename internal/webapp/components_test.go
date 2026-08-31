@@ -35,10 +35,10 @@ func requireMarkup(t *testing.T, html string, fragments ...string) {
 }
 
 func TestPageHeaderPattern(t *testing.T) {
-	html := renderPattern(t, PageHeader("My Library", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<a href="/connections">Add books</a>`)
+	html := renderPattern(t, PageHeader("My Books", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<a href="/connections">Add books</a>`)
 	requireMarkup(t, html,
 		`<header class="page-header">`,
-		`<h1>My Library</h1>`,
+		`<h1>My Books</h1>`,
 		`<p>Choose a book to continue.</p>`,
 		`class="page-header__status"`,
 		`Analyzed`,
@@ -48,11 +48,11 @@ func TestPageHeaderPattern(t *testing.T) {
 }
 
 func TestBreadcrumbPattern(t *testing.T) {
-	html := renderPattern(t, Breadcrumb("/library", "My Library"), "")
+	html := renderPattern(t, Breadcrumb("/library", "My Books"), "")
 	requireMarkup(t, html,
 		`<nav class="breadcrumb" aria-label="Breadcrumb">`,
 		`href="/library"`,
-		`← My Library`,
+		`← My Books`,
 	)
 }
 

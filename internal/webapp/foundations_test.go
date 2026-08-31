@@ -113,12 +113,12 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 	}
 
 	html := output.String()
-	for _, pattern := range []string{`class="page-header"`, `class="resource-card"`, `class="status-badge`} {
+	for _, pattern := range []string{`class="page-header"`, `class="resource-card library-book"`, `class="status-badge`} {
 		if !strings.Contains(html, pattern) {
 			t.Errorf("library missing shared pattern %q", pattern)
 		}
 	}
-	if !strings.Contains(html, `<h2 class="bibliographic-title">`) {
+	if !strings.Contains(html, `class="bibliographic-title"><a href="/books/book-1">`) {
 		t.Error("book title must use the bibliographic typography role")
 	}
 	if !strings.Contains(html, `<p class="metadata">`) {
