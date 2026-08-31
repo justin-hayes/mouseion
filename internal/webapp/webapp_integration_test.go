@@ -748,6 +748,49 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "Scope review required") {
 		t.Fatalf("library=%d %s", library.Code, library.Body.String())
 	}
+	metadataForm := url.Values{"csrf_token": {csrf}, "title": {"Metadata-only web book"}, "language_state": {domain.LanguageUnknown}}
+	metadataResponse := perform(t, h, "POST", "/library/books", metadataForm, cookies)
+	if metadataResponse.Code != http.StatusSeeOther || !strings.Contains(metadataResponse.Header().Get("Location"), "/library?message=") {
+		t.Fatalf("metadata create=%d location=%q body=%s", metadataResponse.Code, metadataResponse.Header().Get("Location"), metadataResponse.Body.String())
+	}
+	metadataBooks, metadataErr := store.ListMyBooksWithEvidence(ctx, alice.ID)
+	if metadataErr != nil {
+		t.Fatal(metadataErr)
+	}
+	var metadataBook domain.MyBook
+	for _, candidate := range metadataBooks {
+		if candidate.Book.Title == "Metadata-only web book" {
+			metadataBook = candidate
+			break
+		}
+	}
+	if metadataBook.Book.ID == "" || metadataBook.Acquired != nil || metadataBook.EvidenceState != domain.MyBookNotAcquired {
+		t.Fatalf("metadata handler read model=%+v", metadataBook)
+	}
+	repeatedMetadata := perform(t, h, "POST", "/library/books", metadataForm, cookies)
+	if repeatedMetadata.Code != http.StatusSeeOther {
+		t.Fatalf("repeated metadata create=%d %s", repeatedMetadata.Code, repeatedMetadata.Body.String())
+	}
+	metadataBooks, metadataErr = store.ListMyBooksWithEvidence(ctx, alice.ID)
+	if metadataErr != nil {
+		t.Fatal(metadataErr)
+	}
+	metadataCount := 0
+	for _, candidate := range metadataBooks {
+		if candidate.Book.Title == "Metadata-only web book" {
+			metadataCount++
+		}
+	}
+	if metadataCount != 1 {
+		t.Fatalf("repeated metadata create count=%d", metadataCount)
+	}
+	removeMetadata := url.Values{"csrf_token": {csrf}}
+	if removed := perform(t, h, "POST", "/library/books/"+metadataBook.Book.ID+"/remove", removeMetadata, cookies); removed.Code != http.StatusSeeOther {
+		t.Fatalf("metadata removal=%d %s", removed.Code, removed.Body.String())
+	}
+	if repeatedRemoval := perform(t, h, "POST", "/library/books/"+metadataBook.Book.ID+"/remove", removeMetadata, cookies); repeatedRemoval.Code != http.StatusSeeOther {
+		t.Fatalf("repeated metadata removal=%d %s", repeatedRemoval.Code, repeatedRemoval.Body.String())
+	}
 	books, err := store.ListSourceMaterials(ctx, alice.ID)
 	if err != nil || len(books) != 1 {
 		t.Fatalf("OPDS acquisition books=%d err=%v", len(books), err)

@@ -15,13 +15,36 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
     await page.getByRole('link', { name: /my books/i }).first().click();
     await expect(page).toHaveURL(/\/library/);
-    await expect(page.getByRole('heading', { name: 'My Books' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
     await expect(page.locator('section[aria-labelledby="acquired-books-heading"]')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toBeVisible();
     await expect(page.getByText('Analysis failed — action required')).toBeVisible();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
+  });
+
+  test('metadata-only books can be added, show only supported actions, and removed', async ({ page }) => {
+    await page.goto('/library');
+    await page.locator('#book-form > summary').click();
+    await expect(page.locator('#book-form')).toHaveAttribute('open', '');
+    await page.getByRole('textbox', { name: 'Title' }).fill('Metadata-only browser book');
+    await page.getByRole('radio', { name: /not chosen/i }).check();
+    await page.getByRole('button', { name: 'Add to My Books' }).click();
+    await expect(page).toHaveURL(/\/library\?message=/);
+
+    const entry = page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' });
+    await expect(entry).toContainText('Not acquired');
+    await expect(entry.getByRole('button', { name: 'Acquire this book' })).toHaveAttribute('href', /book_id=/);
+    await expect(entry.getByText('Review scope')).toHaveCount(0);
+    await expect(entry.getByText('Start analysis')).toHaveCount(0);
+    await expect(entry.getByText('Prepare deck')).toHaveCount(0);
+    await expect(entry).toContainText('language not chosen');
+
+    await entry.getByText('Remove from My Books').click();
+    await entry.getByRole('button', { name: 'Confirm removal' }).click();
+    await expect(page).toHaveURL(/\/library\?message=/);
+    await expect(page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' })).toHaveCount(0);
   });
 
   test('exact analysis result and deck status are reachable', async ({ page }) => {

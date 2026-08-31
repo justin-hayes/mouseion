@@ -122,43 +122,83 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "")
+}
+
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError string) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
-		@PageHeader("My Books", "Track each book's next step from scope review to learning.", nil) {
-			<a role="button" href="/connections">Add a book</a>
+		@PageHeader("My Books", "Keep the books you care about together with honest evidence for what Mouseion can do next.", nil) {
+			<details id="book-form">
+				<summary>Add a book</summary>
+				<p>Save bibliographic metadata now. Mouseion will not assume a language or pretend that an EPUB has been acquired.</p>
+				<form method="post" action="/library/books">
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<label>Title<input name="title" required autocomplete="off"/></label>
+					<fieldset>
+						<legend>Language state</legend>
+						<label><input type="radio" name="language_state" value="unknown" required/> I have not chosen a language yet</label>
+						<label><input type="radio" name="language_state" value="chosen"/> I chose this language explicitly</label>
+						<label>Chosen language tag<input name="language_tag" placeholder="de" autocomplete="language"/></label>
+					</fieldset>
+					<button type="submit">Add to My Books</button>
+				</form>
+			</details>
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
+		if pageError != "" {
+			@Feedback(FeedbackError, "My Books needs attention", pageError)
+		}
 		if len(books) == 0 {
-			@EmptyState("No books in My Books yet", "Add an acquired book when you are ready to start building your collection.") {
-				<a href="/connections">Add books</a>
+			@EmptyState("No books in My Books yet", "Use Add a book above, or acquire an EPUB from one of your catalogs.") {
+				<a href="/connections">Acquire an EPUB</a>
 			}
 		}
 		if len(books) > 0 {
-			// This is the currently available acquired subset. Broader My Books
-			// membership from ADR 0034 can provide additional rows here later.
 			<section class="library-list" aria-labelledby="acquired-books-heading">
-				<h2 id="acquired-books-heading">Acquired books</h2>
+				<h2 id="acquired-books-heading">Books in My Books</h2>
 				for _, book := range books {
-					<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Source.ID }>
+					<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 						<div class="library-book__identity">
-							<h2 id={ "book-title-" + book.Source.ID } class="bibliographic-title"><a href={ templ.SafeURL("/books/"+book.Source.ID) }>{ book.Source.Title }</a></h2>
+							<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
+								if book.Acquired != nil {
+									<a href={ templ.SafeURL("/books/"+book.Acquired.Source.ID) }>{ book.Book.Title }</a>
+								} else {
+									{ book.Book.Title }
+								}
+							</h2>
 							<p class="metadata">
-								if book.Source.Language != "" {
-									<span>{ book.Source.Language }</span>
+								if book.Book.LanguageState == domain.LanguageChosen {
+									<span>language: { book.Book.LanguageTag }</span>
+								} else {
+									<span>language not chosen</span>
 								}
-								if book.Source.MediaType != "" {
-									<span>{ book.Source.MediaType }</span>
+								if book.Acquired != nil && book.Acquired.Source.MediaType != "" {
+									<span>{ book.Acquired.Source.MediaType }</span>
 								}
-								if !book.Source.CreatedAt.IsZero() {
-									<span>acquired { book.Source.CreatedAt.Format("2006-01-02") }</span>
+								if book.Acquired != nil && !book.Acquired.Source.CreatedAt.IsZero() {
+									<span>acquired { book.Acquired.Source.CreatedAt.Format("2006-01-02") }</span>
 								}
 							</p>
 						</div>
 						<div class="library-book__supporting">
-							@StatusBadge(bookLifecycleActionFor(book, nil).Status, bookLifecycleActionFor(book, nil).Tone)
-							<p class="library-next-action"><strong>Next action:</strong> { bookLifecycleActionFor(book, nil).Description }</p>
-							@LifecycleActionControl(bookLifecycleActionFor(book, nil), csrf)
+							@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
+							if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+								<p class="metadata">Analysis evidence: { myBookAnalysisLabel(book.Acquired.AnalysisStatus) }</p>
+							}
+							<p class="library-next-action"><strong>Next action:</strong>
+								if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+									{ myBookLifecycleActionFor(book).Status }.
+								}
+								{ myBookLifecycleActionFor(book).Description }
+							</p>
+							<div class="action-group">
+								@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
+								@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
+									<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
+								}
+							</div>
 						</div>
 					</article>
 				}
@@ -693,6 +733,7 @@ if (scopeForm) {
 }
 
 func scopeUnitChecked(selectedCSV, unitID string, recommended bool) bool { if selectedCSV == "" { return recommended }; selectedCSV = strings.TrimPrefix(selectedCSV, "submitted:"); for _, selected := range strings.Split(selectedCSV, ",") { if selected == unitID { return true } }; return false }
+func catalogBrowseURL(connectionID, bookID string) string { if bookID == "" { return "/catalog?connection=" + url.QueryEscape(connectionID) }; return "/catalog?connection=" + url.QueryEscape(connectionID) + "&book_id=" + url.QueryEscape(bookID) }
 func titleSourceLabel(source string) string { if source == domain.UnitTitleHeading { return "title from document heading" }; return "fallback title from manifest ID" }
 func categoryLabel(category domain.EPUBUnitCategory) string { return strings.ReplaceAll(string(category), "_", " ") }
 func recommendationLabel(classification domain.EPUBUnitClassification) string {
@@ -851,6 +892,10 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
+	@ConnectionsPageForBook(user, csrf, connections, message, "")
+}
+
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
 		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil)
 		if message != "" {
@@ -866,24 +911,36 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 				<p>Choose explicitly; Mouseion will not silently select among your catalogs.</p>
 			</section>
 		}
-		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/>
+			if bookID != "" {
+				<input type="hidden" name="book_id" value={ bookID }/>
+			}
+			<div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
 		if len(connections) > 0 {
 			<h2>Catalog maintenance</h2>
 			<p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-			<article id={ "connection-" + c.ID }><header><strong>{ c.Name }</strong></header><p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL("/catalog?connection="+c.ID) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID }><header><strong>{ c.Name }</strong></header><p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL(catalogBrowseURL(c.ID, bookID)) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
 }
 templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool) {
+	@CatalogPageForBook(user, csrf, connection, languages, degraded, "")
+}
+
+templ CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool, bookID string) {
 	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) { <p><a href="/connections">← Catalog connections</a></p>@PageHeader(connection.Name, "Browse this catalog and add EPUB books to My Books. Analysis starts separately.", nil)
 	if degraded {
 		@Feedback(FeedbackWarning, "Language readiness is degraded", "The NLP service could not confirm current capabilities. Saved language choices remain unchanged; return later before browsing or adding books.")
 	} else if len(languages) > 0 {
-		<form method="get" action="/opds/language" hx-get="/opds/language" hx-target="#catalog-results" hx-swap="outerHTML" hx-indicator="#catalog-loading"><input type="hidden" name="connection" value={ connection.ID }/><label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
+			<form method="get" action="/opds/language" hx-get="/opds/language" hx-target="#catalog-results" hx-swap="outerHTML" hx-indicator="#catalog-loading"><input type="hidden" name="connection" value={ connection.ID }/>
+			if bookID != "" {
+				<input type="hidden" name="book_id" value={ bookID }/>
+			}
+			<label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
 		for _, language := range languages {
 			<option value={ language.Language }>{ language.DisplayName }</option>
 		}</select></label><button type="submit">Browse language</button></form>
@@ -906,6 +963,9 @@ templ CatalogRootFragment(connectionID, language string, feed opds.Feed) {
 
 templ CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogCrumb) {
 	<form role="search" method="get" action="/opds/search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="outerHTML"><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/>
+	if bookID := bookIDFromReturnPath(returnTo); bookID != "" {
+		<input type="hidden" name="book_id" value={ bookID }/>
+	}
 	if returnTo != "" {
 		<input type="hidden" name="return_to" value={ returnTo }/>
 	}

@@ -331,6 +331,14 @@ func (h *Handler) acquisitionReturnPath(raw string) string {
 	return parsed.RequestURI()
 }
 
+func bookIDFromReturnPath(raw string) string {
+	parsed, err := url.Parse(webauth.SafeReturnPath(raw))
+	if err != nil || parsed.IsAbs() || parsed.Host != "" {
+		return ""
+	}
+	return strings.TrimSpace(parsed.Query().Get("book_id"))
+}
+
 func safeAcquisitionURL(raw string) string {
 	parsed, err := url.Parse(raw)
 	if err != nil {

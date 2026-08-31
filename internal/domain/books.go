@@ -7,12 +7,23 @@ import (
 )
 
 const (
-	LanguageUnknown            = "unknown"
-	LanguageChosen             = "chosen"
-	AliasCatalogEntry          = "catalog_entry"
-	AliasStrongBibliographic   = "strong_bibliographic"
-	NamespaceSourceIdentifier  = "source_identifier"
-	MetadataProvenanceBackfill = "source_materials_backfill"
+	LanguageUnknown               = "unknown"
+	LanguageChosen                = "chosen"
+	MetadataProvenanceManualEntry = "manual_entry"
+	AliasCatalogEntry             = "catalog_entry"
+	AliasStrongBibliographic      = "strong_bibliographic"
+	NamespaceSourceIdentifier     = "source_identifier"
+	MetadataProvenanceBackfill    = "source_materials_backfill"
+)
+
+type MyBookEvidenceState string
+
+const (
+	MyBookUnavailable        MyBookEvidenceState = "unavailable"
+	MyBookNotAcquired        MyBookEvidenceState = "not_acquired"
+	MyBookAcquiredUnassessed MyBookEvidenceState = "acquired_unassessed"
+	MyBookAnalyzed           MyBookEvidenceState = "analyzed"
+	MyBookStale              MyBookEvidenceState = "stale"
 )
 
 type Book struct {
@@ -29,6 +40,15 @@ type BookMembership struct {
 type BookAlias struct {
 	ID, OwnerID, BookID, AliasType, Namespace, Value string
 	CreatedAt                                        time.Time
+}
+
+// MyBook is the complete learner-facing My Books read model. Acquired is nil
+// for metadata-only membership; when present it contains only the current
+// owner-scoped acquired source and its derived analysis state.
+type MyBook struct {
+	Book          Book
+	Acquired      *SourceMaterialSummary
+	EvidenceState MyBookEvidenceState
 }
 
 func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {

@@ -28,6 +28,9 @@ type Importer interface {
 type AcquisitionImporter interface {
 	ImportForAcquisition(context.Context, string, string, []byte) (epub.ImportResult, error)
 }
+type AcquisitionImporterForBook interface {
+	ImportForAcquisitionForBook(context.Context, string, string, string, []byte) (epub.ImportResult, error)
+}
 type Service struct {
 	store    ConnectionStore
 	importer Importer
@@ -131,6 +134,16 @@ func (s *Service) SearchPage(ctx context.Context, ownerID, connectionID, query, 
 	return client.SearchPage(ctx, connection.URL, query)
 }
 func (s *Service) Acquire(ctx context.Context, ownerID, connectionID, language string, entry Entry) (epub.ImportResult, error) {
+	return s.acquire(ctx, ownerID, connectionID, language, "", entry)
+}
+
+// AcquireForBook carries an explicit owner-scoped My Books identity through
+// the catalog download so a metadata-only entry is promoted in place.
+func (s *Service) AcquireForBook(ctx context.Context, ownerID, connectionID, language, bookID string, entry Entry) (epub.ImportResult, error) {
+	return s.acquire(ctx, ownerID, connectionID, language, bookID, entry)
+}
+
+func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, bookID string, entry Entry) (epub.ImportResult, error) {
 	if ownerID == "" {
 		return epub.ImportResult{}, ErrUnauthenticated
 	}
@@ -150,11 +163,20 @@ func (s *Service) Acquire(ctx context.Context, ownerID, connectionID, language s
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
-	importer := s.importer.Import
-	if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
-		importer = acquisitionImporter.ImportForAcquisition
+	var result epub.ImportResult
+	if bookID != "" {
+		acquisitionImporter, ok := s.importer.(AcquisitionImporterForBook)
+		if !ok {
+			return epub.ImportResult{}, errors.New("opds: selected acquisition book cannot be promoted")
+		}
+		result, err = acquisitionImporter.ImportForAcquisitionForBook(ctx, ownerID, language, bookID, content)
+	} else {
+		importer := s.importer.Import
+		if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
+			importer = acquisitionImporter.ImportForAcquisition
+		}
+		result, err = importer(ctx, ownerID, language, content)
 	}
-	result, err := importer(ctx, ownerID, language, content)
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", err)
 	}
