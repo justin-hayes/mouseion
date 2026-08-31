@@ -55,6 +55,16 @@ type Store interface {
 	GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error)
 	GetEPUBReviewedScope(context.Context, string, string, string) (domain.EPUBReviewedScopeSnapshot, error)
 	CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error)
+	ListMyBooks(context.Context, string) ([]domain.Book, error)
+	GetBook(context.Context, string, string) (domain.Book, error)
+	CreateBook(context.Context, domain.Book) (domain.Book, error)
+	UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error)
+	AddBookToMyBooks(context.Context, string, string) error
+	RemoveBookFromMyBooks(context.Context, string, string) error
+	ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error)
+	AddBookAlias(context.Context, string, string, string, string, string) error
+	LinkSourceToBook(context.Context, string, string, string) error
+	ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error)
 }
 type OPDS interface {
 	Browse(context.Context, string, string, string) (opds.Feed, error)
