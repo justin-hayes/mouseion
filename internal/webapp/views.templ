@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -45,7 +46,7 @@ document.addEventListener('submit', async function (evt) {
   evt.preventDefault();
   var button = form.querySelector('button[type="submit"]');
   var status = form.parentElement.querySelector('[data-deck-preparation]');
-  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Queuing deck…'; }
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Preparing deck…'; }
   try {
     var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}});
     if (!response.ok) {
@@ -82,7 +83,7 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
     if (preparation.ready) {
       var c = preparation.completeness || {};
       html += '<p><strong>Completeness:</strong> ' + Number(c.total_cards || 0) + ' cards · ' + Number(c.cards_with_english || 0) + ' with English · ' + Number(c.cards_with_contextual_sentence_translations || 0) + ' with contextual sentence translations · ' + Number(c.quality_omissions || 0) + ' omitted for sentence quality.</p>';
-      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a> <a role="button" class="outline" href="/campaigns">Add to learning queue</a>';
+      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a> <a role="button" class="outline" href="/journey">Review campaign operations</a>';
     } else if (active) {
       html += '<button type="button" class="outline secondary" data-cancel-preparation>Cancel preparation</button>';
     } else {
@@ -116,7 +117,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/campaigns" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/connections" { acquisitionAttributes(context)... }>Add books</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/connections" { acquisitionAttributes(context)... }>Add books</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
@@ -206,9 +207,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		}
 	}
 }
-templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, prepared []preparedCampaignOption, message string, pageError string, activeCampaignID string) {
+templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string, activeCampaignID string) {
 	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
-		@PageHeader("Reading Journey", "Choose one prepared book and deck to study now, and keep the rest in your queue.", nil) {
+		@PageHeader("Reading Journey", "Keep one current Primary Goal anchored first, followed by the provisional order you chose.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
 		}
 		if message != "" {
@@ -220,44 +221,57 @@ templ CampaignsPage(user domain.User, csrf string, campaigns []campaignView, pre
 				<p><a href={ templ.SafeURL("#"+campaignAnchorID(activeCampaignID)) }>Return to the active campaign</a></p>
 			}
 		}
-		<section aria-labelledby="active-campaign-heading"><h2 id="active-campaign-heading">Active campaign</h2>
-			if !hasCampaignStatus(campaigns, domain.CampaignActive) {
-				<p>No campaign is active. Only one campaign can be active at a time; start one from your queue below.</p>
-			}
-			for _, item := range campaigns {
-				if item.Campaign.Status == domain.CampaignActive {
-					@CampaignCard(item, csrf, false)
-				}
+		<section aria-labelledby="primary-goal-heading" class="journey-goal"><h2 id="primary-goal-heading">Primary Goal</h2>
+			if journey.Goal == nil {
+				@EmptyState("No Primary Goal yet", "Choose a book as your current commitment when you are ready. Reading Journey membership and preparation remain separate.")
+			} else {
+				@JourneyBookCard(*journey.Goal, true)
 			}
 		</section>
-		if len(prepared) > 0 {
-			<section aria-labelledby="prepared-books-heading"><h2 id="prepared-books-heading">Prepared books and decks ready to add</h2><p>These eligible prepared decks are actions, not queued or known vocabulary. Add one to the learning queue when you are ready.</p><div class="campaign-list">
-				for _, item := range prepared {
-					<article class="resource-card"><div><h3>{ item.Book.Source.Title }</h3><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Add to queue</button></form></article>
-				}
-			</div></section>
-		}
-		<section aria-labelledby="campaign-queue-heading"><h2 id="campaign-queue-heading">Queue</h2>
-			if !hasCampaignStatus(campaigns, domain.CampaignQueued) {
-				<p>Your learning queue is empty.</p>
+		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Provisional Journey</h2>
+			if len(journey.Provisional) == 0 {
+				@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.")
 			}
-			for _, item := range campaigns {
-				if item.Campaign.Status == domain.CampaignQueued {
-					@CampaignCard(item, csrf, true)
+			<div class="journey-list">
+				for _, item := range journey.Provisional {
+					@JourneyBookCard(item, false)
 				}
-			}
+			</div>
 		</section>
-		<section aria-labelledby="campaign-history-heading"><h2 id="campaign-history-heading">History</h2>
-			if !hasCampaignHistory(campaigns) {
-				<p>No completed or abandoned campaigns yet.</p>
+		<section aria-labelledby="campaign-operations-heading" class="journey-secondary"><h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>
+			<p>Campaign records and prepared decks are supporting history and operations. They are separate from Reading Journey membership.</p>
+			if len(journey.Prepared) > 0 {
+				<h3>Prepared books and decks</h3><div class="campaign-list">
+				for _, item := range journey.Prepared {
+					<article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Make available for campaign operations</button></form></article>
+				}
+				</div>
 			}
-			for _, item := range campaigns {
-				if item.Campaign.Status == domain.CampaignComplete || item.Campaign.Status == domain.CampaignAbandoned {
-					@CampaignCard(item, csrf, false)
+			if len(journey.Campaigns) == 0 && len(journey.Prepared) == 0 {
+				<p>No campaign history or operations are available.</p>
+			}
+			for _, item := range journey.Campaigns {
+				if item.Campaign.Status == domain.CampaignComplete || item.Campaign.Status == domain.CampaignAbandoned || item.Campaign.Status == domain.CampaignActive || item.Campaign.Status == domain.CampaignQueued {
+					@CampaignCard(item, csrf, item.Campaign.Status == domain.CampaignQueued)
 				}
 			}
 		</section>
 	}
+}
+templ JourneyBookCard(item journeyBookView, primary bool) {
+	<article class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ journeyBookTitle(item.Book) }</a></h3>
+	if primary {
+		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
+	} else {
+		<p>@StatusBadge("Provisional — your order", StatusNeutral) <span aria-hidden="true">·</span> Your order</p>
+	}
+	@JourneyEvidence(item)
+	</div></article>
+}
+templ JourneyEvidence(item journeyBookView) {
+	<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
+	<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
+	<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
 	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
@@ -268,7 +282,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
 	}
 	if item.Campaign.Status == domain.CampaignQueued {
-		<p class="campaign-queue-position"><strong>Queue position:</strong> <span class="numeric">{ fmt.Sprintf("%d", item.QueuePosition) }</span></p><p>Queued behind the single active campaign. Starting reserves this campaign's assigned vocabulary for learning; it is not counted as known.</p>
+		<p>This prepared campaign is separate from Reading Journey membership. Starting reserves its assigned vocabulary for learning; it is not counted as known.</p>
 	}
 	if item.Campaign.Status == domain.CampaignComplete {
 		<p>Assigned vocabulary was graduated to known vocabulary. Generated provenance and this prepared deck remain available.</p>
@@ -285,7 +299,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 		<section aria-labelledby={ campaignAnchorID("remaining-"+item.Campaign.ID) } class="campaign-remaining"><h4 id={ campaignAnchorID("remaining-"+item.Campaign.ID) }>Remaining before completion</h4><ul>
 			<li>Book: { campaignBookLabel(item.Campaign.BookProgress) }{ campaignRemainingBookText(item.Campaign.BookProgress) }</li>
 			<li>Deck: { campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignRemainingDeckText(item.Campaign.DeckProgress) }</li>
-		</ul><p>When both conditions are finished, Mouseion adds the campaign's assigned vocabulary to known vocabulary while preserving generated provenance, recalculating coverage and queue projections, and making no claim about mastery or a spaced-repetition grade.</p></section>
+		</ul><p>When both conditions are finished, Mouseion adds the campaign's assigned vocabulary to known vocabulary while preserving generated provenance, recalculating coverage evidence, and making no claim about mastery or a spaced-repetition grade.</p></section>
 		}
 		@ActionGroup() {
 			if item.Campaign.Status == domain.CampaignActive {
@@ -323,7 +337,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 templ CampaignCompletionDetails(item campaignView) {
 		<dl class="metadata-list"><div><dt>Book</dt><dd>{ item.Book.Source.Title } — Finished</dd></div><div><dt>Prepared deck</dt><dd>{ item.Deck.DeckName } — Reviewed</dd></div></dl>
 		<p>{ campaignGraduationOutcome(item) }</p>
-		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage and future queue projections will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
+		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage evidence will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
 		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
@@ -576,7 +590,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
 			@ActionGroup() {
 				<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-				<a role="button" class="outline" href="/campaigns">Add to learning queue</a>
+				<a role="button" class="outline" href="/journey">Review campaign operations</a>
 			}
 		} else if deckPreparationActive(preparation) {
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>

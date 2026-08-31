@@ -74,7 +74,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "ready",
 			prep: domain.DeckPreparation{ID: "prep-ready", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 12, CardsWithEnglish: 11, CardsWithContextualSentenceTranslations: 9, QualityOmissions: 1},
-			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`, "Add to learning queue"},
+			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`, "Review campaign operations"},
 			omit: []string{"Cancel preparation", "Retry preparation"},
 		},
 	}

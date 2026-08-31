@@ -73,9 +73,17 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Ein deutsches Buch').first()).toBeVisible();
     await expect(page.getByText('Un libro italiano').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /add to my books/i }).first()).toBeVisible();
-    await page.goto('/campaigns');
+    await page.goto('/campaigns?message=legacy-bookmark');
+    await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
+    await page.goto('/journey');
+    await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
+    await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
+    await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
+    await expect(page.locator('#campaign-operations-heading')).toHaveText(/Campaign history & operations/);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
+    await expect(page.getByText('Provisional — your order').first()).toBeVisible();
+    await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Italian/ })).toBeVisible();

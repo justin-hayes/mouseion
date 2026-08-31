@@ -39,17 +39,19 @@ const (
 const edgeBookID = "fixture-edge-content"
 
 var errNotFound = errors.New("fixture: not found")
+var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
 type Store struct {
-	mu           sync.Mutex
-	books        []domain.SourceMaterialSummary
-	jobs         []domain.AnalysisJob
-	campaigns    []domain.LearningCampaign
-	profiles     []domain.LanguageProfile
-	connections  []domain.OpdsConnection
-	preps        []domain.DeckPreparation
-	myBooks      []domain.MyBook
-	primaryGoals map[string]domain.PrimaryGoal
+	mu              sync.Mutex
+	books           []domain.SourceMaterialSummary
+	jobs            []domain.AnalysisJob
+	campaigns       []domain.LearningCampaign
+	profiles        []domain.LanguageProfile
+	connections     []domain.OpdsConnection
+	preps           []domain.DeckPreparation
+	myBooks         []domain.MyBook
+	readingJourneys map[string]domain.ReadingJourney
+	primaryGoals    map[string]domain.PrimaryGoal
 }
 
 func NewStore() *Store {
@@ -68,7 +70,18 @@ func NewStore() *Store {
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
-		primaryGoals: make(map[string]domain.PrimaryGoal),
+		readingJourneys: map[string]domain.ReadingJourney{
+			OwnerID: {
+				OwnerID: OwnerID, Revision: 1, UpdatedAt: fixtureJourneyTime,
+				Entries: []domain.ReadingJourneyEntry{
+					{OwnerID: OwnerID, BookID: "fixture-empty", Position: 1, CreatedAt: fixtureJourneyTime},
+					{OwnerID: OwnerID, BookID: edgeBookID, Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
+				},
+			},
+		},
+		primaryGoals: map[string]domain.PrimaryGoal{
+			OwnerID: {OwnerID: OwnerID, BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+		},
 	}
 }
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
@@ -256,7 +269,12 @@ func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, strin
 	return "", errNotFound
 }
 func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.ReadingJourney, error) {
-	return domain.ReadingJourney{OwnerID: owner}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	journey := s.readingJourneys[owner]
+	journey.OwnerID = owner
+	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
+	return journey, nil
 }
 func (s *Store) AddToReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
 	return expectedRevision, nil
@@ -359,9 +377,13 @@ func fixtureJobs() []domain.AnalysisJob {
 }
 
 func fixtureCampaigns() []domain.LearningCampaign {
+	completedAt := fixtureJourneyTime.Add(2 * time.Hour)
+	abandonedAt := fixtureJourneyTime.Add(3 * time.Hour)
 	campaigns := []domain.LearningCampaign{
 		{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
 		{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
+		{ID: "fixture-completed-campaign", OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookFinished, DeckProgress: domain.DeckReviewed, Status: domain.CampaignComplete, CompletedAt: &completedAt, VocabularyGraduatedAt: &completedAt},
+		{ID: "fixture-abandoned-campaign", OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned, Status: domain.CampaignAbandoned, AbandonedAt: &abandonedAt},
 	}
 	for i := 1; i <= 6; i++ {
 		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})

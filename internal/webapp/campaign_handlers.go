@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
@@ -87,7 +86,6 @@ type campaignView struct {
 	Deck                  domain.DeckPreparation
 	Coverage              *domain.AnalysisCoverage
 	GraduatableLemmaCount *int
-	QueuePosition         int
 }
 
 type campaignVocabularyCounter interface {
@@ -100,83 +98,13 @@ type preparedCampaignOption struct {
 }
 
 func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
-	if h.services.PreparedDeck == nil {
-		http.NotFound(w, r)
-		return
+	// /campaigns is retained as a compatibility endpoint for old bookmarks and
+	// action links. The learner-facing plan now has one canonical destination.
+	location := "/journey"
+	if r.URL.RawQuery != "" {
+		location += "?" + r.URL.RawQuery
 	}
-	u := user(r)
-	campaigns, err := h.services.Store.ListLearningCampaigns(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	books, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
-	for _, book := range books {
-		bookByID[book.Source.ID] = book
-	}
-	views := make([]campaignView, 0, len(campaigns))
-	queuedPosition := 0
-	for _, campaign := range campaigns {
-		deck, deckErr := h.services.PreparedDeck.Get(r.Context(), u.ID, campaign.DeckPreparationID)
-		if deckErr != nil {
-			fail(w, deckErr)
-			return
-		}
-		book := bookByID[campaign.SourceMaterialID]
-		view := campaignView{Campaign: campaign, Book: book, Deck: deck}
-		if campaign.Status == domain.CampaignQueued {
-			queuedPosition++
-			view.QueuePosition = queuedPosition
-		}
-		if campaign.Status == domain.CampaignActive {
-			if counter, ok := h.services.Store.(campaignVocabularyCounter); ok {
-				if count, countErr := counter.CountCampaignVocabularyToGraduate(r.Context(), u.ID, campaign.ID); countErr == nil {
-					view.GraduatableLemmaCount = &count
-				}
-			}
-		}
-		if campaign.Status == domain.CampaignQueued && book.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
-			coverage, coverageErr := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, book.CorpusID)
-			if coverageErr != nil && !errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
-				fail(w, coverageErr)
-				return
-			}
-			if coverageErr == nil {
-				view.Coverage = &coverage
-			}
-		}
-		views = append(views, view)
-	}
-	ready, err := h.services.Store.ListUnassignedReadyDeckPreparations(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	options := make([]preparedCampaignOption, 0, len(ready))
-	for _, deck := range ready {
-		if book, ok := bookByID[deck.SourceMaterialID]; ok {
-			options = append(options, preparedCampaignOption{Book: book, Deck: deck})
-		}
-	}
-	activeCampaignID := r.URL.Query().Get("active_campaign_id")
-	if activeCampaignID != "" {
-		found := false
-		for _, item := range views {
-			if item.Campaign.ID == activeCampaignID && item.Campaign.Status == domain.CampaignActive {
-				found = true
-				break
-			}
-		}
-		if !found {
-			activeCampaignID = ""
-		}
-	}
-	render(w, r, CampaignsPage(u, h.csrf(w, r), views, options, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
+	http.Redirect(w, r, location, http.StatusMovedPermanently)
 }
 
 func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
@@ -194,18 +122,18 @@ func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be added to the queue. Your prepared deck was not changed; review Reading Journey and try again.")
+		redirectCampaignMutationFailure(w, r, "The campaign could not be prepared. Your prepared deck was not changed; review Reading Journey and try again.")
 		return
 	}
 	if _, err = h.services.Store.CreateLearningCampaign(r.Context(), u.ID, deck.SourceMaterialID, deck.ID); err != nil {
 		if errors.Is(err, persistence.ErrInvalidTransition) {
-			redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a ready, unassigned deck can be added to the queue."))
+			redirect(w, r, "/journey?error="+url.QueryEscape("Only a ready, unassigned deck can be prepared for campaign operations."))
 			return
 		}
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("The campaign could not be added to the queue. Your prepared deck was not changed; review Reading Journey and try again."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("The campaign could not be prepared. Your prepared deck was not changed; review Reading Journey and try again."))
 		return
 	}
-	redirect(w, r, "/campaigns?message="+url.QueryEscape("Book and deck added to your learning queue."))
+	redirect(w, r, "/journey?message="+url.QueryEscape("Campaign operations are ready for this book and deck."))
 }
 
 func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +146,7 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if expected.Status != domain.CampaignQueued || expected.BookProgress != domain.BookQueued || expected.DeckProgress != domain.DeckQueued {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a queued campaign can be started."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only a prepared campaign can be started."))
 		return
 	}
 	u := user(r)
@@ -236,14 +164,14 @@ func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only a queued campaign can be started."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only a prepared campaign can be started."))
 		return
 	}
 	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be started. Your queue was not changed; review Reading Journey and try again.")
+		redirectCampaignMutationFailure(w, r, "The campaign could not be started. Its state was not changed; review Reading Journey and try again.")
 		return
 	}
-	redirect(w, r, "/campaigns?message="+url.QueryEscape("Learning campaign started."))
+	redirect(w, r, "/journey?message="+url.QueryEscape("Learning campaign started."))
 }
 
 func (h *Handler) finishCampaignBook(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +192,7 @@ func (h *Handler) abandonCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if expected.Status != domain.CampaignActive && expected.Status != domain.CampaignQueued {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only an active or queued campaign can be abandoned."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only an active or prepared campaign can be abandoned."))
 		return
 	}
 	u := user(r)
@@ -278,14 +206,14 @@ func (h *Handler) abandonCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only an active or queued campaign can be abandoned."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only an active or prepared campaign can be abandoned."))
 		return
 	}
 	if err != nil {
 		redirectCampaignMutationFailure(w, r, "The campaign could not be abandoned. Its book, deck, and history are unchanged; review Reading Journey and try again.")
 		return
 	}
-	redirect(w, r, "/campaigns?message="+url.QueryEscape("Campaign abandoned. Its ungraduated vocabulary is available again."))
+	redirect(w, r, "/journey?message="+url.QueryEscape("Campaign abandoned. Its ungraduated vocabulary is available again."))
 }
 
 func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Request, finishBook bool) {
@@ -298,7 +226,7 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if expected.Status != domain.CampaignActive {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be updated."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only the active campaign can be updated."))
 		return
 	}
 	u := user(r)
@@ -320,7 +248,7 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if errors.Is(err, persistence.ErrInvalidTransition) {
-		redirect(w, r, "/campaigns?error="+url.QueryEscape("Only the active campaign can be updated."))
+		redirect(w, r, "/journey?error="+url.QueryEscape("Only the active campaign can be updated."))
 		return
 	}
 	if err != nil {
@@ -330,7 +258,7 @@ func (h *Handler) updateActiveCampaignProgress(w http.ResponseWriter, r *http.Re
 	if updated.Status == domain.CampaignComplete {
 		message = "Campaign complete. Its vocabulary is now known."
 	}
-	redirect(w, r, "/campaigns?message="+url.QueryEscape(message))
+	redirect(w, r, "/journey?message="+url.QueryEscape(message))
 }
 
 func campaignExpectedState(r *http.Request) (persistence.LearningCampaignExpectedState, bool) {
@@ -343,11 +271,11 @@ func campaignExpectedState(r *http.Request) (persistence.LearningCampaignExpecte
 }
 
 func redirectCampaignStale(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, "/campaigns?error="+url.QueryEscape("This campaign changed since this page was loaded. Its current state is unchanged by this request; review Reading Journey before trying again."))
+	redirect(w, r, "/journey?error="+url.QueryEscape("This campaign changed since this page was loaded. Its current state is unchanged by this request; review Reading Journey before trying again."))
 }
 
 func redirectCampaignMutationFailure(w http.ResponseWriter, r *http.Request, message string) {
-	redirect(w, r, "/campaigns?error="+url.QueryEscape(message))
+	redirect(w, r, "/journey?error="+url.QueryEscape(message))
 }
 
 func (h *Handler) redirectCampaignActivationBlocked(w http.ResponseWriter, r *http.Request, owner string) {
@@ -360,7 +288,7 @@ func (h *Handler) redirectCampaignActivationBlocked(w http.ResponseWriter, r *ht
 			}
 		}
 	}
-	location := "/campaigns?error=" + url.QueryEscape("Finish or abandon the active campaign before starting another.")
+	location := "/journey?error=" + url.QueryEscape("Finish or abandon the active campaign before starting another.")
 	if activeCampaignID != "" {
 		location += "&active_campaign_id=" + url.QueryEscape(activeCampaignID)
 	}
@@ -413,7 +341,7 @@ func campaignGraduationOutcome(item campaignView) string {
 
 func campaignAbandonmentOutcome(status domain.CampaignStatus) string {
 	if status == domain.CampaignQueued {
-		return "This queued campaign has no active reservation to release; its assigned vocabulary remains eligible for future decks unless independently known."
+		return "This prepared campaign has no active reservation to release; its assigned vocabulary remains eligible for future decks unless independently known."
 	}
 	return "Any active reservation is released, so ungraduated vocabulary can be eligible for future decks again unless independently known."
 }
@@ -424,7 +352,7 @@ func hasCampaignHistory(campaigns []campaignView) bool {
 func campaignStatusLabel(status domain.CampaignStatus) string {
 	switch status {
 	case domain.CampaignQueued:
-		return "Queued"
+		return "Prepared"
 	case domain.CampaignActive:
 		return "Active"
 	case domain.CampaignComplete:
@@ -437,7 +365,7 @@ func campaignStatusLabel(status domain.CampaignStatus) string {
 func campaignBookLabel(status domain.BookProgress) string {
 	switch status {
 	case domain.BookQueued:
-		return "Queued"
+		return "Prepared"
 	case domain.BookReading:
 		return "Reading"
 	case domain.BookFinished:
@@ -450,7 +378,7 @@ func campaignBookLabel(status domain.BookProgress) string {
 func campaignDeckLabel(status domain.DeckProgress) string {
 	switch status {
 	case domain.DeckQueued:
-		return "Queued"
+		return "Prepared"
 	case domain.DeckStudying:
 		return "Studying"
 	case domain.DeckReviewed:
