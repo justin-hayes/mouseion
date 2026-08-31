@@ -130,7 +130,7 @@ components:
 
 Mouseion is a **digital scholarly reading desk**: calm, serious, approachable, book-centered, and information-rich without feeling busy. It should feel like a place for sustained literary intention, not administration. The page should first communicate works, authors, reading commitments, and meaningful choices; application chrome and quantitative analysis remain supporting structure.
 
-For Explore / Reading Horizon, express exploration through organization, relative position, sequence, and restrained depth—not adventurous copy or illustration. The emotional promise is quiet expansion: **the reward is not a score; it is more world. Desire determines direction; analysis informs preparation.**
+For My Books, Reading Journey, and Primary Goal, express continuation through sequence, changing evidence, and learner choice—not adventurous copy or illustration. The internal experience principle is **the road continues beyond the book**: the learner chooses what to undertake now, sees how the books ahead change, and chooses again. Desire determines direction; analysis informs preparation.
 
 ## Typography and hierarchy
 
@@ -150,21 +150,21 @@ Use a 4px-based rhythm. Interfaces may be information-dense, but every cluster n
 
 - A book is the visual center of each item: serif title, author, then edition/source/scope details only when relevant.
 - Cover art is optional supporting identity, never the only identifier. If shown, keep covers modest, consistently proportioned, and subordinate to title and author.
-- Keep learner-owned desire visible near identity with direct language such as **Want to read**, **Planned**, or a brief learner note. Desire is categorical, not scored.
+- Keep learner-owned intention visible near identity with direct language such as **Interested**, **In my Journey**, or **Primary Goal**. Intention is categorical, not scored.
 - Do not style low preparation as a stronger recommendation than high desire.
-- Unassessed or unsupported desired works remain full members of the horizon; never make them look disabled or absent merely because Mouseion lacks numbers.
+- Unassessed or unsupported desired works remain full members of My Books and may remain in the Journey; never make them look disabled or absent merely because Mouseion lacks numbers.
 
 ## Surfaces, borders, and grouping
 
 - Prefer a strong document flow, semantic lists, thin dividers, and lightly tinted evidence regions.
-- Use cards only when a book or campaign is a coherent resource with its own identity, state, and action. Keep corners modest, borders quiet, and shadows absent.
+- Use cards only when a book or the Primary Goal is a coherent resource with its own identity, state, and action. Keep corners modest, borders quiet, and shadows absent.
 - Avoid nested cards, card grids of interchangeable metrics, floating glass panels, and rounded containers around every paragraph.
-- A restrained visual field may use a quiet baseline, aligned bands, or depth layers to make preparation distance and current-versus-projected movement perceptible. It must remain legible as a list and must not resemble a map, territory, path, or game board.
+- A restrained visual field may use a quiet baseline, aligned bands, or depth layers to make preparation distance and current-versus-projected movement perceptible. It must remain legible as a list and must not resemble a fantasy map, project timeline, or game board.
 
 ## Actions
 
 - Use one high-emphasis action for the current decision; keep peer and secondary actions outlined or textual.
-- Actions name learner outcomes: **Plan to read**, **Begin reading**, **See what preparation might help**, **Review evidence**.
+- Actions name learner outcomes: **Add to Reading Journey**, **Choose as Primary Goal**, **See what preparation might help**, **Review evidence**.
 - Avoid vague actions such as *Continue*, *Process*, *Unlock*, or *Optimize*.
 - Keep actions beside the work they affect. Consequential actions explain what changes before submission.
 - Interactive targets are at least 44×44px, with visible hover, focus, active, disabled, busy, success, and error states.
@@ -173,14 +173,14 @@ Use a 4px-based rhythm. Interfaces may be information-dense, but every cluster n
 
 Keep four semantic layers visually distinct:
 
-1. **Learner intention and decision** — strongest: desired, planned, active, and the next explicit choice.
+1. **Learner intention and decision** — strongest: interest, Journey membership, the Primary Goal, and the next explicit choice.
 2. **Interpretation** — concise plain language such as “Within your selected 97% planning threshold” or “Preparation required.”
 3. **Evidence** — exact current scoped token coverage, additional lemma identities to the selected threshold, structural signals, and projected deltas.
 4. **Trust and provenance** — quality warnings, stale evidence, scope/edition, analysis identity, and methodology disclosures.
 
 Status is always written in text; color is supplemental. Use accent for interaction or active work, green for confirmed successful/current states, amber for reviewable uncertainty, and red only for failure or destructive consequence. Do not color a book itself as good/bad or easy/hard.
 
-Never combine lexical preparation, structural complexity, evidence quality, and desire into one score. Label every number as current, projected, scoped, token-weighted, or conditional as applicable. Keep **After the active campaign** visibly separate from current state; a projected value must never masquerade as known or completed.
+Never combine lexical preparation, structural complexity, evidence quality, and desire into one score. Label every number as current, projected, scoped, token-weighted, or conditional as applicable. Keep **After Primary Goal vocabulary work** visibly separate from current state; a projected value must never masquerade as known or completed. Reading completion alone does not justify a vocabulary gain.
 
 ## Accessibility and responsive behavior
 
@@ -203,8 +203,8 @@ Aim for attention, trust, possibility, and quiet resolve. Completion may reveal 
 ## Avoid
 
 - Generic SaaS dashboards, KPI tiles, or analytic control rooms.
-- Fantasy maps, landscapes, routes, constellations, planets, territories, treasure, or “unlocking.”
-- XP, levels, streaks, achievements, badges-as-rewards, confetti, leaderboards, or progress rings without a literal progress contract.
+- Fantasy maps, illustrated roads, landscapes, constellations, planets, territories, treasure, Tolkien references, or “unlocking.”
+- XP, levels, streaks, achievements, badges-as-rewards, confetti, leaderboards, Journey completion percentages, or progress rings without a literal progress contract.
 - Composite difficulty/readiness scores, traffic-light judgments, unexplained rankings, or “recommended for you” prescriptions.
 - Decorative gradients, heavy shadows, excessive pills, giant rounded cards, oversized headings, and icon-first bibliographic identity.
 - Dense tables as the whole experience. Exact data may use table semantics, but the primary composition should preserve books, desire, and changing possibility.

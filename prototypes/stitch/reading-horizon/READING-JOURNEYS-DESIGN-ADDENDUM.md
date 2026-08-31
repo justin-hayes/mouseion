@@ -1,6 +1,6 @@
 # Reading Journeys: design addendum
 
-Status: **Exploration addendum — not accepted product behavior**
+Status: **Superseded as learner-facing architecture by [`EXPERIENCE-ARCHITECTURE-REASSESSMENT.md`](EXPERIENCE-ARCHITECTURE-REASSESSMENT.md); retained as exploration history.**
 
 Date: 2026-08-31
 

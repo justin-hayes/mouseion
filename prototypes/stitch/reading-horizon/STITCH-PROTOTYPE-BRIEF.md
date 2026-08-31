@@ -1,5 +1,7 @@
 # Stitch prototype brief — Explore / Reading Horizon
 
+Status: **Superseded by [`STITCH-CONNECTED-EXPERIENCE-PROMPTS.md`](STITCH-CONNECTED-EXPERIENCE-PROMPTS.md); retained as exploration history.**
+
 Paste the **Initial prompt** and **Sample content** together into Stitch. Use the companion `DESIGN.md` as persistent design context.
 
 ## Initial prompt

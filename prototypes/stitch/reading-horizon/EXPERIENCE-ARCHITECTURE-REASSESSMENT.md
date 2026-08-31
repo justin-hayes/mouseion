@@ -1,6 +1,6 @@
 # Experience architecture reassessment
 
-Status: **Recommended conceptual freeze for visual exploration — not yet accepted product behavior**
+Status: **Conceptual direction frozen for visual exploration — not yet accepted product behavior**
 
 This note reassesses the prior Corpus / Campaign / Horizon proposal after the Reading Journey exploration. Its purpose is subtraction.
 
