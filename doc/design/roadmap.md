@@ -135,12 +135,12 @@ UI controls without a separate product contract:
 - direct EPUB upload without a shipped feature contract;
 - a catalog-management/administrator role.
 
-## Current known limitations
+## Verification environment
 
 - Browser-based visual verification is automated by the Phase 6 fixture-driven
-  harness (#378); the keyboard, focus, and asynchronous-state gate (#379) and
-  the responsive, theme, and realistic-content gate (#380) have landed. The
-  reconciliation pass (#381) ships this final residual-consistency gate.
+  harness (#378). The keyboard, focus, and asynchronous-state gate (#379), the
+  responsive, theme, and realistic-content gate (#380), and the final
+  residual-consistency reconciliation (#381) have all landed.
 - A full local stack (PostgreSQL, NLP service, Go web server) is required for
   integration tests; Phase 6 fixtures remove the external-network dependency
   for browser acceptance.
