@@ -256,18 +256,23 @@ is the natural first partition because known vocabulary and NLP capability are
 language-scoped; it should be a facet of the corpus view, not a permanent
 ontological definition of corpus.
 
-The initial membership rule is deliberately concrete: a work enters the reading
-field only when Mouseion has acquired and validated an owner-scoped source
-snapshot. A catalog listing alone is discovery context, not corpus membership;
-metadata-only “save for later” and manually created works remain future options.
-The current source material acts as the work proxy, and idempotent acquisition of
-the same owner, catalog entry, and source content resolves to the existing work.
-Different editions remain separate acquired works until Mouseion has a real
-bibliographic work/edition identity model. A future content replacement creates a
-new source revision and requires new scope review; it does not rewrite historical
-analysis. The proposal does not invent source deletion or corpus removal: that
-requires a separate retention contract specifying what remains historically
-addressable.
+The conceptual reading field is defined by learner concern, not current pipeline
+capability. It may therefore include a desired work known only through catalog
+metadata, an unsupported language, or a source Mouseion cannot yet analyze. The
+initial **quantitative horizon** is narrower: only an acquired, validated,
+owner-scoped source snapshot with trustworthy analysis can receive a readiness
+placement. Other desired works remain visible as **Not currently assessable**
+and must not be assigned invented distance.
+
+For the existing acquisition path, the current source material acts as the work
+proxy, and idempotent acquisition of the same owner, catalog entry, and source
+content resolves to the existing work. Different editions remain separate
+acquired works until Mouseion has a real bibliographic work/edition identity
+model. A future content replacement creates a new source revision and requires
+new scope review; it does not rewrite historical analysis. Supporting
+metadata-only desire records requires an explicit identity, deduplication, and
+removal contract; supporting source deletion requires a separate retention
+contract specifying what remains historically addressable.
 
 A corpus view answers:
 
@@ -292,11 +297,13 @@ analysis, or deck preparation.
 Recommended boundary:
 
 - a work in the reading field is **prospective**;
-- choosing **Plan to read** or **Begin preparation** creates a campaign;
+- choosing **Plan to read** or **Begin reading** creates a campaign;
+- choosing preparation creates one only when the learner also confirms the intent
+  to undertake the work; asking for readiness evidence alone does not;
 - the campaign pins the work and, once chosen, the exact scope/analysis evidence
   used for its preparation decisions;
-- choosing **Read now** may create and activate a campaign with no Anki
-  preparation when the learner intentionally declines that mechanism.
+- **Begin reading** may create and activate a campaign with no Anki preparation
+  when the learner intentionally declines that mechanism.
 
 The primary path should let the learner assess readiness first. It may also allow
 an explicit early commitment to an unassessed work; in that case assessment
@@ -536,11 +543,12 @@ The home remains a purposeful start surface rather than a generic dashboard.
 A horizon view should answer questions in this order:
 
 1. language and comparison basis;
-2. active-campaign effect, if a projection is being shown;
-3. works meeting the selected planning threshold now;
-4. prospective works ordered by additional lemma investment;
-5. works not yet assessed or whose evidence needs review;
-6. exact metric definitions and analysis provenance.
+2. works the learner has explicitly marked as desired or planned;
+3. active-campaign effect, if a projection is being shown;
+4. readiness evidence for desired and other assessed works;
+5. works newly changed by learning, without promoting them above stronger desire;
+6. works not yet assessable, not yet assessed, or whose evidence needs review;
+7. exact metric definitions and analysis provenance.
 
 A campaign view should answer:
 
@@ -560,7 +568,8 @@ should not be a layer of adventurous copy.
 ### Readiness bands with explicit bases
 
 A learner selects a planning threshold—initially one of the accepted 95%, 97%,
-or 99% token-coverage targets. The horizon can then organize assessed works as:
+or 99% token-coverage targets. The horizon may then annotate assessed works with
+these evidence states without making them the only grouping or priority model:
 
 - **Within threshold** — no additional eligible lemma identities are required to
   reach the selected target under current known vocabulary;
@@ -593,10 +602,12 @@ count appears only inside the chosen Anki preparation mechanism and is labeled
 **Deck vocabulary**, never as horizon distance. A target that is unreachable
 under the metric contract displays the reason and no invented lemma count.
 
-Within a readiness group, order by exact whole-scope investment, then normalized
-title, then stable work identity. This deterministic tie-break is a presentation
-policy to formalize before acceptance; popularity, recency, and catalog order do
-not silently affect placement.
+Whole-scope investment supports an explicit **Preparation required** sort, with
+ties resolved by normalized title and stable work identity. It must not become
+the default priority ranking. The default horizon preserves learner-expressed
+desire and campaign intent; analysis annotates what preparation that direction
+may require. Popularity, recency, catalog order, and vocabulary efficiency do
+not silently decide what the learner should want.
 
 Avoid hard-coded “near” and “far” bands based on arbitrary lemma counts. If the
 product later lets a learner state a preparation budget, it can show works
@@ -745,14 +756,16 @@ Mouseion does not place them optimistically merely to create a stronger reward.
 
 ### Choosing the next campaign
 
-The learner opens the updated horizon. Works are grouped by current threshold
-status and ordered by exact preparation investment. They can compare a newly
-within-threshold work, one requiring a small explicit lemma set, and a distant
-personal favorite without being pushed toward the mathematically cheapest
-choice.
+The learner opens the updated horizon. Their explicitly desired works remain
+primary and carry readiness annotations; a separate preparation sort can order
+assessed works by exact investment. They can compare a newly within-threshold
+work, one requiring a small explicit lemma set, and a distant personal favorite
+without being pushed toward the mathematically cheapest choice.
 
-Choosing one opens its evidence first. **Plan to read** remains an explicit
-commitment. Ranking informs intention; it does not replace it.
+The product may surface newly approachable works as discoveries, but it does not
+promote them above the learner's stated interests. Choosing a work opens its
+evidence first. **Plan to read** remains an explicit commitment. Desire determines
+direction; ranking informs preparation rather than replacing intention.
 
 ## 8. Terminology recommendations
 
@@ -874,10 +887,9 @@ strengths, not a repudiation of them.
 
 ## 11. Unresolved product questions and tradeoffs
 
-1. **When should corpus membership expand beyond acquired EPUBs?** The initial
-   rule is validated owner-scoped source snapshots only. Metadata-only saved
-   prospects or manual works need identity, deduplication, and removal semantics
-   before they join the same comparison surface.
+1. **How should desired but currently unanalyzable works be identified and stored?**
+   They belong conceptually, but metadata-only identity, deduplication, source
+   attachment, and removal semantics remain to be defined.
 2. **Is corpus ever first-class?** An implicit language-filtered lens may be
    sufficient initially. Multiple named or overlapping corpora should not be
    built without evidence.
@@ -922,7 +934,137 @@ strengths, not a repudiation of them.
 18. **What happens when no other work changes threshold band?** Completion must
     still feel meaningful without fabricated “new territory.”
 
-## 12. Proposed evolution sequence
+## 12. Review response addendum: desire, reach, and progress
+
+These responses refine the proposal without accepting its unresolved product
+choices. They add a second governing principle:
+
+> **Desire determines direction; analysis informs preparation.**
+
+Together with “The reward is not a score. It is more world,” this prevents two
+opposite failures: turning Mouseion into a gamified language-learning product or
+turning it into an elegant vocabulary-optimization dashboard.
+
+### Is a threshold too binary or vocabulary-centric?
+
+It is if it defines the horizon. A 95%, 97%, or 99% threshold is one conditional
+planning marker, not the boundary of literary possibility and not a statement of
+comfort. The horizon should retain continuous preparation evidence, structural
+context, evidence quality, and works that cannot be measured. **Within reach**
+means only that no additional whole-scope vocabulary is required for the selected
+threshold. It must not become the default ranking or the definition of what the
+learner ought to read.
+
+### Can assessment be further subordinated?
+
+Yes. **Assessment** should remain a domain grouping for scope and analysis, not a
+primary learner destination or an obligation attached to every acquired work. The
+learner-facing action should answer the immediate question, for example **See what
+preparation might help** or **Understand what this work would require**. Scope
+review, explicit analysis submission, status, and provenance remain available as
+the trustworthy machinery behind that answer.
+
+### Does the conceptual corpus include currently unanalyzable literature?
+
+Yes. The reading field represents literature the learner cares about; it must not
+be bounded by Mouseion's current providers, formats, language support, or source
+access. Analyzability determines whether Mouseion can place a work quantitatively,
+not whether the work belongs. Desired but unsupported works remain visible as
+**Not currently assessable**, with the blocking reason and no invented distance.
+The quantitative horizon is therefore a subset of the conceptual reading field.
+
+### Is Reading the right navigation label when reading is external?
+
+It remains a hypothesis, not an accepted label. External activity does not by
+itself disqualify **Reading**—calendar and fitness products also organize activity
+that occurs elsewhere—but the destination must not imply an integrated reader.
+Test **Reading**, **My reading**, and **Campaigns** against the questions learners
+expect each destination to answer. The initial page description must state that
+Mouseion plans preparation and records manually confirmed reading undertaken
+outside the product.
+
+### What commitment creates a campaign?
+
+A campaign exists when the learner explicitly says, “I intend to read this work,”
+and chooses to place it among planned or current undertakings. **Plan to read** and
+**Begin reading** satisfy that boundary. Saving a work, expressing interest,
+acquiring a source, requesting readiness evidence, or preparing a comparison does
+not. Choosing preparation creates a campaign only when the learner also confirms
+that undertaking; analysis alone is not commitment. No deck, threshold, date, or
+completed assessment is required.
+
+### What if completion moves no other work across a threshold?
+
+The completed textual encounter is the primary accomplishment. The completion
+state first records the work, reading facts, and any learner reflection; corpus
+effects are secondary evidence. It may accurately show reduced preparation
+without a threshold crossing. If no comparable work changed, Mouseion should say
+so quietly and offer the updated reading field without treating the result as a
+failed reward. The product must never manufacture “new territory” to make a
+completion feel consequential.
+
+### How is reading progress represented without claiming vocabulary knowledge?
+
+Keep four ledgers distinct:
+
+1. undertaking state—planned, active, complete, or abandoned;
+2. reading history—manual start/finish facts and, if later supported, optional
+   location or section progress;
+3. preparation state—what the learner chose and completed;
+4. knowledge state—only vocabulary explicitly imported, marked, or graduated
+   under an accepted mechanism contract.
+
+Exposure, pages read, elapsed time, and campaign completion are meaningful
+progress, but none automatically proves vocabulary recognition. A reading-only
+campaign can complete with no knowledge transition and still become part of the
+learner's durable reading history.
+
+### Should the backend `Corpus` be renamed?
+
+Probably, if `corpus` becomes important product language. The existing domain
+object is a completed owner-scoped analysis artifact, not the learner's body of
+literature. Historical implementation terminology should not veto the clearer
+product concept. A later ADR should evaluate a code-level name such as
+`AnalysisArtifact` or `AnalyzedText`, while allowing the PostgreSQL table name to
+remain temporarily for compatibility. The rename is a clarification and migration
+concern, not a reason to distort learner-facing language now.
+
+### What visual language can express horizon and movement?
+
+Use a restrained visual field rather than a game map or a table alone. Candidate
+system decisions to prototype are:
+
+- near/far position based on one explicitly selected preparation measure, with
+  exact values always available;
+- learner-desired works given stable visual emphasis rather than automatically
+  moved behind cheaper works;
+- a quiet horizon line or depth layers that distinguish currently within the
+  selected marker, preparation required, and not assessable without implying
+  territory or levels;
+- before/after positions shown through a restrained trace or paired position after
+  completion, with textual deltas and reduced-motion behavior;
+- typography, spacing, and bibliographic identity carrying more weight than
+  icons, illustration, or decorative geography.
+
+The semantic list remains the accessible source presentation, but the visual
+field can make relative distance and movement perceptible at a glance. It must
+never collapse lexical, structural, and evidence-quality dimensions into an
+unexplained spatial score.
+
+### How does desire become first-class without becoming another score?
+
+For existing acquired work records, a learner can mark **Want to read** without
+creating a campaign and may optionally record why or indicate current priority.
+Discovery prototypes may represent the same state on metadata-only prospects, but
+persisting those prospects is not accepted until identity, deduplication, and
+removal semantics are defined. Desire is categorical and learner-owned, not
+inferred from clicks or converted into points. The default horizon foregrounds
+wanted and planned works, annotating each with preparation evidence. Newly
+approachable or low-investment works appear as discoveries and optional sorts,
+not as an optimized next-work prescription. Mouseion explains the likely cost of
+a chosen direction; it does not choose the direction.
+
+## 13. Proposed evolution sequence
 
 This is a sequence of product/design decisions and validation, not an
 implementation backlog.
@@ -943,6 +1085,8 @@ implementation backlog.
 
 - Use existing completed analyses and on-demand vocabulary calculations to test
   a comparative, language-filtered corpus view.
+- Include desired but unsupported or source-unavailable works as explicit
+  non-quantitative states in the prototype; do not invent readiness for them.
 - Preserve exact result links, quality states, and current versus after-active
   projections.
 - Test semantic-list-first prototypes with realistic empty, sparse, large,
@@ -972,17 +1116,21 @@ implementation backlog.
 
 - Compute a reproducible before-and-after readiness comparison around an explicit
   vocabulary transition.
-- Present newly within-threshold and reduced-investment works with exact evidence.
+- Present newly within-threshold and reduced-investment works with exact evidence,
+  while treating the completed reading encounter as the primary accomplishment.
+- Define the honest no-crossing and no-comparable-change completion states; do not
+  manufacture movement.
 - Add a durable impact snapshot only if learners need to revisit historical
   horizon changes; do not persist derived state without that requirement.
 
 ### Stage 6 — extend only from evidence
 
-- Consider saved-but-not-acquired prospects, named/overlapping corpora, multiple
-  editions, concurrent campaigns, additional preparation mechanisms, or reading
-  integrations only after the core campaign/horizon model proves useful.
+- Consider durable metadata-only desire records, named/overlapping corpora,
+  multiple editions, concurrent campaigns, additional preparation mechanisms, or
+  reading integrations only after the core campaign/horizon model proves useful;
+  their conceptual states should still be represented during validation.
 
-## 13. Evaluation criteria
+## 14. Evaluation criteria
 
 The direction should be accepted only if research and prototype evaluation show
 that learners can answer these questions more easily than in the current model:
@@ -1003,4 +1151,5 @@ feel coherent.
 The intended emotional result is restrained but real: the learner completes a
 serious undertaking, returns to a body of literature they care about, and can
 see—accurately—which reading possibilities have changed. **The reward is not a
-score. It is more world.**
+score. It is more world. Desire determines direction; analysis informs
+preparation.**
