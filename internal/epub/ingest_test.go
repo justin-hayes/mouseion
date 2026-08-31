@@ -15,6 +15,21 @@ type memoryStore struct {
 	classified []domain.EPUBUnitClassification
 	puts       int
 	histories  int
+	bookID     string
+	resolved   int
+	linked     int
+}
+
+func (m *memoryStore) ResolveOrCreateBookForAcquisition(_ context.Context, _, _, _, _ string) (string, error) {
+	m.resolved++
+	if m.bookID == "" {
+		m.bookID = "book-id"
+	}
+	return m.bookID, nil
+}
+func (m *memoryStore) LinkSourceToBook(_ context.Context, _, _, _ string) error {
+	m.linked++
+	return nil
 }
 
 func (m *memoryStore) GetExtractedUnitSnapshot(_ context.Context, _, _ string) (string, domain.ExtractedUnits, error) {
@@ -57,6 +72,9 @@ func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	if result.Source.OwnerID != "owner-id" || result.History.OwnerID != "owner-id" {
 		t.Fatalf("owner scope: %+v", result)
 	}
+	if store.resolved != 1 || store.linked != 1 {
+		t.Fatalf("book linking: resolved=%d linked=%d", store.resolved, store.linked)
+	}
 	if result.Source.MediaType != MediaType() || len(result.Source.Content) == 0 || result.Source.FullText == "" {
 		t.Fatalf("source: %+v", result.Source)
 	}
@@ -82,7 +100,7 @@ func TestImportRequiresAuthenticatedOwner(t *testing.T) {
 }
 
 func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.T) {
-	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", Title: "Existing"}}
+	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"}}
 	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
 	if err != nil {
 		t.Fatal(err)
@@ -92,5 +110,8 @@ func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.
 	}
 	if store.puts != 0 || store.histories != 0 {
 		t.Fatalf("existing acquisition rewrote source: puts=%d histories=%d", store.puts, store.histories)
+	}
+	if store.resolved != 1 || store.linked != 1 {
+		t.Fatalf("existing acquisition was not linked: resolved=%d linked=%d", store.resolved, store.linked)
 	}
 }
