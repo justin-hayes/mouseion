@@ -268,12 +268,12 @@ func insertJourneyCampaign(t *testing.T, ctx context.Context, pool *pgxpool.Pool
 	t.Helper()
 	var id string
 	err := pool.QueryRow(ctx, `INSERT INTO learning_campaigns(owner_id,source_material_id,deck_preparation_id,book_status,deck_status,created_at,book_finished_at,deck_reviewed_at,completed_at,abandoned_at)
-VALUES($1,$2,$3,$4,$5,$6,
- CASE WHEN $4='finished' THEN $6 ELSE NULL END,
- CASE WHEN $5='reviewed' THEN $6 ELSE NULL END,
- CASE WHEN $4='finished' AND $5='reviewed' THEN $6 ELSE NULL END,
- CASE WHEN $4='abandoned' OR $5='abandoned' THEN $6 ELSE NULL END)
-RETURNING id::text`, owner, sourceID, preparationID, bookStatus, deckStatus, createdAt).Scan(&id)
+	VALUES($1,$2,$3,$4,$5,$6::timestamptz,
+	 CASE WHEN $4='finished' THEN $6::timestamptz ELSE NULL END,
+	 CASE WHEN $5='reviewed' THEN $6::timestamptz ELSE NULL END,
+	 CASE WHEN $4='finished' AND $5='reviewed' THEN $6::timestamptz ELSE NULL END,
+	 CASE WHEN $4='abandoned' OR $5='abandoned' THEN $6::timestamptz ELSE NULL END)
+	RETURNING id::text`, owner, sourceID, preparationID, bookStatus, deckStatus, createdAt).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
 	}
