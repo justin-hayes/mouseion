@@ -364,17 +364,31 @@ Resolved by [ADR 0034: One implicit Reading Journey with learner-canonical
    Campaign exists. Primary Goal must support commitment before analysis or
    deck preparation and possibly reading without Anki. Its relationship to an
    internal Campaign is unresolved.
+   Resolved by [ADR 0036: Deck-independent Primary Goal and single justified
+   vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md):
+   one deck-independent Primary Goal per learner, meaningful before analysis or
+   deck and readable without Anki; a Goal never reserves vocabulary itself, and
+   Campaign remains the internal reservation/graduation mechanism.
 3. **Completion and vocabulary graduation.** ADR 0027 atomically completes a
    Campaign only after both book-finished and deck-reviewed facts, then
    graduates assigned vocabulary. The accepted experience treats reading
    completion as a factual outcome even when vocabulary work remains. The
    transition and copy cannot be split or relabeled without revisiting that
    contract.
+   Resolved by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md):
+   reading-finished is independent of deck-reviewed, graduation happens only
+   through the single justified transition (snapshotted,
+   provenance-linked identities + confirmed review), and the four-beat finish
+   states current-versus-conditional honestly.
 4. **A new Goal while vocabulary work remains.** The accepted Where next?
    experience permits reconsideration after the book is finished, while the
    current single-active Campaign may still reserve vocabulary. Whether another
    Goal can become current, and how reservation/projection semantics behave,
    requires an explicit decision.
+   Resolved by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md):
+   a new Goal triggers an explicit graduate-or-abandon resolution of the
+   residual reservation, preserves the one-active-campaign exclusivity, and
+   keeps overlap deterministic; no silent state change.
 5. **Queue replacement and history.** The provisional Journey must not coexist
    with a learner-facing commitment queue. Migration or compatibility for
    queued, active, complete, and abandoned Campaign records requires planning;

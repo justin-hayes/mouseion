@@ -58,3 +58,7 @@ word to known vocabulary.
   cross-book exclusion mechanism.
 - Existing physical frequency/ranking tables and columns may remain until a
   later non-destructive cleanup; they are unrelated to this exclusion policy.
+
+*Provenance note: the principle that "generated is not known" is retained; the
+single justified graduation transition from a campaign snapshot into
+`known_vocabulary` is defined by ([ADR 0036](0036-primary-goal-justified-graduation.md)).*

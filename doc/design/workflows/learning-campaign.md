@@ -293,17 +293,32 @@ This workflow deliberately does not decide:
 
 - how My Books, Reading Journey order, or Primary Goal are persisted (Journey
   membership and order persistence are decided in
-  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md); My Books and
-  Primary Goal persistence await their own contracts);
-- how a Goal maps to or differs from a Campaign;
-- whether another Goal can begin while vocabulary work remains;
+  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md);
+  Primary Goal persistence awaits its own schema/UI milestone, while its
+  identity and graduation/Goal-vs-Campaign semantics are decided in
+  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md));
+- how a Goal maps to or differs from a Campaign (decided in
+  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): a Goal never
+  reserves vocabulary itself; Campaign remains the internal reservation/
+  graduation mechanism, created when the learner elects deck-based vocabulary
+  work);
+- whether another Goal can begin while vocabulary work remains (decided in
+  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): an explicit
+  graduate-or-abandon resolution, one-active exclusivity preserved, deterministic
+  overlap);
 - which cross-book optimization algorithm or invalidation scheme is accepted;
 - new routes, APIs, migrations, event schemas, or undo behavior.
 
 Journey identity, ownership, ordering, stale-write behavior, and the migration
 of queued/active/complete/abandoned Campaign records are resolved in
-[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Remaining items
+[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Primary
+Goal identity, the single justified graduation transition (reading-finished
+independent of deck-reviewed; snapshot + confirmed review), and new-Goal-with-
+residual-work semantics are resolved in
+[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md). Remaining items
 are the explicit planner/ADR work listed in
 [`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
-Until then, ADR 0027 remains authoritative for Campaign mutation and vocabulary
-graduation behavior.
+Until the cross-book projection contract (item 7) and routes/terminology
+rollout (item 8) are accepted, ADR 0027's Campaign mutation behavior and ADR 0036
+govern vocabulary reservation/graduation, and the existing feature documents
+remain authoritative for domain behavior.
