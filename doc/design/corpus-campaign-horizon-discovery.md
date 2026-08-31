@@ -1,14 +1,17 @@
 # Corpus, Campaign, and Horizon: experience-architecture discovery
 
-Status: **Discovery proposal — not accepted product behavior**
+Status: **Historical discovery evidence — learner-facing Corpus / Campaign /
+Reading Horizon architecture superseded by the canonical
+[`My Books / Reading Journey / Primary Goal`](information-architecture.md)
+architecture.**
 
 Date: 2026-08-31
 
-This document investigates a possible change in Mouseion's organizing model. It
-is intentionally prior to feature specifications, ADRs, implementation issues,
-and detailed screen design. Existing accepted feature documents and ADRs remain
-normative until this direction is reviewed and promoted through the repository's
-normal decision process.
+This document preserves the investigation that led to the accepted direction.
+Its relationship-graph reasoning, desire-first principle, and distinction
+between evidence and decision remain useful. Its proposed primary nouns,
+containment questions, and destination structure are not current learner-facing
+guidance. Do not implement them from this document.
 
 ## Executive proposal
 

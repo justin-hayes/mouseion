@@ -1,9 +1,15 @@
-# Acquisition to library workflow
+# Acquisition to My Books workflow
+
+Status: **Canonical learner-facing design workflow.** The shipped acquisition
+contract currently uses **Add to library** and stores acquired EPUBs. The target
+label **Add to My Books** must ship only with planner/feature-contract
+reconciliation for the broader My Books model; this document does not redefine
+source ownership or persistence.
 
 ## Goal
 
 Help a learner connect a catalog, find books in a language Mouseion can
-currently analyze, and add several EPUBs to My Library without starting
+currently analyze, and add several EPUBs to My Books without starting
 analysis or losing browse context.
 
 The product behavior is defined primarily by:
@@ -15,9 +21,9 @@ The product behavior is defined primarily by:
 ## Entry and destination decision
 
 **Add books** is a global workflow action, not a fourth peer destination beside
-My Library, Learning, and Settings. It remains persistently available in the
-authenticated shell and should be visually distinguishable from destination
-navigation when the shell is revised.
+My Books, Reading Journey, and Settings. It remains persistently available in
+the authenticated shell and should be visually distinguishable from destination
+navigation.
 
 The action enters the acquisition hub at `/connections`:
 
@@ -38,7 +44,7 @@ Add books
     -> Add or choose catalog connection
     -> Choose a ready analysis language
     -> Browse, search, or follow a collection
-    -> Add to library
+    -> Add to My Books
     -> Remain in catalog context
     -> Add another book or open the owned book
 ```
@@ -84,11 +90,11 @@ The catalog experience preserves:
 Upstream, authentication, empty-feed, and search-empty states must be distinct.
 An upstream failure is not presented as an indefinitely loading feed.
 
-### 3. Add to library
+### 3. Add to My Books
 
 **Learner question:** Was this EPUB safely added, and can I continue browsing?
 
-Each eligible entry uses **Add to library**. The action downloads and validates
+Each eligible entry uses **Add to My Books**. The action downloads and validates
 the EPUB, stores immutable source content and extracted-unit identity, and does
 not confirm a scope or start analysis.
 
@@ -110,7 +116,7 @@ an error.
 | Connections available | Show recognizable connection names and maintenance separately. | Browse catalog |
 | No ready languages | Explain that analysis capability comes from the NLP service and cannot be enabled by changing a learner preference. | Return later |
 | Feed loading | Preserve the existing page and identify the region being updated. | None |
-| Feed ready | Show path, search, entries, and pagination. | Add to library |
+| Feed ready | Show path, search, entries, and pagination. | Add to My Books |
 | Empty feed | Distinguish an empty collection from failure. | Go back or search |
 | Search empty | Retain the query and selected catalog. | Revise search |
 | Upstream/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
@@ -121,7 +127,7 @@ an error.
 
 ## Navigation and responsive rules
 
-- Destination navigation remains My Library, Learning, and Settings; Add books
+- Destination navigation is My Books, Reading Journey, and Settings; Add books
   is styled and announced as an action.
 - The current acquisition context is the connection, language, and feed path,
   not a generic page title.

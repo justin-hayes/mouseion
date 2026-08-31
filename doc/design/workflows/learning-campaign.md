@@ -1,174 +1,304 @@
-# Learning campaign workflow
+# Reading Journey and Primary Goal workflow
+
+Status: **Canonical learner-facing workflow; not yet a shipped domain contract.**
+The current Campaign and vocabulary-graduation behavior remains owned by
+[ADR 0027](../../adr/0027-learning-campaigns.md) until the explicit planner/ADR
+work in
+[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work)
+is completed.
+
+The filename is retained to preserve existing links. **Learning campaign** is no
+longer the primary learner-facing name for this experience.
 
 ## Goal
 
-Help a learner choose one book-and-deck campaign, understand what is active or
-queued, record reading and deck-review progress, and graduate vocabulary only
-through an explicit, informed completion transition.
+Help a learner keep a fluid idea of books they may read, choose one book they
+intend to finish, understand preparation evidence without surrendering
+judgment, and return to a changed road ahead after finishing the book.
 
-The product behavior is defined primarily by:
+Only Primary Goal carries commitment. Reading Journey remains provisional even
+when Mouseion can compare a vocabulary-efficient alternative.
 
-- [ADR 0027: Single-active learning campaigns and vocabulary graduation](../../adr/0027-learning-campaigns.md)
-- [Analysis Insights](../../features/analysis-insights.md)
-- [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)
+## Starting state and desired outcome
 
-## Starting state and outcome
+The workflow may begin with:
 
-The workflow starts with an immutable prepared deck tied to one owned book and
-completed scoped analysis. It ends in one of three durable states:
+- books in My Books but no Reading Journey;
+- a Journey but no Primary Goal;
+- a Primary Goal with or without analysis, a prepared deck, reading progress,
+  or vocabulary work;
+- a finished Primary Goal whose vocabulary transition is complete;
+- a finished Primary Goal with vocabulary work remaining.
 
-- queued for later;
-- complete, with assigned campaign vocabulary graduated to known;
-- abandoned, with assigned vocabulary eligible again unless independently
-  known.
-
-At most one campaign is active. A prepared deck, queued campaign, or active
-campaign does not by itself make vocabulary known.
+The desired outcome is not Journey completion. It is one informed next choice:
+keep reading the current Goal, reshape the provisional Journey, choose a new
+Goal, or remain between Goals.
 
 ## Primary path
 
 ```text
-Analysis result
-    -> Add to learning queue
-    -> Learning
-    -> Activate campaign when no other campaign is active
-    -> Read book and review deck
-    -> Record first progress condition
-    -> Confirm the second, campaign-completing condition
-    -> Campaign history and updated known vocabulary
+My Books
+    -> Add learner-selected books to Reading Journey
+    -> Arrange Your order
+    -> Optionally compare a Vocabulary-efficient alternative
+    -> Choose one book as Primary Goal
+    -> Prepare and read, preserving independent facts
+    -> Record Reading finished
+    -> Apply only justified vocabulary transitions
+    -> Recalculate remaining Journey from actual state
+    -> Where next?
+    -> Choose, reorder, add/remove, or remain between Goals
 ```
 
-## Learning screen hierarchy
+Acquisition, scope confirmation, analysis, deck preparation, Journey membership,
+Goal choice, reading completion, and vocabulary graduation remain explicit
+transitions. None silently triggers the next.
 
-The Learning destination answers questions in this order:
+## 1. Shape Reading Journey
 
-1. What am I learning now?
-2. What remains before this campaign is complete?
-3. What will happen to its vocabulary when I complete it?
-4. What is queued next?
-5. Which campaigns are complete or abandoned?
+**Learner question:** Which books do I currently imagine reading, and in what
+order?
 
-The active campaign is the dominant object. Prepared-but-not-queued decks are
-available actions, not a peer history section. Queue order and history are
-secondary to the current book, deck, and two progress facts.
+A learner can add books from My Books, remove provisional books, and reorder
+them freely. The Journey presents one unambiguous **Your order**. Later books do
+not look scheduled, overdue, locked, or committed.
 
-## Queue and activation
+The interface must answer:
 
-Adding a ready deck creates or resolves a campaign without activating it.
-Duplicate submission does not create competing campaigns.
+- Which book is the Primary Goal, if any?
+- Which books are provisional?
+- How can I add, remove, move earlier, or move later?
+- Which evidence is current, projected, stale, unavailable, or absent?
+- Will changing my order alter commitment? It does not, except when the learner
+  explicitly chooses a different Primary Goal.
 
-A queued campaign may start only when no other campaign is active. If activation
-is blocked, the interface identifies the active campaign and links to it rather
-than returning a generic conflict.
+Primary Goal is anchored before the provisional sequence. It is not draggable
+into an ordinary later position. Changing or clearing it is an explicit Goal
+decision, not an incidental reorder.
 
-Activation must explain that its assigned vocabulary becomes reserved for this
-campaign but is not counted as known. Queue and future-book projections may
-change because only one active campaign can reserve vocabulary.
+Unassessed and incomparable books retain the learner's chosen position. Mouseion
+names the evidence gap and excludes those books from numerical comparison
+rather than moving them silently.
 
-## Recording progress
+## 2. Compare route evidence
 
-Book and deck progress are independent facts:
+**Learner question:** Would another ordering of these same books change the
+modeled vocabulary preparation?
 
-- book: reading or finished;
-- deck: studying or reviewed.
+Mouseion may present a **Vocabulary-efficient alternative** beside or after
+**Your order**. The alternative:
 
-The interface presents them as two labeled conditions, not as one ambiguous
-percentage. Mouseion cannot infer either condition from the APKG or Anki review
-history, so the learner records them manually.
+- contains only the learner-selected books;
+- optimizes one clearly stated lexical property;
+- names the selected threshold, evidence scope, and transition assumptions;
+- keeps incomparable books visible but outside unsupported totals;
+- never becomes active without explicit learner choice.
 
-When one condition remains incomplete, its action may be direct but must state
-that the campaign will remain active. Neither **Mark book finished** nor **Mark
-deck reviewed** may use mastery language.
+The hierarchy is:
 
-## Completion decision
+1. the two book orders, with titles and authors;
+2. the plain-language difference, such as **247 fewer modeled additional
+   vocabulary identities across these books**;
+3. per-book current and conditional effects where they explain the change;
+4. aggregate totals and method as supporting evidence;
+5. peer actions to keep Your order, adopt the alternative, or adjust manually.
 
-The action that satisfies the second condition is a separate consequential
-transition. Before submission, the interface presents a confirmation step or
-modal dialog containing:
+Do not lead with large totals or describe the alternative as best, optimal,
+recommended, or the correct reading order.
 
-- book and prepared-deck identity;
-- both resulting progress facts;
-- the number of assigned lemma identities not already independently known that
-  will be added to known vocabulary, when available;
-- an explanation that generated provenance remains intact;
-- an explanation that future coverage and queue projections will be
-  recalculated;
-- an explicit statement that Mouseion does not claim a spaced-repetition grade
-  or general mastery;
-- an explicit statement that campaign completion cannot currently be undone in
-  the application.
+A manual move produces a neutral preview and recalculation. For example:
 
-The primary confirmation label is outcome-based, for example:
+> Moving this book here adds approximately 63 modeled identities across the
+> remaining Journey under the selected assumptions.
 
-> Complete campaign and add 132 lemmas to known vocabulary
+This is information, not a warning. The learner's literary preference remains
+canonical.
 
-If the count cannot be loaded safely, use **Complete campaign and add its
-vocabulary to known** rather than silently omitting the consequence. The cancel
-action returns to the unchanged active campaign.
+## 3. Choose or view the Primary Goal
 
-Completion is one atomic learner-state transition. A partially graduated
-campaign must never be shown as complete. After success, the screen shows the
-campaign in history and confirms that coverage values will reflect the newly
-known vocabulary.
+**Learner question:** Which one book do I intend to finish now?
 
-## Correction semantics
+**Choose as Primary Goal** is an explicit action available from My Books,
+Reading Journey, or a book context when the underlying product contract permits
+it. Selection does not silently start analysis, prepare a deck, claim reading
+has begun, or mark vocabulary known.
 
-ADR 0027 defines graduated vocabulary as permanently known and does not define
-campaign reopening. Phase 1 therefore establishes these boundaries:
+The Primary Goal region leads with:
 
-- completing a campaign has no inline undo;
-- changing a completed campaign back to active must not be introduced as a
-  superficial UI control;
-- any future correction workflow must operate on known-vocabulary provenance,
-  explain downstream coverage effects, and receive its own product contract;
-- until that workflow exists, the completion confirmation must disclose that
-  the action cannot be undone in Mouseion.
+1. title, author, and relevant edition identity;
+2. the fact that this is the learner's current Goal;
+3. reading state;
+4. preparation/vocabulary-work state;
+5. concise current evidence and clearly conditional projections;
+6. one next useful decision, with supporting actions demoted.
 
-This preserves the accepted data semantics rather than implying a reversible
-state the product does not support.
+A Goal can be meaningful before evidence exists. In that case, the interface
+preserves the commitment and explains whether Mouseion can assess the work,
+what prerequisite is missing, and which action is available. Lack of evidence
+must not make a desired Goal look invalid.
 
-## Abandonment
+## 4. Prepare and read
 
-Abandoning an active or queued campaign does not delete the book, deck, or
-generated-vocabulary history. Any active reservation is released; assigned
-vocabulary remains or becomes eligible unless independently known.
+**Learner question:** What would help with this book, and what has actually
+happened?
 
-Because abandonment changes future selection, it requires confirmation that
-states:
+Analysis and deck preparation remain book-centered supporting workflows. They
+serve the Goal but do not define it. The interface keeps these facts distinct:
 
-- which campaign will be abandoned;
-- that its book and prepared deck remain available;
-- that any active reservation is released and eligible vocabulary may appear in
-  future decks again;
-- that the campaign will remain in history.
+- reading not started, in progress, or finished;
+- analysis absent, queued, failed, stale, or complete;
+- deck absent, preparing, ready, or downloaded;
+- vocabulary work not started, in progress, or complete;
+- vocabulary currently known;
+- vocabulary that would become known only after a justified future transition.
 
-The action label is **Abandon campaign**, not **Delete**.
+A current coverage value and an after-transition projection may appear together
+only when the condition is explicit. Reading progress is never a Journey
+progress percentage.
+
+The learner may leave and return while analysis or preparation runs. Operational
+status remains secondary to book identity and current reading purpose.
+
+## 5. Finish the Primary Goal
+
+**Learner question:** What did finishing this book change, and what remains
+unfinished?
+
+Finishing the book is a factual reading achievement, not completion of the
+Journey or proof of vocabulary knowledge. Once reading is finished, the book no
+longer occupies the current Primary Goal role; it remains in My Books and
+history, and any unfinished vocabulary work remains visible as a separate fact.
+No next Goal is created automatically. This target role transition is part of
+the Campaign/Goal planner boundary below.
+
+The outcome view uses a restrained, book-led receipt rather than celebration
+chrome.
+
+### Reading finished and vocabulary transition complete
+
+When the accepted conditions justify a vocabulary transition:
+
+1. state **Reading finished**;
+2. name the vocabulary work that completed;
+3. state exactly how many eligible vocabulary identities were added to known;
+4. recalculate the remaining Journey from actual known vocabulary;
+5. show the books whose current preparation evidence changed, with precise old
+   and new labels;
+6. end with **Where next?**
+
+Old projections are not presented as though they remain current. The new values
+come from actual state after the transition.
+
+### Reading finished while vocabulary work remains
+
+When the book is finished but the accepted vocabulary transition has not
+occurred:
+
+1. acknowledge **Reading finished** without qualification;
+2. state **Vocabulary work remains** as a separate fact;
+3. state that no vocabulary from this work has yet been added to known;
+4. keep current values for later books unchanged;
+5. keep any possible future effects explicitly conditional;
+6. return to **Where next?** without claiming readiness gains.
+
+The reading achievement must not be withheld because vocabulary work remains.
+Conversely, achievement copy must not imply the vocabulary transition happened.
+
+Current ADR 0027 does not yet permit this learner-facing rhythm to be implemented
+by separating Campaign completion from graduation or by starting another active
+Campaign while review remains. That mismatch requires planner/ADR resolution;
+the UI must not simulate it with labels alone.
+
+## 6. Where next?
+
+**Learner question:** Given what is true now, what do I want to do next?
+
+After the factual outcome and recalculation, return attention to the remaining
+Journey. The first provisional book may be introduced as **First in your current
+order**. Actions are neutral peers:
+
+- **Choose as Primary Goal**;
+- **Reorder Reading Journey**;
+- **Choose another book** from My Books;
+- **Remove from Reading Journey** where relevant;
+- take no new Goal yet.
+
+No action is preselected, automatic, or labeled optimal. If the Journey is
+empty, invite the learner back to My Books without presenting an empty backlog
+or a completed plan.
+
+## Alternate and edge paths
+
+- **No Primary Goal:** explain that Mouseion is between Goals and preserve the
+  Journey as editable, useful context. Do not manufacture urgency.
+- **No planned next book:** show the finished outcome, then offer My Books or a
+  calm option to stop without a new commitment.
+- **No Journey:** My Books remains fully useful; the Journey empty state explains
+  what provisional ordering can do without requiring setup.
+- **Desired but unassessable Goal:** keep desire and Goal identity primary;
+  explain the unsupported source, language, or missing prerequisite.
+- **Stale or questionable evidence:** keep the book in place, label the evidence,
+  omit unsafe comparisons, and provide an appropriate evidence-recovery path.
+- **Failed recalculation:** preserve the learner's accepted order and action,
+  state that updated evidence is unavailable, and provide a retry. Never roll
+  back the preference silently.
+- **Changing or clearing a Goal:** state what happens to reading history,
+  prepared artifacts, vocabulary reservation, and unfinished work. The exact
+  consequences await the Campaign/Goal contract and must not be invented in a
+  generic confirmation.
+- **Historical completed or abandoned Campaigns:** keep them understandable as
+  reading/preparation/vocabulary-transition history without restoring Campaign
+  as principal navigation.
 
 ## State model
 
-| State | Required presentation | Primary action |
+| State | Required presentation | Primary decision |
 |---|---|---|
-| No active campaign | Explain the single-active rule and show eligible queue items. | Start learning |
-| Active; both conditions incomplete | Show book, deck, and two independent progress facts. | Record one progress fact |
-| Active; book finished | Explain that deck review remains and completion will graduate vocabulary. | Review completion consequence |
-| Active; deck reviewed | Explain that book completion remains and completion will graduate vocabulary. | Review completion consequence |
-| Completion confirmation | Show exact outcome and finality. | Complete campaign and add vocabulary to known |
-| Complete | Show completion/graduation time and retained provenance. | View history or choose next campaign |
-| Queued | Show position and why it is not active. | Start when available or abandon |
-| Activation blocked | Identify and link the current active campaign. | Return to active campaign |
-| Abandon confirmation | Explain released reservation and retained artifacts. | Abandon campaign |
-| Abandoned | Explain that vocabulary is eligible again. | View book or prepared deck |
-| Mutation failure | Preserve current state and explain recovery. | Retry when safe |
+| No Journey books | Calm explanation; My Books remains the source collection. | Add from My Books |
+| Journey, no Primary Goal | Provisional order and evidence; no failure or idle warning. | Choose a Goal or reorder |
+| Primary Goal, no assessment | Book and commitment first; name missing evidence. | Start the relevant evidence workflow when supported |
+| Primary Goal, reading/preparation active | Independent reading and vocabulary facts; current versus conditional evidence. | Continue the learner-chosen activity |
+| Route comparison available | Your order first; alternative and method secondary. | Keep, adopt, or adjust |
+| Order recalculating | Preserve the accepted order; identify updating evidence. | None |
+| Order recalculation failed | Preserve order and prior trustworthy evidence; explain failure. | Retry |
+| Reading finished; transition complete | Factual outcome, exact justified vocabulary change, actual recalculation. | Where next? |
+| Reading finished; vocabulary remains | Reading achievement, no known-vocabulary change, unchanged current evidence, conditional future effect. | Where next? or continue vocabulary work |
+| No remaining Journey book | No completion framing; offer My Books and no-action option. | Choose another book or remain between Goals |
+| Evidence stale/unavailable | Book remains in place; reason and excluded comparison are explicit. | Review or refresh evidence when supported |
 
 ## Accessibility and responsive contract
 
-- The two progress facts use labeled text, not color or icon alone.
-- Consequential confirmation receives focus, has a programmatic name, traps
-  focus only while modal, returns focus on cancel, and remains usable without a
-  pointer.
-- Server-side validation remains authoritative if client confirmation is
-  bypassed or stale.
-- On narrow screens, the order remains active identity, progress, consequence,
-  action, queue, then history.
-- Completion and abandonment results are announced once without replacing the
-  learner's context with a raw response.
+- Reading Journey is a semantic ordered list. Visual alignment or spatial
+  treatment never replaces readable titles, authors, positions, and evidence.
+- Reordering has visible **Move earlier** and **Move later** controls usable by
+  keyboard, switch input, and touch. Drag is optional enhancement.
+- After a move, retain focus on the moved book, announce its new position, and
+  announce the recalculation result in a scoped polite live region.
+- Route comparison uses headings and ordered lists before any visual connectors.
+  It does not depend on color, relative position, or animation alone.
+- Current, prior, projected, and remaining values use full text labels; `+` and
+  `−` never carry meaning without units and direction.
+- On narrow screens, stack Your order and the alternative while preserving the
+  same comparison sequence. Keep per-book actions adjacent to their book and
+  avoid page-level horizontal scrolling.
+- Long titles, multiple authors, absent publication years, translated editions,
+  and 200% text zoom must not hide order controls or status text.
+- Server-rendered forms provide coherent add, remove, choose, and reorder
+  outcomes before drag, animated transitions, or in-place recalculation enhance
+  them.
+
+## Product-contract boundary
+
+This workflow deliberately does not decide:
+
+- how My Books, Journey membership, order, or Primary Goal are persisted;
+- how a Goal maps to or differs from a Campaign;
+- whether another Goal can begin while vocabulary work remains;
+- how existing campaign queue/history records migrate;
+- which cross-book optimization algorithm or invalidation scheme is accepted;
+- new routes, APIs, migrations, event schemas, or undo behavior.
+
+Those items are the explicit planner/ADR work listed in
+[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
+Until then, ADR 0027 remains authoritative for Campaign mutation and vocabulary
+graduation behavior.

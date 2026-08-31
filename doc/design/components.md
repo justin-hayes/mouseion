@@ -1,10 +1,17 @@
 # Interface components
 
-This document defines Mouseion's reusable server-rendered interface patterns. It
-is the durable contract between product design, Templ markup, shared CSS, and
-accessibility tests. It complements the semantic tokens and responsive rules in
-[`design-system.md`](design-system.md); it does not define product lifecycle
-behavior.
+Status: **Established implementation components plus canonical target patterns.**
+Target patterns for My Books / Reading Journey / Primary Goal define reusable
+interaction guidance, not settled Templ boundaries or persistence behavior.
+They require planner/ADR reconciliation before implementation.
+
+This document defines Mouseion's reusable server-rendered interface patterns.
+Established patterns are the durable contract between product design, Templ
+markup, shared CSS, and accessibility tests. Canonical target patterns document
+shared user goals and behavior before implementation chooses exact component
+boundaries. This document complements the semantic tokens and responsive rules
+in [`design-system.md`](design-system.md); it does not define product lifecycle
+or storage behavior.
 
 ## Implementation boundary
 
@@ -26,24 +33,42 @@ the owning view or handler. A shared CSS class is acceptable when a specialized
 view needs the same visual and responsive contract but different semantic
 markup.
 
-## Component index
+## Established component index
 
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | Library, book, scope review, Learning, Jobs, Settings      |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Library, book detail, scope review                       |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | Current library, book, scope review, Campaign, Jobs, Settings |
+| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | Current library, target My Books, book detail, scope review |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Phase 3 contract           | Book and scope review                                      |
-| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Library, book, campaigns                                   |
-| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Learning, Jobs, Settings               |
-| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Library, Jobs, Settings                                    |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Library, book actions, prepared books, campaigns, Settings |
+| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
+| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Settings       |
+| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Settings                            |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Current library, book actions, prepared books, Campaign, Settings |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and campaigns                                   |
 | `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Book text profile, coverage, thresholds, projections       |
 | `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Campaign progress                                          |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and known vocabulary                                  |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
-| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Learning campaigns and catalog connections                 |
+| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Current Campaign and catalog connections                   |
+
+## Canonical target patterns
+
+These names describe durable interaction purposes. They do not require a
+one-pattern/one-Templ-component implementation.
+
+| Pattern | Purpose | Required states | Canonical surfaces |
+|---|---|---|---|
+| `BibliographicBookItem` | Keep title, author, and edition identity primary while pairing intent, evidence state, and one contextual action. | Primary Goal, in Journey, outside Journey, reading finished, unassessed, stale/questionable, cannot assess, long/missing metadata | My Books, Reading Journey, Where next? |
+| `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. | No evidence, analysis active/failed/complete, reading active/finished, vocabulary work active/complete | Reading Journey, book detail, outcome transition |
+| `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, incomparable book, compact viewport | Reading Journey, Where next? |
+| `RouteComparison` | Compare **Your order** with one optional vocabulary-efficient alternative while keeping learner order canonical. | No/partial comparable evidence, alternative available, manual preview, adopted or dismissed | Reading Journey |
+| `EvidenceDelta` | State a current, prior, or conditional value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, stale/unavailable evidence | Journey books, route comparison, Goal outcome |
+| `OutcomeSummary` | Acknowledge the factual reading outcome, justified vocabulary transition or absence, changed books, and the next choice. | Transition complete, vocabulary work remains, no remaining Journey book | Primary Goal outcome / Where next? |
+
+The patterns above should compose mostly through typography, ordered lists,
+definition lists, actions, disclosures, and fine rules. They are not permission
+to wrap every region in a card.
 
 ## Shared rules
 
@@ -68,6 +93,10 @@ itself.
   status message, or implementation note.
 - Page-header actions are limited to the highest-value next action. Secondary
   resource actions belong beside the resource they affect.
+- On book-led surfaces, title, author, and relevant edition identity precede
+  intent, evidence, status, and action. Metrics never become a surrogate title.
+- Reading Journey exposes one learner order. Any alternative is labeled and
+  visually secondary rather than blended into the current state.
 - A status badge never replaces a heading, explanatory sentence, progress
   summary, or error message.
 
@@ -75,11 +104,15 @@ itself.
 
 Tone communicates meaning consistently:
 
-- **neutral** — known state without urgency or positive/negative outcome;
-- **information** — queued, running, preparing, or other active work;
-- **success** — ready, active, analyzed, completed, or another successful state;
-- **warning** — degraded capability or a state requiring review;
-- **danger** — failed, cancelled, discarded, or abandoned.
+- **neutral** — known state, learner preference, or conditional evidence without
+  urgency or positive/negative judgment;
+- **information** — queued, running, preparing, recalculating, or other active
+  work;
+- **success** — a completed learner action or ready artifact, not the Primary
+  Goal role or a high readiness value;
+- **warning** — degraded capability, stale/questionable evidence, or a state
+  requiring review;
+- **danger** — failed, cancelled, discarded, or destructive consequence.
 
 State text is always visible; color is supplemental. Workflow code maps domain
 states to these closed variants instead of constructing arbitrary class names.
@@ -97,6 +130,11 @@ states to these closed variants instead of constructing arbitrary class names.
   has an accessible label.
 - A responsive table's scroll container is keyboard-focusable, visibly focused,
   and labeled by purpose.
+- Journey reordering exposes visible Move earlier / Move later controls. After a
+  move, focus stays with the moved book and a scoped polite live region announces
+  its position and evidence-recalculation outcome.
+- Drag-and-drop, animation, connectors, and spatial alignment never provide the
+  only way to understand or operate a sequence.
 - Components do not automatically steal focus after a full-page response.
 
 ### Responsive behavior
@@ -104,7 +142,13 @@ states to these closed variants instead of constructing arbitrary class names.
 At the compact breakpoint:
 
 - page-header content and actions stack in reading order;
-- resource-list layouts and action groups stack without reordering controls;
+- bibliographic items preserve title, author, relationship, evidence, then action;
+- resource-list layouts and action groups stack without reordering document
+  order;
+- Journey order remains a semantic list and its per-book move controls stay
+  adjacent to the affected book;
+- route alternatives stack as two labeled ordered lists rather than compressing
+  into unreadable columns;
 - metadata lists use a single column;
 - buttons remain native controls and may occupy the available width where the
   surrounding workflow requires it.
@@ -122,10 +166,14 @@ length.
 how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
-`Primary navigation`. The Phase 3 shell establishes consistent landmarks and
-skip navigation; indicating the current destination remains a later shell
-improvement because the current `Layout` call does not receive route context.
-Do not infer current navigation from the page title.
+`Primary navigation`. The canonical authenticated destinations are My Books,
+Reading Journey, and Settings; Add books is a distinguishable workflow action.
+Primary Goal belongs inside Reading Journey. Current-route compatibility may be
+staged, but the shell must not expose both Learning and Reading Journey as peers.
+
+The established shell provides landmarks and skip navigation. Its current
+`Layout` call does not receive route context, so indicating the active
+destination remains an implementation gap; do not infer it from the page title.
 
 ### `PageHeader`
 
@@ -141,9 +189,14 @@ warnings, progress, or multiple resource actions in the header.
 
 Use a concise state description to make the learner-facing lifecycle action
 explicit. The action itself remains a native link or form button owned by the
-screen; the summary must not introduce a second competing route. My Library
-and book detail use the same state projection, while scope review names
-`Confirm this scope` and explains that confirmation does not start analysis.
+screen; the summary must not introduce a second competing route. My Books and
+book detail use the same state projection, while scope review names **Confirm
+this scope** and explains that confirmation does not start analysis.
+
+On Journey surfaces, `NextAction` must not turn the first provisional book or a
+vocabulary-efficient alternative into a recommendation. Use plain relationship
+copy such as **First in your current order** and learner-controlled actions such
+as **Choose as Primary Goal**.
 
 ### `Breadcrumb`
 
@@ -153,9 +206,12 @@ primary navigation or as a generic browser-back control.
 
 ### `StatusBadge`
 
-Labels are short noun or adjective phrases such as `Deck ready`, `Queued`, or
-`Analysis required`. Never encode state only through an icon or color. A badge
-is not interactive.
+Labels are short, explicit phrases such as **Deck ready**, **Analysis queued**,
+**In Reading Journey**, or **Evidence needs review**. Never encode state only
+through an icon or color. A badge is not interactive. Avoid ambiguous labels
+such as **Active**, **Reading**, **Ready**, or **Completed** without the fact they
+qualify. Primary Goal is a relationship role and should not receive generic
+success styling.
 
 ### `Feedback`
 
@@ -177,9 +233,15 @@ still loading or when an error prevented loading.
 
 ### `ResourceCard`
 
-Lead with resource identity, then supporting metadata or status, then the
-resource action. Cards in a list must use the same internal order. Avoid nested
-cards and avoid using a card solely to add decoration around prose.
+Lead with resource identity, then supporting metadata or relationship, evidence
+state, and action. Cards in a list must use the same internal order. Avoid
+nested cards and avoid using a card solely to add decoration around prose.
+
+A repeated My Books or Journey item normally uses a bibliographic row/list-item
+treatment with fine rules, not `ResourceCard`. Reserve a stronger contained
+surface for a genuinely distinct region such as the one Primary Goal or a
+consequential outcome; even there, typography should carry more hierarchy than
+border, shadow, or background.
 
 ### `ActionGroup`
 
@@ -193,6 +255,11 @@ Use for two or more facts that benefit from comparison. Each item has a value,
 a concise label, and optional detail. Numeric values use tabular numerals. A stat
 group summarizes data; explanatory methodology and provenance remain prose or
 details immediately after it.
+
+Do not use `StatGroup` as the hero of My Books, Reading Journey, Primary Goal, or
+Where next? Route totals are supporting evidence after the books and the
+plain-language consequence. Current, prior, projected, and remaining values use
+full labels and units rather than color or a bare signed number.
 
 ### `MetadataList`
 
@@ -221,17 +288,87 @@ screen.
 
 Use native disclosure for consequential actions rather than an inline
 `window.confirm`. The summary names the proposed action. The body explains what
-changes, what is retained, and whether the action can be undone. The final
-button uses explicit language such as `Complete campaign` or `Confirm
-abandonment`.
+changes, what remains, and whether the action can be undone. The final button
+uses explicit outcome language; generic **Confirm** or **Mark complete** copy is
+insufficient.
 
-Use the neutral confirmation tone for irreversible positive transitions such
-as campaign completion. Use the danger tone for deletion and abandonment.
+Use neutral confirmation for an irreversible positive transition and danger for
+deletion or material abandonment. The current Campaign completion confirmation
+must continue to state that eligible assigned vocabulary becomes known and that
+the transition cannot currently be undone. Current Campaign abandonment must
+state that deck/history remain while reservations are released.
 
-Campaign completion confirmation explains that assigned vocabulary becomes
-known and that completion cannot currently be undone. Campaign abandonment
-explains that the deck and history remain while vocabulary reservations are
-released. Completion and abandonment never share generic `Confirm` copy.
+The target Primary Goal workflow must not relabel those current mutations before
+planner/ADR reconciliation. Once reconciled, confirmations name independent
+facts: finishing reading, completing the justified vocabulary transition, or
+ending/changing a Goal. They never imply that reading alone adds vocabulary to
+known.
+
+## Canonical target pattern contracts
+
+### `BibliographicBookItem`
+
+**Answers:** Which book is this, why is it here, what evidence is trustworthy,
+and what can I do with it?
+
+Use a semantic list item or article with title as the primary link, author
+immediately adjacent, and edition/year/language where evidence identity needs
+it. Relationship text such as **Primary Goal** or **In Reading Journey** precedes
+concise evidence state. Keep at most one primary contextual action visible; put
+provenance and secondary actions behind ordinary links or disclosure.
+
+### `PrimaryGoalSummary`
+
+**Answers:** What one book am I committed to finishing, what is actually true
+about reading and vocabulary work, and what decision is next?
+
+Lead with book identity and Goal role. Present reading, preparation, and
+vocabulary-transition facts independently. Pair current and projected evidence
+only when the condition is written in full. Do not use a destination flag,
+progress trophy, oversized metric, or generic success card.
+
+### `JourneyOrder`
+
+**Answers:** What is my current order, which books are provisional, and how can I
+change it?
+
+Use an `ol` for the learner's sequence. Primary Goal is a separate anchored
+region before the provisional list. Each later item has visible Move earlier and
+Move later buttons with unavailable boundary actions disabled or omitted
+consistently. Removal does not delete the book from My Books. Recalculation must
+not block acknowledging the accepted learner order.
+
+### `RouteComparison`
+
+**Answers:** How does one stated lexical property differ between my order and an
+alternative for these same books?
+
+Use two clearly headed ordered lists: **Your order** first and
+**Vocabulary-efficient alternative** second. Lead with order and the
+plain-language consequence. Keep totals and assumptions secondary. Provide
+separate actions to keep, adopt, or manually adjust. On compact screens, stack
+complete lists; do not interleave books or rely on connector lines.
+
+### `EvidenceDelta`
+
+**Answers:** What value is this, when is it true, and what changed?
+
+Every delta names its measure, unit, basis, and time/condition: for example,
+**164 additional lemma identities to 97% after the recorded vocabulary
+transition**. A signed value alone is invalid. Pair old/new values only when both
+are comparable. When vocabulary work remains, current values stay current and
+future effects remain explicitly conditional.
+
+### `OutcomeSummary`
+
+**Answers:** What happened, what changed in known vocabulary and the books ahead,
+and what can I choose now?
+
+Use this order: factual reading outcome; justified vocabulary transition or its
+absence; changed/unchanged later books; **Where next?** Avoid celebration chrome,
+Journey completion language, or an automatically emphasized next book. If no
+book remains, provide My Books and a no-new-Goal path without framing the state
+as failure.
 
 ## Adding or changing a component
 

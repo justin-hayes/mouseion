@@ -1,9 +1,18 @@
 # Design roadmap
 
-This document is the living implementation plan for the Mouseion design system.
-It maps the canonical product architecture and accepted interaction decisions
-(Phases 0 and 1) and the visual/component foundations (Phases 2 and 3) to
-concrete implementation phases and bounded worker-agent issues.
+Status: **Historical rollout record.** The phases and issue references below
+record the completed first design-system rollout against the then-current My
+Library / Learning / Campaign experience. They are preserved rather than
+rewritten. This file does not plan implementation of the frozen My Books /
+Reading Journey / Primary Goal architecture; that work requires the explicit
+planner/ADR reconciliation listed in
+[`information-architecture.md`](information-architecture.md#contract-changes-requiring-planneradr-work).
+
+This document was the implementation plan for the first Mouseion design-system
+rollout. It is now retained to explain delivered scope and sequencing.
+It mapped the then-canonical product architecture and accepted interaction
+decisions (Phases 0 and 1) and the visual/component foundations (Phases 2 and 3)
+to concrete implementation phases and bounded worker-agent issues.
 
 Phases 0 through 3 are merged. Their durable decisions live in:
 
@@ -126,12 +135,12 @@ UI controls without a separate product contract:
 - direct EPUB upload without a shipped feature contract;
 - a catalog-management/administrator role.
 
-## Current known limitations
+## Verification environment
 
 - Browser-based visual verification is automated by the Phase 6 fixture-driven
-  harness (#378); the keyboard, focus, and asynchronous-state gate (#379) and
-  the responsive, theme, and realistic-content gate (#380) have landed. The
-  reconciliation pass (#381) ships this final residual-consistency gate.
+  harness (#378). The keyboard, focus, and asynchronous-state gate (#379), the
+  responsive, theme, and realistic-content gate (#380), and the final
+  residual-consistency reconciliation (#381) have all landed.
 - A full local stack (PostgreSQL, NLP service, Go web server) is required for
   integration tests; Phase 6 fixtures remove the external-network dependency
   for browser acceptance.
