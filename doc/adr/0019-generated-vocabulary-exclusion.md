@@ -61,4 +61,4 @@ word to known vocabulary.
 
 *Provenance note: the principle that "generated is not known" is retained; the
 single justified graduation transition from a campaign snapshot into
-`known_vocabulary` is defined by ([ADR 0035](0035-primary-goal-justified-graduation.md)).*
+`known_vocabulary` is defined by ([ADR 0036](0036-primary-goal-justified-graduation.md)).*

@@ -1,4 +1,4 @@
-# ADR 0035: Deck-independent Primary Goal and single justified vocabulary-graduation transition
+# ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition
 
 Status: **Accepted** · Date: 2026-08-31 · Author: Justin + Hermes
 

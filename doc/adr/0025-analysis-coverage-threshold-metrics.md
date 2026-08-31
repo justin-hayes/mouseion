@@ -1,6 +1,6 @@
 # ADR 0025: Analysis coverage and threshold metric contract
 
-Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0035** · Date: 2026-08-24 · Author: Justin + Codex
+Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036** · Date: 2026-08-24 · Author: Justin + Codex
 
 Clarifies **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and **ADR 0019** (Explicit generated-vocabulary exclusion policy).
@@ -94,4 +94,4 @@ insight threshold with the same numeric label.
 - [Analysis Insights feature](../features/analysis-insights.md)
 - [ADR 0017: Replace frequency-based ranking with coverage-based selection](0017-coverage-based-selection.md)
 - [ADR 0019: Explicit generated-vocabulary exclusion policy](0019-generated-vocabulary-exclusion.md)
-- [ADR 0035: Deck-independent Primary Goal and single justified vocabulary-graduation transition](0035-primary-goal-justified-graduation.md) — defines the single justified path by which identity graduates into the `known_vocabulary` that feeds this metric's numerator; the denominator, integer comparison, and threshold selection here are unchanged.
+- [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](0036-primary-goal-justified-graduation.md) — defines the single justified path by which identity graduates into the `known_vocabulary` that feeds this metric's numerator; the denominator, integer comparison, and threshold selection here are unchanged.
