@@ -262,8 +262,8 @@ rollout sequence.
   identity/ordering and campaign-queue migration; this decision is its B3
   Primary Goal successor.
 - [`doc/design/information-architecture.md`](../design/information-architecture.md)
-  — Primary Goal identity (#3), completion/graduation (#4), and new-Goal-with-
-  residual-work (#5) contract items resolved here.
+  — Primary Goal identity (#2), completion/graduation (#3), and new-Goal-with-
+  residual-work (#4) contract items resolved here.
 - [`doc/design/workflows/learning-campaign.md`](../design/workflows/learning-campaign.md).
 - [ADR 0027](0027-learning-campaigns.md) — completion and graduation semantics
   superseded here; Campaign reservation object retained.
