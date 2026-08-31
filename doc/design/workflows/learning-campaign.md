@@ -291,14 +291,19 @@ or a completed plan.
 
 This workflow deliberately does not decide:
 
-- how My Books, Journey membership, order, or Primary Goal are persisted;
+- how My Books, Reading Journey order, or Primary Goal are persisted (Journey
+  membership and order persistence are decided in
+  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md); My Books and
+  Primary Goal persistence await their own contracts);
 - how a Goal maps to or differs from a Campaign;
 - whether another Goal can begin while vocabulary work remains;
-- how existing campaign queue/history records migrate;
 - which cross-book optimization algorithm or invalidation scheme is accepted;
 - new routes, APIs, migrations, event schemas, or undo behavior.
 
-Those items are the explicit planner/ADR work listed in
+Journey identity, ownership, ordering, stale-write behavior, and the migration
+of queued/active/complete/abandoned Campaign records are resolved in
+[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Remaining items
+are the explicit planner/ADR work listed in
 [`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
 Until then, ADR 0027 remains authoritative for Campaign mutation and vocabulary
 graduation behavior.
