@@ -4,7 +4,6 @@ package fixtures
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -38,7 +37,7 @@ const (
 
 const edgeBookID = "fixture-edge-content"
 
-var errNotFound = errors.New("fixture: not found")
+var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
 type Store struct {
@@ -282,8 +281,45 @@ func (s *Store) AddToReadingJourney(_ context.Context, _ string, _ string, expec
 func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
 	return expectedRevision, nil
 }
-func (s *Store) MoveReadingJourneyEntry(_ context.Context, _ string, _ string, _ int, expectedRevision int64) (int64, error) {
-	return expectedRevision, nil
+func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, bookID string, newPosition int, expectedRevision int64) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	journey := s.readingJourneys[owner]
+	if expectedRevision != journey.Revision {
+		return 0, persistence.ErrJourneyStale
+	}
+	memberIndex := -1
+	for i, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			memberIndex = i
+			break
+		}
+	}
+	if memberIndex == -1 {
+		return 0, persistence.ErrNotFound
+	}
+	if newPosition < 1 {
+		newPosition = 1
+	}
+	if newPosition > len(journey.Entries) {
+		newPosition = len(journey.Entries)
+	}
+	if memberIndex == newPosition-1 {
+		return journey.Revision, nil
+	}
+	entry := journey.Entries[memberIndex]
+	journey.Entries = append(journey.Entries[:memberIndex], journey.Entries[memberIndex+1:]...)
+	journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{})
+	copy(journey.Entries[newPosition:], journey.Entries[newPosition-1:])
+	journey.Entries[newPosition-1] = entry
+	for i := range journey.Entries {
+		journey.Entries[i].OwnerID = owner
+		journey.Entries[i].Position = i + 1
+	}
+	journey.Revision++
+	journey.UpdatedAt = time.Now()
+	s.readingJourneys[owner] = journey
+	return journey.Revision, nil
 }
 func (s *Store) GetPrimaryGoal(_ context.Context, owner string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()

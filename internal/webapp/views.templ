@@ -114,6 +114,15 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
     target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
   }
 };
+document.addEventListener('htmx:afterSwap', function () {
+  var list = document.getElementById('provisional-journey-list');
+  if (!list) return;
+  var focusID = list.getAttribute('data-focus-id');
+  if (!focusID) return;
+  var focusTarget = document.getElementById(focusID);
+  if (focusTarget) focusTarget.focus();
+  list.removeAttribute('data-focus-id');
+});
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
@@ -225,18 +234,11 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			if journey.Goal == nil {
 				@EmptyState("No Primary Goal yet", "Choose a book as your current commitment when you are ready. Reading Journey membership and preparation remain separate.")
 			} else {
-				@JourneyBookCard(*journey.Goal, true)
+				@JourneyBookCard(*journey.Goal, true, csrf, journey.Revision)
 			}
 		</section>
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Provisional Journey</h2>
-			if len(journey.Provisional) == 0 {
-				@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.")
-			}
-			<div class="journey-list">
-				for _, item := range journey.Provisional {
-					@JourneyBookCard(item, false)
-				}
-			</div>
+			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
 		<section aria-labelledby="campaign-operations-heading" class="journey-secondary"><h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>
 			<p>Campaign records and prepared decks are supporting history and operations. They are separate from Reading Journey membership.</p>
@@ -258,15 +260,41 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		</section>
 	}
 }
-templ JourneyBookCard(item journeyBookView, primary bool) {
-	<article class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ journeyBookTitle(item.Book) }</a></h3>
+templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {
+	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
+		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
+		if len(journey.Provisional) == 0 {
+			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.")
+		}
+		<div class="journey-list">
+			for _, item := range journey.Provisional {
+				@JourneyBookCard(item, false, csrf, journey.Revision)
+			}
+		</div>
+	</div>
+}
+templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64) {
+	<article id={ journeyBookAnchorID(item.Book.Source.ID) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ journeyBookTitle(item.Book) }</a></h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 	} else {
 		<p>@StatusBadge("Provisional — your order", StatusNeutral) <span aria-hidden="true">·</span> Your order</p>
 	}
 	@JourneyEvidence(item)
-	</div></article>
+	</div>
+	if !primary {
+		<div class="journey-book__controls" aria-label={ "Reorder "+journeyBookTitle(item.Book) }>
+			<form method="post" action={ journeyMoveURL(item.Book.Source.ID, true) } hx-post={ journeyMoveURL(item.Book.Source.ID, true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
+				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
+			</form>
+			<form method="post" action={ journeyMoveURL(item.Book.Source.ID, false) } hx-post={ journeyMoveURL(item.Book.Source.ID, false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
+				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
+			</form>
+		</div>
+	}
+	</article>
 }
 templ JourneyEvidence(item journeyBookView) {
 	<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>

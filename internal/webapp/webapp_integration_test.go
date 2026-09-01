@@ -1312,6 +1312,108 @@ func campaignForm(csrf string, campaign domain.LearningCampaign) url.Values {
 	}
 }
 
+func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "journey-reorder-web-integration-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "journey-web-alice", "alice-password", false)
+	bob := createAccount(t, ctx, store, "journey-web-bob", "bob-password", false)
+	newBook := func(owner domain.User, title string) domain.Book {
+		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		return book
+	}
+	goal := newBook(alice, "Anchored Goal")
+	first := newBook(alice, "First provisional")
+	second := newBook(alice, "Second provisional")
+	third := newBook(alice, "Third provisional")
+	foreign := newBook(bob, "Foreign provisional")
+	notMember := newBook(alice, "Removed provisional")
+	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, goal.ID); err != nil {
+		t.Fatal(err)
+	}
+	journeyRevision := int64(0)
+	for _, book := range []domain.Book{first, second, third} {
+		journeyRevision, err = store.AddToReadingJourney(ctx, alice.ID, book.ID, journeyRevision)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
+	aliceCookies, csrf := loginCookies(t, h, alice.Username, "alice-password")
+	bobCookies, _ := loginCookies(t, h, bob.Username, "bob-password")
+	page := perform(t, h, "GET", "/journey", nil, aliceCookies)
+	if page.Code != http.StatusOK {
+		t.Fatalf("journey page=%d %s", page.Code, page.Body.String())
+	}
+	expected := hiddenInputValue(t, page.Body.String(), "expected_revision")
+	moveForm := func(token, revision string) url.Values {
+		return url.Values{"csrf_token": {token}, "expected_revision": {revision}}
+	}
+	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-earlier", moveForm(csrf, expected), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
+		t.Fatalf("move earlier=%d location=%q body=%s", moved.Code, moved.Header().Get("Location"), moved.Body.String())
+	}
+	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	if err != nil || journey.Entries[0].BookID != second.ID || journey.Entries[1].BookID != first.ID {
+		t.Fatalf("after move earlier journey=%+v err=%v", journey.Entries, err)
+	}
+	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
+	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-later", moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision")), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
+		t.Fatalf("move later=%d location=%q", moved.Code, moved.Header().Get("Location"))
+	}
+	journey, _ = store.GetReadingJourney(ctx, alice.ID)
+	if journey.Entries[0].BookID != first.ID || journey.Entries[1].BookID != second.ID {
+		t.Fatalf("after move later journey=%+v", journey.Entries)
+	}
+	staleRevision := hiddenInputValue(t, page.Body.String(), "expected_revision")
+	stale := perform(t, h, "POST", "/journey/entries/"+third.ID+"/move-earlier", moveForm(csrf, staleRevision), aliceCookies)
+	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
+		t.Fatalf("stale=%d location=%q", stale.Code, stale.Header().Get("Location"))
+	}
+	journeyAfterStale, _ := store.GetReadingJourney(ctx, alice.ID)
+	if len(journeyAfterStale.Entries) != len(journey.Entries) || journeyAfterStale.Entries[0].BookID != journey.Entries[0].BookID || journeyAfterStale.Entries[1].BookID != journey.Entries[1].BookID || journeyAfterStale.Entries[2].BookID != journey.Entries[2].BookID {
+		t.Fatalf("stale request changed journey=%+v before=%+v", journeyAfterStale.Entries, journey.Entries)
+	}
+	if foreignResponse := perform(t, h, "POST", "/journey/entries/"+foreign.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies); foreignResponse.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner move=%d", foreignResponse.Code)
+	}
+	if absent := perform(t, h, "POST", "/journey/entries/"+notMember.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies); absent.Code != http.StatusSeeOther || !strings.Contains(absent.Header().Get("Location"), "no+longer+in+your+Reading+Journey") {
+		t.Fatalf("non-member move=%d location=%q", absent.Code, absent.Header().Get("Location"))
+	}
+	if missingCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", url.Values{"expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, aliceCookies); missingCSRF.Code != http.StatusForbidden {
+		t.Fatalf("missing csrf=%d", missingCSRF.Code)
+	}
+	if invalidCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", moveForm("invalid", fmt.Sprintf("%d", journey.Revision)), aliceCookies); invalidCSRF.Code != http.StatusForbidden {
+		t.Fatalf("invalid csrf=%d", invalidCSRF.Code)
+	}
+	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
+	form := moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision"))
+	request := httptest.NewRequest(http.MethodPost, "/journey/entries/"+third.ID+"/move-earlier", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("HX-Request", "true")
+	for _, cookie := range aliceCookies {
+		request.AddCookie(cookie)
+	}
+	htmxRecorder := httptest.NewRecorder()
+	h.ServeHTTP(htmxRecorder, request)
+	if htmxRecorder.Code != http.StatusOK || !strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-list"`) || !strings.Contains(htmxRecorder.Body.String(), `aria-live="polite"`) || strings.Contains(htmxRecorder.Body.String(), "<!doctype html>") {
+		t.Fatalf("htmx reorder=%d body=%s", htmxRecorder.Code, htmxRecorder.Body.String())
+	}
+	// Keep Bob's authenticated session in this test to exercise the owner
+	// boundary through the same route.
+	if bobPage := perform(t, h, "GET", "/journey", nil, bobCookies); bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Anchored Goal") {
+		t.Fatalf("bob journey=%d %s", bobPage.Code, bobPage.Body.String())
+	}
+}
+
 func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
 	page := perform(t, h, "GET", "/login", nil, nil)
 	token := hiddenToken(t, page.Body.String())
