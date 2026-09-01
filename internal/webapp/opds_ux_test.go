@@ -723,7 +723,7 @@ func TestLibraryRendersOneCanonicalNextAction(t *testing.T) {
 		{Source: domain.SourceMaterial{ID: "result-book", Title: "Result book", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"},
 	}
 	var output bytes.Buffer
-	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", books, "").Render(context.Background(), &output); err != nil {
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", books, "", "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()

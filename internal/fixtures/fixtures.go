@@ -302,6 +302,11 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, exp
 func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
 	return expectedRevision, nil
 }
+
+// MoveReadingJourneyEntry mirrors the Postgres store: when a Primary Goal book is
+// a Journey member it is anchored and invisible to the provisional order, so
+// newPosition is interpreted within the Goal-excluded order and the Goal entry
+// is never moved.
 func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, bookID string, newPosition int, expectedRevision int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -325,14 +330,60 @@ func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, bookID string,
 	if newPosition > len(journey.Entries) {
 		newPosition = len(journey.Entries)
 	}
-	if memberIndex == newPosition-1 {
-		return journey.Revision, nil
+	goalBookID := s.primaryGoals[owner].BookID
+	goalIndex := -1
+	if goalBookID != "" && goalBookID != bookID {
+		visible := make([]domain.ReadingJourneyEntry, 0, len(journey.Entries)-1)
+		visibleIndex := 0
+		for index, entry := range journey.Entries {
+			if entry.BookID == goalBookID {
+				goalIndex = index
+				continue
+			}
+			if entry.BookID == bookID {
+				visibleIndex = len(visible)
+			}
+			visible = append(visible, entry)
+		}
+		if goalIndex >= 0 {
+			if newPosition < 1 {
+				newPosition = 1
+			}
+			if newPosition > len(visible) {
+				newPosition = len(visible)
+			}
+			if visibleIndex == newPosition-1 {
+				return journey.Revision, nil
+			}
+			entry := visible[visibleIndex]
+			visible = append(visible[:visibleIndex], visible[visibleIndex+1:]...)
+			visible = append(visible, domain.ReadingJourneyEntry{})
+			copy(visible[newPosition:], visible[newPosition-1:])
+			visible[newPosition-1] = entry
+			journey.Entries = make([]domain.ReadingJourneyEntry, 0, len(visible)+1)
+			visibleIndex = 0
+			for index := 0; index < len(visible)+1; index++ {
+				if index == goalIndex {
+					journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{BookID: goalBookID})
+					continue
+				}
+				journey.Entries = append(journey.Entries, visible[visibleIndex])
+				visibleIndex++
+			}
+		} else {
+			goalBookID = ""
+		}
 	}
-	entry := journey.Entries[memberIndex]
-	journey.Entries = append(journey.Entries[:memberIndex], journey.Entries[memberIndex+1:]...)
-	journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{})
-	copy(journey.Entries[newPosition:], journey.Entries[newPosition-1:])
-	journey.Entries[newPosition-1] = entry
+	if goalBookID == "" {
+		if memberIndex == newPosition-1 {
+			return journey.Revision, nil
+		}
+		entry := journey.Entries[memberIndex]
+		journey.Entries = append(journey.Entries[:memberIndex], journey.Entries[memberIndex+1:]...)
+		journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{})
+		copy(journey.Entries[newPosition:], journey.Entries[newPosition-1:])
+		journey.Entries[newPosition-1] = entry
+	}
 	for i := range journey.Entries {
 		journey.Entries[i].OwnerID = owner
 		journey.Entries[i].Position = i + 1

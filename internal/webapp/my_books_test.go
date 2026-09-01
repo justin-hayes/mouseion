@@ -12,7 +12,7 @@ import (
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "").Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -52,7 +52,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		books = append(books, book)
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "").Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
