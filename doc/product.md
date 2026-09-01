@@ -100,6 +100,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 35. [ADR 0035: Separate My Books membership from acquired source provenance](adr/0035-my-books-membership-and-source-provenance.md) — models owner-scoped bibliographic membership independently from immutable acquired EPUB evidence and its downstream history.
 36. [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0036-primary-goal-justified-graduation.md) — defines one Primary Goal per learner, meaningful before analysis/deck and readable without Anki, with the single justified graduation path (snapshotted, provenance-linked identities + confirmed deck review) and deterministic residual-vocabulary / new-Goal behavior.
 37. [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — defines the reproducible route-comparison objective (current known-token coverage) for the vocabulary-efficient alternative to the learner's canonical Reading Journey order, with deterministic ordering, current-vs-conditional projection, incomparable-book handling, and on-demand recalculation.
+38. [ADR 0038: Schema-change governance and migration review policy](adr/0038-schema-change-governance.md) — requires accepted product/architecture shape before consequential SQL, preserves immutable shipped migration history, and defines proportionate additive-field, backfill, staged-rollout, reversion-risk, and destructive-change review gates.
 
 ## Deployment and operations
 

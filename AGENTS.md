@@ -329,6 +329,27 @@ auto-merged without that review:
 * `CODEOWNERS`
 * this `AGENTS.md` policy file
 
+Before implementing or reviewing a schema change, use this compact checklist:
+
+* Treat shipped `0000NN_*.sql` migrations as immutable; use a new migration for
+  corrections and never rewrite, squash, renumber, or consolidate history.
+* Confirm that an accepted issue, feature document, or ADR records the product
+  and architecture shape, lifecycle, ownership, compatibility, and rollout
+  decision before implementing any non-trivial table/column, constraint,
+  destructive change, or durable state machine. A low-risk additive field is
+  exempt only when it is non-breaking, has one clear consumer, and has no
+  lifecycle or policy ambiguity.
+* Resolve credible near-term reversion risk in an unshipped shape before merge;
+  do not add a parallel table or column expected to be removed soon. Stop and
+  escalate when the underlying decision is unsettled.
+* Separate data-only backfills from structural DDL when practical and document
+  ownership, run-once versus idempotent behavior, retry safety,
+  transaction/locking impact, failure recovery, and rollback/forward-fix policy.
+* Use expand/backfill/contract or another staged rollout when compatibility or
+  data volume requires it. Require explicit rationale and recovery/backup
+  expectations for irreversible or destructive changes; do not assume down
+  migrations can safely undo production data loss.
+
 An approved issue may modify these paths when required, but the pull request
 must clearly identify the sensitive changes and the human review or decision
 required.
