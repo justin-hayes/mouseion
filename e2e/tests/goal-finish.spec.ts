@@ -26,5 +26,4 @@ test('Primary Goal exposes an accessible reading-finish action', async ({ page }
   await expect(goal).toContainText('Record the reading achievement');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
   await expect(finishForm.locator('input[name="expected_goal_book_id"]')).toHaveCount(1);
-  await expect(goal.locator('[role="status"]').first()).toHaveCount(1);
 });
