@@ -33,6 +33,53 @@ func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	}
 }
 
+func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *testing.T) {
+	store := NewStore()
+	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLearner := []string{"fixture-empty", edgeBookID, routeMatchBookID, routeDiffersBookID, routeTieABookID, routeTieBBookID, routeUnavailableBookID}
+	wantAdvisory := []string{"fixture-empty", edgeBookID, routeMatchBookID, routeTieABookID, routeTieBBookID, routeDiffersBookID, routeUnavailableBookID}
+	for i, want := range wantLearner {
+		if result.LearnerOrder[i].BookID != want {
+			t.Fatalf("learner order[%d]=%q, want %q", i, result.LearnerOrder[i].BookID, want)
+		}
+	}
+	for i, want := range wantAdvisory {
+		if result.AdvisoryOrder[i].BookID != want {
+			t.Fatalf("advisory order[%d]=%q, want %q", i, result.AdvisoryOrder[i].BookID, want)
+		}
+	}
+	if result.ComparableCount != 4 || result.IncomparableCount != 3 {
+		t.Fatalf("comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
+	}
+	if result.AdvisoryOrder[0].Rank != nil || result.AdvisoryOrder[6].Rank != nil {
+		t.Fatalf("incomparable ranks=%+v", result.AdvisoryOrder)
+	}
+	if result.AdvisoryOrder[3].Coverage.KnownTokenCount != result.AdvisoryOrder[4].Coverage.KnownTokenCount {
+		t.Fatalf("tie coverage=%+v", result.AdvisoryOrder)
+	}
+	if len(result.ConditionalAdvisoryOrder) != len(result.AdvisoryOrder) {
+		t.Fatalf("conditional order=%+v", result.ConditionalAdvisoryOrder)
+	}
+	if result.ConditionalAdvisoryOrder[2].BookID != routeDiffersBookID {
+		t.Fatalf("conditional order did not differ=%+v", result.ConditionalAdvisoryOrder)
+	}
+
+	journey, err := store.GetReadingJourney(context.Background(), OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, routeDiffersBookID, 1, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "")
+	if err != nil || result.LearnerOrder[0].BookID != routeDiffersBookID {
+		t.Fatalf("projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
+	}
+}
+
 func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()

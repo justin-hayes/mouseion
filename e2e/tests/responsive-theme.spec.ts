@@ -52,7 +52,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('a[href="/books/fixture-edge-content"]')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-empty"]')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-failed"]')).toBeVisible();
-    await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') })).toHaveCount(4);
+    await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') })).toHaveCount(9);
     if (test.info().project.name.startsWith('compact')) {
       await expect(page.locator('.library-book').last()).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
       await expect(page.locator('.library-book').last()).toBeVisible();

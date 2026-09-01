@@ -5,6 +5,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -23,18 +24,23 @@ import (
 )
 
 const (
-	OwnerID          = "fixture-learner"
-	Username         = "fixture-learner"
-	Password         = "fixture-password"
-	BookID           = "fixture-book"
-	ResultRunID      = "fixture-run"
-	DeckID           = "fixture-deck"
-	CampaignID       = "fixture-campaign"
-	QueuedCampaignID = "fixture-queued-campaign"
-	PrepID           = "fixture-preparation"
-	QueuedPrepID     = "fixture-queued-preparation"
-	JourneyPrepID    = "fixture-journey-preparation"
-	OutsidePrepID    = "fixture-outside-journey-preparation"
+	OwnerID                = "fixture-learner"
+	Username               = "fixture-learner"
+	Password               = "fixture-password"
+	BookID                 = "fixture-book"
+	ResultRunID            = "fixture-run"
+	DeckID                 = "fixture-deck"
+	CampaignID             = "fixture-campaign"
+	QueuedCampaignID       = "fixture-queued-campaign"
+	PrepID                 = "fixture-preparation"
+	QueuedPrepID           = "fixture-queued-preparation"
+	JourneyPrepID          = "fixture-journey-preparation"
+	OutsidePrepID          = "fixture-outside-journey-preparation"
+	routeMatchBookID       = "fixture-route-match"
+	routeDiffersBookID     = "fixture-route-differs"
+	routeTieABookID        = "fixture-route-tie-a"
+	routeTieBBookID        = "fixture-route-tie-b"
+	routeUnavailableBookID = "fixture-route-unavailable"
 )
 
 const edgeBookID = "fixture-edge-content"
@@ -63,6 +69,11 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
+			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
+			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
+			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 		},
 		jobs:        fixtureJobs(),
@@ -81,6 +92,11 @@ func NewStore() *Store {
 				Entries: []domain.ReadingJourneyEntry{
 					{OwnerID: OwnerID, BookID: "fixture-empty", Position: 1, CreatedAt: fixtureJourneyTime},
 					{OwnerID: OwnerID, BookID: edgeBookID, Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
+					{OwnerID: OwnerID, BookID: routeMatchBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
+					{OwnerID: OwnerID, BookID: routeDiffersBookID, Position: 4, CreatedAt: fixtureJourneyTime.Add(3 * time.Minute)},
+					{OwnerID: OwnerID, BookID: routeTieABookID, Position: 5, CreatedAt: fixtureJourneyTime.Add(4 * time.Minute)},
+					{OwnerID: OwnerID, BookID: routeTieBBookID, Position: 6, CreatedAt: fixtureJourneyTime.Add(5 * time.Minute)},
+					{OwnerID: OwnerID, BookID: routeUnavailableBookID, Position: 7, CreatedAt: fixtureJourneyTime.Add(6 * time.Minute)},
 				},
 			},
 		},
@@ -669,7 +685,118 @@ func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (a
 	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: BookID, ScopeID: "fixture-scope", SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "fixture-001", Title: "Chapter one"}, {UnitID: "fixture-002", Title: "Chapter two"}}, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
 }
 
-type Insights struct{}
+type Insights struct {
+	JourneyStore *Store
+}
+
+// JourneyProjection returns a stable fixture projection with enough variation
+// for the browser harness to exercise the advisory states without deriving
+// evidence from a clock, database row order, or a persisted route.
+func (insights Insights) JourneyProjection(ctx context.Context, owner, _ string) (domain.JourneyProjectionResult, error) {
+	thresholds := []domain.CoverageThreshold{
+		{TargetPercent: 95, LemmaCount: 2, Reachable: true},
+		{TargetPercent: 97, LemmaCount: 4, Reachable: true},
+		{TargetPercent: 99, LemmaCount: 7, Reachable: true},
+	}
+	coverage := func(known int64) *domain.AnalysisCoverage {
+		return &domain.AnalysisCoverage{
+			AnalyzableTokenCount: 100,
+			KnownTokenCount:      known,
+			Thresholds:           thresholds,
+		}
+	}
+	conditional := func(bookID string, current, projected int64, position int) domain.JourneyRouteBook {
+		return domain.JourneyRouteBook{
+			BookID: bookID, SourceMaterialID: bookID, Language: "de", CorpusID: bookID + "-corpus",
+			Position: position, Coverage: coverage(current), ConditionalCoverage: coverage(projected),
+			Comparable: true,
+		}
+	}
+	defaultLearnerOrder := []domain.JourneyRouteBook{
+		{BookID: "fixture-empty", Position: 1, IncomparableReason: "different study language"},
+		{BookID: edgeBookID, Position: 2, IncomparableReason: "unavailable: no current acquired source"},
+		conditional(routeMatchBookID, 90, 90, 3),
+		conditional(routeDiffersBookID, 20, 95, 4),
+		conditional(routeTieABookID, 50, 50, 5),
+		conditional(routeTieBBookID, 50, 50, 6),
+		{BookID: routeUnavailableBookID, Position: 7, IncomparableReason: "unassessed: no current analyzed corpus"},
+	}
+	if insights.JourneyStore != nil {
+		journey, err := insights.JourneyStore.GetReadingJourney(ctx, owner)
+		if err != nil {
+			return domain.JourneyProjectionResult{}, err
+		}
+		byID := make(map[string]domain.JourneyRouteBook, len(defaultLearnerOrder))
+		for _, book := range defaultLearnerOrder {
+			byID[book.BookID] = book
+		}
+		defaultLearnerOrder = defaultLearnerOrder[:0]
+		for position, entry := range journey.Entries {
+			book, ok := byID[entry.BookID]
+			if !ok {
+				book = domain.JourneyRouteBook{BookID: entry.BookID, IncomparableReason: "unavailable: no fixture evidence"}
+			}
+			book.Position = position + 1
+			defaultLearnerOrder = append(defaultLearnerOrder, book)
+		}
+	}
+	order := func(conditionalOrder bool) []domain.JourneyRouteBook {
+		movable := make([]domain.JourneyRouteBook, 0, len(defaultLearnerOrder))
+		for _, book := range defaultLearnerOrder {
+			if book.Comparable {
+				movable = append(movable, book)
+			}
+		}
+		sort.SliceStable(movable, func(i, j int) bool {
+			left, right := movable[i], movable[j]
+			leftCoverage, rightCoverage := left.Coverage, right.Coverage
+			if conditionalOrder {
+				leftCoverage, rightCoverage = left.ConditionalCoverage, right.ConditionalCoverage
+			}
+			if leftCoverage.KnownTokenCount != rightCoverage.KnownTokenCount {
+				return leftCoverage.KnownTokenCount > rightCoverage.KnownTokenCount
+			}
+			if left.Position != right.Position {
+				return left.Position < right.Position
+			}
+			return left.BookID < right.BookID
+		})
+		result := make([]domain.JourneyRouteBook, len(defaultLearnerOrder))
+		movableIndex, rank := 0, 0
+		for position, book := range defaultLearnerOrder {
+			if !book.Comparable {
+				book.PlacementReason = book.IncomparableReason
+				result[position] = book
+				continue
+			}
+			book = movable[movableIndex]
+			movableIndex++
+			rank++
+			bookRank := rank
+			book.Rank = &bookRank
+			if conditionalOrder {
+				book.PlacementReason = "ranked by conditional projected coverage"
+			} else {
+				book.PlacementReason = "ranked by current known-token coverage"
+			}
+			result[position] = book
+		}
+		return result
+	}
+	advisoryOrder := order(false)
+	conditionalOrder := order(true)
+	comparableCount := 0
+	for _, book := range defaultLearnerOrder {
+		if book.Comparable {
+			comparableCount++
+		}
+	}
+	return domain.JourneyProjectionResult{
+		OwnerID: owner, Language: "de", LearnerOrder: defaultLearnerOrder, AdvisoryOrder: advisoryOrder,
+		ConditionalAdvisoryOrder: conditionalOrder, ComparableCount: comparableCount,
+		IncomparableCount: len(defaultLearnerOrder) - comparableCount,
+	}, nil
+}
 
 func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
 	lemmas := make([]domain.LemmaOccurrence, 0, 18)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -152,12 +153,13 @@ func journeyProjectionText(coverage domain.AnalysisCoverage) string {
 }
 
 type journeyPageView struct {
-	Goal        *journeyBookView
-	Residual    *goalResidualView
-	Provisional []journeyBookView
-	Revision    int64
-	Campaigns   []campaignView
-	Prepared    []preparedCampaignOption
+	Goal            *journeyBookView
+	Residual        *goalResidualView
+	Provisional     []journeyBookView
+	Revision        int64
+	Campaigns       []campaignView
+	Prepared        []preparedCampaignOption
+	RouteComparison *routeComparisonView
 }
 
 type deckJourneyState string
@@ -308,6 +310,24 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	activeCampaignID := r.URL.Query().Get("active_campaign_id")
 	if !journeyHasActiveCampaign(view.Campaigns, activeCampaignID) {
 		activeCampaignID = ""
+	}
+	if h.services.AnalysisInsights != nil && (len(view.Provisional) >= 2 || view.Goal != nil) {
+		if provider, ok := h.services.AnalysisInsights.(journeyProjectionProvider); ok {
+			titles := make(map[string]string)
+			if view.Goal != nil {
+				titles[view.Goal.Book.Source.ID] = journeyBookTitle(view.Goal.Book)
+			}
+			for _, item := range view.Provisional {
+				titles[item.Book.Source.ID] = journeyBookTitle(item.Book)
+			}
+			comparison, projectionErr := journeyRouteComparison(r.Context(), provider, u.ID, titles)
+			if projectionErr != nil {
+				log.Printf("mouseion: Journey comparison unavailable for owner %s: %v", u.ID, projectionErr)
+				view.RouteComparison = &routeComparisonView{ComparisonUnavailable: true}
+			} else {
+				view.RouteComparison = comparison
+			}
+		}
 	}
 	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
 }
