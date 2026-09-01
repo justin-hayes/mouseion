@@ -154,6 +154,9 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if _, err = pool.Exec(ctx, migrationSQL(t, "000040_primary_goals.up.sql")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000042_primary_goal_reading_finished.up.sql")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = pool.Exec(ctx, backfill); err != nil {
 		t.Fatal(err)
 	}

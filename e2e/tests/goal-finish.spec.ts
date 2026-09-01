@@ -17,9 +17,11 @@ test('Primary Goal exposes an accessible reading-finish action', async ({ page }
   await page.goto('/journey');
 
   const goal = page.locator('#primary-goal-section');
-  const finishForm = goal.locator('form[action="/goal/finish"]');
-  if (await finishForm.count() === 0) return;
+  const finishDisclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
+  if (await finishDisclosure.count() === 0) return;
 
+  const finishForm = finishDisclosure.locator('form[action="/goal/finish"]');
+  await finishDisclosure.locator('summary').click();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
   await expect(goal).toContainText('Record the reading achievement');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);

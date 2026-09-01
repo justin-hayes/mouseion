@@ -133,7 +133,7 @@ func (s *PostgresStore) FinishReadingPrimaryGoal(ctx context.Context, owner, exp
 		}
 
 		var campaign domain.LearningCampaign
-		campaign, err = scanLearningCampaign(tx.QueryRow(ctx, `SELECT `+learningCampaignColumns+` FROM learning_campaigns c JOIN source_materials s ON s.owner_id=c.owner_id AND s.id=c.source_material_id WHERE c.owner_id=$1 AND s.book_id=$2 AND c.status='active' ORDER BY c.created_at DESC,c.id DESC LIMIT 1 FOR UPDATE`, owner, goal.BookID))
+		campaign, err = scanLearningCampaign(tx.QueryRow(ctx, `SELECT `+learningCampaignColumnsC+` FROM learning_campaigns c JOIN source_materials s ON s.owner_id=c.owner_id AND s.id=c.source_material_id WHERE c.owner_id=$1 AND s.book_id=$2 AND c.status='active' ORDER BY c.created_at DESC,c.id DESC LIMIT 1 FOR UPDATE`, owner, goal.BookID))
 		if errors.Is(err, ErrNotFound) {
 			err = nil
 		} else if err != nil {
