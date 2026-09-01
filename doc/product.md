@@ -28,11 +28,11 @@ disabled until readiness can be checked.
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
 - [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — separates OPDS intake, immutable scope confirmation, explicit analysis, insights, and deck preparation.
-- [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units and provenance before later classification and selection.
-- [EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — assigns deterministic, explainable structural categories and analysis recommendations.
-- [EPUB Analysis Scope Review — Phase 3](features/epub-analysis-scope-review.md) — lets learners review unit recommendations and analyze only the persisted selected scope.
-- [EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — improves hierarchy visualization, classifier refinement, and reusable scope decisions.
-- [EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — makes structural recommendations safe, coherent, and explainable.
+- [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units, stable identity, provenance, and navigation data for review projection.
+- [EPUB Analysis Scope Review](features/epub-analysis-scope-review.md) — defines the current all-on top-level EPUB 3 TOC checklist, flat readable-unit fallback, and persisted ordered scope.
+- [Historical EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — records the retired deterministic classifier and recommendation pipeline for compatibility and history.
+- [Historical EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — records retired hierarchy, preset, reuse, and comparison behavior.
+- [Historical EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — records the retired recommendation-policy correction work.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
@@ -41,7 +41,7 @@ disabled until readiness can be checked.
 ## Current pipeline
 
 1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser.
-2. **Scope review** — review extracted EPUB units and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
+2. **Scope review** — show reliable top-level EPUB 3 TOC entries as initially checked checkboxes, or fall back to initially checked readable persisted units in flat spine order; expand choices to the canonical ordered unit set and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights** — inspect coverage, threshold, structural, and quality information for that exact completed analysis.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.

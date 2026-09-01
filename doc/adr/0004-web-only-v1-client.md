@@ -65,4 +65,4 @@ The service API remains designed around jobs with IDs and status (ADR 0001 §4).
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — this ADR supersedes its §4 "thin Go CLI as the first client" and §5 build order.
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md)
 - [ADR 0003: PostgreSQL as the initial persistence backend](0003-postgresql-persistence.md)
-- [Product specification](product.md) — Decision Register ("Thin Go CLI first; web app layered on later" is superseded here; "Web app as the primary interactive surface" is promoted to Accepted).
+- [Product specification](../product.md) — Decision Register ("Thin Go CLI first; web app layered on later" is superseded here; "Web app as the primary interactive surface" is promoted to Accepted).

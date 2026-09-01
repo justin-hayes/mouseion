@@ -102,4 +102,4 @@ In-corpus frequency is still weighted (0.3) because it reflects the immediate re
 
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — pluggable NLP boundary; Protobuf contract.
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md) — per-user state and global frequency data.
-- [Product specification](product.md) — resolves Open Questions 2, 3, 7; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Questions 2, 3, 7; updates the Decision Register.

@@ -1,67 +1,51 @@
-# Phase 4: EPUB structure refinement and reusable scope workflows
+# Historical: EPUB structure and reusable scope workflows
 
-Status: Implemented · Date: 2026-08-25
+Status: Superseded historical record · Implemented 2026-08-25 · Superseded 2026-09-01
 
-## Problem
+This document preserves the former Phase 4 workflow for repository history. It
+is not a current product specification. New implementations must follow the
+[canonical EPUB scope-review contract](epub-analysis-scope-review.md).
 
-Phase 3 lets learners review a flat ordered unit list and analyze a selected scope. EPUBs often have nested parts/chapters, repeated front/back matter, and ambiguous classifications. Learners also need to revisit or reuse scope decisions without rebuilding them manually.
+## Historical behavior
 
-## Goal
+The former workflow refined a classifier-led scope page with derived hierarchy
+groups, unit-level classification evidence, recommendation controls, and reuse
+of prior selections. Groups were inferred from navigation labels, landmarks,
+and resource directories; contradictory or non-contiguous groups fell back to
+flat spine order. Group controls expanded to persisted unit IDs.
 
-Make structure and scope decisions easier to understand and reuse while keeping classification deterministic, explainable, and user-overridable.
+Learners could historically start from a recommendation, all readable units,
+or a prior selection, compare added and removed units, inspect category,
+confidence, ordered reasons, and warnings, and override individual units.
+Those controls and concepts belonged to the retired classifier workflow.
 
-## Implemented behavior
+The former server boundary remains useful: browser input was never authoritative
+for text, ordering, ownership, or snapshot contents; the server reloaded
+owner-scoped persisted units and rejected stale, foreign, duplicate, or empty
+selections. Confirming a selection created immutable scope history without
+starting analysis, and later analysis used selected persisted units in spine
+order.
 
-### Hierarchy visualization and selection
+## Historical limitations and fixtures
 
-- Mouseion derives nested part → chapter → section groups from repeated navigation labels, landmarks, and stable resource directories. Groups and members always follow persisted spine order.
-- Contradictory or non-contiguous grouping evidence is discarded. When no reliable grouping remains, the review displays the flat deterministic spine order.
-- Each group displays its unit count, character count, and token estimate. Include/exclude controls submit group IDs; the server reloads the current owner-scoped snapshot and expands those IDs to exact unit IDs.
-- A group reports included, excluded, or partially selected state as individual checkboxes change. Native buttons, checkboxes, labels, fieldsets, legends, headings, and live status regions keep the workflow keyboard- and assistive-technology-accessible.
+The former hierarchy was a conservative projection rather than a complete EPUB
+navigation editor. Directory-derived nesting could reflect publisher packaging,
+and comparison was limited to one owner and one source snapshot. The Phase 4
+fixtures covered grouping, partial selection, classifier refinement, scope
+history, owner isolation, stale snapshots, legacy full-text results, and
+accessible native controls.
 
-### Explainable classifier refinement
+## Current replacement
 
-- The versioned deterministic classifier recognizes observed German, Italian, and language-neutral structural patterns, including editorial matter, captions, structural fragments, bibliography clusters, and repeated short headers or footers.
-- Every result retains ordered reason codes and learner-facing explanations. Conflicting or structural-fragment evidence remains unknown/review-required instead of being silently promoted.
-- Recommendations are only starting points. Learners can accept them, select main matter, include all readable units, exclude all units, or override any individual unit.
-- A refined classifier run is stored under its classifier version. It does not rewrite the classifier identity, selected units, source snapshot, or reasons attached to historical scope/classification records.
+The current review has one presentation model: reliable top-level EPUB 3 TOC
+entries, each rendered as an initially checked checkbox and expanded to the
+persisted units in spine order. If a complete, non-overlapping TOC-to-unit
+partition cannot be projected, the page renders one initially checked checkbox
+per readable persisted unit in flat spine order. Nested TOC entries are never
+controls. Check all, Uncheck all, the non-empty selection rule, explicit
+confirmation, owner validation, CSRF protection, stale-snapshot rejection,
+and separate analysis submission remain part of the current contract.
 
-### Reusable and historical scopes
-
-- A learner can start from the current recommendation, all readable units, or a prior selection. Prior and proposed scopes are compared by stable unit ID and title with added/removed units and estimated sizes.
-- Confirming creates or resolves an immutable reviewed-scope revision without starting analysis. Reusing the same snapshot and selection produces the same ordered future analysis input; changing the selection creates distinct scope history.
-- A separate explicit analysis action reloads the saved scope and sends only its selected persisted units to the analyzer. Completed corpora link back to the exact reviewed scope and retain ordered selected-unit provenance.
-- Historical result pages identify either the reviewed scope and selected units or the legacy/full-text behavior used by older corpora.
-
-## Security boundaries
-
-- Browser input is never authoritative for text, classification, ordering, ownership, or snapshot contents. It contains only CSRF tokens, the reviewed snapshot ID, and selected unit/group IDs.
-- The server reloads the source, extracted units, classifications, groups, and prior scopes through the authenticated owner. Cross-owner source, unit, group, prior-scope, job, and corpus access is rejected.
-- Scope confirmation rejects stale snapshot IDs, duplicate/foreign units, unknown/contradictory groups, and empty selections.
-- Historical scopes and corpora are immutable. Reimporting an EPUB creates a new extracted-unit snapshot; stale scopes cannot be submitted against it, while completed historical results retain their original links.
-- Legacy EPUBs without extracted units continue through full-text analysis and are labeled as legacy/full-text results.
-
-## Current limitations
-
-- Hierarchy is a conservative projection, not a complete EPUB navigation-tree editor. Single-unit groups, non-contiguous repeated labels, and contradictory overlaps fall back to the flat spine.
-- Directory-derived nesting can reflect publisher packaging rather than semantic book structure, so learners must still review the included units.
-- Group controls are server-submitted actions. Individual checkbox and preset summaries update in the browser, but the server remains the final validator.
-- Comparison is limited to scopes for one owner and one source snapshot; there is no cross-book composition or fuzzy matching after a reimport changes unit identity.
-- Classifier confidence is rule evidence, not a probability, reading-level estimate, or claim about linguistic difficulty.
-
-## Non-goals
-
-- No CEFR/difficulty claims;
-- no automatic promotion of uncertain content;
-- no cross-book scope composition;
-- no Anki synchronization;
-- no general-purpose EPUB editor.
-
-## Future research candidates
-
-- Evaluate more publisher layouts and languages with consented, provenance-bearing fixtures, especially ambiguous navigation and deeply nested sections.
-- Measure whether reason wording and confidence bands help learners make consistent overrides without implying probabilistic accuracy.
-- Explore a versioned mapping assistant for comparing reimported snapshots while keeping every proposed match reviewable and owner-scoped.
-- Study richer accessible tree interaction only if it improves on the current native-control workflow across keyboard and screen-reader combinations.
-
-Machine learning, ranking, or external corpus lookup remains out of scope. Any such work requires a separate architecture decision, an evaluation dataset, explicit privacy boundaries, and a migration plan that preserves historical decisions.
+There are no current hierarchy groups, recommendation presets, prior-scope
+comparison, classifier warnings, or confidence controls. Historical records
+remain readable and are not rewritten.

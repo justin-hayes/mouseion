@@ -14,7 +14,7 @@ decisions into an automatic pipeline.
 The product behavior is defined primarily by:
 
 - [Explicit Scoped-Analysis Workflow](../../features/explicit-scoped-analysis-workflow.md)
-- [EPUB Scope Workflows](../../features/epub-analysis-scope-workflows.md)
+- [EPUB Analysis Scope Review](../../features/epub-analysis-scope-review.md)
 - [Analysis Insights](../../features/analysis-insights.md)
 - [ADR 0028: Explicit scoped-analysis lifecycle](../../adr/0028-explicit-scoped-analysis-lifecycle.md)
 - [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)
@@ -75,17 +75,20 @@ The interface must answer:
 **Learner decision:** Which parts of this EPUB represent the text I intend to
 read and analyze?
 
-The recommendation is a review aid, not an automatic decision. The learner can
-start from the recommendation, all readable units, or a prior scope; inspect
-hierarchy, evidence, confidence, and warnings; override units; and confirm an
+The scope page is a calm native checklist. A reliable top-level EPUB 3 TOC is
+shown as one initially checked checkbox per top-level entry; each entry covers
+its nested targets and expands to persisted readable unit IDs in spine order.
+When the TOC cannot be projected into a complete, non-overlapping partition,
+the page shows one initially checked checkbox per readable persisted unit in
+flat spine order. The learner may check or uncheck choices and confirm an
 immutable revision. Confirmation does not start analysis.
 
 The interface must answer:
 
 - What is currently selected, and how large is it?
-- Which units are uncertain or potentially structural noise?
-- Why was each unit recommended or not recommended?
-- Am I reusing or changing a historical decision?
+- Is the page showing a reliable top-level TOC or the flat readable-unit
+  fallback?
+- Which persisted units will each checked choice include?
 - What will confirmation do, and what will it not do?
 
 My Books and book detail repeat the same learner-facing next action for this
@@ -93,8 +96,8 @@ state. The scope review itself makes **Confirm this scope** the next action and
 states that confirmation returns the learner to the book page; it does not
 start analysis.
 
-For long books, exception and low-confidence review should take visual priority
-while complete evidence remains available through progressive disclosure.
+For long books, the ordered checklist and selected-scope summary should remain
+calm and scannable without turning the page into an evidence dashboard.
 
 ### 3. Start and monitor analysis
 
@@ -209,7 +212,7 @@ status JSON is not itself a learner-facing page.
 - Announce asynchronous state changes without repeatedly stealing focus.
 - After a validation failure, expose the summary as an alert, move focus when
   appropriate, and preserve the learner's selections.
-- Do not rely on color alone for recommendation, confidence, status, or error.
+- Do not rely on color alone for checklist state, status, or error.
 - At narrow widths, preserve the reading order: identity and state, explanation,
   primary action, then supporting provenance. Tables and scope evidence must not
   force page-level horizontal scrolling.

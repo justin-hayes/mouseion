@@ -81,6 +81,6 @@ Use **Protobuf** so the same `.proto` defines both the RPC messages and the pers
 
 ## Related
 
-- [README](../README.md)
-- [Product specification](product.md)
+- [README](../../README.md)
+- [Product specification](../product.md)
 - Vocabulary Acquisition Tool: ADR 0001 (same decision), Decision Register, sessions 2026-07-19/20 and 2026-08-18.

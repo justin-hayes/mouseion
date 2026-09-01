@@ -65,4 +65,4 @@ gRPC stays (ADR 0011); River stays (ADR 0010). This ADR only changes *how much* 
 - [ADR 0011: gRPC as the Go↔Python transport](0011-grpc-go-python-transport.md) — unchanged.
 - [ADR 0010: Adopt River as the background-job queue](0010-river-job-queue.md) — the worker orchestrates chunking.
 - [ADR 0003: PostgreSQL persistence](0003-postgresql-persistence.md) — single data plane; no broker.
-- [Product specification](product.md) — updates the Decision Register.
+- [Product specification](../product.md) — updates the Decision Register.

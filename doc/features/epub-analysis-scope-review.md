@@ -1,133 +1,151 @@
-# Phase 3: Learner-reviewed EPUB analysis scope
+# EPUB analysis scope review
 
-Status: Implemented · Date: 2026-08-25
+Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-01
 
-## Problem
+This document is the canonical description of scope review. The former
+classifier-led review described in [the historical classification record](epub-analysis-classification.md),
+[the historical scope-workflow record](epub-analysis-scope-workflows.md), and
+[the historical recommendation record](epub-analysis-recommendation-corrections.md)
+is superseded. New workflow behavior does not classify units, produce
+recommendations, compare prior scopes, or present classifier evidence.
 
-Phase 2 classifies EPUB units and persists transparent recommendations, but the learner cannot inspect or override the proposed scope. NLP analysis still operates on the existing full-text behavior.
+## Purpose
 
-## Goal
+Let a learner choose the readable parts of an acquired EPUB before analysis.
+The review is a calm, native checklist. It presents the book's reliable
+top-level EPUB 3 table of contents when that structure can be mapped safely to
+the persisted extracted units; otherwise it presents those units directly in
+flat spine order.
 
-Show the extracted unit tree and classifier recommendations before analysis, let the learner include/exclude units, persist the reviewed scope, and analyze exactly that scope.
+Scope confirmation remains separate from starting analysis. Confirmation saves
+one immutable ordered unit selection. A later explicit analysis submission
+reloads that selection and sends exactly those persisted units to NLP.
 
 ## Workflow
 
 ```text
-EPUB imported
-  → units extracted and classified
-  → learner reviews recommended scope
-  → learner accepts or overrides selection
-  → immutable reviewed scope revision is persisted
+EPUB acquired and extracted
+  → reliable top-level EPUB 3 TOC projected, or flat readable-unit fallback
+  → every rendered choice starts checked
+  → learner checks or unchecks choices
+  → learner confirms an ordered unit set
+  → immutable reviewed-scope revision is persisted
   → learner explicitly starts analysis for that revision
-  → analysis job processes selected units only
-  → metrics report the selected scope
+  → analysis processes the selected persisted units in spine order
 ```
 
-## UI requirements
+## Current review behavior
 
-Show for each unit:
+### TOC checklist
 
-- ordered hierarchy/flat spine position;
-- title and fallback indicator;
-- category and confidence;
-- human-readable classifier reasons;
-- recommendation;
-- estimated size/token count where available;
-- include/exclude control.
+When a reliable projection is available, render one checkbox for each ordered
+top-level entry in the EPUB 3 navigation document's `nav` whose `epub:type`
+contains `toc`. The checkbox label is the entry's non-empty navigation label.
+Nested section targets are covered by their top-level parent and never become
+separate selectable rows.
 
-Provide:
+Each top-level entry expands to the existing persisted extracted-unit IDs it
+covers. The expansion follows spine order. A TOC entry is only a view-level
+grouping; it does not create a second durable unit identity or replace the
+stable extracted-unit ID, text, offsets, title, or provenance contract in
+[EPUB analysis scope](epub-analysis-scope.md).
 
-- select recommended scope;
-- select all main matter;
-- include all;
-- exclude all;
-- validation that at least one readable unit is selected;
-- clear warning when the learner overrides high-confidence exclusions;
-- explicit analyzed-scope summary before confirmation.
+Every rendered checkbox is checked on initial load. **Check all** checks every
+rendered choice and **Uncheck all** clears every rendered choice. The learner
+must leave at least one readable persisted unit selected to confirm.
 
-## Scope semantics
+### Reliable top-level TOC projection
 
-A reviewed scope is an immutable selection snapshot associated with a source-material unit snapshot and analysis job. Reanalysis creates a new scope snapshot; it does not mutate historical corpus scope.
+The projection uses the EPUB 3 navigation document already parsed under the
+existing EPUB resource-resolution and security rules:
 
-The analysis job sends only selected unit text to NLP, in deterministic order, while preserving unit IDs and source provenance. Coverage and structural metrics state the selected scope.
+1. Find the navigation document's `nav` element whose `epub:type` token list
+   contains `toc`.
+2. Take its ordered top-level list entries and their labels. A top-level entry
+   is one list item at that level; nested list items belong to that entry.
+3. For each top-level entry, use its direct link as the entry start. If it has
+   no usable direct link, use the first resolvable descendant link in document
+   order. Strip the fragment from the href, then resolve the path with the
+   existing package-directory-relative EPUB resource rules.
+4. Require a non-empty label for every entry. Resolve every start to a readable
+   persisted unit in the current immutable snapshot. Starts must be unique and
+   strictly increasing in spine order.
+5. Require the first start to be the first readable unit. Each entry spans from
+   its start through the persisted unit immediately before the next top-level
+   start; the final entry spans through the final readable unit.
 
-## Reviewed-scope contract (version 1)
+The result is reliable only when these ranges form a complete, non-overlapping
+partition of every readable persisted unit in the snapshot. Missing EPUB 2
+navigation support, a malformed navigation document, an absent or unusable
+TOC, an empty label, an unresolved link, a start outside the readable snapshot,
+duplicate or out-of-order starts, a first start that does not cover the first
+readable unit, or any gap/overlap selects the fallback. Nested links may help
+locate their parent's start, but nested entries never become controls.
 
-The Go representation lives in `internal/epub/scope_contract.go`. A reviewed
-scope records its schema version and immutable scope ID; owner and source
-material IDs; the exact extracted-unit snapshot ID and schema version; the
-classifier name and version whose recommendations were reviewed; selection
-mode (`recommended` or `overridden`); and selected unit references. Each
-reference contains only a unit ID and its original snapshot order. References
-must be unique, readable members of that exact owner-scoped source snapshot and
-must appear in strictly increasing source order. Empty selections, unsupported
-schema versions, mismatched identities, duplicate IDs, forged order metadata,
-and units outside the snapshot are invalid.
+### Flat fallback
 
-The browser may submit this identity and selection metadata, but never unit
-text. The server validates against the persisted snapshot and reloads selected
-text from those persisted units for later analysis. Fixed object fields and the
-selected-unit array make serialization deterministic without map iteration.
+If a reliable top-level projection cannot be produced, render one checkbox per
+readable persisted unit in flat spine order. Use the current extracted-unit
+title contract: the first non-blank normalized `h1` or `h2`, otherwise the
+manifest ID. The fallback also uses the existing persisted unit ID and
+provenance; it does not invent a navigation identity. Every fallback checkbox
+starts checked, and the same **Check all**, **Uncheck all**, and non-empty
+selection rules apply.
 
-Confirmation creates or resolves an immutable reviewed-scope revision but does
-not queue analysis. A separate explicit submission creates the analysis run
-bound to it. Retrying the same logical run resolves to its durable run and
-attempt history. Confirming a changed selection creates a new scope ID; a later
-submission creates distinct analysis and corpus history while earlier results
-remain unchanged.
-The corpus stores its reviewed scope ID and an ordered copy of selected-unit
-provenance for later display and auditing.
+The fallback is a deliberate readable-unit presentation, not a classifier,
+recommendation, hierarchy, or degraded selection policy. A single neutral
+notice may explain that the table of contents could not be projected.
 
-A legacy source material with no extracted-unit snapshot returns
-`ErrReviewedScopeUnavailable`. Absence is not an empty reviewed selection: the
-existing analyze action retains the full-text path. Its corpus and insights are
-explicitly labeled legacy/full-text and do not claim reviewed-unit provenance.
+## Scope semantics and confirmation
 
-## Safety and compatibility
+A reviewed scope is an immutable, owner-scoped selection snapshot associated
+with one source-content revision and one extracted-unit snapshot. Its canonical
+ordered selected-unit references are the readable persisted unit IDs in spine
+order. TOC rows are expanded to these references before validation and
+persistence.
 
-- Owner isolation and CSRF are mandatory.
-- Existing books without extracted units retain the legacy analysis path or clearly report scope unavailable.
-- Existing analyzed corpora are not silently rewritten.
-- Empty/invalid selections are rejected before queueing NLP work.
-- Unit text is never trusted from the browser; the server reloads persisted units.
+The browser submits selection references and the snapshot identity, never unit
+text. The server reloads the owner-scoped source, snapshot, and units; rejects
+unknown, duplicate, foreign, stale, or incorrectly ordered references; and
+requires at least one readable unit. The selected unit text is then reloaded
+from persistence for analysis in deterministic spine order.
 
-CSRF protection applies to scope confirmation, and every source, snapshot,
-classification, scope, job, corpus, and selected-unit query is owner-scoped.
-Unknown IDs, duplicate IDs, forged order, stale snapshots, and cross-owner
-references fail before NLP is queued. The analyzer receives one source document
-per selected unit in spine order; excluded units are never concatenated into or
-sent with that input. Consequently token counts, vocabulary, coverage,
-projections, and structural profiles describe only the selected scope.
+Confirmation creates or resolves the immutable reviewed-scope revision but
+does not queue analysis. A separate explicit submission creates the analysis
+run bound to that revision. Reconfirming the same logical selection is
+idempotent; a changed selection creates a new scope revision. Existing scopes,
+analyses, corpora, and selected-unit provenance remain immutable and readable.
 
-## Validation fixtures
+Confirmation retains the existing guarantees:
 
-The Phase 3 suite covers German EPUB 2/NCX and Italian EPUB 3/landmark fixtures
-from deterministic extraction and classification through persisted review,
-selected-unit analysis provenance, and scope-aware insight rendering. It also
-covers accepting recommendations, individual overrides, high-confidence
-exclusion warnings, unknown and contradictory units, empty/invalid selections,
-CSRF, owner isolation, deterministic same-scope retries, changed-scope corpus
-history, and the legacy full-text path. Review controls use native buttons,
-checkboxes, labels, fieldsets, and legends; dynamic summaries are polite live
-regions, and validation errors are exposed as focusable alerts.
+- authenticated owner scoping for every source, snapshot, unit, scope, and
+  analysis lookup;
+- source-content revision and extracted-unit snapshot validation;
+- canonical ordered-unit serialization and immutable scope history;
+- CSRF protection on confirmation;
+- stale-snapshot rejection before persistence or analysis submission; and
+- separation between confirming a scope and starting analysis.
 
-## Phase 4 candidates
+## Compatibility and history
 
-- Persist optional learner notes explaining overrides.
-- Add bulk review filters for unusually large books without changing classifier output.
-- Compare scopes and their metrics side by side.
-- Offer an explicit re-extraction migration for legacy EPUBs.
-- Improve hierarchical navigation display when EPUB structure supports it.
+Existing reviewed scopes and analyses remain readable, including provenance
+written by the former classifier-led workflow. Dormant classifier tables and
+legacy scope columns remain database compatibility state; current review does
+not interpret or display their historical values. Legacy/full-text analyses
+remain explicitly identifiable and readable, but do not claim the new reviewed
+unit provenance.
+
+The stable extracted-unit identity, text, Unicode offsets, title fallback,
+source hrefs, resolved paths, and source-location provenance remain defined by
+[EPUB analysis scope](epub-analysis-scope.md). This review contract changes how
+choices are presented and persisted, not what an extracted unit is.
 
 ## Non-goals
 
-- No automatic classifier redesign;
-- no machine-learning classification;
-- no automatic analysis or mastery changes;
-- no EPUB editing;
-- no cross-book scope composition;
-- no external corpus lookup.
-
-## Phase 3 acceptance
-
-A learner can review a German or Italian EPUB’s unit recommendations, override them, confirm a scope, and verify that the resulting analysis and metrics contain only selected units with reproducible provenance.
+- no classifier, recommendation, confidence, or evidence dashboard;
+- no recommendation, main-matter, prior-scope, or hierarchy-group presets;
+- no nested TOC editor;
+- no automatic analysis, reanalysis, or mastery change;
+- no EPUB editing or cross-book scope composition; and
+- no change to coverage math, the NLP contract, card schema, or deck
+  preparation.

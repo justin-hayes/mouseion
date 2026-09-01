@@ -1,130 +1,47 @@
-# Phase 5: Correct EPUB analysis recommendations
+# Historical: EPUB analysis recommendation corrections
 
-Status: Implemented · Date: 2026-08-25
+Status: Superseded historical record · Implemented 2026-08-25 · Superseded 2026-09-01
 
-## Problem
+This document records the former Phase 5 effort to correct classifier
+recommendations. It is retained as implementation history and rationale; it is
+not a current product requirement.
 
-Phase 4 gives learners structural groups, deterministic classifications, and reusable scope workflows. A real German book exposed a serious mismatch between classification and recommendation:
+## Historical problem
 
-- nine substantive chapters were classified as `main_matter` at 70% confidence but recommended for exclusion;
-- `VORWORT`, `Register`, `Hinweise zu Quellen und Literatur`, and `copyright` were classified as `unknown` and automatically included by the whole-book fallback;
-- `Bildnachweis` was classified as `main_matter`;
-- generic sentence-density evidence was treated as contradictory to explicit structural labels;
-- the page did not explain why a positive main-matter classification produced an exclusion recommendation.
+A German regression fixture exposed a mismatch between structural
+classification and recommendation policy: substantive chapters could be
+excluded, while unknown reference-like units were included by a whole-book
+fallback. The former work separated category confidence from recommended
+inclusion, added structural markers, and made the policy versioned and
+explainable.
 
-The current behavior can select approximately 47,000 characters of metadata/reference material while excluding approximately 528,000 characters of substantive chapter content.
+Historical rules distinguished explicit EPUB structure from generic text shape,
+recognized German, Italian, and language-neutral editorial/reference markers,
+and kept recommendations reviewable. The recorded UI showed category,
+confidence, recommendation, reasons, fallback state, and selected-versus-all
+character totals. These concepts describe the retired classifier workflow only.
 
-## Goal
+The historical regression fixture recorded a 21-unit German reading order and a
+1.4.0 classifier/policy outcome in which nine substantive chapters were the
+only automatic selections. Existing classifier runs, reviewed scopes, and
+analysis corpora remained immutable across policy versions.
 
-Make automatic recommendations safe, structurally coherent, and explainable while preserving deterministic classifier output and learner override control.
+## Compatibility
 
-## Non-goals
+Historical recommendation and classification rows remain on disk and may be
+referenced by old reviewed scopes or analysis history. They remain readable for
+relationship integrity and audit, but current application behavior does not
+interpret them, display them as evidence, or use them to choose a new scope.
 
-- No machine-learning classifier.
-- No external corpus or language-model lookup.
-- No silent modification of immutable classifications, reviewed scopes, or corpus history.
-- No automatic deletion of extracted units or historical analysis results.
-- No change to the NLP service contract.
-- No assumption that every appendix or preface should always be excluded; recommendations remain reviewable.
+The current behavior is defined by
+[EPUB analysis scope review](epub-analysis-scope-review.md): project reliable
+top-level EPUB 3 TOC entries into all-on checkboxes, or use the flat readable
+persisted-unit fallback. It persists the canonical ordered selected-unit set
+and uses no classifier or recommendation pipeline for new workflow behavior.
 
-## Design principles
+## Retired concepts
 
-### Category and recommendation are distinct
-
-`Category` and `Confidence` describe structural evidence. `RecommendedInclusion` is policy. The UI and documentation must show both without implying that category confidence is inclusion confidence.
-
-### Explicit structure outranks generic text shape
-
-Signal precedence should be approximately: EPUB landmarks and `epub:type`; explicit title/navigation markers; repeated heading and path structure; reference/citation density; spine position; generic sentence density.
-
-A preface can contain prose. An index can contain sentence-like entries. Sustained prose must not by itself overturn an explicit structural marker.
-
-### Uncertainty must not become unsafe inclusion
-
-Unknown units should be review candidates, not automatic inclusion by default. Reference-like unknown units should be excluded or prominently flagged. Medium-confidence main matter should remain eligible for inclusion, with review guidance.
-
-## Recommendation policy
-
-The exact thresholds must be encoded in the versioned policy and tested, but intended behavior is:
-
-- high-confidence main matter: recommend include;
-- medium-confidence main matter with sustained prose: recommend include or include-with-review;
-- explicit front/back/reference material: recommend exclude;
-- unknown with reference-density signals: recommend exclude or require review;
-- unknown without exclusion evidence: require review, not silent inclusion;
-- non-linear/navigation-only resources: exclude;
-- whole-book fallback must never automatically include obvious bibliography, index, copyright, or citation-heavy reference units.
-
-If no high-confidence main matter exists, broaden review of plausible main matter rather than promoting every unknown unit.
-
-## Required structural recognition
-
-Recognize, at minimum:
-
-- Roman-numeral headings such as `I. Einleitung` and `II. Die Welt der Paläste`;
-- repeated chapter/part heading patterns;
-- German image-credit markers: `Bildnachweis`, `Abbildungsnachweis`, `Bildquellen`;
-- German reference markers: `Quellen und Literatur`, `Hinweise zu Quellen und Literatur`;
-- German copyright markers;
-- existing German, Italian, and language-neutral bibliography/index/notes/appendix markers.
-
-## UI requirements
-
-The review page must distinguish classification evidence, recommendation policy, review status, and book-level fallback/degraded-mode state. For example:
-
-```text
-Category: main matter
-Confidence: 70%
-Recommendation: Include — review suggested
-Reason: substantive prose in a central chapter-like unit
-```
-
-If a fallback is used, show one book-level notice and a unit-specific explanation. Do not repeat a fallback reason as though it were evidence that each unit belongs in the analysis.
-
-Group summaries must distinguish all-group totals from selected totals:
-
-```text
-All units: 596,187 characters
-Selected: 47,013 characters
-```
-
-## Reproducibility
-
-The classifier/policy version must be bumped. Existing classifications and reviewed scopes remain immutable. New imports/reclassifications use the new version; prior analysis history remains inspectable. Existing reviewed scopes must not be rewritten silently.
-
-## Acceptance outcome
-
-For the reported book shape, substantive Roman-numeral chapters are recommended for inclusion; `INHALT`, `ANHANG`, `Anmerkungen`, and `Bildnachweis` are excluded or clearly flagged; `Register`, `copyright`, and `Hinweise zu Quellen und Literatur` are not automatically included merely because no high-confidence main matter exists; `VORWORT` is classified coherently; recommendation explanations make the policy decision understandable; full-book regression tests prevent recurrence.
-
-## Final validation and limitations
-
-The issue 287 regression fixture records the complete observed 21-unit reading
-order, including fallback-titled front matter, `VORWORT`, `INHALT`, nine
-Roman-numeral chapters, and the complete appendix/reference tail. Under
-classifier/policy version `1.4.0`, the nine substantive chapters are the only
-automatic selections. They account for 1,333 of the fixture's 1,997
-characters, so the recommended scope is dominated by chapter prose rather than
-front matter or reference material. Snapshot and page tests pin category,
-confidence, recommendation, ordered reasons, group expansion, all-versus-
-selected totals, and spine order. The no-high-confidence-main regression also
-pins degraded mode: plausible medium-confidence main matter may be included
-with review suggested, while unknown units are not promoted by a whole-book
-fallback.
-
-Category and confidence remain descriptions of structural evidence, not a
-probability that a unit should be analyzed. Recommendation is a separate,
-versioned policy decision. Thus a confidently identified preface, appendix, or
-index is confidently classified but still excluded by default; a plausible
-medium-confidence chapter can be included with a review warning. The scope
-page presents both concepts and keeps every checkbox and group control under
-learner control.
-
-The rules intentionally cover a conservative set of German, Italian, and
-language-neutral structural markers. Unusual headings, missing navigation,
-OCR-like text, or publisher-specific package paths can remain unknown or
-ambiguous. Learners can include or exclude individual units and evidence-backed
-groups, but an override creates a new immutable reviewed scope; it does not
-rewrite the stored classification, an earlier reviewed scope, or a corpus that
-was produced from that scope. A later classifier version likewise creates new
-versioned classifications and cannot silently change historical scope or
-corpus provenance.
+The following are historical only and must not be reintroduced as current
+scope-review requirements: recommendation policy, recommendation/main-matter
+presets, classifier confidence, classifier warnings, evidence reasons,
+hierarchy groups, fallback inclusion policy, and prior-scope comparison.

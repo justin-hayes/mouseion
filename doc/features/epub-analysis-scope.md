@@ -1,14 +1,22 @@
 # Phase 1: Preserve EPUB analysis structure
 
-Status: Proposed · Date: 2026-08-25
+Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-01
 
 ## Problem
 
-Mouseion currently extracts linear EPUB XHTML resources into one concatenated text stream. It preserves a coarse chapter location, but it does not persist enough structure to let the application explain or control which parts of a book are sent to NLP. As a result, table-of-contents pages, bibliographies, indexes, notes, and other editorial material can enter analysis and vocabulary/deck generation.
+Mouseion extracts linear EPUB XHTML resources into one concatenated text
+stream. It must also preserve enough ordered structure and navigation
+provenance for scope review to present reliable top-level EPUB 3 table-of-
+contents entries, while retaining a readable-unit fallback when that mapping
+is not safe.
 
 ## Phase 1 goal
 
-Preserve the EPUB reading-order units and their provenance before analysis. This phase does not yet classify units, offer selection UI, or change which text is sent to NLP. It creates the stable foundation for those later phases.
+Preserve the EPUB reading-order units, their provenance, and the optional
+navigation data used by the [canonical scope-review contract](epub-analysis-scope-review.md).
+This phase does not classify units or change the stable extracted-unit
+identity, text, offsets, or provenance. It creates the foundation for the
+classifier-free selection workflow.
 
 ## Scope
 
@@ -20,15 +28,16 @@ Each extracted unit should preserve:
 - title/heading when available;
 - extracted text;
 - character offsets within the assembled book text, if the existing offset model remains appropriate;
-- EPUB metadata useful for later classification (`linear`, `properties`, navigation/landmark information when available);
+- EPUB metadata useful for review projection (`linear`, `properties`, and
+  navigation/landmark information when available);
 - deterministic serialization suitable for persistence and reanalysis.
 
 The extracted book should retain the ordered unit list while continuing to provide the existing full-text output during the compatibility transition.
 
 ## Non-goals
 
-- automatic front/main/back-matter classification;
-- user-facing unit-selection controls;
+- automatic front/main/back-matter classification or recommendation;
+- the user-facing scope-review controls (defined by the scope-review feature);
 - changing the NLP request payload or analysis scope;
 - changing coverage, deck selection, or sentence scoring;
 - adding an ML classifier;
@@ -44,7 +53,8 @@ The extracted book should retain the ordered unit list while continuing to provi
 5. Treat missing headings/title metadata as valid; use deterministic fallback IDs/titles.
 6. Handle duplicate or missing manifest metadata without silently merging unrelated units.
 7. Keep offsets Unicode-consistent with the existing source-location contract.
-8. Make the representation versionable so later classifier/selection decisions can be reproduced.
+8. Make the representation versionable so later selection decisions can be
+   reproduced.
 
 ## Acceptance criteria
 
@@ -58,11 +68,12 @@ The extracted book should retain the ordered unit list while continuing to provi
 - The serialized representation has explicit schema/version semantics.
 - Tests cover ordinary books, missing titles, duplicate-looking titles, nested EPUB paths, and mixed linear/non-linear spine entries.
 
-## Later phases enabled
+## Later workflow enabled
 
-- Phase 2: deterministic automatic unit classification;
-- Phase 3: user review and unit-selection UI;
-- Phase 4: selected-unit NLP analysis and scope-aware coverage/decks.
+- classifier-free scope review using reliable top-level EPUB 3 TOC projection;
+- flat readable-unit fallback when projection is unreliable; and
+- selected-unit NLP analysis and scope-aware coverage/decks after explicit
+  confirmation.
 
 ## Extracted-unit contract (version 1)
 
@@ -212,13 +223,15 @@ legacy chapter titles remain display/location labels only.
 
 Fresh EPUB imports store a normalized, owner-scoped snapshot linked to
 `source_materials`. The snapshot records the envelope schema version and its
-rows record every v1 unit field plus a `selected` flag that defaults to true;
-Phase 1 does not expose or change that flag. Composite foreign keys include
+rows record every v1 unit field plus a `selected` flag that defaults to true
+for the all-on initial review state. Composite foreign keys include
 both owner and source-material identity, and unit identity and order are unique
 within a snapshot. Reimport replaces the snapshot transactionally while
 leaving existing corpora untouched. Sources imported before this persistence
 was introduced have no snapshot and therefore report extracted units as
 unavailable. Their retained `full_text` remains compatible with current NLP.
+Scope review uses a newly persisted snapshot when available and never changes
+the identity of its units.
 
 ## Phase 1 fixture and compatibility guarantees
 
@@ -247,8 +260,8 @@ deletion. A source written through the legacy import path still returns
 `ErrExtractedUnitsUnavailable` while retaining its `FullText`; fresh imports
 continue to store the source EPUB and use the unchanged full text as the NLP
 compatibility input. Bibliography-, index-, navigation-, or landmark-like
-metadata is preserved as evidence only. Phase 1 does not classify it, expose a
-selection control, or alter which preserved readable units are analyzed.
+metadata is preserved as provenance for review projection only. Phase 1 does
+not classify it or alter which preserved readable units are analyzed.
 
 ## Deferred decisions
 
