@@ -80,16 +80,13 @@ for compatibility and is not a competing destination.
 | Catalog entry acquisition | Embedded current `POST /opds/acquire` result | Add one EPUB-backed book and continue browsing. | Remain in feed or open existing/new book | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
 
 The canonical design label is **Add to My Books** and must not imply analysis,
-Journey membership, or Primary Goal selection. The current feature contract and
-shipped copy use **Add to library**. The rename and broader collection semantics
-must be reconciled together; do not make a copy-only change that misstates the
-current behavior.
+Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../../adr/0035-my-books-membership-and-source-provenance.md).
 
 ## Reading Journey and Primary Goal
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Target route requires planner decision; current `/campaigns` is an incompatible active-campaign queue/history surface | Understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, Goal with/without evidence, reorderable later books, unassessed/incomparable book, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
+| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); the queued campaign-queue/history surface is retained only as secondary Campaign history | Understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, Goal with/without evidence, reorderable later books, unassessed/incomparable book, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
 | Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
 | Primary Goal outcome / Where next? | Embedded transitional state in Reading Journey; route ownership requires planning | Understand what finishing the book actually changed and choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice |
 | Reading/preparation/vocabulary history | Secondary surface; current Campaign history may contribute after contract reconciliation | Review factual past reading, preparation, completion, abandonment, and vocabulary-transition events without restoring Campaign as principal IA. | Book or Journey context | Empty history, mixed historical states, legacy Campaign terminology, unavailable artifact |
@@ -136,9 +133,7 @@ must not be claimed before those relationships receive a product contract.
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Current **My Library**, **Learning**, queue, and learner-facing Campaign labels
-  represent shipped behavior awaiting contract-aware migration; they are not the
-  accepted target IA.
+- Shipped navigation is **My Books** / **Reading Journey** / **Settings** plus distinct **Add books**; historical **My Library**, **Learning**, queue, and learner-facing Campaign labels remain only as compatibility fallbacks/redirects and are not the accepted target IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must

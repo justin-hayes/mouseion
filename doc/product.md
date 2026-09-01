@@ -20,16 +20,15 @@ Mouseion is a self-hosted web application for advanced foreign-language reading.
 
 ## Current pipeline
 
-1. **Add to library** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition does not start analysis and supports adding multiple books without leaving the browser.
+1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser.
 2. **Scope review** — review extracted EPUB units and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights** — inspect coverage, threshold, structural, and quality information for that exact completed analysis.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 6. **Coverage selection** — classify explicitly known and graduated vocabulary as known, reserve active-campaign vocabulary without counting it as known, and leave abandoned-campaign vocabulary eligible again. Sort the remaining eligible unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
 7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
-8. **Prepared deck and campaign** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
-   named `Mouseion::<language>::<book title>`, then optionally add the ready deck
-   to the learner's campaign queue. Cards remain ordered by each lemma's first
+8. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
+   named `Mouseion::<language>::<book title>`. The ready deck is available from that analysis result and from My Books / the analysis history; secondary campaign operations may reference prepared decks but do not imply a learner-facing queue, Journey membership, or automatic Primary Goal selection. Cards remain ordered by each lemma's first
    encounter in the book.
 
 Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0036](adr/0036-primary-goal-justified-graduation.md): a `learning_campaign_vocabulary` identity atomically linked to generated provenance, once study is confirmed by deck review; reading-finished alone graduates nothing. Abandoning the campaign makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
