@@ -3,19 +3,42 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func renderCampaignPage(t *testing.T, campaigns []campaignView, prepared []preparedCampaignOption, message, pageError, activeCampaignID string) string {
+func TestCampaignsRedirectsPermanentlyToJourneyPreservingQuery(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/campaigns?message=deep+link&error=keep", nil)
+	(&Handler{}).campaigns(recorder, request)
+	if recorder.Code != http.StatusMovedPermanently {
+		t.Fatalf("campaign redirect status=%d, want 301", recorder.Code)
+	}
+	if got := recorder.Header().Get("Location"); got != "/journey?message=deep+link&error=keep" {
+		t.Fatalf("campaign redirect location=%q", got)
+	}
+}
+
+func renderJourney(t *testing.T, view journeyPageView, message, pageError, activeCampaignID string) string {
 	t.Helper()
 	var output bytes.Buffer
-	if err := CampaignsPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", campaigns, prepared, message, pageError, activeCampaignID).Render(context.Background(), &output); err != nil {
-		t.Fatalf("render campaigns page: %v", err)
+	if err := JourneyPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, message, pageError, activeCampaignID).Render(context.Background(), &output); err != nil {
+		t.Fatalf("render journey page: %v", err)
 	}
 	return output.String()
+}
+
+func renderCampaignPage(t *testing.T, campaigns []campaignView, prepared []preparedCampaignOption, message, pageError, activeCampaignID string) string {
+	t.Helper()
+	return renderJourney(t, journeyPageView{Campaigns: campaigns, Prepared: prepared}, message, pageError, activeCampaignID)
+}
+
+func testJourneyBook(id, title, status string) journeyBookView {
+	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
 }
 
 func testCampaign(id string, book domain.BookProgress, deck domain.DeckProgress) campaignView {
@@ -26,50 +49,104 @@ func testCampaign(id string, book domain.BookProgress, deck domain.DeckProgress)
 	}
 }
 
-func testQueuedCampaign(id string, position int) campaignView {
-	campaign := testCampaign(id, domain.BookQueued, domain.DeckQueued)
-	campaign.QueuePosition = position
-	return campaign
+func testQueuedCampaign(id string) campaignView {
+	return testCampaign(id, domain.BookQueued, domain.DeckQueued)
 }
 
-func TestCampaignsPageRendersQueuePositionsAndPreparedActions(t *testing.T) {
+func TestJourneyPageRendersEmptyGoalAndProvisionalStates(t *testing.T) {
 	prepared := []preparedCampaignOption{{
 		Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "prepared-book", Title: "Prepared Book"}},
 		Deck: domain.DeckPreparation{ID: "prepared-deck", DeckName: "Mouseion::de::Prepared Book", TotalCards: 9},
 	}}
-	for _, test := range []struct {
-		name           string
-		campaigns      []campaignView
-		queueWords     []string
-		queuePositions []string
-	}{
-		{name: "zero", campaigns: nil},
-		{name: "one", campaigns: []campaignView{testQueuedCampaign("one", 1)}, queueWords: []string{"Book one", "Start learning"}, queuePositions: []string{"Queue position:</strong> <span class=\"numeric\">1</span>"}},
-		{name: "many", campaigns: []campaignView{testQueuedCampaign("one", 1), testQueuedCampaign("two", 2), testQueuedCampaign("three", 3)}, queueWords: []string{"Book one", "Book two", "Book three"}, queuePositions: []string{"Queue position:</strong> <span class=\"numeric\">1</span>", "Queue position:</strong> <span class=\"numeric\">2</span>", "Queue position:</strong> <span class=\"numeric\">3</span>"}},
+	html := renderJourney(t, journeyPageView{Prepared: prepared}, "", "", "")
+	for _, expected := range []string{
+		`<h2 id="primary-goal-heading">Primary Goal</h2>`,
+		"No Primary Goal yet",
+		`<h2 id="provisional-journey-heading">Provisional Journey</h2>`,
+		"No provisional books yet",
+		`<h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>`,
+		"Prepared books and decks",
+		"Make available for campaign operations",
+		`method="post" action="/campaigns"`,
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			html := renderCampaignPage(t, test.campaigns, prepared, "", "", "")
-			if !strings.Contains(html, `<h2 id="campaign-queue-heading">Queue</h2>`) || !strings.Contains(html, "Prepared books and decks ready to add") || !strings.Contains(html, `method="post" action="/campaigns"`) {
-				t.Fatalf("queue/prepared hierarchy missing: %s", html)
-			}
-			for _, word := range test.queueWords {
-				if !strings.Contains(html, word) {
-					t.Errorf("page missing %q", word)
-				}
-			}
-			for _, position := range test.queuePositions {
-				if !strings.Contains(html, position) {
-					t.Errorf("page missing queue position %q", position)
-				}
-			}
-			if test.name == "zero" && !strings.Contains(html, "Your learning queue is empty.") {
-				t.Error("zero queue does not explain its empty state")
-			}
-		})
+		if !strings.Contains(html, expected) {
+			t.Errorf("empty journey page missing %q: %s", expected, html)
+		}
+	}
+	for _, forbidden := range []string{"campaign-queue-heading", "Queue position", "Add to learning queue", "Your learning queue"} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("retired queue UI still rendered via %q", forbidden)
+		}
 	}
 }
 
-func TestCampaignsPageRendersIndependentActiveProgressPermutations(t *testing.T) {
+func TestJourneyPageAnchorsGoalAndPreservesProvisionalOrder(t *testing.T) {
+	goal := testJourneyBook("goal", "Goal book", "ready")
+	provisional := []journeyBookView{
+		testJourneyBook("first", "First provisional book", "ready"),
+		testJourneyBook("second", "Second provisional book", "ready"),
+	}
+	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: provisional}, "", "", "")
+	goalIndex := strings.Index(html, "Goal book")
+	provisionalIndex := strings.Index(html, "Provisional Journey")
+	firstIndex := strings.Index(html, "First provisional book")
+	secondIndex := strings.Index(html, "Second provisional book")
+	if goalIndex < 0 || provisionalIndex < 0 || firstIndex < 0 || secondIndex < 0 || goalIndex > provisionalIndex || firstIndex > secondIndex {
+		t.Fatalf("journey order was not goal-first and learner-ordered: goal=%d provisional=%d first=%d second=%d", goalIndex, provisionalIndex, firstIndex, secondIndex)
+	}
+	if !strings.Contains(html, `class="resource-card journey-book journey-book--goal"`) || !strings.Contains(html, "Primary Goal") {
+		t.Fatalf("goal was not visually distinct: %s", html)
+	}
+	if strings.Count(html, "Goal book") != 1 {
+		t.Fatalf("goal was duplicated instead of anchored once: %s", html)
+	}
+	if strings.Count(html, "Provisional — your order") != 2 || strings.Count(html, "Your order") != 2 {
+		t.Fatalf("provisional order labels missing: %s", html)
+	}
+	if strings.Contains(html, "Queue position") || strings.Contains(html, "queued behind") {
+		t.Fatal("journey rendered queue-position semantics")
+	}
+}
+
+func TestJourneyPageRendersEvidenceStates(t *testing.T) {
+	current := testJourneyBook("current", "Current book", "analyzed")
+	coverage := domain.AnalysisCoverage{AnalyzableTokenCount: 100, KnownTokenCount: 60, Projections: []domain.CoverageProjection{{TopLemmaCount: 3, ProjectedTokenCount: 80}}}
+	current.Coverage = &coverage
+	stale := testJourneyBook("stale", "Stale book", "stale")
+	unavailable := testJourneyBook("unavailable", "Unavailable book", "ready")
+	unavailable.StatisticsUnavailable = true
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unavailable}}, "", "", "")
+	for _, expected := range []string{"Current evidence", "Current coverage:", "Projected coverage:", "Stale evidence", "Coverage unavailable", "60.0%"} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("evidence state missing %q: %s", expected, html)
+		}
+	}
+}
+
+func TestJourneyPageDemotesCampaignHistoryAndKeepsOperations(t *testing.T) {
+	active := testCampaign("active", domain.BookReading, domain.DeckStudying)
+	preparedCampaign := testQueuedCampaign("prepared")
+	completed := testCampaign("completed", domain.BookFinished, domain.DeckReviewed)
+	abandoned := testCampaign("abandoned", domain.BookAbandoned, domain.DeckAbandoned)
+	prepared := []preparedCampaignOption{{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{Title: "Prepared"}}, Deck: domain.DeckPreparation{ID: "prepared", DeckName: "Prepared deck"}}}
+	html := renderJourney(t, journeyPageView{Campaigns: []campaignView{active, preparedCampaign, completed, abandoned}, Prepared: prepared}, "", "", "")
+	operations := strings.Index(html, `id="campaign-operations-heading"`)
+	if operations < 0 || strings.Index(html, "Active campaign") >= 0 {
+		t.Fatalf("campaign operations were not demoted into one secondary section: %s", html)
+	}
+	for _, expected := range []string{"Book active", "Book prepared", "Book completed", "Book abandoned", "Prepared", "Complete", "Abandoned", "Start learning", "Mark book finished", "Mark deck reviewed", "Abandon campaign", "Download prepared deck"} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("secondary campaign operation missing %q: %s", expected, html)
+		}
+	}
+	for _, forbidden := range []string{"Queue position", "Queued behind the single active campaign", "Add to learning queue"} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("secondary surface retained retired queue semantics %q", forbidden)
+		}
+	}
+}
+
+func TestJourneyPageRendersIndependentActiveProgressPermutations(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		book      domain.BookProgress
@@ -83,7 +160,7 @@ func TestCampaignsPageRendersIndependentActiveProgressPermutations(t *testing.T)
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			html := renderCampaignPage(t, []campaignView{testCampaign("active", test.book, test.deck)}, nil, "", "", "")
-			if !strings.Contains(html, "Active campaign") || !strings.Contains(html, "Remaining before completion") || !strings.Contains(html, "Book") || !strings.Contains(html, "Deck") {
+			if !strings.Contains(html, "Campaign history &amp; operations") || !strings.Contains(html, "Remaining before completion") {
 				t.Fatalf("active hierarchy/progress missing: %s", html)
 			}
 			for _, expected := range test.remaining {
@@ -92,13 +169,13 @@ func TestCampaignsPageRendersIndependentActiveProgressPermutations(t *testing.T)
 				}
 			}
 			if test.complete != strings.Contains(html, "Complete campaign and add its vocabulary to known") {
-				t.Errorf("completion confirmation presence=%t html=%s", strings.Contains(html, "Complete campaign and add its vocabulary to known"), html)
+				t.Errorf("completion confirmation presence=%t", strings.Contains(html, "Complete campaign and add its vocabulary to known"))
 			}
 		})
 	}
 }
 
-func TestCampaignsPageRendersCompletionOutcomeWithAndWithoutCount(t *testing.T) {
+func TestJourneyPageRendersCompletionOutcomeWithAndWithoutCount(t *testing.T) {
 	count := 132
 	withCount := testCampaign("counted", domain.BookFinished, domain.DeckStudying)
 	withCount.GraduatableLemmaCount = &count
@@ -110,7 +187,7 @@ func TestCampaignsPageRendersCompletionOutcomeWithAndWithoutCount(t *testing.T) 
 		"Book</dt><dd>Book counted — Finished",
 		"Prepared deck</dt><dd>Mouseion::de::Book counted — Reviewed",
 		"Generated provenance remains attached",
-		"Coverage and future queue projections will be recalculated",
+		"Coverage evidence will be recalculated",
 		"not a mastery claim or a spaced-repetition grade",
 		"Completion cannot currently be undone",
 		"name=\"csrf_token\"",
@@ -124,21 +201,21 @@ func TestCampaignsPageRendersCompletionOutcomeWithAndWithoutCount(t *testing.T) 
 	}
 }
 
-func TestCampaignsPageRendersAbandonmentAndRecoveryStates(t *testing.T) {
+func TestJourneyPageRendersAbandonmentAndRecoveryStates(t *testing.T) {
 	active := testCampaign("active", domain.BookReading, domain.DeckStudying)
 	html := renderCampaignPage(t, []campaignView{active}, nil, "", "", "")
 	if !strings.Contains(html, `name="expected_book_progress"`) || !strings.Contains(html, `name="expected_deck_progress"`) {
 		t.Errorf("active abandonment form is missing expected progress state: %s", html)
 	}
-	queuedHTML := renderCampaignPage(t, []campaignView{testCampaign("queued", domain.BookQueued, domain.DeckQueued)}, nil, "", "", "")
-	for _, expected := range []string{`action="/campaigns/queued/abandon"`, "This queued campaign has no active reservation to release", "Confirm abandonment", `value="queued"`} {
-		if !strings.Contains(queuedHTML, expected) {
-			t.Errorf("queued abandonment UI missing %q: %s", expected, queuedHTML)
+	preparedHTML := renderCampaignPage(t, []campaignView{testQueuedCampaign("prepared")}, nil, "", "", "")
+	for _, expected := range []string{`action="/campaigns/prepared/abandon"`, "This prepared campaign has no active reservation to release", "Confirm abandonment", `value="queued"`} {
+		if !strings.Contains(preparedHTML, expected) {
+			t.Errorf("prepared abandonment UI missing %q", expected)
 		}
 	}
 	for _, expected := range []string{"Abandon campaign", "without deleting it", "book, prepared deck, generated provenance, and campaign history remain", "active reservation is released", "eligible for future decks again", `action="/campaigns/active/abandon"`, `name="expected_campaign_status"`} {
 		if !strings.Contains(html, expected) {
-			t.Errorf("abandonment confirmation missing %q: %s", expected, html)
+			t.Errorf("abandonment confirmation missing %q", expected)
 		}
 	}
 
@@ -156,42 +233,9 @@ func TestCampaignsPageRendersAbandonmentAndRecoveryStates(t *testing.T) {
 			html := renderCampaignPage(t, []campaignView{active}, nil, "", test.message, test.campaign)
 			for _, expected := range test.want {
 				if !strings.Contains(html, expected) {
-					t.Errorf("recovery page missing %q: %s", expected, html)
+					t.Errorf("recovery page missing %q", expected)
 				}
 			}
 		})
-	}
-}
-
-func TestCampaignsPageKeepsLearningHierarchyInDocumentOrder(t *testing.T) {
-	active := testCampaign("active", domain.BookReading, domain.DeckStudying)
-	queued := testQueuedCampaign("queued", 1)
-	completed := testCampaign("completed", domain.BookFinished, domain.DeckReviewed)
-	abandoned := testCampaign("abandoned", domain.BookAbandoned, domain.DeckAbandoned)
-	prepared := []preparedCampaignOption{{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{Title: "Prepared"}}, Deck: domain.DeckPreparation{ID: "prepared", DeckName: "Prepared deck"}}}
-	html := renderCampaignPage(t, []campaignView{active, queued, completed, abandoned}, prepared, "", "", "")
-	positions := []struct {
-		name string
-		text string
-	}{
-		{name: "active", text: `id="active-campaign-heading"`},
-		{name: "remaining", text: "Remaining before completion"},
-		{name: "consequence", text: "When both conditions are finished"},
-		{name: "prepared actions", text: "Prepared books and decks ready to add"},
-		{name: "queue", text: `id="campaign-queue-heading"`},
-		{name: "history", text: `id="campaign-history-heading"`},
-	}
-	previous := -1
-	for _, position := range positions {
-		current := strings.Index(html, position.text)
-		if current <= previous {
-			t.Fatalf("%s section is out of order: position=%d previous=%d", position.name, current, previous)
-		}
-		previous = current
-	}
-	for _, expected := range []string{"Queued behind the single active campaign", "Assigned vocabulary was graduated to known vocabulary", "Ungraduated vocabulary is eligible again"} {
-		if !strings.Contains(html, expected) {
-			t.Errorf("history/queue state missing %q", expected)
-		}
 	}
 }

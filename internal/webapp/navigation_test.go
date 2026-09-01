@@ -41,7 +41,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		currentCSS  string
 	}{
 		{name: "library", context: NavigationLibrary, currentLink: `href="/library"`, currentCSS: "site-nav__link--current"},
-		{name: "learning", context: NavigationLearning, currentLink: `href="/campaigns"`, currentCSS: "site-nav__link--current"},
+		{name: "learning", context: NavigationLearning, currentLink: `href="/journey"`, currentCSS: "site-nav__link--current"},
 		{name: "settings", context: NavigationSettings, currentLink: `href="/settings"`, currentCSS: "site-nav__link--current"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 		`<ul class="site-header__brand">`,
 		`href="/"`,
 		`href="/library"`,
-		`href="/campaigns"`,
+		`href="/journey"`,
 		`href="/connections"`,
 		`href="/settings"`,
 		`<form class="inline" method="post" action="/logout"`,

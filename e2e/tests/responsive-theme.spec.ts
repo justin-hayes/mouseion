@@ -18,7 +18,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/jobs', /Analysis jobs/],
   ['/connections', /Add books/],
   ['/catalog?connection=fixture-connection', /Fixture catalog/],
-  ['/campaigns', /Reading Journey/],
+  ['/journey', /Reading Journey/],
   ['/settings?language=de', /Account settings/],
 ];
 
@@ -62,7 +62,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/)).toBeVisible();
   });
 
-  test('dense analysis, history, queue, errors, and import surfaces expose realistic content', async ({ page }) => {
+  test('dense analysis, campaign history, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
     await page.goto('/books/fixture-book/analyses/fixture-run');
     await expect(page.locator('.stat-group__value').filter({ hasText: '123456' })).toBeVisible();
@@ -71,9 +71,9 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('.stat-group').last()).toBeVisible();
     await page.goto('/jobs');
     await expect(page.locator('table tbody tr')).toHaveCount(18);
-    await page.goto('/campaigns');
+    await page.goto('/journey');
     await expect(page.locator('#campaign-fixture-queued-campaign-6')).toBeVisible();
-    await expect(page.locator('[aria-labelledby="campaign-queue-heading"] article').first()).toBeVisible();
+    await expect(page.locator('[aria-labelledby="campaign-operations-heading"] article').first()).toBeVisible();
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Reload the confirmed scope and retry/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
@@ -83,7 +83,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {
     await signIn(page);
-    await page.goto('/campaigns');
+    await page.goto('/journey');
     const order = await page.locator('.action-group').evaluateAll((groups) => groups.map((group) => {
       const controls = Array.from(group.querySelectorAll('button, a[role="button"]'));
       return controls.map((control) => control.classList.contains('secondary'));
