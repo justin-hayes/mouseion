@@ -5,40 +5,16 @@ package analysisinsights
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	ctx := context.Background()
-	databaseURL := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	admin, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	conn, err := admin.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Release()
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420199)`); err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420199)`)
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(databaseURL); err != nil {
-		t.Fatal(err)
-	}
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
@@ -49,9 +25,9 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	bob, _ := store.CreateUser(ctx, "insights-bob", false)
 	artifact := domain.NormalizedArtifact{ContentHash: "sha256:insights-e2e", Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
 	if err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{
-		{CanonicalLemma: "eins", UPOS: "NOUN", Frequency: 70},
-		{CanonicalLemma: "zwei", UPOS: "VERB", Frequency: 20},
-		{CanonicalLemma: "drei", UPOS: "ADJ", Frequency: 10},
+		{CanonicalLemma: "eins", UPOS: "NOUN", Morphology: []byte(`{}`), Frequency: 70},
+		{CanonicalLemma: "zwei", UPOS: "VERB", Morphology: []byte(`{}`), Frequency: 20},
+		{CanonicalLemma: "drei", UPOS: "ADJ", Morphology: []byte(`{}`), Frequency: 10},
 	}); err != nil {
 		t.Fatal(err)
 	}

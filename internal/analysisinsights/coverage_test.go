@@ -204,8 +204,11 @@ func TestCoverageSeparatesActiveCampaignProjectionAndReleasesAbandonedVocabulary
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.KnownTokenCount != 50 || got.ActiveCampaignTokenCount != 30 || got.ActiveCampaignLemmaCount != 1 || got.UnknownTokenCount != 50 {
+	if got.KnownTokenCount != 50 || got.KnownLemmaCount != 1 || got.ActiveCampaignTokenCount != 30 || got.ActiveCampaignLemmaCount != 1 || got.UnknownTokenCount != 50 || got.UnknownLemmaCount != 2 {
 		t.Fatalf("campaign coverage = %+v", got)
+	}
+	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma == "active" {
+		t.Fatalf("unfinished active vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
 	}
 	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma != "released" {
 		t.Fatalf("deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
