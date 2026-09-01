@@ -28,6 +28,20 @@ type Store interface {
 	ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 }
 
+// JourneyStore, PrimaryGoalStore, and BookEvidenceStore are intentionally
+// separate from Store so existing single-book insight stores remain useful.
+type JourneyStore interface {
+	GetReadingJourney(context.Context, string) (domain.ReadingJourney, error)
+}
+
+type PrimaryGoalStore interface {
+	GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error)
+}
+
+type BookEvidenceStore interface {
+	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+}
+
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -41,6 +55,10 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 		return domain.AnalysisCoverage{}, ErrStatisticsUnavailable
 	}
 
+	return s.coverage(ctx, owner, input, false)
+}
+
+func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, activeIsKnown bool) (domain.AnalysisCoverage, error) {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
 		ReviewedScopeID:      input.ReviewedScopeID,
@@ -100,17 +118,18 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 		}
 
 		key := identity(lemma.CanonicalLemma, lemma.UPOS)
-		if known[key] || known[identity(lemma.CanonicalLemma, "")] {
+		activeMatch := active[key] || active[identity(lemma.CanonicalLemma, "")]
+		if known[key] || known[identity(lemma.CanonicalLemma, "")] || (activeIsKnown && activeMatch) {
 			result.KnownTokenCount += lemma.OccurrenceCount
 			result.KnownLemmaCount++
 			continue
 		}
 		result.UnknownLemmaCount++
-		if active[key] {
+		if activeMatch {
 			result.ActiveCampaignTokenCount += lemma.OccurrenceCount
 			result.ActiveCampaignLemmaCount++
 		}
-		if !generated[key] && !active[key] {
+		if !generated[key] && !activeMatch {
 			eligible = append(eligible, lemma)
 		}
 	}
