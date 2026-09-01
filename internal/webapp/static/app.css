@@ -554,10 +554,36 @@ section[aria-labelledby="campaign-operations-heading"] {
 .journey-list {
   display: grid;
   gap: var(--mouseion-space-4);
+  min-width: 0;
 }
 
 .journey-book {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.journey-book > div {
+  min-width: 0;
+}
+
+.journey-book h3,
+.journey-book h3 a,
+.journey-book code,
+.campaign-card code,
+.campaign-list code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.campaign-list,
+section[aria-labelledby="campaign-operations-heading"] {
+  min-width: 0;
+}
+
+.campaign-list article,
+.campaign-card {
+  min-width: 0;
 }
 
 .journey-book--goal {
