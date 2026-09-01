@@ -36,6 +36,9 @@ const (
 	QueuedPrepID           = "fixture-queued-preparation"
 	JourneyPrepID          = "fixture-journey-preparation"
 	OutsidePrepID          = "fixture-outside-journey-preparation"
+	LegacyGeneratedLemma   = "fixture-legacy-generated"
+	GraduatedKnownLemma    = "fixture-graduated-known"
+	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
 	routeDiffersBookID     = "fixture-route-differs"
 	routeTieABookID        = "fixture-route-tie-a"
@@ -58,6 +61,7 @@ type Store struct {
 	preps           []domain.DeckPreparation
 	known           []domain.KnownVocabulary
 	campaignVocab   []domain.CampaignVocabulary
+	legacyGenerated []domain.GeneratedVocabulary
 	myBooks         []domain.MyBook
 	readingJourneys map[string]domain.ReadingJourney
 	primaryGoals    map[string]domain.PrimaryGoal
@@ -84,8 +88,17 @@ func NewStore() *Store {
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
-		known:         []domain.KnownVocabulary{{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}},
-		campaignVocab: fixtureCampaignVocabulary(),
+		known: []domain.KnownVocabulary{
+			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", Provenance: "Graduated from completed campaign", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
+		},
+		campaignVocab:   fixtureCampaignVocabulary(),
+		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
+		myBooks: []domain.MyBook{{
+			Book:          domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			EvidenceState: domain.MyBookNotAcquired,
+		}},
 		readingJourneys: map[string]domain.ReadingJourney{
 			OwnerID: {
 				OwnerID: OwnerID, Revision: 1, UpdatedAt: fixtureJourneyTime,
@@ -165,6 +178,50 @@ func (s *Store) ListKnownVocabulary(context.Context, string, string) ([]domain.K
 }
 func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
 	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
+}
+
+// ListActiveLearningCampaignVocabulary and ListLegacyGeneratedVocabulary keep
+// the fixture's migration categories on the same optional read seams used by
+// the production coverage service.
+func (s *Store) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.CampaignVocabulary
+	for _, campaign := range s.campaigns {
+		if campaign.OwnerID != owner || campaign.Status != domain.CampaignActive {
+			continue
+		}
+		for _, item := range s.campaignVocab {
+			if item.CampaignID == campaign.ID && item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, item) {
+				result = append(result, item)
+			}
+		}
+	}
+	return result, nil
+}
+
+func (s *Store) CountCampaignVocabularyToGraduate(_ context.Context, owner, campaignID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := 0
+	for _, item := range s.campaignVocab {
+		if item.OwnerID == owner && item.CampaignID == campaignID && item.GraduatedAt == nil && !fixtureKnown(s.known, item) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) ListLegacyGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.GeneratedVocabulary
+	for _, item := range s.legacyGenerated {
+		if item.OwnerID == owner && item.Language == language {
+			result = append(result, item)
+		}
+	}
+	return result, nil
 }
 func (s *Store) GetLearningCampaign(_ context.Context, o, id string) (domain.LearningCampaign, error) {
 	for _, c := range s.campaigns {
@@ -609,10 +666,12 @@ func fixtureCampaigns() []domain.LearningCampaign {
 }
 
 func fixtureCampaignVocabulary() []domain.CampaignVocabulary {
+	graduatedAt := fixtureJourneyTime.Add(2 * time.Hour)
 	return []domain.CampaignVocabulary{
 		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
 		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
 		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
+		{OwnerID: OwnerID, CampaignID: "fixture-completed-campaign", Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", GeneratedAt: fixtureJourneyTime, GraduatedAt: &graduatedAt},
 	}
 }
 

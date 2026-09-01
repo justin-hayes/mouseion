@@ -142,3 +142,51 @@ func TestStorePrimaryGoalFinishFixturesCoverReadingOnlyResidualAndReviewed(t *te
 		t.Fatalf("reviewed-before-finish result=%+v campaign-before=%+v err=%v", result, campaign, err)
 	}
 }
+
+func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
+	store := NewStore()
+	ctx := context.Background()
+
+	campaigns, err := store.ListLearningCampaigns(ctx, OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses := map[domain.CampaignStatus]bool{}
+	for _, campaign := range campaigns {
+		statuses[campaign.Status] = true
+	}
+	for _, status := range []domain.CampaignStatus{domain.CampaignQueued, domain.CampaignActive, domain.CampaignComplete, domain.CampaignAbandoned} {
+		if !statuses[status] {
+			t.Fatalf("migration fixture missing campaign status %q: %+v", status, campaigns)
+		}
+	}
+
+	legacy, err := store.ListLegacyGeneratedVocabulary(ctx, OwnerID, "de")
+	if err != nil || len(legacy) != 1 || legacy[0].CanonicalLemma != LegacyGeneratedLemma || legacy[0].FirstSourceMaterialID != nil {
+		t.Fatalf("legacy generated fixture=%+v err=%v", legacy, err)
+	}
+	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provenance := map[string]string{}
+	for _, item := range known {
+		provenance[item.CanonicalLemma] = item.Provenance
+	}
+	if provenance[IndependentKnownLemma] != "Explicitly recorded" || provenance[GraduatedKnownLemma] != "Graduated from completed campaign" {
+		t.Fatalf("known vocabulary provenance=%v", provenance)
+	}
+	active, err := store.ListActiveLearningCampaignVocabulary(ctx, OwnerID, "de")
+	if err != nil || len(active) != 2 {
+		t.Fatalf("active reservation fixture=%+v err=%v", active, err)
+	}
+	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, book := range books {
+		if book.Book.ID == "fixture-metadata-only" && (book.Acquired != nil || book.EvidenceState != domain.MyBookNotAcquired) {
+			t.Fatalf("metadata-only fixture acquired evidence=%+v", book)
+		}
+	}
+}
