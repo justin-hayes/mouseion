@@ -175,6 +175,35 @@ type AnalysisCoverage struct {
 	Thresholds               []CoverageThreshold
 	TextProfile              *TextProfile
 }
+
+// JourneyRouteBook is the derived, on-demand comparison view of one Journey
+// position. A nil Coverage means that the book was not comparable.
+type JourneyRouteBook struct {
+	BookID              string
+	SourceMaterialID    string
+	Language            string
+	CorpusID            string
+	Position            int
+	Coverage            *AnalysisCoverage
+	ConditionalCoverage *AnalysisCoverage
+	Comparable          bool
+	IncomparableReason  string
+	Rank                *int
+	Fixed               bool
+	PlacementReason     string
+}
+
+// JourneyProjectionResult preserves the learner order and supplies an
+// advisory current-coverage ordering. It is never persisted.
+type JourneyProjectionResult struct {
+	OwnerID                  string
+	Language                 string
+	LearnerOrder             []JourneyRouteBook
+	AdvisoryOrder            []JourneyRouteBook
+	ConditionalAdvisoryOrder []JourneyRouteBook
+	ComparableCount          int
+	IncomparableCount        int
+}
 type AnalysisJob struct {
 	ID, DisplayNumber                                                        int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, ReviewedScopeID, Error string
