@@ -558,6 +558,10 @@ section[aria-labelledby="campaign-operations-heading"] {
 }
 
 .journey-book {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mouseion-space-4);
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
@@ -565,6 +569,22 @@ section[aria-labelledby="campaign-operations-heading"] {
 
 .journey-book > div {
   min-width: 0;
+}
+
+.journey-book__controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+  align-items: center;
+}
+
+.journey-book__controls form {
+  margin: 0;
+}
+
+.journey-status:empty {
+  display: none;
 }
 
 .journey-book h3,
@@ -851,6 +871,11 @@ section[aria-labelledby="campaign-operations-heading"] {
   .journey-book form,
   .campaign-list form {
     width: 100%;
+  }
+
+  .journey-book__controls {
+    width: 100%;
+    align-items: stretch;
   }
 
   .campaign-card form button,

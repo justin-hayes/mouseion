@@ -16,6 +16,8 @@ type journeyBookView struct {
 	Book                  domain.SourceMaterialSummary
 	Position              int
 	PrimaryGoal           bool
+	CanMoveEarlier        bool
+	CanMoveLater          bool
 	Coverage              *domain.AnalysisCoverage
 	StatisticsUnavailable bool
 }
@@ -25,6 +27,21 @@ func journeyBookClass(primary bool) string {
 		return "resource-card journey-book journey-book--goal"
 	}
 	return "resource-card journey-book"
+}
+
+func journeyBookAnchorID(bookID string) string {
+	if bookID == "" {
+		return ""
+	}
+	return "journey-book-" + bookID
+}
+
+func journeyMoveURL(bookID string, earlier bool) string {
+	direction := "move-later"
+	if earlier {
+		direction = "move-earlier"
+	}
+	return "/journey/entries/" + bookID + "/" + direction
 }
 
 func journeyBookTitle(book domain.SourceMaterialSummary) string {
@@ -91,43 +108,52 @@ func journeyProjectionText(coverage domain.AnalysisCoverage) string {
 type journeyPageView struct {
 	Goal        *journeyBookView
 	Provisional []journeyBookView
+	Revision    int64
 	Campaigns   []campaignView
 	Prepared    []preparedCampaignOption
 }
 
 func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	journey, err := h.services.Store.GetReadingJourney(r.Context(), u.ID)
+	view, err := h.buildJourneyView(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
+	activeCampaignID := r.URL.Query().Get("active_campaign_id")
+	if !journeyHasActiveCampaign(view.Campaigns, activeCampaignID) {
+		activeCampaignID = ""
 	}
-	books, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
+}
+
+func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPageView, error) {
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
 	if err != nil {
-		fail(w, err)
-		return
+		return journeyPageView{}, err
+	}
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	if err != nil {
+		return journeyPageView{}, err
+	}
+	books, err := h.services.Store.ListSourceMaterials(ctx, owner)
+	if err != nil {
+		return journeyPageView{}, err
 	}
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
 
-	view := journeyPageView{}
+	view := journeyPageView{Revision: journey.Revision}
 	if goal.BookID != "" {
-		book, bookErr := h.journeyBook(r.Context(), u.ID, goal.BookID, bookByID)
+		book, bookErr := h.journeyBook(ctx, owner, goal.BookID, bookByID)
 		if bookErr != nil {
-			fail(w, bookErr)
-			return
+			return journeyPageView{}, bookErr
 		}
 		book.PrimaryGoal = true
-		if err = h.addJourneyEvidence(r.Context(), u.ID, &book); err != nil {
-			fail(w, err)
-			return
+		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
+			return journeyPageView{}, err
 		}
 		view.Goal = &book
 	}
@@ -137,31 +163,28 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 		if entry.BookID == goal.BookID {
 			continue
 		}
-		book, bookErr := h.journeyBook(r.Context(), u.ID, entry.BookID, bookByID)
+		book, bookErr := h.journeyBook(ctx, owner, entry.BookID, bookByID)
 		if bookErr != nil {
-			fail(w, bookErr)
-			return
+			return journeyPageView{}, bookErr
 		}
 		book.Position = entry.Position
-		if err = h.addJourneyEvidence(r.Context(), u.ID, &book); err != nil {
-			fail(w, err)
-			return
+		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
+			return journeyPageView{}, err
 		}
 		view.Provisional = append(view.Provisional, book)
 	}
+	for i := range view.Provisional {
+		view.Provisional[i].CanMoveEarlier = i > 0
+		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
+	}
 
 	if h.services.PreparedDeck != nil {
-		view.Campaigns, view.Prepared, err = h.campaignOperations(r.Context(), u.ID, bookByID)
+		view.Campaigns, view.Prepared, err = h.campaignOperations(ctx, owner, bookByID)
 		if err != nil {
-			fail(w, err)
-			return
+			return journeyPageView{}, err
 		}
 	}
-	activeCampaignID := r.URL.Query().Get("active_campaign_id")
-	if !journeyHasActiveCampaign(view.Campaigns, activeCampaignID) {
-		activeCampaignID = ""
-	}
-	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
+	return view, nil
 }
 
 func journeyHasActiveCampaign(campaigns []campaignView, id string) bool {

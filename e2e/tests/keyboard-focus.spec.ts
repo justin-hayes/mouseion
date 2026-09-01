@@ -162,6 +162,34 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(region).toBeFocused();
   });
 
+  test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
+    await signIn(page, true);
+    await page.goto('/journey');
+    await expect(page.locator('.journey-book--goal .journey-book__controls')).toHaveCount(0);
+    const edge = page.locator('#journey-book-fixture-edge-content');
+    await edge.getByRole('button', { name: /Move .* earlier/ }).press('Enter');
+    await expect(page).toHaveURL(/\/journey\?message=/);
+    const reordered = page.locator('#provisional-journey-list .journey-list > article');
+    await expect(reordered.first()).toHaveAttribute('id', 'journey-book-fixture-edge-content');
+
+    await page.unroute('**/static/vendor/htmx-*.js');
+    await page.goto('/journey');
+    const empty = page.locator('#journey-book-fixture-empty');
+    await empty.getByRole('button', { name: /Move .* earlier/ }).press('Enter');
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* provisional position/);
+    await expect(page.locator('#journey-book-fixture-empty')).toBeFocused();
+    await expect(reordered.first()).toHaveAttribute('id', 'journey-book-fixture-empty');
+
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.reload();
+    for (const id of ['fixture-empty', 'fixture-edge-content']) {
+      const book = page.locator(`#journey-book-${id}`);
+      await expect(book.locator('.journey-book__controls')).toBeVisible();
+      expect(await book.locator('.journey-book__controls').evaluate((node) => node.parentElement?.lastElementChild === node)).toBeTruthy();
+    }
+  });
+
   test('learning completion and abandonment confirmations support cancel/confirm focus return', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
