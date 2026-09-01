@@ -69,8 +69,14 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('button', { name: 'Add to Reading Journey' })).toHaveCount(0);
 
     await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
-    await expect(page.getByText('Not in Reading Journey.', { exact: false })).toBeVisible();
-    await page.getByRole('button', { name: 'Add to Reading Journey' }).click();
+    const addToJourney = page.getByRole('button', { name: 'Add to Reading Journey' });
+    if (await addToJourney.count() > 0) {
+      // First project run: the book starts outside the Journey.
+      await expect(page.getByText('Not in Reading Journey.', { exact: false })).toBeVisible();
+      await addToJourney.click();
+    }
+    // Idempotent end state for every project run over the shared fixture server:
+    // the book is (or just became) a Journey member, linked to its exact entry.
     await expect(page.getByText('In Reading Journey.', { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View this Journey entry' })).toHaveAttribute('href', '/journey#journey-book-fixture-failed');
   });

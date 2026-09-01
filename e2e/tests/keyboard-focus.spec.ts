@@ -125,7 +125,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(preparation).toContainText('Deck ready');
     await expect(preparation.getByRole('button', { name: /cancel/i })).toHaveCount(0);
     await expect(preparation.locator('[aria-busy="true"]')).toHaveCount(0);
-    await expect.poll(() => polls).toBe(1);
+    // Terminal ready state performs exactly one JSON poll plus the server-rendered
+    // ready fragment fetch; polling must not continue afterwards.
+    await expect.poll(() => polls).toBe(2);
+    await page.waitForTimeout(1600);
+    expect(polls).toBe(2);
   });
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
