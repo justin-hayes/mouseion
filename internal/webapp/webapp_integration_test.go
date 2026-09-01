@@ -46,6 +46,10 @@ func (r *recordingAnalysisInsights) Coverage(_ context.Context, owner, corpus st
 	return r.coverage, nil
 }
 
+func (r *recordingAnalysisInsights) JourneyProjection(context.Context, string, string) (domain.JourneyProjectionResult, error) {
+	return domain.JourneyProjectionResult{}, nil
+}
+
 type staticCapabilities struct {
 	value analyzer.Capabilities
 	err   error

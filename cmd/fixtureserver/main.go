@@ -24,7 +24,7 @@ func main() {
 	store := fixtures.NewStore()
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: store, OPDS: fixtures.OPDS{},
-		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
+		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{JourneyStore: store}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{}, Capabilities: fixtures.Capabilities{},
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 		AcquisitionKey: []byte("12345678901234567890123456789012"), AcquisitionTargetKey: []byte("abcdefghijklmnopqrstuvwxzy123456"),

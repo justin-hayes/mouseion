@@ -107,6 +107,12 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#campaign-operations-heading')).toHaveText(/Campaign history & operations/);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await expect(page.getByText('Provisional — your order').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
+    await page.getByText('Show vocabulary-efficient alternative (optional comparison)').click();
+    await expect(page.getByText('4 comparable, 3 incomparable')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
+    await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
+    await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();

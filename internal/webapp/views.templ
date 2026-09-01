@@ -243,6 +243,60 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Provisional Journey</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
+		if journey.RouteComparison != nil {
+			<section aria-labelledby="route-comparison-heading" class="journey-comparison">
+				<h2 id="route-comparison-heading">Compare your order with a vocabulary-efficient alternative</h2>
+				<p class="reading-width">Your order above is canonical and remains the active order. This optional comparison is read-only evidence: it never reorders your Journey or selects a Primary Goal. It optimizes exactly one named lexical property—current known-token coverage—using exact integer token counts from current analyzed evidence.</p>
+				<p class="reading-width">The comparison is calculated when this page is requested. Fixed constraints, including an active Primary Goal when it is a Journey member, remain fixed. Thresholds for 95%, 97%, and 99% coverage are supporting per-book investment data, not ordering inputs. Structural difficulty, coverage, evidence quality, and learner desire remain separate; this view does not combine them into one score.</p>
+				<p class="reading-width">Current coverage is present evidence. Reserved active-campaign vocabulary is not current knowledge; when a reservation snapshot exists and is not confirmed, a separate conditional variant shows what would change if that single transition were confirmed. Reading a book does not change coverage.</p>
+				if journey.RouteComparison.ComparisonUnavailable {
+					<p role="status"><strong>Comparison unavailable.</strong> The current Journey evidence could not be loaded. Your canonical order is unchanged; try again when analyzed evidence is available.</p>
+				} else if len(journey.RouteComparison.LearnerOrder) == 0 {
+					<p role="status"><strong>Comparison unavailable.</strong> Add a second Journey book with current analyzed evidence to see a comparison.</p>
+				} else {
+					<p><strong>{ fmt.Sprintf("%d comparable, %d incomparable", journey.RouteComparison.ComparableCount, journey.RouteComparison.IncomparableCount) }</strong> — incomparable books stay in their learner positions, are not ranked, and are excluded from totals.</p>
+					<h3>Your order (canonical)</h3>
+					<ol aria-label="Your canonical Journey order">
+						for _, item := range journey.RouteComparison.LearnerOrder {
+							<li><strong>{ item.Title }</strong> — rank { item.RankLabel } @StatusBadge(item.EvidenceBadge, item.EvidenceTone)
+								if item.Comparable {
+									<span> · { item.CurrentCoverageLabel } current known-token coverage; threshold investment: { item.ThresholdLabel }</span>
+								} else {
+									<span> — { item.IncomparableDetail }</span>
+								}
+							</li>
+						}
+					</ol>
+					if journey.RouteComparison.ComparableCount == 0 {
+						<p role="status"><strong>No comparable evidence is available.</strong> The canonical positions above are retained until current analyzed evidence can be compared.</p>
+					} else {
+						<details>
+							<summary>Show vocabulary-efficient alternative (optional comparison)</summary>
+						<h3>Current advisory order</h3>
+						<p>Comparable books are ordered by descending current known-token coverage, then learner position, then language and book ID. These are the visible tie-break assumptions; no other property changes the order.</p>
+						<div class="table-region" tabindex="0" aria-label="Current advisory order table">
+							<table><caption>Current advisory order; fixed and incomparable positions remain constrained.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Book</th><th scope="col">Evidence</th><th scope="col">Current coverage</th><th scope="col">Threshold investment</th><th scope="col">Placement</th></tr></thead><tbody>
+								for _, item := range journey.RouteComparison.AdvisoryOrder {
+									<tr><td>{ item.RankLabel }</td><td>{ item.Title }</td><td>@StatusBadge(item.EvidenceBadge, item.EvidenceTone)</td><td>{ item.CurrentCoverageLabel }</td><td>{ item.ThresholdLabel }</td><td>{ routePlacementLabel(item) }{ routeIncomparableSuffix(item) }</td></tr>
+								}
+							</tbody></table>
+						</div>
+						if journey.RouteComparison.HasConditional && conditionalRouteDiffers(journey.RouteComparison.AdvisoryOrder, journey.RouteComparison.ConditionalOrder) {
+							<h3>If the pending study is confirmed (conditional projected evidence)</h3>
+							<p>This is a separate conditional projected variant, not current evidence. It assumes only the active campaign's reserved vocabulary graduates through the single justified transition.</p>
+							<div class="table-region" tabindex="0" aria-label="Conditional advisory order table">
+								<table><caption>Conditional advisory order if the pending study is confirmed.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Book</th><th scope="col">Conditional coverage</th><th scope="col">Placement</th></tr></thead><tbody>
+									for _, item := range journey.RouteComparison.ConditionalOrder {
+										<tr><td>{ item.RankLabel }</td><td>{ item.Title }</td><td>{ item.ConditionalCoverageLabel }</td><td>{ routePlacementLabel(item) }{ routeIncomparableSuffix(item) }</td></tr>
+									}
+								</tbody></table>
+							</div>
+						}
+						</details>
+					}
+				}
+			</section>
+		}
 		<section aria-labelledby="campaign-operations-heading" class="journey-secondary"><h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>
 			<p>Campaign records and prepared decks are supporting history and operations. They are separate from Reading Journey membership.</p>
 			if len(journey.Prepared) > 0 {
