@@ -162,3 +162,51 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		t.Fatalf("round-trip goal=%+v err=%v", goal, err)
 	}
 }
+
+func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	owner, err := store.CreateUser(ctx, "goal-finish", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Finish this book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, book.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, book.ID)
+	if err != nil || result.Goal.ReadingFinishedAt == nil || result.Campaign != nil || len(result.Graduated) != 0 {
+		t.Fatalf("reading-only finish=%+v err=%v", result, err)
+	}
+	finishedAt := *result.Goal.ReadingFinishedAt
+	persisted, err := store.GetPrimaryGoal(ctx, owner.ID)
+	if err != nil || persisted.ReadingFinishedAt == nil || !persisted.ReadingFinishedAt.Equal(finishedAt) {
+		t.Fatalf("persisted finish=%+v err=%v", persisted, err)
+	}
+
+	repeated, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, book.ID)
+	if err != nil || repeated.Goal.ReadingFinishedAt == nil || !repeated.Goal.ReadingFinishedAt.Equal(finishedAt) {
+		t.Fatalf("idempotent finish=%+v err=%v", repeated, err)
+	}
+	if _, err = store.FinishReadingPrimaryGoal(ctx, owner.ID, "stale-book"); !errors.Is(err, ErrGoalStale) {
+		t.Fatalf("stale finish error=%v", err)
+	}
+
+	replacement, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Next book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if goal, err := store.CreatePrimaryGoal(ctx, owner.ID, replacement.ID); err != nil || goal.BookID != replacement.ID || goal.ReadingFinishedAt != nil {
+		t.Fatalf("new Goal after finish=%+v err=%v", goal, err)
+	}
+}

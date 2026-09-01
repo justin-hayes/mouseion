@@ -29,6 +29,10 @@ type journeyBookView struct {
 	StatisticsUnavailable bool
 }
 
+func primaryGoalIsActive(goal domain.PrimaryGoal) bool {
+	return goal.BookID != "" && goal.ReadingFinishedAt == nil
+}
+
 func journeyBookClass(primary bool) string {
 	if primary {
 		return "resource-card journey-book journey-book--goal"
@@ -196,7 +200,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 		return deckJourneyActionView{}, err
 	}
 	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, Revision: journey.Revision, State: deckJourneyNotMember}
-	if goal.BookID == bookID {
+	if primaryGoalIsActive(goal) && goal.BookID == bookID {
 		action.State = deckJourneyGoal
 		return action, nil
 	}
@@ -338,7 +342,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 	}
 
 	view := journeyPageView{Revision: journey.Revision}
-	if goal.BookID != "" {
+	if primaryGoalIsActive(goal) {
 		book, bookErr := h.journeyBook(ctx, owner, goal.BookID, bookByID)
 		if bookErr != nil {
 			return journeyPageView{}, bookErr

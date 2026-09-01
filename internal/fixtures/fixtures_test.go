@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -64,5 +65,33 @@ func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	}
 	if successes != 1 || stale != 1 {
 		t.Fatalf("concurrent move results successes=%d stale=%d", successes, stale)
+	}
+}
+
+func TestStorePrimaryGoalFinishFixturesCoverReadingOnlyResidualAndReviewed(t *testing.T) {
+	ctx := context.Background()
+	readingOnly := NewStore()
+	readingOnly.campaigns = nil
+	result, err := readingOnly.FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	if err != nil || result.Campaign != nil || result.ResidualVocabularyCount != 0 || result.Goal.ReadingFinishedAt == nil {
+		t.Fatalf("reading-only result=%+v err=%v", result, err)
+	}
+
+	residual, err := NewStore().FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	if err != nil || residual.Campaign == nil || residual.Campaign.Status != domain.CampaignActive || residual.ResidualVocabularyCount != 2 || len(residual.Graduated) != 0 {
+		t.Fatalf("residual result=%+v err=%v", residual, err)
+	}
+
+	reviewed := NewStore()
+	campaign, err := reviewed.GetLearningCampaign(ctx, OwnerID, CampaignID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = reviewed.UpdateLearningCampaignProgress(ctx, OwnerID, CampaignID, persistence.LearningCampaignExpectedState{}, domain.BookReading, domain.DeckReviewed); err != nil {
+		t.Fatal(err)
+	}
+	result, err = reviewed.FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	if err != nil || result.Campaign == nil || result.Campaign.Status != domain.CampaignComplete || len(result.Graduated) != 2 || result.ResidualVocabularyCount != 0 {
+		t.Fatalf("reviewed-before-finish result=%+v campaign-before=%+v err=%v", result, campaign, err)
 	}
 }

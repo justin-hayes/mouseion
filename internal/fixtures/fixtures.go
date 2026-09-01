@@ -50,6 +50,8 @@ type Store struct {
 	profiles        []domain.LanguageProfile
 	connections     []domain.OpdsConnection
 	preps           []domain.DeckPreparation
+	known           []domain.KnownVocabulary
+	campaignVocab   []domain.CampaignVocabulary
 	myBooks         []domain.MyBook
 	readingJourneys map[string]domain.ReadingJourney
 	primaryGoals    map[string]domain.PrimaryGoal
@@ -71,6 +73,8 @@ func NewStore() *Store {
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
+		known:         []domain.KnownVocabulary{{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}},
+		campaignVocab: fixtureCampaignVocabulary(),
 		readingJourneys: map[string]domain.ReadingJourney{
 			OwnerID: {
 				OwnerID: OwnerID, Revision: 1, UpdatedAt: fixtureJourneyTime,
@@ -139,7 +143,9 @@ func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob,
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
 func (s *Store) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
-	return []domain.KnownVocabulary{{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]domain.KnownVocabulary(nil), s.known...), nil
 }
 func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
 	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
@@ -168,6 +174,25 @@ func (s *Store) UpdateLearningCampaignProgress(_ context.Context, o, id string, 
 			c.BookProgress = b
 			c.DeckProgress = d
 			c.Status = domain.DeriveCampaignStatus(b, d)
+			now := time.Now()
+			if b == domain.BookFinished && c.BookFinishedAt == nil {
+				c.BookFinishedAt = &now
+			}
+			if d == domain.DeckReviewed && c.DeckReviewedAt == nil {
+				c.DeckReviewedAt = &now
+			}
+			if c.Status == domain.CampaignComplete && c.VocabularyGraduatedAt == nil {
+				c.CompletedAt = &now
+				c.VocabularyGraduatedAt = &now
+				for i := range s.campaignVocab {
+					if s.campaignVocab[i].CampaignID == c.ID && s.campaignVocab[i].GraduatedAt == nil {
+						s.campaignVocab[i].GraduatedAt = &now
+						if !fixtureKnown(s.known, s.campaignVocab[i]) {
+							s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-known-" + s.campaignVocab[i].CanonicalLemma, OwnerID: o, Language: s.campaignVocab[i].Language, CanonicalLemma: s.campaignVocab[i].CanonicalLemma, UPOS: s.campaignVocab[i].UPOS, Provenance: "Graduated from completed campaign", CreatedAt: now})
+						}
+					}
+				}
+			}
 			s.campaigns[i] = c
 			found = true
 			break
@@ -413,7 +438,15 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (doma
 		return domain.PrimaryGoal{}, errNotFound
 	}
 	if _, ok := s.primaryGoals[owner]; ok {
-		return domain.PrimaryGoal{}, persistence.ErrGoalExists
+		goal := s.primaryGoals[owner]
+		if goal.ReadingFinishedAt == nil {
+			return domain.PrimaryGoal{}, persistence.ErrGoalExists
+		}
+		goal.BookID = bookID
+		goal.ReadingFinishedAt = nil
+		goal.UpdatedAt = time.Now()
+		s.primaryGoals[owner] = goal
+		return goal, nil
 	}
 	now := time.Now()
 	goal.CreatedAt, goal.UpdatedAt = now, now
@@ -448,8 +481,68 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, expectedBookID string
 	if goal.BookID != expectedBookID {
 		return persistence.ErrGoalStale
 	}
+	if goal.ReadingFinishedAt != nil {
+		return persistence.ErrNotFound
+	}
 	delete(s.primaryGoals, owner)
 	return nil
+}
+
+// FinishReadingPrimaryGoal mirrors the production guard and keeps the browser
+// fixture useful for the finish receipt without pretending fixture data is a
+// source of vocabulary knowledge.
+func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookID string) (persistence.PrimaryGoalFinishResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, ok := s.primaryGoals[owner]
+	if !ok {
+		return persistence.PrimaryGoalFinishResult{}, persistence.ErrNotFound
+	}
+	if goal.BookID != expectedBookID {
+		return persistence.PrimaryGoalFinishResult{}, persistence.ErrGoalStale
+	}
+	result := persistence.PrimaryGoalFinishResult{Goal: goal}
+	if goal.ReadingFinishedAt != nil {
+		return result, nil
+	}
+	now := time.Now()
+	goal.ReadingFinishedAt = &now
+	goal.UpdatedAt = now
+	s.primaryGoals[owner] = goal
+	result.Goal = goal
+	for i := range s.campaigns {
+		campaign := &s.campaigns[i]
+		if campaign.OwnerID != owner || campaign.SourceMaterialID != expectedBookID || campaign.Status != domain.CampaignActive {
+			continue
+		}
+		campaign.BookProgress = domain.BookFinished
+		campaign.Status = domain.DeriveCampaignStatus(campaign.BookProgress, campaign.DeckProgress)
+		campaign.BookFinishedAt = &now
+		campaign.UpdatedAt = now
+		if campaign.Status == domain.CampaignComplete {
+			campaign.CompletedAt = &now
+			campaign.VocabularyGraduatedAt = &now
+			for i := range s.campaignVocab {
+				if s.campaignVocab[i].CampaignID == campaign.ID && s.campaignVocab[i].GraduatedAt == nil {
+					s.campaignVocab[i].GraduatedAt = &now
+					if !fixtureKnown(s.known, s.campaignVocab[i]) {
+						result.Graduated = append(result.Graduated, s.campaignVocab[i])
+						s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-known-" + s.campaignVocab[i].CanonicalLemma, OwnerID: owner, Language: s.campaignVocab[i].Language, CanonicalLemma: s.campaignVocab[i].CanonicalLemma, UPOS: s.campaignVocab[i].UPOS, Provenance: "Graduated from completed campaign", CreatedAt: now})
+					}
+				}
+			}
+		}
+		if campaign.Status == domain.CampaignActive {
+			for _, vocabulary := range s.campaignVocab {
+				if vocabulary.CampaignID == campaign.ID && vocabulary.GraduatedAt == nil && !fixtureKnown(s.known, vocabulary) {
+					result.ResidualVocabularyCount++
+				}
+			}
+		}
+		result.Campaign = campaign
+		break
+	}
+	return result, nil
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
@@ -497,6 +590,23 @@ func fixtureCampaigns() []domain.LearningCampaign {
 		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})
 	}
 	return campaigns
+}
+
+func fixtureCampaignVocabulary() []domain.CampaignVocabulary {
+	return []domain.CampaignVocabulary{
+		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
+		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
+		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
+	}
+}
+
+func fixtureKnown(known []domain.KnownVocabulary, vocabulary domain.CampaignVocabulary) bool {
+	for _, item := range known {
+		if item.Language == vocabulary.Language && item.CanonicalLemma == vocabulary.CanonicalLemma && (item.UPOS == vocabulary.UPOS || item.UPOS == "") {
+			return true
+		}
+	}
+	return false
 }
 
 type AuthStore struct {

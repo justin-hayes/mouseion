@@ -10,10 +10,11 @@ import (
 // Analysis, deck preparation, reading progress, and vocabulary work are
 // independent of the Goal and may not exist yet.
 type PrimaryGoal struct {
-	OwnerID   string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OwnerID           string
+	BookID            string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ReadingFinishedAt *time.Time
 }
 
 // Validate checks the owner- and book-scoped identity of a Goal.
