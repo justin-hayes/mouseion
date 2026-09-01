@@ -1,17 +1,16 @@
 # Interface components
 
-Status: **Established implementation components plus canonical target patterns.**
-Target patterns for My Books / Reading Journey / Primary Goal define reusable
-interaction guidance, not settled Templ boundaries or persistence behavior.
-They require planner/ADR reconciliation before implementation.
+Status: **Established implementation components plus shipped learner-facing
+patterns.** Workflow-specific Journey and Primary Goal markup may remain in the
+owning views; ADRs define persistence and historical behavior.
 
 This document defines Mouseion's reusable server-rendered interface patterns.
 Established patterns are the durable contract between product design, Templ
-markup, shared CSS, and accessibility tests. Canonical target patterns document
-shared user goals and behavior before implementation chooses exact component
-boundaries. This document complements the semantic tokens and responsive rules
-in [`design-system.md`](design-system.md); it does not define product lifecycle
-or storage behavior.
+markup, shared CSS, and accessibility tests. The shipped My Books, Reading
+Journey, and Primary Goal surfaces use these patterns even where exact component
+boundaries remain workflow-specific. This document complements the semantic
+tokens and responsive rules in [`design-system.md`](design-system.md); it does
+not define product lifecycle or storage behavior.
 
 ## Implementation boundary
 
@@ -38,21 +37,21 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | Current library, book, scope review, Campaign, Jobs, Settings |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | Current library, target My Books, book detail, scope review |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, book, scope review, Campaign history, Jobs, Settings |
+| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, book detail, scope review |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Phase 3 contract           | Book and scope review                                      |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Settings       |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Settings                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Current library, book actions, prepared books, Campaign, Settings |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Campaign history, Settings |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and campaigns                                   |
 | `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Book text profile, coverage, thresholds, projections       |
 | `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Campaign progress                                          |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and known vocabulary                                  |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
-| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Current Campaign and catalog connections                   |
+| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Campaign history and catalog connections                   |
 
-## Canonical target patterns
+## Canonical shipped patterns
 
 These names describe durable interaction purposes. They do not require a
 one-pattern/one-Templ-component implementation.
@@ -168,12 +167,12 @@ how can I reach the main task quickly?
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are My Books,
 Reading Journey, and Settings; Add books is a distinguishable workflow action.
-Primary Goal belongs inside Reading Journey. Current-route compatibility may be
-staged, but the shell must not expose both Learning and Reading Journey as peers.
+Primary Goal belongs inside Reading Journey. The shipped shell marks the current
+context while compatibility routes redirect without exposing Learning as a peer
+destination.
 
-The established shell provides landmarks and skip navigation. Its current
-`Layout` call does not receive route context, so indicating the active
-destination remains an implementation gap; do not infer it from the page title.
+The established shell provides landmarks, skip navigation, and explicit route
+context for the active destination or workflow action.
 
 ### `PageHeader`
 
@@ -298,13 +297,12 @@ must continue to state that eligible assigned vocabulary becomes known and that
 the transition cannot currently be undone. Current Campaign abandonment must
 state that deck/history remain while reservations are released.
 
-The target Primary Goal workflow must not relabel those current mutations before
-planner/ADR reconciliation. Once reconciled, confirmations name independent
-facts: finishing reading, completing the justified vocabulary transition, or
-ending/changing a Goal. They never imply that reading alone adds vocabulary to
-known.
+The shipped Primary Goal workflow names independent facts: finishing reading,
+completing the justified vocabulary transition, or ending/changing a Goal.
+Campaign completion and abandonment remain secondary operations, and
+confirmations never imply that reading alone adds vocabulary to known.
 
-## Canonical target pattern contracts
+## Shipped pattern contracts
 
 ### `BibliographicBookItem`
 

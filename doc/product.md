@@ -2,7 +2,27 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current and projected vocabulary coverage, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, learning campaigns, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current and projected vocabulary coverage, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+
+## Current learner-facing organization
+
+The authenticated shell has exactly three primary destinations: **My Books** at
+`/library`, **Reading Journey** at `/journey`, and **Settings** at `/settings`.
+The distinct **Add books** action at `/connections` enters catalog setup and
+browsing; it is not a fourth destination. `/` redirects to My Books, and the
+compatibility route `GET /campaigns` redirects to Reading Journey. Campaign
+history and operations remain available as a secondary section on Reading
+Journey for prepared-deck actions, reading/preparation facts, and vocabulary
+provenance; Campaign is not a second learner-facing plan.
+
+Settings owns saved study-language preferences and owner-scoped, language-scoped
+known vocabulary. Known-vocabulary import is explicit and additive: the learner
+chooses a saved study language and uploads a UTF-8 lemma file, with new,
+duplicate, and rejected rows reported separately. The direct `/known-vocab`
+route remains a compatibility redirect to the Settings section. When NLP
+capability discovery is degraded, saved preferences and known-vocabulary
+viewing remain available while adding a newly discovered study language is
+disabled until readiness can be checked.
 
 ## Feature specifications
 

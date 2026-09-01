@@ -1,10 +1,9 @@
 # Book analysis and deck workflow
 
-Status: **Canonical supporting workflow.** Analysis and deck preparation serve a
-book and, when present, its Primary Goal. The shipped Campaign queue remains
-contract-bound by ADR 0027; replacing its learner-facing transition requires
-the planner/ADR reconciliation in
-[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
+Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
+serve a book and, when present, its Primary Goal. Campaign remains a secondary
+history/operations concept under ADRs 0027, 0034, and 0036; it is not a second
+learner-facing plan.
 
 ## Goal
 
@@ -30,8 +29,9 @@ It ends with either:
   book or its Primary Goal.
 
 Neither outcome adds the book to Reading Journey, selects a Primary Goal, marks
-reading complete, or marks vocabulary known. The current internal Campaign
-completion remains the graduation boundary defined by ADR 0027.
+reading complete, or marks vocabulary known. Campaign operations remain
+secondary, and vocabulary graduation follows the single justified transition
+defined by ADR 0036.
 
 ## Primary path
 
@@ -60,13 +60,13 @@ entry in place. It does not start analysis, confirm a scope, add the book to
 Reading Journey, choose a Primary Goal, prepare a deck, or mark vocabulary
 known.
 
-The current feature contract and shipped copy say **Add to library**. The target
-label must not ship before the broader My Books contract is reconciled.
+Historical compatibility artifacts may say **Add to library**, but the shipped
+acquisition control says **Add to My Books**.
 
 The interface must answer:
 
 - Was this EPUB added successfully?
-- Was it already in my library?
+- Was it already in My Books?
 - Can I continue adding books without losing feed context?
 - If acquisition failed, what can I do next?
 

@@ -1,11 +1,8 @@
 # Terminology
 
-Status: **Canonical learner-facing design language.** Terms that conflict with
-accepted feature documents or ADRs are design changes awaiting the
-planner/ADR work listed in
-[`information-architecture.md`](information-architecture.md#contract-changes-requiring-planneradr-work).
-They must not be implemented by relabeling a control while preserving
-contradictory behavior.
+Status: **Canonical shipped learner-facing design language.** Terms that remain
+historical or internal are identified explicitly; they must not become active
+learner-facing navigation or plan labels.
 
 Use these terms consistently in navigation, headings, actions, status messages,
 future feature documents, and tests. Backend names may remain in code, APIs,
@@ -41,10 +38,10 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. The existing
-acquisition contract uses **Add to library** and only stores owned EPUBs;
-promoting **Add to My Books** and a broader collection requires planner/feature
-contract work rather than a copy-only change.
+upload unless a shipped route and feature contract support it. The shipped
+acquisition control says **Add to My Books** and creates or restores membership
+after the validated EPUB snapshot is persisted. Historical compatibility
+artifacts may retain **Add to library**.
 
 ## Scope and analysis
 
@@ -99,11 +96,10 @@ Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
 and vocabulary knowledge remain independent facts.
 
-Current ADR 0027 combines book-finished and deck-reviewed conditions into one
-Campaign completion that graduates vocabulary. The canonical experience must
-present those facts in ordinary reading language, but changing or splitting the
-underlying transition requires planner/ADR work. Until then, do not imply that
-**Reading finished** alone changes known vocabulary.
+ADR 0036 supersedes the learner-facing completion and graduation semantics of
+ADR 0027. The canonical experience presents reading-finished and deck-reviewed
+as independent facts, and only the justified transition graduates vocabulary.
+Do not imply that **Reading finished** alone changes known vocabulary.
 
 ## Coverage and projection
 

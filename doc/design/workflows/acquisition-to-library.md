@@ -1,12 +1,10 @@
 # Acquisition to My Books workflow
 
-Status: **Canonical learner-facing design workflow.** The shipped acquisition
-contract currently uses **Add to library** and stores acquired EPUBs. The target
-label **Add to My Books** ships with the staged implementation of
-[ADR 0035](../../adr/0035-my-books-membership-and-source-provenance.md), not as a
-copy-only change. This workflow acquires an EPUB while creating or restoring My
-Books membership; My Books can also contain metadata-only Books outside this
-acquisition path.
+Status: **Canonical shipped learner-facing workflow.** The acquisition control
+says **Add to My Books** and creates or restores owner-scoped My Books membership
+after the validated EPUB snapshot is persisted. My Books can also contain
+metadata-only Books outside this acquisition path. The historical **Add to
+library** label may remain in compatibility artifacts.
 
 ## Goal
 
