@@ -84,8 +84,11 @@ func goalCardView(goal *journeyBookView, residual *goalResidualView) journeyBook
 }
 
 func goalSectionFocusID(bookID string) string {
+	// On full-page renders no HTMX swap will run, so an empty focus target keeps
+	// the section free of a stale data-focus-id that could redirect attention
+	// during a later provisional-list swap. Only HTMX responses name a target.
 	if bookID == "" {
-		return "primary-goal-section"
+		return ""
 	}
 	return journeyBookAnchorID(bookID)
 }

@@ -329,7 +329,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
 		</div>
 	} else {
-		<div class="action-group">
+		<div class="goal-card__actions">
 			if item.GoalResidual != nil {
 				@Confirmation("Clear Primary Goal", "The active campaign and its reserved vocabulary stay unchanged. Graduate or abandon the residual work from Campaign history & operations.", StatusWarning) {
 					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
