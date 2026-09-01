@@ -56,7 +56,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 
 	// The Goal is not a reorder target, even if a caller bypasses the rendered
 	// controls and posts directly to this endpoint.
-	if bookID == goal.BookID {
+	if primaryGoalIsActive(goal) && bookID == goal.BookID {
 		h.redirectJourneyMove(w, r, bookID, "did not move")
 		return
 	}

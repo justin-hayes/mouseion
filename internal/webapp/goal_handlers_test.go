@@ -224,3 +224,102 @@ func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.
 		t.Fatalf("idempotent clear=%d location=%q", clearedAgain.Code, clearedAgain.Header().Get("Location"))
 	}
 }
+
+func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	finished := goalRequest(t, h, "/goal/finish", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	}, cookies)
+	if finished.Code != http.StatusOK {
+		t.Fatalf("finish=%d body=%s", finished.Code, finished.Body.String())
+	}
+	for _, want := range []string{
+		"Reading finished",
+		"Vocabulary transition",
+		"No vocabulary was added to known vocabulary",
+		"Vocabulary work remains",
+		"2 ungraduated identities remain reserved",
+		"Reading Journey recalculated",
+		"Where next?",
+		"No new Primary Goal has been selected",
+		"conditional-projected coverage",
+		"Choose another book from My Books",
+	} {
+		if !strings.Contains(finished.Body.String(), want) {
+			t.Errorf("finish outcome missing %q: %s", want, finished.Body.String())
+		}
+	}
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
+	if err != nil || goal.ReadingFinishedAt == nil {
+		t.Fatalf("finished Goal=%+v err=%v", goal, err)
+	}
+	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID); err != nil || goal.BookID != fixtures.BookID {
+		t.Fatalf("finished Goal history=%+v err=%v", goal, err)
+	}
+
+	repeated := goalRequest(t, h, "/goal/finish", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	}, cookies)
+	if repeated.Code != http.StatusOK || !strings.Contains(repeated.Body.String(), "Reading finished") {
+		t.Fatalf("idempotent finish=%d body=%s", repeated.Code, repeated.Body.String())
+	}
+}
+
+func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	stale := goalRequest(t, h, "/goal/finish", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {"stale-book"},
+	}, cookies)
+	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed") {
+		t.Fatalf("stale finish=%d location=%q", stale.Code, stale.Header().Get("Location"))
+	}
+	missingCSRF := goalRequest(t, h, "/goal/finish", url.Values{"expected_goal_book_id": {fixtures.BookID}}, cookies)
+	if missingCSRF.Code != http.StatusForbidden {
+		t.Fatalf("missing csrf finish=%d body=%s", missingCSRF.Code, missingCSRF.Body.String())
+	}
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
+	if err != nil || goal.ReadingFinishedAt != nil {
+		t.Fatalf("rejected finish changed Goal=%+v err=%v", goal, err)
+	}
+}
+
+func TestPrimaryGoalFinishOutcomeDistinguishesGraduationAndConditionalEvidence(t *testing.T) {
+	count := 2
+	graduated := primaryGoalFinishView{
+		BookTitle: "Finished book",
+		Campaign:  &domain.LearningCampaign{VocabularyGraduatedAt: timePtr(time.Now())},
+		Graduated: []domain.CampaignVocabulary{{CanonicalLemma: "gehen", UPOS: "VERB"}},
+		Evidence: []finishEvidenceView{{
+			Book:            testJourneyBook("next", "Next book", "analyzed"),
+			Changed:         true,
+			BeforeLabel:     "Current evidence",
+			BeforeCurrent:   "40.0%",
+			BeforeProjected: "60.0%",
+			AfterLabel:      "Current evidence",
+			AfterCurrent:    "50.0%",
+			AfterProjected:  "70.0%",
+		}},
+	}
+	var output bytes.Buffer
+	if err := PrimaryGoalFinish(graduated, "csrf").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"exactly 1 eligible vocabulary identities", "gehen (VERB)", "Before:", "Now — Current evidence", "Where next?"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("graduation outcome missing %q: %s", want, output.String())
+		}
+	}
+
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: count, Campaign: &domain.LearningCampaign{Status: domain.CampaignActive}}
+	output.Reset()
+	if err := PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"No vocabulary was added to known vocabulary", "future effect is conditional", "No new Primary Goal has been selected"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("residual outcome missing %q: %s", want, output.String())
+		}
+	}
+}
+
+func timePtr(value time.Time) *time.Time { return &value }

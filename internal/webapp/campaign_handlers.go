@@ -42,7 +42,11 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goal.BookID))
+	goalBookID := ""
+	if primaryGoalIsActive(goal) {
+		goalBookID = goal.BookID
+	}
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID))
 }
 
 func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {

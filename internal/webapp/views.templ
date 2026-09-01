@@ -263,6 +263,74 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		</section>
 	}
 }
+
+templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFinishView) {
+	@ShellLayout("Reading finished", &user, csrf, NavigationReadingJourney) {
+		@PrimaryGoalFinish(outcome, csrf)
+	}
+}
+
+templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
+	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome">
+		<h1 id="primary-goal-finish-heading">Reading finished</h1>
+		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
+		if outcome.Error != "" {
+			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ outcome.Error }</p></article>
+		}
+		<ol class="finish-outcome" aria-label="Reading finish outcome">
+			<li>
+				<h2>Reading finished</h2>
+				<p>{ outcome.BookTitle } is recorded as finished reading. This does not complete the Reading Journey or establish vocabulary knowledge.</p>
+			</li>
+			<li>
+				<h2>Vocabulary transition</h2>
+				<p>{ finishGraduationText(outcome) }</p>
+				if len(outcome.Graduated) > 0 {
+					<p>Identities added to known vocabulary:</p>
+					<ul>
+						for _, item := range outcome.Graduated {
+							<li>{ finishGraduatedIdentity(item) }</li>
+						}
+					</ul>
+				}
+				if outcome.Campaign != nil && outcome.ResidualVocabulary > 0 {
+					<p>Continue or abandon this residual campaign from Campaign history &amp; operations. Its prepared deck and reservation remain part of history.</p>
+				}
+			</li>
+			<li>
+				<h2>Reading Journey recalculated</h2>
+				if outcome.Error == "" {
+					if len(outcome.Evidence) == 0 {
+						<p>No remaining Journey books have evidence to show. The order remains available for editing.</p>
+					}
+					for _, item := range outcome.Evidence {
+						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
+							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ journeyBookTitle(item.Book.Book) }</h3>
+							if item.Changed {
+								<p><strong>Before:</strong> { item.BeforeLabel }; current coverage { item.BeforeCurrent }; conditional-projected coverage { item.BeforeProjected }.</p>
+							}
+							<p><strong>Now — { item.AfterLabel }:</strong> current coverage { item.AfterCurrent }; conditional-projected coverage { item.AfterProjected }.</p>
+						</section>
+					}
+				}
+			</li>
+			<li>
+				<h2>Where next?</h2>
+				<p>Choose what you want to do next. No new Primary Goal has been selected.</p>
+				<div class="action-group">
+					if len(outcome.Journey.Provisional) > 0 {
+						<p><strong>First in your current order:</strong> { journeyBookTitle(outcome.Journey.Provisional[0].Book) }</p>
+						<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
+					}
+					<a role="button" class="outline" href="/journey">Reorder Reading Journey</a>
+					<a role="button" class="outline" href="/library">Choose another book from My Books</a>
+					<a href="/journey">Pause without a new Goal</a>
+				</div>
+				<p><a href="/journey">Return to the recalculated Reading Journey</a></p>
+			</li>
+		</ol>
+	</section>
+}
 templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {
 	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
 		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
@@ -330,6 +398,9 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		</div>
 	} else {
 		<div class="goal-card__actions">
+			@Confirmation("Mark reading finished", "Record the reading achievement. Vocabulary is changed only when the associated prepared deck has been reviewed.", StatusNeutral) {
+				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit">Mark reading finished</button></form>
+			}
 			if item.GoalResidual != nil {
 				@Confirmation("Clear Primary Goal", "The active campaign and its reserved vocabulary stay unchanged. Graduate or abandon the residual work from Campaign history & operations.", StatusWarning) {
 					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>

@@ -158,16 +158,21 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	title := h.goalBookTitle(r.Context(), owner, bookID)
-	if current.BookID == bookID {
+	currentActive := primaryGoalIsActive(current)
+	if currentActive && current.BookID == bookID {
 		h.respondGoal(w, r, title+" is already your Primary Goal.", "", bookID)
 		return
 	}
-	if current.BookID != "" && current.BookID != expectedBookID {
+	if currentActive && current.BookID != expectedBookID {
 		h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
 		return
 	}
 	previousResidual := h.currentGoalResidual(r.Context(), owner, current.BookID)
-	if current.BookID == "" {
+	if !currentActive {
+		if current.ReadingFinishedAt != nil && expectedBookID != "" && expectedBookID != current.BookID {
+			h.respondGoal(w, r, "", goalStaleMessage, "")
+			return
+		}
 		if expectedBookID != "" {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 			return
@@ -217,7 +222,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	message := title + " is your Primary Goal."
-	if previousResidual != nil && current.BookID != "" {
+	if previousResidual != nil && currentActive {
 		message += " Its active campaign and reserved vocabulary are unchanged; resolve them from Campaign history & operations."
 	}
 	h.respondGoal(w, r, message, "", bookID)

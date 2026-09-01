@@ -12,6 +12,11 @@ import (
 
 const learningCampaignColumns = `id::text,owner_id::text,source_material_id::text,deck_preparation_id::text,book_status,deck_status,status,created_at,updated_at,activated_at,book_finished_at,deck_reviewed_at,completed_at,abandoned_at,vocabulary_graduated_at`
 
+// learningCampaignColumnsC is learningCampaignColumns qualified with the
+// learning_campaigns alias, for queries that join another table carrying the
+// same column names (e.g. source_materials).
+const learningCampaignColumnsC = `c.id::text,c.owner_id::text,c.source_material_id::text,c.deck_preparation_id::text,c.book_status,c.deck_status,c.status,c.created_at,c.updated_at,c.activated_at,c.book_finished_at,c.deck_reviewed_at,c.completed_at,c.abandoned_at,c.vocabulary_graduated_at`
+
 // LearningCampaignExpectedState is the state rendered with a campaign
 // mutation form. It is checked while the campaign row is locked, before any
 // mutation in that transaction, so an old form cannot overwrite newer state.
