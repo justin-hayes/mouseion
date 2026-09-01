@@ -57,6 +57,30 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
   });
 
+  test('ready decks show truthful Primary Goal and Journey membership actions', async ({ page }) => {
+    await page.goto('/deck-preparations/fixture-preparation/status');
+    await expect(page.getByText('Primary Goal.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
+    await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
+
+    await page.goto('/deck-preparations/fixture-journey-preparation/status');
+    await expect(page.getByText('In Reading Journey.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View this Journey entry' })).toHaveAttribute('href', '/journey#journey-book-fixture-empty');
+    await expect(page.getByRole('button', { name: 'Add to Reading Journey' })).toHaveCount(0);
+
+    await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
+    const addToJourney = page.getByRole('button', { name: 'Add to Reading Journey' });
+    if (await addToJourney.count() > 0) {
+      // First project run: the book starts outside the Journey.
+      await expect(page.getByText('Not in Reading Journey.', { exact: false })).toBeVisible();
+      await addToJourney.click();
+    }
+    // Idempotent end state for every project run over the shared fixture server:
+    // the book is (or just became) a Journey member, linked to its exact entry.
+    await expect(page.getByText('In Reading Journey.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View this Journey entry' })).toHaveAttribute('href', '/journey#journey-book-fixture-failed');
+  });
+
   test('acquisition, Reading Journey, Settings, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/connections');
     await expect(page.getByText('Fixture catalog')).toBeVisible();

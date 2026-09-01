@@ -81,9 +81,9 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
     html += '<progress aria-label="Deck preparation progress" value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
     if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';
     if (preparation.ready) {
-      var c = preparation.completeness || {};
-      html += '<p><strong>Completeness:</strong> ' + Number(c.total_cards || 0) + ' cards · ' + Number(c.cards_with_english || 0) + ' with English · ' + Number(c.cards_with_contextual_sentence_translations || 0) + ' with contextual sentence translations · ' + Number(c.quality_omissions || 0) + ' omitted for sentence quality.</p>';
-      html += '<a role="button" download href="' + window.escapeHtml(preparation.download_url) + '">Download deck</a> <a role="button" class="outline" href="/journey">Review campaign operations</a>';
+      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request': 'true'}});
+      if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));
+      target.outerHTML = await readyResponse.text(); return;
     } else if (active) {
       html += '<button type="button" class="outline secondary" data-cancel-preparation>Cancel preparation</button>';
     } else {
@@ -245,7 +245,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			if len(journey.Prepared) > 0 {
 				<h3>Prepared books and decks</h3><div class="campaign-list">
 				for _, item := range journey.Prepared {
-					<article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div><form method="post" action="/campaigns"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="deck_preparation_id" value={ item.Deck.ID }/><button>Make available for campaign operations</button></form></article>
+                    <article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div></article>
 				}
 				</div>
 			}
@@ -472,10 +472,10 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 }
 
 templ AnalysisResultPage(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool) {
-	@AnalysisResultPageWithPreparation(user, csrf, result, coverage, statisticsUnavailable, nil)
+	@AnalysisResultPageWithPreparation(user, csrf, result, coverage, statisticsUnavailable, nil, emptyDeckJourneyAction())
 }
 
-templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, preparation *domain.DeckPreparation) {
+templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
 	@ShellLayout("Analysis result · "+result.Source.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/books/"+result.Source.ID, result.Source.Title)
 		@PageHeader("Analysis result", result.Source.Title+" · "+result.Source.Language, StatusBadge("Completed", StatusSuccess))
@@ -568,7 +568,7 @@ templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result an
 			<section aria-labelledby="result-deck-heading"><h2 id="result-deck-heading">Prepare deck</h2>
 				<p>This optional preparation uses only this exact completed analysis and its immutable scope. It does not start a learning campaign.</p>
 				if preparation != nil {
-					@DeckPreparationStatus(csrf, *preparation, analysisResultURL(result))
+					@DeckPreparationStatus(csrf, *preparation, analysisResultURL(result), journeyAction)
 				} else {
 					<form method="post" action={ templ.SafeURL(analysisDeckPreparationURL(result)) } data-prepare-deck>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -588,7 +588,7 @@ templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result an
 	}
 }
 
-templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string) {
+templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
 	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
 		if resultURL != "" {
 			@Breadcrumb(resultURL, "Analysis result")
@@ -596,11 +596,11 @@ templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domai
 			@Breadcrumb("/books/"+preparation.SourceMaterialID, "Book")
 		}
 		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationStatusLabel(preparation.State), statusTone(string(preparation.State))))
-		@DeckPreparationStatus(csrf, preparation, resultURL)
+		@DeckPreparationStatus(csrf, preparation, resultURL, journeyAction)
 	}
 }
 
-templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resultURL string) {
+templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
 	@AsyncStatus(deckPreparationAttributes(preparation), "deck-preparation-status", deckPreparationTitle(preparation), deckPreparationSummary(preparation), preparationProgress(preparation), 100, deckPreparationActive(preparation)) {
 		if resultURL != "" {
 			<p><a href={ templ.SafeURL(resultURL) }>Return to analysis result</a></p>
@@ -618,8 +618,8 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
 			@ActionGroup() {
 				<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-				<a role="button" class="outline" href="/journey">Review campaign operations</a>
 			}
+			@DeckJourneyAction(journeyAction, csrf)
 		} else if deckPreparationActive(preparation) {
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
 		} else {
@@ -1420,4 +1420,37 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			}
 			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Known vocabulary settings to retry the import</a></p>
 		}
+}
+
+templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
+	if action.State != deckJourneyUnknown {
+		<div id={ deckJourneyActionID(action.BookID) } role="status" aria-live="polite" aria-atomic="true">
+			if action.Message != "" {
+				if strings.Contains(action.Message, "changed since") {
+					<p role="alert">{ action.Message }</p>
+				} else {
+					<p role="status">{ action.Message }</p>
+				}
+			}
+			if action.Error != "" {
+				<p role="alert">{ action.Error }</p>
+			}
+			if action.State == deckJourneyNotMember {
+				<p><strong>Not in Reading Journey.</strong> Add this book to your provisional Reading Journey when you are ready.</p>
+				<form method="post" action={ templ.SafeURL(deckJourneyAddURL(action.BookID)) } hx-post={ templ.SafeURL(deckJourneyAddURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
+					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", action.Revision) }/>
+					if action.PreparationID != "" {
+						<input type="hidden" name="deck_preparation_id" value={ action.PreparationID }/>
+					}
+					<button type="submit">Add to Reading Journey</button>
+				</form>
+			} else if action.State == deckJourneyMember {
+				<p><strong>In Reading Journey.</strong> This book is already in your Reading Journey.</p>
+				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View this Journey entry</a></p>
+			} else if action.State == deckJourneyGoal {
+				<p><strong>Primary Goal.</strong> This deck is preparation for your current Primary Goal.</p>
+				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View Primary Goal in Reading Journey</a></p>
+			}
+		</div>
+	}
 }

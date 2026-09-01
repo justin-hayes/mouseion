@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -111,6 +113,144 @@ type journeyPageView struct {
 	Revision    int64
 	Campaigns   []campaignView
 	Prepared    []preparedCampaignOption
+}
+
+type deckJourneyState string
+
+const (
+	deckJourneyUnknown   deckJourneyState = ""
+	deckJourneyNotMember deckJourneyState = "not-member"
+	deckJourneyMember    deckJourneyState = "member"
+	deckJourneyGoal      deckJourneyState = "primary-goal"
+)
+
+type deckJourneyActionView struct {
+	BookID        string
+	PreparationID string
+	Revision      int64
+	State         deckJourneyState
+	Message       string
+	Error         string
+}
+
+func emptyDeckJourneyAction() deckJourneyActionView {
+	return deckJourneyActionView{State: deckJourneyUnknown}
+}
+
+func deckJourneyActionID(bookID string) string {
+	return "deck-preparation-journey-action-" + bookID
+}
+
+func deckJourneyAddURL(bookID string) string {
+	return "/journey/books/" + url.PathEscape(bookID) + "/add"
+}
+
+func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, Revision: journey.Revision, State: deckJourneyNotMember}
+	if goal.BookID == bookID {
+		action.State = deckJourneyGoal
+		return action, nil
+	}
+	for _, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			action.State = deckJourneyMember
+			break
+		}
+	}
+	return action, nil
+}
+
+func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string, expectedRevision int64) (deckJourneyActionView, error) {
+	action, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	// A Primary Goal is intentionally not changed by a ready-deck action. This
+	// guard also keeps a forged direct POST from adding or reordering the Goal.
+	if action.State == deckJourneyGoal {
+		return action, nil
+	}
+	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, bookID, expectedRevision); err != nil {
+		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
+		if refreshErr != nil {
+			return deckJourneyActionView{}, refreshErr
+		}
+		if errors.Is(err, persistence.ErrJourneyStale) {
+			refreshed.Message = journeyStaleMessage
+			return refreshed, nil
+		}
+		refreshed.Error = "The book could not be added to Reading Journey. No Journey changes were made; try again."
+		return refreshed, nil
+	}
+	refreshed, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	if refreshed.State == deckJourneyMember {
+		if action.State == deckJourneyMember {
+			refreshed.Message = "This book is already in your Reading Journey."
+		} else {
+			refreshed.Message = "Book added to Reading Journey."
+		}
+	}
+	return refreshed, nil
+}
+
+func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	bookID := r.PathValue("id")
+	preparationID := strings.TrimSpace(r.FormValue("deck_preparation_id"))
+	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
+	if err != nil {
+		if isHTMX(r) {
+			action, actionErr := h.deckJourneyAction(r.Context(), owner, preparationID, bookID)
+			if actionErr != nil {
+				fail(w, actionErr)
+				return
+			}
+			action.Message = journeyStaleMessage
+			render(w, r, DeckJourneyAction(action, h.csrf(w, r)))
+			return
+		}
+		h.redirectDeckJourneyAction(w, r, "", journeyStaleMessage)
+		return
+	}
+	action, err := h.addBookToReadingJourney(r.Context(), owner, preparationID, bookID, expectedRevision)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if isHTMX(r) {
+		render(w, r, DeckJourneyAction(action, h.csrf(w, r)))
+		return
+	}
+	h.redirectDeckJourneyAction(w, r, action.Message, action.Error)
+}
+
+func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Request, message, pageError string) {
+	location := "/journey"
+	query := url.Values{}
+	if message != "" {
+		query.Set("message", message)
+	}
+	if pageError != "" {
+		query.Set("error", pageError)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		location += "?" + encoded
+	}
+	redirect(w, r, location)
 }
 
 func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {

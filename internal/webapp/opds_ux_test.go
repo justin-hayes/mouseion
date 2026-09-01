@@ -576,11 +576,10 @@ func TestPrepareDeckFormRendersAccessibleAsynchronousWorkflow(t *testing.T) {
 		`preparation.state === 'preparing'`,
 		`data-cancel-preparation`,
 		`data-retry-preparation`,
-		`preparation.completeness`,
 		`preparation.deck_name`,
 		`preparation.filename`,
-		`preparation.download_url`,
-		`Download deck`,
+		`Accept': 'text/html'`,
+		`'HX-Request': 'true'`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("deck page missing client behavior %q", want)

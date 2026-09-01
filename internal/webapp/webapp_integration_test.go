@@ -1190,13 +1190,12 @@ func TestLearningCampaignQueueViewsActivationAndOwnership(t *testing.T) {
 	if err != nil || len(ready) != 4 {
 		t.Fatalf("ready preparations=%+v, %v", ready, err)
 	}
-	if got := perform(t, h, "POST", "/campaigns", url.Values{"deck_preparation_id": {ready[0].ID}}, aliceCookies); got.Code != http.StatusForbidden {
-		t.Fatalf("queue without csrf=%d", got.Code)
+	if got := perform(t, h, "POST", "/campaigns", url.Values{"csrf_token": {aliceCSRF}, "deck_preparation_id": {ready[0].ID}}, aliceCookies); got.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("ready deck campaign creation route=%d, want 405", got.Code)
 	}
 	for _, preparation := range ready {
-		queued := perform(t, h, "POST", "/campaigns", url.Values{"csrf_token": {aliceCSRF}, "deck_preparation_id": {preparation.ID}}, aliceCookies)
-		if queued.Code != http.StatusSeeOther || !strings.HasPrefix(queued.Header().Get("Location"), "/journey?message=") {
-			t.Fatalf("queue=%d location=%q body=%s", queued.Code, queued.Header().Get("Location"), queued.Body.String())
+		if _, err = store.CreateLearningCampaign(ctx, alice.ID, preparation.SourceMaterialID, preparation.ID); err != nil {
+			t.Fatalf("campaign fixture setup=%v", err)
 		}
 	}
 	campaigns, err := store.ListLearningCampaigns(ctx, alice.ID)
@@ -1406,6 +1405,28 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	h.ServeHTTP(htmxRecorder, request)
 	if htmxRecorder.Code != http.StatusOK || !strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-list"`) || !strings.Contains(htmxRecorder.Body.String(), `aria-live="polite"`) || strings.Contains(htmxRecorder.Body.String(), "<!doctype html>") {
 		t.Fatalf("htmx reorder=%d body=%s", htmxRecorder.Code, htmxRecorder.Body.String())
+	}
+
+	journeyPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
+	journeyPageRevision := hiddenInputValue(t, journeyPage.Body.String(), "expected_revision")
+	addForm := func(revision string) url.Values {
+		return url.Values{"csrf_token": {csrf}, "expected_revision": {revision}, "deck_preparation_id": {"deck-for-" + notMember.ID}}
+	}
+	added := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(journeyPageRevision), aliceCookies)
+	if added.Code != http.StatusSeeOther || !strings.HasPrefix(added.Header().Get("Location"), "/journey?message=") {
+		t.Fatalf("add to Journey=%d location=%q body=%s", added.Code, added.Header().Get("Location"), added.Body.String())
+	}
+	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	if err != nil || len(journey.Entries) != 4 {
+		t.Fatalf("added Journey=%+v err=%v", journey.Entries, err)
+	}
+	repeated := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	if repeated.Code != http.StatusSeeOther || !strings.Contains(repeated.Header().Get("Location"), "already+in+your+Reading+Journey") {
+		t.Fatalf("idempotent add=%d location=%q", repeated.Code, repeated.Header().Get("Location"))
+	}
+	staleAdd := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(journeyPageRevision), aliceCookies)
+	if staleAdd.Code != http.StatusSeeOther || !strings.Contains(staleAdd.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
+		t.Fatalf("stale add=%d location=%q", staleAdd.Code, staleAdd.Header().Get("Location"))
 	}
 	// Keep Bob's authenticated session in this test to exercise the owner
 	// boundary through the same route.
