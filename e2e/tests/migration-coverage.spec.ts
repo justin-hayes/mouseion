@@ -35,6 +35,9 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
     await expect(page.locator('#campaign-operations-heading')).toContainText('Campaign history & operations');
     await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
+    // The advisory comparison is inside a collapsed disclosure; open it before
+    // asserting its current and conditional projected evidence.
+    await page.getByText('Show vocabulary-efficient alternative (optional comparison)').click();
     await expect(page.getByText(/current known-token coverage/i).first()).toBeVisible();
     await expect(page.getByText(/separate conditional projected variant/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
@@ -63,7 +66,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(goal.locator('form[action="/goal/finish"] input[name="expected_goal_book_id"]')).toHaveCount(1);
 
     await page.goto('/settings?language=de');
-    await expect(page.getByRole('heading', { name: 'Known vocabulary' })).toBeVisible();
+    await expect(page.locator('#known-vocabulary-heading')).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Explicitly recorded' }).first()).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Graduated from completed campaign' }).first()).toBeVisible();
     const languagePicker = page.locator('form.settings-language-picker select[name="language"]');
