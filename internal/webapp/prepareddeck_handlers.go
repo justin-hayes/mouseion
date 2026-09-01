@@ -172,11 +172,19 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	resultURL := preparationResultURL(p)
+	journeyAction := emptyDeckJourneyAction()
+	if p.State == domain.DeckPreparationReady {
+		journeyAction, err = h.deckJourneyAction(r.Context(), user(r).ID, p.ID, p.SourceMaterialID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
 	if r.Header.Get("HX-Request") == "true" {
-		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL))
+		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, journeyAction))
 		return
 	}
-	render(w, r, DeckPreparationStatusPage(user(r), h.csrf(w, r), p, resultURL))
+	render(w, r, DeckPreparationStatusPage(user(r), h.csrf(w, r), p, resultURL, journeyAction))
 }
 
 func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) {

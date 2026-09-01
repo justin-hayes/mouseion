@@ -107,35 +107,6 @@ func (h *Handler) campaigns(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, location, http.StatusMovedPermanently)
 }
 
-func (h *Handler) queueCampaign(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	if h.services.PreparedDeck == nil {
-		http.NotFound(w, r)
-		return
-	}
-	u := user(r)
-	deck, err := h.services.PreparedDeck.Get(r.Context(), u.ID, r.FormValue("deck_preparation_id"))
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		redirectCampaignMutationFailure(w, r, "The campaign could not be prepared. Your prepared deck was not changed; review Reading Journey and try again.")
-		return
-	}
-	if _, err = h.services.Store.CreateLearningCampaign(r.Context(), u.ID, deck.SourceMaterialID, deck.ID); err != nil {
-		if errors.Is(err, persistence.ErrInvalidTransition) {
-			redirect(w, r, "/journey?error="+url.QueryEscape("Only a ready, unassigned deck can be prepared for campaign operations."))
-			return
-		}
-		redirect(w, r, "/journey?error="+url.QueryEscape("The campaign could not be prepared. Your prepared deck was not changed; review Reading Journey and try again."))
-		return
-	}
-	redirect(w, r, "/journey?message="+url.QueryEscape("Campaign operations are ready for this book and deck."))
-}
-
 func (h *Handler) activateCampaign(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return

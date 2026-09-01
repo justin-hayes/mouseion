@@ -66,8 +66,7 @@ func TestJourneyPageRendersEmptyGoalAndProvisionalStates(t *testing.T) {
 		"No provisional books yet",
 		`<h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>`,
 		"Prepared books and decks",
-		"Make available for campaign operations",
-		`method="post" action="/campaigns"`,
+		"Download deck",
 	} {
 		if !strings.Contains(html, expected) {
 			t.Errorf("empty journey page missing %q: %s", expected, html)
@@ -76,6 +75,11 @@ func TestJourneyPageRendersEmptyGoalAndProvisionalStates(t *testing.T) {
 	for _, forbidden := range []string{"campaign-queue-heading", "Queue position", "Add to learning queue", "Your learning queue"} {
 		if strings.Contains(html, forbidden) {
 			t.Errorf("retired queue UI still rendered via %q", forbidden)
+		}
+	}
+	for _, forbidden := range []string{"Make available for campaign operations", `method="post" action="/campaigns"`} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("ready deck still exposed Campaign creation via %q", forbidden)
 		}
 	}
 }

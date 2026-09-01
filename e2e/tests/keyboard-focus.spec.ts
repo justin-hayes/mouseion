@@ -111,6 +111,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     let polls = 0;
     await page.route('**/deck-preparations/fixture-preparation/status', (route) => {
       polls += 1;
+      if (route.request().headers()['hx-request'] === 'true') {
+        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Primary Goal. This deck is preparation for your current Primary Goal.</p></div></section>' });
+      }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
         state: 'ready', progress: 100, ready: true, deck_name: 'Fixture German deck', filename: 'fixture.apkg',
         download_url: '/deck-preparations/fixture-preparation/download', completeness: { total_cards: 3 },
@@ -129,7 +132,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page);
     await page.goto('/books/fixture-book/analyses/fixture-run');
     let state = 'queued';
-    await page.route('**/deck-preparations/fixture-preparation/status', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) }));
+    await page.route('**/deck-preparations/fixture-preparation/status', (route) => {
+      if (route.request().headers()['hx-request'] === 'true') {
+        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Primary Goal. This deck is preparation for your current Primary Goal.</p></div></section>' });
+      }
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });
+    });
     await page.route('**/deck-preparations/fixture-preparation/cancel', (route) => { state = 'cancelled'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
     await page.route('**/deck-preparations/fixture-preparation/retry', (route) => { state = 'ready'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
     const status = page.locator('[data-deck-preparation]');

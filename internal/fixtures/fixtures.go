@@ -33,6 +33,8 @@ const (
 	QueuedCampaignID = "fixture-queued-campaign"
 	PrepID           = "fixture-preparation"
 	QueuedPrepID     = "fixture-queued-preparation"
+	JourneyPrepID    = "fixture-journey-preparation"
+	OutsidePrepID    = "fixture-outside-journey-preparation"
 )
 
 const edgeBookID = "fixture-edge-content"
@@ -275,8 +277,27 @@ func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.Readi
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
 	return journey, nil
 }
-func (s *Store) AddToReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
-	return expectedRevision, nil
+func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	journey := s.readingJourneys[owner]
+	if expectedRevision != journey.Revision {
+		return 0, persistence.ErrJourneyStale
+	}
+	if !s.fixtureBookExists(owner, bookID) {
+		return 0, errNotFound
+	}
+	for _, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			return journey.Revision, nil
+		}
+	}
+	journey.OwnerID = owner
+	journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{OwnerID: owner, BookID: bookID, Position: len(journey.Entries) + 1, CreatedAt: time.Now()})
+	journey.Revision++
+	journey.UpdatedAt = time.Now()
+	s.readingJourneys[owner] = journey
+	return journey.Revision, nil
 }
 func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
 	return expectedRevision, nil
@@ -528,8 +549,23 @@ type PreparedDeck struct{}
 func (PreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
-func (PreparedDeck) Get(context.Context, string, string) (domain.DeckPreparation, error) {
-	return domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}, nil
+func fixturePreparationFor(owner, id string) domain.DeckPreparation {
+	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
+	switch id {
+	case JourneyPrepID:
+		preparation.SourceMaterialID = "fixture-empty"
+		preparation.AnalysisRunID = "fixture-empty-run"
+		preparation.DeckName = "Mouseion::it::Journey"
+	case OutsidePrepID:
+		preparation.SourceMaterialID = "fixture-failed"
+		preparation.AnalysisRunID = "fixture-failed-run"
+		preparation.DeckName = "Mouseion::de::Outside Journey"
+	}
+	return preparation
+}
+
+func (PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
+	return fixturePreparationFor(owner, id), nil
 }
 func (PreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{ID: PrepID, State: domain.DeckPreparationCancelled}, nil

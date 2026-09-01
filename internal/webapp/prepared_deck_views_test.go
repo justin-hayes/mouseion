@@ -18,7 +18,7 @@ func TestAnalysisResultOffersExactDeckPreparationWithConsentDisclosure(t *testin
 		Source: domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
 		Corpus: domain.Corpus{ID: "corpus-372"},
 	}
-	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf", result, nil, true, nil).Render(context.Background(), &output); err != nil {
+	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf", result, nil, true, nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -65,7 +65,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		{
 			name:     "ready",
 			state:    domain.DeckPreparationReady,
-			want:     []string{"Deck ready", "Download deck", "Review campaign operations", "Completeness"},
+			want:     []string{"Deck ready", "Download deck", "Completeness"},
 			unwanted: []string{"Cancel preparation", "Retry preparation", `hx-trigger="every 3s"`},
 			progress: 100,
 		},
@@ -88,7 +88,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, QualityOmissions: 1}
-			if err := DeckPreparationStatus("csrf", preparation, "/books/book-372/analyses/run-372").Render(context.Background(), &output); err != nil {
+			if err := DeckPreparationStatus("csrf", preparation, "/books/book-372/analyses/run-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
 			html := output.String()
@@ -104,6 +104,43 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 			}
 			if !strings.Contains(html, `value="`+strconv.Itoa(test.progress)+`"`) {
 				t.Errorf("status progress does not include %d: %s", test.progress, html)
+			}
+		})
+	}
+}
+
+func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
+	preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 10}
+	tests := []struct {
+		name  string
+		state deckJourneyState
+		want  []string
+		omit  []string
+	}{
+		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/journey/books/book-372/add"`, `name="expected_revision"`}, omit: []string{"View this Journey entry", "Primary Goal"}},
+		{name: "already in Journey", state: deckJourneyMember, want: []string{"In Reading Journey", "This book is already in your Reading Journey", `href="/journey#journey-book-book-372"`}, omit: []string{"Add to Reading Journey", "Primary Goal"}},
+		{name: "Primary Goal", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View Primary Goal in Reading Journey"}, omit: []string{"Add to Reading Journey", "View this Journey entry"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 9, State: test.state}
+			if err := DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			html := output.String()
+			for _, want := range test.want {
+				if !strings.Contains(html, want) {
+					t.Errorf("state missing %q: %s", want, html)
+				}
+			}
+			for _, omit := range test.omit {
+				if strings.Contains(html, omit) {
+					t.Errorf("state contains %q: %s", omit, html)
+				}
+			}
+			if strings.Contains(html, "campaign operations") {
+				t.Errorf("ready state exposed Campaign queue copy: %s", html)
 			}
 		})
 	}

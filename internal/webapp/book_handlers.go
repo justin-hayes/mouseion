@@ -91,7 +91,15 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 			coverage = &value
 		}
 	}
-	render(w, r, AnalysisResultPageWithPreparation(u, h.csrf(w, r), result, coverage, statisticsUnavailable, preparation))
+	journeyAction := emptyDeckJourneyAction()
+	if preparation != nil && preparation.State == domain.DeckPreparationReady {
+		journeyAction, err = h.deckJourneyAction(r.Context(), u.ID, preparation.ID, preparation.SourceMaterialID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	render(w, r, AnalysisResultPageWithPreparation(u, h.csrf(w, r), result, coverage, statisticsUnavailable, preparation, journeyAction))
 }
 
 type epubScopeUnitView struct {

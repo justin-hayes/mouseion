@@ -21,7 +21,11 @@ func testCompletedAnalysisForDeck() analysis.CompletedAnalysis {
 func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string {
 	t.Helper()
 	var output bytes.Buffer
-	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf-372", testCompletedAnalysisForDeck(), nil, true, preparation).Render(context.Background(), &output); err != nil {
+	journeyAction := emptyDeckJourneyAction()
+	if preparation != nil && preparation.State == domain.DeckPreparationReady {
+		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
+	}
+	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf-372", testCompletedAnalysisForDeck(), nil, true, preparation, journeyAction).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	return output.String()
@@ -74,7 +78,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "ready",
 			prep: domain.DeckPreparation{ID: "prep-ready", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 12, CardsWithEnglish: 11, CardsWithContextualSentenceTranslations: 9, QualityOmissions: 1},
-			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`, "Review campaign operations"},
+			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`},
 			omit: []string{"Cancel preparation", "Retry preparation"},
 		},
 	}
