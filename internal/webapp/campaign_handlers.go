@@ -18,6 +18,11 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
+	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID)
+	if goalErr != nil {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", ""))
+		return
+	}
 	var books []domain.MyBook
 	var err error
 	if reader, ok := h.services.Store.(interface {
@@ -34,10 +39,10 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page."))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goal.BookID))
 }
 
 func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {

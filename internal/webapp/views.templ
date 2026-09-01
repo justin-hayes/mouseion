@@ -115,13 +115,15 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
   }
 };
 document.addEventListener('htmx:afterSwap', function () {
-  var list = document.getElementById('provisional-journey-list');
-  if (!list) return;
-  var focusID = list.getAttribute('data-focus-id');
-  if (!focusID) return;
-  var focusTarget = document.getElementById(focusID);
-  if (focusTarget) focusTarget.focus();
-  list.removeAttribute('data-focus-id');
+  ['provisional-journey-list', 'primary-goal-section'].forEach(function (id) {
+    var region = document.getElementById(id);
+    if (!region) return;
+    var focusID = region.getAttribute('data-focus-id');
+    if (!focusID) return;
+    var focusTarget = document.getElementById(focusID);
+    if (focusTarget) focusTarget.focus();
+    region.removeAttribute('data-focus-id');
+  });
 });
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
@@ -131,11 +133,11 @@ document.addEventListener('htmx:afterSwap', function () {
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
-templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "")
+templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string) {
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID)
 }
 
-templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError string) {
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
 		@PageHeader("My Books", "Keep the books you care about together with honest evidence for what Mouseion can do next.", nil) {
 			<details id="book-form">
@@ -194,6 +196,10 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 						</div>
 						<div class="library-book__supporting">
 							@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
+							if book.Book.ID == goalBookID {
+								@StatusBadge("Current Primary Goal", StatusInfo)
+								<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
+							}
 							if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
 								<p class="metadata">Analysis evidence: { myBookAnalysisLabel(book.Acquired.AnalysisStatus) }</p>
 							}
@@ -205,6 +211,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 							</p>
 							<div class="action-group">
 								@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
+								if book.Book.ID != goalBookID {
+									<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+								}
 								@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
 									<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
 								}
@@ -230,13 +239,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 				<p><a href={ templ.SafeURL("#"+campaignAnchorID(activeCampaignID)) }>Return to the active campaign</a></p>
 			}
 		}
-		<section aria-labelledby="primary-goal-heading" class="journey-goal"><h2 id="primary-goal-heading">Primary Goal</h2>
-			if journey.Goal == nil {
-				@EmptyState("No Primary Goal yet", "Choose a book as your current commitment when you are ready. Reading Journey membership and preparation remain separate.")
-			} else {
-				@JourneyBookCard(*journey.Goal, true, csrf, journey.Revision)
-			}
-		</section>
+		@GoalSection(journey.Goal, journey.Residual, csrf, "", "", "")
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Provisional Journey</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
@@ -268,30 +271,73 @@ templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusM
 		}
 		<div class="journey-list">
 			for _, item := range journey.Provisional {
-				@JourneyBookCard(item, false, csrf, journey.Revision)
+				@JourneyBookCard(item, false, csrf, journey.Revision, journeyExpectedGoalBookID(journey))
 			}
 		</div>
 	</div>
 }
-templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64) {
-	<article id={ journeyBookAnchorID(item.Book.Source.ID) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ journeyBookTitle(item.Book) }</a></h3>
+templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string, message, sectionError, focusBookID string) {
+	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-heading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }><h2 id="primary-goal-heading">Primary Goal</h2>
+		if message != "" {
+			<p id="goal-section-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
+		}
+		if sectionError != "" {
+			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ sectionError }</p></article>
+		}
+		if goal == nil {
+			@EmptyState("No Primary Goal yet", "Choose a book as your current commitment from your provisional order or My Books when you are ready. Reading Journey membership and preparation remain separate.")
+		} else {
+			@JourneyBookCard(goalCardView(goal, residual), true, csrf, 0, "")
+		}
+	</section>
+}
+templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+journeyBookID(item)) }>{ journeyBookTitle(item.Book) }</a></h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 	} else {
 		<p>@StatusBadge("Provisional — your order", StatusNeutral) <span aria-hidden="true">·</span> Your order</p>
 	}
+	if primary && item.GoalReadingOnly {
+		@StatusBadge("Reading-only Goal", StatusInfo)
+		if item.GoalUnassessed {
+			<p>No analysis or deck exists yet, so Mouseion cannot assess this book's vocabulary. This Goal stands on its own; nothing is prepared automatically.</p>
+		} else {
+			<p>Analysis evidence exists, but no deck has been prepared. Reading directly is the current path; a deck never prepares automatically.</p>
+		}
+	}
+	if primary && item.GoalResidual != nil {
+		@StatusBadge("Vocabulary work remains", StatusWarning)
+		<p>Changing or clearing this Goal keeps the active campaign and its reserved vocabulary unchanged. Resolve it by graduating or abandoning it from Campaign history &amp; operations.
+			if item.GoalResidual.ReservedCount != nil {
+				{ fmt.Sprintf(" %d ungraduated vocabulary identities remain reserved.", *item.GoalResidual.ReservedCount) }
+			}
+		</p>
+	}
 	@JourneyEvidence(item)
 	</div>
 	if !primary {
 		<div class="journey-book__controls" aria-label={ "Reorder "+journeyBookTitle(item.Book) }>
-			<form method="post" action={ journeyMoveURL(item.Book.Source.ID, true) } hx-post={ journeyMoveURL(item.Book.Source.ID, true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
 			</form>
-			<form method="post" action={ journeyMoveURL(item.Book.Source.ID, false) } hx-post={ journeyMoveURL(item.Book.Source.ID, false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>
+			<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+		</div>
+	} else {
+		<div class="action-group">
+			if item.GoalResidual != nil {
+				@Confirmation("Clear Primary Goal", "The active campaign and its reserved vocabulary stay unchanged. Graduate or abandon the residual work from Campaign history & operations.", StatusWarning) {
+					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
+				}
+			} else {
+				<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
+			}
+			<p>To choose a different Goal, use Choose as Primary Goal on another book in your provisional order or My Books.</p>
 		</div>
 	}
 	</article>

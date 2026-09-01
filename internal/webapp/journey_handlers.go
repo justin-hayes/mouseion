@@ -16,8 +16,13 @@ import (
 
 type journeyBookView struct {
 	Book                  domain.SourceMaterialSummary
+	BookID                string
 	Position              int
 	PrimaryGoal           bool
+	GoalReadingOnly       bool
+	GoalUnassessed        bool
+	GoalDeckAvailable     bool
+	GoalResidual          *goalResidualView
 	CanMoveEarlier        bool
 	CanMoveLater          bool
 	Coverage              *domain.AnalysisCoverage
@@ -38,6 +43,13 @@ func journeyBookAnchorID(bookID string) string {
 	return "journey-book-" + bookID
 }
 
+func journeyBookID(item journeyBookView) string {
+	if item.BookID != "" {
+		return item.BookID
+	}
+	return item.Book.Source.ID
+}
+
 func journeyMoveURL(bookID string, earlier bool) string {
 	direction := "move-later"
 	if earlier {
@@ -51,6 +63,31 @@ func journeyBookTitle(book domain.SourceMaterialSummary) string {
 		return book.Source.Title
 	}
 	return book.Source.ID
+}
+
+func journeyExpectedGoalBookID(journey journeyPageView) string {
+	if journey.Goal == nil {
+		return ""
+	}
+	return journeyBookID(*journey.Goal)
+}
+
+func goalCardView(goal *journeyBookView, residual *goalResidualView) journeyBookView {
+	if goal == nil {
+		return journeyBookView{}
+	}
+	view := *goal
+	if residual != nil {
+		view.GoalResidual = residual
+	}
+	return view
+}
+
+func goalSectionFocusID(bookID string) string {
+	if bookID == "" {
+		return "primary-goal-section"
+	}
+	return journeyBookAnchorID(bookID)
 }
 
 func journeyEvidenceState(item journeyBookView) string {
@@ -109,6 +146,7 @@ func journeyProjectionText(coverage domain.AnalysisCoverage) string {
 
 type journeyPageView struct {
 	Goal        *journeyBookView
+	Residual    *goalResidualView
 	Provisional []journeyBookView
 	Revision    int64
 	Campaigns   []campaignView
@@ -284,6 +322,17 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
+	if reader, ok := h.services.Store.(interface {
+		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	}); ok {
+		if myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner); readErr == nil {
+			for _, myBook := range myBooks {
+				if myBook.Acquired != nil {
+					bookByID[myBook.Book.ID] = *myBook.Acquired
+				}
+			}
+		}
+	}
 
 	view := journeyPageView{Revision: journey.Revision}
 	if goal.BookID != "" {
@@ -295,6 +344,13 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
+		campaigns, _ := h.services.Store.ListLearningCampaigns(ctx, owner)
+		preparations, _ := h.services.Store.ListUnassignedReadyDeckPreparations(ctx, owner)
+		book.GoalResidual = h.goalResidual(ctx, owner, book.Book.Source.ID, journeyBookTitle(book.Book), campaigns)
+		book.GoalDeckAvailable = goalBookHasDeck(book.Book.Source.ID, campaigns, preparations)
+		book.GoalUnassessed = !strings.EqualFold(strings.TrimSpace(book.Book.AnalysisStatus), "analyzed")
+		book.GoalReadingOnly = !book.GoalDeckAvailable
+		view.Residual = book.GoalResidual
 		view.Goal = &book
 	}
 	for _, entry := range journey.Entries {
@@ -341,18 +397,18 @@ func journeyHasActiveCampaign(campaigns []campaignView, id string) bool {
 
 func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (journeyBookView, error) {
 	if book, ok := bookByID[bookID]; ok {
-		return journeyBookView{Book: book}, nil
+		return journeyBookView{Book: book, BookID: bookID}, nil
 	}
 	// Goal and Journey membership are allowed to exist before acquisition. Keep
 	// that identity visible instead of silently dropping it from the surface.
 	book, err := h.services.Store.GetBook(ctx, owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
-			return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}}, nil
+			return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil
 		}
 		return journeyBookView{}, err
 	}
-	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}}}, nil
+	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}}, BookID: book.ID}, nil
 }
 
 func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *journeyBookView) error {

@@ -163,6 +163,11 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, boo
 }
 
 // MoveReadingJourneyEntry reorders a Journey member, clamping its destination.
+// When the owner has a Primary Goal whose book is also a Journey member, that
+// anchored Goal entry is invisible to the provisional order: newPosition is then
+// interpreted as a 1-based position within the visible (Goal-excluded) order,
+// and the Goal entry itself is never moved. Without a member Goal, newPosition
+// is an absolute position in the full membership order.
 func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, bookID string, newPosition int, expectedRevision int64) (int64, error) {
 	tx, revision, members, err := s.beginReadingJourneyMutation(ctx, owner)
 	if err != nil {
@@ -182,20 +187,75 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, book
 	if memberIndex == -1 {
 		return 0, ErrNotFound
 	}
-	if newPosition < 1 {
-		newPosition = 1
+	var goalBookID string
+	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM primary_goals WHERE owner_id=$1`, owner).Scan(&goalBookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return 0, err
 	}
-	if newPosition > len(members) {
-		newPosition = len(members)
+	if goalBookID != "" && goalBookID != bookID {
+		goalIndex := -1
+		visible := make([]readingJourneyMembership, 0, len(members)-1)
+		for index, member := range members {
+			if member.bookID == goalBookID {
+				goalIndex = index
+				continue
+			}
+			visible = append(visible, member)
+		}
+		if goalIndex >= 0 {
+			visibleIndex := 0
+			for index, member := range members {
+				if member.bookID == bookID {
+					visibleIndex = index
+					if index > goalIndex {
+						visibleIndex--
+					}
+					break
+				}
+			}
+			if newPosition < 1 {
+				newPosition = 1
+			}
+			if newPosition > len(visible) {
+				newPosition = len(visible)
+			}
+			if visibleIndex == newPosition-1 {
+				return revision, nil
+			}
+			member := visible[visibleIndex]
+			visible = append(visible[:visibleIndex], visible[visibleIndex+1:]...)
+			visible = append(visible, readingJourneyMembership{})
+			copy(visible[newPosition:], visible[newPosition-1:])
+			visible[newPosition-1] = member
+			members = make([]readingJourneyMembership, 0, len(visible)+1)
+			visibleIndex = 0
+			for index := 0; index < len(visible)+1; index++ {
+				if index == goalIndex {
+					members = append(members, readingJourneyMembership{bookID: goalBookID})
+					continue
+				}
+				members = append(members, visible[visibleIndex])
+				visibleIndex++
+			}
+		} else {
+			goalBookID = ""
+		}
 	}
-	if memberIndex == newPosition-1 {
-		return revision, nil
+	if goalBookID == "" {
+		if newPosition < 1 {
+			newPosition = 1
+		}
+		if newPosition > len(members) {
+			newPosition = len(members)
+		}
+		if memberIndex == newPosition-1 {
+			return revision, nil
+		}
+		member := members[memberIndex]
+		members = append(members[:memberIndex], members[memberIndex+1:]...)
+		members = append(members, readingJourneyMembership{})
+		copy(members[newPosition:], members[newPosition-1:])
+		members[newPosition-1] = member
 	}
-	member := members[memberIndex]
-	members = append(members[:memberIndex], members[memberIndex+1:]...)
-	members = append(members, readingJourneyMembership{})
-	copy(members[newPosition:], members[newPosition-1:])
-	members[newPosition-1] = member
 	if err = rewriteReadingJourneyPositions(ctx, tx, owner, members); err != nil {
 		return 0, err
 	}

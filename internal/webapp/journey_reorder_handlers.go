@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -18,6 +19,16 @@ func (h *Handler) moveJourneyEntryEarlier(w http.ResponseWriter, r *http.Request
 
 func (h *Handler) moveJourneyEntryLater(w http.ResponseWriter, r *http.Request) {
 	h.moveJourneyEntry(w, r, false)
+}
+
+func visibleJourneyEntries(entries []domain.ReadingJourneyEntry, goalBookID string) []domain.ReadingJourneyEntry {
+	visible := make([]domain.ReadingJourneyEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.BookID != goalBookID {
+			visible = append(visible, entry)
+		}
+	}
+	return visible
 }
 
 func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earlier bool) {
@@ -50,8 +61,9 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		return
 	}
 
+	visible := visibleJourneyEntries(journey.Entries, goal.BookID)
 	memberIndex := -1
-	for i, entry := range journey.Entries {
+	for i, entry := range visible {
 		if entry.BookID == bookID {
 			memberIndex = i
 			break
@@ -80,20 +92,17 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 			fail(w, err)
 			return
 		}
+		redirect(w, r, "/journey?message="+url.QueryEscape(bookID+" did not move."))
+		return
 	}
 
-	newPosition := journey.Entries[memberIndex].Position
-	if newPosition < 1 {
-		newPosition = memberIndex + 1
-	}
+	newPosition := memberIndex + 1
 	if earlier {
-		// Do not skip over the anchored Goal. A goal directly before the target
-		// means that there is no legal earlier provisional destination.
-		if memberIndex > 0 && journey.Entries[memberIndex-1].BookID != goal.BookID {
-			newPosition = journey.Entries[memberIndex-1].Position
+		if memberIndex > 0 {
+			newPosition = memberIndex
 		}
-	} else if memberIndex+1 < len(journey.Entries) && journey.Entries[memberIndex+1].BookID != goal.BookID {
-		newPosition = journey.Entries[memberIndex+1].Position
+	} else if memberIndex+1 < len(visible) {
+		newPosition = memberIndex + 2
 	}
 
 	// A boundary request passes the current position through the store so the
@@ -121,7 +130,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	position := newPosition
 	title := bookID
 	for i, item := range view.Provisional {
-		if item.Book.Source.ID == bookID {
+		if journeyBookID(item) == bookID {
 			title = journeyBookTitle(item.Book)
 			position = i + 1
 			break
