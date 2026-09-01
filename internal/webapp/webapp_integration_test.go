@@ -1432,6 +1432,41 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if staleAdd.Code != http.StatusSeeOther || !strings.Contains(staleAdd.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
 		t.Fatalf("stale add=%d location=%q", staleAdd.Code, staleAdd.Header().Get("Location"))
 	}
+
+	// The ready-deck surfaces post the source-material id, which differs from
+	// the books.id that Journey membership stores (issue #506). The add must
+	// resolve the source material to its linked book and persist that identity.
+	deckBook := newBook(alice, "Deck-prepared provisional")
+	var sourceID string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,'application/epub+zip',$5,$6,$7) RETURNING id::text`, alice.ID, "de", "issue-506-identifier", "Deck-prepared provisional", "issue-506", "issue-506", "issue-506").Scan(&sourceID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkSourceToBook(ctx, alice.ID, deckBook.ID, sourceID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: sourceID, Filename: "issue-506.apkg", DeckName: "Issue 506 deck", ContentHash: "issue-506"}); err != nil {
+		t.Fatal(err)
+	}
+	sourceJourneyPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
+	addedFromSource := perform(t, h, "POST", "/journey/books/"+sourceID+"/add", addForm(hiddenInputValue(t, sourceJourneyPage.Body.String(), "expected_revision")), aliceCookies)
+	if addedFromSource.Code != http.StatusSeeOther || !strings.HasPrefix(addedFromSource.Header().Get("Location"), "/journey?message=") {
+		t.Fatalf("source-material add=%d location=%q body=%s", addedFromSource.Code, addedFromSource.Header().Get("Location"), addedFromSource.Body.String())
+	}
+	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	if err != nil || len(journey.Entries) != 5 {
+		t.Fatalf("source-material add Journey=%+v err=%v", journey.Entries, err)
+	}
+	containsDeckBook := false
+	for _, entry := range journey.Entries {
+		if entry.BookID == deckBook.ID {
+			containsDeckBook = true
+			break
+		}
+	}
+	if !containsDeckBook {
+		t.Fatalf("source-material add did not persist book %s: %+v", deckBook.ID, journey.Entries)
+	}
+
 	// Keep Bob's authenticated session in this test to exercise the owner
 	// boundary through the same route.
 	if bobPage := perform(t, h, "GET", "/journey", nil, bobCookies); bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Anchored Goal") {

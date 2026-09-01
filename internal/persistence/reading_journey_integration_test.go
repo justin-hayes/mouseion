@@ -234,6 +234,78 @@ type readingJourneyMoveResult struct {
 	err      error
 }
 
+// TestResolveJourneyBookID pins the identity resolution between the deck
+// preparation surfaces (keyed by source_materials.id) and Reading Journey
+// membership (keyed by books.id): a source material must resolve to its linked
+// book, legacy sources resolve through the source-identifier alias, and ids
+// without a book identity must report "not found" rather than failing an add.
+func TestResolveJourneyBookID(t *testing.T) {
+	ctx := context.Background()
+	url := integrationDatabase(t, ctx)
+	store, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	alice, err := store.CreateUser(ctx, "resolve-book-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := store.CreateUser(ctx, "resolve-book-other", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Identity book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := putBookSource(t, ctx, store, alice.ID, "resolve-identifier", "Identity source", []byte("resolve-source"), "resolve-source")
+	if err := store.LinkSourceToBook(ctx, alice.ID, book.ID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A book id is already the canonical Journey identity.
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, book.ID); resolveErr != nil || !ok || id != book.ID {
+		t.Fatalf("book id resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+	// A linked source material resolves to its book id.
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, source.ID); resolveErr != nil || !ok || id != book.ID {
+		t.Fatalf("linked source resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+
+	// A legacy source with no source_materials.book_id resolves through the
+	// source-identifier alias.
+	legacyID := insertLegacySource(t, ctx, store.Pool(), alice.ID, "de", "legacy-resolve-identifier", "Legacy source", []byte("legacy"))
+	legacyBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Legacy identity book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AddBookAlias(ctx, alice.ID, legacyBook.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "legacy-resolve-identifier"); err != nil {
+		t.Fatal(err)
+	}
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, legacyID); resolveErr != nil || !ok || id != legacyBook.ID {
+		t.Fatalf("legacy alias resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+
+	// Unlinked sources, unknown ids, and cross-owner ids have no book identity.
+	orphanID := insertLegacySource(t, ctx, store.Pool(), alice.ID, "de", "orphan-resolve-identifier", "Orphan source", []byte("orphan"))
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, orphanID); resolveErr != nil || ok || id != "" {
+		t.Fatalf("orphan resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, "00000000-0000-0000-0000-000000000000"); resolveErr != nil || ok || id != "" {
+		t.Fatalf("unknown resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, bob.ID, source.ID); resolveErr != nil || ok || id != "" {
+		t.Fatalf("cross-owner resolve=(%q,%t) err=%v", id, ok, resolveErr)
+	}
+
+	// The resolved book id is the identity an add persists.
+	if revision, addErr := store.AddToReadingJourney(ctx, alice.ID, book.ID, 0); addErr != nil || revision != 1 {
+		t.Fatalf("add resolved book revision=%d err=%v", revision, addErr)
+	}
+}
+
 func createJourneyFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
 	t.Helper()
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Journey " + suffix, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})

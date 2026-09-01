@@ -193,6 +193,18 @@ func deckJourneyAddURL(bookID string) string {
 }
 
 func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
+	// Deck preparation surfaces are keyed by source_materials.id while Journey
+	// membership and the Primary Goal are keyed by books.id, so every action
+	// identity is resolved to its canonical book first. A source material with
+	// no book identity cannot join the Journey, so no action is offered.
+	resolved, ok, err := h.services.Store.ResolveJourneyBookID(ctx, owner, bookID)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	if !ok {
+		return deckJourneyActionView{}, nil
+	}
+	bookID = resolved
 	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
 	if err != nil {
 		return deckJourneyActionView{}, err
@@ -216,6 +228,14 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 }
 
 func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string, expectedRevision int64) (deckJourneyActionView, error) {
+	resolved, ok, err := h.services.Store.ResolveJourneyBookID(ctx, owner, bookID)
+	if err != nil {
+		return deckJourneyActionView{}, err
+	}
+	if !ok {
+		return deckJourneyActionView{}, nil
+	}
+	bookID = resolved
 	action, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
@@ -226,6 +246,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		return action, nil
 	}
 	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, bookID, expectedRevision); err != nil {
+		log.Printf("mouseion: add book %s to Reading Journey failed: %v", bookID, err)
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
 			return deckJourneyActionView{}, refreshErr

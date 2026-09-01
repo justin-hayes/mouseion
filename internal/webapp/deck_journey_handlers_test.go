@@ -15,16 +15,31 @@ import (
 
 type deckJourneyActionStore struct {
 	Store
-	journey domain.ReadingJourney
-	goal    domain.PrimaryGoal
-	addErr  error
-	adds    int
+	journey                domain.ReadingJourney
+	goal                   domain.PrimaryGoal
+	addErr                 error
+	adds                   int
+	bookIDBySourceMaterial map[string]string
+	noBookIdentity         map[string]bool
 }
 
 func (s *deckJourneyActionStore) GetReadingJourney(context.Context, string) (domain.ReadingJourney, error) {
 	journey := s.journey
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), s.journey.Entries...)
 	return journey, nil
+}
+
+// ResolveJourneyBookID maps a deck-journey action identity to the canonical
+// book id; tests drive the mapping table to exercise source-material ids that
+// differ from book ids. Without a mapping the id is already the book id.
+func (s *deckJourneyActionStore) ResolveJourneyBookID(_ context.Context, _ string, id string) (string, bool, error) {
+	if s.noBookIdentity[id] {
+		return "", false, nil
+	}
+	if resolved, ok := s.bookIDBySourceMaterial[id]; ok {
+		return resolved, true, nil
+	}
+	return id, true, nil
 }
 
 func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error) {
@@ -126,5 +141,60 @@ func TestAddBookToReadingJourneyDoesNotMutatePrimaryGoal(t *testing.T) {
 	}
 	if action.State != deckJourneyGoal || store.adds != 0 {
 		t.Fatalf("goal action=%+v add calls=%d", action, store.adds)
+	}
+}
+
+func TestDeckJourneyActionResolvesSourceMaterialToBook(t *testing.T) {
+	store := &deckJourneyActionStore{
+		journey:                domain.ReadingJourney{Revision: 4, Entries: []domain.ReadingJourneyEntry{{BookID: "book-x", Position: 1}}},
+		bookIDBySourceMaterial: map[string]string{"source-1": "book-x"},
+	}
+	h := &Handler{services: Services{Store: store}}
+	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyMember || action.BookID != "book-x" || action.Revision != 4 {
+		t.Fatalf("resolved member action=%+v", action)
+	}
+}
+
+func TestAddBookToReadingJourneyUsesResolvedBookIdentity(t *testing.T) {
+	store := &deckJourneyActionStore{
+		journey:                domain.ReadingJourney{Revision: 3},
+		bookIDBySourceMaterial: map[string]string{"source-1": "book-1"},
+	}
+	h := &Handler{services: Services{Store: store}}
+	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "source-1", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyMember || action.BookID != "book-1" || store.adds != 1 {
+		t.Fatalf("resolved add action=%+v add calls=%d", action, store.adds)
+	}
+	if len(store.journey.Entries) != 1 || store.journey.Entries[0].BookID != "book-1" {
+		t.Fatalf("resolved add journey entries=%+v", store.journey.Entries)
+	}
+}
+
+func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
+	store := &deckJourneyActionStore{
+		journey:        domain.ReadingJourney{Revision: 4},
+		noBookIdentity: map[string]bool{"source-orphan": true},
+	}
+	h := &Handler{services: Services{Store: store}}
+	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-orphan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyUnknown || action.BookID != "" {
+		t.Fatalf("unresolvable action=%+v", action)
+	}
+	action, err = h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "source-orphan", 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyUnknown || store.adds != 0 {
+		t.Fatalf("unresolvable add action=%+v add calls=%d", action, store.adds)
 	}
 }

@@ -375,6 +375,11 @@ func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.Readi
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
 	return journey, nil
 }
+func (s *Store) ResolveJourneyBookID(_ context.Context, _ string, id string) (string, bool, error) {
+	// Fixtures use one unified id for source material and book, so the
+	// canonical book identity is the id itself.
+	return id, true, nil
+}
 func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
