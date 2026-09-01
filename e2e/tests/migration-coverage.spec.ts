@@ -71,8 +71,10 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.getByRole('cell', { name: 'Graduated from completed campaign' }).first()).toBeVisible();
     const languagePicker = page.locator('form.settings-language-picker select[name="language"]');
     await expect(languagePicker).toBeVisible();
-    await expect(languagePicker.locator('option[value="de"]')).toBeVisible();
-    await expect(languagePicker.locator('option[value="it"]')).toBeVisible();
+    // Options inside a collapsed select are not "visible"; assert their content,
+    // matching the catalog browse pattern in smoke.spec.ts.
+    await expect(languagePicker.locator('option[value="de"]')).toContainText('German');
+    await expect(languagePicker.locator('option[value="it"]')).toContainText('Italian');
     await expectPostFormsCarryCSRF(page);
   });
 });
