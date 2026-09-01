@@ -64,4 +64,4 @@ The web application (ADR 0004) submits analysis jobs to River and surfaces their
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — §4 async-capable job API (this ADR supersedes its "sync runner / defer queueing" note).
 - [ADR 0003: PostgreSQL as the initial persistence backend](0003-postgresql-persistence.md) — the Postgres job primitives rationale this realizes.
 - [ADR 0009: Home-lab authentication and corpus-artifact isolation](0009-home-lab-auth-corpus-isolation.md) — ownership model preserved through job args.
-- [Product specification](product.md) — updates the Decision Register.
+- [Product specification](../product.md) — updates the Decision Register.

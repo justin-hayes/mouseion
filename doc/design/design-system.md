@@ -188,6 +188,10 @@ scrollable data table must label and contain its own overflow.
   and vocabulary transition remain visibly distinct.
 - Operational analysis status and the exact completed result are separate
   surfaces. Deck preparation follows the result's trust and insight summary.
+- Scope review is a calm native checklist: reliable top-level TOC choices or a
+  flat readable-unit fallback, all checked initially, with explicit bulk
+  check/uncheck controls and a selected-scope summary. It is not an evidence
+  dashboard.
 - Campaign completion and abandonment retain distinct consequential confirmations
   in the secondary history/operations section; Primary Goal behavior is defined
   by ADR 0036.

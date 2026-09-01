@@ -78,4 +78,4 @@ These are Open Questions 8 and 10 in `product.md` and consolidated as issue #29.
 - [ADR 0004: Web application as the sole v1 client](0004-web-only-v1-client.md) — no CLI, so no CLI authentication.
 - [ADR 0003: PostgreSQL as the initial persistence backend](0003-postgresql-persistence.md) — Postgres session store and at-rest volume.
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](0005-vocabulary-identity-normalization-ranking.md) — the lemma-level identity shared across users.
-- [Product specification](product.md) — resolves Open Questions 8 and 10; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Questions 8 and 10; updates the Decision Register.

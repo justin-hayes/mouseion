@@ -79,4 +79,4 @@ DWDS provides **Häufigkeitsklasse** (a logarithmic 7-step scale), **not** a per
 
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](0005-vocabulary-identity-normalization-ranking.md) — the `pct(global_freq)` ranking input and top-5% selection cutoff this dataset feeds.
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md) — admin-managed, language-scoped global reference data.
-- [Product specification](product.md) — resolves Open Question 11; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Question 11; updates the Decision Register.

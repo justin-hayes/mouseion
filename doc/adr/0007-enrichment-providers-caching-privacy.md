@@ -94,4 +94,4 @@ verbosity parameter.
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](0005-vocabulary-identity-normalization-ranking.md) — identity key for caching/provenance; distinguishes global vs. in-corpus frequency.
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md) — per-user opt-in, global DWDS reference data.
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — core-first; job API for ingest-time NLP.
-- [Product specification](product.md) — resolves Open Questions 6 and 9; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Questions 6 and 9; updates the Decision Register.

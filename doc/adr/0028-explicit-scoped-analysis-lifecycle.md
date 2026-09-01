@@ -1,6 +1,6 @@
 # ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts
 
-Status: **Accepted** · Date: 2026-08-26 · Author: Justin + Codex
+Status: **Accepted** · Date: 2026-08-26 · Updated: 2026-09-01 · Author: Justin + Codex
 
 ## Context
 
@@ -59,14 +59,46 @@ new snapshot; an old scope is never silently rebound.
 ### Scope revisions
 
 A confirmed scope is an immutable revision containing its owner, source-content
-revision and unit-snapshot identities, ordered selected-unit references,
-classifier identity, and selection mode. Editing a selection creates a new scope
-revision. Existing scopes remain readable for audit and historical results.
+revision, extracted-unit snapshot, and canonical ordered selected-unit
+references. A new confirmed scope's logical identity consists only of those
+four values. Editing a selection creates a new scope revision. Existing scopes
+remain readable for audit and historical results.
 
 Equivalent confirmation requests are idempotent: the same owner, source-content
-revision, unit snapshot, and canonical ordered selection resolve to the same
-scope revision. A different selection or source-content revision creates a new
+revision, extracted-unit snapshot, and canonical ordered selected-unit
+references resolve to the same scope revision. References are validated as
+readable members of that exact owner-scoped snapshot and serialized in strict
+spine order. A different selection or source-content revision creates a new
 revision.
+
+Classifier identity and selection mode are not part of scope validation,
+serialization, idempotency, the confirmation key, or displayed provenance.
+TOC checklist rows are expanded to persisted extracted-unit references before
+this contract is applied; a TOC row is not a durable unit identity.
+
+### Non-destructive compatibility with the shipped schema
+
+The shipped migrations 000022 through 000027 are immutable history. The
+existing source_material_unit_classifications and
+source_material_unit_classification_reasons tables,
+epub_reviewed_scopes.classifier_name, classifier_version, and selection_mode
+columns, their constraints, and historical rows remain on disk and readable.
+This simplification requires no new migration and does not edit, drop, rename,
+or rewrite any shipped table, column, constraint, migration, or historical row.
+
+For a new reviewed-scope insert only, the legacy constrained columns receive
+these private persistence fillers:
+
+- classifier_name = `none`;
+- classifier_version = `none`; and
+- selection_mode = `overridden`.
+
+These values satisfy dormant legacy constraints only. They are never treated as
+a classifier, a recommendation result, or a learner-facing selection mode, and
+they are excluded from the logical scope contract and confirmation key.
+Historical non-sentinel values may still be loaded to preserve relationship
+integrity and historical readability, but the current application does not
+interpret or display them.
 
 ### Analysis runs
 
@@ -164,7 +196,7 @@ River job.
 ## Non-goals
 
 - Editing or replacing EPUB content in normal operation.
-- Automatically confirming classifier recommendations.
+- Reusing classifier or recommendation behavior in new scope review.
 - Automatically analyzing an OPDS acquisition.
 - Mutating a confirmed scope or completed analysis in place.
 - Combining scopes or analyses across books.

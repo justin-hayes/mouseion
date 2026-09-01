@@ -117,7 +117,10 @@ These objects remain important, but they do not define principal navigation:
 - **Source snapshot** — immutable acquired EPUB content and extracted units;
   provenance rather than a destination. It is linked after acquisition and is
   never a metadata-only placeholder.
-- **Reviewed scope** — immutable learner-confirmed source-unit selection.
+- **Reviewed scope** — immutable learner-confirmed source-unit selection. Scope
+  review presents reliable top-level EPUB 3 TOC entries as an all-on checklist,
+  or readable persisted units in flat spine order when projection is
+  unreliable; TOC entries expand to existing unit IDs.
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
 - **Analysis result** — immutable completed corpus and provenance used by
@@ -390,6 +393,7 @@ Every principal or nested screen makes clear:
 4. how to return to the parent context without reconstructing the route through
    global navigation.
 
-Operational identifiers, attempt counts, provenance, and classifier versions
-remain available where useful, but they must not displace book title, author,
-learner intention, or the next meaningful choice.
+Operational identifiers, attempt counts, and historical provenance remain
+available where useful, but they must not displace book title, author, learner
+intention, or the next meaningful choice. Classifier and recommendation data
+are compatibility history, not current scope-review concepts.

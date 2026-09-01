@@ -77,4 +77,4 @@ This is precisely the "Go puts a task on the River queue → async gRPC call to 
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — §3 the typed RPC boundary this specifies the transport for.
 - [ADR 0010: Adopt River as the background-job queue](0010-river-job-queue.md) — River orchestrates the analysis job that makes the gRPC call.
 - [ADR 0002 / 0009] — ownership preserved through job args and worker authz.
-- [Product specification](product.md) — resolves Open Question 9's transport; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Question 9's transport; updates the Decision Register.

@@ -42,10 +42,19 @@ The identity and state contracts for these resources are normative in
 
 ## Scope review and confirmation
 
-- The existing classifier output and selection controls remain review aids.
+- Scope review presents reliable top-level EPUB 3 TOC entries as initially
+  checked checkboxes, expanding each entry to persisted readable units in
+  spine order. When a complete mapping is not reliable, it presents one
+  initially checked checkbox per readable persisted unit in flat spine order.
+  The detailed projection and fallback contract is owned by [EPUB analysis
+  scope review](epub-analysis-scope-review.md).
+- Nested TOC entries are covered by their top-level parent and are not separate
+  controls. **Check all** and **Uncheck all** affect every rendered choice;
+  confirmation requires at least one readable persisted unit.
 - Saving a confirmed scope does not start analysis.
 - A confirmed scope page identifies its revision, source-content digest/revision,
-  unit snapshot, selection summary, and classifier version.
+  unit snapshot, canonical ordered selected-unit references, and selection
+  summary. It does not display classifier or recommendation provenance.
 - Changing a selection creates a new revision. Metadata-only title, author, or
   language edits do not invalidate a scope because they do not replace content.
 - If actual EPUB bytes change in a future supported flow, the book returns to
@@ -121,4 +130,5 @@ Rollout is sequenced as follows:
 - Automatic analysis, scope confirmation, or deck preparation.
 - In-place EPUB content editing.
 - Cross-book scopes or aggregate decks.
-- Changes to classifier policy, coverage math, card schema, or campaign mastery.
+- Changes to historical classifier data, coverage math, card schema, or
+  campaign mastery.

@@ -63,4 +63,4 @@ Postgres handles concurrent connections and row-level locking natively, matching
 
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — this ADR amends its §1 "persistence: SQLite."
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md) — the ownership model the schema implements.
-- [Product specification](product.md) — Decision Register ("Use SQLite for initial persistence" is superseded here).
+- [Product specification](../product.md) — Decision Register ("Use SQLite for initial persistence" is superseded here).

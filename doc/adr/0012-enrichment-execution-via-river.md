@@ -60,4 +60,4 @@ If external translation is disabled (or no provider configured), the enrichment 
 - [ADR 0007: Enrichment providers, caching, and privacy policy](0007-enrichment-providers-caching-privacy.md) — §5 amended by this ADR (inline → local inline, external via River).
 - [ADR 0010: Adopt River as the background-job queue](0010-river-job-queue.md) — the job queue used for external translation.
 - [ADR 0005 / 0008] — identity + frequency; caching key.
-- [Product specification](product.md) — updates the Decision Register.
+- [Product specification](../product.md) — updates the Decision Register.

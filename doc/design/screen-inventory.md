@@ -40,7 +40,7 @@ facing queue or plan is exposed.
 |---|---|---|---|---|
 | My Books | Shipped `GET /library` | Find a book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Choose as Primary Goal | Empty collection, metadata-only book, acquisition success, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, scope required, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
 | Book detail and analysis insights | Current `GET /books/{id}` | Understand one book, its exact identity and provenance, current evidence, Journey/Goal relationship, and available decisions. | Scope review, analysis workflow, Journey/Goal action, or prepared artifact | Source unavailable, metadata-only target state, no confirmed scope, scope confirmed, analysis pending/failed/completed, insights unavailable, legacy/full-text result, quality warning, prepared-deck state, reading/vocabulary facts |
-| Scope review | Current `GET/POST /books/{id}/scope` | Review recommendations, choose EPUB units, compare/reuse history, and confirm an immutable scope. | Book detail | Recommended/all/prior preset, grouped or flat structure, partially selected group, uncertain units, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
+| Scope review | Current `GET/POST /books/{id}/scope` | Review a calm native checklist of readable EPUB scope choices and confirm an immutable ordered scope. | Book detail | Reliable top-level TOC checklist or flat readable-unit fallback, all choices initially checked, Check all/Uncheck all, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Exact analysis result when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history. | Individual analysis status or exact result | Empty history, mixed states, historical/legacy records |
 | Exact analysis result | Current `GET /books/{book-id}/analyses/{analysis-run-id}` | Evaluate one immutable result's identity, quality, current coverage, conditional preparation evidence, and next action. | Prepare deck, return to book, or review scope | Trustworthy result, quality warning, stale vocabulary comparison, missing insights, legacy incompatibility, deck eligibility |
@@ -66,7 +66,8 @@ validated and its immutable source snapshot is persisted.
 
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
 deck preparation. The older `POST /jobs/{id}/deck/preparations` path is retained
-for compatibility and is not a competing destination.
+for compatibility and is not a competing destination. Historical classifier
+and recommendation metadata is not a current scope-review surface.
 
 ## Book acquisition
 
@@ -77,7 +78,7 @@ for compatibility and is not a competing destination.
 | Catalog entry acquisition | Embedded current `POST /opds/acquire` result | Add one EPUB-backed book and continue browsing. | Remain in feed or open existing/new book | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
 
 The canonical design label is **Add to My Books** and must not imply analysis,
-Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../../adr/0035-my-books-membership-and-source-provenance.md).
+Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md).
 
 ## Reading Journey and Primary Goal
 

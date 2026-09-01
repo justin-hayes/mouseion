@@ -47,8 +47,9 @@ artifacts may retain **Add to library**.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Scope review** | Review extracted units and decide what should be analyzed. | Preprocessing, import review |
-| **Recommended scope** | The classifier's explainable starting selection. It is not automatic approval. | Smart scope, correct scope |
+| **Scope review** | Review an all-on top-level EPUB 3 TOC checklist, or a flat readable-unit checklist when the TOC cannot be projected reliably, and decide what should be analyzed. | Preprocessing, import review, evidence dashboard |
+| **TOC scope choice** | One top-level EPUB 3 navigation entry whose nested targets expand to existing persisted unit IDs in spine order. It is a view grouping, not a new durable unit. | Nested TOC control, hierarchy group |
+| **Readable-unit fallback** | One checkbox per readable persisted unit in flat spine order when a complete TOC-to-unit partition is unavailable. | Whole-book recommendation, degraded classifier mode |
 | **Confirmed scope** | An immutable learner-confirmed scope revision. | Current selection when historical identity matters |
 | **Start analysis** | Explicitly submit one confirmed scope for asynchronous analysis. | Continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |

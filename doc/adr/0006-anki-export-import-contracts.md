@@ -70,4 +70,4 @@ These were Open Question 5 in `product.md` and consolidated as issue #27. The pr
 
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](0005-vocabulary-identity-normalization-ranking.md) — the identity model the dedup key derives from.
 - [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](0002-multi-user-accounts.md) — per-user known state.
-- [Product specification](product.md) — resolves Open Question 5; updates the Decision Register.
+- [Product specification](../product.md) — resolves Open Question 5; updates the Decision Register.

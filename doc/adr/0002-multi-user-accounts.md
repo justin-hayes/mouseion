@@ -76,5 +76,5 @@ The account model is foundational to persistence, so it lands with the shared da
 ## Related
 
 - [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](0001-go-core-python-nlp-service.md) — this ADR supersedes its §4 "no accounts in v1."
-- [Product specification](product.md)
+- [Product specification](../product.md)
 - Vocabulary Acquisition Tool: session 2026-08-20 (source of both decisions); ADR 0001 (same decision set).
