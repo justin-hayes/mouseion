@@ -1,11 +1,8 @@
 # Reading Journey and Primary Goal workflow
 
-Status: **Canonical learner-facing workflow; not yet a shipped domain contract.**
-The current Campaign and vocabulary-graduation behavior remains owned by
-[ADR 0027](../../adr/0027-learning-campaigns.md) until the explicit planner/ADR
-work in
-[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work)
-is completed.
+Status: **Canonical shipped learner-facing workflow.** Reading Journey and
+Primary Goal are shipped; Campaign remains secondary history/operations and its
+reservation and graduation details remain governed by ADRs 0027, 0034, and 0036.
 
 The filename is retained to preserve existing links. **Learning campaign** is no
 longer the primary learner-facing name for this experience.
@@ -168,8 +165,8 @@ Finishing the book is a factual reading achievement, not completion of the
 Journey or proof of vocabulary knowledge. Once reading is finished, the book no
 longer occupies the current Primary Goal role; it remains in My Books and
 history, and any unfinished vocabulary work remains visible as a separate fact.
-No next Goal is created automatically. This target role transition is part of
-the Campaign/Goal planner boundary below.
+No next Goal is created automatically. ADR 0036 defines this role transition and
+keeps any residual Campaign work explicit.
 
 The outcome view uses a restrained, book-led receipt rather than celebration
 chrome.
@@ -204,10 +201,9 @@ occurred:
 The reading achievement must not be withheld because vocabulary work remains.
 Conversely, achievement copy must not imply the vocabulary transition happened.
 
-Current ADR 0027 does not yet permit this learner-facing rhythm to be implemented
-by separating Campaign completion from graduation or by starting another active
-Campaign while review remains. That mismatch requires planner/ADR resolution;
-the UI must not simulate it with labels alone.
+ADR 0036 permits this learner-facing rhythm: reading-finished is independent of
+deck-reviewed, and residual Campaign work remains explicit until it is graduated
+or abandoned. The UI states those facts separately.
 
 ## 6. Where next?
 
@@ -243,9 +239,8 @@ or a completed plan.
   state that updated evidence is unavailable, and provide a retry. Never roll
   back the preference silently.
 - **Changing or clearing a Goal:** state what happens to reading history,
-  prepared artifacts, vocabulary reservation, and unfinished work. The exact
-  consequences await the Campaign/Goal contract and must not be invented in a
-  generic confirmation.
+  prepared artifacts, vocabulary reservation, and unfinished work according to
+  ADR 0036; do not invent different consequences in a generic confirmation.
 - **Historical completed or abandoned Campaigns:** keep them understandable as
   reading/preparation/vocabulary-transition history without restoring Campaign
   as principal navigation.
@@ -293,9 +288,7 @@ This workflow deliberately does not decide:
 
 - how My Books, Reading Journey order, or Primary Goal are persisted (Journey
   membership and order persistence are decided in
-  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md);
-  Primary Goal persistence awaits its own schema/UI milestone, while its
-  identity and graduation/Goal-vs-Campaign semantics are decided in
+  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md) and
   [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md));
 - how a Goal maps to or differs from a Campaign (decided in
   [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): a Goal never
@@ -306,19 +299,16 @@ This workflow deliberately does not decide:
   [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): an explicit
   graduate-or-abandon resolution, one-active exclusivity preserved, deterministic
   overlap);
-- which cross-book optimization algorithm or invalidation scheme is accepted;
-- new routes, APIs, migrations, event schemas, or undo behavior.
+- implementation details beyond the route, interaction, and state contracts
+  recorded here and in ADRs.
 
 Journey identity, ownership, ordering, stale-write behavior, and the migration
 of queued/active/complete/abandoned Campaign records are resolved in
-[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Primary
-Goal identity, the single justified graduation transition (reading-finished
+[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Primary Goal
+identity, the single justified graduation transition (reading-finished
 independent of deck-reviewed; snapshot + confirmed review), and new-Goal-with-
 residual-work semantics are resolved in
-[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md). Remaining items
-are the explicit planner/ADR work listed in
-[`information-architecture.md`](../information-architecture.md#contract-changes-requiring-planneradr-work).
-Until the cross-book projection contract (item 7) and routes/terminology
-rollout (item 8) are accepted, ADR 0027's Campaign mutation behavior and ADR 0036
-govern vocabulary reservation/graduation, and the existing feature documents
-remain authoritative for domain behavior.
+[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md). Cross-book
+projection and route/terminology rollout are resolved by ADR 0037 and the
+shipped implementation respectively. ADR 0027 remains the historical/internal
+Campaign contract where it is not superseded.

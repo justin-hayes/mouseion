@@ -1,10 +1,8 @@
 # Explicit scoped-analysis workflow
 
-Status: Implemented · Date: 2026-08-26
+Status: Implemented · Date: 2026-08-26 · Updated: 2026-09-01
 
-This document retains the shipped **My Library** and **Add to library** labels
-because they describe implemented behavior. In the target architecture, each
-of those acquired entries backfills to an acquired Book with active My Books
+Shipped labels are **My Books** and **Add to My Books** (acquisition creates or restores My Books membership). Historical **My Library** / **Add to library** copy is retained only as a compatibility note; each acquired entry maps to an acquired Book with active My Books
 membership under
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md). That
 compatibility mapping does not mean every My Books Book has an EPUB; metadata-only
@@ -18,7 +16,7 @@ results, and prepare a deck through distinct, durable, reproducible steps.
 ## Learner journey
 
 1. Browse an owner-scoped OPDS catalog.
-2. Add an EPUB to My Library without starting analysis or leaving the browser.
+2. Add an EPUB to My Books without starting analysis or leaving the browser.
 3. Open the book, review its extracted units, and confirm a scope revision.
 4. Explicitly start asynchronous analysis for that confirmed scope.
 5. Observe queued, running, completed, failed, or cancelled status; retry a
@@ -32,7 +30,7 @@ The identity and state contracts for these resources are normative in
 
 ## OPDS intake
 
-- Each acquisition control says **Add to library**, not **Import & analyze**.
+- Each acquisition control says **Add to My Books**, not **Import & analyze**. Historical **Add to library** copy may still appear in older screenshots or compatibility strings.
 - A successful add updates that entry in place and preserves the current feed,
   pagination, filters, and scroll-friendly multi-add workflow.
 - Repeated acquisition of the same owner, catalog entry, and source content is
@@ -74,8 +72,7 @@ The identity and state contracts for these resources are normative in
   chain and rejects incomplete, failed, stale, legacy-only, or cross-owner input.
 - Preparation retry and reconciliation follow ADR 0028 and preserve ADR 0022's
   immutable ready-artifact and pure-download guarantees.
-- Deck preparation does not mark vocabulary known. Campaign completion remains
-  the explicit graduation boundary in ADR 0027.
+- Deck preparation does not mark vocabulary known. Vocabulary graduation uses the single justified transition of [ADR 0036](../adr/0036-primary-goal-justified-graduation.md); reading-finished alone graduates nothing. Campaign operations remain secondary/history only.
 
 ## Compatibility and rollout
 

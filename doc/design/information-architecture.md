@@ -1,10 +1,8 @@
 # Information architecture
 
-Status: **Canonical learner-facing design direction.** This document defines the
-accepted experience architecture, not a persistence model or a claim that every
-surface is already shipped. Conflicts with current feature documents, ADRs, and
-routes are explicit under
-[Contract changes requiring planner/ADR work](#contract-changes-requiring-planneradr-work).
+Status: **Canonical shipped learner-facing architecture.** This document defines
+the experience hierarchy and its shipped route/terminology reconciliation. ADRs
+continue to own persistence and historical decision details.
 
 Mouseion is organized around literature the learner cares about, one current
 reading commitment, and the changed possibilities that follow from justified
@@ -127,8 +125,7 @@ These objects remain important, but they do not define principal navigation:
 - **Prepared deck** — immutable APKG artifact from one exact analysis result.
 - **Learning campaign** — current accepted domain object for one book/deck
   workflow and its vocabulary reservation/graduation semantics. It remains an
-  internal or secondary concept until its contract is deliberately reconciled
-  with Primary Goal.
+  internal or secondary history/operations concept, not a learner-facing plan.
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
   graduated through an accepted transition.
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
@@ -161,8 +158,8 @@ canonical learner-facing architecture.
 
 ## Route and screen hierarchy
 
-The hierarchy below identifies conceptual ownership. It deliberately does not
-choose new route names or storage APIs before planner/ADR work.
+The hierarchy below records shipped conceptual and route ownership. It does not
+replace the ADRs' detailed storage and compatibility decisions.
 
 ```text
 Authentication
@@ -198,19 +195,17 @@ Secondary history
 
 ### Current route compatibility
 
-The current application uses `/library` for its owned-book collection and
-`/campaigns` for the active-campaign queue/history screen. `/` redirects to
-`/library`. Those routes are implementation facts, not permission to retain My
-Library, Learning, queue, or Campaign as primary learner-facing concepts.
+The shipped application uses `/library` for My Books and `/journey` for Reading
+Journey. `/` redirects to `/library`, while `GET /campaigns` is a compatibility
+redirect to `/journey`. The Journey page retains a secondary **Campaign history
+& operations** section for prepared-deck actions and reading, preparation, and
+vocabulary-transition history. It does not present a duplicate queue or plan.
 
-Whether `/library` is retained for My Books, whether `/campaigns` redirects or
-is replaced, and what route owns Reading Journey are planner/implementation
-questions. New templates must not invent a second competing navigation system
-while that work is unresolved. ADR 0034 decides the queue side of this: the
-derived Campaign queue is retired in favour of Reading Journey, `GET /campaigns`
-redirects to the Journey surface, and book-centered Campaign actions (history,
-graduation control) are reachable from the book detail / operational surfaces
-without presenting a second learner-facing plan.
+The authenticated shell therefore exposes My Books, Reading Journey, and
+Settings, plus the distinct Add books action. Historical My Library, Learning,
+queue, and learner-facing Campaign labels are not active navigation concepts;
+compatibility aliases and operational terminology remain only where required by
+existing routes, records, or infrastructure.
 
 Existing nested analysis and artifact routes remain secondary surfaces:
 
@@ -281,8 +276,8 @@ rather than moving or demoting them silently.
 Reading completion and vocabulary knowledge are independent facts. When reading
 is finished, the book no longer occupies the current Primary Goal role; it
 remains in My Books and history, and unfinished vocabulary work remains visible
-without blocking **Where next?** No next Goal is automatic. Implementing that
-role transition against the current Campaign contract requires planner/ADR work.
+without blocking **Where next?** No next Goal is automatic. ADR 0036 defines the
+shipped independent reading and justified vocabulary transitions.
 
 Completion proceeds in four beats:
 
@@ -340,85 +335,50 @@ Settings owns study-language preferences and known vocabulary. Under the current
 contract, removing a study language removes only the preference; it does not
 delete books, analyses, decks, internal Campaigns, or known vocabulary.
 Known-vocabulary import remains additive and does not imply a correction or
-reversal path. Future Journey/Goal relationships must not be described as
-deleted or preserved until their contract exists.
+reversal path. Journey and Goal relationships are independent of Settings and
+known-vocabulary removal; their shipped consequences are defined by ADR 0034
+and ADR 0036.
 
-## Contract changes requiring planner/ADR work
+<a id="contract-changes-requiring-planneradr-work"></a>
 
-The learner-facing architecture above is accepted. The following product/domain
-questions remain deliberately unresolved and must be handled through the normal
-feature-planning and ADR process before implementation. This document does not
-choose tables, identifiers, APIs, migrations, or compatibility behavior.
+## Resolved architecture decisions
+
+The learner-facing architecture above is shipped. The following decisions record
+how the current implementation is reconciled with the accepted ADRs; those ADRs
+remain authoritative for persistence, historical records, and compatibility
+details.
 
 Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
-immutable acquired source evidence. Its staged implementation remains pending
-and must preserve the shipped acquisition contract during compatibility rollout.
+immutable acquired source evidence. The shipped acquisition path creates or
+restores membership only after the validated source snapshot is persisted.
 
-1. **Reading Journey identity and ordering.** Current contracts have a campaign
-   queue, not provisional learner-selected membership, free ordering, or
-   historical/current route comparison. Persistence, concurrency, and stale
-   recalculation behavior require a product contract.
-Resolved by [ADR 0034: One implicit Reading Journey with learner-canonical
-   ordering and campaign-queue migration](../adr/0034-reading-journey-identity-ordering.md).
-2. **Primary Goal identity.** ADR 0027 requires a prepared deck before a
-   Campaign exists. Primary Goal must support commitment before analysis or
-   deck preparation and possibly reading without Anki. Its relationship to an
-   internal Campaign is unresolved.
-   Resolved by [ADR 0036: Deck-independent Primary Goal and single justified
-   vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md):
-   one deck-independent Primary Goal per learner, meaningful before analysis or
-   deck and readable without Anki; a Goal never reserves vocabulary itself, and
-   Campaign remains the internal reservation/graduation mechanism.
-3. **Completion and vocabulary graduation.** ADR 0027 atomically completes a
-   Campaign only after both book-finished and deck-reviewed facts, then
-   graduates assigned vocabulary. The accepted experience treats reading
-   completion as a factual outcome even when vocabulary work remains. The
-   transition and copy cannot be split or relabeled without revisiting that
-   contract.
-   Resolved by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md):
-   reading-finished is independent of deck-reviewed, graduation happens only
-   through the single justified transition (snapshotted,
-   provenance-linked identities + confirmed review), and the four-beat finish
-   states current-versus-conditional honestly.
-4. **A new Goal while vocabulary work remains.** The accepted Where next?
-   experience permits reconsideration after the book is finished, while the
-   current single-active Campaign may still reserve vocabulary. Whether another
-   Goal can become current, and how reservation/projection semantics behave,
-   requires an explicit decision.
-   Resolved by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md):
-   a new Goal triggers an explicit graduate-or-abandon resolution of the
-   residual reservation, preserves the one-active-campaign exclusivity, and
-   keeps overlap deterministic; no silent state change.
-5. **Queue replacement and history.** The provisional Journey must not coexist
-   with a learner-facing commitment queue. Migration or compatibility for
-   queued, active, complete, and abandoned Campaign records requires planning;
-   historical evidence must remain understandable.
-Resolved by [ADR 0034](../adr/0034-reading-journey-identity-ordering.md):
-   queued records migrate into Journey membership in creation order, active
-   records remain the current Campaign, and completed/abandoned records remain
-   history.
-6. **Cross-book projection and route comparison.** The exact optimization
-   objective, eligible evidence, threshold assumptions, transition assumptions,
-   handling of incomparable books, and invalidation rules need a reproducible
-   product/analysis contract. No composite score should be invented.
-   Resolved by [ADR 0037: Cross-book vocabulary projection and advisory Journey
-   ordering](../adr/0037-cross-book-projection-advisory-ordering.md): the
-   vocabulary-efficient alternative optimizes exactly one named lexical property
-   (current known-token coverage) over the learner-selected comparable books and
-   fixed-order constraints, keeps current and conditional projected states
-   distinct, leaves incomparable books at the learner's position without a
-   fabricated rank, recalculates on demand, and never overrides the canonical
-   learner order or invents a composite score.
-7. **Routes and terminology rollout.** My Books and Reading Journey need one
-   coherent navigation model across redirects, deep links, breadcrumbs, and
-   tests. Route names are implementation decisions; learner-facing terminology
-   must not drift during staged rollout.
-
-Until these contracts are accepted, existing feature documents and ADRs remain
-authoritative for domain behavior. Canonical design language may describe the
-target experience, but must not be used to conceal a semantic mismatch.
+1. **Reading Journey identity and ordering** are resolved by [ADR 0034: One
+   implicit Reading Journey with learner-canonical ordering and campaign-queue
+   migration](../adr/0034-reading-journey-identity-ordering.md). The shipped
+   Journey is the single learner-facing order, and `/campaigns` redirects to it.
+2. **Primary Goal identity** is resolved by [ADR 0036: Deck-independent Primary
+   Goal and single justified vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md):
+   one deck-independent Primary Goal per learner is meaningful before analysis or
+   deck preparation, and Campaign remains secondary reservation state.
+3. **Completion and vocabulary graduation** use the independent reading-finished
+   fact and the single justified transition defined by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md).
+   The finish outcome states current versus conditional evidence honestly.
+4. **Residual vocabulary work and a new Goal** follow ADR 0036: a new Goal is
+   explicit, residual reservations require an explicit graduate-or-abandon
+   resolution before new reserved work, and overlap remains deterministic.
+5. **Campaign queue replacement and history** follow ADR 0034: the Journey is
+   the only learner-facing plan, while active, completed, and abandoned Campaign
+   records remain available as secondary history/operations and provenance.
+6. **Cross-book projection and route comparison** follow [ADR 0037: Cross-book
+   vocabulary projection and advisory Journey ordering](../adr/0037-cross-book-projection-advisory-ordering.md):
+   the alternative is advisory evidence only and never overrides learner order
+   or invents a composite score.
+7. **Routes and terminology** are reconciled in the shipped shell and supporting
+   surfaces: My Books, Reading Journey, Settings, and distinct Add books are the
+   active navigation model; `/known-vocab` and `/campaigns` remain compatibility
+   routes with their documented redirects.
 
 ## Cross-linking rules
 

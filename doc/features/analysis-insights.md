@@ -97,10 +97,10 @@ The UI must distinguish:
 - vocabulary eligible for a new deck.
 
 Generated or active-campaign vocabulary is not silently reported as known.
-Queued books show current-known coverage and future-book coverage after the
-active campaign graduates. Both values are calculated on demand, so completing
-or abandoning the active campaign changes the queue without a persisted
-coverage or mastery snapshot.
+Books later in Reading Journey show current-known coverage and future-book
+coverage after the active campaign graduates. Both values are calculated on
+demand, so completing or abandoning the active campaign changes Journey
+evidence without a persisted coverage or mastery snapshot.
 
 ## Initial presentation
 

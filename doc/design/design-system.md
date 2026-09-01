@@ -1,7 +1,6 @@
 # Design system
 
-Status: **Foundation established; frozen experience direction documented for
-future reconciliation**
+Status: **Foundation and shipped learner-facing experience documented**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -10,10 +9,10 @@ Mouseion-owned tokens, typography roles, responsive rules, and interaction
 contracts are the durable system.
 
 The system is intentionally small. The foundation and first reusable Templ
-component layer are shipped. Canonical patterns for My Books, Reading Journey,
-and Primary Goal are documented in [`components.md`](components.md) as target
-interaction guidance; they are not claims that the new architecture is
-implemented or that its component boundaries are settled.
+component layer are shipped. The My Books, Reading Journey, and Primary Goal
+patterns documented in [`components.md`](components.md) are the shipped
+learner-facing interaction guidance; exact component boundaries may remain
+workflow-specific.
 
 ## Implementation ownership
 
@@ -189,8 +188,9 @@ scrollable data table must label and contain its own overflow.
   and vocabulary transition remain visibly distinct.
 - Operational analysis status and the exact completed result are separate
   surfaces. Deck preparation follows the result's trust and insight summary.
-- Current Campaign completion and abandonment retain distinct consequential
-  confirmations until planner/ADR reconciliation defines Primary Goal behavior.
+- Campaign completion and abandonment retain distinct consequential confirmations
+  in the secondary history/operations section; Primary Goal behavior is defined
+  by ADR 0036.
 - Settings is canonical for study languages and known vocabulary.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
@@ -214,11 +214,12 @@ book/result/deck journey and extended it to acquisition, current Campaign,
 Settings, operational recovery, and quality gates. The roadmap does not plan the
 frozen My Books / Reading Journey / Primary Goal architecture.
 
-Current implementation adoption covers the library route, book detail and scope
-review, Campaigns, analysis jobs, and known-vocabulary management. Canonical
-target patterns add bibliographic book identity, the one Primary Goal, a fluid
+Current implementation adoption covers My Books (`/library`), book detail and
+scope review, Reading Journey (`/journey`), secondary Campaign history and
+operations, analysis jobs, and known-vocabulary management. The shipped
+patterns preserve bibliographic book identity, the one Primary Goal, a fluid
 Journey order, route comparison, explicit evidence deltas, and the Where next?
-outcome. Do not disguise those new contracts as mere component renames.
+outcome. Do not disguise those contracts as mere component renames.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,
