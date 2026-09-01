@@ -126,6 +126,40 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, bookID s
 	return revision, nil
 }
 
+// ResolveJourneyBookID maps the identity used by a deck-journey action surface
+// to the canonical books.id that Reading Journey membership stores. Deck
+// preparation surfaces are keyed by source_materials.id while membership and
+// the Goal are keyed by books.id, so an id that is already a book passes
+// through unchanged and a source material is resolved through its linked book
+// (source_materials.book_id), falling back to the source-identifier alias for
+// legacy sources where the link column is unset. The second result reports
+// whether a book identity exists for the owner.
+func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id string) (string, bool, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM books WHERE owner_id=$1 AND id=$2)`, owner, id).Scan(&exists); err != nil {
+		return "", false, err
+	}
+	if exists {
+		return id, true, nil
+	}
+	var linked *string
+	err := s.pool.QueryRow(ctx, `SELECT COALESCE(sm.book_id::text,b.id::text)
+		FROM source_materials sm
+		LEFT JOIN book_aliases a ON a.owner_id=sm.owner_id AND a.namespace=$3 AND a.value=sm.source_identifier
+		LEFT JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
+		WHERE sm.owner_id=$1 AND sm.id=$2`, owner, id, domain.NamespaceSourceIdentifier).Scan(&linked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if linked == nil {
+		return "", false, nil
+	}
+	return *linked, true, nil
+}
+
 // RemoveFromReadingJourney removes a Journey member and compacts positions.
 func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
 	tx, revision, members, err := s.beginReadingJourneyMutation(ctx, owner)
