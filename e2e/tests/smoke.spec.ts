@@ -47,12 +47,10 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' })).toHaveCount(0);
   });
 
-  test('exact analysis result and deck status are reachable', async ({ page }) => {
+  test('exact analysis result redirects to the book page', async ({ page }) => {
     await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page.getByRole('heading', { name: /analysis result/i })).toBeVisible();
-    // The book title appears in the breadcrumb, heading, and result body; assert
-    // it is present without tripping Playwright strict mode.
-    await expect(page.getByText('Der lange Weg nach Hause').first()).toBeVisible();
+    await expect(page).toHaveURL(/\/books\/fixture-book/);
+    await expect(page.getByRole('heading', { name: /Der lange Weg nach Hause/i })).toBeVisible();
     await page.goto('/deck-preparations/fixture-preparation/status');
     await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
   });
