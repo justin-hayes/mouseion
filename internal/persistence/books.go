@@ -113,6 +113,21 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	return out, rows.Err()
 }
 
+// IsMetadataOnlyMyBook reports whether the owner's Book is an active My Books
+// member with no acquired source. Metadata-only membership is the only Book
+// state whose page needs no acquired-content surface; every other state falls
+// through to the normal Book projection.
+func (s *PostgresStore) IsMetadataOnlyMyBook(ctx context.Context, owner, bookID string) (bool, error) {
+	var metadataOnly bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM books b
+		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+		WHERE b.owner_id=$1 AND b.id::text=$2
+		  AND NOT EXISTS (SELECT 1 FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id))`,
+		owner, bookID).Scan(&metadataOnly)
+	return metadataOnly, err
+}
+
 func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (domain.Book, error) {
 	return scanBook(s.pool.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
 }
@@ -306,6 +321,99 @@ func (s *PostgresStore) LinkSourceToBook(ctx context.Context, owner, bookID, sou
 
 func (s *PostgresStore) ResolveOrCreateBookForAcquisition(ctx context.Context, owner, sourceIdentifier, language, title string) (string, error) {
 	return s.resolveOrCreateBookForAcquisition(ctx, owner, "", sourceIdentifier, language, title)
+}
+
+// CatalogueEntryReconcileResult reports what a metadata-only catalogue upsert
+// actually changed, so connection status can distinguish "synced with changes"
+// from "synced with no changes" without re-querying or implying content work.
+type CatalogueEntryReconcileResult struct {
+	Book         domain.Book
+	Created      bool
+	TitleChanged bool
+}
+
+// Upserted reports whether the entry added or updated a Book.
+func (r CatalogueEntryReconcileResult) Upserted() bool { return r.Created || r.TitleChanged }
+
+// ReconcileCatalogueEntry performs the metadata-only, owner-scoped catalogue
+// upsert. New Books are created with a chosen language only when the catalogue
+// sync scope determines that language deterministically from the learner's
+// explicitly saved study language (never inferred); existing matched Books are
+// never flipped between language states. Source materials and acquired content
+// are never touched here: membership and identity are metadata-only.
+func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, sourceIdentifier, title, language string) (CatalogueEntryReconcileResult, error) {
+	owner, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
+	if owner == "" || sourceIdentifier == "" || title == "" || language == "" {
+		return CatalogueEntryReconcileResult{}, errors.New("persistence: catalogue entry identity is incomplete")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+sourceIdentifier); err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	var sourceBook, aliasBook *string
+	err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND source_identifier=$2 FOR UPDATE`, owner, sourceIdentifier).Scan(&sourceBook)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = nil
+	} else if err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 FOR UPDATE`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasBook)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = nil
+	} else if err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	if sourceBook != nil && aliasBook != nil && *sourceBook != *aliasBook {
+		return CatalogueEntryReconcileResult{}, ErrSourceBookConflict
+	}
+	bookID := ""
+	if sourceBook != nil {
+		bookID = *sourceBook
+	} else if aliasBook != nil {
+		bookID = *aliasBook
+	}
+	created := bookID == ""
+	var titleChanged bool
+	if bookID == "" {
+		var createdBook domain.Book
+		createdBook, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,'chosen',$4) RETURNING `+bookColumns, owner, title, domain.MetadataProvenanceCatalogueSync, language))
+		if err != nil {
+			return CatalogueEntryReconcileResult{}, err
+		}
+		bookID = createdBook.ID
+	} else {
+		var currentTitle string
+		if err = tx.QueryRow(ctx, `SELECT title FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&currentTitle); err != nil {
+			return CatalogueEntryReconcileResult{}, err
+		}
+		titleChanged = strings.TrimSpace(currentTitle) != title
+	}
+	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE books SET title=$3,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, bookID, title); err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	if aliasBook == nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,namespace,value) DO NOTHING`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
+			return CatalogueEntryReconcileResult{}, aliasConflictError(err)
+		}
+	}
+	book, err := scanBook(tx.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
+	if err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
+	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged}, nil
 }
 
 // ResolveOrCreateBookForAcquisitionForBook promotes an explicitly selected

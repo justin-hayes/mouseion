@@ -17,6 +17,18 @@ import (
 
 func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
+	if metadataOnly, err := h.services.Store.IsMetadataOnlyMyBook(r.Context(), u.ID, r.PathValue("id")); err != nil {
+		fail(w, err)
+		return
+	} else if metadataOnly {
+		book, err := h.services.Store.GetBook(r.Context(), u.ID, r.PathValue("id"))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message")))
+		return
+	}
 	summary, ok := h.loadBook(w, r, u.ID)
 	if !ok {
 		return

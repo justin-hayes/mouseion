@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
@@ -74,6 +75,7 @@ func main() {
 		log.Fatal(err)
 	}
 	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
+	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
 	if err != nil {
 		log.Fatal(err)
@@ -98,6 +100,7 @@ func main() {
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
+	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
 	exportService := cardexport.NewService(store)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -125,9 +128,12 @@ func main() {
 	} else {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
-	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
+	catalogueSyncService := cataloguesync.NewService(store, riverClient, opdsService, capabilities)
+	if err = catalogueSyncService.RegisterAll(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 	mux.Handle("/static/", webapp.StaticHandler())
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		log.Fatalf("initialize web application: %v", err)
 	}

@@ -36,10 +36,16 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
 		return
 	}
-	_, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
+	created, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
 	if e != nil {
 		fail(w, e)
 		return
+	}
+	if h.services.CatalogueSync != nil {
+		if e = h.services.CatalogueSync.RegisterConnection(r.Context(), u.ID, created.ID); e != nil {
+			fail(w, e)
+			return
+		}
 	}
 	location := "/connections?message=Catalog+added"
 	if bookID := strings.TrimSpace(r.FormValue("book_id")); bookID != "" {
@@ -89,6 +95,12 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 		}
 		fail(w, e)
 		return
+	}
+	if h.services.CatalogueSync != nil {
+		if e := h.services.CatalogueSync.UnregisterConnection(u.ID, r.PathValue("id")); e != nil {
+			fail(w, e)
+			return
+		}
 	}
 	redirect(w, r, "/connections?message=Catalog+deleted")
 }

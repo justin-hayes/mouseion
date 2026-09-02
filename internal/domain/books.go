@@ -7,14 +7,32 @@ import (
 )
 
 const (
-	LanguageUnknown               = "unknown"
-	LanguageChosen                = "chosen"
-	MetadataProvenanceManualEntry = "manual_entry"
-	AliasCatalogEntry             = "catalog_entry"
-	AliasStrongBibliographic      = "strong_bibliographic"
-	NamespaceSourceIdentifier     = "source_identifier"
-	MetadataProvenanceBackfill    = "source_materials_backfill"
+	LanguageUnknown                 = "unknown"
+	LanguageChosen                  = "chosen"
+	MetadataProvenanceManualEntry   = "manual_entry"
+	MetadataProvenanceCatalogueSync = "catalog_sync"
+	AliasCatalogEntry               = "catalog_entry"
+	AliasStrongBibliographic        = "strong_bibliographic"
+	NamespaceSourceIdentifier       = "source_identifier"
+	MetadataProvenanceBackfill      = "source_materials_backfill"
 )
+
+type CatalogueSyncState string
+
+const (
+	CatalogueSyncSyncing CatalogueSyncState = "syncing"
+	CatalogueSyncSynced  CatalogueSyncState = "synced"
+	CatalogueSyncFailed  CatalogueSyncState = "failed"
+)
+
+type CatalogueSyncStatus struct {
+	OwnerID, ConnectionID string
+	State                 CatalogueSyncState
+	LastError             string
+	LastSyncedAt          *time.Time
+	LastUpsertedCount     int
+	UpdatedAt             time.Time
+}
 
 type MyBookEvidenceState string
 

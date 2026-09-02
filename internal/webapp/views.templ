@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
@@ -1211,6 +1212,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 		}
 	}
 }
+
 templ JobPage(user domain.User, csrf string, status analysis.Status) {
 	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
@@ -1382,5 +1384,80 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View Primary Goal in Reading Journey</a></p>
 			}
 		</div>
+	}
+}
+
+templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string) {
+	@ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary) {
+		@Breadcrumb("/library", "My Books")
+		@PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral))
+		if message != "" {
+			@Feedback(FeedbackSuccess, "", message)
+		}
+		<section aria-labelledby="metadata-only-heading">
+			<h2 id="metadata-only-heading">Content not acquired</h2>
+			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis, scope review, and deck preparation are unavailable until content is acquired explicitly.</p>
+			<p>Sync is metadata-only and never downloads book content. Use the catalog connection to express acquisition intent when you are ready.</p>
+		</section>
+	}
+}
+
+templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string) {
+	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
+		@PageHeader("Jobs", "Operational history for catalogue sync and analysis work.", nil)
+		if message != "" {
+			@Feedback(FeedbackInfo, "", message)
+		}
+		if len(jobs) == 0 && len(syncJobs) == 0 {
+			@EmptyState("No jobs yet", "Catalogue sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
+		}
+		if len(syncJobs) > 0 {
+			@ResponsiveTable("Catalogue sync history") {
+				<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				for _, job := range syncJobs {
+					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalogue sync</a></td><td>{ job.ConnectionName }</td><td>{ catalogueSyncJobState(job) }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+				}
+				</tbody>
+			}
+		}
+		if len(jobs) > 0 {
+			@ResponsiveTable("Analysis history") {
+				<thead><tr><th>Kind</th><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				for _, job := range jobs {
+					<tr><td>Analysis</td><td>
+						if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL("/books/"+job.SourceMaterialID) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+						} else {
+							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
+						}
+					</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+				}
+				</tbody>
+			}
+		}
+	}
+}
+
+templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.Status) {
+	@ShellLayout(fmt.Sprintf("Catalogue sync #%d", status.ID), &user, csrf, NavigationLibrary) {
+		@PageHeader("Catalogue sync", status.ConnectionName, nil)
+		@CatalogueSyncJobStatus(csrf, status)
+	}
+}
+
+templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
+	@AsyncStatus(catalogueSyncJobStatusAttributes(status.ID, catalogueSyncStatusRunning(status)), "catalogue-sync-job-status", catalogueSyncJobState(status), catalogueSyncJobSummary(status), status.Progress, 100, catalogueSyncStatusRunning(status)) {
+		if status.Error != "" {
+			@Feedback(FeedbackError, "Catalogue sync needs attention", status.Error)
+		}
+		@ActionGroup() {
+			if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry catalogue sync</button></form>
+			}
+			if catalogueSyncStatusRunning(status) {
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel catalogue sync</button></form>
+			}
+		}
+		<p>Catalogue sync reconciles metadata only; it does not download EPUB content.</p>
 	}
 }
