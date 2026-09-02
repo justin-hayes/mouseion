@@ -7,6 +7,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
@@ -463,6 +464,20 @@ func jobStatusAttributes(id int64, running bool) templ.Attributes {
 	attributes["hx-trigger"] = "every 2s"
 	attributes["hx-swap"] = "outerHTML"
 	return attributes
+}
+
+func catalogueSyncJobStatusAttributes(id int64, running bool) templ.Attributes {
+	attributes := templ.Attributes{"data-workflow": "catalogue sync"}
+	if running {
+		attributes["hx-get"] = fmt.Sprintf("/jobs/%d/status", id)
+		attributes["hx-trigger"] = "every 2s"
+		attributes["hx-swap"] = "outerHTML"
+	}
+	return attributes
+}
+
+func catalogueSyncStatusRunning(status cataloguesync.Status) bool {
+	return status.LogicalState == "queued" || status.LogicalState == "running"
 }
 
 func knownVocabImportAttributes(status knownvocab.Status) templ.Attributes {

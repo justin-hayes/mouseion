@@ -56,6 +56,7 @@ type Store interface {
 	CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error)
 	ListMyBooks(context.Context, string) ([]domain.Book, error)
 	GetBook(context.Context, string, string) (domain.Book, error)
+	IsMetadataOnlyMyBook(context.Context, string, string) (bool, error)
 	CreateBook(context.Context, domain.Book) (domain.Book, error)
 	UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error)
 	AddBookToMyBooks(context.Context, string, string) error
@@ -88,6 +89,14 @@ type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
+}
+
+// CatalogueSyncScheduler lets connection CRUD maintain the River periodic
+// schedule without coupling handlers to River or exposing job credentials.
+// The learner-facing Sync now action belongs to the follow-up connection UI.
+type CatalogueSyncScheduler interface {
+	RegisterConnection(context.Context, string, string) error
+	UnregisterConnection(string, string) error
 }
 type CompletedAnalysisReader interface {
 	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
@@ -127,6 +136,7 @@ type Services struct {
 	Enrichment       ExternalEnrichment
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
+	CatalogueSync    CatalogueSyncScheduler
 	SecureCookies    bool
 	SessionLifetime  time.Duration
 	// These are optional explicit key injections for deterministic tests or

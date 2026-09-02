@@ -140,6 +140,13 @@ func NormalizeWith(profile Profile, rawLemma string) NormalizedLemma {
 // backward compatibility; language-aware callers should select a Profile.
 func Lemma(value string) string { return strings.ToLower(strings.TrimSpace(value)) }
 
+// NormalizeLanguage returns the canonical comparison form for a language tag.
+// It preserves a locale's base language relationship while normalizing case
+// and separator spelling for owner preferences and service capabilities.
+func NormalizeLanguage(language string) string {
+	return normalizeLanguage(language)
+}
+
 func normalizeLanguage(language string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
 }

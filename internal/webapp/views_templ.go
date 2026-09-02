@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
@@ -80,7 +81,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 23, Col: 144}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 24, Col: 144}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -93,7 +94,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(string(context))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 128, Col: 229}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 129, Col: 229}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -135,7 +136,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(user.Username)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 132, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 133, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -148,7 +149,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 132, Col: 150}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 133, Col: 150}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -256,7 +257,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 147, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 148, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -337,7 +338,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("book-title-" + book.Book.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 174, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 175, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -350,7 +351,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("book-title-" + book.Book.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 176, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 177, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -368,7 +369,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var15 templ.SafeURL
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + book.Acquired.Source.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 178, Col: 67}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 179, Col: 67}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -381,7 +382,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var16 string
 						templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(book.Book.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 178, Col: 87}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 179, Col: 87}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 						if templ_7745c5c3_Err != nil {
@@ -395,7 +396,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var17 string
 						templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(book.Book.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 180, Col: 26}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 181, Col: 26}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 						if templ_7745c5c3_Err != nil {
@@ -414,7 +415,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var18 string
 						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(book.Book.LanguageTag)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 185, Col: 48}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 186, Col: 48}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 						if templ_7745c5c3_Err != nil {
@@ -438,7 +439,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var19 string
 						templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(book.Acquired.Source.MediaType)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 190, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 191, Col: 47}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 						if templ_7745c5c3_Err != nil {
@@ -457,7 +458,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var20 string
 						templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(book.Acquired.Source.CreatedAt.Format("2006-01-02"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 193, Col: 77}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 194, Col: 77}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 						if templ_7745c5c3_Err != nil {
@@ -488,7 +489,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var21 templ.SafeURL
 						templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/journey#journey-book-" + book.Book.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 201, Col: 73}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 202, Col: 73}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 						if templ_7745c5c3_Err != nil {
@@ -507,7 +508,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(myBookAnalysisLabel(book.Acquired.AnalysisStatus))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 204, Col: 98}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 205, Col: 98}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
@@ -526,7 +527,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var23 string
 						templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(myBookLifecycleActionFor(book).Status)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 208, Col: 48}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 209, Col: 48}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 						if templ_7745c5c3_Err != nil {
@@ -540,7 +541,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(myBookLifecycleActionFor(book).Description)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 210, Col: 52}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 211, Col: 52}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -562,7 +563,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var25 templ.SafeURL
 						templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/goal/books/" + book.Book.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 215, Col: 80}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 216, Col: 80}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 						if templ_7745c5c3_Err != nil {
@@ -575,7 +576,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var26 string
 						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 215, Col: 134}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 216, Col: 134}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 						if templ_7745c5c3_Err != nil {
@@ -588,7 +589,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var27 string
 						templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(goalBookID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 215, Col: 206}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 216, Col: 206}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 						if templ_7745c5c3_Err != nil {
@@ -618,7 +619,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var29 templ.SafeURL
 						templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/library/books/" + book.Book.ID + "/remove"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 218, Col: 93}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 219, Col: 93}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 						if templ_7745c5c3_Err != nil {
@@ -631,7 +632,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						var templ_7745c5c3_Var30 string
 						templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 218, Col: 147}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 219, Col: 147}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 						if templ_7745c5c3_Err != nil {
@@ -753,7 +754,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var34 templ.SafeURL
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("#" + campaignAnchorID(activeCampaignID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 239, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 240, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -808,7 +809,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var35 string
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d comparable, %d incomparable", journey.RouteComparison.ComparableCount, journey.RouteComparison.IncomparableCount))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 257, Col: 147}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 258, Col: 147}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -826,7 +827,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 						var templ_7745c5c3_Var36 string
 						templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 261, Col: 31}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 262, Col: 31}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 						if templ_7745c5c3_Err != nil {
@@ -839,7 +840,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 						var templ_7745c5c3_Var37 string
 						templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(item.RankLabel)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 261, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 262, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 						if templ_7745c5c3_Err != nil {
@@ -857,7 +858,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var38 string
 							templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(item.CurrentCoverageLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 263, Col: 46}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 264, Col: 46}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 							if templ_7745c5c3_Err != nil {
@@ -870,7 +871,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var39 string
 							templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(item.ThresholdLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 263, Col: 122}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 264, Col: 122}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 							if templ_7745c5c3_Err != nil {
@@ -888,7 +889,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var40 string
 							templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(item.IncomparableDetail)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 265, Col: 45}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 266, Col: 45}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 							if templ_7745c5c3_Err != nil {
@@ -926,7 +927,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var41 string
 							templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(item.RankLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 33}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 33}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 							if templ_7745c5c3_Err != nil {
@@ -939,7 +940,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var42 string
 							templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 56}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 56}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 							if templ_7745c5c3_Err != nil {
@@ -960,7 +961,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var43 string
 							templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(item.CurrentCoverageLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 154}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 154}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 							if templ_7745c5c3_Err != nil {
@@ -973,7 +974,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var44 string
 							templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(item.ThresholdLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 186}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 186}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 							if templ_7745c5c3_Err != nil {
@@ -986,7 +987,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var45 string
 							templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(routePlacementLabel(item))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 224}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 224}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 							if templ_7745c5c3_Err != nil {
@@ -995,7 +996,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 							var templ_7745c5c3_Var46 string
 							templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(routeIncomparableSuffix(item))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 280, Col: 257}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 281, Col: 257}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 							if templ_7745c5c3_Err != nil {
@@ -1023,7 +1024,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 								var templ_7745c5c3_Var47 string
 								templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(item.RankLabel)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 290, Col: 34}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 291, Col: 34}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 								if templ_7745c5c3_Err != nil {
@@ -1036,7 +1037,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 								var templ_7745c5c3_Var48 string
 								templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 290, Col: 57}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 291, Col: 57}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 								if templ_7745c5c3_Err != nil {
@@ -1049,7 +1050,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 								var templ_7745c5c3_Var49 string
 								templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(item.ConditionalCoverageLabel)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 290, Col: 99}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 291, Col: 99}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 								if templ_7745c5c3_Err != nil {
@@ -1062,7 +1063,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 								var templ_7745c5c3_Var50 string
 								templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(routePlacementLabel(item))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 290, Col: 137}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 291, Col: 137}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 								if templ_7745c5c3_Err != nil {
@@ -1071,7 +1072,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 								var templ_7745c5c3_Var51 string
 								templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(routeIncomparableSuffix(item))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 290, Col: 170}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 291, Col: 170}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 								if templ_7745c5c3_Err != nil {
@@ -1115,7 +1116,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var52 string
 					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(item.Book.Source.Title)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 305, Col: 84}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 306, Col: 84}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 					if templ_7745c5c3_Err != nil {
@@ -1136,7 +1137,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var53 string
 					templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(item.Deck.DeckName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 305, Col: 197}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 306, Col: 197}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 					if templ_7745c5c3_Err != nil {
@@ -1149,7 +1150,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var54 string
 					templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d cards", item.Deck.TotalCards))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 305, Col: 260}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 306, Col: 260}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 					if templ_7745c5c3_Err != nil {
@@ -1162,7 +1163,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					var templ_7745c5c3_Var55 templ.SafeURL
 					templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + item.Deck.ID + "/download"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 305, Col: 337}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 306, Col: 337}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 					if templ_7745c5c3_Err != nil {
@@ -1281,7 +1282,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 		var templ_7745c5c3_Var59 string
 		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(outcome.BookTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 330, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 331, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 		if templ_7745c5c3_Err != nil {
@@ -1299,7 +1300,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 			var templ_7745c5c3_Var60 string
 			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(outcome.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 332, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 333, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 			if templ_7745c5c3_Err != nil {
@@ -1317,7 +1318,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 		var templ_7745c5c3_Var61 string
 		templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(outcome.BookTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 337, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 338, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 		if templ_7745c5c3_Err != nil {
@@ -1330,7 +1331,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 		var templ_7745c5c3_Var62 string
 		templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(finishGraduationText(outcome))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 341, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 342, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 		if templ_7745c5c3_Err != nil {
@@ -1353,7 +1354,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var63 string
 				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(finishGraduatedIdentity(item))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 346, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 347, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
 				if templ_7745c5c3_Err != nil {
@@ -1394,7 +1395,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var64 string
 				templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs("finish-evidence-" + journeyBookID(item.Book))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 361, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 362, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 				if templ_7745c5c3_Err != nil {
@@ -1407,7 +1408,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var65 string
 				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs("finish-evidence-" + journeyBookID(item.Book))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 362, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 363, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 				if templ_7745c5c3_Err != nil {
@@ -1420,7 +1421,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var66 string
 				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookTitle(item.Book.Book))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 362, Col: 98}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 363, Col: 98}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 				if templ_7745c5c3_Err != nil {
@@ -1438,7 +1439,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 					var templ_7745c5c3_Var67 string
 					templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(item.BeforeLabel)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 364, Col: 54}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 365, Col: 54}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 					if templ_7745c5c3_Err != nil {
@@ -1451,7 +1452,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 					var templ_7745c5c3_Var68 string
 					templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(item.BeforeCurrent)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 364, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 365, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 					if templ_7745c5c3_Err != nil {
@@ -1464,7 +1465,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 					var templ_7745c5c3_Var69 string
 					templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(item.BeforeProjected)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 364, Col: 152}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 365, Col: 152}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 					if templ_7745c5c3_Err != nil {
@@ -1482,7 +1483,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var70 string
 				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(item.AfterLabel)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 366, Col: 43}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 367, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
@@ -1495,7 +1496,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var71 string
 				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(item.AfterCurrent)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 366, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 367, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
@@ -1508,7 +1509,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 				var templ_7745c5c3_Var72 string
 				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(item.AfterProjected)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 366, Col: 148}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 367, Col: 148}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 				if templ_7745c5c3_Err != nil {
@@ -1532,7 +1533,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 			var templ_7745c5c3_Var73 string
 			templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookTitle(outcome.Journey.Provisional[0].Book))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 376, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 377, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 			if templ_7745c5c3_Err != nil {
@@ -1545,7 +1546,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 			var templ_7745c5c3_Var74 templ.SafeURL
 			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 377, Col: 107}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 378, Col: 107}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 			if templ_7745c5c3_Err != nil {
@@ -1558,7 +1559,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) templ.Compone
 			var templ_7745c5c3_Var75 string
 			templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 377, Col: 161}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 378, Col: 161}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 			if templ_7745c5c3_Err != nil {
@@ -1605,7 +1606,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 		var templ_7745c5c3_Var77 string
 		templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookAnchorID(focusBookID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 389, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 390, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 		if templ_7745c5c3_Err != nil {
@@ -1618,7 +1619,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 		var templ_7745c5c3_Var78 string
 		templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(statusMessage)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 390, Col: 127}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 391, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 		if templ_7745c5c3_Err != nil {
@@ -1680,7 +1681,7 @@ func GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string,
 		var templ_7745c5c3_Var80 string
 		templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(goalSectionFocusID(focusBookID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 402, Col: 157}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 403, Col: 157}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 		if templ_7745c5c3_Err != nil {
@@ -1698,7 +1699,7 @@ func GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string,
 			var templ_7745c5c3_Var81 string
 			templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 404, Col: 115}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 405, Col: 115}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 			if templ_7745c5c3_Err != nil {
@@ -1717,7 +1718,7 @@ func GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string,
 			var templ_7745c5c3_Var82 string
 			templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(sectionError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 407, Col: 105}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 408, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 			if templ_7745c5c3_Err != nil {
@@ -1780,7 +1781,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 		var templ_7745c5c3_Var85 string
 		templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookAnchorID(journeyBookID(item)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 417, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 418, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 		if templ_7745c5c3_Err != nil {
@@ -1806,7 +1807,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 		var templ_7745c5c3_Var87 templ.SafeURL
 		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + journeyBookID(item)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 417, Col: 189}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 418, Col: 189}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
 		if templ_7745c5c3_Err != nil {
@@ -1819,7 +1820,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 		var templ_7745c5c3_Var88 string
 		templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookTitle(item.Book))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 417, Col: 221}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 418, Col: 221}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
 		if templ_7745c5c3_Err != nil {
@@ -1890,7 +1891,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				var templ_7745c5c3_Var89 string
 				templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf(" %d ungraduated vocabulary identities remain reserved.", *item.GoalResidual.ReservedCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 435, Col: 109}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 436, Col: 109}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
 				if templ_7745c5c3_Err != nil {
@@ -1918,7 +1919,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var90 string
 			templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs("Reorder " + journeyBookTitle(item.Book))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 442, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 443, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 			if templ_7745c5c3_Err != nil {
@@ -1931,7 +1932,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var91 templ.SafeURL
 			templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinURLErrs(journeyMoveURL(journeyBookID(item), true))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 443, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 444, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 			if templ_7745c5c3_Err != nil {
@@ -1944,7 +1945,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var92 string
 			templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(journeyMoveURL(journeyBookID(item), true))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 443, Col: 127}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 444, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
 			if templ_7745c5c3_Err != nil {
@@ -1957,7 +1958,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var93 string
 			templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 444, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 445, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
 			if templ_7745c5c3_Err != nil {
@@ -1970,7 +1971,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var94 string
 			templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", expectedRevision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 444, Col: 148}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 445, Col: 148}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 			if templ_7745c5c3_Err != nil {
@@ -1983,7 +1984,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var95 string
 			templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs("Move " + journeyBookTitle(item.Book) + " earlier")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 445, Col: 101}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 446, Col: 101}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 			if templ_7745c5c3_Err != nil {
@@ -2006,7 +2007,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var96 templ.SafeURL
 			templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinURLErrs(journeyMoveURL(journeyBookID(item), false))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 447, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 448, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 			if templ_7745c5c3_Err != nil {
@@ -2019,7 +2020,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var97 string
 			templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(journeyMoveURL(journeyBookID(item), false))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 447, Col: 129}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 448, Col: 129}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 			if templ_7745c5c3_Err != nil {
@@ -2032,7 +2033,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var98 string
 			templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 448, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 449, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 			if templ_7745c5c3_Err != nil {
@@ -2045,7 +2046,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var99 string
 			templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", expectedRevision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 448, Col: 148}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 449, Col: 148}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 			if templ_7745c5c3_Err != nil {
@@ -2058,7 +2059,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var100 string
 			templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs("Move " + journeyBookTitle(item.Book) + " later")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 449, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 450, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 			if templ_7745c5c3_Err != nil {
@@ -2081,7 +2082,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var101 templ.SafeURL
 			templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/goal/books/" + journeyBookID(item)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 451, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 452, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
 			if templ_7745c5c3_Err != nil {
@@ -2094,7 +2095,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var102 string
 			templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 451, Col: 135}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 452, Col: 135}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
 			if templ_7745c5c3_Err != nil {
@@ -2107,7 +2108,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 			var templ_7745c5c3_Var103 string
 			templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(expectedGoalBookID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 451, Col: 215}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 452, Col: 215}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
 			if templ_7745c5c3_Err != nil {
@@ -2141,7 +2142,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				var templ_7745c5c3_Var105 string
 				templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 456, Col: 174}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 457, Col: 174}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
 				if templ_7745c5c3_Err != nil {
@@ -2154,7 +2155,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				var templ_7745c5c3_Var106 string
 				templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookID(item))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 456, Col: 255}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 457, Col: 255}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 				if templ_7745c5c3_Err != nil {
@@ -2190,7 +2191,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 					var templ_7745c5c3_Var108 string
 					templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 460, Col: 97}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 461, Col: 97}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
 					if templ_7745c5c3_Err != nil {
@@ -2203,7 +2204,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 					var templ_7745c5c3_Var109 string
 					templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookID(item))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 460, Col: 178}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 461, Col: 178}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var109))
 					if templ_7745c5c3_Err != nil {
@@ -2227,7 +2228,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				var templ_7745c5c3_Var110 string
 				templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 463, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 464, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var110))
 				if templ_7745c5c3_Err != nil {
@@ -2240,7 +2241,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				var templ_7745c5c3_Var111 string
 				templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(journeyBookID(item))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 463, Col: 177}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 464, Col: 177}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
 				if templ_7745c5c3_Err != nil {
@@ -2292,7 +2293,7 @@ func JourneyEvidence(item journeyBookView) templ.Component {
 		var templ_7745c5c3_Var113 string
 		templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(journeyEvidenceLabel(item))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 471, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 472, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
 		if templ_7745c5c3_Err != nil {
@@ -2305,7 +2306,7 @@ func JourneyEvidence(item journeyBookView) templ.Component {
 		var templ_7745c5c3_Var114 string
 		templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(journeyEvidenceDescription(item))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 471, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 472, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
 		if templ_7745c5c3_Err != nil {
@@ -2318,7 +2319,7 @@ func JourneyEvidence(item journeyBookView) templ.Component {
 		var templ_7745c5c3_Var115 string
 		templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(journeyCurrentCoverage(item))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 472, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 473, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 		if templ_7745c5c3_Err != nil {
@@ -2331,7 +2332,7 @@ func JourneyEvidence(item journeyBookView) templ.Component {
 		var templ_7745c5c3_Var116 string
 		templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.JoinStringErrs(journeyProjectedCoverage(item))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 473, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 474, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var116))
 		if templ_7745c5c3_Err != nil {
@@ -2378,7 +2379,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var119 string
 		templ_7745c5c3_Var119, templ_7745c5c3_Err = templ.JoinStringErrs(campaignAnchorID(item.Campaign.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var119))
 		if templ_7745c5c3_Err != nil {
@@ -2404,7 +2405,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var121 templ.SafeURL
 		templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + item.Book.Source.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 165}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 165}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
 		if templ_7745c5c3_Err != nil {
@@ -2417,7 +2418,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var122 string
 		templ_7745c5c3_Var122, templ_7745c5c3_Err = templ.JoinStringErrs(item.Book.Source.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 192}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 192}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var122))
 		if templ_7745c5c3_Err != nil {
@@ -2438,7 +2439,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var123 string
 		templ_7745c5c3_Var123, templ_7745c5c3_Err = templ.JoinStringErrs(item.Deck.DeckName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 386}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 386}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var123))
 		if templ_7745c5c3_Err != nil {
@@ -2451,7 +2452,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var124 string
 		templ_7745c5c3_Var124, templ_7745c5c3_Err = templ.JoinStringErrs(campaignBookLabel(item.Campaign.BookProgress))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 519}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 519}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var124))
 		if templ_7745c5c3_Err != nil {
@@ -2460,7 +2461,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var125 string
 		templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.JoinStringErrs(campaignProgressTime(item.Campaign.BookFinishedAt))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 573}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 573}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var125))
 		if templ_7745c5c3_Err != nil {
@@ -2473,7 +2474,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var126 string
 		templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.JoinStringErrs(campaignDeckLabel(item.Campaign.DeckProgress))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 655}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 655}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var126))
 		if templ_7745c5c3_Err != nil {
@@ -2482,7 +2483,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var127 string
 		templ_7745c5c3_Var127, templ_7745c5c3_Err = templ.JoinStringErrs(campaignProgressTime(item.Campaign.DeckReviewedAt))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 476, Col: 709}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 477, Col: 709}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var127))
 		if templ_7745c5c3_Err != nil {
@@ -2500,7 +2501,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var128 string
 			templ_7745c5c3_Var128, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 478, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 479, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var128))
 			if templ_7745c5c3_Err != nil {
@@ -2513,7 +2514,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var129 string
 			templ_7745c5c3_Var129, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 478, Col: 190}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 479, Col: 190}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var129))
 			if templ_7745c5c3_Err != nil {
@@ -2532,7 +2533,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var130 string
 			templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinStringErrs(item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 481, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 482, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var130))
 			if templ_7745c5c3_Err != nil {
@@ -2568,7 +2569,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 		var templ_7745c5c3_Var131 templ.SafeURL
 		templ_7745c5c3_Var131, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + item.Deck.ID + "/download"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 492, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 493, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var131))
 		if templ_7745c5c3_Err != nil {
@@ -2586,7 +2587,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var132 templ.SafeURL
 			templ_7745c5c3_Var132, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/activate"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 494, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 495, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var132))
 			if templ_7745c5c3_Err != nil {
@@ -2599,7 +2600,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var133 string
 			templ_7745c5c3_Var133, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 494, Col: 142}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 495, Col: 142}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var133))
 			if templ_7745c5c3_Err != nil {
@@ -2612,7 +2613,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var134 string
 			templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 494, Col: 235}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 495, Col: 235}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var134))
 			if templ_7745c5c3_Err != nil {
@@ -2625,7 +2626,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var135 string
 			templ_7745c5c3_Var135, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 494, Col: 332}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 495, Col: 332}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var135))
 			if templ_7745c5c3_Err != nil {
@@ -2638,7 +2639,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 			var templ_7745c5c3_Var136 string
 			templ_7745c5c3_Var136, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 494, Col: 429}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 495, Col: 429}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var136))
 			if templ_7745c5c3_Err != nil {
@@ -2658,7 +2659,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var137 string
 				templ_7745c5c3_Var137, templ_7745c5c3_Err = templ.JoinStringErrs(campaignAnchorID("remaining-" + item.Campaign.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 498, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 499, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var137))
 				if templ_7745c5c3_Err != nil {
@@ -2671,7 +2672,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var138 string
 				templ_7745c5c3_Var138, templ_7745c5c3_Err = templ.JoinStringErrs(campaignAnchorID("remaining-" + item.Campaign.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 498, Col: 162}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 499, Col: 162}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var138))
 				if templ_7745c5c3_Err != nil {
@@ -2684,7 +2685,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var139 string
 				templ_7745c5c3_Var139, templ_7745c5c3_Err = templ.JoinStringErrs(campaignBookLabel(item.Campaign.BookProgress))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 499, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 500, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var139))
 				if templ_7745c5c3_Err != nil {
@@ -2693,7 +2694,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var140 string
 				templ_7745c5c3_Var140, templ_7745c5c3_Err = templ.JoinStringErrs(campaignRemainingBookText(item.Campaign.BookProgress))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 499, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 500, Col: 117}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var140))
 				if templ_7745c5c3_Err != nil {
@@ -2706,7 +2707,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var141 string
 				templ_7745c5c3_Var141, templ_7745c5c3_Err = templ.JoinStringErrs(campaignDeckLabel(item.Campaign.DeckProgress))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 500, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 501, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var141))
 				if templ_7745c5c3_Err != nil {
@@ -2715,7 +2716,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 				var templ_7745c5c3_Var142 string
 				templ_7745c5c3_Var142, templ_7745c5c3_Err = templ.JoinStringErrs(campaignRemainingDeckText(item.Campaign.DeckProgress))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 500, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 501, Col: 117}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var142))
 				if templ_7745c5c3_Err != nil {
@@ -2768,7 +2769,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var145 templ.SafeURL
 								templ_7745c5c3_Var145, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/book-finished"))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 97}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 97}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var145))
 								if templ_7745c5c3_Err != nil {
@@ -2781,7 +2782,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var146 string
 								templ_7745c5c3_Var146, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 151}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 151}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var146))
 								if templ_7745c5c3_Err != nil {
@@ -2794,7 +2795,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var147 string
 								templ_7745c5c3_Var147, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 244}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 244}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var147))
 								if templ_7745c5c3_Err != nil {
@@ -2807,7 +2808,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var148 string
 								templ_7745c5c3_Var148, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 341}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 341}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var148))
 								if templ_7745c5c3_Err != nil {
@@ -2820,7 +2821,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var149 string
 								templ_7745c5c3_Var149, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 438}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 438}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var149))
 								if templ_7745c5c3_Err != nil {
@@ -2833,7 +2834,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var150 string
 								templ_7745c5c3_Var150, templ_7745c5c3_Err = templ.JoinStringErrs(campaignCompletionLabel(item))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 509, Col: 481}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 510, Col: 481}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var150))
 								if templ_7745c5c3_Err != nil {
@@ -2857,7 +2858,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var151 templ.SafeURL
 							templ_7745c5c3_Var151, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/book-finished"))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 512, Col: 96}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 513, Col: 96}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var151))
 							if templ_7745c5c3_Err != nil {
@@ -2870,7 +2871,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var152 string
 							templ_7745c5c3_Var152, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 512, Col: 150}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 513, Col: 150}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var152))
 							if templ_7745c5c3_Err != nil {
@@ -2883,7 +2884,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var153 string
 							templ_7745c5c3_Var153, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 512, Col: 243}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 513, Col: 243}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var153))
 							if templ_7745c5c3_Err != nil {
@@ -2896,7 +2897,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var154 string
 							templ_7745c5c3_Var154, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 512, Col: 340}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 513, Col: 340}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var154))
 							if templ_7745c5c3_Err != nil {
@@ -2909,7 +2910,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var155 string
 							templ_7745c5c3_Var155, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 512, Col: 437}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 513, Col: 437}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var155))
 							if templ_7745c5c3_Err != nil {
@@ -2950,7 +2951,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var157 templ.SafeURL
 								templ_7745c5c3_Var157, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/deck-reviewed"))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 97}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 97}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var157))
 								if templ_7745c5c3_Err != nil {
@@ -2963,7 +2964,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var158 string
 								templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 151}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 151}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var158))
 								if templ_7745c5c3_Err != nil {
@@ -2976,7 +2977,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var159 string
 								templ_7745c5c3_Var159, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 244}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 244}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var159))
 								if templ_7745c5c3_Err != nil {
@@ -2989,7 +2990,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var160 string
 								templ_7745c5c3_Var160, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 341}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 341}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var160))
 								if templ_7745c5c3_Err != nil {
@@ -3002,7 +3003,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var161 string
 								templ_7745c5c3_Var161, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 438}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 438}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var161))
 								if templ_7745c5c3_Err != nil {
@@ -3015,7 +3016,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 								var templ_7745c5c3_Var162 string
 								templ_7745c5c3_Var162, templ_7745c5c3_Err = templ.JoinStringErrs(campaignCompletionLabel(item))
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 519, Col: 481}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 520, Col: 481}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var162))
 								if templ_7745c5c3_Err != nil {
@@ -3039,7 +3040,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var163 templ.SafeURL
 							templ_7745c5c3_Var163, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/deck-reviewed"))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 522, Col: 96}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 523, Col: 96}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var163))
 							if templ_7745c5c3_Err != nil {
@@ -3052,7 +3053,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var164 string
 							templ_7745c5c3_Var164, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 522, Col: 150}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 523, Col: 150}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var164))
 							if templ_7745c5c3_Err != nil {
@@ -3065,7 +3066,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var165 string
 							templ_7745c5c3_Var165, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 522, Col: 243}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 523, Col: 243}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var165))
 							if templ_7745c5c3_Err != nil {
@@ -3078,7 +3079,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var166 string
 							templ_7745c5c3_Var166, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 522, Col: 340}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 523, Col: 340}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var166))
 							if templ_7745c5c3_Err != nil {
@@ -3091,7 +3092,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 							var templ_7745c5c3_Var167 string
 							templ_7745c5c3_Var167, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 522, Col: 437}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 523, Col: 437}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var167))
 							if templ_7745c5c3_Err != nil {
@@ -3127,7 +3128,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var169 string
 					templ_7745c5c3_Var169, templ_7745c5c3_Err = templ.JoinStringErrs(item.Book.Source.Title)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 527, Col: 37}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 528, Col: 37}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var169))
 					if templ_7745c5c3_Err != nil {
@@ -3140,7 +3141,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var170 string
 					templ_7745c5c3_Var170, templ_7745c5c3_Err = templ.JoinStringErrs(item.Deck.DeckName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 527, Col: 78}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 528, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var170))
 					if templ_7745c5c3_Err != nil {
@@ -3153,7 +3154,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var171 string
 					templ_7745c5c3_Var171, templ_7745c5c3_Err = templ.JoinStringErrs(campaignAbandonmentOutcome(item.Campaign.Status))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 528, Col: 57}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 57}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var171))
 					if templ_7745c5c3_Err != nil {
@@ -3166,7 +3167,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var172 templ.SafeURL
 					templ_7745c5c3_Var172, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/campaigns/" + item.Campaign.ID + "/abandon"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 89}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 530, Col: 89}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var172))
 					if templ_7745c5c3_Err != nil {
@@ -3179,7 +3180,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var173 string
 					templ_7745c5c3_Var173, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 143}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 530, Col: 143}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var173))
 					if templ_7745c5c3_Err != nil {
@@ -3192,7 +3193,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var174 string
 					templ_7745c5c3_Var174, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.Status))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 236}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 530, Col: 236}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var174))
 					if templ_7745c5c3_Err != nil {
@@ -3205,7 +3206,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var175 string
 					templ_7745c5c3_Var175, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.BookProgress))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 333}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 530, Col: 333}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var175))
 					if templ_7745c5c3_Err != nil {
@@ -3218,7 +3219,7 @@ func CampaignCard(item campaignView, csrf string, activatable bool) templ.Compon
 					var templ_7745c5c3_Var176 string
 					templ_7745c5c3_Var176, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Campaign.DeckProgress))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 529, Col: 430}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 530, Col: 430}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var176))
 					if templ_7745c5c3_Err != nil {
@@ -3277,7 +3278,7 @@ func CampaignCompletionDetails(item campaignView) templ.Component {
 		var templ_7745c5c3_Var178 string
 		templ_7745c5c3_Var178, templ_7745c5c3_Err = templ.JoinStringErrs(item.Book.Source.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 537, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 538, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var178))
 		if templ_7745c5c3_Err != nil {
@@ -3290,7 +3291,7 @@ func CampaignCompletionDetails(item campaignView) templ.Component {
 		var templ_7745c5c3_Var179 string
 		templ_7745c5c3_Var179, templ_7745c5c3_Err = templ.JoinStringErrs(item.Deck.DeckName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 537, Col: 151}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 538, Col: 151}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var179))
 		if templ_7745c5c3_Err != nil {
@@ -3303,7 +3304,7 @@ func CampaignCompletionDetails(item campaignView) templ.Component {
 		var templ_7745c5c3_Var180 string
 		templ_7745c5c3_Var180, templ_7745c5c3_Err = templ.JoinStringErrs(campaignGraduationOutcome(item))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 538, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 539, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var180))
 		if templ_7745c5c3_Err != nil {
@@ -3480,7 +3481,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 						var templ_7745c5c3_Var186 string
 						templ_7745c5c3_Var186, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d analyzer-provided sentences contained no tokens; those sentences count as zero tokens in the structural statistics.", coverage.TextProfile.EmptySentenceCount))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 567, Col: 228}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 568, Col: 228}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var186))
 						if templ_7745c5c3_Err != nil {
@@ -3546,7 +3547,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 							var templ_7745c5c3_Var187 string
 							templ_7745c5c3_Var187, templ_7745c5c3_Err = templ.JoinStringErrs(lemmadisplay.Format(book.Source.Language, lemma.CanonicalLemma, lemma.UPOS))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 590, Col: 102}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 591, Col: 102}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var187))
 							if templ_7745c5c3_Err != nil {
@@ -3559,7 +3560,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 							var templ_7745c5c3_Var188 string
 							templ_7745c5c3_Var188, templ_7745c5c3_Err = templ.JoinStringErrs(lemma.UPOS)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 590, Col: 133}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 591, Col: 133}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var188))
 							if templ_7745c5c3_Err != nil {
@@ -3572,7 +3573,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 							var templ_7745c5c3_Var189 string
 							templ_7745c5c3_Var189, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d occurrences", lemma.OccurrenceCount))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 590, Col: 210}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 591, Col: 210}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var189))
 							if templ_7745c5c3_Err != nil {
@@ -3622,7 +3623,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 					var templ_7745c5c3_Var190 templ.SafeURL
 					templ_7745c5c3_Var190, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(bookDeckPreparationURL(book)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 606, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 607, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var190))
 					if templ_7745c5c3_Err != nil {
@@ -3635,7 +3636,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 					var templ_7745c5c3_Var191 string
 					templ_7745c5c3_Var191, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 607, Col: 56}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 608, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var191))
 					if templ_7745c5c3_Err != nil {
@@ -3772,7 +3773,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var196 templ.SafeURL
 				templ_7745c5c3_Var196, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(resultURL))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 637, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 638, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var196))
 				if templ_7745c5c3_Err != nil {
@@ -3795,7 +3796,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var197 string
 				templ_7745c5c3_Var197, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d complete · %d unavailable · %d retrying · %d waiting", preparation.TranslationDone, preparation.TranslationFailed, preparation.TranslationRetrying, preparation.TranslationPending))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 640, Col: 237}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 641, Col: 237}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var197))
 				if templ_7745c5c3_Err != nil {
@@ -3818,7 +3819,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var198 string
 				templ_7745c5c3_Var198, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d of %d requests complete · %d failed · %d expired · completion can take hours (up to 24h)", preparation.BatchCompletedRequests, preparation.BatchRequestCount, preparation.BatchFailedRequests, preparation.BatchExpiredRequests))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 643, Col: 287}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 644, Col: 287}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var198))
 				if templ_7745c5c3_Err != nil {
@@ -3841,7 +3842,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var199 string
 				templ_7745c5c3_Var199, templ_7745c5c3_Err = templ.JoinStringErrs(preparation.DeckName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 646, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 647, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var199))
 				if templ_7745c5c3_Err != nil {
@@ -3854,7 +3855,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var200 string
 				templ_7745c5c3_Var200, templ_7745c5c3_Err = templ.JoinStringErrs(preparation.Filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 646, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 647, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var200))
 				if templ_7745c5c3_Err != nil {
@@ -3877,7 +3878,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var201 string
 				templ_7745c5c3_Var201, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 649, Col: 297}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 650, Col: 297}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var201))
 				if templ_7745c5c3_Err != nil {
@@ -3906,7 +3907,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					var templ_7745c5c3_Var203 templ.SafeURL
 					templ_7745c5c3_Var203, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/download"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 651, Col: 100}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 652, Col: 100}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var203))
 					if templ_7745c5c3_Err != nil {
@@ -3938,7 +3939,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var204 templ.SafeURL
 				templ_7745c5c3_Var204, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/cancel"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 655, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 656, Col: 93}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var204))
 				if templ_7745c5c3_Err != nil {
@@ -3951,7 +3952,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var205 string
 				templ_7745c5c3_Var205, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 655, Col: 147}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 656, Col: 147}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var205))
 				if templ_7745c5c3_Err != nil {
@@ -3975,7 +3976,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var206 templ.SafeURL
 				templ_7745c5c3_Var206, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/retry"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 660, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 661, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var206))
 				if templ_7745c5c3_Err != nil {
@@ -3988,7 +3989,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var207 string
 				templ_7745c5c3_Var207, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 661, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 662, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var207))
 				if templ_7745c5c3_Err != nil {
@@ -4071,7 +4072,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var210 templ.SafeURL
 			templ_7745c5c3_Var210, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + review.Book.ID + "/scope"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 677, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 678, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var210))
 			if templ_7745c5c3_Err != nil {
@@ -4084,7 +4085,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var211 string
 			templ_7745c5c3_Var211, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 678, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 679, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var211))
 			if templ_7745c5c3_Err != nil {
@@ -4097,7 +4098,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var212 string
 			templ_7745c5c3_Var212, templ_7745c5c3_Err = templ.JoinStringErrs(review.SnapshotID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 679, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 680, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var212))
 			if templ_7745c5c3_Err != nil {
@@ -4110,7 +4111,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var213 string
 			templ_7745c5c3_Var213, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("All units: %d characters, about %d tokens", scopeTotalCharacters(review.Choices), scopeTotalTokens(review.Choices)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 681, Col: 218}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 682, Col: 218}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var213))
 			if templ_7745c5c3_Err != nil {
@@ -4123,7 +4124,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var214 string
 			templ_7745c5c3_Var214, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d %s selected", scopeSelectedUnits(review.Choices, selectedCSV), unitPlural(scopeSelectedUnits(review.Choices, selectedCSV))))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 681, Col: 396}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 682, Col: 396}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var214))
 			if templ_7745c5c3_Err != nil {
@@ -4136,7 +4137,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 			var templ_7745c5c3_Var215 string
 			templ_7745c5c3_Var215, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Selected: %d characters, about %d tokens", scopeSelectedCharacters(review.Choices, selectedCSV), scopeSelectedTokens(review.Choices, selectedCSV)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 681, Col: 593}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 682, Col: 593}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var215))
 			if templ_7745c5c3_Err != nil {
@@ -4154,7 +4155,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var216 string
 				templ_7745c5c3_Var216, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", choice.CharacterCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 684, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 93}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var216))
 				if templ_7745c5c3_Err != nil {
@@ -4167,7 +4168,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var217 string
 				templ_7745c5c3_Var217, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", choice.TokenEstimate))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 684, Col: 149}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 149}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var217))
 				if templ_7745c5c3_Err != nil {
@@ -4180,7 +4181,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var218 string
 				templ_7745c5c3_Var218, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(choice.UnitIDs)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 684, Col: 208}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 208}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var218))
 				if templ_7745c5c3_Err != nil {
@@ -4193,7 +4194,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var219 string
 				templ_7745c5c3_Var219, templ_7745c5c3_Err = templ.JoinStringErrs("scope-choice-" + fmt.Sprintf("%d", choice.First))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 686, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var219))
 				if templ_7745c5c3_Err != nil {
@@ -4206,7 +4207,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var220 string
 				templ_7745c5c3_Var220, templ_7745c5c3_Err = templ.JoinStringErrs("scope-choice-" + fmt.Sprintf("%d", choice.First))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 128}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 686, Col: 128}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var220))
 				if templ_7745c5c3_Err != nil {
@@ -4219,7 +4220,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var221 string
 				templ_7745c5c3_Var221, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(choice.UnitIDs, ","))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 203}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 686, Col: 203}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var221))
 				if templ_7745c5c3_Err != nil {
@@ -4242,7 +4243,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var222 string
 				templ_7745c5c3_Var222, templ_7745c5c3_Err = templ.JoinStringErrs(choice.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 685, Col: 283}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 686, Col: 283}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var222))
 				if templ_7745c5c3_Err != nil {
@@ -4255,7 +4256,7 @@ func EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pag
 				var templ_7745c5c3_Var223 string
 				templ_7745c5c3_Var223, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d readable %s · %d characters · about %d tokens", len(choice.UnitIDs), unitPlural(len(choice.UnitIDs)), choice.CharacterCount, choice.TokenEstimate))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 686, Col: 182}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 687, Col: 182}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var223))
 				if templ_7745c5c3_Err != nil {
@@ -4474,7 +4475,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				var templ_7745c5c3_Var226 string
 				templ_7745c5c3_Var226, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 790, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 791, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var226))
 				if templ_7745c5c3_Err != nil {
@@ -4493,7 +4494,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				var templ_7745c5c3_Var227 string
 				templ_7745c5c3_Var227, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 793, Col: 94}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 794, Col: 94}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var227))
 				if templ_7745c5c3_Err != nil {
@@ -4511,7 +4512,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				var templ_7745c5c3_Var228 string
 				templ_7745c5c3_Var228, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 795, Col: 89}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 796, Col: 89}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var228))
 				if templ_7745c5c3_Err != nil {
@@ -4524,7 +4525,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				var templ_7745c5c3_Var229 string
 				templ_7745c5c3_Var229, templ_7745c5c3_Err = templ.JoinStringErrs(next)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 795, Col: 138}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 796, Col: 138}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var229))
 				if templ_7745c5c3_Err != nil {
@@ -4628,7 +4629,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var232 string
 					templ_7745c5c3_Var232, templ_7745c5c3_Err = templ.JoinStringErrs(profile.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 817, Col: 117}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 818, Col: 117}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var232))
 					if templ_7745c5c3_Err != nil {
@@ -4641,7 +4642,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var233 string
 					templ_7745c5c3_Var233, templ_7745c5c3_Err = templ.JoinStringErrs(profile.Language)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 817, Col: 144}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 818, Col: 144}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var233))
 					if templ_7745c5c3_Err != nil {
@@ -4654,7 +4655,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var234 string
 					templ_7745c5c3_Var234, templ_7745c5c3_Err = templ.JoinStringErrs(studyLanguageStatus(profile, supported, degraded))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 817, Col: 273}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 818, Col: 273}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var234))
 					if templ_7745c5c3_Err != nil {
@@ -4683,7 +4684,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var236 string
 						templ_7745c5c3_Var236, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 818, Col: 340}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 819, Col: 340}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var236))
 						if templ_7745c5c3_Err != nil {
@@ -4696,7 +4697,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var237 string
 						templ_7745c5c3_Var237, templ_7745c5c3_Err = templ.JoinStringErrs(profile.Language)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 818, Col: 405}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 819, Col: 405}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var237))
 						if templ_7745c5c3_Err != nil {
@@ -4745,7 +4746,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 				var templ_7745c5c3_Var238 string
 				templ_7745c5c3_Var238, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 831, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 832, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var238))
 				if templ_7745c5c3_Err != nil {
@@ -4764,7 +4765,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var239 string
 						templ_7745c5c3_Var239, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.Language)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 834, Col: 39}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 835, Col: 39}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var239))
 						if templ_7745c5c3_Err != nil {
@@ -4777,7 +4778,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var240 string
 						templ_7745c5c3_Var240, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.DisplayName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 834, Col: 65}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 835, Col: 65}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var240))
 						if templ_7745c5c3_Err != nil {
@@ -4790,7 +4791,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var241 string
 						templ_7745c5c3_Var241, templ_7745c5c3_Err = templ.JoinStringErrs(candidate.Language)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 834, Col: 89}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 835, Col: 89}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var241))
 						if templ_7745c5c3_Err != nil {
@@ -4829,7 +4830,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var242 string
 					templ_7745c5c3_Var242, templ_7745c5c3_Err = templ.JoinStringErrs(profile.Language)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 848, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 849, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var242))
 					if templ_7745c5c3_Err != nil {
@@ -4852,7 +4853,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var243 string
 					templ_7745c5c3_Var243, templ_7745c5c3_Err = templ.JoinStringErrs(profile.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 848, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 849, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var243))
 					if templ_7745c5c3_Err != nil {
@@ -4865,7 +4866,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var244 string
 					templ_7745c5c3_Var244, templ_7745c5c3_Err = templ.JoinStringErrs(profile.Language)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 848, Col: 125}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 849, Col: 125}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var244))
 					if templ_7745c5c3_Err != nil {
@@ -4893,7 +4894,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var245 string
 					templ_7745c5c3_Var245, templ_7745c5c3_Err = templ.JoinStringErrs(studyLanguageName(profiles, language))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 854, Col: 62}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 855, Col: 62}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var245))
 					if templ_7745c5c3_Err != nil {
@@ -4906,7 +4907,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 					var templ_7745c5c3_Var246 string
 					templ_7745c5c3_Var246, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 854, Col: 90}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 855, Col: 90}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var246))
 					if templ_7745c5c3_Err != nil {
@@ -4924,7 +4925,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var247 templ.SafeURL
 						templ_7745c5c3_Var247, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(knownVocabImportAction(language, "settings")))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 856, Col: 93}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 857, Col: 93}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var247))
 						if templ_7745c5c3_Err != nil {
@@ -4937,7 +4938,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var248 string
 						templ_7745c5c3_Var248, templ_7745c5c3_Err = templ.JoinStringErrs(knownVocabImportAction(language, "settings"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 856, Col: 180}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 857, Col: 180}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var248))
 						if templ_7745c5c3_Err != nil {
@@ -4950,7 +4951,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var249 string
 						templ_7745c5c3_Var249, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 856, Col: 326}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 857, Col: 326}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var249))
 						if templ_7745c5c3_Err != nil {
@@ -4963,7 +4964,7 @@ func SettingsPage(user domain.User, csrf string, supported []domain.SupportedLan
 						var templ_7745c5c3_Var250 string
 						templ_7745c5c3_Var250, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 856, Col: 439}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 857, Col: 439}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var250))
 						if templ_7745c5c3_Err != nil {
@@ -5123,7 +5124,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 			var templ_7745c5c3_Var255 string
 			templ_7745c5c3_Var255, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 886, Col: 164}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 887, Col: 164}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var255))
 			if templ_7745c5c3_Err != nil {
@@ -5141,7 +5142,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var256 string
 				templ_7745c5c3_Var256, templ_7745c5c3_Err = templ.JoinStringErrs(bookID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 888, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 889, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var256))
 				if templ_7745c5c3_Err != nil {
@@ -5174,7 +5175,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var257 string
 				templ_7745c5c3_Var257, templ_7745c5c3_Err = templ.JoinStringErrs("connection-" + c.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var257))
 				if templ_7745c5c3_Err != nil {
@@ -5187,7 +5188,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var258 string
 				templ_7745c5c3_Var258, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var258))
 				if templ_7745c5c3_Err != nil {
@@ -5200,7 +5201,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var259 string
 				templ_7745c5c3_Var259, templ_7745c5c3_Err = templ.JoinStringErrs(safeAcquisitionURL(c.URL))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 129}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var259))
 				if templ_7745c5c3_Err != nil {
@@ -5213,7 +5214,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var260 string
 				templ_7745c5c3_Var260, templ_7745c5c3_Err = templ.JoinStringErrs(credentialSummary(c))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 160}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 160}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var260))
 				if templ_7745c5c3_Err != nil {
@@ -5226,7 +5227,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var261 templ.SafeURL
 				templ_7745c5c3_Var261, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(catalogBrowseURL(c.ID, bookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 231}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 231}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var261))
 				if templ_7745c5c3_Err != nil {
@@ -5239,7 +5240,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var262 templ.SafeURL
 				templ_7745c5c3_Var262, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections/" + c.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 359}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 359}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var262))
 				if templ_7745c5c3_Err != nil {
@@ -5252,7 +5253,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var263 string
 				templ_7745c5c3_Var263, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 413}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 413}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var263))
 				if templ_7745c5c3_Err != nil {
@@ -5265,7 +5266,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var264 string
 				templ_7745c5c3_Var264, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 479}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 479}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var264))
 				if templ_7745c5c3_Err != nil {
@@ -5278,7 +5279,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var265 string
 				templ_7745c5c3_Var265, templ_7745c5c3_Err = templ.JoinStringErrs(connectionURLForEdit(c))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 627}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 627}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var265))
 				if templ_7745c5c3_Err != nil {
@@ -5291,7 +5292,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				var templ_7745c5c3_Var266 string
 				templ_7745c5c3_Var266, templ_7745c5c3_Err = templ.JoinStringErrs(c.Username)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 765}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 765}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var266))
 				if templ_7745c5c3_Err != nil {
@@ -5320,7 +5321,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					var templ_7745c5c3_Var268 templ.SafeURL
 					templ_7745c5c3_Var268, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections/" + c.ID + "/delete"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 1280}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 1280}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var268))
 					if templ_7745c5c3_Err != nil {
@@ -5333,7 +5334,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					var templ_7745c5c3_Var269 string
 					templ_7745c5c3_Var269, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 897, Col: 1334}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 898, Col: 1334}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var269))
 					if templ_7745c5c3_Err != nil {
@@ -5455,7 +5456,7 @@ func CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsCon
 				var templ_7745c5c3_Var273 string
 				templ_7745c5c3_Var273, templ_7745c5c3_Err = templ.JoinStringErrs(connection.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 911, Col: 211}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 912, Col: 211}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var273))
 				if templ_7745c5c3_Err != nil {
@@ -5473,7 +5474,7 @@ func CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsCon
 					var templ_7745c5c3_Var274 string
 					templ_7745c5c3_Var274, templ_7745c5c3_Err = templ.JoinStringErrs(bookID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 913, Col: 54}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 914, Col: 54}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var274))
 					if templ_7745c5c3_Err != nil {
@@ -5496,7 +5497,7 @@ func CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsCon
 					var templ_7745c5c3_Var275 string
 					templ_7745c5c3_Var275, templ_7745c5c3_Err = templ.JoinStringErrs(language.Language)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 917, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 918, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var275))
 					if templ_7745c5c3_Err != nil {
@@ -5509,7 +5510,7 @@ func CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsCon
 					var templ_7745c5c3_Var276 string
 					templ_7745c5c3_Var276, templ_7745c5c3_Err = templ.JoinStringErrs(language.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 917, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 918, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var276))
 					if templ_7745c5c3_Err != nil {
@@ -5595,7 +5596,7 @@ func CatalogRootFragment(connectionID, language string, feed opds.Feed) templ.Co
 			var templ_7745c5c3_Var279 string
 			templ_7745c5c3_Var279, templ_7745c5c3_Err = templ.JoinStringErrs(connectionID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 929, Col: 188}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 930, Col: 188}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var279))
 			if templ_7745c5c3_Err != nil {
@@ -5608,7 +5609,7 @@ func CatalogRootFragment(connectionID, language string, feed opds.Feed) templ.Co
 			var templ_7745c5c3_Var280 string
 			templ_7745c5c3_Var280, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 929, Col: 245}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 930, Col: 245}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var280))
 			if templ_7745c5c3_Err != nil {
@@ -5660,7 +5661,7 @@ func CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogC
 		var templ_7745c5c3_Var282 string
 		templ_7745c5c3_Var282, templ_7745c5c3_Err = templ.JoinStringErrs(connectionID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 937, Col: 186}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 938, Col: 186}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var282))
 		if templ_7745c5c3_Err != nil {
@@ -5673,7 +5674,7 @@ func CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogC
 		var templ_7745c5c3_Var283 string
 		templ_7745c5c3_Var283, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 937, Col: 243}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 938, Col: 243}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var283))
 		if templ_7745c5c3_Err != nil {
@@ -5691,7 +5692,7 @@ func CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogC
 			var templ_7745c5c3_Var284 string
 			templ_7745c5c3_Var284, templ_7745c5c3_Err = templ.JoinStringErrs(bookID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 939, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 940, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var284))
 			if templ_7745c5c3_Err != nil {
@@ -5710,7 +5711,7 @@ func CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogC
 			var templ_7745c5c3_Var285 string
 			templ_7745c5c3_Var285, templ_7745c5c3_Err = templ.JoinStringErrs(returnTo)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 942, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 943, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var285))
 			if templ_7745c5c3_Err != nil {
@@ -5729,7 +5730,7 @@ func CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogC
 			var templ_7745c5c3_Var286 string
 			templ_7745c5c3_Var286, templ_7745c5c3_Err = templ.JoinStringErrs(crumb.Title + "\x1f" + crumb.URL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 945, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 946, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var286))
 			if templ_7745c5c3_Err != nil {
@@ -5797,7 +5798,7 @@ func CatalogRootResults(csrf, connectionID, language, returnTo, message string, 
 		var templ_7745c5c3_Var288 string
 		templ_7745c5c3_Var288, templ_7745c5c3_Err = templ.JoinStringErrs(feed.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 960, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 961, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var288))
 		if templ_7745c5c3_Err != nil {
@@ -5827,7 +5828,7 @@ func CatalogRootResults(csrf, connectionID, language, returnTo, message string, 
 				var templ_7745c5c3_Var290 templ.SafeURL
 				templ_7745c5c3_Var290, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(returnTo))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 962, Col: 120}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 963, Col: 120}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var290))
 				if templ_7745c5c3_Err != nil {
@@ -5948,7 +5949,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 		var templ_7745c5c3_Var293 string
 		templ_7745c5c3_Var293, templ_7745c5c3_Err = templ.JoinStringErrs(browseURLForLanguage(connectionID, language, "", nil))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 984, Col: 103}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 985, Col: 103}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var293))
 		if templ_7745c5c3_Err != nil {
@@ -5961,7 +5962,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 		var templ_7745c5c3_Var294 templ.SafeURL
 		templ_7745c5c3_Var294, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, "", nil)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 984, Col: 226}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 985, Col: 226}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var294))
 		if templ_7745c5c3_Err != nil {
@@ -5984,7 +5985,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 				var templ_7745c5c3_Var295 string
 				templ_7745c5c3_Var295, templ_7745c5c3_Err = templ.JoinStringErrs(browseURLForLanguage(connectionID, language, crumb.URL, trail[:i]))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 988, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 989, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var295))
 				if templ_7745c5c3_Err != nil {
@@ -5997,7 +5998,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 				var templ_7745c5c3_Var296 templ.SafeURL
 				templ_7745c5c3_Var296, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, crumb.URL, trail[:i])))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 988, Col: 217}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 989, Col: 217}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var296))
 				if templ_7745c5c3_Err != nil {
@@ -6010,7 +6011,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 				var templ_7745c5c3_Var297 string
 				templ_7745c5c3_Var297, templ_7745c5c3_Err = templ.JoinStringErrs(crumb.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 988, Col: 233}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 989, Col: 233}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var297))
 				if templ_7745c5c3_Err != nil {
@@ -6028,7 +6029,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 				var templ_7745c5c3_Var298 string
 				templ_7745c5c3_Var298, templ_7745c5c3_Err = templ.JoinStringErrs(crumb.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 990, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 991, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var298))
 				if templ_7745c5c3_Err != nil {
@@ -6047,7 +6048,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 		var templ_7745c5c3_Var299 string
 		templ_7745c5c3_Var299, templ_7745c5c3_Err = templ.JoinStringErrs(feed.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 993, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 994, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var299))
 		if templ_7745c5c3_Err != nil {
@@ -6077,7 +6078,7 @@ func FeedFragmentWithState(csrf, connectionID, language, returnTo, message strin
 				var templ_7745c5c3_Var301 templ.SafeURL
 				templ_7745c5c3_Var301, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(returnTo))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 995, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 996, Col: 117}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var301))
 				if templ_7745c5c3_Err != nil {
@@ -6153,7 +6154,7 @@ func CatalogPagination(connectionID, language string, trail []CatalogCrumb, feed
 			var templ_7745c5c3_Var303 templ.SafeURL
 			templ_7745c5c3_Var303, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, href, trail)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1006, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1007, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var303))
 			if templ_7745c5c3_Err != nil {
@@ -6166,7 +6167,7 @@ func CatalogPagination(connectionID, language string, trail []CatalogCrumb, feed
 			var templ_7745c5c3_Var304 string
 			templ_7745c5c3_Var304, templ_7745c5c3_Err = templ.JoinStringErrs(browseURLForLanguage(connectionID, language, href, trail))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1006, Col: 150}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1007, Col: 150}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var304))
 			if templ_7745c5c3_Err != nil {
@@ -6185,7 +6186,7 @@ func CatalogPagination(connectionID, language string, trail []CatalogCrumb, feed
 			var templ_7745c5c3_Var305 templ.SafeURL
 			templ_7745c5c3_Var305, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, href, trail)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1009, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1010, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var305))
 			if templ_7745c5c3_Err != nil {
@@ -6198,7 +6199,7 @@ func CatalogPagination(connectionID, language string, trail []CatalogCrumb, feed
 			var templ_7745c5c3_Var306 string
 			templ_7745c5c3_Var306, templ_7745c5c3_Err = templ.JoinStringErrs(browseURLForLanguage(connectionID, language, href, trail))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1009, Col: 150}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1010, Col: 150}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var306))
 			if templ_7745c5c3_Err != nil {
@@ -6284,7 +6285,7 @@ func SearchResultsWithState(csrf, connectionID, language, returnTo, backTo, mess
 		var templ_7745c5c3_Var309 templ.SafeURL
 		templ_7745c5c3_Var309, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(backTo))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1021, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1022, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var309))
 		if templ_7745c5c3_Err != nil {
@@ -6297,7 +6298,7 @@ func SearchResultsWithState(csrf, connectionID, language, returnTo, backTo, mess
 		var templ_7745c5c3_Var310 string
 		templ_7745c5c3_Var310, templ_7745c5c3_Err = templ.JoinStringErrs(backTo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1021, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1022, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var310))
 		if templ_7745c5c3_Err != nil {
@@ -6310,7 +6311,7 @@ func SearchResultsWithState(csrf, connectionID, language, returnTo, backTo, mess
 		var templ_7745c5c3_Var311 string
 		templ_7745c5c3_Var311, templ_7745c5c3_Err = templ.JoinStringErrs(query)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1021, Col: 177}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1022, Col: 177}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var311))
 		if templ_7745c5c3_Err != nil {
@@ -6344,7 +6345,7 @@ func SearchResultsWithState(csrf, connectionID, language, returnTo, backTo, mess
 				var templ_7745c5c3_Var313 templ.SafeURL
 				templ_7745c5c3_Var313, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(backTo))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1024, Col: 171}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1025, Col: 171}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var313))
 				if templ_7745c5c3_Err != nil {
@@ -6420,7 +6421,7 @@ func SearchPagination(connectionID, language, backTo, query string, feed opds.Fe
 			var templ_7745c5c3_Var315 templ.SafeURL
 			templ_7745c5c3_Var315, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(searchPageURL(connectionID, language, query, backTo, href)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1035, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1036, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var315))
 			if templ_7745c5c3_Err != nil {
@@ -6433,7 +6434,7 @@ func SearchPagination(connectionID, language, backTo, query string, feed opds.Fe
 			var templ_7745c5c3_Var316 string
 			templ_7745c5c3_Var316, templ_7745c5c3_Err = templ.JoinStringErrs(searchPageURL(connectionID, language, query, backTo, href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1035, Col: 152}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1036, Col: 152}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var316))
 			if templ_7745c5c3_Err != nil {
@@ -6452,7 +6453,7 @@ func SearchPagination(connectionID, language, backTo, query string, feed opds.Fe
 			var templ_7745c5c3_Var317 templ.SafeURL
 			templ_7745c5c3_Var317, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(searchPageURL(connectionID, language, query, backTo, href)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1038, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1039, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var317))
 			if templ_7745c5c3_Err != nil {
@@ -6465,7 +6466,7 @@ func SearchPagination(connectionID, language, backTo, query string, feed opds.Fe
 			var templ_7745c5c3_Var318 string
 			templ_7745c5c3_Var318, templ_7745c5c3_Err = templ.JoinStringErrs(searchPageURL(connectionID, language, query, backTo, href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1038, Col: 152}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1039, Col: 152}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var318))
 			if templ_7745c5c3_Err != nil {
@@ -6551,7 +6552,7 @@ func LanguageResultsWithState(csrf, connectionID, language, returnTo, message st
 		var templ_7745c5c3_Var321 templ.SafeURL
 		templ_7745c5c3_Var321, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, "", nil)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1050, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1051, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var321))
 		if templ_7745c5c3_Err != nil {
@@ -6572,7 +6573,7 @@ func LanguageResultsWithState(csrf, connectionID, language, returnTo, message st
 		var templ_7745c5c3_Var322 string
 		templ_7745c5c3_Var322, templ_7745c5c3_Err = templ.JoinStringErrs(feed.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1052, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1053, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var322))
 		if templ_7745c5c3_Err != nil {
@@ -6602,7 +6603,7 @@ func LanguageResultsWithState(csrf, connectionID, language, returnTo, message st
 				var templ_7745c5c3_Var324 templ.SafeURL
 				templ_7745c5c3_Var324, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, "", nil)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1054, Col: 202}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1055, Col: 202}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var324))
 				if templ_7745c5c3_Err != nil {
@@ -6678,7 +6679,7 @@ func LanguagePagination(connectionID, language string, feed opds.Feed) templ.Com
 			var templ_7745c5c3_Var326 templ.SafeURL
 			templ_7745c5c3_Var326, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(languagePageURL(connectionID, language, href)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1065, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1066, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var326))
 			if templ_7745c5c3_Err != nil {
@@ -6691,7 +6692,7 @@ func LanguagePagination(connectionID, language string, feed opds.Feed) templ.Com
 			var templ_7745c5c3_Var327 string
 			templ_7745c5c3_Var327, templ_7745c5c3_Err = templ.JoinStringErrs(languagePageURL(connectionID, language, href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1065, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1066, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var327))
 			if templ_7745c5c3_Err != nil {
@@ -6710,7 +6711,7 @@ func LanguagePagination(connectionID, language string, feed opds.Feed) templ.Com
 			var templ_7745c5c3_Var328 templ.SafeURL
 			templ_7745c5c3_Var328, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(languagePageURL(connectionID, language, href)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1068, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1069, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var328))
 			if templ_7745c5c3_Err != nil {
@@ -6723,7 +6724,7 @@ func LanguagePagination(connectionID, language string, feed opds.Feed) templ.Com
 			var templ_7745c5c3_Var329 string
 			templ_7745c5c3_Var329, templ_7745c5c3_Err = templ.JoinStringErrs(languagePageURL(connectionID, language, href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1068, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1069, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var329))
 			if templ_7745c5c3_Err != nil {
@@ -6799,7 +6800,7 @@ func EntryCardForLanguageWithState(csrf, connectionID, language, returnTo string
 		var templ_7745c5c3_Var332 string
 		templ_7745c5c3_Var332, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1076, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1077, Col: 27}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var332))
 		if templ_7745c5c3_Err != nil {
@@ -6858,7 +6859,7 @@ func CatalogNotice(message string) templ.Component {
 		var templ_7745c5c3_Var334 string
 		templ_7745c5c3_Var334, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1086, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1087, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var334))
 		if templ_7745c5c3_Err != nil {
@@ -6929,7 +6930,7 @@ func EntryCardWithState(csrf, connectionID, language, returnTo string, entry opd
 		var templ_7745c5c3_Var337 string
 		templ_7745c5c3_Var337, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1091, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1092, Col: 27}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var337))
 		if templ_7745c5c3_Err != nil {
@@ -6947,7 +6948,7 @@ func EntryCardWithState(csrf, connectionID, language, returnTo string, entry opd
 			var templ_7745c5c3_Var338 templ.SafeURL
 			templ_7745c5c3_Var338, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(browseURLForLanguage(connectionID, language, href, trail)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1093, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1094, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var338))
 			if templ_7745c5c3_Err != nil {
@@ -6960,7 +6961,7 @@ func EntryCardWithState(csrf, connectionID, language, returnTo string, entry opd
 			var templ_7745c5c3_Var339 string
 			templ_7745c5c3_Var339, templ_7745c5c3_Err = templ.JoinStringErrs(browseURLForLanguage(connectionID, language, href, trail))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1093, Col: 179}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1094, Col: 179}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var339))
 			if templ_7745c5c3_Err != nil {
@@ -7026,7 +7027,7 @@ func AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.E
 		var templ_7745c5c3_Var341 string
 		templ_7745c5c3_Var341, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1108, Col: 180}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1109, Col: 180}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var341))
 		if templ_7745c5c3_Err != nil {
@@ -7039,7 +7040,7 @@ func AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.E
 		var templ_7745c5c3_Var342 string
 		templ_7745c5c3_Var342, templ_7745c5c3_Err = templ.JoinStringErrs(connectionID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1108, Col: 243}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1109, Col: 243}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var342))
 		if templ_7745c5c3_Err != nil {
@@ -7057,7 +7058,7 @@ func AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.E
 			var templ_7745c5c3_Var343 string
 			templ_7745c5c3_Var343, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1110, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1111, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var343))
 			if templ_7745c5c3_Err != nil {
@@ -7075,7 +7076,7 @@ func AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.E
 		var templ_7745c5c3_Var344 string
 		templ_7745c5c3_Var344, templ_7745c5c3_Err = templ.JoinStringErrs(token)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1112, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1113, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var344))
 		if templ_7745c5c3_Err != nil {
@@ -7093,7 +7094,7 @@ func AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.E
 			var templ_7745c5c3_Var345 string
 			templ_7745c5c3_Var345, templ_7745c5c3_Err = templ.JoinStringErrs(returnTo)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1114, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1115, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var345))
 			if templ_7745c5c3_Err != nil {
@@ -7169,7 +7170,7 @@ func AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, already
 		var templ_7745c5c3_Var348 string
 		templ_7745c5c3_Var348, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1122, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1123, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var348))
 		if templ_7745c5c3_Err != nil {
@@ -7197,7 +7198,7 @@ func AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, already
 		var templ_7745c5c3_Var349 templ.SafeURL
 		templ_7745c5c3_Var349, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + sourceID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1129, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var349))
 		if templ_7745c5c3_Err != nil {
@@ -7210,7 +7211,7 @@ func AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, already
 		var templ_7745c5c3_Var350 templ.SafeURL
 		templ_7745c5c3_Var350, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(returnTo))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 126}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1129, Col: 126}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var350))
 		if templ_7745c5c3_Err != nil {
@@ -7252,7 +7253,7 @@ func AcquisitionOwnedCard(entry opds.Entry, sourceID string) templ.Component {
 		var templ_7745c5c3_Var352 templ.SafeURL
 		templ_7745c5c3_Var352, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + sourceID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1131, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1132, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var352))
 		if templ_7745c5c3_Err != nil {
@@ -7294,7 +7295,7 @@ func AcquisitionFailureCard(csrf, connectionID, connectionName, language, return
 		var templ_7745c5c3_Var354 string
 		templ_7745c5c3_Var354, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1134, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1135, Col: 27}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var354))
 		if templ_7745c5c3_Err != nil {
@@ -7307,7 +7308,7 @@ func AcquisitionFailureCard(csrf, connectionID, connectionName, language, return
 		var templ_7745c5c3_Var355 string
 		templ_7745c5c3_Var355, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1134, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1135, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var355))
 		if templ_7745c5c3_Err != nil {
@@ -7320,7 +7321,7 @@ func AcquisitionFailureCard(csrf, connectionID, connectionName, language, return
 		var templ_7745c5c3_Var356 string
 		templ_7745c5c3_Var356, templ_7745c5c3_Err = templ.JoinStringErrs(connectionName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1134, Col: 122}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1135, Col: 122}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var356))
 		if templ_7745c5c3_Err != nil {
@@ -7333,7 +7334,7 @@ func AcquisitionFailureCard(csrf, connectionID, connectionName, language, return
 		var templ_7745c5c3_Var357 templ.SafeURL
 		templ_7745c5c3_Var357, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections#connection-" + connectionID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1134, Col: 195}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1135, Col: 195}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var357))
 		if templ_7745c5c3_Err != nil {
@@ -7706,7 +7707,7 @@ func CatalogFailureFragment(connection domain.OpdsConnection, message, retryURL 
 		var templ_7745c5c3_Var369 string
 		templ_7745c5c3_Var369, templ_7745c5c3_Err = templ.JoinStringErrs(connection.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1175, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1176, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var369))
 		if templ_7745c5c3_Err != nil {
@@ -7719,7 +7720,7 @@ func CatalogFailureFragment(connection domain.OpdsConnection, message, retryURL 
 		var templ_7745c5c3_Var370 templ.SafeURL
 		templ_7745c5c3_Var370, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections#connection-" + connection.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1176, Col: 107}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1177, Col: 107}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var370))
 		if templ_7745c5c3_Err != nil {
@@ -7732,7 +7733,7 @@ func CatalogFailureFragment(connection domain.OpdsConnection, message, retryURL 
 		var templ_7745c5c3_Var371 templ.SafeURL
 		templ_7745c5c3_Var371, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(retryURL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1176, Col: 192}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1177, Col: 192}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var371))
 		if templ_7745c5c3_Err != nil {
@@ -7798,7 +7799,7 @@ func AcquisitionFailurePage(user domain.User, csrf string, connection domain.Opd
 			var templ_7745c5c3_Var374 string
 			templ_7745c5c3_Var374, templ_7745c5c3_Err = templ.JoinStringErrs(entry.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1183, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1184, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var374))
 			if templ_7745c5c3_Err != nil {
@@ -7811,7 +7812,7 @@ func AcquisitionFailurePage(user domain.User, csrf string, connection domain.Opd
 			var templ_7745c5c3_Var375 string
 			templ_7745c5c3_Var375, templ_7745c5c3_Err = templ.JoinStringErrs(connection.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1183, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1184, Col: 93}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var375))
 			if templ_7745c5c3_Err != nil {
@@ -7824,7 +7825,7 @@ func AcquisitionFailurePage(user domain.User, csrf string, connection domain.Opd
 			var templ_7745c5c3_Var376 string
 			templ_7745c5c3_Var376, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1183, Col: 124}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1184, Col: 124}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var376))
 			if templ_7745c5c3_Err != nil {
@@ -7837,7 +7838,7 @@ func AcquisitionFailurePage(user domain.User, csrf string, connection domain.Opd
 			var templ_7745c5c3_Var377 templ.SafeURL
 			templ_7745c5c3_Var377, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections#connection-" + connection.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1183, Col: 198}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1184, Col: 198}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var377))
 			if templ_7745c5c3_Err != nil {
@@ -7974,7 +7975,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							var templ_7745c5c3_Var382 templ.SafeURL
 							templ_7745c5c3_Var382, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + job.SourceMaterialID))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1203, Col: 62}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1204, Col: 62}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var382))
 							if templ_7745c5c3_Err != nil {
@@ -7987,7 +7988,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							var templ_7745c5c3_Var383 string
 							templ_7745c5c3_Var383, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("#%d · result", job.DisplayNumber))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1203, Col: 114}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1204, Col: 114}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var383))
 							if templ_7745c5c3_Err != nil {
@@ -8005,7 +8006,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							var templ_7745c5c3_Var384 templ.SafeURL
 							templ_7745c5c3_Var384, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1205, Col: 63}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1206, Col: 63}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var384))
 							if templ_7745c5c3_Err != nil {
@@ -8018,7 +8019,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							var templ_7745c5c3_Var385 string
 							templ_7745c5c3_Var385, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("#%d", job.DisplayNumber))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1205, Col: 105}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1206, Col: 105}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var385))
 							if templ_7745c5c3_Err != nil {
@@ -8036,7 +8037,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						var templ_7745c5c3_Var386 string
 						templ_7745c5c3_Var386, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Analysis job %d progress", job.DisplayNumber))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1207, Col: 95}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1208, Col: 95}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var386))
 						if templ_7745c5c3_Err != nil {
@@ -8049,7 +8050,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						var templ_7745c5c3_Var387 string
 						templ_7745c5c3_Var387, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", job.Progress))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1207, Col: 136}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1208, Col: 136}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var387))
 						if templ_7745c5c3_Err != nil {
@@ -8062,7 +8063,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						var templ_7745c5c3_Var388 string
 						templ_7745c5c3_Var388, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d%%", job.Progress))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1207, Col: 195}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1208, Col: 195}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var388))
 						if templ_7745c5c3_Err != nil {
@@ -8075,7 +8076,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						var templ_7745c5c3_Var389 string
 						templ_7745c5c3_Var389, templ_7745c5c3_Err = templ.JoinStringErrs(job.CreatedAt.Format("2006-01-02 15:04"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1207, Col: 248}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1208, Col: 248}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var389))
 						if templ_7745c5c3_Err != nil {
@@ -8088,7 +8089,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						var templ_7745c5c3_Var390 string
 						templ_7745c5c3_Var390, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1207, Col: 270}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1208, Col: 270}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var390))
 						if templ_7745c5c3_Err != nil {
@@ -8238,7 +8239,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 					var templ_7745c5c3_Var396 templ.SafeURL
 					templ_7745c5c3_Var396, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1227, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1229, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var396))
 					if templ_7745c5c3_Err != nil {
@@ -8251,7 +8252,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 					var templ_7745c5c3_Var397 string
 					templ_7745c5c3_Var397, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1227, Col: 142}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1229, Col: 142}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var397))
 					if templ_7745c5c3_Err != nil {
@@ -8274,7 +8275,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 					var templ_7745c5c3_Var398 templ.SafeURL
 					templ_7745c5c3_Var398, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1230, Col: 89}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1232, Col: 89}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var398))
 					if templ_7745c5c3_Err != nil {
@@ -8287,7 +8288,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 					var templ_7745c5c3_Var399 string
 					templ_7745c5c3_Var399, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1230, Col: 143}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1232, Col: 143}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var399))
 					if templ_7745c5c3_Err != nil {
@@ -8318,7 +8319,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 						var templ_7745c5c3_Var400 templ.SafeURL
 						templ_7745c5c3_Var400, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + status.SourceMaterialID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1237, Col: 94}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1239, Col: 94}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var400))
 						if templ_7745c5c3_Err != nil {
@@ -8336,7 +8337,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 						var templ_7745c5c3_Var401 templ.SafeURL
 						templ_7745c5c3_Var401, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1240, Col: 102}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1242, Col: 102}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var401))
 						if templ_7745c5c3_Err != nil {
@@ -8349,7 +8350,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 						var templ_7745c5c3_Var402 string
 						templ_7745c5c3_Var402, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1240, Col: 174}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1242, Col: 174}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var402))
 						if templ_7745c5c3_Err != nil {
@@ -8417,7 +8418,7 @@ func KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.L
 			var templ_7745c5c3_Var405 string
 			templ_7745c5c3_Var405, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1250, Col: 257}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1252, Col: 257}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var405))
 			if templ_7745c5c3_Err != nil {
@@ -8430,7 +8431,7 @@ func KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.L
 			var templ_7745c5c3_Var406 string
 			templ_7745c5c3_Var406, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1250, Col: 320}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1252, Col: 320}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var406))
 			if templ_7745c5c3_Err != nil {
@@ -8448,7 +8449,7 @@ func KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.L
 				var templ_7745c5c3_Var407 string
 				templ_7745c5c3_Var407, templ_7745c5c3_Err = templ.JoinStringErrs(profile.Language)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1252, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1254, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var407))
 				if templ_7745c5c3_Err != nil {
@@ -8461,7 +8462,7 @@ func KnownVocabPageWithResult(user domain.User, csrf string, profiles []domain.L
 				var templ_7745c5c3_Var408 string
 				templ_7745c5c3_Var408, templ_7745c5c3_Err = templ.JoinStringErrs(profile.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1252, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1254, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var408))
 				if templ_7745c5c3_Err != nil {
@@ -8529,7 +8530,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 			var templ_7745c5c3_Var410 string
 			templ_7745c5c3_Var410, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d new", result.Imported))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1261, Col: 120}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1263, Col: 120}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var410))
 			if templ_7745c5c3_Err != nil {
@@ -8542,7 +8543,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 			var templ_7745c5c3_Var411 string
 			templ_7745c5c3_Var411, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d duplicates", result.AlreadyKnown))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1261, Col: 186}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1263, Col: 186}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var411))
 			if templ_7745c5c3_Err != nil {
@@ -8555,7 +8556,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 			var templ_7745c5c3_Var412 string
 			templ_7745c5c3_Var412, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d rejected", len(result.Rejected)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1261, Col: 242}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1263, Col: 242}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var412))
 			if templ_7745c5c3_Err != nil {
@@ -8594,7 +8595,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 						var templ_7745c5c3_Var414 string
 						templ_7745c5c3_Var414, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", rejection.Row))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1267, Col: 47}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1269, Col: 47}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var414))
 						if templ_7745c5c3_Err != nil {
@@ -8607,7 +8608,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 						var templ_7745c5c3_Var415 string
 						templ_7745c5c3_Var415, templ_7745c5c3_Err = templ.JoinStringErrs(rejection.Original)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1267, Col: 84}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1269, Col: 84}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var415))
 						if templ_7745c5c3_Err != nil {
@@ -8620,7 +8621,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 						var templ_7745c5c3_Var416 string
 						templ_7745c5c3_Var416, templ_7745c5c3_Err = templ.JoinStringErrs(rejection.Error)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1267, Col: 119}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1269, Col: 119}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var416))
 						if templ_7745c5c3_Err != nil {
@@ -8659,7 +8660,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 			var templ_7745c5c3_Var417 string
 			templ_7745c5c3_Var417, templ_7745c5c3_Err = templ.JoinStringErrs(language)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1276, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1278, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var417))
 			if templ_7745c5c3_Err != nil {
@@ -8709,7 +8710,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 					var templ_7745c5c3_Var419 string
 					templ_7745c5c3_Var419, templ_7745c5c3_Err = templ.JoinStringErrs(lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1287, Col: 83}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1289, Col: 83}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var419))
 					if templ_7745c5c3_Err != nil {
@@ -8722,7 +8723,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 					var templ_7745c5c3_Var420 string
 					templ_7745c5c3_Var420, templ_7745c5c3_Err = templ.JoinStringErrs(knownVocabUPOS(entry.UPOS))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1287, Col: 122}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1289, Col: 122}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var420))
 					if templ_7745c5c3_Err != nil {
@@ -8735,7 +8736,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 					var templ_7745c5c3_Var421 string
 					templ_7745c5c3_Var421, templ_7745c5c3_Err = templ.JoinStringErrs(knownVocabProvenance(entry))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1287, Col: 162}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1289, Col: 162}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var421))
 					if templ_7745c5c3_Err != nil {
@@ -8748,7 +8749,7 @@ func KnownVocabResult(language string, result *knownvocab.ImportResult, known []
 					var templ_7745c5c3_Var422 string
 					templ_7745c5c3_Var422, templ_7745c5c3_Err = templ.JoinStringErrs(entry.CreatedAt.Format("2006-01-02"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1287, Col: 211}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1289, Col: 211}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var422))
 					if templ_7745c5c3_Err != nil {
@@ -8872,7 +8873,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				var templ_7745c5c3_Var427 templ.SafeURL
 				templ_7745c5c3_Var427, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1304, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1306, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var427))
 				if templ_7745c5c3_Err != nil {
@@ -8885,7 +8886,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				var templ_7745c5c3_Var428 string
 				templ_7745c5c3_Var428, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1304, Col: 164}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1306, Col: 164}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var428))
 				if templ_7745c5c3_Err != nil {
@@ -8898,7 +8899,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				var templ_7745c5c3_Var429 string
 				templ_7745c5c3_Var429, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1304, Col: 273}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1306, Col: 273}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var429))
 				if templ_7745c5c3_Err != nil {
@@ -8991,7 +8992,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						var templ_7745c5c3_Var432 string
 						templ_7745c5c3_Var432, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", rejection.Row))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1322, Col: 48}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1324, Col: 48}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var432))
 						if templ_7745c5c3_Err != nil {
@@ -9004,7 +9005,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						var templ_7745c5c3_Var433 string
 						templ_7745c5c3_Var433, templ_7745c5c3_Err = templ.JoinStringErrs(rejection.Original)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1322, Col: 85}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1324, Col: 85}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var433))
 						if templ_7745c5c3_Err != nil {
@@ -9017,7 +9018,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						var templ_7745c5c3_Var434 string
 						templ_7745c5c3_Var434, templ_7745c5c3_Err = templ.JoinStringErrs(rejection.Error)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1322, Col: 120}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1324, Col: 120}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var434))
 						if templ_7745c5c3_Err != nil {
@@ -9046,7 +9047,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var435 templ.SafeURL
 			templ_7745c5c3_Var435, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1327, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1329, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var435))
 			if templ_7745c5c3_Err != nil {
@@ -9065,7 +9066,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var436 string
 			templ_7745c5c3_Var436, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d new", status.Imported))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1330, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1332, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var436))
 			if templ_7745c5c3_Err != nil {
@@ -9078,7 +9079,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var437 string
 			templ_7745c5c3_Var437, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d duplicates", status.AlreadyKnown))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1330, Col: 120}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1332, Col: 120}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var437))
 			if templ_7745c5c3_Err != nil {
@@ -9091,7 +9092,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var438 string
 			templ_7745c5c3_Var438, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d rejected", len(status.Rejected)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1330, Col: 176}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1332, Col: 176}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var438))
 			if templ_7745c5c3_Err != nil {
@@ -9110,7 +9111,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var439 string
 			templ_7745c5c3_Var439, templ_7745c5c3_Err = templ.JoinStringErrs(status.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1333, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1335, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var439))
 			if templ_7745c5c3_Err != nil {
@@ -9134,7 +9135,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				var templ_7745c5c3_Var440 string
 				templ_7745c5c3_Var440, templ_7745c5c3_Err = templ.JoinStringErrs(status.Language)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1338, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1340, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var440))
 				if templ_7745c5c3_Err != nil {
@@ -9152,7 +9153,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var441 templ.SafeURL
 			templ_7745c5c3_Var441, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1340, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1342, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var441))
 			if templ_7745c5c3_Err != nil {
@@ -9172,7 +9173,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				var templ_7745c5c3_Var442 string
 				templ_7745c5c3_Var442, templ_7745c5c3_Err = templ.JoinStringErrs(status.Error)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1345, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1347, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var442))
 				if templ_7745c5c3_Err != nil {
@@ -9195,7 +9196,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				var templ_7745c5c3_Var443 string
 				templ_7745c5c3_Var443, templ_7745c5c3_Err = templ.JoinStringErrs(status.Language)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1349, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1351, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var443))
 				if templ_7745c5c3_Err != nil {
@@ -9213,7 +9214,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			var templ_7745c5c3_Var444 templ.SafeURL
 			templ_7745c5c3_Var444, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1351, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1353, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var444))
 			if templ_7745c5c3_Err != nil {
@@ -9257,7 +9258,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 			var templ_7745c5c3_Var446 string
 			templ_7745c5c3_Var446, templ_7745c5c3_Err = templ.JoinStringErrs(deckJourneyActionID(action.BookID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1357, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1359, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var446))
 			if templ_7745c5c3_Err != nil {
@@ -9276,7 +9277,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 					var templ_7745c5c3_Var447 string
 					templ_7745c5c3_Var447, templ_7745c5c3_Err = templ.JoinStringErrs(action.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1360, Col: 37}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1362, Col: 37}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var447))
 					if templ_7745c5c3_Err != nil {
@@ -9294,7 +9295,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 					var templ_7745c5c3_Var448 string
 					templ_7745c5c3_Var448, templ_7745c5c3_Err = templ.JoinStringErrs(action.Message)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1362, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1364, Col: 38}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var448))
 					if templ_7745c5c3_Err != nil {
@@ -9314,7 +9315,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var449 string
 				templ_7745c5c3_Var449, templ_7745c5c3_Err = templ.JoinStringErrs(action.Error)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1366, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1368, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var449))
 				if templ_7745c5c3_Err != nil {
@@ -9333,7 +9334,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var450 templ.SafeURL
 				templ_7745c5c3_Var450, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(deckJourneyAddURL(action.BookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1370, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1372, Col: 80}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var450))
 				if templ_7745c5c3_Err != nil {
@@ -9346,7 +9347,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var451 string
 				templ_7745c5c3_Var451, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL(deckJourneyAddURL(action.BookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1370, Col: 140}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1372, Col: 140}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var451))
 				if templ_7745c5c3_Err != nil {
@@ -9359,7 +9360,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var452 string
 				templ_7745c5c3_Var452, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL("#" + deckJourneyActionID(action.BookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1370, Col: 208}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1372, Col: 208}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var452))
 				if templ_7745c5c3_Err != nil {
@@ -9372,7 +9373,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var453 string
 				templ_7745c5c3_Var453, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1371, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1373, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var453))
 				if templ_7745c5c3_Err != nil {
@@ -9385,7 +9386,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var454 string
 				templ_7745c5c3_Var454, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", action.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1371, Col: 148}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1373, Col: 148}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var454))
 				if templ_7745c5c3_Err != nil {
@@ -9403,7 +9404,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 					var templ_7745c5c3_Var455 string
 					templ_7745c5c3_Var455, templ_7745c5c3_Err = templ.JoinStringErrs(action.PreparationID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1373, Col: 82}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1375, Col: 82}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var455))
 					if templ_7745c5c3_Err != nil {
@@ -9426,7 +9427,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var456 templ.SafeURL
 				templ_7745c5c3_Var456, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/journey#" + journeyBookAnchorID(action.BookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1379, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1381, Col: 78}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var456))
 				if templ_7745c5c3_Err != nil {
@@ -9444,7 +9445,7 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 				var templ_7745c5c3_Var457 templ.SafeURL
 				templ_7745c5c3_Var457, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/journey#" + journeyBookAnchorID(action.BookID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1382, Col: 78}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1384, Col: 78}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var457))
 				if templ_7745c5c3_Err != nil {
@@ -9459,6 +9460,644 @@ func DeckJourneyAction(action deckJourneyActionView, csrf string) templ.Componen
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		}
+		return nil
+	})
+}
+
+func MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var458 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var458 == nil {
+			templ_7745c5c3_Var458 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var459 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = Breadcrumb("/library", "My Books").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 718, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral)).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 719, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if message != "" {
+				templ_7745c5c3_Err = Feedback(FeedbackSuccess, "", message).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 720, " <section aria-labelledby=\"metadata-only-heading\"><h2 id=\"metadata-only-heading\">Content not acquired</h2><p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis, scope review, and deck preparation are unavailable until content is acquired explicitly.</p><p>Sync is metadata-only and never downloads book content. Use the catalog connection to express acquisition intent when you are ready.</p></section>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var459), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var460 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var460 == nil {
+			templ_7745c5c3_Var460 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var461 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = PageHeader("Jobs", "Operational history for catalogue sync and analysis work.", nil).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 721, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if message != "" {
+				templ_7745c5c3_Err = Feedback(FeedbackInfo, "", message).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 722, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(jobs) == 0 && len(syncJobs) == 0 {
+				templ_7745c5c3_Var462 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 723, "<a href=\"/library\">Go to My Books</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = EmptyState("No jobs yet", "Catalogue sync and analysis work will appear here when submitted.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var462), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 724, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(syncJobs) > 0 {
+				templ_7745c5c3_Var463 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 725, "<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					for _, job := range syncJobs {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 726, "<tr><td><a href=\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var464 templ.SafeURL
+						templ_7745c5c3_Var464, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 69}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var464))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 727, "\">Catalogue sync</a></td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var465 string
+						templ_7745c5c3_Var465, templ_7745c5c3_Err = templ.JoinStringErrs(job.ConnectionName)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 119}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var465))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 728, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var466 string
+						templ_7745c5c3_Var466, templ_7745c5c3_Err = templ.JoinStringErrs(catalogueSyncJobState(job))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 158}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var466))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 729, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var467 string
+						templ_7745c5c3_Var467, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", job.Attempt))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 201}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var467))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 730, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var468 string
+						templ_7745c5c3_Var468, templ_7745c5c3_Err = templ.JoinStringErrs(job.CreatedAt.Format("2006-01-02 15:04"))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 254}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var468))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 731, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var469 string
+						templ_7745c5c3_Var469, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1418, Col: 276}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var469))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 732, "</td></tr>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 733, "</tbody>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = ResponsiveTable("Catalogue sync history").Render(templ.WithChildren(ctx, templ_7745c5c3_Var463), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 734, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(jobs) > 0 {
+				templ_7745c5c3_Var470 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 735, "<thead><tr><th>Kind</th><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					for _, job := range jobs {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 736, "<tr><td>Analysis</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 737, "<a href=\"")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var471 templ.SafeURL
+							templ_7745c5c3_Var471, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/books/" + job.SourceMaterialID))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1429, Col: 62}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var471))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 738, "\">")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var472 string
+							templ_7745c5c3_Var472, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("#%d · result", job.DisplayNumber))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1429, Col: 114}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var472))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 739, "</a>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						} else {
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 740, "<a href=\"")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var473 templ.SafeURL
+							templ_7745c5c3_Var473, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1431, Col: 63}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var473))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 741, "\">")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var474 string
+							templ_7745c5c3_Var474, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("#%d", job.DisplayNumber))
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1431, Col: 105}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var474))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 742, "</a>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 743, "</td><td><progress aria-label=\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var475 string
+						templ_7745c5c3_Var475, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Analysis job %d progress", job.DisplayNumber))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1433, Col: 95}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var475))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 744, "\" value=\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var476 string
+						templ_7745c5c3_Var476, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", job.Progress))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1433, Col: 136}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var476))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 745, "\" max=\"100\"></progress> ")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var477 string
+						templ_7745c5c3_Var477, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d%%", job.Progress))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1433, Col: 195}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var477))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 746, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var478 string
+						templ_7745c5c3_Var478, templ_7745c5c3_Err = templ.JoinStringErrs(job.CreatedAt.Format("2006-01-02 15:04"))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1433, Col: 248}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var478))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 747, "</td><td>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var479 string
+						templ_7745c5c3_Var479, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1433, Col: 270}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var479))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 748, "</td></tr>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 749, "</tbody>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = ResponsiveTable("Analysis history").Render(templ.WithChildren(ctx, templ_7745c5c3_Var470), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = ShellLayout("Jobs", &user, csrf, NavigationLibrary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var461), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.Status) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var480 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var480 == nil {
+			templ_7745c5c3_Var480 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var481 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = PageHeader("Catalogue sync", status.ConnectionName, nil).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 750, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = CatalogueSyncJobStatus(csrf, status).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Catalogue sync #%d", status.ID), &user, csrf, NavigationLibrary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var481), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var482 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var482 == nil {
+			templ_7745c5c3_Var482 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var483 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			if status.Error != "" {
+				templ_7745c5c3_Err = Feedback(FeedbackError, "Catalogue sync needs attention", status.Error).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 751, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Var484 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 752, "<form method=\"post\" action=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var485 templ.SafeURL
+					templ_7745c5c3_Var485, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1455, Col: 88}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var485))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 753, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var486 string
+					templ_7745c5c3_Var486, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1455, Col: 142}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var486))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 754, "\"><button>Retry catalogue sync</button></form>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 755, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if catalogueSyncStatusRunning(status) {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 756, "<form method=\"post\" action=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var487 templ.SafeURL
+					templ_7745c5c3_Var487, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1458, Col: 89}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var487))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 757, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var488 string
+					templ_7745c5c3_Var488, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1458, Col: 143}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var488))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 758, "\"><button class=\"outline secondary\">Cancel catalogue sync</button></form>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = ActionGroup().Render(templ.WithChildren(ctx, templ_7745c5c3_Var484), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 759, " <p>Catalogue sync reconciles metadata only; it does not download EPUB content.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = AsyncStatus(catalogueSyncJobStatusAttributes(status.ID, catalogueSyncStatusRunning(status)), "catalogue-sync-job-status", catalogueSyncJobState(status), catalogueSyncJobSummary(status), status.Progress, 100, catalogueSyncStatusRunning(status)).Render(templ.WithChildren(ctx, templ_7745c5c3_Var483), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
 		}
 		return nil
 	})

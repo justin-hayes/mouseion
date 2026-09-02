@@ -248,6 +248,15 @@ func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, ownerID string
 func (s *PostgresStore) GetOpdsConnection(ctx context.Context, ownerID, id string) (domain.OpdsConnection, error) {
 	return scanOpds(s.pool.QueryRow(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 AND id=$2`, ownerID, id))
 }
+
+// OpdsConnectionExists checks ownership without decrypting the credential.
+// Callers that only enqueue work can use this at request time; workers load
+// the full connection when the job executes.
+func (s *PostgresStore) OpdsConnectionExists(ctx context.Context, ownerID, id string) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM opds_connections WHERE owner_id=$1 AND id=$2)`, ownerID, id).Scan(&exists)
+	return exists, err
+}
 func (s *PostgresStore) ListOpdsConnections(ctx context.Context, ownerID string) ([]domain.OpdsConnection, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+opdsColumns+` FROM opds_connections WHERE owner_id=$1 ORDER BY name,id`, ownerID)
 	if err != nil {
@@ -261,6 +270,26 @@ func (s *PostgresStore) ListOpdsConnections(ctx context.Context, ownerID string)
 			return nil, err
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// ListAllOpdsConnectionIDs enumerates only the owner and connection identity
+// needed to restore periodic schedules. It intentionally does not decrypt
+// credentials during process startup; decryption happens in job execution.
+func (s *PostgresStore) ListAllOpdsConnectionIDs(ctx context.Context) ([]domain.OpdsConnection, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,owner_id FROM opds_connections WHERE owner_id IS NOT NULL ORDER BY owner_id,id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.OpdsConnection
+	for rows.Next() {
+		var connection domain.OpdsConnection
+		if err = rows.Scan(&connection.ID, &connection.OwnerID); err != nil {
+			return nil, err
+		}
+		out = append(out, connection)
 	}
 	return out, rows.Err()
 }
@@ -414,6 +443,46 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 			return nil, err
 		}
 		out = append(out, job)
+	}
+	return out, rows.Err()
+}
+
+func scanCatalogueSyncStatus(row pgx.Row) (domain.CatalogueSyncStatus, error) {
+	var status domain.CatalogueSyncStatus
+	var state string
+	if err := row.Scan(&status.OwnerID, &status.ConnectionID, &state, &status.LastSyncedAt, &status.LastUpsertedCount, &status.LastError, &status.UpdatedAt); err != nil {
+		return status, missing(err)
+	}
+	status.State = domain.CatalogueSyncState(state)
+	return status, nil
+}
+
+// SetCatalogueSyncStatus writes one owner-scoped connection status. A nil
+// LastSyncedAt preserves the previous successful timestamp, which lets a
+// later failure retain the last durable success.
+func (s *PostgresStore) SetCatalogueSyncStatus(ctx context.Context, status domain.CatalogueSyncStatus) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO catalogue_sync_status(owner_id,connection_id,state,last_synced_at,last_upserted_count,last_error) VALUES($1,$2,$3,$4,$5,$6)
+ON CONFLICT(owner_id,connection_id) DO UPDATE SET state=excluded.state,last_synced_at=COALESCE(excluded.last_synced_at,catalogue_sync_status.last_synced_at),last_upserted_count=excluded.last_upserted_count,last_error=excluded.last_error,updated_at=now()`, status.OwnerID, status.ConnectionID, status.State, status.LastSyncedAt, status.LastUpsertedCount, status.LastError)
+	return err
+}
+
+func (s *PostgresStore) GetCatalogueSyncStatus(ctx context.Context, owner, connectionID string) (domain.CatalogueSyncStatus, error) {
+	return scanCatalogueSyncStatus(s.pool.QueryRow(ctx, `SELECT owner_id,connection_id,state,last_synced_at,last_upserted_count,last_error,updated_at FROM catalogue_sync_status WHERE owner_id=$1 AND connection_id=$2`, owner, connectionID))
+}
+
+func (s *PostgresStore) ListCatalogueSyncStatuses(ctx context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
+	rows, err := s.pool.Query(ctx, `SELECT owner_id,connection_id,state,last_synced_at,last_upserted_count,last_error,updated_at FROM catalogue_sync_status WHERE owner_id=$1 ORDER BY connection_id`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.CatalogueSyncStatus
+	for rows.Next() {
+		status, scanErr := scanCatalogueSyncStatus(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, status)
 	}
 	return out, rows.Err()
 }
