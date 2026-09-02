@@ -195,6 +195,13 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	scopedBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Scoped book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkSourceToBook(ctx, alice.ID, scopedBook.ID, scopedSource.ID); err != nil {
+		t.Fatal(err)
+	}
 	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, scopedSource.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -241,6 +248,10 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if scopedCorpus.Statistics == nil || scopedCorpus.Statistics.AnalyzableTokenCount != 2 || scopedCorpus.Statistics.DistinctLemmaCount != 1 {
 		t.Fatalf("scoped corpus statistics = %+v, want selected-unit metrics only", scopedCorpus.Statistics)
 	}
+	var currentRunID, currentSourceID string
+	if err = store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,source_material_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, scopedBook.ID).Scan(&currentRunID, &currentSourceID); err != nil || currentRunID != scopedHandle.RunID || currentSourceID != scopedSource.ID {
+		t.Fatalf("current analysis after first completion=(%q,%q) err=%v", currentRunID, currentSourceID, err)
+	}
 	changedScope := scope
 	changedScope.ScopeID = uuid.NewString()
 	changedScope.SelectedUnits = changedScope.SelectedUnits[:1]
@@ -259,6 +270,9 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil || changedCorpus.ReviewedScopeID != changedScope.ScopeID || len(changedCorpus.SelectedUnits) != 1 || changedCorpus.Statistics == nil || changedCorpus.Statistics.AnalyzableTokenCount != 1 {
 		t.Fatalf("changed-scope corpus = %+v, %v", changedCorpus, err)
 	}
+	if err = store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, scopedBook.ID).Scan(&currentRunID); err != nil || currentRunID != changedHandle.RunID {
+		t.Fatalf("current analysis after replacement=%q err=%v", currentRunID, err)
+	}
 	analyzedChunksMu.Lock()
 	if len(scopedDocuments) != 3 || scopedDocuments[2].ID != domain.EPUBUnitID(1, "unit-1") || scopedDocuments[2].Text != "Keep one" {
 		t.Fatalf("changed-scope analyzer documents = %+v", scopedDocuments)
@@ -270,6 +284,15 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	if _, err = service.SubmitScopedAnalysis(ctx, alice.ID, scopedSource.ID, scope.ScopeID); err == nil {
 		t.Fatal("stale scope was accepted")
+	}
+	updatedBooks, err := store.ListSourceMaterials(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range updatedBooks {
+		if candidate.Source.ID == scopedSource.ID && (candidate.AnalysisRunID != "" || candidate.CorpusID != "") {
+			t.Fatalf("changed content exposed stale current analysis: %+v", candidate)
+		}
 	}
 	var historicalScope string
 	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedCorpus.ID).Scan(&historicalScope); err != nil || historicalScope != scope.ScopeID {

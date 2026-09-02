@@ -255,20 +255,13 @@ type bookLifecycleAction struct {
 
 func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.AnalysisJob) bookLifecycleAction {
 	runID := book.AnalysisRunID
-	if runID == "" {
-		for _, job := range history {
-			if job.SourceMaterialID == book.Source.ID && job.AnalysisState == "completed" && job.AnalysisRunID != "" {
-				runID = job.AnalysisRunID
-				break
-			}
-		}
-	}
+	_ = history // Operational history is displayed separately and never selects the current result.
 
 	state := strings.ToLower(strings.TrimSpace(book.AnalysisState))
 	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus))
 	if state == "" {
 		switch {
-		case status == "analyzed", status == "analysis result ready", status == "completed":
+		case (status == "analyzed" || status == "analysis result ready" || status == "completed") && runID != "" && book.CorpusID != "":
 			state = "completed"
 		case status == "analysis failed" || status == "analysis failed — action required" || status == "failed":
 			state = "failed"
@@ -298,13 +291,10 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 	case "cancelled":
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
-		if runID != "" {
+		if runID != "" && book.CorpusID != "" {
 			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View analysis result", "/books/" + url.PathEscape(book.Source.ID), StatusSuccess, false}
 		}
-		if book.AnalysisJobID > 0 {
-			return bookLifecycleAction{"Analysis result ready", "This historical analysis remains available through its operational record.", "View analysis history", jobURL, StatusSuccess, false}
-		}
-		return bookLifecycleAction{"Analysis result ready", "Review the available historical analysis details for this book.", "View analysis details", "/books/" + book.Source.ID, StatusSuccess, false}
+		state = ""
 	}
 
 	if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" || status == "scope confirmed" {

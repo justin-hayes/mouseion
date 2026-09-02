@@ -597,7 +597,7 @@ templ BookPageWithHistoryAndPreparation(user domain.User, csrf string, book doma
 	if statisticsUnavailable {
 		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary statistics were recorded. Analyze it again to see current coverage and vocabulary investment.</p></article>
 	}
-	if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book, history) {
+	if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book) {
 		<section aria-labelledby="deck-preparation-heading"><h2 id="deck-preparation-heading">Deck preparation</h2>
 			<p>Prepare vocabulary from this book's exact current analysis and its immutable scope. It does not start a learning campaign.</p>
 			if preparation != nil {
@@ -723,17 +723,7 @@ func scopeSelectedTokens(choices []tocScopeChoice, selectedCSV string) int { tot
 func unitPlural(count int) string { if count == 1 { return "unit" }; return "units" }
 func catalogBrowseURL(connectionID, bookID string) string { if bookID == "" { return "/catalog?connection=" + url.QueryEscape(connectionID) }; return "/catalog?connection=" + url.QueryEscape(connectionID) + "&book_id=" + url.QueryEscape(bookID) }
 func scopeReviewURL(book domain.SourceMaterialSummary) string { return "/books/"+book.Source.ID+"/scope" }
-func bookHasCompletedAnalysis(book domain.SourceMaterialSummary, history []domain.AnalysisJob) bool {
-	if book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" {
-		return true
-	}
-	for _, job := range history {
-		if job.SourceMaterialID == book.Source.ID && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-			return true
-		}
-	}
-	return false
-}
+func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
 func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/books/" + url.PathEscape(book.Source.ID) + "/deck/preparations" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 

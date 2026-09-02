@@ -648,7 +648,7 @@ func TestBookLifecycleActionsCoverEachAnalysisState(t *testing.T) {
 		{name: "failed", status: "analysis failed", state: "failed", jobID: 43, wantStatus: "Analysis failed — action required", wantLabel: "Review failed analysis", wantURL: "/jobs/43"},
 		{name: "cancelled", status: "analysis cancelled", state: "cancelled", jobID: 44, wantStatus: "Analysis cancelled", wantLabel: "Review cancelled analysis", wantURL: "/jobs/44"},
 		{name: "exact result", status: "analyzed", state: "completed", runID: "run-1", corpus: "corpus-1", wantStatus: "Analysis result ready", wantLabel: "View analysis result", wantURL: "/books/book-1"},
-		{name: "legacy result", status: "analyzed", state: "completed", jobID: 45, wantStatus: "Analysis result ready", wantLabel: "View analysis history", wantURL: "/jobs/45"},
+		{name: "legacy result", status: "analyzed", state: "completed", jobID: 45, wantStatus: "Scope review required", wantLabel: "Review scope", wantURL: "/books/book-1/scope"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -741,7 +741,7 @@ func TestJobsPageLinksCompletedScopedRunsToExactResults(t *testing.T) {
 
 func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 	var output bytes.Buffer
-	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", ReviewedScopeID: "scope-264"}
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-current", CorpusID: "corpus-current", ReviewedScopeID: "scope-264"}
 	coverage := domain.AnalysisCoverage{
 		ReviewedScopeID: "scope-264", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "one", Order: 1, Title: "Chapter One"}, {UnitID: "two", Order: 2, SourceHref: "chapter-two.xhtml"}},
 		AnalyzableTokenCount: 40, DistinctLemmaCount: 12, KnownTokenCount: 30, KnownLemmaCount: 7, UnknownTokenCount: 10, UnknownLemmaCount: 5,

@@ -140,8 +140,8 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 		t.Fatalf("legacy corpus statistics = %+v, err = %v; want unavailable", legacyCorpus.Statistics, err)
 	}
 	library, err = store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzed" || library[0].CorpusID != corpus.ID {
-		t.Fatalf("alice library after analysis: books=%v err=%v", library, err)
+	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzing" || library[0].AnalysisRunID != "" || library[0].CorpusID != "" {
+		t.Fatalf("alice library after legacy corpus: books=%v err=%v", library, err)
 	}
 	if _, err = store.GetCorpus(ctx, bob.ID, corpus.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob read alice corpus: %v", err)

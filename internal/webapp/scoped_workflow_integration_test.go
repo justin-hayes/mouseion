@@ -305,8 +305,8 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='running' WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID); err != nil {
 		t.Fatal(err)
 	}
-	if nonCompleted := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, cookies); nonCompleted.Code != http.StatusNotFound {
-		t.Fatalf("non-completed exact result=%d %s", nonCompleted.Code, nonCompleted.Body.String())
+	if nonCompleted := perform(t, h, "GET", fmt.Sprintf("/books/%s/analyses/%s", german.Source.ID, status.RunID), nil, cookies); nonCompleted.Code != http.StatusSeeOther || nonCompleted.Header().Get("Location") != "/books/"+german.Source.ID {
+		t.Fatalf("non-current exact result should redirect to the book page=%d location=%q %s", nonCompleted.Code, nonCompleted.Header().Get("Location"), nonCompleted.Body.String())
 	}
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed' WHERE owner_id=$1 AND id=$2`, alice.ID, status.RunID); err != nil {
 		t.Fatal(err)
