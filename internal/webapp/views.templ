@@ -553,51 +553,34 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 	}
 	@NextActionSummary(bookLifecycleActionFor(book, history))
 	if coverage != nil {
-		<section aria-labelledby="analyzed-scope-heading"><h2 id="analyzed-scope-heading">Analyzed scope</h2>
-			if coverage.ReviewedScopeID != "" {
-				<p class="reading-width"><strong>{ fmt.Sprintf("%d selected units", len(coverage.SelectedUnits)) }</strong> from this EPUB were analyzed. Coverage, thresholds, projections, highest-impact unknown vocabulary, and structural metrics apply only to these selected units, not necessarily to the full EPUB.</p>
-				<p><small>Reviewed scope <code>{ coverage.ReviewedScopeID }</code></small></p>
-				<ul>
-					for _, unit := range coverage.SelectedUnits {
-						<li>{ corpusUnitLabel(unit) }</li>
-					}
-				</ul>
-			} else {
-				<p><strong>Legacy/full-text scope.</strong> This corpus predates reviewed EPUB scopes or was analyzed from the source's full text. All metrics on this page apply to that persisted full-text corpus.</p>
-			}
-		</section>
 		if hasAnalysisWarnings(*coverage) {
 			<section aria-labelledby="analysis-quality-heading"><h2 id="analysis-quality-heading">Analysis quality</h2>
 				<p>These checks describe concrete gaps in the analyzer output. They do not assign a quality grade.</p>
-				if coverage.TextProfile != nil && coverage.TextProfile.SentenceCount == 0 {
-					<article role="note"><strong>No sentences returned.</strong> Sentence-length signals are unavailable. Analyze the book again if the source text should contain sentences.</article>
-				}
-				if coverage.TextProfile != nil && coverage.TextProfile.EmptySentenceCount > 0 {
-					<article role="note"><strong>Empty sentences returned.</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens; those sentences count as zero tokens in the structural statistics.", coverage.TextProfile.EmptySentenceCount) }</article>
-				}
-				if coverage.TextProfile != nil && coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
-					<article role="note"><strong>No vocabulary-analyzable tokens.</strong> The analyzer returned normalized tokens, but none passed the vocabulary filters, so coverage and vocabulary projections have no usable token denominator.</article>
-				}
+				<article role="note">
+					if coverage.TextProfile != nil && coverage.TextProfile.SentenceCount == 0 {
+						<p><strong>No sentences returned.</strong> Sentence-length signals are unavailable. Analyze the book again if the source text should contain sentences.</p>
+					}
+					if coverage.TextProfile != nil && coverage.TextProfile.EmptySentenceCount > 0 {
+						<p><strong>Empty sentences returned.</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens; those sentences count as zero tokens in the structural statistics.", coverage.TextProfile.EmptySentenceCount) }</p>
+					}
+					if coverage.TextProfile != nil && coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
+						<p><strong>No vocabulary-analyzable tokens.</strong> The analyzer returned normalized tokens, but none passed the vocabulary filters, so coverage and vocabulary projections have no usable token denominator.</p>
+					}
+				</article>
 			</section>
-		}
-		if coverage.TextProfile != nil {
-			<section aria-labelledby="text-profile-heading"><h2 id="text-profile-heading">Text profile</h2>
-				@StatGroup(textProfileStatItems(*coverage.TextProfile))
-				<p><strong>{ fmt.Sprintf("%d of %d", coverage.AnalyzableTokenCount, coverage.TextProfile.NormalizedTokenCount) }</strong> normalized tokens contribute to vocabulary coverage. Sentence lengths include every normalized token, including punctuation.</p>
-				<details><summary>How the text profile works</summary><p>Sentence boundaries and tokens come from the analyzer. The median is the middle sentence length (or the average of the two middle lengths), and the 90th percentile uses nearest-rank selection. A long sentence has more than 35 normalized tokens. These are separate, descriptive signals—not a difficulty score or proficiency-level claim.</p></details>
-			</section>
-		}
-		if coverage.TextProfile == nil {
-			<article role="note"><h2>Text profile unavailable</h2><p>This book was analyzed before sentence statistics were recorded. Analyze it again to see structural signals.</p></article>
 		}
 		<section aria-labelledby="coverage-heading"><h2 id="coverage-heading">Vocabulary coverage</h2>
-			@StatGroup(coverageStatItems(*coverage))
-			<p>Your current known vocabulary—including vocabulary graduated by completed campaigns—covers <strong>{ fmt.Sprintf("%d", coverage.KnownTokenCount) }</strong> token occurrences across <strong>{ fmt.Sprintf("%d", coverage.KnownLemmaCount) }</strong> distinct lemmas. The active campaign could add <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.ActiveCampaignLemmaCount) }</strong> lemmas after graduation; this projection is not counted as known. The remaining unknown vocabulary accounts for <strong>{ fmt.Sprintf("%d", coverage.UnknownTokenCount) }</strong> occurrences across <strong>{ fmt.Sprintf("%d", coverage.UnknownLemmaCount) }</strong> lemmas.</p>
-			<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each analyzed-scope token coverage target:</p>
-			@StatGroup(thresholdStatItems(coverage.Thresholds))
-			if len(coverage.TopUnknownLemmas) > 0 {
-				<h3>Highest-impact unknown vocabulary</h3>
-				<p>The most frequent deck-eligible lemmas in this analyzed scope:</p>
+			@StatGroup(currentCoverageStatItems(*coverage))
+		</section>
+		if len(coverage.Thresholds) > 0 {
+			<section aria-labelledby="vocabulary-investment-heading"><h2 id="vocabulary-investment-heading">Vocabulary investment</h2>
+				<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each coverage target:</p>
+				@StatGroup(thresholdStatItems(coverage.Thresholds))
+			</section>
+		}
+		if len(coverage.TopUnknownLemmas) > 0 {
+			<section aria-labelledby="top-unknown-heading"><h2 id="top-unknown-heading">Highest-impact unknown vocabulary</h2>
+				<p>The most frequent deck-eligible lemmas in this analysis:</p>
 				<ol class="top-unknown">
 					for _, lemma := range coverage.TopUnknownLemmas {
 						if lexical.IsLemma(lemma.CanonicalLemma) {
@@ -605,41 +588,19 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 						}
 					}
 				</ol>
-				<p>The top { fmt.Sprintf("%d", coverage.UnknownConcentration.TopLemmaCount) } deck-eligible lemmas account for <strong>{ fmt.Sprintf("%.1f%%", concentrationPercent(coverage.UnknownConcentration)) }</strong> of eligible unknown occurrences.</p>
-				<h3>Projected token coverage</h3>
-				<p>If you learned the most frequent deck-eligible lemmas:</p>
-				@StatGroup(projectionStatItems(coverage.Projections, coverage.AnalyzableTokenCount))
-			}
-			<details><summary>How these metrics work</summary><p><strong>Current-known coverage</strong> is the share of analyzable token occurrences in the resulting corpus matched by vocabulary explicitly marked known or graduated from a completed campaign. <strong>Active-campaign projected coverage</strong> adds reserved vocabulary from the active campaign without claiming it is known. Analyzable tokens include nouns, verbs, adjectives, and adverbs; punctuation and other parts of speech are excluded. Distinct lemmas count lemma and part-of-speech identities.</p><p>Active-campaign vocabulary is excluded from a new deck while it is reserved. Abandoned campaign vocabulary becomes <strong>deck-eligible vocabulary</strong> again. Unattached legacy generated history remains conservatively excluded. The 95%, 97%, and 99% estimates use the same analyzed-scope token denominator as current coverage. A target is unavailable when excluded vocabulary prevents deck-eligible words from reaching it.</p></details>
-		</section>
+			</section>
+		}
 	}
 	if statisticsUnavailable {
-		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary and sentence statistics were recorded. Analyze it again to see coverage, projections, and the structural profile.</p></article>
+		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary statistics were recorded. Analyze it again to see current coverage and vocabulary investment.</p></article>
 	}
-	if len(history) > 0 {
-		<section aria-labelledby="book-analysis-history-heading"><h2 id="book-analysis-history-heading">Analysis history</h2><p>Completed scoped analyses remain available as exact historical results. Other runs remain on their operational status page.</p><ul>
-			for _, job := range history {
-				if historyURL := analysisHistoryURL(book.Source.ID, job); historyURL != "" {
-					<li><a href={ templ.SafeURL(historyURL) }>{ analysisHistoryLabel(job) }</a><span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span></li>
-				}
-			}
-		</ul></section>
+	if book.AnalysisStatus == "analyzed" && completedAnalysisURL(book, history) != "" {
+		<section aria-labelledby="deck-preparation-heading"><h2 id="deck-preparation-heading">Deck preparation</h2>
+			<p>Prepare vocabulary from this book's exact current analysis result and its immutable scope.</p>
+			<a role="button" class="outline" href={ templ.SafeURL(completedAnalysisURL(book, history)) }>View analysis result</a>
+		</section>
 	}
-	<div class="book-actions"><article class="resource-card"><h2>Analysis</h2>
-		<p>{ bookLifecycleActionFor(book, history).Description }</p>
-		if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" {
-			<p><small>Analysis uses the confirmed immutable scope <code>{ firstNonEmpty(book.ConfirmedScopeID, book.ReviewedScopeID) }</code>. Reanalysis reuses reviewed scope history; review a new scope to create distinct history.</small></p>
-		}
-		if book.Source.MediaType == "application/epub+zip" && (book.ConfirmedScopeID != "" || book.ReviewedScopeID != "") {
-			<p><a href={ templ.SafeURL(scopeReviewURL(book)) }>Review a new EPUB scope</a></p>
-		}
-	</article><article class="resource-card"><h2>Generate vocabulary deck</h2><p>Create an Anki deck from one completed scoped analysis, covering at least 97% of that analysis's unknown vocabulary.</p>
-		if book.AnalysisStatus == "analyzed" && completedAnalysisURL(book, history) != "" {
-			<p>Deck preparation is tied to the exact analysis result and its immutable scope.</p><a role="button" class="outline" href={ templ.SafeURL(completedAnalysisURL(book, history)) }>View analysis result</a>
-		} else {
-			<button disabled>Available after a scoped analysis</button>
-		}
-	</article></div> }
+}
 }
 
 templ AnalysisResultPage(user domain.User, csrf string, result analysis.CompletedAnalysis, coverage *domain.AnalysisCoverage, statisticsUnavailable bool) {

@@ -888,9 +888,14 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
 		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
 	}
-	for _, want := range []string{"Text profile", "20", "12.0", "38", "10.0%", "200 of 240", "55.0%", "current-known coverage", "active-campaign projected coverage", "200", "8", "110", "90", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "graduated by completed campaigns", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "80.0%", "Projected token coverage", "85.0%", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas", "View analysis result"} {
+	for _, want := range []string{"Vocabulary coverage", "Current known coverage", "55.0%", "of the analyzed units", "Vocabulary investment", "Additional vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "Deck preparation", "View analysis result"} {
 		if !strings.Contains(bookPage.Body.String(), want) {
 			t.Errorf("coverage page missing %q", want)
+		}
+	}
+	for _, unwanted := range []string{"Analyzed scope", "Text profile", "Projected token coverage", "Analysis history", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas", "graduated by completed campaigns", "legacy generated history", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas"} {
+		if strings.Contains(bookPage.Body.String(), unwanted) {
+			t.Errorf("coverage page includes retired content %q: %s", unwanted, bookPage.Body.String())
 		}
 	}
 	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)

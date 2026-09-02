@@ -324,7 +324,7 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 		t.Fatalf("cross-owner exact preparation=%d %s", crossOwnerPreparation.Code, crossOwnerPreparation.Body.String())
 	}
 	bookPage := perform(t, h, "GET", "/books/"+german.Source.ID, nil, cookies)
-	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Analyzed scope") || !strings.Contains(bookPage.Body.String(), germanScopeID) || !strings.Contains(bookPage.Body.String(), "German Reader renamed") {
+	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Vocabulary coverage") || strings.Contains(bookPage.Body.String(), "Analyzed scope") || strings.Contains(bookPage.Body.String(), germanScopeID) || !strings.Contains(bookPage.Body.String(), "German Reader renamed") {
 		t.Fatalf("German insights=%d %s", bookPage.Code, bookPage.Body.String())
 	}
 
