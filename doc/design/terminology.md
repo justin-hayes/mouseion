@@ -1,8 +1,11 @@
 # Terminology
 
-Status: **Canonical shipped learner-facing design language.** Terms that remain
-historical or internal are identified explicitly; they must not become active
-learner-facing navigation or plan labels.
+Status: **Canonical learner-facing design language.** Analysis terms include
+the target contract proposed in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
+unshipped until its implementation issues land. Terms that remain historical or
+internal are identified explicitly; they must not become active learner-facing
+navigation or plan labels.
 
 Use these terms consistently in navigation, headings, actions, status messages,
 future feature documents, and tests. Backend names may remain in code, APIs,
@@ -53,14 +56,16 @@ artifacts may retain **Add to library**.
 | **Confirmed scope** | An immutable learner-confirmed scope revision. | Current selection when historical identity matters |
 | **Start analysis** | Explicitly submit one confirmed scope for asynchronous analysis. | Continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
-| **Analysis result** | One immutable completed analysis and its exact source/scope provenance. | Latest data when identity matters |
-| **Analysis insights** | Coverage, threshold, structural, quality, and unknown-vocabulary information for one completed analysis. | Dashboard metrics, difficulty score |
-| **View analysis result** | Leave operational status and open the exact completed, book-centered result. | View job, latest analysis |
+| **Analysis result** | The book's single current learner-facing analysis, shown on the book page. Immutable runs and exact source/scope provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the book page |
+| **Analysis insights** | Current known coverage, vocabulary investment, highest-impact unknown vocabulary, and warning-only quality information for the current analysis. | Dashboard metrics, difficulty score, text profile on the learner surface |
+| **View analysis result** | Leave operational status and open the book page for its current analysis, directly or through the run-specific compatibility redirect. | View job, view exact result |
 
 Use **job** only for operational history or implementation-facing detail. A
 book's learner-facing state may be **scope review required**, **ready to
 analyze**, or **analysis result ready** even when backend state is expressed
-differently.
+differently. **Analysis history** is operational language for `GET /jobs`, not
+a learner-facing book-page section. Run-specific analysis URLs remain only as
+compatibility redirects to the book page.
 
 ## Journey and route evidence
 

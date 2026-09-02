@@ -1,6 +1,8 @@
 # Analysis Insights
 
-Status: Implemented · Date: 2026-08-24
+Status: Implemented; learner-facing simplification proposed in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md) · Date: 2026-08-24 ·
+Updated: 2026-09-02
 
 ## Problem
 
@@ -10,9 +12,9 @@ After a book is analyzed, a learner needs more than an analyzed status or a deck
 
 - Show how much of the book is covered by the learner's known vocabulary.
 - Show the vocabulary investment required to reach 95%, 97%, and 99% token coverage.
-- Explain the difference between current known, active-campaign projected,
-  unknown, legacy generated, and eligible vocabulary.
-- Surface useful text-profile and analysis-quality signals.
+- Show the highest-impact unknown vocabulary without presenting every internal
+  vocabulary-state category.
+- Surface only concrete, reproducible analysis-quality gaps as warnings.
 - Keep every metric explainable and reproducible from the resulting corpus scope and learner vocabulary.
 
 ## Non-goals
@@ -46,10 +48,12 @@ Graduation follows the single justified transition in
 provenance and confirmed by deck review graduate; reading-finished alone
 graduates nothing.
 
-The UI should also show distinct lemma counts and occurrence counts because
-lemma coverage and token coverage answer different questions. Percentages use
-the integer occurrence counts; presentation may round the resulting ratio, but
-selection never uses a rounded percentage.
+The underlying calculation retains distinct lemma counts and occurrence counts
+because lemma coverage and token coverage answer different questions. The
+learner-facing book page presents only current known coverage from this
+coverage-stat family. Percentages use the integer occurrence counts;
+presentation may round the resulting ratio, but selection never uses a rounded
+percentage.
 
 ### Threshold requirements
 
@@ -88,7 +92,7 @@ Initial targets:
 
 ### Vocabulary categories
 
-The UI must distinguish:
+The calculation and operational evidence distinguish:
 
 - current known vocabulary, including completed-campaign graduates;
 - potential coverage after the active campaign graduates;
@@ -96,51 +100,48 @@ The UI must distinguish:
 - unattached legacy generated vocabulary during the compatibility transition;
 - vocabulary eligible for a new deck.
 
-Generated or active-campaign vocabulary is not silently reported as known.
-Books later in Reading Journey show current-known coverage and future-book
-coverage after the active campaign graduates. Both values are calculated on
-demand, so completing or abandoning the active campaign changes Journey
-evidence without a persisted coverage or mastery snapshot.
+Generated or active-campaign vocabulary is not silently reported as known. The
+book page leads only with current known coverage; vocabulary investment and top
+unknowns apply the distinct categories internally. Books later in Reading
+Journey may show current-known coverage and future-book coverage after the
+active campaign graduates. Both values are calculated on demand, so completing
+or abandoning the active campaign changes Journey evidence without a persisted
+coverage or mastery snapshot.
 
 ## Initial presentation
 
-An analyzed book should eventually expose:
+The book page at `/books/{id}` is the sole learner-facing analysis surface and
+shows one current analysis. Its presentation keeps:
 
-- analyzable token count;
-- distinct lemma count;
-- known-token coverage;
-- unknown-token count;
-- known and unknown distinct lemmas;
-- additional lemmas for 95%, 97%, and 99%;
-- top unknown lemmas by occurrence count;
-- warnings about incomplete or low-quality analysis.
+- **Current known coverage** as the headline and premier metric, with a
+  one-line qualifier such as “of the analyzed units”;
+- **Vocabulary investment** / **Additional vocabulary** for the 95%, 97%, and
+  99% targets;
+- **Highest-impact unknown vocabulary**, led by the unknown lemmas with the
+  greatest contribution;
+- deck preparation; and
+- a single compact analysis-quality note only when persisted analyzer output
+  exposes a concrete warning.
 
-The lexical profile also shows the five highest-occurrence deck-eligible unknown
-lemmas, the share of eligible unknown occurrences concentrated in the top ten,
-and projected overall token coverage after learning the top 10, 25, or 50.
-Active-campaign reservations and unattached legacy generated vocabulary remain
-excluded from these learn-next projections and are not counted as known.
-Abandoned campaign vocabulary returns to the eligible pool. Projection percentages use the full analyzable-token
-denominator and never exceed 100%.
+The learner-facing presentation removes analyzed-scope detail, text profile,
+projected token coverage after the top 10/25/50 lemmas, the detailed
+coverage-stat list other than current known coverage, and analysis history.
+The underlying metric contracts, persisted aggregates, and operational audit
+records remain intact.
 
-The structural profile shows the analyzer-provided sentence count, median and
-90th-percentile sentence length, and the share of sentences longer than 35
-tokens. Sentence length counts every normalized token, including punctuation.
-The median averages the two middle values for an even number of sentences; p90
-uses the nearest-rank value. These signals remain separate and descriptive.
-
-The profile also shows the analyzable-token count alongside the total normalized
-token count.
-An analysis-quality region reports only gaps that can be reproduced directly
-from persisted analyzer output: no sentences, analyzer-provided sentences with
-no tokens, or normalized tokens with no vocabulary-analyzable tokens. Each
-warning explains which metrics are affected; the UI does not infer a general
-quality grade from these checks. Legacy analyses do not have reproducible
-coverage or sentence aggregates and must be rerun to expose analysis insights.
+Quality warnings are limited to gaps reproducible directly from persisted
+analyzer output: no sentences, analyzer-provided sentences with no tokens, or
+normalized tokens with no vocabulary-analyzable tokens. Each rendered warning
+explains which retained metric or action is affected; the UI does not infer a
+general quality grade. When none of these gaps exists, the page renders no
+analysis-quality note. Legacy analyses without reproducible coverage or
+sentence aggregates must be rerun to become the current analysis.
 
 ## Difficulty dimensions
 
-Do not collapse difficulty into one unexplained number. Keep separate dimensions:
+Do not collapse difficulty into one unexplained number. Persist these dimensions
+separately even though the current learner-facing analysis surface does not
+display a text profile:
 
 - lexical coverage and unknown-word concentration;
 - sentence length and structural complexity;
@@ -180,19 +181,20 @@ deck changes without persisting derived mastery claims.
 
 ## EPUB scope and reanalysis
 
-Insights identify whether their corpus uses an immutable reviewed EPUB scope or
-the legacy/full-text path. Reviewed scopes display their scope ID and selected
-unit count and titles. Coverage, thresholds, active-campaign and learn-next
-projections, top unknowns, and structural metrics always use only that resulting
-corpus; a selected scope is not presented as the full EPUB.
+The current analysis derives from an immutable reviewed EPUB scope. Its
+coverage, thresholds, and top unknowns use only the resulting corpus; the
+one-line coverage qualifier states that the headline applies to the analyzed
+units without exposing a separate scope-detail section.
 
-Each insights view also identifies the immutable completed analysis that owns
-the corpus. Deck preparation starts from that analysis identity and is not
-available for queued, running, failed, cancelled, or legacy-only analysis state.
+Deck preparation starts on the book page but remains bound internally to the
+exact immutable completed analysis that owns the corpus. It is not available
+for queued, running, failed, cancelled, or legacy-only analysis state.
 
-Reanalysis may explicitly reuse a confirmed reviewed scope deterministically.
-Reviewing a different selection creates a new immutable scope; explicitly
-submitting it creates a new analysis run, corpus, and processing history without
-rewriting historical results. All scope, analysis, and corpus lookups remain
-owner- and source-material-scoped. Corpora without a reviewed scope remain
-readable and are explicitly labeled legacy/full-text.
+Reanalysis may reuse a confirmed reviewed scope deterministically. Reviewing a
+different selection creates a new immutable scope; explicitly submitting it
+creates a new run and corpus. When the run completes, it replaces the book's
+single current learner-facing analysis. Earlier immutable analyses and corpora
+remain owner- and source-material-scoped operational audit records available
+through `/jobs`, not learner-facing result history. Corpora without a reviewed
+scope remain identifiable as legacy/full-text operational records and require
+a scoped rerun before they can become the current analysis.

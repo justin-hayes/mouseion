@@ -114,7 +114,11 @@ Confirmation creates a new immutable reviewed-scope revision but does not
 queue analysis. A separate explicit submission creates the analysis run bound
 to that revision. Each confirmation has its own scope identity, including when
 the selected units are equivalent to an earlier confirmation. Existing scopes,
-analyses, corpora, and selected-unit provenance remain immutable and readable.
+analyses, corpora, and selected-unit provenance remain immutable and readable
+to backend and operational audit paths. Under
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md), completing analysis
+for a newer confirmed scope replaces the book's current learner-facing
+analysis rather than creating parallel learner result history.
 
 Confirmation retains the existing guarantees:
 
@@ -128,11 +132,12 @@ Confirmation retains the existing guarantees:
 
 ## Compatibility and history
 
-Existing reviewed scopes and analyses remain readable, including their
-selected-unit provenance. Migration 000043 removes the dormant classifier
-tables and legacy scope columns; classifier-era metadata is intentionally not
-restorable. Legacy/full-text analyses remain explicitly identifiable and
-readable, but do not claim the new reviewed-unit provenance.
+Existing reviewed scopes and analyses remain readable to backend and
+operational audit paths, including their selected-unit provenance. They are not
+listed as learner-facing analysis history. Migration 000043 removes the dormant
+classifier tables and legacy scope columns; classifier-era metadata is
+intentionally not restorable. Legacy/full-text analyses remain explicitly
+identifiable to operations, but do not claim the new reviewed-unit provenance.
 
 The stable extracted-unit identity, text, Unicode offsets, title fallback,
 source hrefs, resolved paths, and source-location provenance remain defined by

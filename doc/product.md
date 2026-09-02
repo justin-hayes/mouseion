@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current and projected vocabulary coverage, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -43,12 +43,12 @@ disabled until readiness can be checked.
 1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser.
 2. **Scope review** — show reliable top-level EPUB 3 TOC entries as initially checked checkboxes, or fall back to initially checked readable persisted units in flat spine order; expand choices to the canonical ordered unit set and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
-4. **Insights** — inspect coverage, threshold, structural, and quality information for that exact completed analysis.
+4. **Insights (target; ADR 0040 proposed)** — inspect the book's one current analysis on `/books/{id}`: headline current known coverage with an analyzed-units qualifier, vocabulary investment, highest-impact unknown vocabulary, warning-only quality information, and deck preparation. Prior runs remain operational history in `/jobs`; run-specific result URLs redirect to the book.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 6. **Coverage selection** — classify explicitly known and graduated vocabulary as known, reserve active-campaign vocabulary without counting it as known, and leave abandoned-campaign vocabulary eligible again. Sort the remaining eligible unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.
 7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 8. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
-   named `Mouseion::<language>::<book title>`. The ready deck is available from that analysis result and from My Books / the analysis history; secondary campaign operations may reference prepared decks but do not imply a learner-facing queue, Journey membership, or automatic Primary Goal selection. Cards remain ordered by each lemma's first
+   named `Mouseion::<language>::<book title>`. The ready deck is available from the book and operational history; secondary campaign operations may reference prepared decks but do not imply a learner-facing queue, Journey membership, or automatic Primary Goal selection. Cards remain ordered by each lemma's first
    encounter in the book.
 
 Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0036](adr/0036-primary-goal-justified-graduation.md): a `learning_campaign_vocabulary` identity atomically linked to generated provenance, once study is confirmed by deck review; reading-finished alone graduates nothing. Abandoning the campaign makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
@@ -102,6 +102,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 37. [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — defines the reproducible route-comparison objective (current known-token coverage) for the vocabulary-efficient alternative to the learner's canonical Reading Journey order, with deterministic ordering, current-vs-conditional projection, incomparable-book handling, and on-demand recalculation.
 38. [ADR 0038: Schema-change governance and migration review policy](adr/0038-schema-change-governance.md) — requires accepted product/architecture shape before consequential SQL, preserves immutable shipped migration history, and defines proportionate additive-field, backfill, staged-rollout, reversion-risk, and destructive-change review gates.
 39. [ADR 0039: Drop retired EPUB classifier schema](adr/0039-drop-retired-epub-classifier-schema.md) — removes dormant classifier tables and scope metadata while preserving reviewed-scope structure and history.
+40. [ADR 0040: One current analysis per book](adr/0040-one-current-analysis-per-book.md) — proposes one book-centered learner analysis surface while retaining prior immutable runs as operational audit history.
 
 ## Deployment and operations
 

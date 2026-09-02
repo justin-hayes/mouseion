@@ -1,8 +1,10 @@
 # Information architecture
 
-Status: **Canonical shipped learner-facing architecture.** This document defines
-the experience hierarchy and its shipped route/terminology reconciliation. ADRs
-continue to own persistence and historical decision details.
+Status: **Canonical learner-facing architecture.** This document includes the
+target one-current-analysis contract proposed in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
+unshipped until its implementation issues land. ADRs continue to own
+persistence and historical decision details.
 
 Mouseion is organized around literature the learner cares about, one current
 reading commitment, and the changed possibilities that follow from justified
@@ -123,9 +125,10 @@ These objects remain important, but they do not define principal navigation:
   unreliable; TOC entries expand to existing unit IDs.
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
-- **Analysis result** — immutable completed corpus and provenance used by
-  insights and deck preparation.
-- **Prepared deck** — immutable APKG artifact from one exact analysis result.
+- **Current analysis** — the one completed analysis whose evidence is presented
+  on the book page. Its immutable corpus and provenance remain backend facts.
+- **Prepared deck** — immutable APKG artifact from the exact analysis that
+  supplied its corpus, even though preparation begins on the book page.
 - **Learning campaign** — current accepted domain object for one book/deck
   workflow and its vocabulary reservation/graduation semantics. It remains an
   internal or secondary history/operations concept, not a learner-facing plan.
@@ -138,8 +141,9 @@ These objects remain important, but they do not define principal navigation:
 A relationship graph, not a strict containment hierarchy, connects these
 objects. A book can exist without a Journey or Primary Goal. A Journey entry
 does not own a book or analysis. A Primary Goal does not make a projection
-actual. An analysis result remains historically addressable after vocabulary or
-Journey state changes.
+actual. Earlier analysis runs remain addressable as operational audit records
+after vocabulary, Journey, source, or scope changes; they are not parallel
+learner result surfaces.
 
 ## Primary navigation
 
@@ -172,7 +176,8 @@ My Books
     book detail
         scope review
         analysis status
-        exact analysis result
+        current analysis insights and deck-preparation action
+        exact-analysis compatibility redirect
         deck preparation and download
 
 Reading Journey
@@ -210,7 +215,9 @@ queue, and learner-facing Campaign labels are not active navigation concepts;
 compatibility aliases and operational terminology remain only where required by
 existing routes, records, or infrastructure.
 
-Existing nested analysis and artifact routes remain secondary surfaces:
+Existing nested analysis and artifact routes remain supporting routes. The
+run-specific analysis route is a compatibility redirect rather than a separate
+surface:
 
 ```text
 /books/{id}
@@ -243,9 +250,11 @@ intent and Journey/Goal relationship precede concise evidence state. Search,
 filtering, and sorting support finding books but do not turn readiness into the
 default ranking.
 
-Book detail remains the place for full lifecycle state, exact analysis history,
-scope, provenance, and actions. My Books should be moderately dense and should
-not place every book in a large card.
+Book detail remains the place for full lifecycle state, the one current
+analysis, and its actions. Exact analysis history and provenance are operational
+facts available through `/jobs`, not sections on the learner-facing book page.
+My Books should be moderately dense and should not place every book in a large
+card.
 
 ## Reading Journey information hierarchy
 
@@ -307,30 +316,38 @@ completed plan.
 
 ## Analysis continuity
 
-The canonical completed-analysis destination remains the book-centered exact
-result:
+The book page at `/books/{id}` is the canonical home for the book's one current
+analysis. The run-specific route
+`/books/{book-id}/analyses/{analysis-run-id}` remains only as a compatibility
+redirect to that book page, preserving deep links and exact-analysis references
+without rendering a second insight surface.
 
-```text
-/books/{book-id}/analyses/{analysis-run-id}
-```
+The book page answers completed-analysis questions in this order:
 
-It identifies the book, confirmed scope, immutable analysis, quality state,
-insights, and eligible deck action. The operational job page remains responsible
-for queued/running progress, cancellation, retry, attempts, and failure
-recovery. When work completes, its primary action is **View analysis result**.
+1. What is my **Current known coverage** of the analyzed units?
+2. What additional vocabulary would reach the documented coverage targets?
+3. Which unknown vocabulary has the highest contribution?
+4. Do any concrete analysis-quality gaps require a compact warning?
+5. Do I want to prepare a deck from this analysis?
 
-An analysis result answers questions in this order:
+Current known coverage is the headline and premier metric, followed by
+**Vocabulary investment** / **Additional vocabulary** and **Highest-impact
+unknown vocabulary**. A one-line qualifier such as “of the analyzed units”
+makes the coverage scope unambiguous without creating an **Analyzed scope**
+section. The page renders one compact quality note only when the analyzer data
+contains a concrete warning; clean analysis renders no quality region.
 
-1. identity and trust;
-2. current scoped coverage and the most relevant conditional projection;
-3. vocabulary investment;
-4. structural context kept separate from lexical coverage;
-5. provenance and history;
-6. available next actions.
+The learner surface does not show analyzed-scope details, text profile,
+projected token coverage, the broader coverage-stat list, analysis history, or
+run identity/provenance sections. Deck preparation follows the retained
+evidence on the book page. It does not automatically add a book to Reading
+Journey, choose a Primary Goal, or mark vocabulary known.
 
-Deck preparation follows material warnings and the evidence summary. It does
-not automatically add a book to Reading Journey, choose a Primary Goal, or mark
-vocabulary known.
+The operational job page remains responsible for queued/running progress,
+cancellation, retry, attempts, and failure recovery. When work completes, its
+primary action is **View analysis result**, which opens the book page directly
+or through the compatibility redirect. `GET /jobs` remains the operational
+history surface for current and prior runs.
 
 ## Settings ownership
 
@@ -344,12 +361,12 @@ and ADR 0036.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
-## Resolved architecture decisions
+## Architecture decisions and target reconciliation
 
-The learner-facing architecture above is shipped. The following decisions record
-how the current implementation is reconciled with the accepted ADRs; those ADRs
-remain authoritative for persistence, historical records, and compatibility
-details.
+The following decisions record shipped architecture and the proposed
+one-current-analysis target. Accepted ADRs remain authoritative for persistence,
+historical records, and compatibility details until ADR 0040 is accepted and
+implemented.
 
 Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
@@ -382,6 +399,10 @@ restores membership only after the validated source snapshot is persisted.
    surfaces: My Books, Reading Journey, Settings, and distinct Add books are the
    active navigation model; `/known-vocab` and `/campaigns` remain compatibility
    routes with their documented redirects.
+8. **One current analysis per book** is the target contract proposed by
+   [ADR 0040](../adr/0040-one-current-analysis-per-book.md): book detail becomes
+   the sole learner-facing insight surface, prior runs remain operational audit
+   records, and run-specific result URLs redirect to the book.
 
 ## Cross-linking rules
 
