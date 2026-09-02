@@ -47,7 +47,8 @@ and surface a material conflict rather than silently choosing one.
 - [`workflows/acquisition-to-library.md`](workflows/acquisition-to-library.md) —
   catalog setup, browsing, and multi-book acquisition.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
-  the core scoped-analysis-to-deck lifecycle and approved result transition.
+  the core scoped-analysis-to-deck lifecycle and target one-current-analysis
+  transition proposed by ADR 0040.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
   learner-facing Reading Journey and Primary Goal workflow, with explicit
   boundaries around the current internal Campaign contract.

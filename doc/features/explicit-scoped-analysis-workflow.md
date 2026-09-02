@@ -21,8 +21,9 @@ results, and prepare a deck through distinct, durable, reproducible steps.
 4. Explicitly start asynchronous analysis for that confirmed scope.
 5. Observe queued, running, completed, failed, or cancelled status; retry a
    failed or cancelled run when allowed.
-6. Inspect insights for a specific completed analysis.
-7. Request asynchronous deck preparation from that completed analysis.
+6. Inspect the book's single current analysis on the book page.
+7. Request asynchronous deck preparation there; the request remains bound to
+   that completed analysis internally.
 8. Observe preparation status and download the immutable ready APKG.
 
 The identity and state contracts for these resources are normative in
@@ -71,12 +72,15 @@ The identity and state contracts for these resources are normative in
 - Retry atomically creates or identifies a viable River attempt. A queued or
   running status without viable work is reconciled rather than polled forever.
 - Completion publishes one immutable analysis artifact with scope and source
-  provenance. Insights always identify that analysis.
+  provenance. A newly completed rerun replaces the book's current
+  learner-facing analysis; earlier artifacts remain operational audit records
+  under [ADR 0040](../adr/0040-one-current-analysis-per-book.md).
 
 ## Deck preparation prerequisite
 
-- The prepare action is available only from a completed analysis and submits
-  that analysis ID, not a mutable book-level analyzed flag.
+- The prepare action is available on the book page only when a current analysis
+  is completed. It submits that exact analysis ID internally, not a mutable
+  book-level analyzed flag.
 - The server validates the entire owner-scoped book → source → scope → analysis
   chain and rejects incomplete, failed, stale, legacy-only, or cross-owner input.
 - Preparation retry and reconciliation follow ADR 0028 and preserve ADR 0022's
@@ -85,8 +89,9 @@ The identity and state contracts for these resources are normative in
 
 ## Compatibility and rollout
 
-- Existing completed analyses and prepared decks remain readable and
-  downloadable with their historical labels.
+- Existing completed analyses remain readable as operational audit records, and
+  prepared decks remain downloadable with their historical labels. The
+  run-specific learner result route redirects to the book page.
 - Legacy/full-text analysis does not unlock a new preparation under this
   workflow; the learner reviews a scope and completes a scoped analysis first.
 - Rollout prevents new automatic OPDS analysis before the UI advertises the new
@@ -108,7 +113,7 @@ Rollout is sequenced as follows:
    without one becomes failed/actionable, completed work remains completed, and
    legacy records remain historical.
 4. Monitor the status and reconciliation paths before enabling new deck
-   preparation from completed scoped analysis results only.
+   preparation from the book's current completed scoped analysis only.
 
 ## Acceptance criteria
 
@@ -119,7 +124,8 @@ Rollout is sequenced as follows:
   retryable without orphaned waiting records.
 - Metadata-only edits preserve valid scope identity; changed EPUB content
   requires a new review.
-- Every insight names its completed analysis and exact scope.
+- The book page shows at most one current analysis; exact analysis and scope
+  identity remain available to backend and operational audit paths.
 - Deck preparation rejects anything except an owned completed scoped analysis
   and produces the existing immutable APKG workflow when accepted.
 - End-to-end coverage exercises failures, duplicate submissions, retry,

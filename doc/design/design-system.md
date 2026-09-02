@@ -186,8 +186,9 @@ scrollable data table must label and contain its own overflow.
   recalculation, not warning or correction.
 - Current knowledge, conditional projection, reading completion, preparation,
   and vocabulary transition remain visibly distinct.
-- Operational analysis status and the exact completed result are separate
-  surfaces. Deck preparation follows the result's trust and insight summary.
+- Operational analysis status and the book page's single current analysis are
+  separate surfaces. Run-specific result URLs redirect to the book; deck
+  preparation follows its retained insights and any concrete quality warning.
 - Scope review is a calm native checklist: reliable top-level TOC choices or a
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence

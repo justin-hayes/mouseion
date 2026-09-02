@@ -1,6 +1,9 @@
 # Book analysis and deck workflow
 
-Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
+Status: **Canonical supporting workflow.** It includes the target
+one-current-analysis transition proposed in
+[ADR 0040](../../adr/0040-one-current-analysis-per-book.md), which remains
+unshipped until its implementation issues land. Analysis and deck preparation
 serve a book and, when present, its Primary Goal. Campaign remains a secondary
 history/operations concept under ADRs 0027, 0034, and 0036; it is not a second
 learner-facing plan.
@@ -18,6 +21,7 @@ The product behavior is defined primarily by:
 - [Analysis Insights](../../features/analysis-insights.md)
 - [ADR 0028: Explicit scoped-analysis lifecycle](../../adr/0028-explicit-scoped-analysis-lifecycle.md)
 - [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)
+- [ADR 0040: One current analysis per book](../../adr/0040-one-current-analysis-per-book.md)
 
 ## Starting state and outcome
 
@@ -44,8 +48,8 @@ Catalog browser
     -> Book detail
     -> Start analysis
     -> Analysis status
-    -> Exact book-centered analysis result
-    -> Prepare deck
+    -> Book detail with current analysis insights
+    -> Prepare deck from book detail
     -> Deck-preparation status
     -> Download deck or return to the book / Primary Goal
 ```
@@ -121,33 +125,36 @@ they must not replace book identity and next-step guidance.
 
 ### 4. Inspect analysis insights
 
-**Learner decision:** What does this exact result say about my readiness and the
-vocabulary investment required for this book?
+**Learner decision:** What does this book's current analysis say about my known
+coverage and vocabulary investment, and do I want to prepare a deck?
 
-The canonical result route is
-`/books/{book-id}/analyses/{analysis-run-id}`. It identifies its book, source,
-confirmed scope, immutable completed analysis, and position in analysis history.
-It never relies on a mutable “latest analysis” identity.
+The book page at `/books/{id}` is the sole learner-facing analysis surface. A
+newly completed reanalysis replaces the current analysis on that page; earlier
+runs remain operational audit records in `/jobs`. The compatibility route
+`/books/{book-id}/analyses/{analysis-run-id}` redirects to the book page rather
+than presenting a separate exact-result experience.
 
 Information hierarchy answers, in order:
 
-1. Can I trust this result, or are there quality warnings?
-2. What is my current scoped coverage?
-3. What additional vocabulary would reach the documented thresholds?
-4. What structural signals add context without becoming a difficulty score?
-5. Which provenance and history explain this exact result?
-6. What can I do next?
+1. What is my **Current known coverage** of the analyzed units?
+2. What additional vocabulary would reach the documented thresholds?
+3. Which unknown vocabulary has the highest contribution?
+4. Does a concrete analyzer or data-integrity gap require a warning?
+5. Do I want to prepare a deck?
 
-Current, projected, scoped, token-weighted, and conditional numbers must be
-labeled explicitly. Mouseion does not claim CEFR level, general reading level,
-or a composite difficulty score.
+Current known coverage is the headline and premier metric. Its one-line scope
+qualifier, such as “of the analyzed units,” is a caption rather than an
+**Analyzed scope** section. **Vocabulary investment** / **Additional
+vocabulary** and **Highest-impact unknown vocabulary** follow. Render one
+compact analysis-quality note only when a reproducible warning exists; render
+nothing for a clean analysis.
 
-Material quality warnings precede the evidence interpretation and deck action.
-The interpretation may say that the learner's selected threshold is already
-met, that a stated amount of vocabulary preparation would reach it, or that the
-scope/evidence needs review. It does not decide whether the learner should read
-the book. Deck preparation appears after the interpretation and core insights
-and may be repeated as the closing action.
+Do not render analyzed-scope details, text profile, projected token coverage,
+the rest of the former coverage-stat list, analysis history, identity/trust, or
+provenance/history sections on the learner surface. Mouseion does not claim
+CEFR level, general reading level, or a composite difficulty score. Deck
+preparation follows the retained evidence on the book page and may be repeated
+as the closing action.
 
 ### 5. Prepare and download a deck
 
@@ -180,27 +187,29 @@ The interface must answer:
   enqueuing competing work.
 - Failed or cancelled analysis/preparation is retryable only when the server can
   establish viable work.
-- Legacy/full-text analyses remain readable but do not unlock new scoped deck
-  preparation.
+- Legacy/full-text analyses remain readable through operational audit paths but
+  do not unlock new scoped deck preparation.
 - Degraded language-capability discovery preserves saved study preferences but
   blocks unsupported new operations.
 
-## Shipped status-to-result transition
+## Target status-to-result transition
 
 - keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
   failure recovery;
-- completed scoped jobs expose **View analysis result**, rendered at
-  `/books/{book-id}/analyses/{analysis-run-id}`;
-- deck preparation is submitted from that exact result after its warnings and
-  insights summary;
-- list analysis history on the book page, linking active runs to status and
-  completed runs to exact results.
+- completed scoped jobs expose **View analysis result**, opening `/books/{id}`
+  directly or through the run-specific compatibility redirect;
+- deck preparation is submitted from the book page after its warning-only note
+  and retained insights;
+- do not list analysis history on the book page; `GET /jobs` remains the
+  operational history surface; and
+- a newly completed rerun replaces the book's current learner-facing analysis
+  while prior immutable analyses remain operational audit records.
 
 The direct `POST /jobs/{id}/deck/preparations` action is retained only for
 legacy compatibility and is not a canonical path for new scoped analyses.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
-exact result and preparation status retain a coherent server-rendered baseline;
+book page and preparation status retain a coherent server-rendered baseline;
 status JSON is not itself a learner-facing page.
 
 ## Accessibility and responsive contract

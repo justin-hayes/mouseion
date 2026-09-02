@@ -1,6 +1,9 @@
 # Screen inventory
 
-Status: **Canonical shipped screen inventory.** It is not a wireframe,
+Status: **Canonical learner-facing screen inventory.** It includes the target
+one-current-analysis contract proposed in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
+unshipped until its implementation issues land. It is not a wireframe,
 implementation plan, or persistence contract. Feature documents and ADRs
 continue to own product behavior and historical decision details.
 
@@ -39,12 +42,12 @@ facing queue or plan is exposed.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | My Books | Shipped `GET /library` | Find a book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Choose as Primary Goal | Empty collection, metadata-only book, acquisition success, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, scope required, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
-| Book detail and analysis insights | Current `GET /books/{id}` | Understand one book, its exact identity and provenance, current evidence, Journey/Goal relationship, and available decisions. | Scope review, analysis workflow, Journey/Goal action, or prepared artifact | Source unavailable, metadata-only target state, no confirmed scope, scope confirmed, analysis pending/failed/completed, insights unavailable, legacy/full-text result, quality warning, prepared-deck state, reading/vocabulary facts |
+| Book detail and analysis insights | Target `GET /books/{id}` | Understand one book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Scope review, analysis status, deck preparation, Journey/Goal action, or prepared artifact | Source unavailable, metadata-only target state, no confirmed scope, scope confirmed, analysis pending/failed/completed, no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
 | Scope review | Current `GET/POST /books/{id}/scope` | Review a calm native checklist of readable EPUB scope choices and confirm an immutable ordered scope. | Book detail | Reliable top-level TOC checklist or flat readable-unit fallback, all choices initially checked, Check all/Uncheck all, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
-| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Exact analysis result when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
-| Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history. | Individual analysis status or exact result | Empty history, mixed states, historical/legacy records |
-| Exact analysis result | Current `GET /books/{book-id}/analyses/{analysis-run-id}` | Evaluate one immutable result's identity, quality, current coverage, conditional preparation evidence, and next action. | Prepare deck, return to book, or review scope | Trustworthy result, quality warning, stale vocabulary comparison, missing insights, legacy incompatibility, deck eligibility |
-| Deck preparation | Embedded in exact result; current preparation mutation/status/download routes | Consent to optional translation, prepare an APKG, recover failure, and download the ready artifact. | Download deck or return to Goal/book context | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
+| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Book detail when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
+| Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or book detail | Empty history, mixed states, historical/legacy records |
+| Exact-analysis compatibility route | Target `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the book's single current analysis surface. | Book detail | Valid owned book/run redirect, historical deep link, missing or unauthorized reference |
+| Deck preparation | Target action on book detail; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to Goal/book context | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
 My Books is the canonical home and a moderately dense bibliographic catalogue.
 Title, author, and relevant edition information lead. Journey/Goal relationship
@@ -59,9 +62,9 @@ validated and its immutable source snapshot is persisted.
 
 | Surface | Canonical responsibility | Primary exit |
 |---|---|---|
-| Book detail | Show book-centered lifecycle and relationship state; active runs link to status and completed scoped runs link to exact results. | Scope review, analysis status, exact result, or Journey/Goal decision |
-| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining book context. | **View analysis result** when complete |
-| Exact analysis result | Show identity, quality, current and conditional evidence, provenance, and eligible deck preparation for one immutable result. | Prepare deck, return to book, or review scope |
+| Book detail | Show book-centered lifecycle and relationship state plus the one current analysis: headline **Current known coverage** with a one-line analyzed-units qualifier, **Vocabulary investment**, **Highest-impact unknown vocabulary**, warning-only quality note, and deck preparation. It does not show analyzed-scope detail, text profile, projected token coverage, the broader coverage-stat list, or learner-facing analysis history. | Scope review, analysis status, deck preparation, or Journey/Goal decision |
+| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining book context. | **View analysis result** opens book detail when complete |
+| Exact-analysis compatibility route | Redirect a valid historical result URL to book detail; do not render a distinct insight, identity, provenance, or history surface. | Book detail |
 | Deck preparation | Provide a coherent server-rendered status baseline before enhancement. | Download deck or return to book/Goal context |
 
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
