@@ -208,6 +208,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
+	h.mux.Handle("POST /connections/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
 	h.mux.Handle("GET /catalog", h.user(http.HandlerFunc(h.catalog)))
 	h.mux.Handle("GET /opds/browse", h.user(http.HandlerFunc(h.browse)))
 	h.mux.Handle("GET /opds/language", h.user(http.HandlerFunc(h.browseLanguage)))

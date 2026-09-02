@@ -1,6 +1,7 @@
 package webapp
 
 import "fmt"
+import "github.com/justin-hayes/mouseion/internal/domain"
 
 templ PageHeader(title, description string, status templ.Component) {
 	<header class="page-header">
@@ -138,4 +139,37 @@ templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value,
 			{ children... }
 		</div>
 	</section>
+}
+
+templ CatalogueSyncConnectionStatus(view catalogueSyncConnectionView) {
+	<p><strong>{ view.State }</strong></p>
+	if view.HasLastSyncedAt {
+		<p>Last successful sync: <time datetime={ view.LastSyncedAtISO }>{ view.LastSyncedAt }</time></p>
+	}
+	if view.Message != "" {
+		<p>{ view.Message }</p>
+	}
+	if view.UpsertSummary != "" {
+		<p>{ view.UpsertSummary }</p>
+	}
+	if view.Error != "" {
+		<p><strong>Sync detail:</strong> { view.Error }</p>
+	}
+}
+
+templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnection, view catalogueSyncConnectionView) {
+	<div class="action-group">
+		<form method="post" action={ templ.SafeURL("/connections/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" disabled?={ view.Syncing }>Sync now</button></form>
+		if view.Syncing {
+			<span>Sync already in progress.</span>
+			<a href="/jobs">View job status</a>
+		}
+		if view.Failed {
+			<a role="button" class="outline" href={ templ.SafeURL("#edit-connection-" + connection.ID) }>Edit connection</a>
+			<a href="/jobs">View job status</a>
+		}
+		if view.State == "Last synced" {
+			<a role="button" class="outline" href="/library">Browse My Books</a>
+		}
+	</div>
 }

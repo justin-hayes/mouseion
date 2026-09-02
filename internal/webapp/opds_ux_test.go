@@ -77,7 +77,7 @@ func TestCatalogUsesReadyNLPCodeSeparatelyFromCatalogLanguageID(t *testing.T) {
 func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 	var output bytes.Buffer
 	connections := []domain.OpdsConnection{{ID: "connection-1", Name: "Library", URL: "https://catalog.example/opds", Username: "reader", Password: "super-secret"}}
-	if err := ConnectionsPage(domain.User{}, "csrf", connections, "").Render(context.Background(), &output); err != nil {
+	if err := ConnectionsPage(domain.User{}, "csrf", connections, "", nil, nil).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -99,7 +99,7 @@ func TestConnectionFormsHaveNoBookLanguageField(t *testing.T) {
 
 func TestConnectionsPageDistinguishesFirstSetupFromCatalogChoice(t *testing.T) {
 	var first bytes.Buffer
-	if err := ConnectionsPage(domain.User{}, "csrf", nil, "").Render(context.Background(), &first); err != nil {
+	if err := ConnectionsPage(domain.User{}, "csrf", nil, "", nil, nil).Render(context.Background(), &first); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Add your first catalog connection", "A connection tells Mouseion where to look for EPUB books"} {
@@ -113,13 +113,66 @@ func TestConnectionsPageDistinguishesFirstSetupFromCatalogChoice(t *testing.T) {
 		{ID: "connection-1", Name: "Home library", URL: "https://home.example/opds"},
 		{ID: "connection-2", Name: "Work library", URL: "https://work.example/opds"},
 	}
-	if err := ConnectionsPage(domain.User{}, "csrf", connections, "").Render(context.Background(), &configured); err != nil {
+	if err := ConnectionsPage(domain.User{}, "csrf", connections, "", nil, nil).Render(context.Background(), &configured); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Choose a catalog to browse", "Catalog maintenance", "Home library", "Work library"} {
 		if !strings.Contains(configured.String(), want) {
 			t.Errorf("configured-connection page missing %q: %s", want, configured.String())
 		}
+	}
+}
+
+func TestConnectionsPageRendersCatalogueSyncStates(t *testing.T) {
+	lastSynced := time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
+	connections := []domain.OpdsConnection{
+		{ID: "never", Name: "Never connection", URL: "https://never.example/opds"},
+		{ID: "running", Name: "Running connection", URL: "https://running.example/opds"},
+		{ID: "changed", Name: "Changed connection", URL: "https://changed.example/opds"},
+		{ID: "current", Name: "Current connection", URL: "https://current.example/opds"},
+		{ID: "failed", Name: "Failed connection", URL: "https://failed.example/opds"},
+	}
+	statuses := map[string]domain.CatalogueSyncStatus{
+		"running": {ConnectionID: "running", State: domain.CatalogueSyncSyncing},
+		"changed": {ConnectionID: "changed", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSynced, LastUpsertedCount: 3},
+		"current": {ConnectionID: "current", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSynced},
+		"failed":  {ConnectionID: "failed", State: domain.CatalogueSyncFailed, LastError: "Authentication failed for this connection. Check the saved credentials and try again."},
+	}
+	profiles := []domain.LanguageProfile{{Language: "en", DisplayName: "English"}, {Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}
+	var output bytes.Buffer
+	if err := ConnectionsPage(domain.User{}, "csrf", connections, "", statuses, profiles).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"Never synced", "ready study-language metadata from German and Italian, excluding English", "Syncing", "Existing Books remain available", "Last synced", "Last successful sync:", "2026-01-15 12:00 UTC", "3 books added or updated", "already current", "Sync failed", "Existing Books remain unchanged", "Authentication failed for this connection", `action="/connections/never/sync"`, `aria-live="polite"`, `disabled`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("catalogue sync state page missing %q: %s", want, html)
+		}
+	}
+	if !strings.Contains(html, `datetime="2026-01-15T12:00:00Z"`) {
+		t.Fatalf("catalogue sync state page missing machine-readable last-sync datetime: %s", html)
+	}
+	statusStart := strings.Index(html, `<div id="connection-status-failed"`)
+	if statusStart < 0 {
+		t.Fatalf("failed connection status region was not rendered: %s", html)
+	}
+	statusEndOffset := strings.Index(html[statusStart:], `</div><div class="action-group">`)
+	if statusEndOffset < 0 {
+		t.Fatalf("failed connection status region was not rendered as expected: %s", html)
+	}
+	statusHTML := html[statusStart : statusStart+statusEndOffset+len("</div>")]
+	if strings.Contains(statusHTML, `class="action-group"`) {
+		t.Fatalf("connection actions are inside the live status region: %s", statusHTML)
+	}
+	if strings.Contains(statusHTML, `role="alert"`) {
+		t.Fatalf("sync detail unexpectedly uses a nested alert role: %s", statusHTML)
+	}
+	firstActionGroup := strings.Index(html[statusStart:], `class="action-group"`)
+	if firstActionGroup < 0 || statusStart+firstActionGroup <= statusStart+statusEndOffset {
+		t.Fatalf("connection action group was not rendered outside the live status region: %s", html)
+	}
+	if strings.Contains(html, "saved credentials") && !strings.Contains(html, "Check the saved credentials") {
+		t.Fatal("failure copy unexpectedly omitted its actionable detail")
 	}
 }
 
@@ -214,7 +267,7 @@ func TestHTMXCatalogFailurePreservesFragmentAndStatus(t *testing.T) {
 func TestCatalogURLsDoNotRenderUserinfoOrSensitiveQueryValues(t *testing.T) {
 	var output bytes.Buffer
 	connection := domain.OpdsConnection{ID: "connection-1", Name: "Library", URL: "https://reader:password@catalog.example/opds?access_token=secret-value&view=books"}
-	if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "").Render(context.Background(), &output); err != nil {
+	if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "", nil, nil).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -256,7 +309,7 @@ func TestSensitiveCatalogQueryNamesAreRedactedWithoutHidingUnrelatedValues(t *te
 				t.Fatalf("safe URL=%q", got)
 			}
 			var output bytes.Buffer
-			if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "").Render(context.Background(), &output); err != nil {
+			if err := ConnectionsPage(domain.User{}, "csrf", []domain.OpdsConnection{connection}, "", nil, nil).Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
 			if strings.Contains(output.String(), "secret-value") {
@@ -668,7 +721,7 @@ func TestLibraryRendersOneCanonicalNextAction(t *testing.T) {
 		{Source: domain.SourceMaterial{ID: "result-book", Title: "Result book", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"},
 	}
 	var output bytes.Buffer
-	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", books, "", "").Render(context.Background(), &output); err != nil {
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", books, "", "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()

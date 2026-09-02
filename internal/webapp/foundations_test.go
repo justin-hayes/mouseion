@@ -108,7 +108,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 		},
 		AnalysisStatus: "ready",
 	}
-	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "", "").Render(context.Background(), &output); err != nil {
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "", "", false).Render(context.Background(), &output); err != nil {
 		t.Fatalf("render library: %v", err)
 	}
 
@@ -128,7 +128,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 
 func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 	var output bytes.Buffer
-	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", nil, "Book added", "").Render(context.Background(), &output); err != nil {
+	if err := LibraryPage(domain.User{Username: "learner"}, "csrf", nil, "Book added", "", false).Render(context.Background(), &output); err != nil {
 		t.Fatalf("render library: %v", err)
 	}
 
