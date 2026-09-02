@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -24,7 +25,48 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id")))
+	profiles, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	if e != nil {
+		fail(w, e)
+		return
+	}
+	statuses := make(map[string]domain.CatalogueSyncStatus)
+	if reader, ok := h.services.Store.(interface {
+		ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
+	}); ok {
+		items, statusErr := reader.ListCatalogueSyncStatuses(r.Context(), u.ID)
+		if statusErr != nil {
+			fail(w, statusErr)
+			return
+		}
+		for _, status := range items {
+			statuses[status.ConnectionID] = status
+		}
+	}
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses, profiles))
+}
+
+func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	service, ok := h.services.CatalogueSync.(interface {
+		Enqueue(context.Context, string, string) (cataloguesync.Handle, error)
+	})
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	_, err := service.Enqueue(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, cataloguesync.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		redirect(w, r, "/connections?error="+url.QueryEscape("The catalogue sync could not be started. Try again."))
+		return
+	}
+	redirect(w, r, "/connections?message="+url.QueryEscape("Catalogue sync submitted."))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {

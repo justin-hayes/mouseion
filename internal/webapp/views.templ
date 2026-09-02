@@ -129,16 +129,16 @@ document.addEventListener('htmx:afterSwap', function () {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li><li><a href="/connections" { navigationActionAttributes(context)... }>Add books</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
-templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID)
+templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string, hasCatalogueConnections bool) {
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections)
 }
 
-templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string) {
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
 		@PageHeader("My Books", "Keep the books you care about together with honest evidence for what Mouseion can do next.", nil) {
 			<details id="book-form">
@@ -163,7 +163,12 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		if pageError != "" {
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
-		if len(books) == 0 {
+		if len(books) == 0 && !hasCatalogueConnections {
+			@EmptyState("Start with a catalogue connection", "A learner-owned catalogue connection lets Mouseion sync ready-language bibliographic metadata into My Books before you need to acquire EPUB content.") {
+				<a role="button" href="/connections">Add catalogue connection</a>
+			}
+		}
+		if len(books) == 0 && hasCatalogueConnections {
 			@EmptyState("No books in My Books yet", "Use Add a book above, or acquire an EPUB from one of your catalogs.") {
 				<a href="/connections">Acquire an EPUB</a>
 			}
@@ -864,11 +869,11 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	</section>
 	}
 }
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string) {
-	@ConnectionsPageForBook(user, csrf, connections, message, "")
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) {
+	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses, profiles)
 }
 
-templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string) {
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
 		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil)
 		if message != "" {
@@ -895,7 +900,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID }><header><strong>{ c.Name }</strong></header><p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><a role="button" href={ templ.URL(catalogBrowseURL(c.ID, bookID)) }>Browse catalog</a><details><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, profiles))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, profiles))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><div class="action-group"><a role="button" href={ templ.URL(catalogBrowseURL(c.ID, bookID)) }>Browse catalog</a></div><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}

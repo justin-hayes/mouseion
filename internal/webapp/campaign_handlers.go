@@ -20,7 +20,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID)
 	if goalErr != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", ""))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false))
 		return
 	}
 	var books []domain.MyBook
@@ -39,14 +39,19 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false))
+		return
+	}
+	connections, err := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
+	if err != nil {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false))
 		return
 	}
 	goalBookID := ""
 	if primaryGoalIsActive(goal) {
 		goalBookID = goal.BookID
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0))
 }
 
 func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {

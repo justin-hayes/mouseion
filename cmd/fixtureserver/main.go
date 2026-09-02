@@ -22,10 +22,12 @@ func main() {
 	authService := auth.New(authStore, auth.DefaultSessionLifetime)
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
+	catalogueSync := fixtures.NewCatalogueSync(store)
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: store, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{JourneyStore: store}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{}, Capabilities: fixtures.Capabilities{},
+		CatalogueSync: catalogueSync,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 		AcquisitionKey: []byte("12345678901234567890123456789012"), AcquisitionTargetKey: []byte("abcdefghijklmnopqrstuvwxzy123456"),
 	})

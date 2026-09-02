@@ -66,9 +66,11 @@ type Store struct {
 	readingJourneys map[string]domain.ReadingJourney
 	primaryGoals    map[string]domain.PrimaryGoal
 	reviewedScopes  []domain.EPUBReviewedScopeSnapshot
+	syncStatuses    []domain.CatalogueSyncStatus
 }
 
 func NewStore() *Store {
+	lastSyncedAt := fixtureJourneyTime
 	return &Store{
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
@@ -81,10 +83,20 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
 		},
-		jobs:        fixtureJobs(),
-		campaigns:   fixtureCampaigns(),
-		profiles:    []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
-		connections: []domain.OpdsConnection{{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"}},
+		jobs:      fixtureJobs(),
+		campaigns: fixtureCampaigns(),
+		profiles:  []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
+		connections: []domain.OpdsConnection{
+			{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"},
+			{ID: "fixture-failed-connection", OwnerID: OwnerID, Name: "Fixture failed catalog", URL: "https://failed.fixture.invalid/opds"},
+			{ID: "fixture-syncing-connection", OwnerID: OwnerID, Name: "Fixture syncing catalog", URL: "https://syncing.fixture.invalid/opds"},
+			{ID: "fixture-never-synced-connection", OwnerID: OwnerID, Name: "Fixture never-synced catalog", URL: "https://never.fixture.invalid/opds"},
+		},
+		syncStatuses: []domain.CatalogueSyncStatus{
+			{OwnerID: OwnerID, ConnectionID: "fixture-connection", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSyncedAt, LastUpsertedCount: 3, UpdatedAt: fixtureJourneyTime},
+			{OwnerID: OwnerID, ConnectionID: "fixture-failed-connection", State: domain.CatalogueSyncFailed, LastError: "Authentication failed for this connection. Check the saved credentials and try again.", UpdatedAt: fixtureJourneyTime},
+			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
+		},
 		preps: []domain.DeckPreparation{
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
@@ -147,6 +159,32 @@ func (s *Store) GetOpdsConnection(_ context.Context, o, id string) (domain.OpdsC
 }
 func (s *Store) ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error) {
 	return append([]domain.OpdsConnection(nil), s.connections...), nil
+}
+func (s *Store) ListCatalogueSyncStatuses(_ context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.CatalogueSyncStatus
+	for _, status := range s.syncStatuses {
+		if status.OwnerID == owner {
+			result = append(result, status)
+		}
+	}
+	return result, nil
+}
+func (s *Store) SetCatalogueSyncStatus(_ context.Context, status domain.CatalogueSyncStatus) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if status.UpdatedAt.IsZero() {
+		status.UpdatedAt = fixtureJourneyTime
+	}
+	for i := range s.syncStatuses {
+		if s.syncStatuses[i].OwnerID == status.OwnerID && s.syncStatuses[i].ConnectionID == status.ConnectionID {
+			s.syncStatuses[i] = status
+			return nil
+		}
+	}
+	s.syncStatuses = append(s.syncStatuses, status)
+	return nil
 }
 func (s *Store) UpdateOpdsConnection(_ context.Context, _ string, c domain.OpdsConnection) (domain.OpdsConnection, error) {
 	return c, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -87,6 +88,99 @@ type StatItem struct {
 type MetadataItem struct {
 	Term        string
 	Description string
+}
+
+type catalogueSyncConnectionView struct {
+	HasStatus       bool
+	State           string
+	Message         string
+	Error           string
+	LastSyncedAt    string
+	LastSyncedAtISO string
+	UpsertSummary   string
+	EligibleScope   string
+	Syncing         bool
+	Failed          bool
+	HasLastSyncedAt bool
+}
+
+func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) catalogueSyncConnectionView {
+	status, found := statuses[connection.ID]
+	view := catalogueSyncConnectionView{HasStatus: found, EligibleScope: eligibleCatalogueLanguageScope(profiles)}
+	if !found {
+		view.State = "Never synced"
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+		return view
+	}
+	switch status.State {
+	case domain.CatalogueSyncSyncing:
+		view.State = "Syncing"
+		view.Syncing = true
+		view.Message = fmt.Sprintf("%s is syncing metadata. Existing Books remain available while Mouseion reconciles bibliographic entries.", connection.Name)
+	case domain.CatalogueSyncSynced:
+		view.State = "Last synced"
+		if status.LastSyncedAt != nil && !status.LastSyncedAt.IsZero() {
+			view.HasLastSyncedAt = true
+			view.LastSyncedAt = status.LastSyncedAt.Format("2006-01-02 15:04 UTC")
+			view.LastSyncedAtISO = status.LastSyncedAt.Format(time.RFC3339)
+		}
+		if status.LastUpsertedCount == 0 {
+			view.Message = "The collection was already current; no metadata changes were made."
+		} else {
+			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalogue sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
+		}
+	case domain.CatalogueSyncFailed:
+		view.State = "Sync failed"
+		view.Failed = true
+		view.Message = fmt.Sprintf("%s sync failed. Existing Books remain unchanged and available.", connection.Name)
+		view.Error = status.LastError
+	default:
+		view.State = "Never synced"
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+	}
+	return view
+}
+
+func eligibleCatalogueLanguageScope(profiles []domain.LanguageProfile) string {
+	seen := make(map[string]struct{})
+	languages := make([]string, 0, len(profiles))
+	for _, profile := range profiles {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(profile.Language)), "en") {
+			continue
+		}
+		name := strings.TrimSpace(profile.DisplayName)
+		if name == "" {
+			name = strings.TrimSpace(profile.Language)
+		}
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		languages = append(languages, name)
+	}
+	switch len(languages) {
+	case 0:
+		return "ready languages from Settings"
+	case 1:
+		return languages[0]
+	case 2:
+		return languages[0] + " and " + languages[1]
+	default:
+		return strings.Join(languages[:len(languages)-1], ", ") + ", and " + languages[len(languages)-1]
+	}
+}
+
+func navigationActionAttributes(context NavigationContext) templ.Attributes {
+	attributes := templ.Attributes{"class": "site-nav__action"}
+	if context == NavigationAcquisition {
+		attributes["aria-current"] = "page"
+		attributes["class"] = "site-nav__action site-nav__action--current"
+	}
+	return attributes
 }
 
 // NavigationContext identifies the authenticated shell context. Acquisition

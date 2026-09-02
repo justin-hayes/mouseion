@@ -119,7 +119,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Italian/ })).toBeVisible();
     await page.goto('/jobs');
-    await expect(page.getByText(/Analysis job/i).first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Analysis history' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '#1 · result' })).toBeVisible();
   });
 
   test('asserts initial HTML before HTMX enhancement and observes status', async ({ page }) => {

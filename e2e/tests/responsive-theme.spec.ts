@@ -15,7 +15,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
-  ['/jobs', /Analysis jobs/],
+  ['/jobs', /Jobs/],
   ['/connections', /Add books/],
   ['/catalog?connection=fixture-connection', /Fixture catalog/],
   ['/journey', /Reading Journey/],
@@ -73,7 +73,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('.top-unknown li')).toHaveCount(18);
     await expect(page.locator('.stat-group').last()).toBeVisible();
     await page.goto('/jobs');
-    await expect(page.locator('table tbody tr')).toHaveCount(18);
+    await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(18);
     await page.goto('/journey');
     await expect(page.locator('#campaign-fixture-queued-campaign-6')).toBeVisible();
     await expect(page.locator('[aria-labelledby="campaign-operations-heading"] article').first()).toBeVisible();

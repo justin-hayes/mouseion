@@ -12,7 +12,7 @@ import (
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "").Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -55,7 +55,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		books = append(books, book)
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "").Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -63,6 +63,27 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		if strings.Count(html, label) != 1 {
 			t.Errorf("evidence label %q count=%d", label, strings.Count(html, label))
 		}
+	}
+}
+
+func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"learner-owned catalogue connection", "ready-language bibliographic metadata", `href="/connections"`, "Add catalogue connection"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("empty My Books onboarding missing %q: %s", want, html)
+		}
+	}
+
+	output.Reset()
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "No books in My Books yet") || !strings.Contains(output.String(), "Acquire an EPUB") {
+		t.Fatalf("existing connected empty state changed: %s", output.String())
 	}
 }
 
