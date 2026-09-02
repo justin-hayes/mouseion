@@ -207,22 +207,20 @@ func (s EPUBReviewedScopeSnapshot) validateEnvelope() error {
 	return nil
 }
 
-// ConfirmationKey is the stable identity of a scope confirmation. The caller
-// supplied ScopeID is intentionally excluded so retries with a fresh request ID
-// resolve to the same immutable revision.
+// ConfirmationKey is the stable identity of a scope confirmation. It includes
+// only the owner, source-content revision, extracted-unit snapshot, and ordered
+// selected units. ScopeID, classifier metadata, and selection mode are
+// intentionally excluded so equivalent confirmations resolve to one revision.
 func (s EPUBReviewedScopeSnapshot) ConfirmationKey() (string, error) {
 	if err := s.validateEnvelope(); err != nil {
 		return "", err
 	}
 	wire := struct {
-		OwnerID          string
-		SourceMaterialID string
-		SourceContent    EPUBContentRevisionIdentity
-		SourceSnapshot   EPUBUnitSnapshotIdentity
-		Classifier       EPUBClassifierIdentity
-		SelectionMode    EPUBScopeSelectionMode
-		SelectedUnits    []EPUBSelectedUnitReference
-	}{s.OwnerID, s.SourceMaterialID, s.SourceContent, s.SourceUnitSnapshot, s.Classifier, s.SelectionMode, s.SelectedUnits}
+		OwnerID        string
+		SourceContent  EPUBContentRevisionIdentity
+		SourceSnapshot EPUBUnitSnapshotIdentity
+		SelectedUnits  []EPUBSelectedUnitReference
+	}{s.OwnerID, s.SourceContent, s.SourceUnitSnapshot, s.SelectedUnits}
 	encoded, err := json.Marshal(wire)
 	if err != nil {
 		return "", err

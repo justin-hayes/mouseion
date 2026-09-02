@@ -329,11 +329,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 }
 
 func scopeReviewActionURL(book domain.SourceMaterialSummary) string {
-	base := "/books/" + book.Source.ID + "/scope"
-	if book.ReviewedScopeID == "" {
-		return base
-	}
-	return base + "?preset=prior&prior_scope_id=" + url.QueryEscape(book.ReviewedScopeID)
+	return "/books/" + book.Source.ID + "/scope"
 }
 
 func analysisHistoryURL(sourceID string, job domain.AnalysisJob) string {

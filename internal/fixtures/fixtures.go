@@ -65,6 +65,7 @@ type Store struct {
 	myBooks         []domain.MyBook
 	readingJourneys map[string]domain.ReadingJourney
 	primaryGoals    map[string]domain.PrimaryGoal
+	reviewedScopes  []domain.EPUBReviewedScopeSnapshot
 }
 
 func NewStore() *Store {
@@ -303,12 +304,20 @@ func (s *Store) GetEPUBUnitClassifications(context.Context, string, string, stri
 		fixtureClassification("fixture-001", 0), fixtureClassification("fixture-002", 1),
 	}, nil
 }
-func (s *Store) GetEPUBReviewedScope(context.Context, string, string, string) (domain.EPUBReviewedScopeSnapshot, error) {
+func (s *Store) GetEPUBReviewedScope(_ context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, scope := range s.reviewedScopes {
+		if scope.OwnerID == owner && scope.SourceMaterialID == sourceID && scope.ScopeID == scopeID {
+			return scope, nil
+		}
+	}
 	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
 }
 func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reviewedScopes = append(s.reviewedScopes, scope)
 	for i := range s.books {
 		if s.books[i].Source.ID == scope.SourceMaterialID && s.books[i].Source.OwnerID == scope.OwnerID {
 			s.books[i].ReviewedScopeID = scope.ScopeID

@@ -357,9 +357,9 @@ func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
 		t.Fatalf("cross-owner download=%d", response.Code)
 	}
 
-	priorReview := perform(t, h, "GET", "/books/"+german.Source.ID+"/scope?preset=prior&prior_scope_id="+url.QueryEscape(germanScopeID), nil, cookies)
-	if priorReview.Code != http.StatusOK || !strings.Contains(priorReview.Body.String(), "Prior selection") {
-		t.Fatalf("historical scope review=%d %s", priorReview.Code, priorReview.Body.String())
+	priorReview := perform(t, h, "GET", "/books/"+german.Source.ID+"/scope", nil, cookies)
+	if priorReview.Code != http.StatusOK || !strings.Contains(priorReview.Body.String(), "Check all") || strings.Contains(priorReview.Body.String(), "Scope comparison") {
+		t.Fatalf("new scope review=%d %s", priorReview.Code, priorReview.Body.String())
 	}
 	secondScopeID := confirmScope(german, germanSnapshot, germanUnits.Units...)
 	if secondScopeID == germanScopeID {

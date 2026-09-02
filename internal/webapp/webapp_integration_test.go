@@ -264,13 +264,15 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	for _, test := range []struct{ id, title string }{{german.ID, "Erstes Kapitel"}, {italian.ID, "Capitolo primo"}} {
 		page := perform(t, h, "GET", "/books/"+test.id+"/scope", nil, cookies)
 		body := page.Body.String()
-		for _, want := range []string{test.title, "Accept recommendation", "Select all main matter", "Include all", "Exclude all", "High-confidence exclusion", "title from document heading", "fallback title from manifest ID", "Classification evidence", "Recommendation policy", "All units:", "Selected:", `aria-live="polite"`} {
+		for _, want := range []string{test.title, "Check all", "Uncheck all", "All units:", "Selected:", `aria-live="polite"`} {
 			if page.Code != http.StatusOK || !strings.Contains(body, want) {
 				t.Fatalf("scope page %s missing %q: status=%d body=%s", test.id, want, page.Code, body)
 			}
 		}
-		if strings.Index(body, "The title identifies a bibliography.") > strings.Index(body, "The unit is at the end of the readable spine.") {
-			t.Fatal("classification reasons rendered out of order")
+		for _, forbidden := range []string{"Category", "Confidence", "Recommendation", "Classification evidence", "High-confidence exclusion", "scope-groups"} {
+			if strings.Contains(body, forbidden) {
+				t.Fatalf("classifier-era scope UI contains %q", forbidden)
+			}
 		}
 	}
 	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope", nil, bobCookies); got.Code != http.StatusNotFound {
@@ -291,18 +293,14 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if foreign.Code != http.StatusBadRequest || !strings.Contains(foreign.Body.String(), "does not belong to this book") {
 		t.Fatalf("foreign scope=%d %s", foreign.Code, foreign.Body.String())
 	}
-	germanGroups := epub.BuildUnitGroups(germanUnits.Units)
-	if len(germanGroups) == 0 {
-		t.Fatal("German nested fixture did not produce a group")
-	}
-	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "group_include": {germanGroups[0].ID}}, cookies)
+	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
 	if override.Code != http.StatusSeeOther || !strings.Contains(override.Header().Get("Location"), "Analysis+scope+saved+with+2+selected+units") {
 		t.Fatalf("override=%d location=%q body=%s", override.Code, override.Header().Get("Location"), override.Body.String())
 	}
-	var mode string
+	var classifierName, classifierVersion, mode string
 	var selected int
-	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, german.ID).Scan(&mode, &selected); err != nil || mode != "overridden" || selected != 2 {
-		t.Fatalf("persisted mode=%q selected=%d err=%v", mode, selected, err)
+	if err = store.Pool().QueryRow(ctx, `SELECT s.classifier_name,s.classifier_version,s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.classifier_name,s.classifier_version,s.selection_mode`, alice.ID, german.ID).Scan(&classifierName, &classifierVersion, &mode, &selected); err != nil || classifierName != "none" || classifierVersion != "none" || mode != "overridden" || selected != 2 {
+		t.Fatalf("persisted classifier=%q/%q mode=%q selected=%d err=%v", classifierName, classifierVersion, mode, selected, err)
 	}
 	if recorder.owner != "" || recorder.source != "" || recorder.scope != "" {
 		t.Fatalf("scope confirmation enqueued analysis owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
@@ -322,19 +320,12 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err != nil || len(expanded.SelectedUnits) != 2 || expanded.SelectedUnits[0].UnitID != germanUnits.Units[0].ID || expanded.SelectedUnits[1].UnitID != germanUnits.Units[1].ID {
 		t.Fatalf("group expansion selected unintended or unordered units: scope=%+v err=%v", expanded, err)
 	}
-	cloneReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, cookies)
-	cloneBody := cloneReview.Body.String()
-	for _, want := range []string{"Scope comparison", "Prior selection", germanUnits.Units[0].ID, germanUnits.Units[1].ID, "Added units", "Removed units", "None."} {
-		if cloneReview.Code != http.StatusOK || !strings.Contains(cloneBody, want) {
-			t.Fatalf("clone review missing %q: status=%d body=%s", want, cloneReview.Code, cloneBody)
-		}
+	checklistReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, cookies)
+	if checklistReview.Code != http.StatusOK || !strings.Contains(checklistReview.Body.String(), "Check all") || strings.Contains(checklistReview.Body.String(), "Scope comparison") {
+		t.Fatalf("scope query did not remain classifier-free: status=%d body=%s", checklistReview.Code, checklistReview.Body.String())
 	}
-	changedReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=recommended&prior_scope_id="+priorScopeID, nil, cookies)
-	if changedReview.Code != http.StatusOK || !strings.Contains(changedReview.Body.String(), "Removed units") || !strings.Contains(changedReview.Body.String(), germanUnits.Units[1].ID+"</code> — "+germanUnits.Units[1].Title) {
-		t.Fatalf("changed comparison=%d %s", changedReview.Code, changedReview.Body.String())
-	}
-	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner prior review=%d %s", got.Code, got.Body.String())
+	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope", nil, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner scope review=%d %s", got.Code, got.Body.String())
 	}
 	clone := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
 	if clone.Code != http.StatusSeeOther {
@@ -363,8 +354,8 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if recommended.Code != http.StatusSeeOther {
 		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.selection_mode`, alice.ID, italian.ID).Scan(&mode, &selected); err != nil || mode != "recommended" || selected != 1 {
-		t.Fatalf("recommended mode=%q selected=%d err=%v", mode, selected, err)
+	if err = store.Pool().QueryRow(ctx, `SELECT s.classifier_name,s.classifier_version,s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.classifier_name,s.classifier_version,s.selection_mode`, alice.ID, italian.ID).Scan(&classifierName, &classifierVersion, &mode, &selected); err != nil || classifierName != "none" || classifierVersion != "none" || mode != "overridden" || selected != 1 {
+		t.Fatalf("classifier=%q/%q mode=%q selected=%d err=%v", classifierName, classifierVersion, mode, selected, err)
 	}
 }
 
