@@ -56,29 +56,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 			if !strings.Contains(html, `data-navigation-context="`+string(test.context)+`"`) {
 				t.Fatalf("shell context missing: %s", html)
 			}
-			if strings.Contains(navigation, `href="/connections" aria-current="page"`) {
-				t.Fatal("Add books must not be current for a peer destination")
-			}
 		})
-	}
-}
-
-func TestAuthenticatedShellMarksAcquisitionContextAsWorkflowAction(t *testing.T) {
-	html := renderShell(t, NavigationAcquisition)
-	navigation := renderedPrimaryNavigation(t, html)
-	if got := strings.Count(navigation, `aria-current="page"`); got != 1 {
-		t.Fatalf("aria-current count = %d, want 1: %s", got, html)
-	}
-	for _, want := range []string{
-		`data-navigation-context="acquisition"`,
-		`<a href="/connections" aria-current="page" class="site-nav__action site-nav__action--current" data-navigation-role="workflow-action">Add books</a>`,
-	} {
-		if !strings.Contains(navigation, want) {
-			t.Errorf("acquisition shell missing %q: %s", want, html)
-		}
-	}
-	if strings.Contains(navigation, `role="button"`) {
-		t.Error("shell navigation must retain native links")
 	}
 }
 
@@ -90,7 +68,6 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 		`href="/"`,
 		`href="/library"`,
 		`href="/journey"`,
-		`href="/connections"`,
 		`href="/settings"`,
 		`<form class="inline" method="post" action="/logout"`,
 	}

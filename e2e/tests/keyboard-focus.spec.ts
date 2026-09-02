@@ -26,14 +26,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Reading Journey', 'Add books', 'Settings'];
+    const destinations = ['My Books', 'Reading Journey', 'Settings'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', 'Reading Journey': '\\/journey', 'Add books': '\\/connections', Settings: '\\/settings',
+        'My Books': '\\/library', 'Reading Journey': '\\/journey', Settings: '\\/settings',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
