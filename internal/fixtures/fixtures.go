@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -190,22 +191,122 @@ func (s *Store) UpdateOpdsConnection(_ context.Context, _ string, c domain.OpdsC
 	return c, nil
 }
 func (s *Store) DeleteOpdsConnection(context.Context, string, string) error { return nil }
-func (s *Store) ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error) {
-	return append([]domain.SourceMaterialSummary(nil), s.books...), nil
-}
-func (s *Store) ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error) {
+func (s *Store) ListSourceMaterials(_ context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var result []domain.SourceMaterialSummary
+	for _, book := range s.books {
+		if book.Source.OwnerID == owner {
+			result = append(result, book)
+		}
+	}
+	return result, nil
+}
+func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]domain.MyBook, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.myBooksForOwner(owner), nil
+}
+
+func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(s.books)+len(s.myBooks))
-	for _, source := range s.books {
+	for i := range s.books {
+		source := s.books[i]
+		if owner != "" && source.Source.OwnerID != owner {
+			continue
+		}
 		state := domain.MyBookAcquiredUnassessed
 		if source.AnalysisStatus == "analyzed" {
 			state = domain.MyBookAnalyzed
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
+		languageState := domain.LanguageChosen
+		languageTag := source.Source.Language
+		if strings.TrimSpace(languageTag) == "" {
+			languageState = domain.LanguageUnknown
+			languageTag = ""
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source, EvidenceState: state})
 	}
-	out = append(out, s.myBooks...)
-	return out, nil
+	for _, book := range s.myBooks {
+		if owner == "" || book.Book.OwnerID == owner {
+			out = append(out, book)
+		}
+	}
+	return out
+}
+
+// ListMyBooksBrowse mirrors the production collection browser in memory for
+// the shared browser fixture store: literal case-insensitive title substring
+// search, one language filter, lowercased deterministic title ordering, and
+// counts over the complete active owner collection.
+func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language string, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	query = strings.ToLower(strings.TrimSpace(query))
+	language = strings.TrimSpace(language)
+	all := s.myBooksForOwner(owner)
+	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
+	counts := map[string]int{}
+	for _, book := range all {
+		tag := domain.LanguageUnknown
+		if book.Book.LanguageState == domain.LanguageChosen {
+			tag = strings.ToLower(book.Book.LanguageTag)
+		}
+		counts[tag]++
+	}
+	for tag, count := range counts {
+		result.Counts = append(result.Counts, persistence.LanguageCount{Tag: tag, Count: count})
+	}
+	sort.Slice(result.Counts, func(i, j int) bool {
+		if result.Counts[i].Tag == domain.LanguageUnknown {
+			return false
+		}
+		if result.Counts[j].Tag == domain.LanguageUnknown {
+			return true
+		}
+		return result.Counts[i].Tag < result.Counts[j].Tag
+	})
+
+	filtered := make([]domain.MyBook, 0, len(all))
+	for _, book := range all {
+		if query != "" && !strings.Contains(strings.ToLower(book.Book.Title), query) {
+			continue
+		}
+		if language == domain.LanguageUnknown {
+			if book.Book.LanguageState != domain.LanguageUnknown {
+				continue
+			}
+		} else if language != "" && (book.Book.LanguageState != domain.LanguageChosen || !strings.EqualFold(book.Book.LanguageTag, language)) {
+			continue
+		}
+		filtered = append(filtered, book)
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		left, right := filtered[i].Book, filtered[j].Book
+		leftTitle, rightTitle := strings.ToLower(left.Title), strings.ToLower(right.Title)
+		if leftTitle != rightTitle {
+			return leftTitle < rightTitle
+		}
+		if left.Title != right.Title {
+			return left.Title < right.Title
+		}
+		return left.ID < right.ID
+	})
+	result.Total = len(filtered)
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 0 {
+		limit = 0
+	}
+	if offset < len(filtered) {
+		end := offset + limit
+		if end < offset || end > len(filtered) {
+			end = len(filtered)
+		}
+		result.Items = filtered[offset:end]
+	}
+	return result, nil
 }
 func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (bool, error) {
 	s.mu.Lock()

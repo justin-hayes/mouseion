@@ -12,14 +12,14 @@ import (
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false).Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "Not acquired", "Acquire this book", "/connections?book_id=metadata-book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `name="language_state"`, "language not chosen"} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Acquire this book", "/connections?book_id=metadata-book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `name="language_state"`, "language not chosen"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -55,7 +55,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		books = append(books, book)
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false).Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -68,7 +68,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 
 func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false).Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -79,7 +79,7 @@ func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
 	}
 
 	output.Reset()
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true).Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "No books in My Books yet") || !strings.Contains(output.String(), "Acquire an EPUB") {

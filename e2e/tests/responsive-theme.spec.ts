@@ -52,13 +52,15 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('a[href="/books/fixture-edge-content"]')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-empty"]')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-failed"]')).toBeVisible();
-    await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') })).toHaveCount(9);
+    // The fixed fixture set has 9 acquired + 1 metadata-only Book, and all 10
+    // rows now carry a bibliographic title link.
+    await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') })).toHaveCount(10);
     if (test.info().project.name.startsWith('compact')) {
-      // Filter to books with a bibliographic title so metadata-only fixture
-      // entries (which have no title link) do not displace the last acquired
-      // book in this overflow assertion.
-      await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') }).last()).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
-      await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') }).last()).toBeVisible();
+      // Target the long-title fixture explicitly because all rows now carry a
+      // bibliographic title link and ordering is deterministic.
+      const longTitleBook = page.locator('.library-book').filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' });
+      await expect(longTitleBook).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
+      await expect(longTitleBook).toBeVisible();
     }
     await page.goto('/opds/browse?connection=fixture-connection&language=de');
     await expect(page.getByText(/Un libro italiano/)).toBeVisible();

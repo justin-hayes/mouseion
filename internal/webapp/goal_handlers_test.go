@@ -109,7 +109,7 @@ func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 		{Book: domain.Book{ID: "other-book", OwnerID: "owner", Title: "Other book"}},
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "goal-book", true).Render(context.Background(), &output); err != nil {
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "goal-book", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
