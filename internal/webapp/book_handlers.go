@@ -102,105 +102,68 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 	render(w, r, AnalysisResultPageWithPreparation(u, h.csrf(w, r), result, coverage, statisticsUnavailable, preparation, journeyAction))
 }
 
-type epubScopeUnitView struct {
-	Unit           domain.ExtractedUnit
-	Classification domain.EPUBUnitClassification
+type tocScopeView struct {
+	Book       domain.SourceMaterial
+	SnapshotID string
+	History    []domain.AnalysisJob
+	Choices    []tocScopeChoice
+	UnitOrders map[string]uint64
+}
+
+type tocScopeChoice struct {
+	Label          string
+	UnitIDs        []string
+	First          uint64
 	CharacterCount int
 	TokenEstimate  int
 }
 
-type epubScopeView struct {
-	Book                   domain.SourceMaterial
-	SnapshotID             string
-	History                []domain.AnalysisJob
-	Units                  []epubScopeUnitView
-	Groups                 []epubScopeGroupView
-	DegradedRecommendation bool
-	AllCharacters          int
-	AllTokens              int
-	PriorScope             *domain.EPUBReviewedScopeSnapshot
-	Preset                 string
-	Comparison             epubScopeComparison
-}
-
-type epubScopeComparison struct {
-	Old, New, Added, Removed                           []epubScopeUnitView
-	OldCharacters, OldTokens, NewCharacters, NewTokens int
-}
-
-type epubScopeGroupView struct {
-	Group          epub.UnitGroup
-	CharacterCount int
-	TokenEstimate  int
-}
-
-func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner string) (epubScopeView, bool) {
+func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner string) (tocScopeView, bool) {
 	book, err := h.services.Store.GetSourceMaterial(r.Context(), owner, r.PathValue("id"))
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
-		return epubScopeView{}, false
+		return tocScopeView{}, false
 	}
 	if err != nil {
 		fail(w, err)
-		return epubScopeView{}, false
+		return tocScopeView{}, false
 	}
 	snapshotID, units, err := h.services.Store.GetExtractedUnitSnapshot(r.Context(), owner, book.ID)
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) {
 		http.Error(w, "Review is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
-		return epubScopeView{}, false
+		return tocScopeView{}, false
 	}
 	if err != nil {
 		fail(w, err)
-		return epubScopeView{}, false
+		return tocScopeView{}, false
 	}
-	classifications, err := h.services.Store.GetEPUBUnitClassifications(r.Context(), owner, book.ID, epub.ClassifierName, epub.ClassifierVersion)
-	if errors.Is(err, domain.ErrEPUBClassificationsUnavailable) {
-		http.Error(w, "Review is unavailable because this book has no unit classifications.", http.StatusConflict)
-		return epubScopeView{}, false
+	projected := epub.ProjectTOCChoices(book.Content, units)
+	byID := make(map[string]domain.ExtractedUnit, len(units.Units))
+	for _, unit := range units.Units {
+		byID[unit.ID] = unit
 	}
-	if err != nil {
-		fail(w, err)
-		return epubScopeView{}, false
+	view := tocScopeView{Book: book, SnapshotID: snapshotID, Choices: make([]tocScopeChoice, 0, len(projected)), UnitOrders: make(map[string]uint64, len(units.Units))}
+	for _, unit := range units.Units {
+		view.UnitOrders[unit.ID] = unit.Order
 	}
-	if len(units.Units) != len(classifications) {
-		fail(w, errors.New("review scope: incomplete persisted classifications"))
-		return epubScopeView{}, false
-	}
-	view := epubScopeView{Book: book, SnapshotID: snapshotID, Units: make([]epubScopeUnitView, len(units.Units))}
-	for i, unit := range units.Units {
-		if classifications[i].SourceUnitSnapshot.UnitID != unit.ID || classifications[i].SourceUnitSnapshot.SnapshotID != snapshotID {
-			fail(w, errors.New("review scope: classification snapshot mismatch"))
-			return epubScopeView{}, false
+	for _, choice := range projected {
+		item := tocScopeChoice{Label: choice.Label, UnitIDs: append([]string(nil), choice.UnitIDs...), First: choice.First}
+		for _, unitID := range choice.UnitIDs {
+			unit, exists := byID[unitID]
+			if !exists {
+				fail(w, errors.New("review scope: TOC choice references an unknown unit"))
+				return tocScopeView{}, false
+			}
+			characters := len([]rune(unit.Text))
+			item.CharacterCount += characters
+			item.TokenEstimate += (characters + 3) / 4
 		}
-		characters := len([]rune(unit.Text))
-		view.Units[i] = epubScopeUnitView{Unit: unit, Classification: classifications[i], CharacterCount: characters, TokenEstimate: (characters + 3) / 4}
-		view.AllCharacters += view.Units[i].CharacterCount
-		view.AllTokens += view.Units[i].TokenEstimate
-	}
-	hasHighConfidenceMain := false
-	for _, item := range view.Units {
-		if item.Classification.Category == domain.EPUBCategoryMainMatter && item.Classification.Confidence >= domain.EPUBConfidenceHighMinimum {
-			hasHighConfidenceMain = true
-			break
-		}
-	}
-	view.DegradedRecommendation = !hasHighConfidenceMain
-	byID := make(map[string]epubScopeUnitView, len(view.Units))
-	for _, item := range view.Units {
-		byID[item.Unit.ID] = item
-	}
-	for _, group := range epub.BuildUnitGroups(units.Units) {
-		item := epubScopeGroupView{Group: group}
-		for _, id := range group.UnitIDs {
-			item.CharacterCount += byID[id].CharacterCount
-			item.TokenEstimate += byID[id].TokenEstimate
-		}
-		view.Groups = append(view.Groups, item)
+		view.Choices = append(view.Choices, item)
 	}
 	jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), owner)
 	if err != nil {
 		fail(w, err)
-		return epubScopeView{}, false
+		return tocScopeView{}, false
 	}
 	for _, job := range jobs {
 		if job.SourceMaterialID == book.ID {
@@ -216,73 +179,7 @@ func (h *Handler) reviewEPUBScope(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	selected, err := h.applyScopePreset(r, u.ID, &view)
-	if err != nil {
-		h.renderEPUBScopeError(w, r, u, view, err.Error())
-		return
-	}
-	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", selected))
-}
-
-func (h *Handler) applyScopePreset(r *http.Request, owner string, view *epubScopeView) (string, error) {
-	preset := r.URL.Query().Get("preset")
-	priorID := r.URL.Query().Get("prior_scope_id")
-	if preset == "" && priorID == "" {
-		return "", nil
-	}
-	if preset != "recommended" && preset != "all" && preset != "prior" {
-		return "", errors.New("The requested scope preset is invalid.")
-	}
-	view.Preset = preset
-	var prior domain.EPUBReviewedScopeSnapshot
-	if priorID != "" {
-		var err error
-		prior, err = h.services.Store.GetEPUBReviewedScope(r.Context(), owner, view.Book.ID, priorID)
-		if err != nil {
-			return "", errors.New("The prior scope is unavailable for this book and owner.")
-		}
-		if prior.SchemaVersion != domain.EPUBReviewedScopeSchemaVersion || prior.SourceUnitSnapshot.SnapshotID != view.SnapshotID || prior.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != domain.ExtractedUnitsSchemaVersion || prior.Classifier.Name != epub.ClassifierName || prior.Classifier.Version != epub.ClassifierVersion {
-			return "", errors.New("The prior scope is stale or uses a different schema or classifier. Review the current units instead.")
-		}
-		view.PriorScope = &prior
-	}
-	if preset == "prior" && priorID == "" {
-		return "", errors.New("A prior scope ID is required for the prior-selection preset.")
-	}
-	selected := make(map[string]bool, len(view.Units))
-	for _, item := range view.Units {
-		selected[item.Unit.ID] = preset == "all" || (preset == "recommended" && item.Classification.RecommendedInclusion)
-	}
-	if preset == "prior" {
-		for _, item := range prior.SelectedUnits {
-			selected[item.UnitID] = true
-		}
-	}
-	var ids []string
-	old := map[string]bool{}
-	for _, item := range prior.SelectedUnits {
-		old[item.UnitID] = true
-	}
-	for _, item := range view.Units {
-		if selected[item.Unit.ID] {
-			ids = append(ids, item.Unit.ID)
-			view.Comparison.New = append(view.Comparison.New, item)
-			view.Comparison.NewCharacters += item.CharacterCount
-			view.Comparison.NewTokens += item.TokenEstimate
-		}
-		if old[item.Unit.ID] {
-			view.Comparison.Old = append(view.Comparison.Old, item)
-			view.Comparison.OldCharacters += item.CharacterCount
-			view.Comparison.OldTokens += item.TokenEstimate
-		}
-		if selected[item.Unit.ID] && !old[item.Unit.ID] {
-			view.Comparison.Added = append(view.Comparison.Added, item)
-		}
-		if old[item.Unit.ID] && !selected[item.Unit.ID] {
-			view.Comparison.Removed = append(view.Comparison.Removed, item)
-		}
-	}
-	return "submitted:" + strings.Join(ids, ","), nil
+	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", ""))
 }
 
 func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
@@ -295,58 +192,38 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if submittedSnapshot := r.FormValue("snapshot_id"); submittedSnapshot == "" || submittedSnapshot != view.SnapshotID {
-		h.renderEPUBScopeError(w, r, u, view, "The EPUB unit snapshot changed. Reload the page and review the current hierarchy.")
+		h.renderEPUBScopeError(w, r, u, view, "The EPUB unit snapshot changed. Reload the page and review the current scope.")
 		return
 	}
 	selected := make(map[string]struct{}, len(r.Form["unit_id"]))
-	for _, id := range r.Form["unit_id"] {
-		if _, duplicate := selected[id]; duplicate {
-			h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
-			return
-		}
-		selected[id] = struct{}{}
-	}
-	groups := make(map[string]epub.UnitGroup, len(view.Groups))
-	for _, item := range view.Groups {
-		groups[item.Group.ID] = item.Group
-	}
-	includeGroups, ok := submittedGroups(r.Form["group_include"], groups)
-	if !ok {
-		h.renderEPUBScopeError(w, r, u, view, "The selection contains a group that does not belong to this book.")
-		return
-	}
-	excludeGroups, ok := submittedGroups(r.Form["group_exclude"], groups)
-	if !ok {
-		h.renderEPUBScopeError(w, r, u, view, "The selection contains a group that does not belong to this book.")
-		return
-	}
-	for id := range includeGroups {
-		if _, contradictory := excludeGroups[id]; contradictory {
-			h.renderEPUBScopeError(w, r, u, view, "A group cannot be included and excluded in the same submission.")
-			return
-		}
-		for _, unitID := range groups[id].UnitIDs {
-			selected[unitID] = struct{}{}
-		}
-	}
-	for id := range excludeGroups {
-		for _, unitID := range groups[id].UnitIDs {
-			delete(selected, unitID)
+	for _, value := range r.Form["unit_id"] {
+		for _, id := range strings.Split(value, ",") {
+			if id == "" {
+				h.renderEPUBScopeError(w, r, u, view, "The selection contains an invalid unit reference. Please review your selection.")
+				return
+			}
+			if _, duplicate := selected[id]; duplicate {
+				h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
+				return
+			}
+			selected[id] = struct{}{}
 		}
 	}
 	references := make([]domain.EPUBSelectedUnitReference, 0, len(selected))
-	recommended := true
-	for _, item := range view.Units {
-		_, included := selected[item.Unit.ID]
-		if included {
-			references = append(references, domain.EPUBSelectedUnitReference{UnitID: item.Unit.ID, Order: item.Unit.Order})
-			delete(selected, item.Unit.ID)
-		}
-		if included != item.Classification.RecommendedInclusion {
-			recommended = false
+	for _, choice := range view.Choices {
+		for _, id := range choice.UnitIDs {
+			if _, included := selected[id]; !included {
+				continue
+			}
+			order, exists := view.UnitOrders[id]
+			if !exists {
+				h.renderEPUBScopeError(w, r, u, view, "The selection contains a unit that does not belong to this book.")
+				return
+			}
+			references = append(references, domain.EPUBSelectedUnitReference{UnitID: id, Order: order})
 		}
 	}
-	if len(selected) != 0 {
+	if len(references) != len(selected) {
 		h.renderEPUBScopeError(w, r, u, view, "The selection contains a unit that does not belong to this book.")
 		return
 	}
@@ -354,11 +231,13 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 		h.renderEPUBScopeError(w, r, u, view, "Select at least one readable unit before confirming the analysis scope.")
 		return
 	}
-	mode := domain.EPUBScopeSelectionOverridden
-	if recommended {
-		mode = domain.EPUBScopeSelectionRecommended
+	for i := range references {
+		if i > 0 && references[i].Order <= references[i-1].Order {
+			h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
+			return
+		}
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: view.Book.ContentRevisionID, Digest: view.Book.ContentDigest, DigestVersion: view.Book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SelectionMode: mode, SelectedUnits: references}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: view.Book.ContentRevisionID, Digest: view.Book.ContentDigest, DigestVersion: view.Book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: "none", Version: "none"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: references}
 	if _, err := h.services.Store.CreateEPUBReviewedScope(r.Context(), scope); err != nil {
 		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
 		return
@@ -366,21 +245,7 @@ func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units. Start analysis when you are ready.", len(references))))
 }
 
-func submittedGroups(values []string, groups map[string]epub.UnitGroup) (map[string]struct{}, bool) {
-	result := make(map[string]struct{}, len(values))
-	for _, id := range values {
-		if _, exists := groups[id]; !exists {
-			return nil, false
-		}
-		if _, duplicate := result[id]; duplicate {
-			return nil, false
-		}
-		result[id] = struct{}{}
-	}
-	return result, true
-}
-
-func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view epubScopeView, message string) {
+func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view tocScopeView, message string) {
 	w.WriteHeader(http.StatusBadRequest)
 	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, message, "submitted:"+strings.Join(r.Form["unit_id"], ",")))
 }

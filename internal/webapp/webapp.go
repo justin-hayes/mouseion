@@ -52,7 +52,6 @@ type Store interface {
 	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
 	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
-	GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error)
 	GetEPUBReviewedScope(context.Context, string, string, string) (domain.EPUBReviewedScopeSnapshot, error)
 	CreateEPUBReviewedScope(context.Context, domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error)
 	ListMyBooks(context.Context, string) ([]domain.Book, error)

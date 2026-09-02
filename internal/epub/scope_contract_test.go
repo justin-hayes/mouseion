@@ -171,3 +171,21 @@ func TestReviewedScopeConfirmationKeyExcludesRequestScopeID(t *testing.T) {
 		t.Fatal("changed selection reused confirmation identity")
 	}
 }
+
+func TestReviewedScopeConfirmationKeyExcludesClassifierAndSelectionMode(t *testing.T) {
+	first, _ := validReviewedScope()
+	key, err := first.ConfirmationKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := first
+	changed.Classifier = ClassifierIdentity{Name: "none", Version: "none"}
+	changed.SelectionMode = ScopeSelectionOverridden
+	changedKey, err := changed.ConfirmationKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key != changedKey {
+		t.Fatalf("classifier or selection mode changed confirmation identity: %q != %q", key, changedKey)
+	}
+}

@@ -806,103 +806,24 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 	}
 }
 
-templ EPUBScopeReviewPage(user domain.User, csrf string, review epubScopeView, pageError string, selectedCSV string) {
+templ EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pageError string, selectedCSV string) {
 	@ShellLayout("Review analysis scope", &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/books/"+review.Book.ID, review.Book.Title)
 		@PageHeader("Review analysis scope", "Choose the readable EPUB units that should be used by a future analysis.", nil)
 		if pageError != "" {
 			@Feedback(FeedbackError, "Scope not saved.", pageError)
 		}
-		@Feedback(FeedbackInfo, "How recommendations work", "High-confidence front or back matter is excluded when the structure strongly suggests reference material. Unknown and low-confidence units need particular attention because the available evidence is limited or conflicting. You remain in control of every unit.")
-		if review.DegradedRecommendation {
-			<article role="note"><strong>Limited structural confidence</strong><p>No high-confidence main matter was found. Substantive medium-confidence main matter is included with review suggested; unknown units remain excluded for review instead of being promoted by a whole-book fallback.</p></article>
-		}
 		<section class="next-action" aria-labelledby="scope-next-action-heading"><h2 id="scope-next-action-heading">Next action</h2><p><strong>Confirm this scope.</strong> This saves an immutable selection for the book. It does not start analysis; after confirmation, return to the book page to choose <strong>Start analysis</strong>.</p></section>
-		<nav aria-label="Scope presets"><strong>Start with a preset:</strong> <a href={ templ.SafeURL(scopePresetURL(review, "recommended")) }>Current classifier recommendation</a> · <a href={ templ.SafeURL(scopePresetURL(review, "all")) }>All readable units</a>
-			if review.PriorScope != nil {
-				<span> · </span><a href={ templ.SafeURL(scopePresetURL(review, "prior")) }>Prior selection</a>
-			}
-		</nav>
-		if review.PriorScope != nil {
-			<section aria-labelledby="scope-comparison-heading"><h2 id="scope-comparison-heading">Scope comparison</h2><p>Prior scope <code>{ review.PriorScope.ScopeID }</code> compared with the <strong>{ review.Preset }</strong> preset.</p>
-				<p><strong>Prior:</strong> { fmt.Sprintf("%d units · %d characters · about %d tokens", len(review.PriorScope.SelectedUnits), review.Comparison.OldCharacters, review.Comparison.OldTokens) }<br/><strong>Proposed:</strong> { fmt.Sprintf("%d units · %d characters · about %d tokens", len(review.PriorScope.SelectedUnits)+len(review.Comparison.Added)-len(review.Comparison.Removed), review.Comparison.NewCharacters, review.Comparison.NewTokens) }</p>
-				<h3>Prior included units</h3><ul>
-					for _, item := range review.Comparison.Old {
-						<li><code>{ item.Unit.ID }</code> — { item.Unit.Title }</li>
-					}
-				</ul>
-				<h3>Proposed included units</h3><ul>
-					for _, item := range review.Comparison.New {
-						<li><code>{ item.Unit.ID }</code> — { item.Unit.Title }</li>
-					}
-				</ul>
-				<h3>Added units</h3>
-				if len(review.Comparison.Added) == 0 {
-					<p>None.</p>
-				} else {
-					<ul>
-						for _, item := range review.Comparison.Added {
-							<li><code>{ item.Unit.ID }</code> — { item.Unit.Title } ({ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) })</li>
-						}
-					</ul>
-				}
-				<h3>Removed units</h3>
-				if len(review.Comparison.Removed) == 0 {
-					<p>None.</p>
-				} else {
-					<ul>
-						for _, item := range review.Comparison.Removed {
-							<li><code>{ item.Unit.ID }</code> — { item.Unit.Title } ({ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) })</li>
-						}
-					</ul>
-				}
-			</section>
-		}
-		if len(review.History) > 0 {
-			<section aria-labelledby="scope-analysis-history-heading"><h2 id="scope-analysis-history-heading">Analysis history</h2><p>Previous analysis results remain available while you decide whether this new scope is needed.</p><ul>
-				for _, job := range review.History {
-					if historyURL := analysisHistoryURL(review.Book.ID, job); historyURL != "" {
-						<li><a href={ templ.SafeURL(historyURL) }>{ analysisHistoryLabel(job) }</a><span class="metadata"> · { job.CreatedAt.Format("2006-01-02 15:04") }</span></li>
-					}
-				}
-			</ul></section>
-		}
 		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
 			<input type="hidden" name="csrf_token" value={ csrf }/>
 			<input type="hidden" name="snapshot_id" value={ review.SnapshotID }/>
-			<fieldset class="scope-actions"><legend>Apply a selection</legend><button type="button" class="outline" data-select="recommended">Accept recommendation</button><button type="button" class="outline" data-select="main">Select all main matter</button><button type="button" class="outline" data-select="all">Include all</button><button type="button" class="outline secondary" data-select="none">Exclude all</button></fieldset>
-			<div class="scope-summary" role="status" aria-live="polite" aria-atomic="true"><span>{ fmt.Sprintf("All units: %d characters, about %d tokens", review.AllCharacters, review.AllTokens) }</span><strong data-selected-count>0 units selected</strong><span data-selected-size>Selected: 0 characters, about 0 tokens</span></div>
-			if len(review.Groups) > 0 {
-				<section class="scope-groups" aria-labelledby="scope-groups-heading"><h2 id="scope-groups-heading">EPUB groups</h2><p>Groups come from persisted navigation, landmarks, or stable resource paths. Their controls are expanded and validated by the server.</p>
-					for _, item := range review.Groups {
-						<article class="scope-group" style={ fmt.Sprintf("margin-left:%dem", item.Group.Depth*2) } data-group-units={ strings.Join(item.Group.UnitIDs, ",") }>
-							<header><strong>{ item.Group.Label }</strong><span data-group-state role="status" aria-live="polite">Selection pending</span></header>
-							<p><span>{ fmt.Sprintf("All group units: %d units | %d characters | about %d tokens", len(item.Group.UnitIDs), item.CharacterCount, item.TokenEstimate) }</span><br/><strong data-group-selected>Selected: calculating…</strong></p>
-							<button type="submit" class="outline" name="group_include" value={ item.Group.ID }>Include group</button>
-							<button type="submit" class="outline secondary" name="group_exclude" value={ item.Group.ID }>Exclude group</button>
-						</article>
-					}
-				</section>
-			} else {
-				<p role="note"><strong>Flat spine order.</strong> This EPUB has no reliable persisted hierarchy, so units remain in deterministic reading order.</p>
-			}
-			<fieldset class="scope-units"><legend>Readable units in spine order</legend>
-				for _, item := range review.Units {
-					<article class="scope-unit" data-category={ string(item.Classification.Category) } data-recommended={ fmt.Sprintf("%t", item.Classification.RecommendedInclusion) } data-characters={ fmt.Sprintf("%d", item.CharacterCount) } data-tokens={ fmt.Sprintf("%d", item.TokenEstimate) }>
-						<header><label for={ "scope-unit-"+fmt.Sprintf("%d", item.Unit.Order) }><input id={ "scope-unit-"+fmt.Sprintf("%d", item.Unit.Order) } type="checkbox" name="unit_id" value={ item.Unit.ID } checked?={ scopeUnitChecked(selectedCSV, item.Unit.ID, item.Classification.RecommendedInclusion) }/> Include { item.Unit.Title }</label><span>{ fmt.Sprintf("Unit %d", item.Unit.Order+1) }</span></header>
-						<p><strong>{ item.Unit.Title }</strong> <small>{ titleSourceLabel(item.Unit.TitleSource) }</small></p>
-						<dl><div><dt>Category</dt><dd>{ categoryLabel(item.Classification.Category) }</dd></div><div><dt>Confidence</dt><dd>{ fmt.Sprintf("%d%%", item.Classification.Confidence) }</dd></div><div><dt>Recommendation</dt><dd>{ recommendationLabel(item.Classification) }</dd></div><div><dt>Recommendation policy</dt><dd>{ recommendationExplanation(item.Classification) }</dd></div><div><dt>Estimated size</dt><dd>{ fmt.Sprintf("%d characters · about %d tokens", item.CharacterCount, item.TokenEstimate) }</dd></div></dl>
-						if !item.Classification.RecommendedInclusion && item.Classification.Confidence >= domain.EPUBConfidenceHighMinimum {
-							<p class="scope-warning"><strong>High-confidence exclusion:</strong> including this unit overrides a strong exclusion recommendation.</p>
-						}
-						if item.Classification.Category == domain.EPUBCategoryUnknown || item.Classification.Confidence <= domain.EPUBConfidenceLowMaximum {
-							<p class="scope-warning"><strong>Review carefully:</strong> this unit is unknown or low confidence.</p>
-						}
-						<h3>Classification evidence</h3><ol>
-							for _, reason := range item.Classification.Reasons {
-								<li>{ reason.Message }</li>
-							}
-						</ol>
+			<fieldset class="scope-actions"><legend>Choose readable sections</legend><button type="button" class="outline" data-select="all">Check all</button><button type="button" class="outline secondary" data-select="none">Uncheck all</button></fieldset>
+			<div class="scope-summary" role="status" aria-live="polite" aria-atomic="true"><span>{ fmt.Sprintf("All units: %d characters, about %d tokens", scopeTotalCharacters(review.Choices), scopeTotalTokens(review.Choices)) }</span><strong data-selected-count>{ fmt.Sprintf("%d %s selected", scopeSelectedUnits(review.Choices, selectedCSV), unitPlural(scopeSelectedUnits(review.Choices, selectedCSV))) }</strong><span data-selected-size>{ fmt.Sprintf("Selected: %d characters, about %d tokens", scopeSelectedCharacters(review.Choices, selectedCSV), scopeSelectedTokens(review.Choices, selectedCSV)) }</span></div>
+			<fieldset class="scope-units"><legend>Readable sections in spine order</legend>
+				for _, choice := range review.Choices {
+					<article class="scope-choice" data-characters={ fmt.Sprintf("%d", choice.CharacterCount) } data-tokens={ fmt.Sprintf("%d", choice.TokenEstimate) } data-unit-count={ fmt.Sprintf("%d", len(choice.UnitIDs)) }>
+						<label for={ "scope-choice-"+fmt.Sprintf("%d", choice.First) }><input id={ "scope-choice-"+fmt.Sprintf("%d", choice.First) } type="checkbox" name="unit_id" value={ strings.Join(choice.UnitIDs, ",") } checked?={ scopeChoiceChecked(selectedCSV, choice.UnitIDs) }/> { choice.Label }</label>
+						<p><small>{ fmt.Sprintf("%d readable %s · %d characters · about %d tokens", len(choice.UnitIDs), unitPlural(len(choice.UnitIDs)), choice.CharacterCount, choice.TokenEstimate) }</small></p>
 					</article>
 				}
 			</fieldset>
@@ -914,29 +835,17 @@ if (scopeForm) {
   const boxes = Array.from(scopeForm.querySelectorAll('input[name="unit_id"]'));
   const updateScopeSummary = () => {
     const selected = boxes.filter((box) => box.checked);
+    const units = selected.reduce((sum, box) => sum + Number(box.closest('[data-unit-count]').dataset.unitCount), 0);
     const characters = selected.reduce((sum, box) => sum + Number(box.closest('[data-characters]').dataset.characters), 0);
     const tokens = selected.reduce((sum, box) => sum + Number(box.closest('[data-tokens]').dataset.tokens), 0);
-    scopeForm.querySelector('[data-selected-count]').textContent = `${selected.length} ${selected.length === 1 ? 'unit' : 'units'} selected`;
+    scopeForm.querySelector('[data-selected-count]').textContent = `${units} ${units === 1 ? 'unit' : 'units'} selected`;
     scopeForm.querySelector('[data-selected-size]').textContent = `Selected: ${characters.toLocaleString()} characters, about ${tokens.toLocaleString()} tokens`;
-    scopeForm.querySelectorAll('[data-group-units]').forEach((group) => {
-      const ids = new Set(group.dataset.groupUnits.split(','));
-      const members = boxes.filter((box) => ids.has(box.value));
-      const selected = members.filter((box) => box.checked);
-      const selectedMembers = selected.length;
-      const selectedCharacters = selected.reduce((sum, box) => sum + Number(box.closest('[data-characters]').dataset.characters), 0);
-      const selectedTokens = selected.reduce((sum, box) => sum + Number(box.closest('[data-tokens]').dataset.tokens), 0);
-      group.querySelector('[data-group-state]').textContent = selectedMembers === 0 ? 'Excluded' : selectedMembers === members.length ? 'Included' : `Partially selected (${selectedMembers} of ${members.length})`;
-      group.querySelector('[data-group-selected]').textContent = `Selected: ${selectedMembers} ${selectedMembers === 1 ? 'unit' : 'units'} | ${selectedCharacters.toLocaleString()} characters | about ${selectedTokens.toLocaleString()} tokens`;
-    });
   };
   scopeForm.addEventListener('change', updateScopeSummary);
   scopeForm.addEventListener('click', (event) => {
     const button = event.target.closest('[data-select]');
     if (!button) return;
-    boxes.forEach((box) => {
-      const unit = box.closest('[data-category]');
-      box.checked = button.dataset.select === 'all' || (button.dataset.select === 'recommended' && unit.dataset.recommended === 'true') || (button.dataset.select === 'main' && unit.dataset.category === 'main_matter');
-    });
+    boxes.forEach((box) => { box.checked = button.dataset.select === 'all'; });
     updateScopeSummary();
   });
   updateScopeSummary();
@@ -945,26 +854,15 @@ if (scopeForm) {
 	}
 }
 
-func scopeUnitChecked(selectedCSV, unitID string, recommended bool) bool { if selectedCSV == "" { return recommended }; selectedCSV = strings.TrimPrefix(selectedCSV, "submitted:"); for _, selected := range strings.Split(selectedCSV, ",") { if selected == unitID { return true } }; return false }
+func scopeChoiceChecked(selectedCSV string, unitIDs []string) bool { if selectedCSV == "" { return true }; selected := make(map[string]struct{}); for _, id := range strings.Split(strings.TrimPrefix(selectedCSV, "submitted:"), ",") { selected[id] = struct{}{} }; for _, id := range unitIDs { if _, ok := selected[id]; !ok { return false } }; return true }
+func scopeTotalCharacters(choices []tocScopeChoice) int { total := 0; for _, choice := range choices { total += choice.CharacterCount }; return total }
+func scopeTotalTokens(choices []tocScopeChoice) int { total := 0; for _, choice := range choices { total += choice.TokenEstimate }; return total }
+func scopeSelectedUnits(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += len(choice.UnitIDs) } }; return total }
+func scopeSelectedCharacters(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.CharacterCount } }; return total }
+func scopeSelectedTokens(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.TokenEstimate } }; return total }
+func unitPlural(count int) string { if count == 1 { return "unit" }; return "units" }
 func catalogBrowseURL(connectionID, bookID string) string { if bookID == "" { return "/catalog?connection=" + url.QueryEscape(connectionID) }; return "/catalog?connection=" + url.QueryEscape(connectionID) + "&book_id=" + url.QueryEscape(bookID) }
-func titleSourceLabel(source string) string { if source == domain.UnitTitleHeading { return "title from document heading" }; return "fallback title from manifest ID" }
-func categoryLabel(category domain.EPUBUnitCategory) string { return strings.ReplaceAll(string(category), "_", " ") }
-func recommendationLabel(classification domain.EPUBUnitClassification) string {
-	if classification.RecommendedInclusion && classification.Confidence < domain.EPUBConfidenceHighMinimum { return "Include — review suggested" }
-	if classification.RecommendedInclusion { return "Include" }
-	if classification.Category == domain.EPUBCategoryUnknown { return "Exclude — review required" }
-	return "Exclude"
-}
-func recommendationExplanation(classification domain.EPUBUnitClassification) string {
-	if classification.RecommendedInclusion && classification.Confidence < domain.EPUBConfidenceHighMinimum { return "Included as plausible main matter; review is suggested because the structural evidence is not high confidence." }
-	if classification.RecommendedInclusion { return "Included because high-confidence structural evidence identifies main matter." }
-	if classification.Category == domain.EPUBCategoryUnknown && hasReferenceLikeEvidence(classification.Reasons) { return "Excluded because reference-like evidence does not make an unknown unit safe for automatic inclusion; review it before adding it." }
-	if classification.Category == domain.EPUBCategoryUnknown { return "Excluded because unknown structural evidence is not safe for automatic inclusion; review it before adding it." }
-	return "Excluded because the structural category is outside the recommended main-matter scope."
-}
-func hasReferenceLikeEvidence(reasons []domain.EPUBClassificationReason) bool { for _, reason := range reasons { value := strings.ToLower(reason.Signal+" "+reason.Message); if strings.Contains(value, "reference") || strings.Contains(value, "citation") || strings.Contains(value, "bibliograph") || strings.Contains(value, "index") || strings.Contains(value, "register") || strings.Contains(value, "quellen") || strings.Contains(value, "literatur") { return true } }; return false }
-func scopeReviewURL(book domain.SourceMaterialSummary) string { if book.ReviewedScopeID == "" { return "/books/"+book.Source.ID+"/scope" }; return "/books/"+book.Source.ID+"/scope?preset=prior&prior_scope_id="+url.QueryEscape(book.ReviewedScopeID) }
-func scopePresetURL(review epubScopeView, preset string) string { value := "/books/"+review.Book.ID+"/scope?preset="+url.QueryEscape(preset); if review.PriorScope != nil { value += "&prior_scope_id="+url.QueryEscape(review.PriorScope.ScopeID) }; return value }
+func scopeReviewURL(book domain.SourceMaterialSummary) string { return "/books/"+book.Source.ID+"/scope" }
 func completedAnalysisURL(book domain.SourceMaterialSummary, history []domain.AnalysisJob) string { for _, job := range history { if historyURL := analysisHistoryURL(book.Source.ID, job); strings.Contains(historyURL, "/analyses/") { return historyURL } }; return "" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
