@@ -21,6 +21,40 @@ func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) 
 	h.createDeckPreparationForAnalysis(w, r, r.PathValue("id"), "")
 }
 
+func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	book, ok := h.loadBook(w, r, u.ID)
+	if !ok {
+		return
+	}
+	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || book.CorpusID == "" {
+		http.NotFound(w, r)
+		return
+	}
+	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, book.Source.ID, book.AnalysisRunID)
+	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if result.OwnerID != u.ID || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.ScopeID == "" || result.Corpus.ID != book.CorpusID {
+		http.NotFound(w, r)
+		return
+	}
+	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
+}
+
 func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -239,7 +273,7 @@ func preparationResultURL(p domain.DeckPreparation) string {
 	if p.SourceMaterialID == "" || p.AnalysisRunID == "" {
 		return ""
 	}
-	return "/books/" + url.PathEscape(p.SourceMaterialID) + "/analyses/" + url.PathEscape(p.AnalysisRunID)
+	return "/books/" + url.PathEscape(p.SourceMaterialID)
 }
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {

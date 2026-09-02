@@ -299,7 +299,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View analysis result", fmt.Sprintf("/books/%s/analyses/%s", book.Source.ID, runID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View analysis result", "/books/" + url.PathEscape(book.Source.ID), StatusSuccess, false}
 		}
 		if book.AnalysisJobID > 0 {
 			return bookLifecycleAction{"Analysis result ready", "This historical analysis remains available through its operational record.", "View analysis history", jobURL, StatusSuccess, false}
@@ -325,7 +325,7 @@ func analysisHistoryURL(sourceID string, job domain.AnalysisJob) string {
 		return ""
 	}
 	if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-		return fmt.Sprintf("/books/%s/analyses/%s", sourceID, job.AnalysisRunID)
+		return "/books/" + url.PathEscape(sourceID)
 	}
 	return fmt.Sprintf("/jobs/%d", job.ID)
 }
@@ -457,11 +457,11 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 }
 
 func analysisResultURL(result analysis.CompletedAnalysis) string {
-	return "/books/" + url.PathEscape(result.Source.ID) + "/analyses/" + url.PathEscape(result.RunID)
+	return "/books/" + url.PathEscape(result.Source.ID)
 }
 
 func analysisDeckPreparationURL(result analysis.CompletedAnalysis) string {
-	return analysisResultURL(result) + "/deck/preparations"
+	return "/books/" + url.PathEscape(result.Source.ID) + "/deck/preparations"
 }
 
 func jobStatusAttributes(id int64, running bool) templ.Attributes {

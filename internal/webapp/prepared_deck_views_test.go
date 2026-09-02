@@ -7,24 +7,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func TestAnalysisResultOffersExactDeckPreparationWithConsentDisclosure(t *testing.T) {
+func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 	var output bytes.Buffer
-	result := analysis.CompletedAnalysis{
-		RunID: "run-372", SourceMaterialID: "book-372", ScopeID: "scope-372",
-		Source: domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
-		Corpus: domain.Corpus{ID: "corpus-372"},
+	book := domain.SourceMaterialSummary{
+		Source:         domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
+		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-372", CorpusID: "corpus-372",
 	}
-	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf", result, nil, true, nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithHistoryAndPreparation(domain.User{Username: "learner"}, "csrf", book, nil, true, nil, "", nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	for _, want := range []string{
-		`id="result-deck-heading"`,
-		`action="/books/book-372/analyses/run-372/deck/preparations"`,
+		`id="deck-preparation-heading"`,
+		`action="/books/book-372/deck/preparations"`,
 		`name="external_translation_consent"`,
 		"outside Mouseion",
 		"configured translation provider",
@@ -88,10 +86,13 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, QualityOmissions: 1}
-			if err := DeckPreparationStatus("csrf", preparation, "/books/book-372/analyses/run-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+			if err := DeckPreparationStatus("csrf", preparation, "/books/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
 			html := output.String()
+			if !strings.Contains(html, "Return to book") && test.name == "queued" {
+				t.Errorf("status missing return-to-book link: %s", html)
+			}
 			for _, want := range test.want {
 				if !strings.Contains(html, want) {
 					t.Errorf("status missing %q: %s", want, html)

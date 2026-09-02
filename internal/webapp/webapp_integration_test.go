@@ -888,7 +888,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
 		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
 	}
-	for _, want := range []string{"Vocabulary coverage", "Current known coverage", "55.0%", "of the analyzed units", "Vocabulary investment", "Additional vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "Deck preparation", "View analysis result"} {
+	for _, want := range []string{"Vocabulary coverage", "Current known coverage", "55.0%", "of the analyzed units", "Vocabulary investment", "Additional vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "Deck preparation", `action="/books/` + recorder.source + `/deck/preparations"`, "external_translation_consent"} {
 		if !strings.Contains(bookPage.Body.String(), want) {
 			t.Errorf("coverage page missing %q", want)
 		}
@@ -928,7 +928,7 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 		}
 	}
 	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "View analysis result") || !strings.Contains(bookPage.Body.String(), "/analyses/") || strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
+	if !strings.Contains(bookPage.Body.String(), "Deck preparation") || strings.Contains(bookPage.Body.String(), "/analyses/") || !strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
 		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
 	}
 	if _, err = externalJobs.SubmitEnrichment(ctx, alice.ID, []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ"}}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}}}); err != nil {
