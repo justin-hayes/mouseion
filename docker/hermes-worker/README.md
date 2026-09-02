@@ -17,7 +17,7 @@ All tool versions are fixed through Dockerfile ARG defaults: `DEBIAN_VERSION`, `
 
 The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. It uses `/workspace` as the mounted checkout. The fixed runtime user is `hermes` (uid/gid 10000), and Hermes runs the container as that user.
 
-OpenCode uses `XDG_CONFIG_HOME=/home/hermes/.config`, so it reads configuration and authentication from `/home/hermes/.config/opencode/`. At runtime Hermes mounts the host's `~/.config/opencode` over that directory, analogous to the previous agent configuration mount.
+OpenCode configuration (for example, `config.json`) lives under `$XDG_CONFIG_HOME/opencode` (`/home/hermes/.config/opencode`). Credentials (`auth.json`) live under `$XDG_DATA_HOME/opencode` (`/home/hermes/.local/share/opencode`); the image pre-creates this directory, owned by the runtime user, so Hermes can bind-mount the host's `~/.local/share/opencode` over it to supply authentication. Hermes may optionally mount the host's `~/.config/opencode` over the image's configuration directory for configuration.
 
 ## Build and smoke-test locally
 

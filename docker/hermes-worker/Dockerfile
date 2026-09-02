@@ -191,7 +191,7 @@ RUN mkdir -p \
         /workspace \
         /home/${USERNAME}/.cache \
         /home/${USERNAME}/.config \
-        /home/${USERNAME}/.local/share \
+        /home/${USERNAME}/.local/share/opencode \
         /home/${USERNAME}/go \
     && chown -R "${USERNAME}:${USERNAME}" \
         /workspace \
