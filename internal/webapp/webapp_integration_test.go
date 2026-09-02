@@ -286,10 +286,9 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if override.Code != http.StatusSeeOther || !strings.Contains(override.Header().Get("Location"), "Analysis+scope+saved+with+2+selected+units") {
 		t.Fatalf("override=%d location=%q body=%s", override.Code, override.Header().Get("Location"), override.Body.String())
 	}
-	var classifierName, classifierVersion, mode string
 	var selected int
-	if err = store.Pool().QueryRow(ctx, `SELECT s.classifier_name,s.classifier_version,s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.classifier_name,s.classifier_version,s.selection_mode`, alice.ID, german.ID).Scan(&classifierName, &classifierVersion, &mode, &selected); err != nil || classifierName != "none" || classifierVersion != "none" || mode != "overridden" || selected != 2 {
-		t.Fatalf("persisted classifier=%q/%q mode=%q selected=%d err=%v", classifierName, classifierVersion, mode, selected, err)
+	if err = store.Pool().QueryRow(ctx, `SELECT count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2`, alice.ID, german.ID).Scan(&selected); err != nil || selected != 2 {
+		t.Fatalf("persisted selected units=%d err=%v", selected, err)
 	}
 	if recorder.owner != "" || recorder.source != "" || recorder.scope != "" {
 		t.Fatalf("scope confirmation enqueued analysis owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
@@ -324,16 +323,16 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&cloneScopeID); err != nil {
 		t.Fatal(err)
 	}
-	if cloneScopeID != priorScopeID {
-		t.Fatalf("idempotent clone created a new scope %q instead of reusing %q", cloneScopeID, priorScopeID)
+	if cloneScopeID == priorScopeID {
+		t.Fatalf("equivalent confirmation reused scope %q", priorScopeID)
 	}
 	var cloneCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 1 {
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
 		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
 	}
 	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, cloneScopeID)
-	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot || cloned.Classifier != expanded.Classifier {
-		t.Fatalf("same-scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
+	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot {
+		t.Fatalf("scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
 	}
 	_, italianUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, italian.ID)
 	if err != nil {
@@ -343,8 +342,8 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if recommended.Code != http.StatusSeeOther {
 		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT s.classifier_name,s.classifier_version,s.selection_mode,count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2 GROUP BY s.classifier_name,s.classifier_version,s.selection_mode`, alice.ID, italian.ID).Scan(&classifierName, &classifierVersion, &mode, &selected); err != nil || classifierName != "none" || classifierVersion != "none" || mode != "overridden" || selected != 1 {
-		t.Fatalf("classifier=%q/%q mode=%q selected=%d err=%v", classifierName, classifierVersion, mode, selected, err)
+	if err = store.Pool().QueryRow(ctx, `SELECT count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2`, alice.ID, italian.ID).Scan(&selected); err != nil || selected != 1 {
+		t.Fatalf("selected=%d err=%v", selected, err)
 	}
 }
 

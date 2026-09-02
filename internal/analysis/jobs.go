@@ -986,7 +986,7 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 		JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id
 		WHERE r.id=$1 AND r.owner_id=$2 AND r.source_material_id=$3 AND r.scope_id=$4 AND r.content_revision_id=$5
 		  AND s.current_content_revision_id=r.content_revision_id AND s.current_snapshot_id=scope.snapshot_id
-		  AND rev.content_digest=$6 AND scope.classifier_name<>'' AND scope.classifier_version<>''
+		  AND rev.content_digest=$6
 	)`, a.RunID, a.OwnerID, a.SourceMaterialID, a.ReviewedScopeID, a.ContentRevisionID, a.ContentHash).Scan(&valid); err != nil {
 		return err
 	}

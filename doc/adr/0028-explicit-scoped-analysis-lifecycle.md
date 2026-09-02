@@ -76,29 +76,14 @@ serialization, idempotency, the confirmation key, or displayed provenance.
 TOC checklist rows are expanded to persisted extracted-unit references before
 this contract is applied; a TOC row is not a durable unit identity.
 
-### Non-destructive compatibility with the shipped schema
+### Retired classifier compatibility decision (superseded)
 
-The shipped migrations 000022 through 000027 are immutable history. The
-existing source_material_unit_classifications and
-source_material_unit_classification_reasons tables,
-epub_reviewed_scopes.classifier_name, classifier_version, and selection_mode
-columns, their constraints, and historical rows remain on disk and readable.
-This simplification requires no new migration and does not edit, drop, rename,
-or rewrite any shipped table, column, constraint, migration, or historical row.
-
-For a new reviewed-scope insert only, the legacy constrained columns receive
-these private persistence fillers:
-
-- classifier_name = `none`;
-- classifier_version = `none`; and
-- selection_mode = `overridden`.
-
-These values satisfy dormant legacy constraints only. They are never treated as
-a classifier, a recommendation result, or a learner-facing selection mode, and
-they are excluded from the logical scope contract and confirmation key.
-Historical non-sentinel values may still be loaded to preserve relationship
-integrity and historical readability, but the current application does not
-interpret or display them.
+The earlier implementation retained classifier tables and scope columns as
+non-destructive compatibility state and deduplicated equivalent confirmations
+through a confirmation key. That compatibility decision was superseded by
+[ADR 0039](0039-drop-retired-epub-classifier-schema.md) when migration 000043
+removed the retired schema. Shipped migrations 000022 through 000027 remain
+immutable history.
 
 ### Analysis runs
 

@@ -4,7 +4,6 @@ package persistence
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -20,7 +19,10 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	defer store.Close()
 	alice, _ := store.CreateUser(ctx, "scope-alice", false)
 	bob, _ := store.CreateUser(ctx, "scope-bob", false)
-	units := classificationTestUnits()
+	units := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{
+		{ID: domain.EPUBUnitID(0, "one"), Order: 0, SpineIndex: 0, ManifestID: "one", Text: "One", EndOffset: 3},
+		{ID: domain.EPUBUnitID(1, "two"), Order: 1, SpineIndex: 1, ManifestID: "two", Text: "Two", StartOffset: 5, EndOffset: 8},
+	}}
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "scope-book", Title: "Scope", MediaType: "application/epub+zip", ContentHash: "ignored", Content: []byte("One\n\nTwo"), FullText: "One\n\nTwo"}, units)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +31,7 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: units.Units[1].ID, Order: 1}}}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: units.Units[1].ID, Order: 1}}}
 	created, err := store.CreateEPUBReviewedScope(ctx, scope)
 	if err != nil || created.CreatedAt.IsZero() {
 		t.Fatalf("create=%+v err=%v", created, err)
@@ -37,8 +39,8 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	retried := scope
 	retried.ScopeID = uuid.NewString()
 	retried, err = store.CreateEPUBReviewedScope(ctx, retried)
-	if err != nil || retried.ScopeID != scope.ScopeID {
-		t.Fatalf("equivalent scope confirmation was not idempotent: %+v err=%v", retried, err)
+	if err != nil || retried.ScopeID == scope.ScopeID {
+		t.Fatalf("equivalent scope confirmation reused scope: %+v err=%v", retried, err)
 	}
 	loaded, err := store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID)
 	if err != nil || loaded.ScopeID != scope.ScopeID || len(loaded.SelectedUnits) != 1 || loaded.SelectedUnits[0] != scope.SelectedUnits[0] {
@@ -56,35 +58,9 @@ func TestReviewedScopePersistenceIsOwnerScopedAndImmutable(t *testing.T) {
 	if _, err = store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID); err != nil {
 		t.Fatalf("metadata-only update invalidated scope: %v", err)
 	}
-	classificationsV1 := classificationTestResults(snapshotID, units)
-	if err = store.ReplaceEPUBUnitClassifications(ctx, alice.ID, source.ID, classificationsV1); err != nil {
-		t.Fatal(err)
-	}
-	classificationsV2 := classificationTestResults(snapshotID, units)
-	for i := range classificationsV2 {
-		classificationsV2[i].Classifier.Version = "2"
-		classificationsV2[i].Reasons = []domain.EPUBClassificationReason{{Signal: "refined", Message: "A refined deterministic rule matched."}}
-		classificationsV2[i].Category = domain.EPUBCategoryMainMatter
-		classificationsV2[i].Confidence = 95
-		classificationsV2[i].RecommendedInclusion = true
-	}
-	if err = store.ReplaceEPUBUnitClassifications(ctx, alice.ID, source.ID, classificationsV2); err != nil {
-		t.Fatal(err)
-	}
-	historicalClassifications, err := store.GetEPUBUnitClassifications(ctx, alice.ID, source.ID, "deterministic", "1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := range historicalClassifications {
-		historicalClassifications[i].CreatedAt = classificationsV1[i].CreatedAt
-		historicalClassifications[i].UpdatedAt = classificationsV1[i].UpdatedAt
-	}
-	if !reflect.DeepEqual(historicalClassifications, classificationsV1) {
-		t.Fatalf("classifier refinement mutated historical classifications: got=%+v want=%+v", historicalClassifications, classificationsV1)
-	}
 	historicalScope, err := store.GetEPUBReviewedScope(ctx, alice.ID, source.ID, scope.ScopeID)
-	if err != nil || historicalScope.Classifier != scope.Classifier || historicalScope.SourceUnitSnapshot != scope.SourceUnitSnapshot || !reflect.DeepEqual(historicalScope.SelectedUnits, scope.SelectedUnits) {
-		t.Fatalf("classifier refinement mutated historical scope: got=%+v want=%+v err=%v", historicalScope, scope, err)
+	if err != nil || historicalScope.SourceUnitSnapshot != scope.SourceUnitSnapshot || len(historicalScope.SelectedUnits) != len(scope.SelectedUnits) || historicalScope.SelectedUnits[0] != scope.SelectedUnits[0] {
+		t.Fatalf("historical scope changed: got=%+v want=%+v err=%v", historicalScope, scope, err)
 	}
 	foreign := scope
 	foreign.ScopeID = uuid.NewString()

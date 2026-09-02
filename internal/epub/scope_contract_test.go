@@ -22,8 +22,6 @@ func validReviewedScope() (ReviewedScopeSnapshot, ScopeSourceSnapshot) {
 		SourceMaterialID:   "source-1",
 		SourceContent:      domain.EPUBContentRevisionIdentity{RevisionID: "revision:1", Digest: domain.EPUBContentDigest([]byte("epub bytes")), DigestVersion: 1},
 		SourceUnitSnapshot: UnitSnapshotIdentity{SnapshotID: "snapshot:rendition-1", ExtractedUnitsSchemaVersion: ExtractedUnitsSchemaVersion},
-		Classifier:         ClassifierIdentity{Name: "mouseion-epub-structure", Version: "1.0.0"},
-		SelectionMode:      ScopeSelectionRecommended,
 		SelectedUnits:      []SelectedUnitReference{{UnitID: units.Units[1].ID, Order: 1}, {UnitID: units.Units[2].ID, Order: 2}},
 	}
 	source := ScopeSourceSnapshot{OwnerID: scope.OwnerID, SourceMaterialID: scope.SourceMaterialID, SourceContent: scope.SourceContent, SnapshotID: scope.SourceUnitSnapshot.SnapshotID, ExtractedUnits: units}
@@ -80,21 +78,8 @@ func TestReviewedScopeRejectsEmptyUnreadableForeignDuplicateAndUnstableSelection
 	}
 }
 
-func TestReviewedScopeModesVersionsAndLegacyUnavailable(t *testing.T) {
-	for _, mode := range []ScopeSelectionMode{ScopeSelectionRecommended, ScopeSelectionOverridden} {
-		scope, source := validReviewedScope()
-		scope.SelectionMode = mode
-		if err := scope.ValidateAgainst(source); err != nil {
-			t.Fatalf("mode %q: %v", mode, err)
-		}
-	}
-
+func TestReviewedScopeVersionsAndLegacyUnavailable(t *testing.T) {
 	scope, source := validReviewedScope()
-	scope.SelectionMode = "automatic"
-	if err := scope.ValidateAgainst(source); err == nil {
-		t.Fatal("unsupported selection mode accepted")
-	}
-	scope, source = validReviewedScope()
 	scope.SchemaVersion++
 	if err := scope.ValidateAgainst(source); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("unsupported scope version error = %v", err)
@@ -122,7 +107,7 @@ func TestReviewedScopeSerializationIsDeterministicAndContainsNoText(t *testing.T
 		t.Fatalf("serialization changed:\n%s\n%s", first, second)
 	}
 	serialized := string(first)
-	if strings.Contains(serialized, "Readable chapter") || strings.Contains(serialized, `"text"`) {
+	if strings.Contains(serialized, "Readable chapter") || strings.Contains(serialized, `"text"`) || strings.Contains(serialized, `"classifier"`) || strings.Contains(serialized, `"selection_mode"`) {
 		t.Fatalf("browser-authoritative text leaked into scope: %s", serialized)
 	}
 	if strings.Index(serialized, scope.SelectedUnits[0].UnitID) > strings.Index(serialized, scope.SelectedUnits[1].UnitID) {
@@ -134,7 +119,6 @@ func TestReviewedScopeSnapshotModelsImmutableHistory(t *testing.T) {
 	first, source := validReviewedScope()
 	second := first
 	second.ScopeID = "scope:review-2"
-	second.SelectionMode = ScopeSelectionOverridden
 	second.SelectedUnits = []SelectedUnitReference{{UnitID: source.ExtractedUnits.Units[1].ID, Order: 1}}
 	if err := first.ValidateAgainst(source); err != nil {
 		t.Fatal(err)
@@ -144,48 +128,5 @@ func TestReviewedScopeSnapshotModelsImmutableHistory(t *testing.T) {
 	}
 	if first.ScopeID == second.ScopeID || len(first.SelectedUnits) == len(second.SelectedUnits) {
 		t.Fatal("a new review did not remain a distinct immutable snapshot")
-	}
-}
-
-func TestReviewedScopeConfirmationKeyExcludesRequestScopeID(t *testing.T) {
-	first, source := validReviewedScope()
-	key, err := first.ConfirmationKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	second := first
-	second.ScopeID = "scope:retry-request"
-	secondKey, err := second.ConfirmationKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if key != secondKey {
-		t.Fatalf("equivalent confirmations differed: %q != %q", key, secondKey)
-	}
-	second.SelectedUnits = []SelectedUnitReference{{UnitID: source.ExtractedUnits.Units[1].ID, Order: 1}}
-	changedKey, err := second.ConfirmationKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if key == changedKey {
-		t.Fatal("changed selection reused confirmation identity")
-	}
-}
-
-func TestReviewedScopeConfirmationKeyExcludesClassifierAndSelectionMode(t *testing.T) {
-	first, _ := validReviewedScope()
-	key, err := first.ConfirmationKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	changed := first
-	changed.Classifier = ClassifierIdentity{Name: "none", Version: "none"}
-	changed.SelectionMode = ScopeSelectionOverridden
-	changedKey, err := changed.ConfirmationKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if key != changedKey {
-		t.Fatalf("classifier or selection mode changed confirmation identity: %q != %q", key, changedKey)
 	}
 }

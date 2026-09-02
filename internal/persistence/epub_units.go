@@ -14,8 +14,8 @@ import (
 )
 
 // PutSourceMaterialWithExtractedUnits atomically adds an EPUB content revision
-// and extracted snapshot. Existing revisions, units, classifications, and
-// scopes are never rewritten.
+// and extracted snapshot. Existing revisions, units, and scopes are never
+// rewritten.
 func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context, v domain.SourceMaterial, units domain.ExtractedUnits) (out domain.SourceMaterial, err error) {
 	if err = units.ValidateOffsets(v.FullText); err != nil {
 		return out, fmt.Errorf("validate extracted units: %w", err)

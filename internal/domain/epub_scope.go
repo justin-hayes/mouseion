@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const EPUBReviewedScopeSchemaVersion = 1
@@ -22,13 +23,6 @@ func EPUBContentDigest(content []byte) string {
 	return "sha256:" + fmt.Sprintf("%x", digest)
 }
 
-type EPUBScopeSelectionMode string
-
-const (
-	EPUBScopeSelectionRecommended EPUBScopeSelectionMode = "recommended"
-	EPUBScopeSelectionOverridden  EPUBScopeSelectionMode = "overridden"
-)
-
 // EPUBReviewedScopeSnapshot is one immutable learner confirmation. ScopeID
 // identifies this confirmation, not a mutable selection for a source. A later
 // review or reanalysis must create another value with a new ScopeID.
@@ -42,8 +36,6 @@ type EPUBReviewedScopeSnapshot struct {
 	SourceMaterialID   string                      `json:"source_material_id"`
 	SourceContent      EPUBContentRevisionIdentity `json:"source_content_revision"`
 	SourceUnitSnapshot EPUBUnitSnapshotIdentity    `json:"source_unit_snapshot"`
-	Classifier         EPUBClassifierIdentity      `json:"classifier"`
-	SelectionMode      EPUBScopeSelectionMode      `json:"selection_mode"`
 	SelectedUnits      []EPUBSelectedUnitReference `json:"selected_units"`
 	CreatedAt          time.Time                   `json:"-"`
 }
@@ -113,12 +105,6 @@ func (s EPUBReviewedScopeSnapshot) ValidateAgainst(source EPUBScopeSourceSnapsho
 	if source.ExtractedUnits.SchemaVersion != ExtractedUnitsSchemaVersion {
 		return fmt.Errorf("epub: unsupported source extracted-unit schema version %d", source.ExtractedUnits.SchemaVersion)
 	}
-	if !stableToken(s.Classifier.Name) || !stableToken(s.Classifier.Version) {
-		return fmt.Errorf("epub: classifier name and version are required stable tokens")
-	}
-	if s.SelectionMode != EPUBScopeSelectionRecommended && s.SelectionMode != EPUBScopeSelectionOverridden {
-		return fmt.Errorf("epub: invalid scope selection mode %q", s.SelectionMode)
-	}
 	if len(s.SelectedUnits) == 0 {
 		return fmt.Errorf("epub: reviewed scope must select at least one readable unit")
 	}
@@ -180,12 +166,6 @@ func (s EPUBReviewedScopeSnapshot) validateEnvelope() error {
 	if s.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != ExtractedUnitsSchemaVersion {
 		return fmt.Errorf("epub: unsupported source extracted-unit schema version %d", s.SourceUnitSnapshot.ExtractedUnitsSchemaVersion)
 	}
-	if !stableToken(s.Classifier.Name) || !stableToken(s.Classifier.Version) {
-		return fmt.Errorf("epub: classifier name and version are required stable tokens")
-	}
-	if s.SelectionMode != EPUBScopeSelectionRecommended && s.SelectionMode != EPUBScopeSelectionOverridden {
-		return fmt.Errorf("epub: invalid scope selection mode %q", s.SelectionMode)
-	}
 	if len(s.SelectedUnits) == 0 {
 		return fmt.Errorf("epub: reviewed scope must select at least one readable unit")
 	}
@@ -207,24 +187,14 @@ func (s EPUBReviewedScopeSnapshot) validateEnvelope() error {
 	return nil
 }
 
-// ConfirmationKey is the stable identity of a scope confirmation. It includes
-// only the owner, source-content revision, extracted-unit snapshot, and ordered
-// selected units. ScopeID, classifier metadata, and selection mode are
-// intentionally excluded so equivalent confirmations resolve to one revision.
-func (s EPUBReviewedScopeSnapshot) ConfirmationKey() (string, error) {
-	if err := s.validateEnvelope(); err != nil {
-		return "", err
+func stableIdentity(value string) bool {
+	if value == "" {
+		return false
 	}
-	wire := struct {
-		OwnerID        string
-		SourceContent  EPUBContentRevisionIdentity
-		SourceSnapshot EPUBUnitSnapshotIdentity
-		SelectedUnits  []EPUBSelectedUnitReference
-	}{s.OwnerID, s.SourceContent, s.SourceUnitSnapshot, s.SelectedUnits}
-	encoded, err := json.Marshal(wire)
-	if err != nil {
-		return "", err
+	for _, r := range value {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return false
+		}
 	}
-	digest := sha256.Sum256(encoded)
-	return "sha256:" + fmt.Sprintf("%x", digest), nil
+	return true
 }

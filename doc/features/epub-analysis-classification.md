@@ -46,12 +46,12 @@ record explains why the policy was versioned and reviewable.
 
 ## Compatibility
 
-The source_material_unit_classifications and
-source_material_unit_classification_reasons tables remain valid historical
-data. Existing reviewed scopes and analyses may contain
-classifier identity, category, confidence, reasons, or recommendation
-provenance, and must remain readable. Current application behavior does not
-reinterpret or display those values as active selection guidance.
+The historical classifier tables and scope metadata were removed by migration
+000043 after the classifier pipeline was retired. Existing reviewed scopes and
+analyses remain readable through their active source, snapshot, and selected-
+unit identities, but classifier identity, category, confidence, reasons, and
+recommendation provenance are not restorable. Current application behavior
+does not reinterpret or display those values as active selection guidance.
 
 The current scope-review contract is defined by
 [EPUB analysis scope review](epub-analysis-scope-review.md): reliable top-level
