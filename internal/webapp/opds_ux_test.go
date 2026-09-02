@@ -660,22 +660,6 @@ func TestAnalysisResultPageShowsDegradedInsightsWithoutMetrics(t *testing.T) {
 	}
 }
 
-func TestBookAnalysisHistoryLinksCompletedRunsToExactResults(t *testing.T) {
-	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Title: "History", Language: "de"}}
-	history := []domain.AnalysisJob{
-		{ID: 11, DisplayNumber: 2, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-completed", CorpusID: "corpus-completed", AnalysisState: "completed"},
-		{ID: 12, DisplayNumber: 3, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-running", AnalysisState: "running"},
-	}
-	var output bytes.Buffer
-	if err := BookPageWithHistory(domain.User{Username: "learner"}, "csrf", book, nil, false, history, "").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	html := output.String()
-	if !strings.Contains(html, `href="/books/book-history/analyses/run-completed"`) || !strings.Contains(html, `href="/jobs/12"`) {
-		t.Fatalf("analysis history links=%s", html)
-	}
-}
-
 func TestAnalysisHistoryURLRejectsForeignJobs(t *testing.T) {
 	if got := analysisHistoryURL("book-1", domain.AnalysisJob{ID: 9, SourceMaterialID: "book-2", AnalysisState: "running"}); got != "" {
 		t.Fatalf("foreign history URL=%q", got)
@@ -752,12 +736,14 @@ func TestBookPromotesExactResultAsTheSingleNextAction(t *testing.T) {
 	if strings.Contains(html, `action="/books/book-result/analyze"`) {
 		t.Error("completed result rendered a start-analysis form")
 	}
-	if strings.Contains(html, "View operational analysis history") || strings.Contains(html, "Review a new EPUB scope") {
-		t.Error("completed book rendered stale competing analysis actions")
+	for _, unwanted := range []string{"Analyzed scope", "Text profile", "Projected token coverage", "Analysis history", "Generate vocabulary deck"} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("completed book rendered retired content %q", unwanted)
+		}
 	}
 }
 
-func TestNewerFailedAnalysisKeepsHistoricalExactResultLinkWithoutPromotingIt(t *testing.T) {
+func TestNewerFailedAnalysisDoesNotPromoteHistoricalExactResult(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Title: "History", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 52}
 	history := []domain.AnalysisJob{
 		{ID: 52, DisplayNumber: 3, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-failed", AnalysisState: "failed"},
@@ -772,8 +758,8 @@ func TestNewerFailedAnalysisKeepsHistoricalExactResultLinkWithoutPromotingIt(t *
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, `href="/books/book-history/analyses/run-completed"`) || !strings.Contains(html, "Review failed analysis") {
-		t.Fatalf("historical result or current failure missing: %s", html)
+	if !strings.Contains(html, "Review failed analysis") || strings.Contains(html, "Analysis history") || strings.Contains(html, `/books/book-history/analyses/run-completed`) {
+		t.Fatalf("current failure or retired historical result surface is wrong: %s", html)
 	}
 }
 
@@ -804,18 +790,25 @@ func TestAnalyzedBookCoverageSummaryExplainsMetrics(t *testing.T) {
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 10, EligibleTokenCount: 10, ProjectedTokenCount: 40}},
 		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3, Reachable: true}, {TargetPercent: 97, LemmaCount: 4, Reachable: true}, {TargetPercent: 99, LemmaCount: 5}},
 	}
-	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &coverage, false, "").Render(context.Background(), &output); err != nil {
+	history := []domain.AnalysisJob{{ID: 1, SourceMaterialID: book.Source.ID, AnalysisRunID: "run-current", CorpusID: "corpus-current", AnalysisState: "completed"}}
+	if err := BookPageWithHistory(domain.User{Username: "learner"}, "csrf", book, &coverage, false, history, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Analyzed scope", "2 selected units", "scope-264", "Chapter One", "chapter-two.xhtml", "not necessarily to the full EPUB", "Reanalysis", "reuses reviewed scope", "new EPUB scope", "Analysis quality", "do not assign a quality grade", "Empty sentences returned", "1 analyzer-provided sentences contained no tokens", "Text profile", "4", "12.5", "40", "25.0%", "long sentences (&gt;35 tokens)", "40 of 50", "not a difficulty score", "75.0%", "current-known coverage", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas", "graduated by completed campaigns", "unknown vocabulary", "lemmas for 95%", "lemmas for 97%", "Unavailable", "99% cannot be reached with deck-eligible vocabulary", "legacy generated history", "deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "top 10 deck-eligible lemmas", "100.0%", "Projected token coverage", "after top 10 lemmas"} {
+	for _, want := range []string{"Vocabulary coverage", "Current known coverage", "75.0%", "of the analyzed units", "Vocabulary investment", "Additional vocabulary", "lemmas for 95%", "lemmas for 97%", "Unavailable", "99% cannot be reached with deck-eligible vocabulary", "Highest-impact unknown vocabulary", "Haus", "4 occurrences", "Deck preparation", "View analysis result", `/books/book-1/analyses/run-current`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("coverage summary missing %q", want)
 		}
 	}
-	for _, unwanted := range []string{"structural difficulty", "CEFR"} {
+	for _, unwanted := range []string{
+		"Analyzed scope", "Text profile", "Projected token coverage", "Analysis history",
+		"2 selected units", "scope-264", "Chapter One", "chapter-two.xhtml", "not necessarily to the full EPUB",
+		"Reanalysis", "reuses reviewed scope", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas",
+		"graduated by completed campaigns", "legacy generated history", "remaining unknown vocabulary accounts",
+		"top 10 deck-eligible lemmas", "after top 10 lemmas", "How these metrics work", "structural difficulty", "CEFR",
+	} {
 		if strings.Contains(html, unwanted) {
-			t.Errorf("coverage summary includes unsupported claim %q: %s", unwanted, html)
+			t.Errorf("coverage summary includes retired content %q: %s", unwanted, html)
 		}
 	}
 }
@@ -837,31 +830,35 @@ func TestAnalyzedBookDoesNotRenderNonLexicalTopUnknownLemma(t *testing.T) {
 
 func TestAnalyzedBookReportsOnlyEvidenceBackedQualityWarnings(t *testing.T) {
 	tests := []struct {
-		name     string
-		coverage domain.AnalysisCoverage
-		want     string
-		unwanted string
+		name        string
+		coverage    domain.AnalysisCoverage
+		want        string
+		unwanted    string
+		wantOneNote bool
 	}{
 		{
-			name:     "no sentences",
-			coverage: domain.AnalysisCoverage{TextProfile: &domain.TextProfile{}},
-			want:     "No sentences returned.",
-			unwanted: "No vocabulary-analyzable tokens.",
+			name:        "no sentences",
+			coverage:    domain.AnalysisCoverage{TextProfile: &domain.TextProfile{}},
+			want:        "No sentences returned.",
+			unwanted:    "No vocabulary-analyzable tokens.",
+			wantOneNote: true,
 		},
 		{
 			name: "normalized tokens filtered from vocabulary analysis",
 			coverage: domain.AnalysisCoverage{TextProfile: &domain.TextProfile{
 				SentenceCount: 2, NormalizedTokenCount: 12,
 			}},
-			want:     "No vocabulary-analyzable tokens.",
-			unwanted: "No sentences returned.",
+			want:        "No vocabulary-analyzable tokens.",
+			unwanted:    "No sentences returned.",
+			wantOneNote: true,
 		},
 		{
 			name: "complete analyzer output",
 			coverage: domain.AnalysisCoverage{AnalyzableTokenCount: 10, TextProfile: &domain.TextProfile{
 				SentenceCount: 2, NormalizedTokenCount: 12,
 			}},
-			unwanted: "Analysis quality",
+			unwanted:    "Analysis quality",
+			wantOneNote: false,
 		},
 	}
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de"}, AnalysisStatus: "analyzed"}
@@ -877,6 +874,9 @@ func TestAnalyzedBookReportsOnlyEvidenceBackedQualityWarnings(t *testing.T) {
 			}
 			if strings.Contains(html, tt.unwanted) {
 				t.Errorf("page unexpectedly contains %q: %s", tt.unwanted, html)
+			}
+			if got := strings.Count(html, `role="note"`); (tt.wantOneNote && got != 1) || (!tt.wantOneNote && got != 0) {
+				t.Errorf("quality note count=%d, wantOneNote=%t: %s", got, tt.wantOneNote, html)
 			}
 			for _, unsupported := range []string{"analysis is bad", "CEFR", "proficiency level:"} {
 				if strings.Contains(html, unsupported) {
@@ -894,9 +894,14 @@ func TestLegacyAnalyzedBookRequestsReanalysisForAllInsights(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Analysis insights unavailable", "reproducible vocabulary and sentence statistics", "Analyze it again", "coverage, projections, and the structural profile"} {
+	for _, want := range []string{"Analysis insights unavailable", "reproducible vocabulary statistics", "Analyze it again", "current coverage and vocabulary investment"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("legacy page missing %q", want)
+		}
+	}
+	for _, unwanted := range []string{"Text profile", "Projected token coverage", "structural profile", "coverage, projections"} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("legacy page includes retired content %q: %s", unwanted, html)
 		}
 	}
 }

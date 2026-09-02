@@ -550,6 +550,10 @@ func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
 	}
 }
 
+func currentCoverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
+	return []StatItem{{Label: "Current known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage)), Detail: "of the analyzed units"}}
+}
+
 func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {
 	items := make([]StatItem, 0, len(thresholds))
 	for _, threshold := range thresholds {

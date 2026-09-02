@@ -82,12 +82,12 @@ func TestEPUBScopeReviewUsesNativeBulkControlsAndLiveSummary(t *testing.T) {
 	}
 }
 
-func TestBookPageLabelsHistoricalScopedAndLegacyFullTextCorpora(t *testing.T) {
+func TestBookPageOmitsHistoricalScopeDetailsFromCurrentSummary(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-1", Title: "Book", Language: "de", MediaType: "application/epub+zip"}}
 	for _, test := range []struct {
 		name     string
 		coverage domain.AnalysisCoverage
-		want     []string
+		unwanted []string
 	}{
 		{"historical scope", domain.AnalysisCoverage{ReviewedScopeID: "scope-history", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Order: 1, Title: "Kapitel"}}}, []string{"Analyzed scope", "1 selected units", "scope-history", "Kapitel"}},
 		{"legacy full text", domain.AnalysisCoverage{}, []string{"Analyzed scope", "Legacy/full-text scope.", "persisted full-text corpus"}},
@@ -97,9 +97,15 @@ func TestBookPageLabelsHistoricalScopedAndLegacyFullTextCorpora(t *testing.T) {
 			if err := BookPage(domain.User{Username: "learner"}, "csrf", book, &test.coverage, false, "").Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range test.want {
-				if !strings.Contains(output.String(), want) {
-					t.Errorf("book history missing %q: %s", want, output.String())
+			html := output.String()
+			for _, want := range []string{"Vocabulary coverage", "Current known coverage", "of the analyzed units"} {
+				if !strings.Contains(html, want) {
+					t.Errorf("current summary missing %q: %s", want, html)
+				}
+			}
+			for _, unwanted := range test.unwanted {
+				if strings.Contains(html, unwanted) {
+					t.Errorf("current summary includes retired scope detail %q: %s", unwanted, html)
 				}
 			}
 		})
