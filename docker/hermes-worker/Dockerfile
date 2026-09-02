@@ -192,10 +192,7 @@ RUN mkdir -p \
         /home/${USERNAME}/.cache \
         /home/${USERNAME}/.config \
         /home/${USERNAME}/.local/share/opencode \
-        /home/${USERNAME}/go \
-    && chown -R "${USERNAME}:${USERNAME}" \
-        /workspace \
-        /home/${USERNAME}
+        /home/${USERNAME}/go
 
 
 ENV HOME="/home/${USERNAME}"
@@ -243,11 +240,11 @@ RUN set -eux; \
     opencode --version; \
     rg --version
 
-# The smoke test above runs as root, so re-assert ownership (opencode --version
-# initializes its data dir under $HOME) and make the runtime locations writable
-# by any runtime uid: the fixed hermes user OR a host-uid --user override.
-RUN chown -R "${USERNAME}:${USERNAME}" /home/${USERNAME} /workspace \
-    && chmod -R a+rwX /home/${USERNAME} /workspace
+# The smoke test above runs as root (opencode --version initializes its data
+# dir under $HOME), so make the runtime locations world-writable at the end:
+# the container runs as an arbitrary host uid via the host-uid override, and
+# this mode is what grants that uid access to /home/hermes and /workspace.
+RUN chmod -R a+rwX /home/${USERNAME} /workspace
 
 
 USER ${USERNAME}
