@@ -103,7 +103,7 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 		if snapshotErr != nil {
 			t.Fatal(snapshotErr)
 		}
-		scope, scopeErr := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, identifier), Order: 0}}})
+		scope, scopeErr := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, identifier), Order: 0}}})
 		if scopeErr != nil {
 			t.Fatal(scopeErr)
 		}
@@ -248,8 +248,6 @@ func TestScopedAnalysisPersistsCorpusWithRunIdentity(t *testing.T) {
 	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{
 		SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID,
 		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1},
-		Classifier:         domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"},
-		SelectionMode:      domain.EPUBScopeSelectionOverridden,
 		SelectedUnits:      []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "scoped-corpus"), Order: 0}},
 	})
 	if err != nil {

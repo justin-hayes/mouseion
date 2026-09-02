@@ -35,7 +35,7 @@ func TestReviewEPUBScopeHandlerRendersAllOnChecklist(t *testing.T) {
 	}
 }
 
-func TestConfirmEPUBScopeHandlerPersistsClassifierFreeFillerValues(t *testing.T) {
+func TestConfirmEPUBScopeHandlerPersistsSelectedUnits(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	_, units, err := store.GetExtractedUnitSnapshot(nil, fixtures.OwnerID, fixtures.BookID)
 	if err != nil {
@@ -55,8 +55,8 @@ func TestConfirmEPUBScopeHandlerPersistsClassifierFreeFillerValues(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scope.Classifier.Name != "none" || scope.Classifier.Version != "none" || scope.SelectionMode != "overridden" {
-		t.Fatalf("scope classifier contract=%+v mode=%q", scope.Classifier, scope.SelectionMode)
+	if len(scope.SelectedUnits) != 2 {
+		t.Fatalf("selected units=%+v", scope.SelectedUnits)
 	}
 }
 

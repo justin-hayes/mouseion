@@ -600,7 +600,7 @@ func TestAnalysisResultPageUsesExactIdentityAndDocumentedOrder(t *testing.T) {
 		JobID: 370, DisplayNumber: 4,
 		Source:   domain.SourceMaterial{ID: "book-it-370", Title: "Il lettore", Language: "it", MediaType: "application/epub+zip"},
 		Corpus:   domain.Corpus{ID: "corpus-it-370", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Order: 0, Title: "Capitolo primo", ResolvedHref: "capitolo.xhtml"}}},
-		Scope:    domain.EPUBReviewedScopeSnapshot{Classifier: domain.EPUBClassifierIdentity{Name: "epub-classifier", Version: "2"}, SelectionMode: domain.EPUBScopeSelectionRecommended},
+		Scope:    domain.EPUBReviewedScopeSnapshot{},
 		Artifact: domain.NormalizedArtifact{NormalizationProfile: "italian-standard", NormalizationVersion: "1"},
 	}
 	coverage := domain.AnalysisCoverage{

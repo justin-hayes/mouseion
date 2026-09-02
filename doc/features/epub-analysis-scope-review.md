@@ -110,10 +110,10 @@ unknown, duplicate, foreign, stale, or incorrectly ordered references; and
 requires at least one readable unit. The selected unit text is then reloaded
 from persistence for analysis in deterministic spine order.
 
-Confirmation creates or resolves the immutable reviewed-scope revision but
-does not queue analysis. A separate explicit submission creates the analysis
-run bound to that revision. Reconfirming the same logical selection is
-idempotent; a changed selection creates a new scope revision. Existing scopes,
+Confirmation creates a new immutable reviewed-scope revision but does not
+queue analysis. A separate explicit submission creates the analysis run bound
+to that revision. Each confirmation has its own scope identity, including when
+the selected units are equivalent to an earlier confirmation. Existing scopes,
 analyses, corpora, and selected-unit provenance remain immutable and readable.
 
 Confirmation retains the existing guarantees:
@@ -128,12 +128,11 @@ Confirmation retains the existing guarantees:
 
 ## Compatibility and history
 
-Existing reviewed scopes and analyses remain readable, including provenance
-written by the former classifier-led workflow. Dormant classifier tables and
-legacy scope columns remain database compatibility state; current review does
-not interpret or display their historical values. Legacy/full-text analyses
-remain explicitly identifiable and readable, but do not claim the new reviewed
-unit provenance.
+Existing reviewed scopes and analyses remain readable, including their
+selected-unit provenance. Migration 000043 removes the dormant classifier
+tables and legacy scope columns; classifier-era metadata is intentionally not
+restorable. Legacy/full-text analyses remain explicitly identifiable and
+readable, but do not claim the new reviewed-unit provenance.
 
 The stable extracted-unit identity, text, Unicode offsets, title fallback,
 source hrefs, resolved paths, and source-location provenance remain defined by

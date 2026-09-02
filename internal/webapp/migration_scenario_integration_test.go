@@ -315,7 +315,7 @@ func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persist
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewMD5(uuid.Nil, []byte("migration-scope-"+owner+"-"+suffix)).String(), OwnerID: owner, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: units.SchemaVersion}, Classifier: domain.EPUBClassifierIdentity{Name: "migration-fixture", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionRecommended, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: units.Units[0].ID, Order: 0}}}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewMD5(uuid.Nil, []byte("migration-scope-"+owner+"-"+suffix)).String(), OwnerID: owner, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: units.SchemaVersion}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: units.Units[0].ID, Order: 0}}}
 	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err != nil {
 		t.Fatal(err)
 	}

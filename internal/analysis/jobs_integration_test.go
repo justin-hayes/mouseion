@@ -199,7 +199,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: scopedSource.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, Classifier: domain.EPUBClassifierIdentity{Name: "deterministic", Version: "1"}, SelectionMode: domain.EPUBScopeSelectionOverridden, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(1, "unit-1"), Order: 1}, {UnitID: domain.EPUBUnitID(2, "unit-2"), Order: 2}}}
+	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: alice.ID, SourceMaterialID: scopedSource.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(1, "unit-1"), Order: 1}, {UnitID: domain.EPUBUnitID(2, "unit-2"), Order: 2}}}
 	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err != nil {
 		t.Fatal(err)
 	}

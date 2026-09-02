@@ -14,10 +14,10 @@ import (
 // identities with the current extracted-unit snapshot before reusing it.
 func (s *PostgresStore) GetEPUBReviewedScope(ctx context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
 	var scope domain.EPUBReviewedScopeSnapshot
-	err := s.pool.QueryRow(ctx, `SELECT scope.schema_version,scope.scope_id::text,scope.owner_id::text,scope.source_material_id::text,scope.content_revision_id::text,revision.content_digest,revision.digest_version,scope.snapshot_id,scope.extracted_units_schema_version,scope.classifier_name,scope.classifier_version,scope.selection_mode,scope.created_at
+	err := s.pool.QueryRow(ctx, `SELECT scope.schema_version,scope.scope_id::text,scope.owner_id::text,scope.source_material_id::text,scope.content_revision_id::text,revision.content_digest,revision.digest_version,scope.snapshot_id,scope.extracted_units_schema_version,scope.created_at
 		FROM epub_reviewed_scopes scope JOIN source_content_revisions revision ON revision.owner_id=scope.owner_id AND revision.source_material_id=scope.source_material_id AND revision.revision_id=scope.content_revision_id WHERE scope.scope_id=$1 AND scope.owner_id=$2 AND scope.source_material_id=$3`, scopeID, owner, sourceID).Scan(
 		&scope.SchemaVersion, &scope.ScopeID, &scope.OwnerID, &scope.SourceMaterialID, &scope.SourceContent.RevisionID, &scope.SourceContent.Digest, &scope.SourceContent.DigestVersion, &scope.SourceUnitSnapshot.SnapshotID,
-		&scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion, &scope.Classifier.Name, &scope.Classifier.Version, &scope.SelectionMode, &scope.CreatedAt)
+		&scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion, &scope.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.EPUBReviewedScopeSnapshot{}, ErrNotFound
 	}
@@ -67,11 +67,6 @@ func (s *PostgresStore) CreateEPUBReviewedScope(ctx context.Context, scope domai
 	if err = scope.ValidateAgainst(sourceSnapshot); err != nil {
 		return domain.EPUBReviewedScopeSnapshot{}, err
 	}
-	confirmationKey, err := scope.ConfirmationKey()
-	if err != nil {
-		return domain.EPUBReviewedScopeSnapshot{}, err
-	}
-
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.EPUBReviewedScopeSnapshot{}, err
@@ -87,21 +82,7 @@ func (s *PostgresStore) CreateEPUBReviewedScope(ctx context.Context, scope domai
 	if currentSnapshot != scope.SourceUnitSnapshot.SnapshotID || currentRevision != scope.SourceContent.RevisionID {
 		return domain.EPUBReviewedScopeSnapshot{}, domain.ErrEPUBReviewedScopeUnavailable
 	}
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 299))`, confirmationKey); err != nil {
-		return domain.EPUBReviewedScopeSnapshot{}, err
-	}
-	var existingScopeID string
-	err = tx.QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND confirmation_key=$2`, scope.OwnerID, confirmationKey).Scan(&existingScopeID)
-	if err == nil {
-		if err = tx.Commit(ctx); err != nil {
-			return domain.EPUBReviewedScopeSnapshot{}, err
-		}
-		return s.GetEPUBReviewedScope(ctx, scope.OwnerID, scope.SourceMaterialID, existingScopeID)
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return domain.EPUBReviewedScopeSnapshot{}, err
-	}
-	err = tx.QueryRow(ctx, `INSERT INTO epub_reviewed_scopes(scope_id,owner_id,source_material_id,content_revision_id,snapshot_id,confirmation_key,schema_version,extracted_units_schema_version,classifier_name,classifier_version,selection_mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING created_at`, scope.ScopeID, scope.OwnerID, scope.SourceMaterialID, scope.SourceContent.RevisionID, scope.SourceUnitSnapshot.SnapshotID, confirmationKey, scope.SchemaVersion, scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion, scope.Classifier.Name, scope.Classifier.Version, scope.SelectionMode).Scan(&scope.CreatedAt)
+	err = tx.QueryRow(ctx, `INSERT INTO epub_reviewed_scopes(scope_id,owner_id,source_material_id,content_revision_id,snapshot_id,schema_version,extracted_units_schema_version) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING created_at`, scope.ScopeID, scope.OwnerID, scope.SourceMaterialID, scope.SourceContent.RevisionID, scope.SourceUnitSnapshot.SnapshotID, scope.SchemaVersion, scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion).Scan(&scope.CreatedAt)
 	if err != nil {
 		return domain.EPUBReviewedScopeSnapshot{}, fmt.Errorf("persist reviewed scope: %w", err)
 	}
