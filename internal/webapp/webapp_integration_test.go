@@ -233,17 +233,6 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 		if putErr != nil {
 			t.Fatal(putErr)
 		}
-		snapshotID, _, snapshotErr := store.GetExtractedUnitSnapshot(ctx, owner, source.ID)
-		if snapshotErr != nil {
-			t.Fatal(snapshotErr)
-		}
-		classifications := []domain.EPUBUnitClassification{
-			{SchemaVersion: 1, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1, UnitID: units.Units[0].ID}, Category: domain.EPUBCategoryMainMatter, Confidence: 95, Reasons: []domain.EPUBClassificationReason{{Signal: "chapter", Message: "The title identifies a chapter."}}, RecommendedInclusion: true},
-			{SchemaVersion: 1, Classifier: domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion}, SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1, UnitID: units.Units[1].ID}, Category: domain.EPUBCategoryBackMatter, Confidence: 90, Reasons: []domain.EPUBClassificationReason{{Signal: "bibliography", Message: "The title identifies a bibliography."}, {Signal: "spine_back", Message: "The unit is at the end of the readable spine."}}, RecommendedInclusion: false},
-		}
-		if replaceErr := store.ReplaceEPUBUnitClassifications(ctx, owner, source.ID, classifications); replaceErr != nil {
-			t.Fatal(replaceErr)
-		}
 		return source, units
 	}
 	german, germanUnits := createBook(alice.ID, "de", "review-de", "Erstes Kapitel", "bibliography")

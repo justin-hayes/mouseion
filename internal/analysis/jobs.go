@@ -410,14 +410,13 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 	var sourceDigest, sourceRevisionID string
 	var sourceDigestVersion int
 	var scopeSchemaVersion, scopeExtractedUnitsSchemaVersion int
-	var scopeClassifierName, scopeClassifierVersion, scopeSelectionMode string
 
 	err := s.pool.QueryRow(ctx, `SELECT r.id::text,r.owner_id::text,r.source_material_id::text,r.scope_id::text,r.snapshot_id::text,
 		r.analyzer_name,r.analyzer_version,r.config_identity,r.completed_at,
 		j.river_job_id,j.display_number,
 		s.language,s.source_identifier,s.title,s.media_type,rev.content_digest,rev.revision_id::text,rev.digest_version,s.created_at,
 		c.id::text,c.artifact_hash,c.status,c.analyzable_token_count,c.distinct_lemma_count,c.sentence_count,c.normalized_token_count,c.empty_sentence_count,c.median_sentence_token_count,c.p90_sentence_token_count,c.long_sentence_count,c.created_at,
-		scope.schema_version,scope.extracted_units_schema_version,scope.classifier_name,scope.classifier_version,scope.selection_mode,scope.created_at,
+		scope.schema_version,scope.extracted_units_schema_version,scope.created_at,
 		a.language,a.schema_version,a.normalization_profile,a.normalization_version,a.analyzer_name,a.analyzer_version,a.created_at
 		FROM analysis_runs r
 		JOIN analysis_jobs j ON j.owner_id=r.owner_id AND j.analysis_run_id=r.id AND j.source_material_id=r.source_material_id
@@ -432,7 +431,7 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 			&result.JobID, &result.DisplayNumber,
 			&result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &sourceDigest, &sourceRevisionID, &sourceDigestVersion, &sourceCreatedAt,
 			&result.Corpus.ID, &artifactHash, &result.Corpus.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &corpusCreatedAt,
-			&scopeSchemaVersion, &scopeExtractedUnitsSchemaVersion, &scopeClassifierName, &scopeClassifierVersion, &scopeSelectionMode, &scopeCreatedAt,
+			&scopeSchemaVersion, &scopeExtractedUnitsSchemaVersion, &scopeCreatedAt,
 			&artifactLanguage, &artifactSchemaVersion, &artifactProfile, &artifactNormalizationVersion, &artifactAnalyzerName, &artifactAnalyzerVersion, &artifactCreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CompletedAnalysis{}, ErrNotFound
@@ -461,8 +460,6 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 		SourceMaterialID:   result.SourceMaterialID,
 		SourceContent:      domain.EPUBContentRevisionIdentity{RevisionID: sourceRevisionID, Digest: sourceDigest, DigestVersion: sourceDigestVersion},
 		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: result.SnapshotID, ExtractedUnitsSchemaVersion: scopeExtractedUnitsSchemaVersion},
-		Classifier:         domain.EPUBClassifierIdentity{Name: scopeClassifierName, Version: scopeClassifierVersion},
-		SelectionMode:      domain.EPUBScopeSelectionMode(scopeSelectionMode),
 		CreatedAt:          scopeCreatedAt,
 	}
 	result.Artifact = domain.NormalizedArtifact{ContentHash: artifactHash, Language: artifactLanguage, SchemaVersion: artifactSchemaVersion, NormalizationProfile: artifactProfile, NormalizationVersion: artifactNormalizationVersion, AnalyzerName: artifactAnalyzerName, AnalyzerVersion: artifactAnalyzerVersion, CreatedAt: artifactCreatedAt}
