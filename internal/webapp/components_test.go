@@ -35,7 +35,7 @@ func requireMarkup(t *testing.T, html string, fragments ...string) {
 }
 
 func TestPageHeaderPattern(t *testing.T) {
-	html := renderPattern(t, PageHeader("My Books", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<a href="/connections">Add books</a>`)
+	html := renderPattern(t, PageHeader("My Books", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<button type="button">Choose a book</button>`)
 	requireMarkup(t, html,
 		`<header class="page-header">`,
 		`<h1>My Books</h1>`,
@@ -43,7 +43,7 @@ func TestPageHeaderPattern(t *testing.T) {
 		`class="page-header__status"`,
 		`Analyzed`,
 		`<div class="page-header__actions">`,
-		`href="/connections"`,
+		`<button type="button">Choose a book</button>`,
 	)
 }
 
@@ -82,7 +82,7 @@ func TestFeedbackPatterns(t *testing.T) {
 }
 
 func TestEmptyStateAndResourceCardPatterns(t *testing.T) {
-	empty := renderPattern(t, EmptyState("Your library is empty", "Add a book to begin."), `<a href="/connections">Add books</a>`)
+	empty := renderPattern(t, EmptyState("Your library is empty", "Add a book to begin."), `<a href="/connections">Acquire an EPUB</a>`)
 	requireMarkup(t, empty,
 		`class="empty-state"`,
 		`<h2>Your library is empty</h2>`,

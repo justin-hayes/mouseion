@@ -89,8 +89,8 @@ type MetadataItem struct {
 }
 
 // NavigationContext identifies the authenticated shell context. Acquisition
-// is intentionally separate from the three peer destinations so the shell can
-// keep Add books available without presenting it as a destination.
+// remains a page context for catalog and connections workflows, but is not a
+// primary shell destination.
 type NavigationContext string
 
 const (
@@ -122,18 +122,6 @@ func destinationAttributes(context, destination NavigationContext) templ.Attribu
 	if context == destination {
 		attributes["aria-current"] = "page"
 		attributes["class"] = "site-nav__link site-nav__link--current"
-	}
-	return attributes
-}
-
-func acquisitionAttributes(context NavigationContext) templ.Attributes {
-	attributes := templ.Attributes{
-		"class":                "site-nav__action",
-		"data-navigation-role": "workflow-action",
-	}
-	if context == NavigationAcquisition {
-		attributes["aria-current"] = "page"
-		attributes["class"] = "site-nav__action site-nav__action--current"
 	}
 	return attributes
 }
