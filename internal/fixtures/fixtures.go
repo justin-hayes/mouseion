@@ -299,11 +299,6 @@ func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (strin
 		{ID: domain.EPUBUnitID(1, "fixture-002"), Order: 1, SpineIndex: 1, ManifestID: "fixture-002", Title: "Chapter two", Text: second, StartOffset: uint64(len([]rune(text)) + 2), EndOffset: uint64(len([]rune(text)) + 2 + len([]rune(second))), MediaType: "application/xhtml+xml", Linear: true},
 	}}, nil
 }
-func (s *Store) GetEPUBUnitClassifications(context.Context, string, string, string, string) ([]domain.EPUBUnitClassification, error) {
-	return []domain.EPUBUnitClassification{
-		fixtureClassification("fixture-001", 0), fixtureClassification("fixture-002", 1),
-	}, nil
-}
 func (s *Store) GetEPUBReviewedScope(_ context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -644,16 +639,6 @@ func (s *Store) fixtureBookExists(owner, bookID string) bool {
 		}
 	}
 	return false
-}
-
-func fixtureClassification(manifestID string, spineIndex uint64) domain.EPUBUnitClassification {
-	return domain.EPUBUnitClassification{
-		SchemaVersion:      domain.EPUBClassificationSchemaVersion,
-		Classifier:         domain.EPUBClassifierIdentity{Name: epub.ClassifierName, Version: epub.ClassifierVersion},
-		SourceUnitSnapshot: domain.EPUBSourceUnitSnapshotIdentity{SnapshotID: "fixture-snapshot", ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion, UnitID: domain.EPUBUnitID(spineIndex, manifestID)},
-		Category:           domain.EPUBCategoryMainMatter, Confidence: domain.EPUBConfidenceHighMinimum, RecommendedInclusion: true,
-		Reasons: []domain.EPUBClassificationReason{{Signal: "fixture", Message: "Fixture main-matter unit."}},
-	}
 }
 
 func fixtureJobs() []domain.AnalysisJob {

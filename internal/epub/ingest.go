@@ -17,7 +17,6 @@ type Store interface {
 	ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error)
 	LinkSourceToBook(context.Context, string, string, string) error
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
-	ReplaceEPUBUnitClassifications(context.Context, string, string, []domain.EPUBUnitClassification) error
 	PutProcessingHistory(context.Context, domain.ProcessingHistory) (domain.ProcessingHistory, error)
 }
 
@@ -117,17 +116,6 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 	}
 	if err = s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, source, book.Title); err != nil {
 		return ImportResult{}, fmt.Errorf("epub: link source material to My Books: %w", err)
-	}
-	snapshotID, persistedUnits, err := s.store.GetExtractedUnitSnapshot(ctx, ownerID, source.ID)
-	if err != nil {
-		return ImportResult{}, fmt.Errorf("epub: load extracted-unit snapshot: %w", err)
-	}
-	classifications, err := ClassifyUnits(snapshotID, persistedUnits)
-	if err != nil {
-		return ImportResult{}, fmt.Errorf("epub: classify extracted units: %w", err)
-	}
-	if err = s.store.ReplaceEPUBUnitClassifications(ctx, ownerID, source.ID, classifications); err != nil {
-		return ImportResult{}, fmt.Errorf("epub: persist unit classifications: %w", err)
 	}
 	details, err := json.Marshal(struct {
 		SourceMaterialID string    `json:"source_material_id"`

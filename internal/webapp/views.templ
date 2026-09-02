@@ -731,8 +731,6 @@ templ AnalysisResultPageWithPreparation(user domain.User, csrf string, result an
 					{Term: "Analysis configuration", Description: result.ConfigIdentity},
 					{Term: "Normalization", Description: result.Artifact.NormalizationProfile+" · "+result.Artifact.NormalizationVersion},
 					{Term: "Artifact schema", Description: result.Artifact.SchemaVersion},
-					{Term: "Classifier", Description: result.Scope.Classifier.Name+" · "+result.Scope.Classifier.Version},
-					{Term: "Selection mode", Description: string(result.Scope.SelectionMode)},
 				})
 				<p><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", result.JobID)) }>View operational history for analysis job #{ fmt.Sprintf("%d", result.DisplayNumber) }</a></p>
 			</section>
