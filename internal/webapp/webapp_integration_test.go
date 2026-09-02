@@ -867,6 +867,9 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=(SELECT id FROM corpora WHERE owner_id=$1 AND source_material_id=$2) WHERE owner_id=$1 AND id=$3`, alice.ID, recorder.source, runID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) SELECT $1,book_id,$2,$3 FROM source_materials WHERE owner_id=$1 AND id=$2`, alice.ID, recorder.source, runID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash,corpus_id,reviewed_scope_id,analysis_run_id,progress) VALUES(42,1,$1,$2,$3,(SELECT id FROM corpora WHERE owner_id=$1 AND source_material_id=$2),$4,$5,100)`, alice.ID, recorder.source, acquiredSource.ContentHash, scopeID, runID); err != nil {
 		t.Fatal(err)
 	}

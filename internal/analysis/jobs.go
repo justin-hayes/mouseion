@@ -1091,6 +1091,33 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 	if _, err = tx.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3::uuid,progress=100,error='',updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, corpusID); err != nil {
 		return err
 	}
+	// The run lock is acquired before the owner/book lock for every scoped
+	// completion. The book lock serializes replacement of one book's pointer.
+	var bookID string
+	if err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN source_materials s ON s.owner_id=b.owner_id AND s.book_id=b.id AND s.owner_id=$1 AND s.id=$2 WHERE b.owner_id=$1 FOR UPDATE OF b`, a.OwnerID, a.SourceMaterialID).Scan(&bookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if bookID != "" {
+		var eligible bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(
+			SELECT 1
+			FROM analysis_runs r
+			JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id AND s.book_id=$3
+			JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.content_revision_id=r.content_revision_id AND scope.snapshot_id=r.snapshot_id
+			JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.reviewed_scope_id=scope.scope_id AND c.status='complete'
+			WHERE r.owner_id=$1 AND r.id=$2 AND r.state='completed'
+			  AND s.current_content_revision_id=r.content_revision_id AND s.current_snapshot_id=r.snapshot_id
+		)`, a.OwnerID, a.RunID, bookID).Scan(&eligible); err != nil {
+			return err
+		}
+		if eligible {
+			if _, err = tx.Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id,promoted_at)
+				VALUES($1,$2,$3,$4,now())
+				ON CONFLICT(owner_id,book_id) DO UPDATE SET source_material_id=excluded.source_material_id,analysis_run_id=excluded.analysis_run_id,promoted_at=excluded.promoted_at`, a.OwnerID, bookID, a.SourceMaterialID, a.RunID); err != nil {
+				return err
+			}
+		}
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}

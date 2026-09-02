@@ -58,11 +58,40 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || book.AnalysisRunID != r.PathValue("runID") {
-		http.NotFound(w, r)
-		return
+	runID := r.PathValue("runID")
+	redirectSourceID := book.Source.ID
+	if book.AnalysisRunID != runID {
+		jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		found := false
+		for _, job := range jobs {
+			if job.SourceMaterialID == book.Source.ID && job.AnalysisRunID == runID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			http.NotFound(w, r)
+			return
+		}
+		if book.BookID != "" {
+			candidates, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+			if err != nil {
+				fail(w, err)
+				return
+			}
+			for _, candidate := range candidates {
+				if candidate.BookID == book.BookID && candidate.AnalysisRunID != "" {
+					redirectSourceID = candidate.Source.ID
+					break
+				}
+			}
+		}
 	}
-	http.Redirect(w, r, "/books/"+url.PathEscape(book.Source.ID), http.StatusSeeOther)
+	http.Redirect(w, r, "/books/"+url.PathEscape(redirectSourceID), http.StatusSeeOther)
 }
 
 func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary) (*domain.DeckPreparation, deckJourneyActionView, bool) {

@@ -79,11 +79,12 @@ type SourceMaterial struct {
 	CreatedAt                                                                        time.Time
 }
 
-// SourceMaterialSummary adds the learner-facing state and logical analysis
-// identity derived from the latest analysis job and corpus without loading the
-// book's content.
+// SourceMaterialSummary adds the learner-facing state and current-analysis
+// identity without loading the book's content. Analysis IDs are populated only
+// from the owner/book-scoped current-analysis projection.
 type SourceMaterialSummary struct {
 	Source           SourceMaterial
+	BookID           string
 	AnalysisStatus   string
 	AnalysisState    string
 	AnalysisRunID    string

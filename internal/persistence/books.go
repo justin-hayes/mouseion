@@ -41,38 +41,38 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 // is the driving table, so metadata-only Books remain visible; the current
 // acquired source and analysis projection are optional evidence on each row.
 func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner string) ([]domain.MyBook, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
 		SELECT `+qualifiedBookColumns+`,
 		       COALESCE(s.id::text,''),COALESCE(s.owner_id::text,''),COALESCE(s.language,''),COALESCE(s.source_identifier,''),COALESCE(s.title,''),COALESCE(s.media_type,''),
 		       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
 		       s.id IS NOT NULL,
 		       CASE WHEN s.id IS NULL THEN 'not_acquired'
 		            WHEN s.current_content_revision_id IS NULL OR s.current_snapshot_id IS NULL THEN 'unavailable'
-		            WHEN c.id IS NOT NULL AND cr.id IS NOT NULL AND cr.content_revision_id IS DISTINCT FROM s.current_content_revision_id THEN 'stale'
-		            WHEN c.id IS NOT NULL THEN 'analyzed'
+		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
+		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
 		            ELSE 'acquired_unassessed' END,
 		       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
 		            WHEN ar.state = 'failed' THEN 'analysis failed'
 		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
-		            WHEN c.id IS NOT NULL AND cr.id IS NOT NULL AND cr.content_revision_id IS DISTINCT FROM s.current_content_revision_id THEN 'stale'
-		            WHEN c.id IS NOT NULL THEN 'analyzed'
+		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
+		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
 		            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
 		       CASE WHEN ar.state IS NOT NULL THEN ar.state
-		            WHEN c.id IS NOT NULL THEN 'completed'
+		            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
 		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
 		            ELSE '' END,
-		       COALESCE(j.analysis_run_id::text,c.analysis_run_id::text,''),COALESCE(c.id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
+		       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
 		FROM books b
 		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id ORDER BY s.created_at DESC,s.id DESC LIMIT 1) s ON true
+		LEFT JOIN book_current_analyses p ON p.owner_id=b.owner_id AND p.book_id=b.id
+		LEFT JOIN current_analysis ca ON ca.owner_id=b.owner_id AND ca.book_id=b.id
+		LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id ORDER BY CASE WHEN p.source_material_id IS NOT NULL AND s.id=p.source_material_id THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC LIMIT 1) s ON true
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
-		LEFT JOIN LATERAL (SELECT c.id,c.reviewed_scope_id,c.analysis_run_id FROM corpora c WHERE c.owner_id=s.owner_id AND c.source_material_id=s.id ORDER BY c.created_at DESC,c.id DESC LIMIT 1) c ON true
 		LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs j WHERE j.owner_id=s.owner_id AND j.source_material_id=s.id ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 1) j ON true
 		LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-		LEFT JOIN analysis_runs cr ON cr.owner_id=s.owner_id AND cr.id=c.analysis_run_id
 		LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes scope WHERE scope.owner_id=s.owner_id AND scope.source_material_id=s.id ORDER BY scope.created_at DESC,scope.scope_id DESC LIMIT 1) scope ON true
 		WHERE b.owner_id=$1
 		ORDER BY b.title,b.id`, owner)
@@ -104,6 +104,7 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 			}
 			item.Acquired = &domain.SourceMaterialSummary{
 				Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
+				BookID:         item.Book.ID,
 				AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, ReviewedScopeID: reviewedScopeID, ConfirmedScopeID: confirmedScopeID, AnalysisJobID: analysisJobID,
 			}
 		}

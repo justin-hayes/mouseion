@@ -66,7 +66,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadataView = migrationMyBook(t, ctx, store, alice.ID, book.ID)
-	if metadataView.Acquired == nil || metadataView.Acquired.Source.ID != source.ID || metadataView.Book.LanguageState != domain.LanguageChosen {
+	if metadataView.Acquired == nil || metadataView.Acquired.Source.ID != source.ID || metadataView.Acquired.CorpusID != "" || metadataView.Book.LanguageState != domain.LanguageChosen {
 		t.Fatalf("acquisition promotion=%+v", metadataView)
 	}
 
@@ -148,7 +148,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("current versus conditional coverage before finish=%+v err=%v", beforeCoverage, err)
 	}
 	projectionBefore, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
-	if err != nil || len(projectionBefore.LearnerOrder) != 2 || len(projectionBefore.ConditionalAdvisoryOrder) != 2 {
+	if err != nil || len(projectionBefore.LearnerOrder) != 2 || len(projectionBefore.ConditionalAdvisoryOrder) != 0 {
 		t.Fatalf("projection before finish=%+v err=%v", projectionBefore, err)
 	}
 	learnerOrderBefore := []string{projectionBefore.LearnerOrder[0].BookID, projectionBefore.LearnerOrder[1].BookID}

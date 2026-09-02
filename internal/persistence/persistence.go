@@ -447,28 +447,31 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 	return v, err == nil, err
 }
 
-// ListSourceMaterials returns an owner's library with analysis state. A corpus
-// is authoritative for completion; otherwise a non-failed job is analyzing.
+// ListSourceMaterials returns an owner's library with lifecycle state and the
+// owner/book-scoped current analysis. Operational jobs remain visible for
+// status, but never select a learner-facing result.
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
+	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
+		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,COALESCE(s.book_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
 		       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
 		            WHEN ar.state = 'failed' THEN 'analysis failed'
 		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
-		            WHEN c.id IS NOT NULL THEN 'analyzed'
+		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
+		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
 		            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
 		       CASE WHEN ar.state IS NOT NULL THEN ar.state
-		            WHEN c.id IS NOT NULL THEN 'completed'
+		            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
 		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
 		            ELSE '' END,
-		       COALESCE(j.analysis_run_id::text,c.analysis_run_id::text,''),
-		       COALESCE(c.id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
+		       COALESCE(ca.analysis_run_id::text,''),
+		       COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
-		LEFT JOIN LATERAL (SELECT id,reviewed_scope_id,analysis_run_id FROM corpora WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) c ON true
+		LEFT JOIN book_current_analyses p ON p.owner_id=s.owner_id AND p.source_material_id=s.id
+		LEFT JOIN current_analysis ca ON ca.owner_id=p.owner_id AND ca.source_material_id=p.source_material_id
 		LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,river_job_id DESC LIMIT 1) j ON true
 		LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
 		LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,scope_id DESC LIMIT 1) scope ON true
@@ -481,7 +484,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.ReviewedScopeID, &item.ConfirmedScopeID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.ReviewedScopeID, &item.ConfirmedScopeID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)
