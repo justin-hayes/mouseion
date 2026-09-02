@@ -37,6 +37,9 @@ completion** are not primary learner-facing concepts.
 | **Add books** | Persistent shell action that enters catalog setup and browsing. | Import books, ingest books |
 | **Add to My Books** | Add a book Mouseion can identify to the learner's collection without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
+| **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for ready study languages except English. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
+| **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
+| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
@@ -45,6 +48,11 @@ upload unless a shipped route and feature contract support it. The shipped
 acquisition control says **Add to My Books** and creates or restores membership
 after the validated EPUB snapshot is persisted. Historical compatibility
 artifacts may retain **Add to library**.
+
+Connection sync uses complete factual states: **Never synced**, **Syncing**,
+**Last synced**, and **Sync failed**. Always identify the connection and, for
+last-synced or failed states, the relevant time or recovery. Do not use bare
+**Active**, **Ready**, or **Updated** for sync state.
 
 ## Scope and analysis
 
@@ -117,10 +125,16 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
 | **Cannot currently assess** | Mouseion lacks a supported source, language capability, or other prerequisite and should state which. | Unsupported with no explanation |
+| **Language view** | A derived, evidence-only same-language panel over current analyses and known vocabulary. Suitable specific headings include **Analyzed books** and **Coverage across German**. | Corpus, aggregate analysis, language dashboard |
 
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.
+
+The internal feature name **language corpus view** is acceptable in technical
+documents, but the learner-facing surface is never called **Corpus**. `CorpusID`
+and `normalized_corpus_artifacts` already refer to an internal analysis artifact,
+not the learner's My Books collection or language lens.
 
 ## Status and feedback
 
@@ -135,6 +149,7 @@ Use complete, factual labels where space permits:
 - scope review required;
 - ready to analyze;
 - analysis queued, running, failed, cancelled, or result ready;
+- catalogue never synced, syncing, last synced, or sync failed;
 - deck preparing or deck ready;
 - evidence needs review;
 - not assessed;

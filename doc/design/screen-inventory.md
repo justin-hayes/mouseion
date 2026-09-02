@@ -3,7 +3,11 @@
 Status: **Canonical learner-facing screen inventory.** It includes the target
 one-current-analysis contract proposed in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
-unshipped until its implementation issues land. It is not a wireframe,
+unshipped until its implementation issues land. Proposed catalogue-sync,
+collection-browsing, and language-lens surfaces are owned by
+[ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and
+[ADR 0042](../adr/0042-derived-language-corpus-view.md) and are marked planned
+below. It is not a wireframe,
 implementation plan, or persistence contract. Feature documents and ADRs
 continue to own product behavior and historical decision details.
 
@@ -41,8 +45,10 @@ facing queue or plan is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library` | Find a book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Choose as Primary Goal | Empty collection, metadata-only book, acquisition success, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, scope required, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
-| Book detail and analysis insights | Target `GET /books/{id}` | Understand one book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Scope review, analysis status, deck preparation, Journey/Goal action, or prepared artifact | Source unavailable, metadata-only target state, no confirmed scope, scope confirmed, analysis pending/failed/completed, no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
+| My Books | Shipped `GET /library`; planned (Proposed) empty-state catalogue onboarding | Find a book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Choose as Primary Goal | Empty collection with no connections and primary `/connections` action, metadata-only book, acquisition success, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, scope required, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
+| My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the local collection by language or text and move through a large result set. | Book detail or clear/revise controls | Language pills, unknown/no-language bucket, global local search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
+| Per-language lens panel | Planned (Proposed) within `GET /library` language view | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for one language. | `/books/{id}` zoom | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
+| Book detail and analysis insights | Target `GET /books/{id}`; planned (Proposed) metadata refresh | Understand one book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Scope review, analysis status, deck preparation, Journey/Goal action, prepared artifact, or metadata refresh | Source unavailable, metadata-only target state, lazy content acquisition/recovery, no confirmed scope, scope confirmed, analysis pending/failed/completed, no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts, metadata refreshed, upstream entry missing/no-op |
 | Scope review | Current `GET/POST /books/{id}/scope` | Review a calm native checklist of readable EPUB scope choices and confirm an immutable ordered scope. | Book detail | Reliable top-level TOC checklist or flat readable-unit fallback, all choices initially checked, Check all/Uncheck all, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Book detail when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or book detail | Empty history, mixed states, historical/legacy records |
@@ -76,9 +82,10 @@ and recommendation metadata is not a current scope-review surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Acquisition hub / catalog connections | Current `GET/POST /connections` and mutation routes | Add, edit, browse, or remove an owner-scoped OPDS connection. | Catalog browser | No connections, saved/credentialed connection, validation/authentication failure, deletion confirmation/error |
+| Acquisition hub / catalog connections | Current `GET/POST /connections` and mutation routes; planned (Proposed) sync states and **Sync now** | Add, edit, browse, remove, or synchronize an owner-scoped OPDS connection. | Catalog browser, Sync now, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
 | Catalog browser | Current `GET /catalog` with `/opds/language`, `/opds/browse`, and `/opds/search` fragments | Find EPUBs in one ready analysis language without losing feed context. | Add to My Books or book detail | No connection, no ready language, capability discovery degraded, feed loading, breadcrumbs, pagination, search results, empty feed/search, upstream error |
 | Catalog entry acquisition | Embedded current `POST /opds/acquire` result | Add one EPUB-backed book and continue browsing. | Remain in feed or open existing/new book | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
+| Per-book catalogue metadata refresh | Planned (Proposed) action on `GET /books/{id}` with a supporting mutation/status endpoint | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | Book detail | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
 The canonical design label is **Add to My Books** and must not imply analysis,
 Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md).

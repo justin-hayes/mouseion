@@ -61,6 +61,11 @@ list of obligations. Title, author, edition when relevant, and learner intent
 precede analysis status. Processing state appears only to explain available
 evidence or the next relevant action.
 
+The catalogue is browsable by language pills, including an unknown-language
+bucket, and supports paging plus global text search across the local collection.
+For a fresh account, its empty state explains catalogue setup and enters the
+existing **Add books** action; catalogue setup does not become a destination.
+
 ### Reading Journey
 
 **Reading Journey** is a fluid, provisional ordering of learner-selected books
@@ -135,8 +140,16 @@ These objects remain important, but they do not define principal navigation:
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
   graduated through an accepted transition.
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
+- **Catalogue sync** — periodic metadata reconciliation for one learner-owned
+  connection. It is upsert-only and never destructive; content is trusted
+  immutable for sync, so it never invalidates scope or analysis. The target
+  contract is proposed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 - **Study language** — owner-scoped preference selected from capabilities
   advertised as ready by the NLP service.
+- **Language lens** — a derived, evidence-only per-language aggregate over
+  current analyses and known vocabulary. It owns no Book, scope, analysis, or
+  action; [ADR 0042](../adr/0042-derived-language-corpus-view.md) proposes its
+  target contract.
 
 A relationship graph, not a strict containment hierarchy, connects these
 objects. A book can exist without a Journey or Primary Goal. A Journey entry
@@ -162,6 +175,10 @@ Primary Goal is never a separate top-level destination. Analysis jobs, deck
 preparation, catalog connections, and campaign history are supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
+
+**Deferred candidate:** a **Catalogues / Browse** sub-navigation under My Books.
+It is not adopted now; revisit it through the architecture checkpoint below
+once catalogue sync ships.
 
 ## Route and screen hierarchy
 
@@ -403,6 +420,16 @@ restores membership only after the validated source snapshot is persisted.
    [ADR 0040](../adr/0040-one-current-analysis-per-book.md): book detail becomes
    the sole learner-facing insight surface, prior runs remain operational audit
    records, and run-specific result URLs redirect to the book.
+9. **Catalogue sync** is the target contract proposed by
+   [ADR 0041](../adr/0041-catalog-sync-metadata-first.md): each learner-owned
+   connection periodically reconciles metadata for ready study languages except
+   English, without downloading content, deleting local state, or invalidating
+   scope or analysis.
+10. **Derived language corpus lens** is the target contract proposed by
+    [ADR 0042](../adr/0042-derived-language-corpus-view.md): an evidence-only
+    per-language panel starts within My Books and derives aggregates from current
+    analyses and known vocabulary. It may become a destination only after future
+    explicit reconciliation at this checkpoint.
 
 ## Cross-linking rules
 

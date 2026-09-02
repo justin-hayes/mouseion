@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading. It adds books from learner-owned OPDS catalogs, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily on learner intent, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It also supports selective additions from learner-owned OPDS catalogs. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -14,6 +14,10 @@ compatibility route `GET /campaigns` redirects to Reading Journey. Campaign
 history and operations remain available as a secondary section on Reading
 Journey for prepared-deck actions, reading/preparation facts, and vocabulary
 provenance; Campaign is not a second learner-facing plan.
+
+Catalogue synchronization status is an operational part of the learner-owned
+connection surface at `/connections`, with detailed work under `/jobs`; it does
+not change the three destinations or the distinct role of Add books.
 
 Settings owns saved study-language preferences and owner-scoped, language-scoped
 known vocabulary. Known-vocabulary import is explicit and additive: the learner
@@ -34,13 +38,16 @@ disabled until readiness can be checked.
 - [Historical EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — records retired hierarchy, preset, reuse, and comparison behavior.
 - [Historical EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — records the retired recommendation-policy correction work.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
+- [Catalogue Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogues with lazy content acquisition.
+- [My Books Collection Browsing](features/collection-browsing.md) — language grouping, paging, and global local-collection search.
+- [Language Corpus View](features/language-corpus-view.md) — a derived, evidence-only per-language lens over current analyses and known vocabulary.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
 - [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — durable asynchronous Batch execution for optional prepared-deck translation.
 
 ## Current pipeline
 
-1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser.
+1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser. A periodic job per catalogue connection also upserts metadata for ready study languages excluding English, creating metadata-only My Books entries whose content is acquired lazily on learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis.
 2. **Scope review** — show reliable top-level EPUB 3 TOC entries as initially checked checkboxes, or fall back to initially checked readable persisted units in flat spine order; expand choices to the canonical ordered unit set and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights (target; ADR 0040 proposed)** — inspect the book's one current analysis on `/books/{id}`: headline current known coverage with an analyzed-units qualifier, vocabulary investment, highest-impact unknown vocabulary, warning-only quality information, and deck preparation. Prior runs remain operational history in `/jobs`; run-specific result URLs redirect to the book.
@@ -103,6 +110,8 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 38. [ADR 0038: Schema-change governance and migration review policy](adr/0038-schema-change-governance.md) — requires accepted product/architecture shape before consequential SQL, preserves immutable shipped migration history, and defines proportionate additive-field, backfill, staged-rollout, reversion-risk, and destructive-change review gates.
 39. [ADR 0039: Drop retired EPUB classifier schema](adr/0039-drop-retired-epub-classifier-schema.md) — removes dormant classifier tables and scope metadata while preserving reviewed-scope structure and history.
 40. [ADR 0040: One current analysis per book](adr/0040-one-current-analysis-per-book.md) — proposes one book-centered learner analysis surface while retaining prior immutable runs as operational audit history.
+41. [ADR 0041: Catalogue sync is metadata-first and non-destructive](adr/0041-catalog-sync-metadata-first.md) — proposes per-connection ready-language metadata reconciliation, lazy content acquisition, and non-destructive sync.
+42. [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — proposes a private evidence-only language lens over current analyses and known vocabulary.
 
 ## Deployment and operations
 
