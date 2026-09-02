@@ -4,8 +4,13 @@ ARG DEBIAN_VERSION=bookworm
 ARG GO_VERSION=1.24.6
 ARG NODE_MAJOR=22
 ARG PROTOC_VERSION=29.3
+ARG PROTOC_SHA256_AMD64=3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a
+ARG PROTOC_SHA256_ARM64=6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8d0e1ab32
 ARG UV_VERSION=0.8.13
-ARG OPENCODE_VERSION=latest
+ARG OPENCODE_VERSION=1.18.26
+ARG GH_VERSION=2.99.0
+ARG GH_SHA256_AMD64=ed4960225d2833e04a61590d9fa2b5773d147f3aa375459e5466a40c102f3832
+ARG GH_SHA256_ARM64=564eff56a61e8caf193efde16937fba879eb62a3a479c9dd6be2001e7647680b
 
 # ---------------------------------------------------------------------------
 # Go toolchain
@@ -23,6 +28,8 @@ FROM debian:${DEBIAN_VERSION}-slim
 ARG TARGETARCH
 ARG NODE_MAJOR
 ARG PROTOC_VERSION
+ARG PROTOC_SHA256_AMD64
+ARG PROTOC_SHA256_ARM64
 ARG UV_VERSION
 ARG OPENCODE_VERSION
 
@@ -101,29 +108,46 @@ RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh \
 # ---------------------------------------------------------------------------
 
 RUN case "${TARGETARCH}" in \
-        amd64) PROTOC_ARCH=x86_64 ;; \
-        arm64) PROTOC_ARCH=aarch_64 ;; \
+        amd64) PROTOC_ARCH=x86_64; protoc_sha="${PROTOC_SHA256_AMD64}" ;; \
+        arm64) PROTOC_ARCH=aarch_64; protoc_sha="${PROTOC_SHA256_ARM64}" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
     && curl -fsSLo /tmp/protoc.zip \
        "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" \
+    && printf '%s  %s\n' "${protoc_sha}" /tmp/protoc.zip | sha256sum -c - \
     && unzip -q /tmp/protoc.zip -d /usr/local \
     && rm /tmp/protoc.zip
+
+
+# ---------------------------------------------------------------------------
+# protobuf Go generators (required by `make gen`, pinned to repo versions)
+# ---------------------------------------------------------------------------
+
+RUN /usr/local/go/bin/go version >/dev/null 2>&1 \
+    && GOBIN=/usr/local/bin go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 \
+    && GOBIN=/usr/local/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1 \
+    && rm -rf /root/.cache/go-build
 
 
 # ---------------------------------------------------------------------------
 # GitHub CLI
 # ---------------------------------------------------------------------------
 
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-       -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo \
-       "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-       > /etc/apt/sources.list.d/github-cli.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends gh \
-    && rm -rf /var/lib/apt/lists/*
+ARG GH_VERSION
+ARG GH_SHA256_AMD64
+ARG GH_SHA256_ARM64
+
+RUN case "${TARGETARCH}" in \
+        amd64) gh_suffix=amd64; gh_checksum="${GH_SHA256_AMD64}" ;; \
+        arm64) gh_suffix=arm64; gh_checksum="${GH_SHA256_ARM64}" ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSLo /tmp/gh.tar.gz \
+       "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_suffix}.tar.gz" \
+    && printf '%s  %s\n' "${gh_checksum}" /tmp/gh.tar.gz | sha256sum -c - \
+    && tar -xzf /tmp/gh.tar.gz -C /tmp \
+    && install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${gh_suffix}/bin/gh" /usr/local/bin/gh \
+    && rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${gh_suffix}"
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +238,8 @@ RUN set -eux; \
     python3 --version; \
     uv --version; \
     protoc --version; \
+    protoc-gen-go --version; \
+    protoc-gen-go-grpc --version; \
     opencode --version; \
     rg --version
 

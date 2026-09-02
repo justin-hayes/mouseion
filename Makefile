@@ -55,6 +55,8 @@ hermes-worker-smoke:
 		command -v python3 >/dev/null; \
 		command -v uv >/dev/null; \
 		command -v protoc >/dev/null; \
+		command -v protoc-gen-go >/dev/null; \
+		command -v protoc-gen-go-grpc >/dev/null; \
 		command -v opencode >/dev/null; \
 		command -v rg >/dev/null; \
 		git --version; \
@@ -66,6 +68,8 @@ hermes-worker-smoke:
 		python3 --version; \
 		uv --version; \
 		protoc --version; \
+		protoc-gen-go --version; \
+		protoc-gen-go-grpc --version; \
 		opencode --version; \
 		rg --version'
 
