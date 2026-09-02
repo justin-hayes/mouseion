@@ -2,412 +2,59 @@
 
 ## Project overview
 
-Mouseion is a self-hosted Vocabulary Acquisition Tool.
-
-Durable product specifications and architecture decisions live under `doc/`.
-Feature documents define substantial units of product work. Significant
-architectural decisions are recorded as ADRs. GitHub issues define bounded
-implementation work derived from those documents.
-
-The Obsidian vault is for brainstorming and project-management material. It is
-not a canonical source for implementation decisions.
+Mouseion is a self-hosted reading environment for learning foreign languages. Go core web server (`cmd/server`) + Python NLP gRPC service (`nlp/`, Stanza) + PostgreSQL, with River as the durable job queue (analysis, enrichment, catalogue sync, prepared-deck translation). `cmd/fixtureserver` is an in-memory server for Playwright browser smoke tests only — it binds no Postgres/NLP/River.
 
 ## Sources of truth
 
-Mouseion uses the following durable artifacts:
+- Feature documents: `doc/features/` — product behavior, motivation, scope.
+- ADRs: `doc/adr/` — accepted architecture/product decisions; indexed in `doc/product.md`. Add a new ADR to that index when creating one.
+- Design docs: `doc/design/` — read `README.md`, `principles.md`, `design-system.md` before substantial frontend/UX work; don't introduce new UI patterns when an established one exists.
+- `doc/documentation-governance.md` — repo is authoritative for stable decisions; Obsidian vault is planning material and must not be synced back.
+- When docs conflict, executable truth wins; read README + Makefile + CI before assuming anything.
 
-* **Feature documents** define product behavior, motivation, scope, and
-  feature-level requirements.
-* **ADRs** record significant architectural decisions and their rationale.
-* **GitHub issues** define bounded implementation units derived from a feature
-  document and applicable ADRs.
-* **Pull requests** implement and verify individual issues.
+## Commands
 
-The normal development flow is:
+Go 1.24, Python 3.11 (pin `3.11`, not newer — Stanza requires `<3.12`), protoc 29.x, templ pinned to `v0.3.977` (newer templ requires Go >= 1.25).
 
+```sh
+make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
+make gen              # protobuf -> gen/go, gen/python (source of truth: proto/)
+make templ            # templ generate (check in the generated *_templ.go)
+make build            # go build ./... + python compileall
+make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
+make test-integration # go test -tags=integration ./internal/...
+make lint             # go vet ./... + ruff check nlp/src nlp/tests
+make browser-smoke    # Playwright against cmd/fixtureserver
+make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
-feature document
-    -> ADR(s), when architectural decisions are required
-    -> implementation issues
-    -> pull requests
-```
 
-GitHub Milestones may be used for organization but are not required and are
-not a canonical source of product requirements.
-
-When sources disagree, use this precedence:
-
-1. Explicit human instructions
-2. Accepted feature documents and ADRs under `doc/`
-3. The current GitHub issue
-4. This file and applicable nested `AGENTS.md` files
-5. Existing implementation and tests
-6. Non-canonical planning material
-
-Feature documents and ADRs normally answer different questions: feature
-documents specify what the product should do, while ADRs specify significant
-decisions about how it should be built. If they materially conflict, surface
-the conflict rather than silently choosing one.
-
-## Feature planning
-
-Substantial product work should normally begin with a feature document.
-
-When asked to plan implementation of a feature:
-
-1. Read the complete feature document.
-2. Inspect the existing implementation, relevant specifications, tests, and
-   accepted ADRs.
-3. Identify architectural decisions required before implementation.
-4. Record significant architectural decisions as ADRs before implementation
-   issues depend on them.
-5. Decompose the feature into a small set of coherent, independently
-   actionable GitHub issues.
-6. Identify dependencies and an appropriate implementation order.
-7. Ensure that the complete set of issues covers the feature requirements
-   without unnecessary duplication.
-
-Prefer approximately 3–7 substantive issues for a typical feature, but choose
-issue boundaries based on coherent implementation units rather than a target
-count.
-
-Prefer issues that can be implemented and reviewed independently. Avoid
-splitting work mechanically by file, layer, or implementation step when a
-vertical slice would produce a more coherent unit.
-
-Each issue should contain enough context to be executable in a fresh agent
-session. It should reference the relevant feature document and ADRs rather
-than duplicating their complete contents.
-
-Important architectural decisions must be persisted as ADRs rather than
-existing only in an issue or agent conversation.
-
-Do not begin substantial implementation during feature planning unless
-explicitly requested.
-
-## Implementation contract
-
-A GitHub issue is the normal unit of implementation work.
-
-Before changing code:
-
-1. Fetch remote state and start from an up-to-date `origin/main`.
-2. Never commit directly to `main`; use a feature branch or isolated worktree.
-3. Read the complete GitHub issue, including acceptance criteria,
-   dependencies, and referenced decisions.
-4. Read the referenced feature document.
-5. Read referenced ADRs and other directly relevant accepted ADRs.
-6. Inspect nearby implementation and tests before designing changes.
-7. Verify that required predecessor work is available.
-8. Identify whether the task touches a human-review boundary described below.
-
-Treat product requirements in accepted feature documents and architectural
-decisions in accepted ADRs as established constraints.
-
-Do not re-litigate those decisions merely because another design appears
-preferable.
-
-If implementation reveals concrete evidence that an approved requirement or
-architectural decision is incorrect, incomplete, unsafe, or impractical,
-document the evidence and escalate the decision rather than silently departing
-from the documented design.
-
-## Implementation scope
-
-Make the smallest coherent change that completely satisfies the issue.
-
-Prefer changes that:
-
-* satisfy all acceptance criteria;
-* preserve established architecture unless the issue explicitly changes it;
-* follow existing repository patterns;
-* add or update tests for changed behavior;
-* avoid unrelated cleanup and refactoring;
-* keep commits and pull requests reviewable.
-
-Do not expand an issue merely because adjacent improvements are convenient.
-
-When useful work is discovered outside the issue scope, record or propose it
-as follow-up work rather than incorporating it automatically.
-
-If the issue cannot be completed without substantial out-of-scope work,
-surface the dependency before expanding the scope.
-
-Do not implement work assigned to a separate issue merely for convenience,
-unless it is strictly necessary to complete the current issue. If issue
-boundaries prove incorrect, surface that fact rather than silently combining
-multiple issues.
-
-## Coding-agent escalation
-
-Use Codex for repository implementation work.
-
-Choose the Codex profile based on task complexity:
-
-- `fast`: use for small, mechanical, low-risk, tightly specified changes such
-  as documentation edits, lint fixes, straightforward renames, simple tests,
-  and repetitive transformations.
-- `normal`: default for substantive implementation, debugging, refactoring,
-  testing, and feature work.
-- `deep`: use only when a concrete blocker requires stronger reasoning, such
-  as architectural ambiguity, repeated implementation or test failure with
-  `normal`, or unusually difficult cross-cutting debugging.
-
-When uncertain between `fast` and `normal`, use `normal`.
-
-Do not use `deep` merely because a task is large. Keep escalation narrowly
-scoped to resolving the blocker, then return to `normal` for the remaining
-implementation and verification.
-
-## Autonomous implementation
-
-Implementation agents are expected to work autonomously through ordinary
-engineering problems, including:
-
-* locating relevant code;
-* understanding existing patterns;
-* implementing requested behavior;
-* writing and updating tests;
-* resolving ordinary compilation, lint, and test failures;
-* regenerating derived artifacts;
-* inspecting their own diffs;
-* responding to actionable CI failures.
-
-Do not request human input for routine implementation choices that can be
-resolved from the issue, feature document, ADRs, repository, tests, or
-established patterns.
-
-Escalation is appropriate when:
-
-* requirements materially conflict;
-* a significant architectural decision is missing;
-* multiple architectural choices have meaningful long-term consequences;
-* implementation evidence contradicts an accepted design;
-* a required decision crosses a human-review boundary;
-* repeated well-founded implementation attempts fail;
-* security, data integrity, or destructive behavior is uncertain;
-* completing the issue requires substantial unplanned scope.
-
-When escalating, provide a concise summary of:
-
-1. the decision or blocker;
-2. relevant evidence;
-3. approaches already attempted;
-4. viable options and their trade-offs;
-5. the recommended next step.
+Non-obvious setup:
+- `make gen` also needs `protoc` and `protoc-gen-go` on PATH; the Makefile only auto-installs `protoc-gen-go-grpc` v1.5.1 and `grpcio-tools==1.71.2`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
+- Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
+- Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). CI only runs `go test ./...`; verify `-tags=integration` work locally.
+- `make dev` requires a running Postgres (`MOUSEION_DATABASE_URL`) and NLP gRPC (`MOUSEION_NLP_ADDR`, default `localhost:50051`); `MOUSEION_SECRET` is validated at startup.
 
 ## Generated artifacts
 
-Regenerate derived artifacts rather than hand-editing them.
+Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ) and `gen/{go,python}` (protobuf) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`.
 
-* Run `templ generate` for Templ output.
-* Run `make gen` for protobuf output.
+## Schema changes
 
-Generated output must remain committed and reproducible.
-
-After generation, inspect the diff to ensure generated changes correspond to
-the intended source changes.
-
-## Verification
-
-Before considering implementation complete, run the applicable formatter,
-generator, linter, build, unit tests, and integration tests.
-
-Use:
-
-```bash
-export PATH="$HOME/go/bin:$PATH"
-# GitHub Actions runners run as root, but the hermes-worker container runs as
-# the host numeric UID/GID with a `noexec` `/tmp` and an unwritable `/root`.
-# Point the Go scratch dirs at a writable location under the working tree so
-# the same block works in both environments (the Makefile already uses
-# `$(CURDIR)/.tmp/go` for GOTMPDIR).
-mkdir -p "$(pwd)/.tmp/gopath" "$(pwd)/.tmp/go-cache" "$(pwd)/.tmp/go-tmp"
-export GOPATH="$(pwd)/.tmp/gopath" GOCACHE="$(pwd)/.tmp/go-cache" TMPDIR="$(pwd)/.tmp/go-tmp"
-
-templ generate
-git diff --exit-code -- 'internal/webapp/*_templ.go'
-
-make gen
-
-go build ./...
-go vet ./...
-go test ./...
-make lint
-
-git diff --exit-code
-```
-
-Run integration tests with the repository's PostgreSQL/Testcontainers harness
-when the environment supports them.
-
-If a required check cannot run locally:
-
-1. state explicitly which check could not run and why;
-2. run every applicable check that can run locally;
-3. rely on the corresponding required CI job;
-4. do not describe the change as fully verified until that CI job succeeds.
-
-Do not weaken, skip, or modify tests merely to obtain a passing result unless
-the test itself is demonstrably incorrect because of an approved behavior
-change.
-
-## Worker runtime environment
-
-Implementation agents run in the `mouseion-hermes-worker` container (see
-`docker/hermes-worker/Dockerfile`). Non-obvious facts that avoid a failed first
-attempt:
-
-* `gh` (GitHub CLI) is pre-installed and authenticates via the `GH_TOKEN` /
-  `GITHUB_TOKEN` environment variable.
-* `CODEX_HOME=/home/hermes/.codex`; the image makes it world-writable (chmod
-  `0777`) so the numeric runtime UID from `docker_run_as_host_user` can write
-  it. If it is not writable in a given runtime, point `CODEX_HOME` at a
-  writable path such as `/workspace/.tmp/codex-home` before invoking `codex`,
-  otherwise Codex exits with "failed to initialize in-process app-server
-  client: permission denied".
-* The Docker socket (`/var/run/docker.sock`) is mounted and the runtime user is
-  in the docker group, so Testcontainers integration tests run locally
-  **without** a `docker` CLI — just run `go test -tags=integration ./...`.
-  The default CI job runs only `go test ./...` (no integration tag); verify
-  integration locally or in a dedicated job.
-* Authenticate `git` from the environment token instead of editing the remote
-  URL, e.g.:
-  `git config credential.helper '!f() { echo username=x-access-token; echo password="$GITHUB_TOKEN"; }; f'`
-* Fetch all refs with `git fetch origin` (or `git fetch --all --prune`), not
-  `git fetch origin <branch>`, which only updates `FETCH_HEAD` and leaves
-  `refs/remotes/origin/<branch>` stale.
-
-## Completion criteria
-
-An implementation issue is complete only when:
-
-* all acceptance criteria are satisfied;
-* relevant tests have been added or updated;
-* generated artifacts are current;
-* applicable local verification passes;
-* the final diff contains no unintended changes;
-* relevant documentation is updated;
-* the feature branch has been pushed;
-* a pull request references the GitHub issue;
-* required CI checks pass;
-* required human review has been requested.
-
-A passing build alone does not mean an issue is complete.
-
-## Pull-request workflow
-
-After local verification:
-
-1. Inspect the complete diff against `origin/main`.
-2. Confirm that the diff is limited to the intended issue.
-3. Commit using a Conventional Commit message.
-4. Push the feature branch.
-5. Open a pull request referencing the issue.
-6. Summarize the implementation and verification performed.
-7. Explicitly identify anything that could not be verified locally.
-8. Monitor required CI checks.
-9. Investigate actionable CI failures, fix them, push the fix, and rerun the
-   relevant checks.
-10. Request required human review when applicable.
-11. Request auto-merge only when repository policy permits it and all required
-    checks and reviews have passed.
-
-Never bypass branch protection or required review.
+See ADR 0038. Rules an agent will otherwise get wrong:
+- Shipped `migrations/0000NN_*.sql` files are immutable history — never edit, delete, renumber, squash, or consolidate. Corrections are new migrations.
+- Settle consequential shape (new tables/columns, constraints, destructive changes, durable state machines) in an accepted issue/feature doc/ADR before writing SQL; low-risk additive fields are exempt only if non-breaking with one clear consumer.
+- Keep data-only backfills separate from structural DDL and document ownership, idempotency, retry safety, and rollback/recovery.
+- `down` migrations are not assumed safe for destructive production rollback.
 
 ## Human-review boundary
 
-The following paths require human review through CODEOWNERS and must not be
-auto-merged without that review:
+`.github/CODEOWNERS` requires human review for: workflows/CI, `migrations/`, `doc/adr/`, `doc/product.md`, `internal/auth/`, `internal/webauth/`, `internal/security/`, `go.mod`/`go.sum`, `nlp/pyproject.toml`, `nlp/requirements*.txt`, Dockerfiles, compose files, `.env*`, and `AGENTS.md`. PRs touching these must not be auto-merged without that review. Do not modify secrets, production, rulesets, or branch protection.
 
-* `.github/` and CI/workflow configuration
-* database migrations
-* authentication and authorization/security code
-* dependency manifests and lockfiles
-* deployment, infrastructure, and container configuration
-* environment and secret templates
-* `CODEOWNERS`
-* this `AGENTS.md` policy file
+## Repo conventions
 
-Before implementing or reviewing a schema change, use this compact checklist:
-
-* Treat shipped `0000NN_*.sql` migrations as immutable; use a new migration for
-  corrections and never rewrite, squash, renumber, or consolidate history.
-* Confirm that an accepted issue, feature document, or ADR records the product
-  and architecture shape, lifecycle, ownership, compatibility, and rollout
-  decision before implementing any non-trivial table/column, constraint,
-  destructive change, or durable state machine. A low-risk additive field is
-  exempt only when it is non-breaking, has one clear consumer, and has no
-  lifecycle or policy ambiguity.
-* Resolve credible near-term reversion risk in an unshipped shape before merge;
-  do not add a parallel table or column expected to be removed soon. Stop and
-  escalate when the underlying decision is unsettled.
-* Separate data-only backfills from structural DDL when practical and document
-  ownership, run-once versus idempotent behavior, retry safety,
-  transaction/locking impact, failure recovery, and rollback/forward-fix policy.
-* Use expand/backfill/contract or another staged rollout when compatibility or
-  data volume requires it. Require explicit rationale and recovery/backup
-  expectations for irreversible or destructive changes; do not assume down
-  migrations can safely undo production data loss.
-
-An approved issue may modify these paths when required, but the pull request
-must clearly identify the sensitive changes and the human review or decision
-required.
-
-Do not block unrelated independent work merely because another change awaits
-human review.
-
-Never modify secrets, production environments, GitHub rulesets, branch
-protection, or deployment credentials as part of an implementation task.
-
-## Repository conventions
-
-* Use Conventional Commits: `type(scope): imperative summary`.
-* Keep ADRs in `doc/adr/`.
-* Update the product ADR index when adding an ADR.
-* Keep generated output committed and reproducible.
-* Prefer owner-scoped queries and explicit transaction boundaries.
-* Do not conflate exported vocabulary with mastered/known vocabulary.
-* Prefer established repository patterns over introducing new abstractions
-  for a single use case.
-* Comments should explain non-obvious intent or constraints rather than
-  restating code.
-
-## Durable agent knowledge
-
-Agent conversations and session memory are not sources of truth.
-
-Any decision needed by future work must be persisted in the repository or
-GitHub.
-
-Use the appropriate durable artifact:
-
-* product behavior, motivation, and feature-level scope -> feature document;
-* significant architectural decisions and rationale -> ADR;
-* bounded implementation work and acceptance criteria -> GitHub issue;
-* implementation and verification -> pull request.
-
-A fresh agent session must be able to reconstruct the intent and constraints
-of an implementation task from the issue, referenced feature document, ADRs,
-and repository alone.
-
-## Frontend and product design
-
-Before substantial frontend or UX work, read:
-
-* `doc/design/README.md`
-* `doc/design/principles.md`
-* `doc/design/experience-direction.md`
-* `doc/design/design-system.md`
-* `doc/design/information-architecture.md`
-* any relevant workflow or screen documents under `doc/design/`
-
-Project-specific design decisions belong in `doc/design/`, not in agent
-profiles or conversational memory.
-
-When a frontend change introduces a reusable visual or interaction pattern,
-update the relevant design documentation when necessary.
-
-Do not introduce arbitrary new typography, spacing, colors, interaction
-patterns, or UI primitives when an established project pattern already
-exists.
+- Conventional Commits: `type(scope): imperative summary`.
+- Never commit directly to `main`; work on a feature branch and open a PR referencing the issue.
+- Local learner accounts: first sign-in on a fresh install creates the account; there is no admin role and no public-registration setting (ADR 0017/0024).
+- NLP language availability is discovered from the running service (capabilities), not a web-app allowlist. Deployment-supported languages are `de` and `it`; `make dev` default is `de` only.
+- App is meant to be reachable only over the tailnet (plain HTTP, ADR 0009); `MOUSEION_COOKIE_SECURE` only if serving HTTPS.
+- Generated decks and known vocabulary are deliberately separate — generating cards never marks vocabulary as known (ADR 0036).
