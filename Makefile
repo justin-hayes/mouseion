@@ -46,18 +46,32 @@ gen:
 
 hermes-worker-smoke:
 	docker run --rm --entrypoint /bin/sh $(HERMES_WORKER_IMAGE) -ceu '\
+		command -v git >/dev/null; \
+		command -v gh >/dev/null; \
 		command -v go >/dev/null; \
+		command -v node >/dev/null; \
+		command -v npm >/dev/null; \
+		command -v corepack >/dev/null; \
+		command -v python3 >/dev/null; \
+		command -v uv >/dev/null; \
 		command -v protoc >/dev/null; \
 		command -v protoc-gen-go >/dev/null; \
 		command -v protoc-gen-go-grpc >/dev/null; \
-		command -v codex >/dev/null; \
-		command -v gh >/dev/null; \
+		command -v opencode >/dev/null; \
+		command -v rg >/dev/null; \
+		git --version; \
+		gh --version; \
 		go version; \
+		node --version; \
+		npm --version; \
+		corepack --version; \
+		python3 --version; \
+		uv --version; \
 		protoc --version; \
 		protoc-gen-go --version; \
 		protoc-gen-go-grpc --version; \
-		codex --version; \
-		gh --version'
+		opencode --version; \
+		rg --version'
 
 browser-smoke:
 	cd e2e && npm ci --ignore-scripts && npx playwright install chromium && npx playwright test
