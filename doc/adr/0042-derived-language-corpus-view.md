@@ -1,6 +1,6 @@
 # ADR 0042: Derive a per-language corpus view without a persisted corpus object
 
-Status: **Proposed** · Date: 2026-09-02 · Author: Justin + Codex
+Status: **Accepted** · Date: 2026-09-02 · Author: Justin + Codex
 
 ## Context
 

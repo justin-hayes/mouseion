@@ -1,6 +1,6 @@
 # ADR 0041: Catalogue sync is metadata-first and non-destructive
 
-Status: **Proposed** · Date: 2026-09-02 · Author: Justin + Codex
+Status: **Accepted** · Date: 2026-09-02 · Author: Justin + Codex
 
 ## Context
 
