@@ -1,6 +1,6 @@
 # Mouseion Hermes worker image
 
-This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `debian:bookworm-slim` and provides the tools used by Mouseion agent sessions. The image runs as a fixed in-image `hermes` user (uid/gid 10000).
+This is a disposable Docker terminal image for [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/docker). It is based on `debian:bookworm-slim` and provides the tools used by Mouseion agent sessions. Hermes runs the container as the host user's uid/gid (`docker_run_as_host_user`), so the image is uid-agnostic: it pre-creates world-writable runtime locations and ships a non-root `hermes` fallback user.
 
 The installed toolchain is:
 
@@ -15,11 +15,11 @@ The installed toolchain is:
 
 All tool versions are fixed through Dockerfile ARG defaults: `DEBIAN_VERSION`, `GO_VERSION`, `NODE_MAJOR`, `PROTOC_VERSION`, `UV_VERSION`, `OPENCODE_VERSION`, and `GH_VERSION`. The architecture-specific amd64/arm64 checksum ARGs are `PROTOC_SHA256_AMD64`, `PROTOC_SHA256_ARM64`, `GH_SHA256_AMD64`, and `GH_SHA256_ARM64`.
 
-The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. It uses `/workspace` as the mounted checkout. The fixed runtime user is `hermes` (uid/gid 10000), and Hermes runs the container as that user. The runtime locations (`/home/hermes`, `/workspace`, and the XDG directories) are additionally world-writable (mode `a+rwX`), so the image also works when a container orchestrator starts it with a host-uid override (`docker run --user $(id -u):$(id -g)`); ownership is re-asserted to `hermes` at build time.
+The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. It uses `/workspace` as the mounted checkout. Hermes runs the container as the host user's uid/gid (`docker_run_as_host_user`, i.e. `--user $(id -u):$(id -g)`), so the agent can write the host-owned checkout and read host-owned credentials in bind mounts. The image is therefore uid-agnostic: the runtime locations (`/home/hermes`, `/workspace`, and the XDG directories) are world-writable (mode `a+rwX`). The in-image `hermes` user (uid/gid 10000) exists only as a non-root fallback when a container is started without a user override.
 
-OpenCode configuration (for example, `config.json`) lives under `$XDG_CONFIG_HOME/opencode` (`/home/hermes/.config/opencode`). Credentials (`auth.json`) live under `$XDG_DATA_HOME/opencode` (`/home/hermes/.local/share/opencode`); the image pre-creates this directory, owned by the runtime user, so Hermes can bind-mount the host's `~/.local/share/opencode` over it to supply authentication. Hermes may optionally mount the host's `~/.config/opencode` over the image's configuration directory for configuration.
+OpenCode configuration (for example, `config.json`) lives under `$XDG_CONFIG_HOME/opencode` (`/home/hermes/.config/opencode`). Credentials (`auth.json`) live under `$XDG_DATA_HOME/opencode` (`/home/hermes/.local/share/opencode`); the image pre-creates this directory so Hermes can bind-mount the host's `~/.local/share/opencode` over it to supply authentication. Hermes may optionally mount the host's `~/.config/opencode` over the image's configuration directory for configuration.
 
-Credentials must be created on the host with `opencode auth login` — the GitHub Copilot provider accepts **only OAuth tokens**, and Personal Access Tokens are rejected (`Bad Request: checking third-party user token ... Personal Access Tokens are not supported for this endpoint`). The mounted `auth.json` must also be readable by the container's runtime uid; when running as the fixed uid 10000, `chmod 0644 ~/.local/share/opencode/auth.json` on the host. The image ships without credentials, so authenticated operation can only be smoke-tested at runtime, once a credential is mounted: `opencode run 'Respond with exactly: OPENCODE_SMOKE_OK'`.
+Credentials must be created on the host with `opencode auth login` — the GitHub Copilot provider accepts **only OAuth tokens**, and Personal Access Tokens are rejected (`Bad Request: checking third-party user token ... Personal Access Tokens are not supported for this endpoint`). The mounted `auth.json` must be readable by the container's runtime uid — under the host-uid override the host's `0600` file already is (owner matches); only a fixed-uid run (no override) would need looser permissions (e.g. `0644` on the host). The image ships without credentials, so authenticated operation can only be smoke-tested at runtime, once a credential is mounted: `opencode run 'Respond with exactly: OPENCODE_SMOKE_OK'`.
 
 ## Build and smoke-test locally
 
@@ -57,7 +57,7 @@ terminal:
   docker_forward_env: []
 ```
 
-The image uses a fixed in-image user (uid/gid 10000), and Hermes runs it as that user. Because the runtime locations are world-writable, the image also tolerates a host-uid `--user` override if a configuration ever needs one.
+Hermes runs the container as the host user's uid via `docker_run_as_host_user: true` (appended `--user $(id -u):$(id -g)`), matching the ownership of bind-mounted host files and the checkout. The in-image `hermes` user is only a non-root fallback for containers started without a user override.
 
 `container_persistent: false` gives each session a fresh container; `lifetime_seconds` controls how long an idle session is retained before cleanup. The mounted checkout remains the only project filesystem supplied by the operator. Keep `docker_forward_env` empty unless a task specifically needs a credential: forwarded variables and mounted configuration files are readable by code running in the session. The image contains compilers and network-capable tools, so Docker isolation reduces host exposure but is not a substitute for reviewing the workspace and credentials made available to an agent.
 
