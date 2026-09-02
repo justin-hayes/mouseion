@@ -6,6 +6,11 @@ after the validated EPUB snapshot is persisted. My Books can also contain
 metadata-only Books outside this acquisition path. The historical **Add to
 library** label may remain in compatibility artifacts.
 
+The proposed sibling [catalogue sync workflow](catalog-sync.md) automatically
+creates metadata-first My Books entries and acquires content lazily on learner
+intent. This document remains the canonical selective, per-entry manual
+acquisition path; every rule below stays intact.
+
 ## Goal
 
 Help a learner connect a catalog, find books in a language Mouseion can
