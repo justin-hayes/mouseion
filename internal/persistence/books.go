@@ -3,6 +3,8 @@ package persistence
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +15,55 @@ import (
 
 const bookColumns = `id::text,owner_id::text,title,metadata_provenance,language_state,COALESCE(language_tag,''),created_at,updated_at`
 const qualifiedBookColumns = `b.id::text,b.owner_id::text,b.title,b.metadata_provenance,b.language_state,COALESCE(b.language_tag,''),b.created_at,b.updated_at`
+
+const myBooksEvidenceSelect = `SELECT ` + qualifiedBookColumns + `,
+       COALESCE(s.id::text,''),COALESCE(s.owner_id::text,''),COALESCE(s.language,''),COALESCE(s.source_identifier,''),COALESCE(s.title,''),COALESCE(s.media_type,''),
+       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
+       s.id IS NOT NULL,
+       CASE WHEN s.id IS NULL THEN 'not_acquired'
+            WHEN s.current_content_revision_id IS NULL OR s.current_snapshot_id IS NULL THEN 'unavailable'
+            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
+            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
+            ELSE 'acquired_unassessed' END,
+       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
+            WHEN ar.state = 'failed' THEN 'analysis failed'
+            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
+            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
+            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
+            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
+            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
+            ELSE 'not analyzed' END,
+       CASE WHEN ar.state IS NOT NULL THEN ar.state
+            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
+            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
+            WHEN j.river_job_id IS NOT NULL THEN 'queued'
+            ELSE '' END,
+       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)`
+
+const myBooksEvidenceFrom = `
+FROM books b
+JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+LEFT JOIN book_current_analyses p ON p.owner_id=b.owner_id AND p.book_id=b.id
+LEFT JOIN current_analysis ca ON ca.owner_id=b.owner_id AND ca.book_id=b.id
+LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id ORDER BY CASE WHEN p.source_material_id IS NOT NULL AND s.id=p.source_material_id THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC LIMIT 1) s ON true
+LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
+LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs j WHERE j.owner_id=s.owner_id AND j.source_material_id=s.id ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 1) j ON true
+LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
+LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes scope WHERE scope.owner_id=s.owner_id AND scope.source_material_id=s.id ORDER BY scope.created_at DESC,scope.scope_id DESC LIMIT 1) scope ON true`
+
+// LanguageCount is one owner-scoped language pill count. Tag is "unknown"
+// for books whose language state is unknown.
+type LanguageCount struct {
+	Tag   string
+	Count int
+}
+
+type MyBooksBrowseResult struct {
+	Items    []domain.MyBook
+	Total    int
+	Counts   []LanguageCount
+	AllCount int
+}
 
 func scanBook(row pgx.Row) (domain.Book, error) {
 	var b domain.Book
@@ -41,44 +92,109 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 // is the driving table, so metadata-only Books remain visible; the current
 // acquired source and analysis projection are optional evidence on each row.
 func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner string) ([]domain.MyBook, error) {
-	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
-		SELECT `+qualifiedBookColumns+`,
-		       COALESCE(s.id::text,''),COALESCE(s.owner_id::text,''),COALESCE(s.language,''),COALESCE(s.source_identifier,''),COALESCE(s.title,''),COALESCE(s.media_type,''),
-		       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
-		       s.id IS NOT NULL,
-		       CASE WHEN s.id IS NULL THEN 'not_acquired'
-		            WHEN s.current_content_revision_id IS NULL OR s.current_snapshot_id IS NULL THEN 'unavailable'
-		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-		            ELSE 'acquired_unassessed' END,
-		       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
-		            WHEN ar.state = 'failed' THEN 'analysis failed'
-		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
-		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-		            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
-		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
-		            ELSE 'not analyzed' END,
-		       CASE WHEN ar.state IS NOT NULL THEN ar.state
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
-		            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
-		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
-		            ELSE '' END,
-		       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
-		FROM books b
-		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		LEFT JOIN book_current_analyses p ON p.owner_id=b.owner_id AND p.book_id=b.id
-		LEFT JOIN current_analysis ca ON ca.owner_id=b.owner_id AND ca.book_id=b.id
-		LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id ORDER BY CASE WHEN p.source_material_id IS NOT NULL AND s.id=p.source_material_id THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC LIMIT 1) s ON true
-		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
-		LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs j WHERE j.owner_id=s.owner_id AND j.source_material_id=s.id ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 1) j ON true
-		LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-		LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes scope WHERE scope.owner_id=s.owner_id AND scope.source_material_id=s.id ORDER BY scope.created_at DESC,scope.scope_id DESC LIMIT 1) scope ON true
-		WHERE b.owner_id=$1
-		ORDER BY b.title,b.id`, owner)
+	rows, err := s.pool.Query(ctx, currentAnalysisCTE+myBooksEvidenceSelect+myBooksEvidenceFrom+`
+	WHERE b.owner_id=$1
+	ORDER BY b.title,b.id`, owner)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+	return scanMyBookRows(rows)
+}
+
+// ListMyBooksBrowse returns one owner-scoped page of the active My Books
+// collection and counts for its unfiltered language pills. query is trimmed
+// and lowercased, then matched as a case-insensitive literal substring of the
+// locally stored title; backslash, percent, and underscore are escaped before
+// the SQL LIKE expression. It does not tokenize, stem, or query OPDS. language
+// is empty for all languages, "unknown" for the unknown bucket, or otherwise
+// matches a chosen tag case-insensitively. Items are ordered deterministically
+// by lower(title), title, and id, and offset/limit select the requested page.
+func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language string, offset, limit int) (MyBooksBrowseResult, error) {
+	query = strings.ToLower(strings.TrimSpace(query))
+	language = strings.TrimSpace(language)
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 0 {
+		limit = 0
+	}
+
+	where, args := myBooksBrowseWhere(owner, query, language)
+	pageArgs := append(append([]any(nil), args...), limit, offset)
+	pageSQL := currentAnalysisCTE + myBooksEvidenceSelect + myBooksEvidenceFrom + `
+	WHERE ` + where + fmt.Sprintf(`
+	ORDER BY lower(b.title),b.title,b.id
+	LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
+	rows, err := s.pool.Query(ctx, pageSQL, pageArgs...)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	items, err := scanMyBookRows(rows)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+
+	var result MyBooksBrowseResult
+	result.Items = items
+	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE `+where, args...).Scan(&result.Total); err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1`, owner).Scan(&result.AllCount); err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	counts, err := s.pool.Query(ctx, `SELECT CASE WHEN b.language_state='unknown' THEN 'unknown' ELSE lower(b.language_tag) END, count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1 AND b.language_state IN ('chosen','unknown') GROUP BY 1`, owner)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	for counts.Next() {
+		var item LanguageCount
+		if err = counts.Scan(&item.Tag, &item.Count); err != nil {
+			counts.Close()
+			return MyBooksBrowseResult{}, err
+		}
+		result.Counts = append(result.Counts, item)
+	}
+	if err = counts.Err(); err != nil {
+		counts.Close()
+		return MyBooksBrowseResult{}, err
+	}
+	counts.Close()
+	sort.Slice(result.Counts, func(i, j int) bool {
+		if result.Counts[i].Tag == "unknown" {
+			return false
+		}
+		if result.Counts[j].Tag == "unknown" {
+			return true
+		}
+		return result.Counts[i].Tag < result.Counts[j].Tag
+	})
+	return result, nil
+}
+
+func myBooksBrowseWhere(owner, query, language string) (string, []any) {
+	conditions := []string{"b.owner_id=$1", "m.state='active'"}
+	args := []any{owner}
+	if query != "" {
+		args = append(args, escapeLikePattern(query))
+		conditions = append(conditions, fmt.Sprintf(`lower(b.title) LIKE '%%' || $%d || '%%' ESCAPE '\'`, len(args)))
+	}
+	if language != "" {
+		if language == domain.LanguageUnknown {
+			conditions = append(conditions, "b.language_state='unknown'")
+		} else {
+			args = append(args, language)
+			conditions = append(conditions, fmt.Sprintf("b.language_state='chosen' AND lower(b.language_tag)=lower($%d)", len(args)))
+		}
+	}
+	return strings.Join(conditions, " AND "), args
+}
+
+func escapeLikePattern(value string) string {
+	return strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(value)
+}
+
+func scanMyBookRows(rows pgx.Rows) ([]domain.MyBook, error) {
 	defer rows.Close()
 	var out []domain.MyBook
 	for rows.Next() {

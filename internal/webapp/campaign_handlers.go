@@ -20,12 +20,39 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID)
 	if goalErr != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
 	}
+	query, language, page := parseMyBooksBrowseRequest(r.URL)
 	var books []domain.MyBook
 	var err error
+	var browse MyBooksBrowseState
 	if reader, ok := h.services.Store.(interface {
+		ListMyBooksBrowse(context.Context, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
+	}); ok {
+		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, language, myBooksPageOffset(page), myBooksPageSize)
+		err = readErr
+		books = result.Items
+		browse = MyBooksBrowseState{
+			Enabled:         true,
+			Query:           query,
+			Language:        language,
+			AllCount:        result.AllCount,
+			Total:           result.Total,
+			Page:            page,
+			PageCount:       myBooksPageCount(result.Total),
+			TextNoMatch:     query != "" && result.Total == 0 && language == "",
+			CombinedNoMatch: query != "" && language != "" && result.Total == 0,
+		}
+		for _, count := range result.Counts {
+			browse.Counts = append(browse.Counts, MyBooksLanguageCount{Tag: count.Tag, Count: count.Count})
+		}
+		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
+			lastPage := myBooksPageCount(result.Total)
+			http.Redirect(w, r, myBooksBrowseURL(query, language, lastPage), http.StatusSeeOther)
+			return
+		}
+	} else if reader, ok := h.services.Store.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	}); ok {
 		books, err = reader.ListMyBooksWithEvidence(r.Context(), u.ID)
@@ -39,19 +66,23 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
 	connections, err := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false))
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
 	goalBookID := ""
 	if primaryGoalIsActive(goal) {
 		goalBookID = goal.BookID
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0))
+	if isHTMX(r) && browse.Enabled {
+		render(w, r, MyBooksResults(h.csrf(w, r), books, goalBookID, browse))
+		return
+	}
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
 }
 
 func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {

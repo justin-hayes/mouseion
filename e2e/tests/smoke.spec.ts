@@ -16,7 +16,7 @@ test.describe('authenticated learner smoke', () => {
     await page.getByRole('link', { name: /my books/i }).first().click();
     await expect(page).toHaveURL(/\/library/);
     await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
-    await expect(page.locator('section[aria-labelledby="acquired-books-heading"]')).toBeVisible();
+    await expect(page.locator('section#library-results')).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
     await expect(page.locator('a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toBeVisible();

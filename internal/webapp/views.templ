@@ -115,12 +115,17 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
     target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
   }
 };
-document.addEventListener('htmx:afterSwap', function () {
-  ['provisional-journey-list', 'primary-goal-section'].forEach(function (id) {
+document.addEventListener('htmx:afterSwap', function (evt) {
+  ['provisional-journey-list', 'primary-goal-section', 'library-results'].forEach(function (id) {
     var region = document.getElementById(id);
     if (!region) return;
     var focusID = region.getAttribute('data-focus-id');
     if (!focusID) return;
+    var source = evt.detail && evt.detail.elt;
+	if (source && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
+      region.removeAttribute('data-focus-id');
+      return;
+    }
     var focusTarget = document.getElementById(focusID);
     if (focusTarget) focusTarget.focus();
     region.removeAttribute('data-focus-id');
@@ -135,10 +140,103 @@ document.addEventListener('htmx:afterSwap', function () {
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string, hasCatalogueConnections bool) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections)
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
-templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool) {
+templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
+	<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
+		<div class="library-book__identity">
+			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
+				if book.Acquired != nil {
+					<a href={ templ.SafeURL("/books/"+book.Acquired.Source.ID) }>{ book.Book.Title }</a>
+				} else {
+					<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
+				}
+			</h2>
+			<p class="metadata">
+				if book.Book.LanguageState == domain.LanguageChosen {
+					<span>language: { book.Book.LanguageTag }</span>
+				} else {
+					<span>language not chosen</span>
+				}
+				if book.Acquired != nil && book.Acquired.Source.MediaType != "" {
+					<span>{ book.Acquired.Source.MediaType }</span>
+				}
+				if book.Acquired != nil && !book.Acquired.Source.CreatedAt.IsZero() {
+					<span>acquired { book.Acquired.Source.CreatedAt.Format("2006-01-02") }</span>
+				}
+			</p>
+		</div>
+		<div class="library-book__supporting">
+			@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
+			if book.Book.ID == goalBookID {
+				@StatusBadge("Current Primary Goal", StatusInfo)
+				<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
+			}
+			if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+				<p class="metadata">Analysis evidence: { myBookAnalysisLabel(book.Acquired.AnalysisStatus) }</p>
+			}
+			<p class="library-next-action"><strong>Next action:</strong>
+				if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+					{ myBookLifecycleActionFor(book).Status }.
+				}
+				{ myBookLifecycleActionFor(book).Description }
+			</p>
+			<div class="action-group">
+				@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
+				if book.Book.ID != goalBookID {
+					<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+				}
+				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
+					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
+				}
+			</div>
+		</div>
+	</article>
+}
+
+templ MyBooksBrowseLink(query, language string, page int, label string, selected, focusResults bool) {
+	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksBrowseURL(query, language, page)) } hx-get={ myBooksBrowseURL(query, language, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
+}
+
+templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, browse MyBooksBrowseState) {
+	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
+		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
+		if browse.Total == 0 {
+			<p role="status" aria-live="polite" aria-atomic="true">
+				if browse.CombinedNoMatch {
+					No books in your local collection match “{ browse.Query }” with language “{ browse.Language }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksBrowseURL("", "", 1)) } hx-get={ myBooksBrowseURL("", "", 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear filters</a>
+				} else if browse.TextNoMatch {
+					No books in your local collection match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksBrowseURL("", browse.Language, 1)) } hx-get={ myBooksBrowseURL("", browse.Language, 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+				} else if browse.Language != "" {
+					No books in your local collection use the selected language “{ browse.Language }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksBrowseURL(browse.Query, "", 1)) } hx-get={ myBooksBrowseURL(browse.Query, "", 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear filters</a>
+				}
+			</p>
+		} else {
+			<p role="status" aria-live="polite" aria-atomic="true">{ myBooksResultCount(browse.Total) }</p>
+		}
+		if len(books) > 0 {
+			<div class="library-list">
+				for _, book := range books {
+					@MyBookRow(csrf, book, goalBookID)
+				}
+			</div>
+		}
+		if browse.PageCount > 1 {
+			<nav class="library-paging" aria-label="Paging">
+				if browse.Page > 1 {
+					@MyBooksBrowseLink(browse.Query, browse.Language, browse.Page-1, "Previous", false, true)
+				}
+				@MyBooksBrowseLink(browse.Query, browse.Language, browse.Page, fmt.Sprintf("Page %d of %d", browse.Page, browse.PageCount), true, true)
+				if browse.Page < browse.PageCount {
+					@MyBooksBrowseLink(browse.Query, browse.Language, browse.Page+1, "Next", false, true)
+				}
+			</nav>
+		}
+	</section>
+}
+
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
 		@PageHeader("My Books", "Keep the books you care about together with honest evidence for what Mouseion can do next.", nil) {
 			<details id="book-form">
@@ -173,59 +271,29 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				<a href="/connections">Acquire an EPUB</a>
 			}
 		}
-		if len(books) > 0 {
+		if browse.Enabled && browse.AllCount > 0 {
+			<form class="library-search" role="search" method="get" action="/library" hx-get="/library" hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
+				<label for="library-search-query">Search My Books</label>
+				<input id="library-search-query" type="search" name="q" value={ browse.Query }/>
+				<input type="hidden" name="language" value={ browse.Language }/>
+				<button type="submit">Search</button>
+			</form>
+			<nav class="library-language-pills" aria-label="Languages">
+				@MyBooksBrowseLink(browse.Query, "", 1, fmt.Sprintf("All languages (%d)%s", browse.AllCount, myBooksSelectionSuffix(browse.Language == "")), browse.Language == "", false)
+				for _, count := range browse.Counts {
+					if count.Tag == domain.LanguageUnknown {
+						@MyBooksBrowseLink(browse.Query, count.Tag, 1, fmt.Sprintf("Unknown language (%d)%s", count.Count, myBooksSelectionSuffix(myBooksLanguageSelected(browse.Language, count.Tag))), myBooksLanguageSelected(browse.Language, count.Tag), false)
+					} else {
+						@MyBooksBrowseLink(browse.Query, count.Tag, 1, fmt.Sprintf("%s (%d)%s", count.Tag, count.Count, myBooksSelectionSuffix(myBooksLanguageSelected(browse.Language, count.Tag))), myBooksLanguageSelected(browse.Language, count.Tag), false)
+					}
+				}
+			</nav>
+			@MyBooksResults(csrf, books, goalBookID, browse)
+		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">
 				<h2 id="acquired-books-heading">Books in My Books</h2>
 				for _, book := range books {
-					<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-						<div class="library-book__identity">
-							<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
-								if book.Acquired != nil {
-									<a href={ templ.SafeURL("/books/"+book.Acquired.Source.ID) }>{ book.Book.Title }</a>
-								} else {
-									{ book.Book.Title }
-								}
-							</h2>
-							<p class="metadata">
-								if book.Book.LanguageState == domain.LanguageChosen {
-									<span>language: { book.Book.LanguageTag }</span>
-								} else {
-									<span>language not chosen</span>
-								}
-								if book.Acquired != nil && book.Acquired.Source.MediaType != "" {
-									<span>{ book.Acquired.Source.MediaType }</span>
-								}
-								if book.Acquired != nil && !book.Acquired.Source.CreatedAt.IsZero() {
-									<span>acquired { book.Acquired.Source.CreatedAt.Format("2006-01-02") }</span>
-								}
-							</p>
-						</div>
-						<div class="library-book__supporting">
-							@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
-							if book.Book.ID == goalBookID {
-								@StatusBadge("Current Primary Goal", StatusInfo)
-								<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
-							}
-							if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
-								<p class="metadata">Analysis evidence: { myBookAnalysisLabel(book.Acquired.AnalysisStatus) }</p>
-							}
-							<p class="library-next-action"><strong>Next action:</strong>
-								if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
-									{ myBookLifecycleActionFor(book).Status }.
-								}
-								{ myBookLifecycleActionFor(book).Description }
-							</p>
-							<div class="action-group">
-								@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
-								if book.Book.ID != goalBookID {
-									<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
-								}
-								@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
-									<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
-								}
-							</div>
-						</div>
-					</article>
+					@MyBookRow(csrf, book, goalBookID)
 				}
 			</section>
 		}
