@@ -6,35 +6,30 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
-
-func testCompletedAnalysisForDeck() analysis.CompletedAnalysis {
-	return analysis.CompletedAnalysis{
-		RunID: "run-deck-372", SourceMaterialID: "book-deck-372", ScopeID: "scope-deck-372",
-		Source: domain.SourceMaterial{ID: "book-deck-372", Title: "The Exact Book", Language: "de"},
-		Corpus: domain.Corpus{ID: "corpus-deck-372", SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "unit-1", Title: "Chapter One"}}},
-	}
-}
 
 func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string {
 	t.Helper()
 	var output bytes.Buffer
+	book := domain.SourceMaterialSummary{
+		Source:         domain.SourceMaterial{ID: "book-deck-372", Title: "The Exact Book", Language: "de"},
+		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-deck-372", CorpusID: "corpus-deck-372",
+	}
 	journeyAction := emptyDeckJourneyAction()
 	if preparation != nil && preparation.State == domain.DeckPreparationReady {
 		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
 	}
-	if err := AnalysisResultPageWithPreparation(domain.User{Username: "learner"}, "csrf-372", testCompletedAnalysisForDeck(), nil, true, preparation, journeyAction).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithHistoryAndPreparation(domain.User{Username: "learner"}, "csrf-372", book, nil, true, nil, "", preparation, journeyAction).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	return output.String()
 }
 
-func TestAnalysisResultProvidesExactNativeDeckPreparationForm(t *testing.T) {
+func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
 	html := renderDeckResult(t, nil)
 	for _, want := range []string{
-		`method="post" action="/books/book-deck-372/analyses/run-deck-372/deck/preparations"`,
+		`method="post" action="/books/book-deck-372/deck/preparations"`,
 		`name="external_translation_consent"`,
 		"English translation is optional",
 		"sends each selected lemma and its example sentence",
@@ -60,7 +55,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "queued",
 			prep: domain.DeckPreparation{ID: "prep-queued", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationQueued, Phase: "queued"},
-			want: []string{"Deck preparation queued", "The exact analysis is queued", `action="/deck-preparations/prep-queued/cancel"`, "Return to analysis result"},
+			want: []string{"Deck preparation queued", "The exact analysis is queued", `action="/deck-preparations/prep-queued/cancel"`},
 			omit: []string{"Retry preparation", "Download deck"},
 		},
 		{
@@ -100,7 +95,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 					t.Errorf("status unexpectedly contains %q: %s", unwanted, statusHTML)
 				}
 			}
-			if test.name == "ready" && strings.Contains(html, `method="post" action="/books/book-deck-372/analyses/run-deck-372/deck/preparations"`) {
+			if test.name == "ready" && strings.Contains(html, `method="post" action="/books/book-deck-372/deck/preparations"`) {
 				t.Error("ready preparation unexpectedly retained the submission form")
 			}
 		})

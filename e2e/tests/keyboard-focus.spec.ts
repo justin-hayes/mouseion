@@ -98,11 +98,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByText('Analysis scope saved')).toBeVisible();
   });
 
-  test('exact result leads to preparation and terminal polling stops', async ({ page }) => {
+  test('book page leads to preparation and terminal polling stops', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page.getByRole('heading', { name: 'Analysis result' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Prepare deck' })).toBeVisible();
+    await page.goto('/books/fixture-book');
+    await expect(page.getByRole('heading', { name: 'Deck preparation' })).toBeVisible();
     const preparation = page.locator('[data-deck-preparation]');
     await expect(preparation).toHaveAttribute('role', 'status');
     await expect(preparation).toHaveAttribute('aria-live', 'polite');
@@ -134,7 +133,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book/analyses/fixture-run');
+    await page.goto('/books/fixture-book');
     let state = 'queued';
     await page.route('**/deck-preparations/fixture-preparation/status', (route) => {
       if (route.request().headers()['hx-request'] === 'true') {

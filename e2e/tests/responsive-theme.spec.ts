@@ -13,7 +13,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/books/fixture-book', /Der lange Weg nach Hause/],
   ['/books/fixture-book/scope', /Review analysis scope/],
   ['/jobs/42', /Analysis job #1/],
-  ['/books/fixture-book/analyses/fixture-run', /Analysis result/],
+  ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Analysis jobs/],
   ['/connections', /Add books/],
@@ -67,8 +67,8 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('dense analysis, campaign history, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page.locator('.stat-group__value').filter({ hasText: '123456' })).toBeVisible();
+    await page.goto('/books/fixture-book');
+    await expect(page.locator('.stat-group__value').filter({ hasText: '37.0%' })).toBeVisible();
     await expect(page.getByText('Randlemma-18')).toBeVisible();
     await expect(page.locator('.top-unknown li')).toHaveCount(18);
     await expect(page.locator('.stat-group').last()).toBeVisible();
@@ -102,8 +102,8 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
-    await page.goto('/books/fixture-book/analyses/fixture-run');
-    const resultActions = await page.locator('[aria-labelledby="result-deck-heading"] button, [aria-labelledby="result-deck-heading"] a[role="button"]').evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim()));
+    await page.goto('/books/fixture-book');
+    const resultActions = await page.locator('[aria-labelledby="deck-preparation-heading"] button, [aria-labelledby="deck-preparation-heading"] a[role="button"]').evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim()));
     expect(resultActions[0]).toMatch(/Prepare deck|Download deck/);
   });
 

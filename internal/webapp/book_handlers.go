@@ -45,61 +45,51 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			bookHistory = append(bookHistory, job)
 		}
 	}
-	render(w, r, BookPageWithHistory(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message")))
+	preparation, journeyAction, ok := h.currentBookPreparation(w, r, u.ID, summary)
+	if !ok {
+		return
+	}
+	render(w, r, BookPageWithHistoryAndPreparation(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message"), preparation, journeyAction))
 }
 
 func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
-	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
+	u := user(r)
+	book, ok := h.loadBookID(w, r, u.ID, r.PathValue("id"))
 	if !ok {
+		return
+	}
+	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || book.AnalysisRunID != r.PathValue("runID") {
 		http.NotFound(w, r)
 		return
 	}
-	u := user(r)
-	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, r.PathValue("id"), r.PathValue("runID"))
-	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
+	http.Redirect(w, r, "/books/"+url.PathEscape(book.Source.ID), http.StatusSeeOther)
+}
+
+func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary) (*domain.DeckPreparation, deckJourneyActionView, bool) {
+	journeyAction := emptyDeckJourneyAction()
+	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || h.services.PreparedDeck == nil {
+		return nil, journeyAction, true
+	}
+	reader, ok := h.services.PreparedDeck.(PreparedDeckForAnalysis)
+	if !ok {
+		return nil, journeyAction, true
+	}
+	preparation, err := reader.GetForAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return nil, journeyAction, true
 	}
 	if err != nil {
-		fail(w, err)
-		return
+		handlePreparationError(w, r, err)
+		return nil, journeyAction, false
 	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != r.PathValue("id") || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
-		http.NotFound(w, r)
-		return
-	}
-	var preparation *domain.DeckPreparation
-	if reader, ok := h.services.PreparedDeck.(PreparedDeckForAnalysis); ok {
-		value, preparationErr := reader.GetForAnalysis(r.Context(), u.ID, result.SourceMaterialID, result.RunID)
-		if preparationErr == nil {
-			preparation = &value
-		} else if !errors.Is(preparationErr, persistence.ErrNotFound) {
-			handlePreparationError(w, r, preparationErr)
-			return
-		}
-	}
-	var coverage *domain.AnalysisCoverage
-	statisticsUnavailable := h.services.AnalysisInsights == nil
-	if h.services.AnalysisInsights != nil {
-		value, coverageErr := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, result.Corpus.ID)
-		if errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
-			statisticsUnavailable = true
-		} else if coverageErr != nil {
-			fail(w, coverageErr)
-			return
-		} else {
-			coverage = &value
-		}
-	}
-	journeyAction := emptyDeckJourneyAction()
-	if preparation != nil && preparation.State == domain.DeckPreparationReady {
-		journeyAction, err = h.deckJourneyAction(r.Context(), u.ID, preparation.ID, preparation.SourceMaterialID)
+	if preparation.State == domain.DeckPreparationReady {
+		journeyAction, err = h.deckJourneyAction(r.Context(), owner, preparation.ID, preparation.SourceMaterialID)
 		if err != nil {
 			fail(w, err)
-			return
+			return nil, journeyAction, false
 		}
 	}
-	render(w, r, AnalysisResultPageWithPreparation(u, h.csrf(w, r), result, coverage, statisticsUnavailable, preparation, journeyAction))
+	return &preparation, journeyAction, true
 }
 
 type tocScopeView struct {
