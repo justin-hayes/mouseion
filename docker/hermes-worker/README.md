@@ -15,9 +15,11 @@ The installed toolchain is:
 
 All tool versions are fixed through Dockerfile ARG defaults: `DEBIAN_VERSION`, `GO_VERSION`, `NODE_MAJOR`, `PROTOC_VERSION`, `UV_VERSION`, `OPENCODE_VERSION`, and `GH_VERSION`. The architecture-specific amd64/arm64 checksum ARGs are `PROTOC_SHA256_AMD64`, `PROTOC_SHA256_ARM64`, `GH_SHA256_AMD64`, and `GH_SHA256_ARM64`.
 
-The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. It uses `/workspace` as the mounted checkout. The fixed runtime user is `hermes` (uid/gid 10000), and Hermes runs the container as that user.
+The image does not copy the Mouseion checkout, Hermes sessions, credentials, or provider secrets. It uses `/workspace` as the mounted checkout. The fixed runtime user is `hermes` (uid/gid 10000), and Hermes runs the container as that user. The runtime locations (`/home/hermes`, `/workspace`, and the XDG directories) are additionally world-writable (mode `a+rwX`), so the image also works when a container orchestrator starts it with a host-uid override (`docker run --user $(id -u):$(id -g)`); ownership is re-asserted to `hermes` at build time.
 
 OpenCode configuration (for example, `config.json`) lives under `$XDG_CONFIG_HOME/opencode` (`/home/hermes/.config/opencode`). Credentials (`auth.json`) live under `$XDG_DATA_HOME/opencode` (`/home/hermes/.local/share/opencode`); the image pre-creates this directory, owned by the runtime user, so Hermes can bind-mount the host's `~/.local/share/opencode` over it to supply authentication. Hermes may optionally mount the host's `~/.config/opencode` over the image's configuration directory for configuration.
+
+Credentials must be created on the host with `opencode auth login` — the GitHub Copilot provider accepts **only OAuth tokens**, and Personal Access Tokens are rejected (`Bad Request: checking third-party user token ... Personal Access Tokens are not supported for this endpoint`). The mounted `auth.json` must also be readable by the container's runtime uid; when running as the fixed uid 10000, `chmod 0644 ~/.local/share/opencode/auth.json` on the host. The image ships without credentials, so authenticated operation can only be smoke-tested at runtime, once a credential is mounted: `opencode run 'Respond with exactly: OPENCODE_SMOKE_OK'`.
 
 ## Build and smoke-test locally
 
@@ -43,20 +45,23 @@ terminal:
   cwd: /workspace
   docker_image: ghcr.io/OWNER/REPOSITORY/hermes-worker:latest
   docker_mount_cwd_to_workspace: true
-  # Mount the host's authoritative OpenCode config + auth over the image's
-  # /home/hermes/.config/opencode. Add :ro if sessions must not write it.
+  # Mount the host's authoritative OpenCode config and credentials. Auth
+  # (auth.json) lives in ~/.local/share/opencode and must be readable by the
+  # container's runtime uid (see the security note). Add :ro if sessions must
+  # not write them back.
   docker_volumes:
     - "$HOME/.config/opencode:/home/hermes/.config/opencode"
+    - "$HOME/.local/share/opencode:/home/hermes/.local/share/opencode"
   container_persistent: false
   lifetime_seconds: 300
   docker_forward_env: []
 ```
 
-The image uses a fixed in-image user (uid/gid 10000), and Hermes runs it as that user. The operator's Hermes configuration was updated to match; host-uid run flags were removed.
+The image uses a fixed in-image user (uid/gid 10000), and Hermes runs it as that user. Because the runtime locations are world-writable, the image also tolerates a host-uid `--user` override if a configuration ever needs one.
 
 `container_persistent: false` gives each session a fresh container; `lifetime_seconds` controls how long an idle session is retained before cleanup. The mounted checkout remains the only project filesystem supplied by the operator. Keep `docker_forward_env` empty unless a task specifically needs a credential: forwarded variables and mounted configuration files are readable by code running in the session. The image contains compilers and network-capable tools, so Docker isolation reduces host exposure but is not a substitute for reviewing the workspace and credentials made available to an agent.
 
-> **Security note:** mounting `~/.config/opencode` makes the host's OpenCode credentials (`auth.json`) readable — and, with a read-write mount, writable — inside the container. Only mount a configuration directory you trust agents to see; use `:ro` (for example, `"$HOME/.config/opencode:/home/hermes/.config/opencode:ro"`) if sessions should read configuration but not write it back.
+> **Security note:** mounting the host's OpenCode directories exposes its `auth.json` credentials inside the container — readable, and with a read-write mount writable. Only mount directories you trust agents to see; use `:ro` (for example, `"$HOME/.local/share/opencode:/home/hermes/.local/share/opencode:ro"`) if sessions should read credentials but not write them back.
 
 The GHCR package should remain **Private** in its package settings. The publishing workflow uses its job-scoped `GITHUB_TOKEN` with `packages: write`. To pull it locally, authenticate with a GitHub classic personal access token that has only `read:packages` (and repository access):
 

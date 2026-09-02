@@ -107,7 +107,7 @@ RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh \
 # protoc
 # ---------------------------------------------------------------------------
 
-RUN case "${TARGETARCH}" in \
+RUN case "${TARGETARCH:-amd64}" in \
         amd64) PROTOC_ARCH=x86_64; protoc_sha="${PROTOC_SHA256_AMD64}" ;; \
         arm64) PROTOC_ARCH=aarch_64; protoc_sha="${PROTOC_SHA256_ARM64}" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -137,7 +137,7 @@ ARG GH_VERSION
 ARG GH_SHA256_AMD64
 ARG GH_SHA256_ARM64
 
-RUN case "${TARGETARCH}" in \
+RUN case "${TARGETARCH:-amd64}" in \
         amd64) gh_suffix=amd64; gh_checksum="${GH_SHA256_AMD64}" ;; \
         arm64) gh_suffix=arm64; gh_checksum="${GH_SHA256_ARM64}" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -242,6 +242,12 @@ RUN set -eux; \
     protoc-gen-go-grpc --version; \
     opencode --version; \
     rg --version
+
+# The smoke test above runs as root, so re-assert ownership (opencode --version
+# initializes its data dir under $HOME) and make the runtime locations writable
+# by any runtime uid: the fixed hermes user OR a host-uid --user override.
+RUN chown -R "${USERNAME}:${USERNAME}" /home/${USERNAME} /workspace \
+    && chmod -R a+rwX /home/${USERNAME} /workspace
 
 
 USER ${USERNAME}
