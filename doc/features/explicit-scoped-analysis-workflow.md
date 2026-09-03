@@ -15,27 +15,30 @@ results, and prepare a deck through distinct, durable, reproducible steps.
 
 ## Learner journey
 
-1. Browse an owner-scoped OPDS catalog.
-2. Add an EPUB to My Books without starting analysis or leaving the browser.
-3. Open the book, review its extracted units, and confirm a scope revision.
-4. Explicitly start asynchronous analysis for that confirmed scope.
-5. Observe queued, running, completed, failed, or cancelled status; retry a
+1. Connect a learner-owned catalogue from the My Books empty state, choose a
+   ready study language, and synchronize metadata.
+2. Browse the local My Books collection and open a metadata-only Book.
+3. Acquire that Book's EPUB content without starting analysis.
+4. Review its extracted units and confirm a scope revision.
+5. Explicitly start asynchronous analysis for that confirmed scope.
+6. Observe queued, running, completed, failed, or cancelled status; retry a
    failed or cancelled run when allowed.
-6. Inspect the book's single current analysis on the book page.
-7. Request asynchronous deck preparation there; the request remains bound to
+7. Inspect the book's single current analysis on the book page.
+8. Request asynchronous deck preparation there; the request remains bound to
    that completed analysis internally.
-8. Observe preparation status and download the immutable ready APKG.
+9. Observe preparation status and download the immutable ready APKG.
 
 The identity and state contracts for these resources are normative in
 [ADR 0028](../adr/0028-explicit-scoped-analysis-lifecycle.md).
 
-## OPDS intake
+## My Books and content acquisition
 
 - Each acquisition control says **Add to My Books**, not **Import & analyze**. Historical **Add to library** copy may still appear in older screenshots or compatibility strings.
-- A successful add updates that entry in place and preserves the current feed,
-  pagination, filters, and scroll-friendly multi-add workflow.
+- My Books owns local language grouping, search, paging, and Book selection.
+- A metadata-only Book offers explicit per-book acquisition from its detail page;
+  the form posts to `/opds/acquire` with an owner-scoped signed target.
 - Repeated acquisition of the same owner, catalog entry, and source content is
-  idempotent and reports the existing library book.
+  idempotent and reports the existing My Books Book.
 - Acquisition downloads and validates the EPUB, persists immutable source
   content and extracted-unit identity, and performs no NLP analysis.
 - Partial or failed acquisition is actionable and does not display the book as
@@ -105,8 +108,8 @@ Rollout is sequenced as follows:
 1. Deploy the explicit scope-review, analysis-status, retry, reconciliation,
    insights, and preparation-prerequisite paths while existing history remains
    readable.
-2. Verify that OPDS acquisition only stores the source and returns to the
-   browser; it does not create an analysis job. The library and book pages
+2. Verify that per-book OPDS acquisition only stores the source and returns to
+   Book detail; it does not create an analysis job. My Books and Book detail
    explain that scope confirmation and explicit analysis are separate actions.
 3. Disable automatic acquisition analysis. Existing queued work with a live
    River job is resumable; queued work without one is re-enqueued, running work

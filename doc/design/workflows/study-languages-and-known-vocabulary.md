@@ -36,15 +36,15 @@ canonical. New functionality belongs in Settings first.
 
 ## Study-language model
 
-Three concepts remain distinct:
+Two concepts remain distinct:
 
 - **Available analysis language** — currently advertised as ready by the NLP
   service;
 - **Study language** — a learner's saved preference;
-- **Catalog browse language** — the language currently used to browse one OPDS
-  connection.
 
-Selecting one does not silently mutate either of the others.
+Selecting a study language does not silently mutate NLP capability state or
+known-vocabulary state. Ready study languages also define the catalogue-sync
+scope; catalogue browsing itself happens in My Books.
 
 ### Add a study language
 
