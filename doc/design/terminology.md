@@ -34,7 +34,7 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Add books** | Persistent shell action that enters catalog setup and browsing. | Import books, ingest books |
+| **Add books** | The acquisition experience on `/connections` that enters catalog setup and browsing; it is not a navigation destination. | Import books, ingest books |
 | **Add to My Books** | Add a book Mouseion can identify to the learner's collection without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for ready study languages except English. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |

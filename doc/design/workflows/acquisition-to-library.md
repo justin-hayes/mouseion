@@ -26,10 +26,10 @@ The product behavior is defined primarily by:
 
 ## Entry and destination decision
 
-**Add books** is a global workflow action, not a fourth peer destination beside
-My Books, Reading Journey, and Settings. It remains persistently available in
-the authenticated shell and should be visually distinguishable from destination
-navigation.
+**Add books** names the acquisition experience on `/connections`. It is not a
+peer destination beside My Books, Reading Journey, and Settings and does not
+appear in the top navigation; it is reached from My Books empty states and
+actions and via the `/connections` and `/catalog...` routes.
 
 The action enters the acquisition hub at `/connections`:
 
@@ -139,8 +139,9 @@ Books or replace source evidence.
 
 ## Navigation and responsive rules
 
-- Destination navigation is My Books, Reading Journey, and Settings; Add books
-  is styled and announced as an action.
+- Destination navigation is exactly My Books, Reading Journey, and Settings;
+  Add books does not appear in the top navigation (reached via the `/connections`
+  workflow from My Books and direct routes).
 - The current acquisition context is the connection, language, and feed path,
   not a generic page title.
 - On narrow screens, entry metadata precedes the acquisition action and actions

@@ -174,9 +174,10 @@ scrollable data table must label and contain its own overflow.
 
 ## Established and canonical interaction contracts
 
-- Canonical authenticated destinations are My Books, Reading Journey, and
-  Settings; Add books is a persistent workflow action. Primary Goal is embedded
-  in Reading Journey.
+- Canonical authenticated destinations are exactly My Books, Reading Journey, and
+  Settings; there is no acquisition action in the top navigation. Catalogue setup
+  and browsing happen on the `/connections` and `/catalog...` routes reached from
+  My Books. Primary Goal is embedded in Reading Journey.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading Journey has one learner-controlled order, later books are provisional,

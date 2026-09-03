@@ -64,7 +64,8 @@ evidence or the next relevant action.
 The catalogue is browsable by language pills, including an unknown-language
 bucket, and supports paging plus global text search across the local collection.
 For a fresh account, its empty state explains catalogue setup and enters the
-existing **Add books** action; catalogue setup does not become a destination.
+existing Add books workflow; catalogue setup does not become a destination, and
+no acquisition action appears in the top navigation.
 
 ### Reading Journey
 
@@ -167,9 +168,9 @@ The authenticated shell exposes three principal destinations:
   evidence, and Where next? transition;
 - **Settings** — study languages and known vocabulary.
 
-**Add books** is a persistent global workflow action, not a fourth destination.
-It enters catalog setup and browsing and remains visually distinguishable from
-navigation.
+The top navigation has no acquisition action. Catalogue setup and browsing are
+supporting `/connections` and `/catalog...` routes reached from My Books empty
+states and actions; they are not a fourth destination.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
 preparation, catalog connections, and campaign history are supporting surfaces.
@@ -226,8 +227,10 @@ redirect to `/journey`. The Journey page retains a secondary **Campaign history
 & operations** section for prepared-deck actions and reading, preparation, and
 vocabulary-transition history. It does not present a duplicate queue or plan.
 
-The authenticated shell therefore exposes My Books, Reading Journey, and
-Settings, plus the distinct Add books action. Historical My Library, Learning,
+The authenticated shell therefore exposes exactly My Books, Reading Journey, and
+Settings in the top navigation. `/connections` (the Add books acquisition
+workflow) and `/jobs` are supporting surfaces reached from My Books and direct
+routes, not navigation destinations. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;
 compatibility aliases and operational terminology remain only where required by
 existing routes, records, or infrastructure.
@@ -413,8 +416,9 @@ restores membership only after the validated source snapshot is persisted.
    the alternative is advisory evidence only and never overrides learner order
    or invents a composite score.
 7. **Routes and terminology** are reconciled in the shipped shell and supporting
-   surfaces: My Books, Reading Journey, Settings, and distinct Add books are the
-   active navigation model; `/known-vocab` and `/campaigns` remain compatibility
+   surfaces: My Books, Reading Journey, and Settings are the active navigation
+   destinations, with no acquisition action in the top navigation; `/known-vocab`
+   and `/campaigns` remain compatibility
    routes with their documented redirects.
 8. **One current analysis per book** is the target contract proposed by
    [ADR 0040](../adr/0040-one-current-analysis-per-book.md): book detail becomes
