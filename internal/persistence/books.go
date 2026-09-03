@@ -248,6 +248,20 @@ func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (doma
 	return scanBook(s.pool.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
 }
 
+// GetBookCatalogEntryAlias returns the owner's recorded catalogue identity for
+// an active Book. Missing and cross-owner identities are deliberately the same
+// not-found result.
+func (s *PostgresStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
+	var alias domain.BookAlias
+	err := s.pool.QueryRow(ctx, `SELECT a.id::text,a.owner_id::text,a.book_id::text,a.alias_type,a.namespace,a.value,a.created_at
+		FROM book_aliases a
+		JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
+		JOIN book_membership m ON m.owner_id=a.owner_id AND m.book_id=a.book_id AND m.state='active'
+		WHERE a.owner_id=$1 AND a.book_id=$2 AND a.alias_type=$3 AND a.namespace=$4`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier).
+		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
+	return alias, missing(err)
+}
+
 func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.Book, error) {
 	b.Title = strings.TrimSpace(b.Title)
 	b.LanguageTag = strings.TrimSpace(b.LanguageTag)
