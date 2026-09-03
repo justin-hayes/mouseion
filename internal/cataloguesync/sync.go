@@ -304,9 +304,9 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 	var syncedAt *time.Time
 	err := s.pool.QueryRow(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),s.last_synced_at
 FROM river_job j
-LEFT JOIN opds_connections c ON c.owner_id=$1 AND c.id::text=j.args->>'connection_id'
-LEFT JOIN catalogue_sync_status s ON s.owner_id=$1 AND s.connection_id::text=j.args->>'connection_id'
-	WHERE j.id=$2 AND j.kind=$3 AND j.args->>'owner_id'=$1`, owner, id, Kind).Scan(&status.ID, &status.Attempt, &status.CreatedAt, &status.FinalizedAt, &riverState, &connectionID, &status.ConnectionName, &state, &durableError, &syncedAt)
+LEFT JOIN opds_connections c ON c.owner_id=$1::uuid AND c.id::text=j.args->>'connection_id'
+LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::text=j.args->>'connection_id'
+	WHERE j.id=$2 AND j.kind=$3 AND j.args->>'owner_id'=$1::text`, owner, id, Kind).Scan(&status.ID, &status.Attempt, &status.CreatedAt, &status.FinalizedAt, &riverState, &connectionID, &status.ConnectionName, &state, &durableError, &syncedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Status{}, ErrNotFound
 	}
@@ -338,9 +338,9 @@ func (s *Service) List(ctx context.Context, owner string) ([]Status, error) {
 	}
 	rows, err := s.pool.Query(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),COALESCE(j.errors[array_length(j.errors,1)]->>'error',''),s.last_synced_at
 FROM river_job j
-LEFT JOIN opds_connections c ON c.owner_id=$1 AND c.id::text=j.args->>'connection_id'
-LEFT JOIN catalogue_sync_status s ON s.owner_id=$1 AND s.connection_id::text=j.args->>'connection_id'
-WHERE j.kind=$2 AND j.args->>'owner_id'=$1 ORDER BY j.created_at DESC,j.id DESC LIMIT 100`, owner, Kind)
+LEFT JOIN opds_connections c ON c.owner_id=$1::uuid AND c.id::text=j.args->>'connection_id'
+LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::text=j.args->>'connection_id'
+WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id DESC LIMIT 100`, owner, Kind)
 	if err != nil {
 		return nil, fmt.Errorf("list catalogue sync jobs: %w", err)
 	}
