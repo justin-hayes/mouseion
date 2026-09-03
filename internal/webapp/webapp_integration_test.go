@@ -570,7 +570,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
 		t.Fatalf("promoted sources=%+v err=%v", sources, err)
 	}
-	books, err := store.ListMyBooks(ctx, owner.ID)
+	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
 	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {
 		t.Fatalf("promoted My Books=%+v err=%v", books, err)
 	}

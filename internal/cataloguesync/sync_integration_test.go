@@ -256,7 +256,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	if statuses, err = service.ListCatalogueSyncStatuses(ctx, owner.ID); err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncSyncing {
 		t.Fatalf("live status=%+v err=%v", statuses, err)
 	}
-	if err = client.JobCancel(ctx, first.ID); err != nil {
+	if _, err = client.JobCancel(ctx, first.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = service.List(ctx, owner.ID); err != nil {
