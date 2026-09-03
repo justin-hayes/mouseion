@@ -77,14 +77,8 @@ type Store interface {
 	ClearPrimaryGoal(context.Context, string, string) error
 }
 type OPDS interface {
-	Browse(context.Context, string, string, string) (opds.Feed, error)
-	BrowsePage(context.Context, string, string, string) (opds.Feed, error)
-	Languages(context.Context, string, string) (opds.Feed, error)
-	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
-	BrowseLanguagePage(context.Context, string, string, string, string) (opds.Feed, error)
-	Search(context.Context, string, string, string) (opds.Feed, error)
-	SearchPage(context.Context, string, string, string, string) (opds.Feed, error)
 	Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error)
+	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
 type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
@@ -101,6 +95,9 @@ type CatalogueSyncScheduler interface {
 }
 type CatalogueMetadataRefresher interface {
 	RefreshEntry(context.Context, string, string) (cataloguesync.RefreshResult, error)
+}
+type CatalogueAcquisitionTargetProvider interface {
+	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
 }
 type CompletedAnalysisReader interface {
 	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
@@ -214,10 +211,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("POST /connections/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
-	h.mux.Handle("GET /catalog", h.user(http.HandlerFunc(h.catalog)))
-	h.mux.Handle("GET /opds/browse", h.user(http.HandlerFunc(h.browse)))
-	h.mux.Handle("GET /opds/language", h.user(http.HandlerFunc(h.browseLanguage)))
-	h.mux.Handle("GET /opds/search", h.user(http.HandlerFunc(h.search)))
 	h.mux.Handle("POST /opds/acquire", h.user(http.HandlerFunc(h.acquire)))
 	h.mux.Handle("GET /jobs", h.user(http.HandlerFunc(h.jobs)))
 	h.mux.Handle("GET /jobs/{id}", h.user(http.HandlerFunc(h.job)))

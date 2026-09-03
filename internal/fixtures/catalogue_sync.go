@@ -6,6 +6,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 var fixtureCatalogueSyncJobIDs = map[string]int64{
@@ -33,6 +34,13 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 	}
 	s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime})
 	return cataloguesync.Handle{ID: fixtureCatalogueSyncJobIDs[connectionID], DisplayNumber: fixtureCatalogueSyncJobIDs[connectionID]}, nil
+}
+
+func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+	if owner != OwnerID || bookID != "fixture-metadata-only" {
+		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
+	}
+	return cataloguesync.AcquisitionTarget{ConnectionID: "fixture-connection", Language: "de", Entry: opds.Entry{ID: "fixture-entry", Title: "Metadata-only migration book"}, Href: "https://fixture.invalid/book.epub"}, nil
 }
 
 func (s *CatalogueSync) List(ctx context.Context, owner string) ([]cataloguesync.Status, error) {

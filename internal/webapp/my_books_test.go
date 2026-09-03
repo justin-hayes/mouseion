@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
@@ -23,7 +24,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Acquire this book", "/connections?book_id=metadata-book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `name="language_state"`, "language not chosen"} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Open book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `name="language_state"`, "language not chosen"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -70,13 +71,13 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 	}
 }
 
-func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
+func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	var output bytes.Buffer
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"learner-owned catalogue connection", "ready-language bibliographic metadata", `href="/connections"`, "Add catalogue connection"} {
+	for _, want := range []string{"Connect a catalogue", "Set study language", `href="/connections"`, `href="/settings#study-languages"`, "acquire EPUB content"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("empty My Books onboarding missing %q: %s", want, html)
 		}
@@ -86,8 +87,23 @@ func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "No books in My Books yet") || !strings.Contains(output.String(), "Acquire an EPUB") {
-		t.Fatalf("existing connected empty state changed: %s", output.String())
+	if !strings.Contains(output.String(), "Sync catalogue") {
+		t.Fatalf("connected empty state omitted sync guidance: %s", output.String())
+	}
+}
+
+func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
+	h, cookies, _, _ := goalFixtureSession(t)
+	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search"} {
+		r := httptest.NewRequest(http.MethodGet, route, nil)
+		for _, cookie := range cookies {
+			r.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		h.ServeHTTP(response, r)
+		if response.Code != http.StatusNotFound {
+			t.Errorf("GET %s status=%d, want 404", route, response.Code)
+		}
 	}
 }
 
@@ -123,6 +139,21 @@ func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
 	for _, want := range []string{`id="book-metadata-region"`, "Refresh metadata", `method="post"`, `action="/books/catalogue-book/refresh"`, `name="csrf_token"`, `hx-post="/books/catalogue-book/refresh"`, `hx-target="#book-metadata-region"`, `aria-live="polite"`, "Metadata refreshed."} {
 		if !strings.Contains(html, want) {
 			t.Errorf("catalogue metadata refresh page missing %q: %s", want, html)
+		}
+	}
+}
+
+func TestMetadataOnlyBookPageOffersPerBookAcquisition(t *testing.T) {
+	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: domain.MyBookNotAcquired}
+	target := &cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Language: "de", Entry: opds.Entry{ID: "entry-1", Title: book.Book.Title}, Href: "https://catalog.example/book.epub"}
+	var output bytes.Buffer
+	if err := MetadataOnlyBookPageWithAcquisition(domain.User{Username: "learner"}, "csrf", book, "", false, target, "signed-target").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{`action="/opds/acquire"`, "Acquire EPUB content", `name="acquisition" value="signed-target"`, `name="return_to" value="/books/catalogue-book"`, `name="connection" value="connection-1"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("per-book acquisition form missing %q: %s", want, html)
 		}
 	}
 }

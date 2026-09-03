@@ -64,6 +64,16 @@ type Status struct {
 	FinalizedAt                           *time.Time
 }
 
+// AcquisitionTarget is the owner-scoped catalogue entry used to acquire a
+// metadata-only Book. The web layer signs the Href before placing it in a
+// form; callers never receive credentials from this lookup.
+type AcquisitionTarget struct {
+	ConnectionID string
+	Language     string
+	Entry        opds.Entry
+	Href         string
+}
+
 // RefreshResult describes a single-book metadata refresh without implying any
 // content, analysis, or deck work.
 type RefreshResult struct {
@@ -274,6 +284,72 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 		return RefreshResult{Book: book, Failed: true}, nil
 	}
 	return RefreshResult{Book: book, Missing: true}, nil
+}
+
+// FindAcquisitionTarget resolves the current EPUB link for a synced Book.
+// The alias is stable across catalog feed changes, while the download Href is
+// looked up again immediately before acquisition.
+func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (AcquisitionTarget, error) {
+	if s == nil || s.store == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	book, err := s.store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	alias, err := s.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	if strings.TrimSpace(alias.Value) == "" {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	connections, err := s.store.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	profiles, err := s.store.ListLanguageProfiles(ctx, owner)
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	displayName := ""
+	for _, profile := range profiles {
+		if sameLanguage(profile.Language, book.LanguageTag) {
+			displayName = profile.DisplayName
+			break
+		}
+	}
+	for _, connection := range connections {
+		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
+		if readErr != nil {
+			continue
+		}
+		languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
+		if languageID == "" {
+			continue
+		}
+		feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+		if readErr != nil {
+			continue
+		}
+		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+			if strings.TrimSpace(entry.ID) != alias.Value {
+				continue
+			}
+			for _, link := range opds.FindEPUBs(entry) {
+				if strings.TrimSpace(link.Href) != "" {
+					return AcquisitionTarget{ConnectionID: connection.ID, Language: book.LanguageTag, Entry: entry, Href: link.Href}, nil
+				}
+			}
+		}
+	}
+	return AcquisitionTarget{}, ErrNotFound
 }
 
 // RegisterAll restores all schedules after a process start. It intentionally

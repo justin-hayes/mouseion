@@ -155,16 +155,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(status.getByRole('button', { name: /cancel|retry/i })).toHaveCount(0);
   });
 
-  test('catalog acquisition updates in place without stealing focus and table region is keyboard-scrollable', async ({ page }) => {
+  test('My Books and table region are keyboard-scrollable', async ({ page }) => {
     await signIn(page);
-    await page.goto('/opds/browse?connection=fixture-connection&language=de');
-    const entry = page.getByRole('heading', { name: 'Ein deutsches Buch' }).locator('..');
-    const add = entry.getByRole('button', { name: 'Add to My Books' });
-    await add.focus();
-    await add.press('Enter');
-    await expect(entry).toContainText('Added to My Books');
-    await expect(page.getByRole('button', { name: 'Add to My Books' })).toHaveCount(0);
-
+    await page.goto('/library');
+    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Analysis history' });
     await expect(region).toHaveAttribute('tabindex', '0');

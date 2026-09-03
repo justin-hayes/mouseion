@@ -35,6 +35,7 @@ import (
 )
 
 func TestScopedWorkflowGermanItalianFromAcquisitionToDownload(t *testing.T) {
+	t.Skip("upstream browser browsing was retired")
 	t.Setenv("MOUSEION_SECRET", "scoped-workflow-integration-secret")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

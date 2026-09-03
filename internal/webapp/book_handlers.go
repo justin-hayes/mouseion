@@ -33,7 +33,15 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message"), eligible))
+		var target *cataloguesync.AcquisitionTarget
+		acquisitionToken := ""
+		if provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider); ok {
+			if value, targetErr := provider.FindAcquisitionTarget(r.Context(), u.ID, book.ID); targetErr == nil {
+				target = &value
+				acquisitionToken = h.clientTargetToken(value.ConnectionID, value.Language, &value.Entry, value.Href)
+			}
+		}
+		render(w, r, MetadataOnlyBookPageWithAcquisition(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message"), eligible, target, acquisitionToken))
 		return
 	}
 	summary, ok := h.loadBook(w, r, u.ID)

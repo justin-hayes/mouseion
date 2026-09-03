@@ -1112,24 +1112,9 @@ func (Capabilities) GetCapabilities(context.Context) (analyzer.Capabilities, err
 
 type OPDS struct{}
 
-func (OPDS) Browse(context.Context, string, string, string) (opds.Feed, error) { return feed(), nil }
-func (OPDS) BrowsePage(context.Context, string, string, string) (opds.Feed, error) {
-	return feed(), nil
-}
-func (OPDS) Languages(context.Context, string, string) (opds.Feed, error) { return feed(), nil }
-func (OPDS) BrowseLanguage(context.Context, string, string, string) (opds.Feed, error) {
-	return feed(), nil
-}
-func (OPDS) BrowseLanguagePage(context.Context, string, string, string, string) (opds.Feed, error) {
-	return feed(), nil
-}
-func (OPDS) Search(context.Context, string, string, string) (opds.Feed, error) { return feed(), nil }
-func (OPDS) SearchPage(context.Context, string, string, string, string) (opds.Feed, error) {
-	return feed(), nil
-}
 func (OPDS) Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error) {
 	return epub.ImportResult{Source: domain.SourceMaterial{ID: "fixture-acquired", OwnerID: OwnerID, Language: "de", Title: "Erworbenes Buch"}}, nil
 }
-func feed() opds.Feed {
-	return opds.Feed{Title: "Fixture catalog", Entries: []opds.Entry{{ID: "fixture-entry", Title: "Ein deutsches Buch — Donaudampfschifffahrtsgesellschaftskapitänsmütze und ein besonders langer OPDS-Untertitel", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://fixture.invalid/book.epub"}}}, {ID: "fixture-entry-it", Title: "Un libro italiano: una passeggiata luminosa tra le colline e le biblioteche"}}}
+func (OPDS) AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+	return epub.ImportResult{Source: domain.SourceMaterial{ID: "fixture-metadata-only", OwnerID: OwnerID, Language: "de", Title: "Metadata-only migration book"}}, nil
 }

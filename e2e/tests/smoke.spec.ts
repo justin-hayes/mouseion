@@ -82,19 +82,9 @@ test.describe('authenticated learner smoke', () => {
   test('acquisition, Reading Journey, Settings, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/connections');
     await expect(page.getByText('Fixture catalog')).toBeVisible();
-    await page.goto('/catalog?connection=fixture-connection');
-    await expect(page.getByRole('heading', { name: 'Fixture catalog' })).toBeVisible();
-    // The catalog page offers a language browse form: a visible select with
-    // German and Italian options (options themselves are collapsed/hidden).
-    const languageSelect = page.locator('form[action="/opds/language"] select[name="language"]');
-    await expect(languageSelect).toBeVisible();
-    await expect(languageSelect.locator('option[value="de"]')).toContainText('German');
-    await expect(languageSelect.locator('option[value="it"]')).toContainText('Italian');
-    // Browse a language via the server-rendered path and assert feed entries.
-    await page.goto('/opds/browse?connection=fixture-connection&language=de');
-    await expect(page.getByText('Ein deutsches Buch').first()).toBeVisible();
-    await expect(page.getByText('Un libro italiano').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /add to my books/i }).first()).toBeVisible();
+    await page.goto('/library');
+    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
+    await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/).first()).toBeVisible();
     await page.goto('/campaigns?message=legacy-bookmark');
     await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();

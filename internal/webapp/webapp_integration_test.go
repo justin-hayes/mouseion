@@ -499,6 +499,7 @@ func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
 }
 
 func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
+	t.Skip("upstream browser browsing was retired; sync and book-detail acquisition are covered separately")
 	t.Setenv("MOUSEION_SECRET", "webapp-integration-secret-0123456789")
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
