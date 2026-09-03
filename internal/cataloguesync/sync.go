@@ -410,7 +410,7 @@ func (s *Service) liveJobExists(ctx context.Context, owner, connectionID string)
 	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1 FROM river_job
 		WHERE kind=$1 AND args->>'owner_id'=$2
-		  AND args->>'connection_id'=$3 AND state=ANY($4::text[])
+		  AND args->>'connection_id'=$3 AND state::text=ANY($4::text[])
 	)`, Kind, owner, connectionID, liveRiverStates()).Scan(&live)
 	if err != nil {
 		return false, fmt.Errorf("check catalogue sync job state: %w", err)
