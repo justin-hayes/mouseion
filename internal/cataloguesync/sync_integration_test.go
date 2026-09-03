@@ -234,14 +234,29 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Stop(context.Background())
-	inserted, err := client.Insert(ctx, SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}, insertOpts())
+	service.client = client
+	first, err := service.Enqueue(ctx, owner.ID, connection.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	second, err := service.Enqueue(ctx, owner.ID, connection.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("duplicate enqueue handles differ: first=%+v second=%+v", first, second)
+	}
+	var liveJobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'connection_id'=$3 AND state=ANY($4::text[])`, Kind, owner.ID, connection.ID, liveRiverStates()).Scan(&liveJobs); err != nil {
+		t.Fatal(err)
+	}
+	if liveJobs != 1 {
+		t.Fatalf("duplicate enqueue created %d live jobs", liveJobs)
 	}
 	if statuses, err = service.ListCatalogueSyncStatuses(ctx, owner.ID); err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncSyncing {
 		t.Fatalf("live status=%+v err=%v", statuses, err)
 	}
-	if err = client.JobCancel(ctx, inserted.Job.ID); err != nil {
+	if err = client.JobCancel(ctx, first.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = service.List(ctx, owner.ID); err != nil {
