@@ -45,7 +45,8 @@ catalogue browsing or OPDS search.
 - Paging uses stable, deterministic ordering and preserves the current language
   and query in real links and forms.
 - Empty-collection, search-empty, and language-empty states remain distinct and
-  offer an appropriate way to clear a filter, revise a query, or use Add books.
+  offer an appropriate way to clear a filter, revise a query, or start catalogue
+  setup through the Add books workflow.
 
 ### Row hierarchy and book selection
 
@@ -80,7 +81,7 @@ catalogue browsing or OPDS search.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and the existing Add books path. | Add books |
+| Empty collection | Explain My Books and the Add books path to catalogue setup. | Add a catalogue connection |
 | Collection available | Show global search, language pills with counts, deterministic rows, and paging. | Open a book |
 | Unknown-language results | Group Books with no chosen language without inferring one. | Open a book or update it through an owned workflow |
 | Search empty | Retain the query and selected language and state that the local collection has no match. | Revise or clear search |

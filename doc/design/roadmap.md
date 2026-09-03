@@ -92,7 +92,7 @@ coverage.
 
 | # | Issue | Dependencies | Purpose |
 |---|---|---|---|
-| 373 | Distinguish destination navigation from the Add books action | Phase 4 | Three peer destinations plus a persistent, distinguishable acquisition action |
+| 373 | Distinguish destination navigation from the Add books action | Phase 4 | Three peer destinations with no acquisition action in the top navigation |
 | 374 | Complete the connection-to-library acquisition workflow | Phase 4, 373 | Full acquisition hub, browse/search state preservation, and multi-add |
 | 375 | Complete Learning campaign hierarchy and outcome confirmations | 372 | Active/remaining/consequence/queue/history ordering and explicit outcomes |
 | 376 | Consolidate study languages and known vocabulary in Settings | Phase 4 | One coherent Settings workflow and `/known-vocab` consolidation |

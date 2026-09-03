@@ -8,8 +8,10 @@ Mouseion is a self-hosted web application for advanced foreign-language reading 
 
 The authenticated shell has exactly three primary destinations: **My Books** at
 `/library`, **Reading Journey** at `/journey`, and **Settings** at `/settings`.
-The distinct **Add books** action at `/connections` enters catalog setup and
-browsing; it is not a fourth destination. `/` redirects to My Books, and the
+There is no acquisition action in the top navigation. Catalogue setup and
+browsing are reached from My Books empty states and actions and via the
+`/connections` and `/catalog...` routes; Add books is not a destination and is
+not a persistent shell action. `/` redirects to My Books, and the
 compatibility route `GET /campaigns` redirects to Reading Journey. Campaign
 history and operations remain available as a secondary section on Reading
 Journey for prepared-deck actions, reading/preparation facts, and vocabulary
@@ -17,7 +19,8 @@ provenance; Campaign is not a second learner-facing plan.
 
 Catalogue synchronization status is an operational part of the learner-owned
 connection surface at `/connections`, with detailed work under `/jobs`; it does
-not change the three destinations or the distinct role of Add books.
+not change the three destinations and does not add an acquisition action to the
+top navigation.
 
 Settings owns saved study-language preferences and owner-scoped, language-scoped
 known vocabulary. Known-vocabulary import is explicit and additive: the learner

@@ -27,7 +27,7 @@ The workflow answers these questions in order:
 ## Primary path
 
 ```text
-My Books empty state or Add books
+My Books empty state
     -> Add learner-owned catalogue connection
     -> Sync now (then periodic reconciliation)
     -> Browse/search the local My Books collection
@@ -114,8 +114,9 @@ invalidates existing evidence.
 
 ## Navigation rules
 
-- The authenticated shell remains My Books, Reading Journey, and Settings plus
-  the distinct **Add books** action.
+- The authenticated shell remains exactly My Books, Reading Journey, and Settings
+  with no acquisition action in the top navigation; `/connections` (Add books)
+  and its catalogue browsing are reached from My Books.
 - `/connections` owns configuration and concise sync status. `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
   new destination.

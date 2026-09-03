@@ -174,15 +174,6 @@ func eligibleCatalogueLanguageScope(profiles []domain.LanguageProfile) string {
 	}
 }
 
-func navigationActionAttributes(context NavigationContext) templ.Attributes {
-	attributes := templ.Attributes{"class": "site-nav__action"}
-	if context == NavigationAcquisition {
-		attributes["aria-current"] = "page"
-		attributes["class"] = "site-nav__action site-nav__action--current"
-	}
-	return attributes
-}
-
 // NavigationContext identifies the authenticated shell context. Acquisition
 // remains a page context for catalog and connections workflows, but is not a
 // primary shell destination.

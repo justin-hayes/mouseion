@@ -165,8 +165,10 @@ length.
 how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
-`Primary navigation`. The canonical authenticated destinations are My Books,
-Reading Journey, and Settings; Add books is a distinguishable workflow action.
+`Primary navigation`. The canonical authenticated destinations are exactly My Books,
+Reading Journey, and Settings; there is no acquisition action in the top
+navigation, and catalogue setup/browsing routes (`/connections`, `/catalog...`)
+are reached from My Books.
 Primary Goal belongs inside Reading Journey. The shipped shell marks the current
 context while compatibility routes redirect without exposing Learning as a peer
 destination.

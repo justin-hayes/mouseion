@@ -19,9 +19,11 @@ rather than as independent destinations.
 ## Global shell
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
-**Reading Journey**, **Add books**, **Settings**, account identity, and **Log
-out**. My Books, Reading Journey, and Settings are destinations. Add books is a
-persistent workflow action styled and announced differently from navigation.
+**Reading Journey**, **Settings**, account identity, and **Log
+out**. My Books, Reading Journey, and Settings are the only destinations; there
+is no acquisition action in the top navigation. Catalogue setup and browsing are
+reached from My Books empty states and actions and via the `/connections` and
+`/catalog...` routes.
 
 Primary Goal is embedded in Reading Journey and is not a fourth destination.
 The shell identifies the current destination, supports skip navigation and
@@ -141,7 +143,8 @@ must not be claimed before those relationships receive a product contract.
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Shipped navigation is **My Books** / **Reading Journey** / **Settings** plus distinct **Add books**; historical **My Library**, **Learning**, queue, and learner-facing Campaign labels remain only as compatibility fallbacks/redirects and are not the accepted target IA.
+- Shipped navigation is **My Books** / **Reading Journey** / **Settings** with no
+  acquisition action in the top navigation; historical **My Library**, **Learning**, queue, and learner-facing Campaign labels remain only as compatibility fallbacks/redirects and are not the accepted target IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must
