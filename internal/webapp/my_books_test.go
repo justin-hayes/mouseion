@@ -202,7 +202,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 }
 
 func TestBookIDFromReturnPathRejectsExternalTargets(t *testing.T) {
-	if got := bookIDFromReturnPath("/opds/language?book_id=book-1&language=de"); got != "book-1" {
+	if got := bookIDFromReturnPath("/books/book-1"); got != "book-1" {
 		t.Fatalf("book id=%q", got)
 	}
 	if got := bookIDFromReturnPath("https://evil.example/?book_id=other"); got != "" {

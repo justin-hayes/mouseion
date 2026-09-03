@@ -948,7 +948,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 	<section id="study-languages" aria-labelledby="study-languages-heading">
 		<h2 id="study-languages-heading">Study languages</h2>
-		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, while a catalog browse language is chosen independently and does not change these preferences.</p>
+		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, and ready study languages define catalogue-sync scope; synced metadata is browsed in My Books.</p>
 		if degraded {
 			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged. New study-language additions are disabled until readiness can be checked.")
 		}
@@ -1048,9 +1048,6 @@ templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.
 		<input type="hidden" name="return_to" value={ returnTo }/>
 	}
 	<button type="submit">Acquire EPUB content</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
-}
-templ AcquisitionSuccessCard(entry opds.Entry, sourceID string, alreadyPresent bool) {
-	@AcquisitionSuccessCardWithReturn(entry, sourceID, alreadyPresent, "#catalog-results")
 }
 templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alreadyPresent bool, returnTo string) {
 	<article data-acquisition-result="settled"><h3>{ entry.Title }</h3>

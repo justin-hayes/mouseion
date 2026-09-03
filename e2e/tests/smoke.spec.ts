@@ -35,7 +35,7 @@ test.describe('authenticated learner smoke', () => {
 
     const entry = page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' });
     await expect(entry).toContainText('Not acquired');
-    await expect(entry.getByRole('button', { name: 'Acquire this book' })).toHaveAttribute('href', /book_id=/);
+    await expect(entry.getByRole('button', { name: 'Open book' })).toHaveAttribute('href', /\/books\//);
     await expect(entry.getByText('Review scope')).toHaveCount(0);
     await expect(entry.getByText('Start analysis')).toHaveCount(0);
     await expect(entry.getByText('Prepare deck')).toHaveCount(0);
@@ -85,6 +85,10 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/library');
     await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
     await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/).first()).toBeVisible();
+    await page.goto('/books/fixture-metadata-only');
+    await expect(page.getByRole('button', { name: 'Acquire EPUB content' })).toBeVisible();
+    await page.getByRole('button', { name: 'Acquire EPUB content' }).click();
+    await expect(page.getByText('Added to My Books.')).toBeVisible();
     await page.goto('/campaigns?message=legacy-bookmark');
     await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();

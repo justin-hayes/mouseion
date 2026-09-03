@@ -22,6 +22,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -61,6 +62,20 @@ func (s staticCapabilities) GetCapabilities(context.Context) (analyzer.Capabilit
 
 func readyGerman() staticCapabilities {
 	return staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
+}
+
+type metadataBookAcquisitionStub struct {
+	target cataloguesync.AcquisitionTarget
+}
+
+func (metadataBookAcquisitionStub) RegisterConnection(context.Context, string, string) error {
+	return nil
+}
+
+func (metadataBookAcquisitionStub) UnregisterConnection(string, string) error { return nil }
+
+func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+	return s.target, nil
 }
 
 func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string, legacyAdmin bool) domain.User {
@@ -495,6 +510,69 @@ func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
 	profiles, err := store.ListLanguageProfiles(ctx, alice.ID)
 	if err != nil || len(profiles) != 1 || profiles[0].OwnerID != alice.ID || profiles[0].Language != "de" || profiles[0].DisplayName != "German" {
 		t.Fatalf("profiles=%+v err=%v", profiles, err)
+	}
+}
+
+func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "metadata-acquisition-integration-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
+	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, "metadata-entry", "Metadata-only synced book", "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/book.epub" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", opds.EPUBMediaType)
+		_, _ = w.Write(testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
+	}))
+	defer catalog.Close()
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := cataloguesync.AcquisitionTarget{
+		ConnectionID: connection.ID,
+		Language:     "de",
+		Entry:        opds.Entry{ID: "metadata-entry", Title: "Metadata-only synced book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "/book.epub"}}},
+		Href:         "/book.epub",
+	}
+	h := New(Services{
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
+		OPDS:          opds.NewService(store, epub.NewService(store), catalog.Client()),
+		CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
+	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
+	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Acquire EPUB content") || !strings.Contains(bookPage.Body.String(), `name="return_to" value="/books/`+bookResult.Book.ID+`"`) {
+		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
+	}
+	acquisition := url.Values{
+		"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"},
+		"acquisition": {h.clientTargetToken(target.ConnectionID, target.Language, &target.Entry, target.Href)},
+		"return_to":   {"/books/" + bookResult.Book.ID},
+	}
+	response := perform(t, h, "POST", "/opds/acquire", acquisition, cookies)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") == "" || !strings.HasPrefix(response.Header().Get("Location"), "/books/"+bookResult.Book.ID) {
+		t.Fatalf("metadata-only acquisition=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+	sources, err := store.ListSourceMaterials(ctx, owner.ID)
+	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
+		t.Fatalf("promoted sources=%+v err=%v", sources, err)
+	}
+	books, err := store.ListMyBooks(ctx, owner.ID)
+	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {
+		t.Fatalf("promoted My Books=%+v err=%v", books, err)
 	}
 }
 

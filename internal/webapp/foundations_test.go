@@ -215,7 +215,7 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 		`id="study-languages"`,
 		`id="known-vocabulary"`,
 		`German <code>de</code>`,
-		`catalog browse language is chosen independently`,
+		`ready study languages define catalogue-sync scope`,
 		`New study-language additions are disabled`,
 		`vocabulary, books, analyses, prepared decks, and campaigns for German remain`,
 		`action="/known-vocab/import?language=de`,
