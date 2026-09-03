@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -137,5 +138,94 @@ func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 	query, language, page := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
 	if query != "title" || language != "de" || page != 1 {
 		t.Fatalf("parsed browse state=%q,%q,%d", query, language, page)
+	}
+}
+
+func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T) {
+	panel, err := buildLanguageCorpusPanel(context.Background(), fixtures.Insights{}, fixtures.OwnerID, "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := MyBooksBrowseState{
+		Enabled:        true,
+		Language:       "de",
+		AllCount:       1,
+		Total:          1,
+		Page:           1,
+		PageCount:      1,
+		LanguageCorpus: &panel,
+	}
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{
+		"Coverage across German",
+		`id="language-view-analyzed-heading"`,
+		`id="language-view-coverage-heading"`,
+		`id="language-view-unknown-heading"`,
+		`id="language-view-books-heading"`,
+		"37.0%",
+		"45678 of 123456 tokens",
+		"Highest-impact unknown vocabulary",
+		"analysis failed or incomplete",
+		`href="/books/fixture-book"`,
+		`href="/books/fixture-failed"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("language view markup missing %q: %s", want, html)
+		}
+	}
+	panelHTML := html[strings.Index(html, `id="language-view-panel"`):]
+	if strings.Contains(panelHTML, "<button") || strings.Contains(panelHTML, `action=`) {
+		t.Fatalf("language view exposed an action: %s", panelHTML)
+	}
+	if strings.Count(panelHTML, `aria-live="polite"`) != 1 {
+		t.Fatalf("language view should have one scoped live announcement: %s", panelHTML)
+	}
+}
+
+type languageCorpusErrorInsights struct{}
+
+func (languageCorpusErrorInsights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
+	return domain.AnalysisCoverage{}, nil
+}
+
+func (languageCorpusErrorInsights) LanguageCorpus(context.Context, string, string) (domain.LanguageCorpusView, error) {
+	return domain.LanguageCorpusView{}, errors.New("fixture language view failed")
+}
+
+func TestLibraryHandlerLanguageViewCapabilityAndFailureFallback(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	handler := h.(*Handler)
+	request := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodGet, path, nil)
+		for _, cookie := range cookies {
+			r.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, r)
+		return response
+	}
+
+	if response := request("/library?language=de"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatal("selected language view rendered without the optional provider capability")
+	}
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+	if response := request("/library"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatal("unselected My Books view unexpectedly rendered a language view")
+	}
+	if response := request("/library?language=de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatalf("selected language view status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response := request("/library?language=unknown"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatal("unknown-language bucket unexpectedly rendered a language view")
+	}
+
+	handler.services.AnalysisInsights = languageCorpusErrorInsights{}
+	response := request("/library?language=de")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Current analyzed evidence could not be loaded") || !strings.Contains(response.Body.String(), "Language view for German is unavailable") {
+		t.Fatalf("unavailable language view status=%d body=%s", response.Code, response.Body.String())
 	}
 }

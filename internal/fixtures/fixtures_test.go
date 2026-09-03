@@ -80,6 +80,23 @@ func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *test
 	}
 }
 
+func TestFixtureLanguageCorpusViewIsStableAndOwnerScoped(t *testing.T) {
+	view, err := (Insights{}).LanguageCorpus(context.Background(), "another-owner", "DE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.OwnerID != "another-owner" || view.Language != "de" || view.AnalyzedBookCount != 3 || view.KnownTokenCount != 45678 || view.AnalyzableTokenCount != 123456 {
+		t.Fatalf("language view identity/counts=%+v", view)
+	}
+	if len(view.TopUnknownLemmas) != 3 || len(view.PerBook) != 5 || view.PerBook[0].BookID != BookID || view.PerBook[3].Included || view.PerBook[3].ExclusionReason == "" {
+		t.Fatalf("language view evidence=%+v", view)
+	}
+	empty, err := (Insights{}).LanguageCorpus(context.Background(), OwnerID, "it")
+	if err != nil || empty.AnalyzedBookCount != 0 || len(empty.PerBook) != 0 {
+		t.Fatalf("empty Italian language view=%+v err=%v", empty, err)
+	}
+}
+
 func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()

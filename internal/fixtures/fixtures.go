@@ -1010,6 +1010,33 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, _ string)
 	}, nil
 }
 
+// LanguageCorpus returns deterministic evidence for the language-view browser
+// fixture. The values are deliberately independent of fixture store ordering
+// and owner state so browser assertions remain stable.
+func (Insights) LanguageCorpus(_ context.Context, owner, language string) (domain.LanguageCorpusView, error) {
+	language = strings.ToLower(strings.TrimSpace(language))
+	result := domain.LanguageCorpusView{OwnerID: owner, Language: language}
+	if language != "de" {
+		return result, nil
+	}
+	result.AnalyzedBookCount = 3
+	result.KnownTokenCount = 45678
+	result.AnalyzableTokenCount = 123456
+	result.TopUnknownLemmas = []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "beispiel", UPOS: "NOUN", OccurrenceCount: 240},
+		{Language: "de", CanonicalLemma: "lernen", UPOS: "VERB", OccurrenceCount: 180},
+		{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 120},
+	}
+	result.PerBook = []domain.LanguageCorpusBookSpread{
+		{BookID: BookID, Title: "Der lange Weg nach Hause", KnownTokenCount: 20000, AnalyzableTokenCount: 60000, EvidenceState: domain.MyBookAnalyzed, Included: true},
+		{BookID: routeMatchBookID, Title: "Route match: familiar German", KnownTokenCount: 15000, AnalyzableTokenCount: 40000, EvidenceState: domain.MyBookAnalyzed, Included: true},
+		{BookID: routeDiffersBookID, Title: "Route differs: new German", KnownTokenCount: 10678, AnalyzableTokenCount: 23456, EvidenceState: domain.MyBookAnalyzed, Included: true},
+		{BookID: "fixture-failed", Title: "Fehlgeschlagene Analyse", EvidenceState: domain.MyBookUnavailable, ExclusionReason: "analysis failed or incomplete"},
+		{BookID: "fixture-metadata-only", Title: "Metadata-only migration book", EvidenceState: domain.MyBookNotAcquired, ExclusionReason: "no current acquired source"},
+	}
+	return result, nil
+}
+
 func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
 	lemmas := make([]domain.LemmaOccurrence, 0, 18)
 	for i := 1; i <= 18; i++ {
