@@ -88,28 +88,16 @@ body {
   gap: var(--mouseion-space-2);
 }
 
-.site-nav__link,
-.site-nav__action {
+.site-nav__link {
   display: inline-block;
   white-space: nowrap;
 }
 
-.site-nav__link--current,
-.site-nav__action--current {
+.site-nav__link--current {
   font-weight: 700;
   text-decoration: underline;
   text-decoration-thickness: 0.15em;
   text-underline-offset: 0.25em;
-}
-
-.site-nav__action {
-  border: 1px solid var(--mouseion-color-accent);
-  border-radius: var(--mouseion-radius);
-  padding: var(--mouseion-space-1) var(--mouseion-space-2);
-}
-
-.site-nav__action--current {
-  background: var(--mouseion-color-surface-raised);
 }
 
 #main-content:focus-visible {
