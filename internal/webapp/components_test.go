@@ -39,6 +39,16 @@ func TestCatalogueSyncConnectionViewExplainsEmptyEligibleScope(t *testing.T) {
 	)
 }
 
+func TestCatalogueSyncConnectionViewNamesEligibleScope(t *testing.T) {
+	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
+		"catalog": {State: domain.CatalogueSyncSynced, LastSyncedAt: &now},
+	}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}, {Language: "en", DisplayName: "English"}})
+	if view.EligibleScope != "German" || strings.Contains(view.Message, "already current") || !strings.Contains(view.Message, "German") {
+		t.Fatalf("scope view=%+v", view)
+	}
+}
+
 func requireMarkup(t *testing.T, html string, fragments ...string) {
 	t.Helper()
 	for _, fragment := range fragments {
