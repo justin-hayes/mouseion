@@ -336,7 +336,7 @@ func (s *Service) List(ctx context.Context, owner string) ([]Status, error) {
 	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" {
 		return nil, nil
 	}
-	rows, err := s.pool.Query(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),COALESCE(j.errors->-1->>'error',''),s.last_synced_at
+	rows, err := s.pool.Query(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),COALESCE(j.errors[array_length(j.errors,1)]->>'error',''),s.last_synced_at
 FROM river_job j
 LEFT JOIN opds_connections c ON c.owner_id=$1 AND c.id::text=j.args->>'connection_id'
 LEFT JOIN catalogue_sync_status s ON s.owner_id=$1 AND s.connection_id::text=j.args->>'connection_id'
@@ -481,7 +481,7 @@ func firstError(values ...string) string {
 
 func riverError(pool *pgxpool.Pool, ctx context.Context, id int64, owner string) string {
 	var value string
-	_ = pool.QueryRow(ctx, `SELECT COALESCE(errors->-1->>'error','') FROM river_job WHERE id=$1 AND args->>'owner_id'=$2`, id, owner).Scan(&value)
+	_ = pool.QueryRow(ctx, `SELECT COALESCE(errors[array_length(errors,1)]->>'error','') FROM river_job WHERE id=$1 AND args->>'owner_id'=$2`, id, owner).Scan(&value)
 	return value
 }
 
