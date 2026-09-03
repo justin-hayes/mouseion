@@ -264,14 +264,13 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		if pageError != "" {
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
-		if len(books) == 0 && !hasCatalogueConnections {
-			@EmptyState("Start with a catalogue connection", "A learner-owned catalogue connection lets Mouseion sync ready-language bibliographic metadata into My Books before you need to acquire EPUB content.") {
-				<a role="button" href="/connections">Add catalogue connection</a>
-			}
-		}
-		if len(books) == 0 && hasCatalogueConnections {
-			@EmptyState("No books in My Books yet", "Use Add a book above, or acquire an EPUB from one of your catalogs.") {
-				<a href="/connections">Acquire an EPUB</a>
+		if len(books) == 0 {
+			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, set a study language in Settings, then sync. Ready-language metadata will appear here; acquire EPUB content from a book when you are ready.") {
+				<a role="button" href="/connections">Connect a catalogue</a>
+				<a role="button" class="outline" href="/settings#study-languages">Set study language</a>
+				if hasCatalogueConnections {
+					<a role="button" class="outline" href="/connections">Sync catalogue</a>
+				}
 			}
 		}
 		if browse.Enabled && browse.AllCount > 0 {
@@ -867,7 +866,6 @@ func scopeSelectedUnits(choices []tocScopeChoice, selectedCSV string) int { tota
 func scopeSelectedCharacters(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.CharacterCount } }; return total }
 func scopeSelectedTokens(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.TokenEstimate } }; return total }
 func unitPlural(count int) string { if count == 1 { return "unit" }; return "units" }
-func catalogBrowseURL(connectionID, bookID string) string { if bookID == "" { return "/catalog?connection=" + url.QueryEscape(connectionID) }; return "/catalog?connection=" + url.QueryEscape(connectionID) + "&book_id=" + url.QueryEscape(bookID) }
 func scopeReviewURL(book domain.SourceMaterialSummary) string { return "/books/"+book.Source.ID+"/scope" }
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
 func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/books/" + url.PathEscape(book.Source.ID) + "/deck/preparations" }
@@ -950,7 +948,7 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 	}
 	<section id="study-languages" aria-labelledby="study-languages-heading">
 		<h2 id="study-languages-heading">Study languages</h2>
-		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, while a catalog browse language is chosen independently and does not change these preferences.</p>
+		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, and ready study languages define catalogue-sync scope; synced metadata is browsed in My Books.</p>
 		if degraded {
 			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged. New study-language additions are disabled until readiness can be checked.")
 		}
@@ -1020,14 +1018,9 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 			@Feedback(FeedbackSuccess, "", message)
 		}
 		if len(connections) == 0 {
-			@EmptyState("Add your first catalog connection", "A connection tells Mouseion where to look for EPUB books. Your credentials stay private and are never shown again.") {
+			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into My Books. Your credentials stay private and are never shown again.") {
 				<a href="#catalog-connection-form">Add catalog connection</a>
 			}
-		} else {
-			<section aria-labelledby="catalog-choice-heading">
-				<h2 id="catalog-choice-heading">Choose a catalog to browse</h2>
-				<p>Choose explicitly; Mouseion will not silently select among your catalogs.</p>
-			</section>
 		}
 		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/>
 			if bookID != "" {
@@ -1040,215 +1033,10 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, profiles))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, profiles))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><div class="action-group"><a role="button" href={ templ.URL(catalogBrowseURL(c.ID, bookID)) }>Browse catalog</a></div><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, profiles))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, profiles))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
-}
-templ CatalogPage(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool) {
-	@CatalogPageForBook(user, csrf, connection, languages, degraded, "")
-}
-
-templ CatalogPageForBook(user domain.User, csrf string, connection domain.OpdsConnection, languages []domain.SupportedLanguage, degraded bool, bookID string) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) { <p><a href="/connections">← Catalog connections</a></p>@PageHeader(connection.Name, "Browse this catalog and add EPUB books to My Books. Analysis starts separately.", nil)
-	if degraded {
-		@Feedback(FeedbackWarning, "Language readiness is degraded", "The NLP service could not confirm current capabilities. Saved language choices remain unchanged; return later before browsing or adding books.")
-	} else if len(languages) > 0 {
-			<form method="get" action="/opds/language" hx-get="/opds/language" hx-target="#catalog-results" hx-swap="outerHTML" hx-indicator="#catalog-loading"><input type="hidden" name="connection" value={ connection.ID }/>
-			if bookID != "" {
-				<input type="hidden" name="book_id" value={ bookID }/>
-			}
-			<label>Browse EPUBs by language<select name="language" required><option value="">Choose a language</option>
-		for _, language := range languages {
-			<option value={ language.Language }>{ language.DisplayName }</option>
-		}</select></label><button type="submit">Browse language</button></form>
-	} else {
-		@EmptyState("No ready analysis languages", "Ready analysis languages come from the NLP service. Changing a learner study preference cannot enable a pipeline.") {
-			<a href="/connections">Return later</a>
-		}
-	}
-	<p id="catalog-loading" class="catalog-loading" role="status" aria-live="polite">Loading catalog feed…</p><div id="catalog-results" aria-live="polite" aria-atomic="true"><p>Choose a ready language to browse this catalog.</p></div> }
-}
-templ CatalogRootFragment(connectionID, language string, feed opds.Feed) {
-	<section>
-	if opds.SupportsSearch(feed) {
-			<form role="search" method="get" action="/opds/search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="outerHTML"><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/><label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
-	} else {
-		<p><small>Search is not available for this catalog.</small></p>
-	}
-	</section>
-}
-
-templ CatalogSearchForm(connectionID, language, returnTo string, trail []CatalogCrumb) {
-	<form role="search" method="get" action="/opds/search" hx-get="/opds/search" hx-target="#catalog-results" hx-swap="outerHTML"><input type="hidden" name="connection" value={ connectionID }/><input type="hidden" name="language" value={ language }/>
-	if bookID := bookIDFromReturnPath(returnTo); bookID != "" {
-		<input type="hidden" name="book_id" value={ bookID }/>
-	}
-	if returnTo != "" {
-		<input type="hidden" name="return_to" value={ returnTo }/>
-	}
-	for _, crumb := range trail {
-		<input type="hidden" name="trail" value={ crumb.Title+"\x1f"+crumb.URL }/>
-	}
-	<label>Search this catalog<input type="search" name="q" placeholder="Title or author" required/></label><button type="submit">Search</button></form>
-}
-
-templ CatalogRootResults(csrf, connectionID, language, returnTo, message string, feed opds.Feed, owned []acquisitionEntryState) {
-	<section id="catalog-results" aria-live="polite" aria-atomic="true">
-		if message != "" {
-			@CatalogNotice(message)
-		}
-		if opds.SupportsSearch(feed) {
-			@CatalogSearchForm(connectionID, language, returnTo, nil)
-		} else {
-			<p><small>Search is not available for this catalog. Browse its collections instead.</small></p>
-		}
-		<h2>{ feed.Title }</h2>
-		if len(feed.Entries) == 0 {
-			@EmptyState("This catalog feed is empty", "No books or collections were found here.") { <a href={ templ.URL(returnTo) }>Refresh this feed</a> }
-		}
-		<div class="catalog-grid">
-		for _, entry := range feed.Entries {
-			@EntryCardWithState(csrf, connectionID, language, returnTo, entry, nil, owned)
-		}
-		</div>@CatalogPagination(connectionID, language, nil, feed)
-		</section>
-}
-templ FeedFragment(csrf, connectionID, language, returnTo, message string, feed opds.Feed, trail []CatalogCrumb) {
-	@FeedFragmentWithState(csrf, connectionID, language, returnTo, message, feed, trail, nil)
-}
-templ FeedFragmentWithState(csrf, connectionID, language, returnTo, message string, feed opds.Feed, trail []CatalogCrumb, owned []acquisitionEntryState) {
-	<section id="catalog-results" aria-live="polite" aria-atomic="true">
-	if message != "" {
-		@CatalogNotice(message)
-	}
-	if opds.SupportsSearch(feed) {
-		@CatalogSearchForm(connectionID, language, returnTo, trail)
-	} else {
-		<p><small>Search is not available for this catalog. Browse its collections instead.</small></p>
-	}
-	<nav aria-label="Catalog breadcrumb"><a hx-get={ browseURLForLanguage(connectionID, language, "", nil) } hx-target="#catalog-results" hx-swap="outerHTML" href={ templ.URL(browseURLForLanguage(connectionID, language, "", nil)) }>Catalog root</a>
-	for i, crumb := range trail {
-		<span> / </span>
-		if i < len(trail)-1 {
-			<a hx-get={ browseURLForLanguage(connectionID, language, crumb.URL, trail[:i]) } hx-target="#catalog-results" hx-swap="outerHTML" href={ templ.URL(browseURLForLanguage(connectionID, language, crumb.URL, trail[:i])) }>{ crumb.Title }</a>
-		} else {
-			<span aria-current="page">{ crumb.Title }</span>
-		}
-	}
-	</nav><h2>{ feed.Title }</h2>
-	if len(feed.Entries) == 0 {
-		@EmptyState("This collection is empty", "No books or collections were found here.") { <a href={ templ.URL(returnTo) }>Refresh this collection</a> }
-	}
-	<div class="catalog-grid">
-	for _, entry := range feed.Entries {
-		@EntryCardWithState(csrf, connectionID, language, returnTo, entry, trail, owned)
-	}
-	</div>@CatalogPagination(connectionID, language, trail, feed)</section>
-}
-templ CatalogPagination(connectionID, language string, trail []CatalogCrumb, feed opds.Feed) {
-	<nav class="catalog-pagination" aria-label="Catalog pages">
-		if href := feedLink(feed, "previous"); href != "" {
-			<a href={ templ.URL(browseURLForLanguage(connectionID, language, href, trail)) } hx-get={ browseURLForLanguage(connectionID, language, href, trail) } hx-target="#catalog-results" hx-swap="outerHTML">Previous page</a>
-		}
-		if href := feedLink(feed, "next"); href != "" {
-			<a href={ templ.URL(browseURLForLanguage(connectionID, language, href, trail)) } hx-get={ browseURLForLanguage(connectionID, language, href, trail) } hx-target="#catalog-results" hx-swap="outerHTML">Next page</a>
-		}
-	</nav>
-}
-templ SearchResults(csrf, connectionID, language, returnTo, message, query string, feed opds.Feed) {
-	@SearchResultsWithState(csrf, connectionID, language, returnTo, browseURLForLanguage(connectionID, language, "", nil), message, query, feed, nil)
-}
-templ SearchResultsWithState(csrf, connectionID, language, returnTo, backTo, message, query string, feed opds.Feed, owned []acquisitionEntryState) {
-	<section id="catalog-results" aria-live="polite" aria-atomic="true">
-	if message != "" {
-		@CatalogNotice(message)
-	}
-	<a role="button" class="outline" href={ templ.URL(backTo) } hx-get={ backTo } hx-target="#catalog-results" hx-swap="outerHTML">← Back to catalog</a><h2>Results for “{ query }”</h2>
-	@CatalogSearchForm(connectionID, language, backTo, nil)
-	if len(feed.Entries) == 0 {
-		@EmptyState("No matching books were found", "Revise search with another title or author. The selected catalog and language are unchanged.") { <a href={ templ.URL(backTo) }>Return to catalog</a> }
-	}
-	<div class="catalog-grid">
-	for _, entry := range feed.Entries {
-		@EntryCardWithState(csrf, connectionID, language, returnTo, entry, nil, owned)
-	}
-	</div>@SearchPagination(connectionID, language, backTo, query, feed)</section>
-}
-templ SearchPagination(connectionID, language, backTo, query string, feed opds.Feed) {
-	<nav class="catalog-pagination" aria-label="Search result pages">
-		if href := feedLink(feed, "previous"); href != "" {
-			<a href={ templ.URL(searchPageURL(connectionID, language, query, backTo, href)) } hx-get={ searchPageURL(connectionID, language, query, backTo, href) } hx-target="#catalog-results" hx-swap="outerHTML">Previous page</a>
-		}
-		if href := feedLink(feed, "next"); href != "" {
-			<a href={ templ.URL(searchPageURL(connectionID, language, query, backTo, href)) } hx-get={ searchPageURL(connectionID, language, query, backTo, href) } hx-target="#catalog-results" hx-swap="outerHTML">Next page</a>
-		}
-	</nav>
-}
-templ LanguageResults(csrf, connectionID, language, returnTo, message string, feed opds.Feed) {
-	@LanguageResultsWithState(csrf, connectionID, language, returnTo, message, feed, nil)
-}
-templ LanguageResultsWithState(csrf, connectionID, language, returnTo, message string, feed opds.Feed, owned []acquisitionEntryState) {
-	<section id="catalog-results" aria-live="polite" aria-atomic="true">
-	if message != "" {
-		@CatalogNotice(message)
-	}
-	<a role="button" class="outline" href={ templ.URL(browseURLForLanguage(connectionID, language, "", nil)) }>← Back to catalog</a>
-	@CatalogSearchForm(connectionID, language, returnTo, nil)
-	<h2>{ feed.Title }</h2><p><small>Showing EPUB editions only.</small></p>
-	if len(feed.Entries) == 0 {
-		@EmptyState("This language feed is empty", "No EPUB books were found for this language. Try another collection or search.") { <a href={ templ.URL(browseURLForLanguage(connectionID, language, "", nil)) }>Go back</a> }
-	}
-	<div class="catalog-grid">
-	for _, entry := range feed.Entries {
-		@EntryCardForLanguageWithState(csrf, connectionID, language, returnTo, entry, owned)
-	}
-	</div>@LanguagePagination(connectionID, language, feed)</section>
-}
-templ LanguagePagination(connectionID, language string, feed opds.Feed) {
-	<nav class="catalog-pagination" aria-label="Catalog pages">
-		if href := feedLink(feed, "previous"); href != "" {
-			<a href={ templ.URL(languagePageURL(connectionID, language, href)) } hx-get={ languagePageURL(connectionID, language, href) } hx-target="#catalog-results" hx-swap="outerHTML">Previous page</a>
-		}
-		if href := feedLink(feed, "next"); href != "" {
-			<a href={ templ.URL(languagePageURL(connectionID, language, href)) } hx-get={ languagePageURL(connectionID, language, href) } hx-target="#catalog-results" hx-swap="outerHTML">Next page</a>
-		}
-	</nav>
-}
-templ EntryCardForLanguage(csrf, connectionID, language, returnTo string, entry opds.Entry) {
-	@EntryCardForLanguageWithState(csrf, connectionID, language, returnTo, entry, nil)
-}
-templ EntryCardForLanguageWithState(csrf, connectionID, language, returnTo string, entry opds.Entry, owned []acquisitionEntryState) {
-	<article><h3>{ entry.Title }</h3>
-	if epubLink := acquisitionLink(entry); epubLink != nil {
-		if sourceID := acquisitionEntrySource(owned, connectionID, language, entry, epubLink.Href); sourceID != "" {
-			@AcquisitionOwnedCard(entry, sourceID)
-		} else {
-			@AcquisitionForm(csrf, connectionID, language, returnTo, entry, epubLink.Href)
-		}
-	}
-	</article>
-}
-templ CatalogNotice(message string) { <article role="status"><p>{ message }</p></article> }
-templ EntryCard(csrf, connectionID, language, returnTo string, entry opds.Entry, trail []CatalogCrumb) {
-	@EntryCardWithState(csrf, connectionID, language, returnTo, entry, trail, nil)
-}
-templ EntryCardWithState(csrf, connectionID, language, returnTo string, entry opds.Entry, trail []CatalogCrumb, owned []acquisitionEntryState) {
-	<article><h3>{ entry.Title }</h3>
-	if href := navigationLink(entry); href != "" {
-		<a role="button" class="outline" href={ templ.URL(browseURLForLanguage(connectionID, language, href, trail)) } hx-get={ browseURLForLanguage(connectionID, language, href, trail) } hx-target="#catalog-results" hx-swap="outerHTML">Open collection</a>
-	}
-	if epubLink := acquisitionLink(entry); epubLink != nil {
-		if sourceID := acquisitionEntrySource(owned, connectionID, language, entry, epubLink.Href); sourceID != "" {
-			@AcquisitionOwnedCard(entry, sourceID)
-		} else {
-			@AcquisitionForm(csrf, connectionID, language, returnTo, entry, epubLink.Href)
-		}
-	}
-	if navigationLink(entry) == "" && acquisitionLink(entry) == nil {
-		<p><small>No compatible EPUB is available for this entry.</small></p>
-	}
-	</article>
 }
 templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.Entry, token string) {
 	<form method="post" action="/opds/acquire" data-acquire hx-post="/opds/acquire" hx-target="closest article" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/>
@@ -1259,10 +1047,7 @@ templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.
 	if returnTo != "" {
 		<input type="hidden" name="return_to" value={ returnTo }/>
 	}
-	<button type="submit">Add to My Books</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
-}
-templ AcquisitionSuccessCard(entry opds.Entry, sourceID string, alreadyPresent bool) {
-	@AcquisitionSuccessCardWithReturn(entry, sourceID, alreadyPresent, "#catalog-results")
+	<button type="submit">Acquire EPUB content</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
 }
 templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alreadyPresent bool, returnTo string) {
 	<article data-acquisition-result="settled"><h3>{ entry.Title }</h3>
@@ -1271,7 +1056,7 @@ templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alread
 	} else {
 		<p>Added to My Books.</p>
 	}
-	<p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a> when you are ready.</p><a href={ templ.SafeURL(returnTo) }>Continue browsing</a></article>
+	<p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a> when you are ready.</p><a href={ templ.SafeURL(returnTo) }>Return to My Books</a></article>
 }
 templ AcquisitionOwnedCard(entry opds.Entry, sourceID string) {
 	<article class="acquisition-owned"><p role="status"><strong>Already in My Books</strong></p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a></article>
@@ -1280,53 +1065,11 @@ templ AcquisitionFailureCard(csrf, connectionID, connectionName, language, retur
 	<article><h3>{ entry.Title }</h3><p role="alert">{ message }</p><p><strong>Affected connection:</strong> { connectionName }</p><p><a href={ templ.SafeURL("/connections#connection-"+connectionID) }>Edit connection</a> or retry the acquisition.</p>@AcquisitionForm(csrf, connectionID, language, returnTo, entry, href)</article>
 }
 
-templ CatalogRootPage(user domain.User, csrf string, connection domain.OpdsConnection, language, message string, feed opds.Feed, owned []acquisitionEntryState) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/catalog?connection="+connection.ID, connection.Name)
-		@PageHeader(connection.Name, "Browse collections and add EPUB books while keeping this catalog context.", nil)
-		@CatalogRootResults(csrf, connection.ID, language, "/opds/browse?connection="+connection.ID+"&language="+language, message, feed, owned)
-	}
-}
-templ CatalogFeedPage(user domain.User, csrf string, connection domain.OpdsConnection, feed opds.Feed, trail []CatalogCrumb, language, returnTo, message string, owned []acquisitionEntryState) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/catalog?connection="+connection.ID, connection.Name)
-		@PageHeader(connection.Name, "Browse collections and add EPUB books while keeping this catalog context.", nil)
-		@FeedFragmentWithState(csrf, connection.ID, language, returnTo, message, feed, trail, owned)
-	}
-}
-templ CatalogLanguagePage(user domain.User, csrf string, connection domain.OpdsConnection, language, returnTo, message string, feed opds.Feed, owned []acquisitionEntryState) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/catalog?connection="+connection.ID, connection.Name)
-		@PageHeader(connection.Name, "Browse EPUB books in the selected ready analysis language.", nil)
-		@LanguageResultsWithState(csrf, connection.ID, language, returnTo, message, feed, owned)
-	}
-}
-templ CatalogSearchPage(user domain.User, csrf string, connection domain.OpdsConnection, language, returnTo, backTo, query, message string, feed opds.Feed, owned []acquisitionEntryState) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/catalog?connection="+connection.ID, connection.Name)
-		@PageHeader(connection.Name, "Search this catalog and add EPUB books without losing your selected language.", nil)
-		@SearchResultsWithState(csrf, connection.ID, language, returnTo, backTo, message, query, feed, owned)
-	}
-}
-templ CatalogFailurePage(user domain.User, csrf string, connection domain.OpdsConnection, message, retryURL string) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/connections", "Catalog connections")
-		@PageHeader(connection.Name, "Catalog access needs attention before browsing can continue.", nil)
-		@CatalogFailureFragment(connection, message, retryURL)
-	}
-}
-templ CatalogFailureFragment(connection domain.OpdsConnection, message, retryURL string) {
-	<section id="catalog-results" aria-live="polite" aria-atomic="true">
-		@Feedback(catalogFailureKind(message), catalogFailureTitle(message), message)
-		<p><strong>Affected connection:</strong> { connection.Name }</p>
-		<div class="action-group"><a role="button" href={ templ.SafeURL("/connections#connection-"+connection.ID) }>Edit connection</a><a role="button" class="outline" href={ templ.SafeURL(retryURL) }>Retry</a></div>
-	</section>
-}
 templ AcquisitionFailurePage(user domain.User, csrf string, connection domain.OpdsConnection, language, returnTo, message string, entry opds.Entry, href string) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationAcquisition) {
-		@Breadcrumb("/catalog?connection="+connection.ID, connection.Name)
-		@PageHeader(connection.Name, "The book was not added; you can recover and continue browsing.", nil)
-		<article><h2>{ entry.Title }</h2><p><strong>Affected connection:</strong> { connection.Name }</p><p role="alert">{ message }</p><p><a href={ templ.SafeURL("/connections#connection-"+connection.ID) }>Edit connection</a> or retry the acquisition below.</p>@AcquisitionForm(csrf, connection.ID, language, returnTo, entry, href)</article>
+	@ShellLayout(connection.Name, &user, csrf, NavigationLibrary) {
+		@Breadcrumb("/library", "My Books")
+		@PageHeader(connection.Name, "The EPUB was not acquired.", nil)
+		<article><h2>{ entry.Title }</h2><p><strong>Affected connection:</strong> { connection.Name }</p><p role="alert">{ message }</p><p><a href={ templ.SafeURL("/connections#connection-"+connection.ID) }>Check connection settings</a> or retry below.</p>@AcquisitionForm(csrf, connection.ID, language, returnTo, entry, href)</article>
 	}
 }
 templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
@@ -1533,6 +1276,10 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 }
 
 templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool) {
+	@MetadataOnlyBookPageWithAcquisition(user, csrf, book, message, eligibleForRefresh, nil, "")
+}
+
+templ MetadataOnlyBookPageWithAcquisition(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool, target *cataloguesync.AcquisitionTarget, token string) {
 	@ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/library", "My Books")
 		@PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral))
@@ -1541,11 +1288,16 @@ templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, me
 		} else if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
-		<section aria-labelledby="metadata-only-heading">
+		<article aria-labelledby="metadata-only-heading">
 			<h2 id="metadata-only-heading">Content not acquired</h2>
 			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis, scope review, and deck preparation are unavailable until content is acquired explicitly.</p>
-			<p>Sync is metadata-only and never downloads book content. Use the catalog connection to express acquisition intent when you are ready.</p>
-		</section>
+			<p>Sync is metadata-only and never downloads book content. Acquire the EPUB here when you are ready.</p>
+			if target != nil && token != "" {
+				@AcquisitionForm(csrf, target.ConnectionID, target.Language, "/books/"+book.Book.ID, target.Entry, token)
+			} else {
+				<p>The catalogue entry is not currently available for acquisition. Try syncing the catalogue again later.</p>
+			}
+		</article>
 	}
 }
 

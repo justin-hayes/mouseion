@@ -125,14 +125,3 @@ func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
 		t.Fatalf("root location = %q, want /library", location)
 	}
 }
-
-func TestFragmentsDoNotRenderAuthenticatedShell(t *testing.T) {
-	var output bytes.Buffer
-	if err := CatalogNotice("Catalog is ready").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	html := output.String()
-	if strings.Contains(html, "Primary navigation") || strings.Contains(html, "site-header__nav") || strings.Contains(html, "<!doctype html>") {
-		t.Fatalf("fragment unexpectedly rendered the authenticated shell: %s", html)
-	}
-}

@@ -8,6 +8,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+func explicitTestWebKey(purpose string) []byte { return []byte("012345678901234567890123456789" + purpose[:2]) }
+
 func TestWebApplicationRequiresDurableProductionSecret(t *testing.T) {
 	for _, test := range []struct {
 		name   string

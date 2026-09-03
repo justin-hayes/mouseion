@@ -2,16 +2,18 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily on learner intent, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It also supports selective additions from learner-owned OPDS catalogs. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
 The authenticated shell has exactly three primary destinations: **My Books** at
 `/library`, **Reading Journey** at `/journey`, and **Settings** at `/settings`.
-There is no acquisition action in the top navigation. Catalogue setup and
-browsing are reached from My Books empty states and actions and via the
-`/connections` and `/catalog...` routes; Add books is not a destination and is
-not a persistent shell action. `/` redirects to My Books, and the
+There is no acquisition action in the top navigation. Catalogue setup and sync
+maintenance are reached from My Books empty states and actions and via the
+`/connections` route; Add books is not a destination and is not a persistent
+shell action. My Books is the sole browse surface for the synced collection,
+and EPUB content is acquired from each Book's detail page. The upstream catalog
+browser is retired. `/` redirects to My Books, and the
 compatibility route `GET /campaigns` redirects to Reading Journey. Campaign
 history and operations remain available as a secondary section on Reading
 Journey for prepared-deck actions, reading/preparation facts, and vocabulary
@@ -50,7 +52,7 @@ disabled until readiness can be checked.
 
 ## Current pipeline
 
-1. **My Books acquisition** — acquire and validate an EPUB from an owner-scoped OPDS catalog whose credentials are encrypted at rest. Addition creates or restores My Books membership and does not start analysis; it supports adding multiple books without leaving the browser. A periodic job per catalogue connection also upserts metadata for ready study languages excluding English, creating metadata-only My Books entries whose content is acquired lazily on learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis.
+1. **My Books acquisition** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, browse the resulting local My Books collection, and acquire an EPUB from a selected Book's detail page via `POST /opds/acquire`. Acquisition creates or restores My Books membership and does not start analysis. A periodic job per catalogue connection also upserts metadata for ready study languages excluding English, creating metadata-only My Books entries whose content is acquired lazily on explicit learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis.
 2. **Scope review** — show reliable top-level EPUB 3 TOC entries as initially checked checkboxes, or fall back to initially checked readable persisted units in flat spine order; expand choices to the canonical ordered unit set and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
 3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights (target; ADR 0040 proposed)** — inspect the book's one current analysis on `/books/{id}`: headline current known coverage with an analyzed-units qualifier, vocabulary investment, highest-impact unknown vocabulary, warning-only quality information, and deck preparation. Prior runs remain operational history in `/jobs`; run-specific result URLs redirect to the book.

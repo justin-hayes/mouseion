@@ -22,7 +22,7 @@ export default defineConfig({
     { name: 'compact-dark', use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
   ],
   webServer: {
-    command: process.env.MOUSEION_FIXTURE_BIN ?? 'go run ./cmd/fixtureserver',
+    command: process.env.MOUSEION_FIXTURE_BIN ?? 'go run ../cmd/fixtureserver',
     url: process.env.MOUSEION_FIXTURE_URL ? `${process.env.MOUSEION_FIXTURE_URL}/healthz` : 'http://127.0.0.1:8099/healthz',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

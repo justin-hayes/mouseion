@@ -1,8 +1,7 @@
 # Catalogue sync to My Books workflow
 
-Status: **Canonical proposed learner-facing workflow.** It is the automated,
-metadata-first complement to the shipped selective
-[acquisition workflow](acquisition-to-library.md). Product behavior is proposed
+Status: **Canonical learner-facing workflow.** It is the automated,
+metadata-first path to the local My Books collection. Product behavior is proposed
 by [ADR 0041](../../adr/0041-catalog-sync-metadata-first.md) and the
 [Catalogue Sync feature](../../features/catalog-sync.md).
 
@@ -54,13 +53,14 @@ decks, or vocabulary.
 **Learner question:** Is Mouseion up to date with this catalogue?
 
 The connection surface shows one of never synced, syncing, last synced, or
-failed. **Sync now** submits the same owner-scoped River job used by the
+failed, and reports the eligible ready study-language scope. If no study
+language is eligible, it directs the learner to Settings rather than claiming
+the collection is current. **Sync now** submits the same owner-scoped River job used by the
 periodic schedule. The run examines only the learner's ready study languages,
 excluding English, and upserts metadata-only My Books entries. It never
 downloads EPUB content and never removes local state.
 
-The connection remains usable for manual browsing during ordinary sync work.
-Detailed attempts and recovery live on `/jobs`; the connection surface retains
+The connection remains usable while sync work runs. Detailed attempts and recovery live on `/jobs`; the connection surface retains
 the concise learner-relevant status.
 
 ### 3. Browse and search My Books
@@ -80,11 +80,10 @@ evidence state remains supporting information.
 before analysis?
 
 Opening `/books/{id}` preserves the Book identity and states that the entry has
-metadata only. When the learner expresses intent to continue toward analysis,
-Mouseion acquires and validates the EPUB through its recorded owner-scoped
-catalogue identity. The exact open-versus-explicit-action trigger and
-inline-versus-River execution are open product questions; the workflow must
-still make the transition explicit and recoverable.
+metadata only. The Book detail page offers explicit acquisition via
+`POST /opds/acquire`. Mouseion acquires and validates the EPUB through its
+recorded owner-scoped catalogue identity. The transition is explicit and
+recoverable.
 
 The Book becomes acquired only after a complete validated immutable snapshot is
 persisted. A missing upstream entry or acquisition failure leaves the Book and
@@ -105,7 +104,7 @@ invalidates existing evidence.
 | Never synced | Name the connection and eligible ready-language scope, excluding English. | Sync now |
 | Syncing | Preserve existing Books, identify metadata reconciliation as in progress, and provide operational detail without turning jobs into navigation. | View job status |
 | Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
-| Synced with no changes | Show the last-synced time and that the collection was already current. | Browse My Books |
+| Synced with no changes | Show the last-synced time and eligible languages; state that no eligible EPUB entries were found, or guide the learner to Settings when scope is empty. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
 | Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Express acquisition intent |
 | Lazy acquisition running | Keep Book context and identify content acquisition separately from analysis. | View status when queued |
@@ -116,12 +115,12 @@ invalidates existing evidence.
 
 - The authenticated shell remains exactly My Books, Reading Journey, and Settings
   with no acquisition action in the top navigation; `/connections` (Add books)
-  and its catalogue browsing are reached from My Books.
+  is reached from My Books, while My Books is the sole browse surface.
 - `/connections` owns configuration and concise sync status. `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
   new destination.
-- My Books owns local language grouping, search, and paging. Catalogue browsing
-  remains the selective manual acquisition workflow.
+- My Books owns local language grouping, search, paging, and browsing of synced
+  metadata. Book detail owns per-book EPUB acquisition.
 - Book detail owns lazy acquisition context, scope review, analysis, and deck
   actions. The language-level aggregate lens remains evidence-only.
 - HTMX may enhance forms and status regions, but connect, sync submission,

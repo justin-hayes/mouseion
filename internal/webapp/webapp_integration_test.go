@@ -22,6 +22,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -61,6 +62,20 @@ func (s staticCapabilities) GetCapabilities(context.Context) (analyzer.Capabilit
 
 func readyGerman() staticCapabilities {
 	return staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
+}
+
+type metadataBookAcquisitionStub struct {
+	target cataloguesync.AcquisitionTarget
+}
+
+func (metadataBookAcquisitionStub) RegisterConnection(context.Context, string, string) error {
+	return nil
+}
+
+func (metadataBookAcquisitionStub) UnregisterConnection(string, string) error { return nil }
+
+func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+	return s.target, nil
 }
 
 func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string, legacyAdmin bool) domain.User {
@@ -498,8 +513,8 @@ func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
 	}
 }
 
-func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "webapp-integration-secret-0123456789")
+func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "metadata-acquisition-integration-secret-0123456789")
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
@@ -508,547 +523,56 @@ func TestLoginBrowseAcquireAndImportedBookOwnerScoping(t *testing.T) {
 	}
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
-	createAccount(t, ctx, store, "admin", "admin-password", true)
-	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "bob", "bob-password", false)
-	createAccount(t, ctx, store, "empty", "empty-password", false)
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
+	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
+	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, "metadata-entry", "Metadata-only synced book", "de")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
-	epubBytes := testEPUB(t)
-	secondEPUBBytes := testEPUBVariant(t, "book-2", "Second Book", "Guten Tag Welt.")
-	invalidEPUBBytes := []byte("not an epub")
-	catalogRequests := 0
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		catalogRequests++
-		switch r.URL.Path {
-		case "/opds":
-			w.Header().Set("Content-Type", "application/atom+xml")
-			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Library</title><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry></feed>`, opds.AcquisitionRel, opds.EPUBMediaType)
-		case "/opds/language":
-			w.Header().Set("Content-Type", "application/atom+xml")
-			_, _ = w.Write([]byte(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/1</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/opds/language/1"/></entry></feed>`))
-		case "/opds/language/1":
-			w.Header().Set("Content-Type", "application/atom+xml")
-			fmt.Fprintf(w, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>book-pdf</id><title>PDF Book</title><link rel="%s" type="application/pdf" href="/book.pdf"/></entry><entry><id>book-1</id><title>Test Book</title><link rel="%s" type="%s" href="/book.epub"/></entry><entry><id>book-2</id><title>Second Book</title><link rel="%s" type="%s" href="/book-2.epub"/></entry></feed>`, opds.AcquisitionRel, opds.AcquisitionRel, opds.EPUBMediaType, opds.AcquisitionRel, opds.EPUBMediaType)
-		case "/book.epub":
-			w.Header().Set("Content-Type", opds.EPUBMediaType)
-			_, _ = w.Write(epubBytes)
-		case "/book-2.epub":
-			w.Header().Set("Content-Type", opds.EPUBMediaType)
-			_, _ = w.Write(secondEPUBBytes)
-		case "/invalid.epub":
-			w.Header().Set("Content-Type", opds.EPUBMediaType)
-			_, _ = w.Write(invalidEPUBBytes)
-		case "/private.epub":
-			w.WriteHeader(http.StatusUnauthorized)
-		case "/upstream":
-			w.WriteHeader(http.StatusBadGateway)
-		default:
+		if r.URL.Path != "/book.epub" {
 			http.NotFound(w, r)
+			return
 		}
+		w.Header().Set("Content-Type", opds.EPUBMediaType)
+		_, _ = w.Write(testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
 	}))
 	defer catalog.Close()
-	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Library", URL: catalog.URL + "/opds"})
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Private", URL: catalog.URL + "/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder := &recordingAnalysis{}
-	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
-	webAuth := webauth.New(authService, false, time.Hour)
-	knownJobs := &recordingKnownVocab{service: knownvocab.NewService(store)}
-	h := New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, KnownVocab: knownJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
-	loginPage := perform(t, h, "GET", "/login", nil, nil)
-	csrf := hiddenToken(t, loginPage.Body.String())
-	csrfCookieValue := cookieNamed(t, loginPage.Result().Cookies(), csrfCookie)
-	form := url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}
-	login := perform(t, h, "POST", "/login", form, []*http.Cookie{csrfCookieValue})
-	if login.Code != http.StatusSeeOther {
-		t.Fatalf("login=%d %s", login.Code, login.Body.String())
-	}
-	session := cookieNamed(t, login.Result().Cookies(), webauth.CookieName)
-	csrfCookieValue = cookieNamed(t, login.Result().Cookies(), csrfCookie)
-	csrf = csrfCookieValue.Value
-	cookies := []*http.Cookie{csrfCookieValue, session}
-	emptyCookies, _ := loginCookies(t, h, "empty", "empty-password")
-	firstHub := perform(t, h, "GET", "/connections", nil, emptyCookies)
-	if firstHub.Code != http.StatusOK || !strings.Contains(firstHub.Body.String(), "Add your first catalog connection") || !strings.Contains(firstHub.Body.String(), "Add catalog connection") {
-		t.Fatalf("empty acquisition hub=%d %s", firstHub.Code, firstHub.Body.String())
-	}
-	home := perform(t, h, "GET", "/", nil, cookies)
-	if home.Code != http.StatusSeeOther || home.Header().Get("Location") != "/library" {
-		t.Fatalf("home=%d location=%q", home.Code, home.Header().Get("Location"))
-	}
-	requestsBeforeUnsupported := catalogRequests
-	unsupportedBrowse := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=xx", nil, cookies)
-	if unsupportedBrowse.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
-		t.Fatalf("unsupported browse=%d requests=%d want %d", unsupportedBrowse.Code, catalogRequests, requestsBeforeUnsupported)
-	}
-	unsupportedRootBrowse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID+"&language=xx", nil, cookies)
-	if unsupportedRootBrowse.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
-		t.Fatalf("unsupported root browse=%d requests=%d want %d", unsupportedRootBrowse.Code, catalogRequests, requestsBeforeUnsupported)
-	}
-	unsupportedAcquire := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"xx"}, "acquisition": {h.clientTargetToken(connection.ID, "xx", &opds.Entry{ID: "book-1", Title: "Test Book"}, catalog.URL+"/book.epub")}}, cookies)
-	if unsupportedAcquire.Code != http.StatusBadRequest || catalogRequests != requestsBeforeUnsupported {
-		t.Fatalf("unsupported acquire=%d requests=%d want %d", unsupportedAcquire.Code, catalogRequests, requestsBeforeUnsupported)
-	}
-	browse := perform(t, h, "GET", "/opds/browse?connection="+connection.ID+"&language=de", nil, cookies)
-	if browse.Code != 200 || !strings.Contains(browse.Body.String(), "Test Book") || !strings.Contains(browse.Body.String(), "Search is not available") {
-		t.Fatalf("browse=%d %s", browse.Code, browse.Body.String())
-	}
-	crossOwner := perform(t, h, "GET", "/opds/browse?connection="+bobConnection.ID+"&language=de", nil, cookies)
-	if crossOwner.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner browse=%d %s", crossOwner.Code, crossOwner.Body.String())
-	}
-	if got := perform(t, h, "GET", "/catalog?connection="+bobConnection.ID, nil, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner catalog=%d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/connections/"+bobConnection.ID, url.Values{"csrf_token": {csrf}, "name": {"Stolen"}, "url": {catalog.URL}, "language": {"de"}}, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner update=%d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/connections/"+bobConnection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner delete=%d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/opds/acquire", url.Values{"csrf_token": {csrf}, "connection": {bobConnection.ID}, "language": {"de"}, "acquisition": {h.clientTargetToken(bobConnection.ID, "de", &opds.Entry{ID: "book-1", Title: "Test Book"}, catalog.URL+"/book.epub")}}, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner acquire=%d %s", got.Code, got.Body.String())
-	}
-	catalogPage := perform(t, h, "GET", "/catalog?connection="+connection.ID, nil, cookies)
-	if catalogPage.Code != 200 || !strings.Contains(catalogPage.Body.String(), `value="de"`) {
-		t.Fatalf("catalog=%d %s", catalogPage.Code, catalogPage.Body.String())
-	}
-	languageBooks := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, cookies)
-	if languageBooks.Code != 200 || !strings.Contains(languageBooks.Body.String(), "<!doctype html>") || !strings.Contains(languageBooks.Body.String(), "Test Book") || strings.Contains(languageBooks.Body.String(), "PDF Book") {
-		t.Fatalf("language browse=%d %s", languageBooks.Code, languageBooks.Body.String())
-	}
-	invalidRequest := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "acquisition": {h.clientTargetToken(connection.ID, "de", &opds.Entry{ID: "invalid", Title: "Broken EPUB"}, catalog.URL+"/invalid.epub")}}
-	invalid := httptest.NewRecorder()
-	invalidHTTP := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(invalidRequest.Encode()))
-	invalidHTTP.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	invalidHTTP.Header.Set("HX-Request", "true")
-	for _, cookie := range cookies {
-		invalidHTTP.AddCookie(cookie)
-	}
-	h.ServeHTTP(invalid, invalidHTTP)
-	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), "not a valid EPUB") || !strings.Contains(invalid.Body.String(), "No book was added") {
-		t.Fatalf("invalid acquisition=%d %s", invalid.Code, invalid.Body.String())
-	}
-	authFailure := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "acquisition": {h.clientTargetToken(connection.ID, "de", &opds.Entry{ID: "private", Title: "Private EPUB"}, catalog.URL+"/private.epub")}}
-	authFailureResponse := httptest.NewRecorder()
-	authHTTP := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(authFailure.Encode()))
-	authHTTP.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	authHTTP.Header.Set("HX-Request", "true")
-	for _, cookie := range cookies {
-		authHTTP.AddCookie(cookie)
-	}
-	h.ServeHTTP(authFailureResponse, authHTTP)
-	if authFailureResponse.Code != http.StatusBadGateway || !strings.Contains(authFailureResponse.Body.String(), "rejected the credentials") || !strings.Contains(authFailureResponse.Body.String(), "Library") || !strings.Contains(authFailureResponse.Body.String(), "Edit connection") {
-		t.Fatalf("authentication acquisition=%d %s", authFailureResponse.Code, authFailureResponse.Body.String())
-	}
-	upstream := perform(t, h, "GET", "/opds/browse?connection="+connection.ID+"&language=de&url="+url.QueryEscape(catalog.URL+"/upstream"), nil, cookies)
-	if upstream.Code != http.StatusBadGateway || !strings.Contains(upstream.Body.String(), "Library") || !strings.Contains(upstream.Body.String(), "Retry") || !strings.Contains(upstream.Body.String(), "<!doctype html>") {
-		t.Fatalf("upstream browse=%d %s", upstream.Code, upstream.Body.String())
-	}
-	validToken := hiddenInputValue(t, languageBooks.Body.String(), "acquisition")
-	csrfMissing := url.Values{"connection": {connection.ID}, "language": {"de"}, "acquisition": {validToken}}
-	if got := perform(t, h, "POST", "/opds/acquire", csrfMissing, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("acquire without csrf=%d", got.Code)
-	}
-	acquireForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "acquisition": {validToken}, "return_to": {"/opds/language?connection=" + connection.ID + "&language=de"}}
-	acquired := perform(t, h, "POST", "/opds/acquire", acquireForm, cookies)
-	if acquired.Code != http.StatusSeeOther {
-		t.Fatalf("acquire=%d %s", acquired.Code, acquired.Body.String())
-	}
-	if recorder.owner != "" || recorder.source != "" {
-		t.Fatalf("OPDS acquisition started analysis owner=%q source=%q", recorder.owner, recorder.source)
-	}
-	if acquired.Header().Get("Location") == "" || !strings.Contains(acquired.Header().Get("Location"), "/opds/language") {
-		t.Fatalf("acquire did not preserve browse context: %q", acquired.Header().Get("Location"))
-	}
-	acquisitionCookieValue := cookieNamed(t, acquired.Result().Cookies(), acquisitionCookie)
-	if len(acquisitionCookieValue.Value) > maxAcquisitionCookieBytes || strings.Contains(acquisitionCookieValue.Value, "book.epub") {
-		t.Fatalf("acquisition cookie is too large or contains catalog URL: %d %q", len(acquisitionCookieValue.Value), acquisitionCookieValue.Value)
-	}
-	contextCookies := append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue)
-	addedReturn := perform(t, h, "GET", acquired.Header().Get("Location"), nil, contextCookies)
-	if addedReturn.Code != http.StatusOK || !strings.Contains(addedReturn.Body.String(), "Added to My Books") || !strings.Contains(addedReturn.Body.String(), "Already in My Books") {
-		t.Fatalf("added full-page return=%d %s", addedReturn.Code, addedReturn.Body.String())
-	}
-	rememberedFeed := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, contextCookies)
-	if rememberedFeed.Code != http.StatusOK || !strings.Contains(rememberedFeed.Body.String(), "Already in My Books") || !strings.Contains(rememberedFeed.Body.String(), "Open owned book") {
-		t.Fatalf("remembered acquisition state=%d %s", rememberedFeed.Code, rememberedFeed.Body.String())
-	}
-	duplicateFullPage := perform(t, h, "POST", "/opds/acquire", acquireForm, contextCookies)
-	duplicateAcquisitionCookie := cookieNamed(t, duplicateFullPage.Result().Cookies(), acquisitionCookie)
-	duplicateReturn := perform(t, h, "GET", duplicateFullPage.Header().Get("Location"), nil, append(append([]*http.Cookie{}, cookies...), duplicateAcquisitionCookie))
-	if duplicateFullPage.Code != http.StatusSeeOther || duplicateReturn.Code != http.StatusOK || !strings.Contains(duplicateReturn.Body.String(), "That book is already in My Books") || !strings.Contains(duplicateReturn.Body.String(), "Already in My Books") {
-		t.Fatalf("duplicate full-page return=%d location=%q body=%s", duplicateFullPage.Code, duplicateFullPage.Header().Get("Location"), duplicateReturn.Body.String())
-	}
-	logout := perform(t, h, "POST", "/logout", url.Values{"csrf_token": {csrf}}, cookies)
-	if logout.Code != http.StatusSeeOther || cookieNamed(t, logout.Result().Cookies(), acquisitionCookie).MaxAge != -1 {
-		t.Fatalf("logout did not clear acquisition state: %d cookies=%v", logout.Code, logout.Result().Cookies())
-	}
-	cookies, csrf = loginCookies(t, h, "alice", "alice-password")
-	jsonLogoutRequest := httptest.NewRequest("POST", "/logout", strings.NewReader(`{}`))
-	jsonLogoutRequest.Header.Set("Content-Type", "application/json")
-	for _, cookie := range append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue) {
-		jsonLogoutRequest.AddCookie(cookie)
-	}
-	jsonLogout := httptest.NewRecorder()
-	h.ServeHTTP(jsonLogout, jsonLogoutRequest)
-	if jsonLogout.Code != http.StatusNoContent || cookieNamed(t, jsonLogout.Result().Cookies(), webauth.CookieName).MaxAge != -1 || cookieNamed(t, jsonLogout.Result().Cookies(), acquisitionCookie).MaxAge != -1 {
-		t.Fatalf("JSON logout did not clear session and acquisition state: %d cookies=%v", jsonLogout.Code, jsonLogout.Result().Cookies())
-	}
-	cookies, csrf = loginCookies(t, h, "alice", "alice-password")
-	jsonLogoutAllRequest := httptest.NewRequest("POST", "/logout-all", strings.NewReader(`{}`))
-	jsonLogoutAllRequest.Header.Set("Content-Type", "application/json; charset=utf-8")
-	for _, cookie := range append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue) {
-		jsonLogoutAllRequest.AddCookie(cookie)
-	}
-	jsonLogoutAll := httptest.NewRecorder()
-	h.ServeHTTP(jsonLogoutAll, jsonLogoutAllRequest)
-	if jsonLogoutAll.Code != http.StatusNoContent || cookieNamed(t, jsonLogoutAll.Result().Cookies(), webauth.CookieName).MaxAge != -1 || cookieNamed(t, jsonLogoutAll.Result().Cookies(), acquisitionCookie).MaxAge != -1 {
-		t.Fatalf("JSON logout-all did not clear session and acquisition state: %d cookies=%v", jsonLogoutAll.Code, jsonLogoutAll.Result().Cookies())
-	}
-	cookies, csrf = loginCookies(t, h, "alice", "alice-password")
-	htmlLogoutAll := perform(t, h, "POST", "/logout-all", url.Values{"csrf_token": {csrf}}, append(cookies, acquisitionCookieValue))
-	if htmlLogoutAll.Code != http.StatusSeeOther || htmlLogoutAll.Header().Get("Location") != "/login" || cookieNamed(t, htmlLogoutAll.Result().Cookies(), webauth.CookieName).MaxAge != -1 || cookieNamed(t, htmlLogoutAll.Result().Cookies(), acquisitionCookie).MaxAge != -1 {
-		t.Fatalf("HTML logout-all changed CSRF/redirect behavior: %d location=%q cookies=%v", htmlLogoutAll.Code, htmlLogoutAll.Header().Get("Location"), htmlLogoutAll.Result().Cookies())
-	}
-	cookies, csrf = loginCookies(t, h, "alice", "alice-password")
-	acquireForm.Set("csrf_token", csrf)
-	stale := append(append([]*http.Cookie{}, cookies...), acquisitionCookieValue)
-	if stalePage := perform(t, h, "GET", "/opds/language?connection="+connection.ID+"&language=de", nil, stale); stalePage.Code != http.StatusOK || strings.Contains(stalePage.Body.String(), "Already in My Books") {
-		t.Fatalf("stale acquisition state survived session rotation: %d %s", stalePage.Code, stalePage.Body.String())
-	}
-	library := perform(t, h, "GET", "/library", nil, cookies)
-	if library.Code != 200 || !strings.Contains(library.Body.String(), "Test Book") || !strings.Contains(library.Body.String(), "Scope review required") {
-		t.Fatalf("library=%d %s", library.Code, library.Body.String())
-	}
-	metadataForm := url.Values{"csrf_token": {csrf}, "title": {"Metadata-only web book"}, "language_state": {domain.LanguageUnknown}}
-	metadataResponse := perform(t, h, "POST", "/library/books", metadataForm, cookies)
-	if metadataResponse.Code != http.StatusSeeOther || !strings.Contains(metadataResponse.Header().Get("Location"), "/library?message=") {
-		t.Fatalf("metadata create=%d location=%q body=%s", metadataResponse.Code, metadataResponse.Header().Get("Location"), metadataResponse.Body.String())
-	}
-	metadataBooks, metadataErr := store.ListMyBooksWithEvidence(ctx, alice.ID)
-	if metadataErr != nil {
-		t.Fatal(metadataErr)
-	}
-	var metadataBook domain.MyBook
-	for _, candidate := range metadataBooks {
-		if candidate.Book.Title == "Metadata-only web book" {
-			metadataBook = candidate
-			break
-		}
-	}
-	if metadataBook.Book.ID == "" || metadataBook.Acquired != nil || metadataBook.EvidenceState != domain.MyBookNotAcquired {
-		t.Fatalf("metadata handler read model=%+v", metadataBook)
-	}
-	repeatedMetadata := perform(t, h, "POST", "/library/books", metadataForm, cookies)
-	if repeatedMetadata.Code != http.StatusSeeOther {
-		t.Fatalf("repeated metadata create=%d %s", repeatedMetadata.Code, repeatedMetadata.Body.String())
-	}
-	metadataBooks, metadataErr = store.ListMyBooksWithEvidence(ctx, alice.ID)
-	if metadataErr != nil {
-		t.Fatal(metadataErr)
-	}
-	metadataCount := 0
-	for _, candidate := range metadataBooks {
-		if candidate.Book.Title == "Metadata-only web book" {
-			metadataCount++
-		}
-	}
-	if metadataCount != 1 {
-		t.Fatalf("repeated metadata create count=%d", metadataCount)
-	}
-	removeMetadata := url.Values{"csrf_token": {csrf}}
-	if removed := perform(t, h, "POST", "/library/books/"+metadataBook.Book.ID+"/remove", removeMetadata, cookies); removed.Code != http.StatusSeeOther {
-		t.Fatalf("metadata removal=%d %s", removed.Code, removed.Body.String())
-	}
-	if repeatedRemoval := perform(t, h, "POST", "/library/books/"+metadataBook.Book.ID+"/remove", removeMetadata, cookies); repeatedRemoval.Code != http.StatusSeeOther {
-		t.Fatalf("repeated metadata removal=%d %s", repeatedRemoval.Code, repeatedRemoval.Body.String())
-	}
-	books, err := store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(books) != 1 {
-		t.Fatalf("OPDS acquisition books=%d err=%v", len(books), err)
-	}
-	bookID := books[0].Source.ID
-	var analysisJobs int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs); err != nil || analysisJobs != 0 {
-		t.Fatalf("OPDS acquisition analysis jobs=%d err=%v", analysisJobs, err)
-	}
-	secondToken := hiddenInputValues(t, languageBooks.Body.String(), "acquisition")[1]
-	secondForm := url.Values{"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"}, "acquisition": {secondToken}}
-	secondRequest := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(secondForm.Encode()))
-	secondRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	secondRequest.Header.Set("HX-Request", "true")
-	for _, cookie := range cookies {
-		secondRequest.AddCookie(cookie)
-	}
-	secondResponse := httptest.NewRecorder()
-	h.ServeHTTP(secondResponse, secondRequest)
-	if secondResponse.Code != http.StatusOK || !strings.Contains(secondResponse.Body.String(), "Added to My Books") || !strings.Contains(secondResponse.Body.String(), "/books/") {
-		t.Fatalf("second OPDS acquisition=%d %s", secondResponse.Code, secondResponse.Body.String())
-	}
-	duplicateResponse := httptest.NewRecorder()
-	duplicateRequest := httptest.NewRequest("POST", "/opds/acquire", strings.NewReader(acquireForm.Encode()))
-	duplicateRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	duplicateRequest.Header.Set("HX-Request", "true")
-	for _, cookie := range cookies {
-		duplicateRequest.AddCookie(cookie)
-	}
-	h.ServeHTTP(duplicateResponse, duplicateRequest)
-	if duplicateResponse.Code != http.StatusOK || !strings.Contains(duplicateResponse.Body.String(), "Already in My Books") {
-		t.Fatalf("duplicate OPDS acquisition=%d %s", duplicateResponse.Code, duplicateResponse.Body.String())
-	}
-	books, err = store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(books) != 2 {
-		t.Fatalf("multi-add books=%d err=%v", len(books), err)
-	}
-	bookPage := perform(t, h, "GET", "/books/"+bookID, nil, cookies)
-	if bookPage.Code != 200 || !strings.Contains(bookPage.Body.String(), "Review scope") {
-		t.Fatalf("book=%d %s", bookPage.Code, bookPage.Body.String())
-	}
-	snapshotID, units, snapshotErr := store.GetExtractedUnitSnapshot(ctx, alice.ID, bookID)
-	if snapshotErr != nil || len(units.Units) == 0 {
-		t.Fatalf("acquired EPUB units=%d snapshot=%q err=%v", len(units.Units), snapshotID, snapshotErr)
-	}
-	scopeForm := url.Values{"csrf_token": {csrf}, "snapshot_id": {snapshotID}}
-	for _, unit := range units.Units {
-		scopeForm.Add("unit_id", unit.ID)
-	}
-	scope := perform(t, h, "POST", "/books/"+bookID+"/scope", scopeForm, cookies)
-	if scope.Code != http.StatusSeeOther {
-		t.Fatalf("scope confirmation=%d %s", scope.Code, scope.Body.String())
-	}
-	if got := perform(t, h, "POST", "/books/"+bookID+"/analyze", nil, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("analysis without csrf=%d", got.Code)
-	}
-	resubmitted := perform(t, h, "POST", "/books/"+bookID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if resubmitted.Code != http.StatusSeeOther || recorder.owner != alice.ID || recorder.source == "" {
-		t.Fatalf("resubmit=%d owner=%q source=%q", resubmitted.Code, recorder.owner, recorder.source)
-	}
-	jobPage := perform(t, h, "GET", "/jobs/42", nil, cookies)
-	if jobPage.Code != 200 || !strings.Contains(jobPage.Body.String(), "Succeeded") || !strings.Contains(jobPage.Body.String(), "Analysis job #1") || strings.Contains(jobPage.Body.String(), "Analysis job #42") {
-		t.Fatalf("job detail=%d %s", jobPage.Code, jobPage.Body.String())
-	}
-
-	// Seed the completed pipeline boundary and exercise the authenticated book
-	// workflow after analysis.
-	artifactHash := "web-workflow-artifact"
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','test','1','test','1')`, artifactHash); err != nil {
-		t.Fatal(err)
-	}
-	var scopeID, scopeSnapshotID string
-	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text,snapshot_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, recorder.source).Scan(&scopeID, &scopeSnapshotID); err != nil {
-		t.Fatal(err)
-	}
-	acquiredSource, sourceErr := store.GetSourceMaterial(ctx, alice.ID, recorder.source)
-	if sourceErr != nil {
-		t.Fatal(sourceErr)
-	}
-	var runID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,scope_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,$5,'test-analyzer','1','test-config','completed',now()) RETURNING id::text`, alice.ID, recorder.source, acquiredSource.ContentRevisionID, scopeID, scopeSnapshotID).Scan(&runID); err != nil {
-		t.Fatal(err)
-	}
-	_, err = store.PutCorpus(ctx, alice.ID, recorder.source, artifactHash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET reviewed_scope_id=$1,analysis_run_id=$2,status='complete' WHERE owner_id=$3 AND source_material_id=$4`, scopeID, runID, alice.ID, recorder.source); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=(SELECT id FROM corpora WHERE owner_id=$1 AND source_material_id=$2) WHERE owner_id=$1 AND id=$3`, alice.ID, recorder.source, runID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) SELECT $1,book_id,$2,$3 FROM source_materials WHERE owner_id=$1 AND id=$2`, alice.ID, recorder.source, runID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash,corpus_id,reviewed_scope_id,analysis_run_id,progress) VALUES(42,1,$1,$2,$3,(SELECT id FROM corpora WHERE owner_id=$1 AND source_material_id=$2),$4,$5,100)`, alice.ID, recorder.source, acquiredSource.ContentHash, scopeID, runID); err != nil {
-		t.Fatal(err)
-	}
-	library = perform(t, h, "GET", "/library", nil, cookies)
-	if library.Code != 200 || !strings.Contains(library.Body.String(), "Analysis result ready") {
-		t.Fatalf("analyzed library=%d %s", library.Code, library.Body.String())
-	}
-	externalJobs := &recordingEnrichment{}
-	insights := &recordingAnalysisInsights{coverage: domain.AnalysisCoverage{
-		AnalyzableTokenCount: 200, DistinctLemmaCount: 8, KnownTokenCount: 110, KnownLemmaCount: 3, UnknownTokenCount: 90, UnknownLemmaCount: 5,
-		TextProfile:          &domain.TextProfile{SentenceCount: 20, NormalizedTokenCount: 240, MedianSentenceTokenCount: 12, P90SentenceTokenCount: 38, LongSentenceCount: 2},
-		TopUnknownLemmas:     []domain.LemmaOccurrence{{CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 30}},
-		UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170},
-		Projections:          []domain.CoverageProjection{{TopLemmaCount: 10, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 25, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}, {TopLemmaCount: 50, SelectedLemmaCount: 5, OccurrenceCount: 60, EligibleTokenCount: 75, ProjectedTokenCount: 170}},
-		Thresholds:           []domain.CoverageThreshold{{TargetPercent: 95, LemmaCount: 3, Reachable: true}, {TargetPercent: 97, LemmaCount: 4, Reachable: true}, {TargetPercent: 99, LemmaCount: 5, Reachable: true}},
-	}}
-	h = New(Services{Auth: authService, WebAuth: webAuth, Store: store, OPDS: opdsService, Analysis: recorder, AnalysisInsights: insights, KnownVocab: knownJobs, Enrichment: externalJobs, Capabilities: readyGerman(), SessionLifetime: time.Hour})
-	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if bookPage.Code != http.StatusOK || insights.owner != alice.ID || insights.corpus == "" {
-		t.Fatalf("coverage request=%d owner=%q corpus=%q body=%s", bookPage.Code, insights.owner, insights.corpus, bookPage.Body.String())
-	}
-	for _, want := range []string{"Vocabulary coverage", "Current known coverage", "55.0%", "of the analyzed units", "Vocabulary investment", "Additional vocabulary", "lemmas for 95%", "lemmas for 97%", "lemmas for 99%", "Highest-impact unknown vocabulary", "wichtig", "30 occurrences", "Deck preparation", `action="/books/` + recorder.source + `/deck/preparations"`, "external_translation_consent"} {
-		if !strings.Contains(bookPage.Body.String(), want) {
-			t.Errorf("coverage page missing %q", want)
-		}
-	}
-	for _, unwanted := range []string{"Analyzed scope", "Text profile", "Projected token coverage", "Analysis history", "active-campaign projected coverage", "analyzable tokens", "distinct lemmas", "graduated by completed campaigns", "legacy generated history", "after top 10 lemmas", "after top 25 lemmas", "after top 50 lemmas"} {
-		if strings.Contains(bookPage.Body.String(), unwanted) {
-			t.Errorf("coverage page includes retired content %q: %s", unwanted, bookPage.Body.String())
-		}
-	}
-	settingsPage := perform(t, h, "GET", "/settings?language=de", nil, cookies)
-	if settingsPage.Code != 200 || !strings.Contains(settingsPage.Body.String(), "Account settings") || !strings.Contains(settingsPage.Body.String(), "German") || !strings.Contains(settingsPage.Body.String(), "Import known vocabulary") || !strings.Contains(settingsPage.Body.String(), `id="known-vocabulary"`) {
-		t.Fatalf("settings page=%d %s", settingsPage.Code, settingsPage.Body.String())
-	}
-	knownPage := perform(t, h, "GET", "/known-vocab?language=de", nil, cookies)
-	if knownPage.Code != http.StatusSeeOther || knownPage.Header().Get("Location") != "/settings?language=de#known-vocabulary" {
-		t.Fatalf("known vocab redirect=%d location=%q", knownPage.Code, knownPage.Header().Get("Location"))
-	}
-	if got := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"language": "de"}, "Daß\nbad\tNOPE\n"); got.Code != http.StatusForbidden {
-		t.Fatalf("known vocab without csrf=%d", got.Code)
-	}
-	importedKnown := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Daß\nbad\tNOPE\n")
-	if importedKnown.Code != http.StatusSeeOther || importedKnown.Header().Get("Location") != "/known-vocab/imports/77/status" {
-		t.Fatalf("known vocab import=%d %s", importedKnown.Code, importedKnown.Body.String())
-	}
-	importStatus := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, cookies)
-	if importStatus.Code != 200 || !strings.Contains(importStatus.Body.String(), "1 new") || !strings.Contains(importStatus.Body.String(), "no tab-separated columns") || !strings.Contains(importStatus.Body.String(), "<td>2</td>") {
-		t.Fatalf("known vocab status=%d %s", importStatus.Code, importStatus.Body.String())
-	}
-	bobLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {bob.Username}, "password": {"bob-password"}}, []*http.Cookie{cookies[0]})
-	bobSession := cookieNamed(t, bobLogin.Result().Cookies(), webauth.CookieName)
-	if got := perform(t, h, "GET", "/known-vocab/imports/77/status", nil, []*http.Cookie{csrfCookieValue, bobSession}); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner known vocab status=%d %s", got.Code, got.Body.String())
-	}
-	for _, route := range []struct{ method, path string }{{"GET", "/review?book=" + recorder.source}, {"POST", "/review/accept"}, {"GET", "/deck?book=" + recorder.source}, {"GET", "/deck/download"}, {"POST", "/books/" + recorder.source + "/deck"}, {"GET", "/admin/frequency"}} {
-		if got := perform(t, h, route.method, route.path, nil, cookies); got.Code != http.StatusNotFound {
-			t.Fatalf("removed route %s %s=%d", route.method, route.path, got.Code)
-		}
-	}
-	bookPage = perform(t, h, "GET", "/books/"+recorder.source, nil, cookies)
-	if !strings.Contains(bookPage.Body.String(), "Deck preparation") || strings.Contains(bookPage.Body.String(), "/analyses/") || !strings.Contains(bookPage.Body.String(), `action="/books/`+recorder.source+`/deck/preparations"`) || strings.Contains(bookPage.Body.String(), "/review?") || strings.Contains(bookPage.Body.String(), "filter_known") || strings.Contains(bookPage.Body.String(), "ranking") {
-		t.Fatalf("book deck flow not unified: %s", bookPage.Body.String())
-	}
-	if _, err = externalJobs.SubmitEnrichment(ctx, alice.ID, []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ"}}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}}}); err != nil {
-		t.Fatal(err)
-	}
-	statusPage := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, cookies)
-	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "Contextual translations: Running") || !strings.Contains(statusPage.Body.String(), "1 of 2 translations complete. Attempt 2.") || !strings.Contains(statusPage.Body.String(), "Translation needs attention") || !strings.Contains(statusPage.Body.String(), `aria-busy="true"`) {
-		t.Fatalf("enrichment status=%d %s", statusPage.Code, statusPage.Body.String())
-	}
-	if got := perform(t, h, "POST", "/enrichment-jobs/88/cancel", nil, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("cancel without csrf=%d", got.Code)
-	}
-	cancelled := perform(t, h, "POST", "/enrichment-jobs/88/cancel", url.Values{"csrf_token": {csrf}}, cookies)
-	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), "Cancelled") {
-		t.Fatalf("cancelled=%d %s", cancelled.Code, cancelled.Body.String())
-	}
-	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
-	if got := perform(t, h, "GET", "/enrichment-jobs/88/status", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner enrichment status=%d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/settings/languages", url.Values{"language": {"de"}}, bobCookies); got.Code != http.StatusForbidden {
-		t.Fatalf("study language without csrf=%d", got.Code)
-	}
-	if got := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {bobCSRF}, "language": {"zz"}}, bobCookies); got.Code != http.StatusBadRequest {
-		t.Fatalf("unsupported study language=%d", got.Code)
-	}
-	if got := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}}, bobCookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("add study language=%d", got.Code)
-	}
-	if got := perform(t, h, "POST", "/settings/languages/remove", url.Values{"csrf_token": {bobCSRF}, "language": {"de"}}, bobCookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("remove study language=%d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/known-vocab?language=de", nil, bobCookies); got.Code != http.StatusSeeOther || got.Header().Get("Location") != "/settings#known-vocabulary" {
-		t.Fatalf("bob known vocabulary redirect=%d location=%q", got.Code, got.Header().Get("Location"))
-	}
-	if got := perform(t, h, "GET", "/books/"+recorder.source, nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("bob read alice book: %d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/jobs/42", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("bob read alice job: %d", got.Code)
-	}
-	for _, path := range []string{"/admin", "/admin/users", "/languages", "/register"} {
-		if got := perform(t, h, "GET", path, nil, cookies); got.Code != http.StatusNotFound {
-			t.Fatalf("removed route %s=%d", path, got.Code)
-		}
-	}
-	if got := perform(t, h, "POST", "/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}, "display_name": {"French"}}, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("removed language update=%d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/admin/connections", nil, cookies); got.Code != http.StatusNotFound {
-		t.Fatalf("removed admin connection management=%d", got.Code)
-	}
-	uppercaseCatalogURL := "HTTP" + strings.TrimPrefix(catalog.URL, "http")
-	if got := perform(t, h, "POST", "/connections", url.Values{"csrf_token": {csrf}, "name": {"Personal"}, "url": {uppercaseCatalogURL}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("learner connection create=%d", got.Code)
-	}
-	aliceConnections, err := store.ListOpdsConnections(ctx, alice.ID)
-	if err != nil || len(aliceConnections) != 2 {
-		t.Fatalf("learner connection list=%+v err=%v", aliceConnections, err)
-	}
-	personal := aliceConnections[0]
-	if personal.ID == connection.ID {
-		personal = aliceConnections[1]
-	}
-	if personal.URL != catalog.URL {
-		t.Fatalf("connection form did not normalize scheme: got %q want %q", personal.URL, catalog.URL)
-	}
-	credentialURL := catalog.URL + "/opds?access_token=keep-this-secret&view=books"
-	if got := perform(t, h, "POST", "/connections/"+personal.ID, url.Values{"csrf_token": {csrf}, "name": {"Renamed personal"}, "url": {credentialURL}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("learner connection update=%d %s", got.Code, got.Body.String())
-	}
-	connectionsPage := perform(t, h, "GET", "/connections", nil, cookies)
-	if connectionsPage.Code != http.StatusOK || !strings.Contains(connectionsPage.Body.String(), "Renamed personal") || !strings.Contains(connectionsPage.Body.String(), "Choose a catalog to browse") || !strings.Contains(connectionsPage.Body.String(), "Catalog maintenance") || strings.Contains(connectionsPage.Body.String(), "Private") || strings.Contains(connectionsPage.Body.String(), "keep-this-secret") || strings.Contains(connectionsPage.Body.String(), "[redacted]") {
-		t.Fatalf("learner connection page=%d %s", connectionsPage.Code, connectionsPage.Body.String())
-	}
-	if got, err := store.GetOpdsConnection(ctx, alice.ID, personal.ID); err != nil || got.URL != credentialURL {
-		t.Fatalf("explicit credential URL=%q err=%v", got.URL, err)
-	}
-	if got := perform(t, h, "POST", "/connections/"+personal.ID, url.Values{"csrf_token": {csrf}, "name": {"Renamed personal"}, "url": {""}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("keep-current connection update=%d %s", got.Code, got.Body.String())
-	}
-	if got, err := store.GetOpdsConnection(ctx, alice.ID, personal.ID); err != nil || got.URL != credentialURL {
-		t.Fatalf("blank URL changed credential URL=%q err=%v", got.URL, err)
-	}
-	replacementURL := catalog.URL + "/opds?access_token=replacement-secret&view=authors"
-	if got := perform(t, h, "POST", "/connections/"+personal.ID, url.Values{"csrf_token": {csrf}, "name": {"Renamed personal"}, "url": {replacementURL}, "language": {"de"}}, cookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("replacement connection update=%d %s", got.Code, got.Body.String())
-	}
-	if got, err := store.GetOpdsConnection(ctx, alice.ID, personal.ID); err != nil || got.URL != replacementURL {
-		t.Fatalf("replacement URL=%q err=%v", got.URL, err)
-	}
-	if got := perform(t, h, "POST", "/connections/"+personal.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies); got.Code != http.StatusSeeOther {
-		t.Fatalf("learner connection delete=%d %s", got.Code, got.Body.String())
-	}
-	if _, err = store.GetOpdsConnection(ctx, alice.ID, personal.ID); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("deleted learner connection read: %v", err)
-	}
-	adminCookies, _ := loginCookies(t, h, "admin", "admin-password")
-	adminHub := perform(t, h, "GET", "/admin", nil, adminCookies)
-	if adminHub.Code != http.StatusNotFound {
-		t.Fatalf("removed admin hub=%d %s", adminHub.Code, adminHub.Body.String())
-	}
-	adminHome := perform(t, h, "GET", "/", nil, adminCookies)
-	if adminHome.Code != http.StatusSeeOther || adminHome.Header().Get("Location") != "/library" {
-		t.Fatalf("admin home=%d location=%q", adminHome.Code, adminHome.Header().Get("Location"))
-	}
-	for _, path := range []string{"/library", "/connections", "/catalog", "/known-vocab", "/settings"} {
-		if got := perform(t, h, "GET", path, nil, adminCookies); got.Code == http.StatusForbidden {
-			t.Fatalf("legacy admin denied learner route %s", path)
-		}
-	}
-	adminConnections := perform(t, h, "GET", "/admin/connections", nil, adminCookies)
-	if adminConnections.Code != http.StatusNotFound {
-		t.Fatalf("removed admin connections=%d %s", adminConnections.Code, adminConnections.Body.String())
-	}
-	if got := perform(t, h, "GET", "/admin/frequency", nil, adminCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("removed admin frequency route=%d", got.Code)
+	target := cataloguesync.AcquisitionTarget{
+		ConnectionID: connection.ID,
+		Language:     "de",
+		Entry:        opds.Entry{ID: "metadata-entry", Title: "Metadata-only synced book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "/book.epub"}}},
+		Href:         "/book.epub",
+	}
+	h := New(Services{
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
+		OPDS:          opds.NewService(store, epub.NewService(store), catalog.Client()),
+		CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
+	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
+	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Acquire EPUB content") || !strings.Contains(bookPage.Body.String(), `name="return_to" value="/books/`+bookResult.Book.ID+`"`) {
+		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
+	}
+	acquisition := url.Values{
+		"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"},
+		"acquisition": {h.clientTargetToken(target.ConnectionID, target.Language, &target.Entry, target.Href)},
+		"return_to":   {"/books/" + bookResult.Book.ID},
+	}
+	response := perform(t, h, "POST", "/opds/acquire", acquisition, cookies)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") == "" || !strings.HasPrefix(response.Header().Get("Location"), "/books/"+bookResult.Book.ID) {
+		t.Fatalf("metadata-only acquisition=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+	sources, err := store.ListSourceMaterials(ctx, owner.ID)
+	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
+		t.Fatalf("promoted sources=%+v err=%v", sources, err)
+	}
+	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
+	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {
+		t.Fatalf("promoted My Books=%+v err=%v", books, err)
 	}
 }
 

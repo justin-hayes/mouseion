@@ -20,10 +20,9 @@ English, without downloading EPUBs or deleting learner-owned state.
 
 This feature covers automated per-connection metadata sync, explicit **Sync
 now**, per-book metadata refresh, connection-level status, and the transition
-from a metadata-only Book to lazy content acquisition. It complements the
-selective manual acquisition path in
-[Explicit Scoped-Analysis Workflow](explicit-scoped-analysis-workflow.md) and is
-governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
+from a metadata-only Book to explicit per-book content acquisition. My Books is the sole
+browse surface for the synced collection; acquisition starts from Book detail.
+It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 
 ## Requirements
 
@@ -35,13 +34,13 @@ governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 - The primary empty-state action adds a catalogue connection at `/connections`.
   It enters the existing **Add books** workflow; it does not add a destination
   or silently create a connection.
-- Manual metadata entry and selective catalogue browsing remain possible where
-  already supported, without competing with the primary onboarding action.
+- Manual metadata entry remains possible where already supported, without
+  competing with the primary onboarding action.
 
 ### Connection configuration and status
 
 - `/connections` remains the learner-owned configuration and maintenance
-  surface for name, URL, username, encrypted credential, browse, edit, and
+  surface for name, URL, username, encrypted credential, sync, edit, and
   delete behavior.
 - Each connection distinguishes **Never synced**, **Syncing**, **Last synced**,
   and **Sync failed**. Last-synced information belongs to the connection, not a
@@ -79,9 +78,8 @@ governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 ### Lazy content acquisition and per-book refresh
 
 - Sync never downloads or re-downloads EPUB content.
-- When the learner opens or chooses a metadata-only book for analysis, Mouseion
-  begins a separate lazy content-acquisition flow. The precise trigger and
-  inline-versus-River execution choice remain open for implementation design.
+- When the learner opens a metadata-only Book, Book detail offers explicit
+  acquisition via `POST /opds/acquire`.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
 - Each catalogue-backed Book offers a metadata refresh for that entry. Refresh
@@ -96,9 +94,9 @@ governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 | No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalogue connection |
 | Never synced | Identify the connection and explain which ready study languages, excluding English, are eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
-| Last synced | Show the last successful time and retain ordinary browse/edit/delete actions. | Sync now or browse |
+| Last synced | Show the last successful time, eligible scope, and retain ordinary edit/delete actions. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
-| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Open the book and express acquisition intent |
+| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Open the book and acquire via `POST /opds/acquire` |
 | Lazy acquisition running or failed | Preserve book context and distinguish content work from analysis. | View status or retry |
 | Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to book |
 
@@ -109,7 +107,8 @@ governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
   sync.
 - Destructively reconciling upstream removals.
 - Synchronizing English, unready languages, or every non-English language.
-- Adding a fourth destination or a global sync dashboard.
+- Adding a fourth destination, a global sync dashboard, or an upstream catalog
+  browser.
 - Batch-selecting Books for analysis; whether a future batch contract exists is
   an open product question.
 - Reintroducing an administrator role or administrator-managed catalogues.

@@ -19,8 +19,9 @@ identity and learner intention ahead of analysis evidence.
 ## Scope
 
 This feature applies to My Books at `/library`. It defines collection controls,
-row hierarchy, progressive enhancement, and accessibility. It does not change
-catalogue browsing or OPDS search.
+row hierarchy, progressive enhancement, and accessibility. My Books is the sole
+browse surface for synced catalogue metadata; there is no live OPDS browse or
+search surface.
 
 ## Requirements
 
@@ -46,7 +47,7 @@ catalogue browsing or OPDS search.
   and query in real links and forms.
 - Empty-collection, search-empty, and language-empty states remain distinct and
   offer an appropriate way to clear a filter, revise a query, or start catalogue
-  setup through the Add books workflow.
+  setup through `/connections` and the Add books workflow.
 
 ### Row hierarchy and book selection
 
@@ -57,8 +58,8 @@ catalogue browsing or OPDS search.
   turns the collection into a metric-led dashboard.
 - Missing author, edition/year, or language is stated or omitted without
   inventing metadata.
-- Choosing one Book opens `/books/{id}`. This is the manual selection for scope
-  review, lazy content acquisition, or analysis decisions.
+- Choosing one Book opens `/books/{id}`. This is the selection point for scope
+  review, per-book acquisition, or analysis decisions.
 - The list does not expose batch-select-then-analyze behavior.
 
 ### Progressive enhancement and accessibility

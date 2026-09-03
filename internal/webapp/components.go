@@ -91,17 +91,18 @@ type MetadataItem struct {
 }
 
 type catalogueSyncConnectionView struct {
-	HasStatus       bool
-	State           string
-	Message         string
-	Error           string
-	LastSyncedAt    string
-	LastSyncedAtISO string
-	UpsertSummary   string
-	EligibleScope   string
-	Syncing         bool
-	Failed          bool
-	HasLastSyncedAt bool
+	HasStatus        bool
+	State            string
+	Message          string
+	Error            string
+	LastSyncedAt     string
+	LastSyncedAtISO  string
+	UpsertSummary    string
+	EligibleScope    string
+	Syncing          bool
+	Failed           bool
+	HasLastSyncedAt  bool
+	SettingsGuidance bool
 }
 
 func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) catalogueSyncConnectionView {
@@ -109,7 +110,12 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	view := catalogueSyncConnectionView{HasStatus: found, EligibleScope: eligibleCatalogueLanguageScope(profiles)}
 	if !found {
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+		if view.EligibleScope == "" {
+			view.Message = fmt.Sprintf("%s has never synced. Choose a ready study language in Settings, then sync; it does not download EPUB content.", connection.Name)
+			view.SettingsGuidance = true
+		} else {
+			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+		}
 		return view
 	}
 	switch status.State {
@@ -125,7 +131,12 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 			view.LastSyncedAtISO = status.LastSyncedAt.Format(time.RFC3339)
 		}
 		if status.LastUpsertedCount == 0 {
-			view.Message = "The collection was already current; no metadata changes were made."
+			if view.EligibleScope == "" {
+				view.Message = "No eligible study language to sync. Choose a ready study language in Settings, then sync again."
+				view.SettingsGuidance = true
+			} else {
+				view.Message = fmt.Sprintf("Sync ran for %s. No eligible EPUB entries were found for those languages; the library was unchanged.", view.EligibleScope)
+			}
 		} else {
 			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalogue sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
 		}
@@ -136,7 +147,12 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 		view.Error = status.LastError
 	default:
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+		if view.EligibleScope == "" {
+			view.Message = fmt.Sprintf("%s has never synced. Choose a ready study language in Settings, then sync; it does not download EPUB content.", connection.Name)
+			view.SettingsGuidance = true
+		} else {
+			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
+		}
 	}
 	return view
 }
@@ -164,7 +180,7 @@ func eligibleCatalogueLanguageScope(profiles []domain.LanguageProfile) string {
 	}
 	switch len(languages) {
 	case 0:
-		return "ready languages from Settings"
+		return ""
 	case 1:
 		return languages[0]
 	case 2:
@@ -318,9 +334,9 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 	if book.Acquired == nil || state == domain.MyBookUnavailable {
 		return bookLifecycleAction{
 			Status:      myBookEvidenceLabel(state),
-			Description: "No usable acquired EPUB evidence is available for assessment. Choose an acquisition path before using later actions.",
-			Label:       "Acquire this book",
-			URL:         "/connections?book_id=" + url.QueryEscape(book.Book.ID),
+			Description: "No usable acquired EPUB evidence is available for assessment. Open the book to acquire content before using later actions.",
+			Label:       "Open book",
+			URL:         "/books/" + url.PathEscape(book.Book.ID),
 			Tone:        statusTone(myBookEvidenceLabel(state)),
 		}
 	}

@@ -64,6 +64,16 @@ type Status struct {
 	FinalizedAt                           *time.Time
 }
 
+// AcquisitionTarget is the owner-scoped catalogue entry used to acquire a
+// metadata-only Book. The web layer signs the Href before placing it in a
+// form; callers never receive credentials from this lookup.
+type AcquisitionTarget struct {
+	ConnectionID string
+	Language     string
+	Entry        opds.Entry
+	Href         string
+}
+
 // RefreshResult describes a single-book metadata refresh without implying any
 // content, analysis, or deck work.
 type RefreshResult struct {
@@ -85,6 +95,7 @@ type connectionStore interface {
 	ReconcileCatalogueEntry(context.Context, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
 	GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error)
+	ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
 }
 
 type catalogueReader interface {
@@ -275,6 +286,72 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	return RefreshResult{Book: book, Missing: true}, nil
 }
 
+// FindAcquisitionTarget resolves the current EPUB link for a synced Book.
+// The alias is stable across catalog feed changes, while the download Href is
+// looked up again immediately before acquisition.
+func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (AcquisitionTarget, error) {
+	if s == nil || s.store == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	book, err := s.store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	alias, err := s.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	if strings.TrimSpace(alias.Value) == "" {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	connections, err := s.store.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	profiles, err := s.store.ListLanguageProfiles(ctx, owner)
+	if err != nil {
+		return AcquisitionTarget{}, err
+	}
+	displayName := ""
+	for _, profile := range profiles {
+		if sameLanguage(profile.Language, book.LanguageTag) {
+			displayName = profile.DisplayName
+			break
+		}
+	}
+	for _, connection := range connections {
+		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
+		if readErr != nil {
+			continue
+		}
+		languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
+		if languageID == "" {
+			continue
+		}
+		feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+		if readErr != nil {
+			continue
+		}
+		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+			if strings.TrimSpace(entry.ID) != alias.Value {
+				continue
+			}
+			for _, link := range opds.FindEPUBs(entry) {
+				if strings.TrimSpace(link.Href) != "" {
+					return AcquisitionTarget{ConnectionID: connection.ID, Language: book.LanguageTag, Entry: entry, Href: link.Href}, nil
+				}
+			}
+		}
+	}
+	return AcquisitionTarget{}, ErrNotFound
+}
+
 // RegisterAll restores all schedules after a process start. It intentionally
 // uses the repository's owner-scoped credential path only to enumerate rows;
 // no credential is copied into the periodic constructor or River args.
@@ -292,6 +369,86 @@ func (s *Service) RegisterAll(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ListCatalogueSyncStatuses overlays durable status with River's live state.
+// A worker or process can disappear after the durable row is marked syncing;
+// that row must not permanently disable the Sync now action.
+func (s *Service) ListCatalogueSyncStatuses(ctx context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
+	if s == nil || s.pool == nil || s.store == nil || strings.TrimSpace(owner) == "" {
+		return nil, nil
+	}
+	statuses, err := s.store.ListCatalogueSyncStatuses(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	for i := range statuses {
+		if statuses[i].State != domain.CatalogueSyncSyncing {
+			continue
+		}
+		var live bool
+		live, err = s.liveJobExists(ctx, owner, statuses[i].ConnectionID)
+		if err != nil {
+			return nil, err
+		}
+		if live {
+			continue
+		}
+		if statuses[i].LastSyncedAt != nil {
+			statuses[i].State = domain.CatalogueSyncSynced
+			statuses[i].LastError = ""
+		} else {
+			statuses[i].State = domain.CatalogueSyncFailed
+			statuses[i].LastError = statusCancelledReason
+		}
+	}
+	return statuses, nil
+}
+
+func (s *Service) liveJobExists(ctx context.Context, owner, connectionID string) (bool, error) {
+	var live bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM river_job
+		WHERE kind=$1 AND args->>'owner_id'=$2
+		  AND args->>'connection_id'=$3 AND state::text=ANY($4::text[])
+	)`, Kind, owner, connectionID, liveRiverStates()).Scan(&live)
+	if err != nil {
+		return false, fmt.Errorf("check catalogue sync job state: %w", err)
+	}
+	return live, nil
+}
+
+func (s *Service) reconcileDurableStatus(ctx context.Context, owner, connectionID string, state domain.CatalogueSyncState) domain.CatalogueSyncState {
+	if state != domain.CatalogueSyncSyncing || s.store == nil {
+		return state
+	}
+	live, err := s.liveJobExists(ctx, owner, connectionID)
+	if err != nil || live {
+		return state
+	}
+	durable, err := s.store.GetCatalogueSyncStatus(ctx, owner, connectionID)
+	if err != nil {
+		return state
+	}
+	if durable.LastSyncedAt != nil {
+		durable.State = domain.CatalogueSyncSynced
+		durable.LastError = ""
+	} else {
+		durable.State = domain.CatalogueSyncFailed
+		durable.LastError = statusCancelledReason
+	}
+	if err = s.store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
+		return state
+	}
+	return durable.State
+}
+
+func liveRiverStates() []string {
+	states := make([]string, len(liveJobStates))
+	for i, state := range liveJobStates {
+		states[i] = string(state)
+	}
+	return states
 }
 
 func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, error) {
@@ -315,6 +472,10 @@ LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::te
 	}
 	status.OwnerID = owner
 	status.ConnectionID = connectionID
+	state = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(state)))
+	if state == string(domain.CatalogueSyncFailed) && durableError == "" {
+		durableError = statusCancelledReason
+	}
 	status.LogicalState = logicalState(riverState)
 	status.State = riverState
 	status.Error = firstError(durableError, riverError(s.pool, ctx, id, owner))
@@ -354,6 +515,10 @@ WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id
 			return nil, err
 		}
 		item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
+		durableState = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(durableState)))
+		if durableState == string(domain.CatalogueSyncFailed) && durableError == "" {
+			durableError = statusCancelledReason
+		}
 		item.LogicalState, item.Error = logicalState(riverState), firstError(durableError, riverErr)
 		if durableState == string(domain.CatalogueSyncFailed) && durableError != "" {
 			item.LogicalState = "failed"

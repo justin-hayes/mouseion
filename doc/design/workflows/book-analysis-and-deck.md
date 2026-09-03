@@ -40,8 +40,9 @@ defined by ADR 0036.
 ## Primary path
 
 ```text
-Catalog browser
-    -> Add to My Books
+Catalogue sync
+    -> My Books
+    -> Acquire EPUB content from Book detail
     -> Book detail
     -> Scope review
     -> Confirm scope

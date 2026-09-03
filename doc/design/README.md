@@ -45,7 +45,7 @@ and surface a material conflict rather than silently choosing one.
 ### Workflows
 
 - [`workflows/acquisition-to-library.md`](workflows/acquisition-to-library.md) —
-  catalog setup, browsing, and multi-book acquisition.
+  catalogue setup, local My Books browsing, and per-book acquisition.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
   the core scoped-analysis-to-deck lifecycle and target one-current-analysis
   transition proposed by ADR 0040.

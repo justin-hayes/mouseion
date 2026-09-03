@@ -17,7 +17,6 @@ const representativePages: Array<[string, RegExp]> = [
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/connections', /Add books/],
-  ['/catalog?connection=fixture-connection', /Fixture catalog/],
   ['/journey', /Reading Journey/],
   ['/settings?language=de', /Account settings/],
 ];
@@ -62,9 +61,6 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(longTitleBook).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
       await expect(longTitleBook).toBeVisible();
     }
-    await page.goto('/opds/browse?connection=fixture-connection&language=de');
-    await expect(page.getByText(/Un libro italiano/)).toBeVisible();
-    await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/)).toBeVisible();
   });
 
   test('dense analysis, campaign history, errors, and import surfaces expose realistic content', async ({ page }) => {

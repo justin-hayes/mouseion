@@ -73,27 +73,6 @@ func (h *Handler) acquisitionStateFor(value, ownerID, sessionHash string) []acqu
 	return payload.Entries
 }
 
-func acquisitionEntrySource(entries []acquisitionEntryState, connection, language string, entry opds.Entry, href string) string {
-	safeHref := safeAcquisitionURL(href)
-	for _, item := range entries {
-		hrefDigest := acquisitionHrefDigest(href)
-		if isAcquisitionTargetToken(href) {
-			parts := strings.SplitN(strings.TrimPrefix(href, acquisitionTargetTokenPrefix), ".", 2)
-			if len(parts) == 2 {
-				hrefDigest = parts[0]
-			}
-		}
-		matchesHref := item.HrefDigest != "" && item.HrefDigest == hrefDigest
-		if item.HrefDigest == "" {
-			matchesHref = item.Href == safeHref
-		}
-		if item.Connection == connection && item.Language == language && item.EntryID == entry.ID && matchesHref {
-			return item.SourceID
-		}
-	}
-	return ""
-}
-
 func (h *Handler) rememberAcquisition(w http.ResponseWriter, r *http.Request, connection, language string, entry opds.Entry, href, sourceID string) {
 	if sourceID == "" || connection == "" || entry.ID == "" {
 		return
@@ -251,48 +230,6 @@ func (h *Handler) clientTargetToken(connection, language string, entry *opds.Ent
 	return encodeAcquisitionTarget(h.targetKey, target)
 }
 
-func (h *Handler) decodeClientTarget(token, connection, language string) (string, error) {
-	if token == "" {
-		return "", nil
-	}
-	if !isAcquisitionTargetToken(token) {
-		return token, nil
-	}
-	target, err := decodeAcquisitionTarget(h.targetKey, token)
-	if err != nil || target.Connection != connection || target.Language != "" && target.Language != language {
-		return "", errors.New("invalid catalog target")
-	}
-	return target.Href, nil
-}
-
-func (h *Handler) prepareFeedForClient(connection, language string, feed opds.Feed) opds.Feed {
-	prepared := feed
-	prepared.Links = append([]opds.Link(nil), feed.Links...)
-	for i := range prepared.Links {
-		if prepared.Links[i].Href != "" {
-			prepared.Links[i].Href = h.clientTargetToken(connection, language, nil, prepared.Links[i].Href)
-		}
-	}
-	prepared.Entries = make([]opds.Entry, len(feed.Entries))
-	for i, entry := range feed.Entries {
-		prepared.Entries[i] = entry
-		prepared.Entries[i].Links = append([]opds.Link(nil), entry.Links...)
-		for j, link := range prepared.Entries[i].Links {
-			if link.Href == "" {
-				continue
-			}
-			var targetEntry *opds.Entry
-			isAcquisition := link.Rel == opds.AcquisitionRel || strings.HasPrefix(link.Rel, opds.AcquisitionRel+"/")
-			isEPUB := strings.EqualFold(strings.TrimSpace(strings.Split(link.Type, ";")[0]), opds.EPUBMediaType)
-			if isAcquisition && isEPUB {
-				targetEntry = &entry
-			}
-			prepared.Entries[i].Links[j].Href = h.clientTargetToken(connection, language, targetEntry, link.Href)
-		}
-	}
-	return prepared
-}
-
 func (h *Handler) acquisitionEntryForClient(connection, language string, entry opds.Entry, href string) (opds.Entry, string) {
 	token := h.clientTargetToken(connection, language, &entry, href)
 	entry.Links = []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: token}}
@@ -301,34 +238,9 @@ func (h *Handler) acquisitionEntryForClient(connection, language string, entry o
 
 func (h *Handler) acquisitionReturnPath(raw string) string {
 	if strings.TrimSpace(raw) == "" {
-		return "/connections"
+		return "/library"
 	}
-	path := webauth.SafeReturnPath(raw)
-	parsed, err := url.Parse(path)
-	if err != nil {
-		return "/"
-	}
-	query := parsed.Query()
-	connection, language := query.Get("connection"), query.Get("language")
-	for key, values := range query {
-		for i, value := range values {
-			switch key {
-			case "url", "target":
-				if value != "" {
-					values[i] = h.clientTargetToken(connection, language, nil, value)
-				}
-			case "trail":
-				parts := strings.SplitN(value, "\x1f", 2)
-				if len(parts) == 2 && parts[1] != "" {
-					parts[1] = h.clientTargetToken(connection, language, nil, parts[1])
-					values[i] = strings.Join(parts, "\x1f")
-				}
-			}
-		}
-		query[key] = values
-	}
-	parsed.RawQuery = query.Encode()
-	return parsed.RequestURI()
+	return webauth.SafeReturnPath(raw)
 }
 
 func bookIDFromReturnPath(raw string) string {
@@ -336,7 +248,19 @@ func bookIDFromReturnPath(raw string) string {
 	if err != nil || parsed.IsAbs() || parsed.Host != "" {
 		return ""
 	}
-	return strings.TrimSpace(parsed.Query().Get("book_id"))
+	if bookID := strings.TrimSpace(parsed.Query().Get("book_id")); bookID != "" {
+		return bookID
+	}
+	const booksPrefix = "/books/"
+	if strings.HasPrefix(parsed.Path, booksPrefix) {
+		bookID := strings.TrimPrefix(parsed.Path, booksPrefix)
+		if bookID != "" && !strings.Contains(bookID, "/") {
+			if decoded, decodeErr := url.PathUnescape(bookID); decodeErr == nil {
+				return strings.TrimSpace(decoded)
+			}
+		}
+	}
+	return ""
 }
 
 func safeAcquisitionURL(raw string) string {

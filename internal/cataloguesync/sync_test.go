@@ -123,6 +123,9 @@ func (s *refreshStore) SetCatalogueSyncStatus(context.Context, domain.CatalogueS
 func (s *refreshStore) GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error) {
 	return domain.CatalogueSyncStatus{}, persistence.ErrNotFound
 }
+func (s *refreshStore) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
+	return nil, nil
+}
 
 type refreshReader struct {
 	feed  opds.Feed
