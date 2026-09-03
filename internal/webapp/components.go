@@ -91,17 +91,18 @@ type MetadataItem struct {
 }
 
 type catalogueSyncConnectionView struct {
-	HasStatus       bool
-	State           string
-	Message         string
-	Error           string
-	LastSyncedAt    string
-	LastSyncedAtISO string
-	UpsertSummary   string
-	EligibleScope   string
-	Syncing         bool
-	Failed          bool
-	HasLastSyncedAt bool
+	HasStatus        bool
+	State            string
+	Message          string
+	Error            string
+	LastSyncedAt     string
+	LastSyncedAtISO  string
+	UpsertSummary    string
+	EligibleScope    string
+	Syncing          bool
+	Failed           bool
+	HasLastSyncedAt  bool
+	SettingsGuidance bool
 }
 
 func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) catalogueSyncConnectionView {
@@ -125,7 +126,12 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 			view.LastSyncedAtISO = status.LastSyncedAt.Format(time.RFC3339)
 		}
 		if status.LastUpsertedCount == 0 {
-			view.Message = "The collection was already current; no metadata changes were made."
+			if view.EligibleScope == "ready languages from Settings" {
+				view.Message = "No eligible study language to sync. Choose a ready study language in Settings, then sync again."
+				view.SettingsGuidance = true
+			} else {
+				view.Message = fmt.Sprintf("Sync ran for %s. No eligible EPUB entries were found for those languages; the library was unchanged.", view.EligibleScope)
+			}
 		} else {
 			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalogue sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
 		}

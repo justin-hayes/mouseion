@@ -144,7 +144,7 @@ func TestConnectionsPageRendersCatalogueSyncStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Never synced", "ready study-language metadata from German and Italian, excluding English", "Syncing", "Existing Books remain available", "Last synced", "Last successful sync:", "2026-01-15 12:00 UTC", "3 books added or updated", "already current", "Sync failed", "Existing Books remain unchanged", "Authentication failed for this connection", `action="/connections/never/sync"`, `aria-live="polite"`, `disabled`} {
+	for _, want := range []string{"Never synced", "ready study-language metadata from German and Italian, excluding English", "Syncing", "Existing Books remain available", "Last synced", "Last successful sync:", "2026-01-15 12:00 UTC", "3 books added or updated", "No eligible EPUB entries were found for those languages", "Sync failed", "Existing Books remain unchanged", "Authentication failed for this connection", `action="/connections/never/sync"`, `aria-live="polite"`, `disabled`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("catalogue sync state page missing %q: %s", want, html)
 		}

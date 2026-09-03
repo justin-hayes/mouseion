@@ -148,6 +148,9 @@ templ CatalogueSyncConnectionStatus(view catalogueSyncConnectionView) {
 	}
 	if view.Message != "" {
 		<p>{ view.Message }</p>
+		if view.SettingsGuidance {
+			<p><a href="/settings">Open Settings</a></p>
+		}
 	}
 	if view.UpsertSummary != "" {
 		<p>{ view.UpsertSummary }</p>
