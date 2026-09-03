@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -77,6 +78,16 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	goalBookID := ""
 	if primaryGoalIsActive(goal) {
 		goalBookID = goal.BookID
+	}
+	if browse.Enabled && browse.Language != "" && !strings.EqualFold(browse.Language, domain.LanguageUnknown) {
+		if provider, ok := h.services.AnalysisInsights.(languageCorpusProvider); ok {
+			panel, panelErr := buildLanguageCorpusPanel(r.Context(), provider, u.ID, browse.Language)
+			if panelErr != nil {
+				log.Printf("mouseion: language view unavailable for owner %s: %v", u.ID, panelErr)
+				panel = unavailableLanguageCorpusPanel(browse.Language)
+			}
+			browse.LanguageCorpus = &panel
+		}
 	}
 	if isHTMX(r) && browse.Enabled {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, goalBookID, browse))
