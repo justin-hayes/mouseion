@@ -31,7 +31,18 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statuses := make(map[string]domain.CatalogueSyncStatus)
-	if reader, ok := h.services.Store.(interface {
+	if reader, ok := h.services.CatalogueSync.(interface {
+		ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
+	}); ok {
+		items, statusErr := reader.ListCatalogueSyncStatuses(r.Context(), u.ID)
+		if statusErr != nil {
+			fail(w, statusErr)
+			return
+		}
+		for _, status := range items {
+			statuses[status.ConnectionID] = status
+		}
+	} else if reader, ok := h.services.Store.(interface {
 		ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
 	}); ok {
 		items, statusErr := reader.ListCatalogueSyncStatuses(r.Context(), u.ID)

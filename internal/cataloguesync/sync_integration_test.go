@@ -7,12 +7,14 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
 type fakeCapabilities struct{ value analyzer.Capabilities }
@@ -196,5 +198,57 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	status, err := store.GetCatalogueSyncStatus(ctx, owner.ID, connection.ID)
 	if err != nil || status.LastError != "authentication failed for connection Private catalog" || status.LastError == "super-secret" {
 		t.Fatalf("safe failure status=%+v err=%v", status, err)
+	}
+}
+
+func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err = analysis.MigrateRiver(ctx, store.Pool()); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := store.CreateUser(ctx, "sync-status-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Status catalog", URL: "https://catalog.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncSyncing}); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(store, nil, nil, nil)
+	statuses, err := service.ListCatalogueSyncStatuses(ctx, owner.ID)
+	if err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncFailed {
+		t.Fatalf("stale status=%+v err=%v", statuses, err)
+	}
+
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Stop(context.Background())
+	inserted, err := client.Insert(ctx, SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}, insertOpts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if statuses, err = service.ListCatalogueSyncStatuses(ctx, owner.ID); err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncSyncing {
+		t.Fatalf("live status=%+v err=%v", statuses, err)
+	}
+	if err = client.JobCancel(ctx, inserted.Job.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.List(ctx, owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	status, err := store.GetCatalogueSyncStatus(ctx, owner.ID, connection.ID)
+	if err != nil || status.State != domain.CatalogueSyncFailed {
+		t.Fatalf("reconciled durable status=%+v err=%v", status, err)
 	}
 }
