@@ -6,16 +6,14 @@ after the validated EPUB snapshot is persisted. My Books can also contain
 metadata-only Books outside this acquisition path. The historical **Add to
 library** label may remain in compatibility artifacts.
 
-The proposed sibling [catalogue sync workflow](catalog-sync.md) automatically
-creates metadata-first My Books entries and acquires content lazily on learner
-intent. This document remains the canonical selective, per-entry manual
-acquisition path; every rule below stays intact.
+The [catalogue sync workflow](catalog-sync.md) creates metadata-first My Books
+entries. This document defines the per-book content-acquisition step from Book
+detail; sync never downloads content.
 
 ## Goal
 
-Help a learner connect a catalog, find books in a language Mouseion can
-currently analyze, and add several EPUBs to My Books without starting
-analysis or losing browse context.
+Help a learner acquire and validate one EPUB for a metadata-only My Books Book
+without starting analysis.
 
 The product behavior is defined primarily by:
 
@@ -26,33 +24,31 @@ The product behavior is defined primarily by:
 
 ## Entry and destination decision
 
-**Add books** names the acquisition experience on `/connections`. It is not a
-peer destination beside My Books, Reading Journey, and Settings and does not
-appear in the top navigation; it is reached from My Books empty states and
-actions and via the `/connections` and `/catalog...` routes.
+**Add books** names catalogue setup and sync maintenance on `/connections`. It
+is not a peer destination beside My Books, Reading Journey, and Settings and
+does not appear in the top navigation. My Books is the sole browse surface.
 
-The action enters the acquisition hub at `/connections`:
+The action enters connection maintenance at `/connections`:
 
 - with no connections, the primary task is to add one;
-- with connections, the primary task is to choose a catalog to browse;
+- with connections, the primary task is to sync eligible metadata into My Books;
 - connection creation and editing remain available without becoming the visual
   focus of ordinary acquisition.
 
-Mouseion does not silently choose a catalog when several exist. It may offer a
-clear **Browse** action for each connection and may remember browse context
-within the current session without changing ownership or credentials.
+When several connections exist, sync and per-book acquisition use explicit
+owner-scoped connection identity without changing ownership or credentials.
 
 ## Primary path
 
 ```text
-Add books
-    -> Acquisition hub
-    -> Add or choose catalog connection
-    -> Choose a ready analysis language
-    -> Browse, search, or follow a collection
-    -> Add to My Books
-    -> Remain in catalog context
-    -> Add another book or open the acquired book
+My Books empty state
+    -> Add or choose catalogue connection
+    -> Set a ready study language
+    -> Sync catalogue metadata
+    -> Browse My Books locally
+    -> Open metadata-only Book
+    -> Acquire EPUB content
+    -> Review scope and analyze explicitly
 ```
 
 ### 1. Configure a catalog connection
@@ -75,45 +71,29 @@ The interface must answer:
 Connection deletion is consequential and requires confirmation that states this
 boundary.
 
-### 2. Choose language and browse
+### 2. Browse My Books and acquire one Book
 
 **Learner question:** Which books can Mouseion analyze with the currently ready
 NLP service?
 
-Only languages advertised as ready by the NLP service are offered. Saved study
-preferences and catalog browse languages are related but not identical:
-choosing a catalog language does not add a study-language preference, and a
-saved preference does not make an unavailable pipeline ready.
+My Books owns language pills, local search, and paging. Opening a metadata-only
+Book shows its bibliographic identity and an explicit **Acquire EPUB content**
+form, submitted to `POST /opds/acquire`. The signed target carries the
+owner-scoped connection and a fresh
+catalogue download link; no upstream browser is exposed.
 
-The catalog experience preserves:
-
-- the selected connection and language;
-- breadcrumbs and collection path;
-- search query;
-- pagination or feed position;
-- entries already added during this browsing session.
-
-Upstream, authentication, empty-feed, and search-empty states must be distinct.
-An upstream failure is not presented as an indefinitely loading feed.
-
-### 3. Add to My Books
+### 3. Acquire EPUB content
 
 **Learner question:** Was this EPUB safely added, and can I continue browsing?
 
-Each eligible entry uses **Add to My Books**. The action downloads and validates
+The Book detail action downloads and validates
 the EPUB, resolves the owner-scoped Book and duplicate rules from ADR 0035,
 stores immutable source content and extracted-unit identity, creates or restores
 My Books membership, and does not confirm a scope or start analysis. A Book that
 was already in My Books as metadata-only becomes acquired only after the full
 validated snapshot is stored; no partial source state is published.
 
-Success updates the entry in place and keeps the learner in the current feed.
-The post-success choices are:
-
-1. continue adding books;
-2. open the acquired book to review its scope.
-
-Opening the book is secondary to preserving the multi-add workflow. Repeated
+Success returns to the Book detail page to review scope. Repeated
 acquisition resolves by owner-scoped Book aliases and immutable content digest.
 It reports an existing acquired revision without error, or creates a new
 immutable revision when the same source identifier now supplies different
@@ -124,29 +104,25 @@ Books or replace source evidence.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No catalog connections | Explain why a connection is needed. | Add catalog connection |
-| Connections available | Show recognizable connection names and maintenance separately. | Browse catalog |
-| No ready languages | Explain that analysis capability comes from the NLP service and cannot be enabled by changing a learner preference. | Return later |
-| Feed loading | Preserve the existing page and identify the region being updated. | None |
-| Feed ready | Show path, search, entries, and pagination. | Add to My Books |
-| Empty feed | Distinguish an empty collection from failure. | Go back or search |
-| Search empty | Retain the query and selected catalog. | Revise search |
-| Upstream/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
-| Adding EPUB | Disable duplicate submission and announce progress. | None |
-| Added | Replace the entry action with acquired state and an optional book link. | Continue browsing |
-| Already acquired | Link to the existing Book without treating idempotency as failure. | Continue browsing or open book |
-| Invalid/non-EPUB acquisition | Explain that no usable book was added. | Return to feed |
+| No catalogue connections | Explain why a connection is needed. | Add catalogue connection |
+| Connections available | Show recognizable connection names, eligible sync scope, and maintenance separately. | Sync catalogue |
+| No ready study language | Explain that a ready saved study language is required. | Open Settings |
+| Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
+| Acquiring EPUB | Disable duplicate submission and announce progress. | None |
+| Acquired | Show the acquired Book and make scope review available. | Review scope |
+| Already acquired | Link to the existing Book without treating idempotency as failure. | Open book |
+| Invalid/non-EPUB acquisition | Explain that no usable content was added. | Return to Book |
 
 ## Navigation and responsive rules
 
 - Destination navigation is exactly My Books, Reading Journey, and Settings;
   Add books does not appear in the top navigation (reached via the `/connections`
   workflow from My Books and direct routes).
-- The current acquisition context is the connection, language, and feed path,
-  not a generic page title.
+- The current acquisition context is the selected Book and owner-scoped
+  connection, not an upstream feed path.
 - On narrow screens, entry metadata precedes the acquisition action and actions
   remain reachable without horizontal page scrolling.
 - HTMX enhances real links and forms. A failed or unavailable enhancement must
-  not turn the catalog into an unusable selector or raw fragment response.
-- Dynamic feed and acquisition updates use scoped live regions and do not move
-  focus on every update.
+  not turn the Book detail page into an unusable raw fragment response.
+- Dynamic acquisition updates use scoped live regions and do not move focus on
+  every update.

@@ -21,9 +21,10 @@ rather than as independent destinations.
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 **Reading Journey**, **Settings**, account identity, and **Log
 out**. My Books, Reading Journey, and Settings are the only destinations; there
-is no acquisition action in the top navigation. Catalogue setup and browsing are
-reached from My Books empty states and actions and via the `/connections` and
-`/catalog...` routes.
+is no acquisition action in the top navigation. Catalogue setup and sync
+maintenance are reached from My Books empty states and actions and via
+`/connections`. My Books is the sole browse surface; Book detail owns per-book
+EPUB acquisition.
 
 Primary Goal is embedded in Reading Journey and is not a fourth destination.
 The shell identifies the current destination, supports skip navigation and
@@ -84,12 +85,12 @@ and recommendation metadata is not a current scope-review surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Acquisition hub / catalog connections | Current `GET/POST /connections` and mutation routes; planned (Proposed) sync states and **Sync now** | Add, edit, browse, remove, or synchronize an owner-scoped OPDS connection. | Catalog browser, Sync now, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
-| Catalog browser | Current `GET /catalog` with `/opds/language`, `/opds/browse`, and `/opds/search` fragments | Find EPUBs in one ready analysis language without losing feed context. | Add to My Books or book detail | No connection, no ready language, capability discovery degraded, feed loading, breadcrumbs, pagination, search results, empty feed/search, upstream error |
-| Catalog entry acquisition | Embedded current `POST /opds/acquire` result | Add one EPUB-backed book and continue browsing. | Remain in feed or open existing/new book | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
+| Catalogue connections | Current `GET/POST /connections` and mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
+| Per-book EPUB acquisition | Current `POST /opds/acquire`, launched from Book detail | Acquire content for one metadata-only My Books Book. | Book detail or My Books | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
 | Per-book catalogue metadata refresh | Planned (Proposed) action on `GET /books/{id}` with a supporting mutation/status endpoint | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | Book detail | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
-The canonical design label is **Add to My Books** and must not imply analysis,
+The canonical design label for per-book content acquisition is **Acquire EPUB
+content** and must not imply analysis,
 Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md).
 
 ## Reading Journey and Primary Goal

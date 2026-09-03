@@ -63,9 +63,10 @@ evidence or the next relevant action.
 
 The catalogue is browsable by language pills, including an unknown-language
 bucket, and supports paging plus global text search across the local collection.
-For a fresh account, its empty state explains catalogue setup and enters the
-existing Add books workflow; catalogue setup does not become a destination, and
-no acquisition action appears in the top navigation.
+For a fresh account, its empty state explains catalogue setup and enters
+`/connections`; catalogue setup and sync maintenance do not become a
+destination, and no acquisition action appears in the top navigation. Synced
+catalogue metadata is browsed only here.
 
 ### Reading Journey
 
@@ -163,23 +164,25 @@ learner result surfaces.
 
 The authenticated shell exposes three principal destinations:
 
-- **My Books** — the canonical home and broad book collection;
+- **My Books** — the canonical home, broad book collection, and sole browse
+  surface for synced catalogue metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
 - **Settings** — study languages and known vocabulary.
 
-The top navigation has no acquisition action. Catalogue setup and browsing are
-supporting `/connections` and `/catalog...` routes reached from My Books empty
-states and actions; they are not a fourth destination.
+The top navigation has no acquisition action. Catalogue setup and sync
+maintenance are supporting `/connections` routes reached from My Books empty
+states and actions; My Books is the sole browse surface and Book detail owns
+per-book EPUB acquisition. The upstream catalog browser is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
 preparation, catalog connections, and campaign history are supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
-**Deferred candidate:** a **Catalogues / Browse** sub-navigation under My Books.
-It is not adopted now; revisit it through the architecture checkpoint below
-once catalogue sync ships.
+There is no separate **Catalogues / Browse** sub-navigation. `/connections` is
+for connection and sync maintenance; `/library` is the canonical local browse
+surface.
 
 ## Route and screen hierarchy
 
@@ -205,10 +208,10 @@ Reading Journey
     completion outcome
     Where next?
 
-Add books
-    acquisition hub
-    catalog connection setup/maintenance
-    catalog browse, search, and acquisition
+Catalogue maintenance
+    connection setup and sync status
+Book detail
+    per-book EPUB acquisition
 
 Settings
     study languages
@@ -228,9 +231,9 @@ redirect to `/journey`. The Journey page retains a secondary **Campaign history
 vocabulary-transition history. It does not present a duplicate queue or plan.
 
 The authenticated shell therefore exposes exactly My Books, Reading Journey, and
-Settings in the top navigation. `/connections` (the Add books acquisition
-workflow) and `/jobs` are supporting surfaces reached from My Books and direct
-routes, not navigation destinations. Historical My Library, Learning,
+Settings in the top navigation. `/connections` (catalogue maintenance and sync)
+and `/jobs` are supporting surfaces reached from My Books and direct routes, not
+navigation destinations. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;
 compatibility aliases and operational terminology remain only where required by
 existing routes, records, or infrastructure.
@@ -248,7 +251,7 @@ surface:
 /deck-preparations/{id}/status
 /deck-preparations/{id}/download
 /connections
-/catalog and /opds/*
+/opds/acquire (per-book content acquisition)
 /settings and known-vocabulary support routes
 ```
 

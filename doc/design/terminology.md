@@ -34,8 +34,8 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Add books** | The acquisition experience on `/connections` that enters catalog setup and browsing; it is not a navigation destination. | Import books, ingest books |
-| **Add to My Books** | Add a book Mouseion can identify to the learner's collection without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
+| **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
+| **Acquire EPUB content** | Download and validate content for one metadata-only My Books Book from Book detail, without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for ready study languages except English. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
 | **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
@@ -44,10 +44,10 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. The shipped
-acquisition control says **Add to My Books** and creates or restores membership
-after the validated EPUB snapshot is persisted. Historical compatibility
-artifacts may retain **Add to library**.
+upload unless a shipped route and feature contract support it. **Acquire EPUB
+content** creates or restores membership after the validated EPUB snapshot is
+persisted. Historical compatibility artifacts may retain **Add to My Books** or
+**Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for

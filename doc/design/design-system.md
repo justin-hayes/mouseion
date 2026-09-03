@@ -176,8 +176,9 @@ scrollable data table must label and contain its own overflow.
 
 - Canonical authenticated destinations are exactly My Books, Reading Journey, and
   Settings; there is no acquisition action in the top navigation. Catalogue setup
-  and browsing happen on the `/connections` and `/catalog...` routes reached from
-  My Books. Primary Goal is embedded in Reading Journey.
+  and sync maintenance happen on `/connections` reached from My Books. My Books
+  is the sole browse surface, and Book detail owns per-book acquisition. Primary
+  Goal is embedded in Reading Journey.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading Journey has one learner-controlled order, later books are provisional,
