@@ -31,6 +31,8 @@ test.describe('My Books collection browsing', () => {
 
     await page.goto('/library');
     await page.getByRole('link', { name: /^de /i }).click();
-    await expect(page.getByText('Der lange Weg nach Hause')).toBeVisible();
+    // The language view panel also names the book in its per-book spread, so
+    // scope the assertion to the bibliographic collection list.
+    await expect(page.locator('.library-list').getByText('Der lange Weg nach Hause')).toBeVisible();
   });
 });
