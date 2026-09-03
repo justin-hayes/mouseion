@@ -42,6 +42,12 @@ type BookEvidenceStore interface {
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 }
 
+// LanguageCorpusStore is separate from Store so single-book insight stores do
+// not need to load a collection read model.
+type LanguageCorpusStore interface {
+	ListLanguageCorpusEvidence(context.Context, string, string) ([]domain.LanguageCorpusBookEvidence, error)
+}
+
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -59,6 +65,71 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 }
 
 func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, activeIsKnown bool) (domain.AnalysisCoverage, error) {
+	vocabularies := make(map[string]vocabulary)
+	for _, lemma := range input.Lemmas {
+		if !lexical.IsLemma(lemma.CanonicalLemma) {
+			continue
+		}
+		if _, ok := vocabularies[lemma.Language]; ok {
+			continue
+		}
+		loaded, err := s.loadVocabulary(ctx, owner, lemma.Language)
+		if err != nil {
+			return domain.AnalysisCoverage{}, err
+		}
+		vocabularies[lemma.Language] = loaded
+	}
+	result, _, err := coverageWithVocabulary(input, vocabularies, activeIsKnown)
+	return result, err
+}
+
+type vocabulary struct {
+	known     map[string]bool
+	active    map[string]bool
+	generated []domain.GeneratedVocabulary
+}
+
+func (s *Service) loadVocabulary(ctx context.Context, owner, language string) (vocabulary, error) {
+	words, err := s.store.ListKnownVocabulary(ctx, owner, language)
+	if err != nil {
+		return vocabulary{}, fmt.Errorf("list known vocabulary for %s: %w", language, err)
+	}
+	known := make(map[string]bool, len(words))
+	for _, word := range words {
+		known[identity(word.CanonicalLemma, word.UPOS)] = true
+	}
+
+	generated, err := s.store.ListLegacyGeneratedVocabulary(ctx, owner, language)
+	if err != nil {
+		return vocabulary{}, fmt.Errorf("list generated vocabulary for %s: %w", language, err)
+	}
+	activeWords, err := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, language)
+	if err != nil {
+		return vocabulary{}, fmt.Errorf("list active campaign vocabulary for %s: %w", language, err)
+	}
+	active := make(map[string]bool, len(activeWords))
+	for _, word := range activeWords {
+		active[identity(word.CanonicalLemma, word.UPOS)] = true
+	}
+	return vocabulary{known: known, active: active, generated: generated}, nil
+}
+
+func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
+	for _, word := range v.generated {
+		if identity(word.CanonicalLemma, word.UPOS) != key {
+			continue
+		}
+		if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != sourceMaterialID {
+			return true
+		}
+	}
+	return false
+}
+
+// coverageWithVocabulary is the shared arithmetic path for single-book and
+// language-level views. eligible contains the complete eligible identity list;
+// the public per-book result retains its existing top-five presentation cap.
+func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, activeIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
 		ReviewedScopeID:      input.ReviewedScopeID,
@@ -69,57 +140,17 @@ func (s *Service) coverage(ctx context.Context, owner string, input domain.Analy
 		TextProfile:          input.Statistics.TextProfile,
 	}
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
-	knownByLanguage := map[string]map[string]bool{}
-	generatedByLanguage := map[string]map[string]bool{}
-	activeByLanguage := map[string]map[string]bool{}
 	for _, lemma := range input.Lemmas {
 		if !lexical.IsLemma(lemma.CanonicalLemma) {
 			result.AnalyzableTokenCount = max(result.AnalyzableTokenCount-lemma.OccurrenceCount, 0)
 			result.DistinctLemmaCount = max(result.DistinctLemmaCount-1, 0)
 			continue
 		}
-		known, ok := knownByLanguage[lemma.Language]
-		if !ok {
-			words, listErr := s.store.ListKnownVocabulary(ctx, owner, lemma.Language)
-			if listErr != nil {
-				return domain.AnalysisCoverage{}, fmt.Errorf("list known vocabulary for %s: %w", lemma.Language, listErr)
-			}
-			known = make(map[string]bool, len(words))
-			for _, word := range words {
-				known[identity(word.CanonicalLemma, word.UPOS)] = true
-			}
-			knownByLanguage[lemma.Language] = known
-		}
-		generated, ok := generatedByLanguage[lemma.Language]
-		if !ok {
-			words, listErr := s.store.ListLegacyGeneratedVocabulary(ctx, owner, lemma.Language)
-			if listErr != nil {
-				return domain.AnalysisCoverage{}, fmt.Errorf("list generated vocabulary for %s: %w", lemma.Language, listErr)
-			}
-			generated = make(map[string]bool, len(words))
-			for _, word := range words {
-				if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != input.SourceMaterialID {
-					generated[identity(word.CanonicalLemma, word.UPOS)] = true
-				}
-			}
-			generatedByLanguage[lemma.Language] = generated
-		}
-		active, ok := activeByLanguage[lemma.Language]
-		if !ok {
-			words, listErr := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, lemma.Language)
-			if listErr != nil {
-				return domain.AnalysisCoverage{}, fmt.Errorf("list active campaign vocabulary for %s: %w", lemma.Language, listErr)
-			}
-			active = make(map[string]bool, len(words))
-			for _, word := range words {
-				active[identity(word.CanonicalLemma, word.UPOS)] = true
-			}
-			activeByLanguage[lemma.Language] = active
-		}
+		vocab := vocabularies[lemma.Language]
 
 		key := identity(lemma.CanonicalLemma, lemma.UPOS)
-		activeMatch := active[key] || active[identity(lemma.CanonicalLemma, "")]
-		if known[key] || known[identity(lemma.CanonicalLemma, "")] || (activeIsKnown && activeMatch) {
+		activeMatch := vocab.active[key] || vocab.active[identity(lemma.CanonicalLemma, "")]
+		if vocab.known[key] || vocab.known[identity(lemma.CanonicalLemma, "")] || (activeIsKnown && activeMatch) {
 			result.KnownTokenCount += lemma.OccurrenceCount
 			result.KnownLemmaCount++
 			continue
@@ -129,7 +160,7 @@ func (s *Service) coverage(ctx context.Context, owner string, input domain.Analy
 			result.ActiveCampaignTokenCount += lemma.OccurrenceCount
 			result.ActiveCampaignLemmaCount++
 		}
-		if !generated[key] && !activeMatch {
+		if !vocab.generatedFor(input.SourceMaterialID, key) && !activeMatch {
 			eligible = append(eligible, lemma)
 		}
 	}
@@ -168,7 +199,7 @@ func (s *Service) coverage(ctx context.Context, owner string, input domain.Analy
 		threshold.Reachable = reachesThreshold(result.KnownTokenCount, threshold.OccurrenceCount, result.AnalyzableTokenCount, target)
 		result.Thresholds = append(result.Thresholds, threshold)
 	}
-	return result, nil
+	return result, eligible, nil
 }
 
 func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens, analyzableTokens int64) domain.CoverageProjection {
