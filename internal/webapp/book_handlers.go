@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -26,7 +28,12 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message")))
+		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, book.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message"), eligible))
 		return
 	}
 	summary, ok := h.loadBook(w, r, u.ID)
@@ -62,6 +69,96 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, BookPageWithHistoryAndPreparation(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message"), preparation, journeyAction))
+}
+
+type catalogueAliasReader interface {
+	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
+}
+
+func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string) (bool, error) {
+	reader, ok := h.services.Store.(catalogueAliasReader)
+	if !ok {
+		return false, nil
+	}
+	alias, err := reader.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
+		return false, nil
+	}
+	connections, err := h.services.Store.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return false, err
+	}
+	return len(connections) > 0, nil
+}
+
+func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	refresher, ok := h.services.CatalogueSync.(CatalogueMetadataRefresher)
+	if !ok {
+		h.renderBookRefreshFailure(w, r, u, r.PathValue("id"))
+		return
+	}
+	result, err := refresher.RefreshEntry(r.Context(), u.ID, r.PathValue("id"))
+	if errors.Is(err, cataloguesync.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		result.Failed = true
+	}
+	if result.Book.ID == "" {
+		result.Book, _ = h.services.Store.GetBook(r.Context(), u.ID, r.PathValue("id"))
+	}
+	message := refreshMessage(result)
+	if isHTMX(r) {
+		if result.Book.ID == "" {
+			http.NotFound(w, r)
+			return
+		}
+		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book, EvidenceState: domain.MyBookNotAcquired}, message))
+		return
+	}
+	redirect(w, r, "/books/"+url.PathEscape(r.PathValue("id"))+"?message="+url.QueryEscape(message))
+}
+
+func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
+	message := "Metadata could not be refreshed. Check the connection and try again."
+	if isHTMX(r) {
+		book, err := h.services.Store.GetBook(r.Context(), u.ID, bookID)
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, message))
+		return
+	}
+	redirect(w, r, "/books/"+url.PathEscape(bookID)+"?message="+url.QueryEscape(message))
+}
+
+func refreshMessage(result cataloguesync.RefreshResult) string {
+	switch {
+	case result.Updated:
+		return "Metadata refreshed."
+	case result.Missing:
+		return "The catalogue entry is no longer available. Your book and its metadata are unchanged."
+	case result.Failed:
+		return "Metadata could not be refreshed. Check the connection and try again."
+	default:
+		return "Metadata is already up to date."
+	}
 }
 
 func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {

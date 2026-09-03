@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -97,6 +98,9 @@ type Analysis interface {
 type CatalogueSyncScheduler interface {
 	RegisterConnection(context.Context, string, string) error
 	UnregisterConnection(string, string) error
+}
+type CatalogueMetadataRefresher interface {
+	RefreshEntry(context.Context, string, string) (cataloguesync.RefreshResult, error)
 }
 type CompletedAnalysisReader interface {
 	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
@@ -187,6 +191,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
 	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.book)))
+	h.mux.Handle("POST /books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createBookDeckPreparation)))
 	h.mux.Handle("POST /books/{id}/analyses/{runID}/deck/preparations", h.user(http.HandlerFunc(h.createAnalysisDeckPreparation)))

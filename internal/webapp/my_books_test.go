@@ -3,9 +3,13 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -90,7 +94,7 @@ func TestMyBooksEmptyOnboardingDependsOnCatalogueConnections(t *testing.T) {
 func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
 	var output bytes.Buffer
-	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "").Render(context.Background(), &output); err != nil {
+	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -102,10 +106,67 @@ func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
 			t.Errorf("metadata-only page missing %q: %s", want, html)
 		}
 	}
-	for _, forbidden := range []string{"Review scope", "Start analysis", "Prepare deck", `action=\"/books/metadata-book/analyze\"`} {
+	for _, forbidden := range []string{"Review scope", "Start analysis", "Prepare deck", "Refresh metadata", `action=\"/books/metadata-book/analyze\"`} {
 		if strings.Contains(html, forbidden) {
 			t.Errorf("metadata-only page exposed unsupported action %q: %s", forbidden, html)
 		}
+	}
+}
+
+func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
+	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: domain.MyBookNotAcquired}
+	var output bytes.Buffer
+	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "Metadata refreshed.", true).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{`id="book-metadata-region"`, "Refresh metadata", `method="post"`, `action="/books/catalogue-book/refresh"`, `name="csrf_token"`, `hx-post="/books/catalogue-book/refresh"`, `hx-target="#book-metadata-region"`, `aria-live="polite"`, "Metadata refreshed."} {
+		if !strings.Contains(html, want) {
+			t.Errorf("catalogue metadata refresh page missing %q: %s", want, html)
+		}
+	}
+}
+
+type bookRefreshStub struct {
+	result cataloguesync.RefreshResult
+	owner  string
+	calls  int
+}
+
+func (s *bookRefreshStub) RegisterConnection(context.Context, string, string) error { return nil }
+func (s *bookRefreshStub) UnregisterConnection(string, string) error                { return nil }
+func (s *bookRefreshStub) RefreshEntry(_ context.Context, owner, _ string) (cataloguesync.RefreshResult, error) {
+	s.owner = owner
+	s.calls++
+	return s.result, nil
+}
+
+func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
+	h, cookies, csrf, _ := goalFixtureSession(t)
+	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
+	h.(*Handler).services.CatalogueSync = stub
+	missingCSRF := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{}, cookies)
+	if missingCSRF.Code != http.StatusForbidden || stub.calls != 0 {
+		t.Fatalf("missing CSRF status=%d calls=%d", missingCSRF.Code, stub.calls)
+	}
+	native := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
+	if native.Code != http.StatusSeeOther || !strings.Contains(native.Header().Get("Location"), "Metadata+refreshed") || stub.owner != "fixture-learner" {
+		t.Fatalf("native refresh status=%d location=%q owner=%q", native.Code, native.Header().Get("Location"), stub.owner)
+	}
+
+	h, cookies, csrf, _ = goalFixtureSession(t)
+	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
+	h.(*Handler).services.CatalogueSync = stub
+	request := httptest.NewRequest(http.MethodPost, "/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("HX-Request", "true")
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-metadata-region"`) || !strings.Contains(response.Body.String(), "catalogue entry is no longer available") {
+		t.Fatalf("HTMX refresh status=%d body=%s", response.Code, response.Body.String())
 	}
 }
 

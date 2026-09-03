@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -63,8 +64,21 @@ type Status struct {
 	FinalizedAt                           *time.Time
 }
 
+// RefreshResult describes a single-book metadata refresh without implying any
+// content, analysis, or deck work.
+type RefreshResult struct {
+	Book    domain.Book
+	Updated bool
+	Created bool
+	Missing bool
+	Failed  bool
+}
+
 type connectionStore interface {
+	GetBook(context.Context, string, string) (domain.Book, error)
+	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
+	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
@@ -178,6 +192,87 @@ func (s *Service) UnregisterConnection(owner, connectionID string) error {
 	delete(s.periodicIDs, PeriodicJobID(owner, connectionID))
 	s.client.PeriodicJobs().RemoveByID(PeriodicJobID(owner, connectionID))
 	return nil
+}
+
+// RefreshEntry reloads a catalogue-backed Book in the owner's scope, finds its
+// recorded entry through the existing catalogue reader, and applies the same
+// metadata-only reconciliation used by catalogue sync.
+func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (RefreshResult, error) {
+	if s == nil || s.store == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+		return RefreshResult{}, ErrNotFound
+	}
+	book, err := s.store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return RefreshResult{}, ErrNotFound
+	}
+	if err != nil {
+		return RefreshResult{Failed: true}, err
+	}
+	alias, err := s.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return RefreshResult{}, ErrNotFound
+	}
+	if err != nil {
+		return RefreshResult{Book: book, Failed: true}, err
+	}
+	if alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
+		return RefreshResult{}, ErrNotFound
+	}
+	connections, err := s.store.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return RefreshResult{Book: book, Failed: true}, err
+	}
+	if len(connections) == 0 {
+		return RefreshResult{}, ErrNotFound
+	}
+	profiles, err := s.store.ListLanguageProfiles(ctx, owner)
+	if err != nil {
+		return RefreshResult{Book: book, Failed: true}, err
+	}
+	displayName := ""
+	for _, profile := range profiles {
+		if sameLanguage(profile.Language, book.LanguageTag) {
+			displayName = profile.DisplayName
+			break
+		}
+	}
+	sort.SliceStable(connections, func(i, j int) bool {
+		if connections[i].Name != connections[j].Name {
+			return connections[i].Name < connections[j].Name
+		}
+		return connections[i].ID < connections[j].ID
+	})
+	failedConnections := 0
+	for _, connection := range connections {
+		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
+		if readErr != nil {
+			failedConnections++
+			continue
+		}
+		languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
+		if languageID == "" {
+			continue
+		}
+		feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+		if readErr != nil {
+			failedConnections++
+			continue
+		}
+		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
+				continue
+			}
+			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, entry.ID, entry.Title, book.LanguageTag)
+			if reconcileErr != nil {
+				return RefreshResult{Book: book, Failed: true}, reconcileErr
+			}
+			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged, Created: reconciled.Created}, nil
+		}
+	}
+	if failedConnections == len(connections) {
+		return RefreshResult{Book: book, Failed: true}, nil
+	}
+	return RefreshResult{Book: book, Missing: true}, nil
 }
 
 // RegisterAll restores all schedules after a process start. It intentionally

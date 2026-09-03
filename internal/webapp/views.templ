@@ -116,7 +116,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
   }
 };
 document.addEventListener('htmx:afterSwap', function (evt) {
-  ['provisional-journey-list', 'primary-goal-section', 'library-results'].forEach(function (id) {
+  ['provisional-journey-list', 'primary-goal-section', 'library-results', 'book-metadata-region'].forEach(function (id) {
     var region = document.getElementById(id);
     if (!region) return;
     var focusID = region.getAttribute('data-focus-id');
@@ -1460,11 +1460,13 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 	}
 }
 
-templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string) {
+templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool) {
 	@ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/library", "My Books")
 		@PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral))
-		if message != "" {
+		if eligibleForRefresh {
+			@MetadataOnlyBookMetadataRegion(csrf, book, message)
+		} else if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
 		<section aria-labelledby="metadata-only-heading">
@@ -1473,6 +1475,25 @@ templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, me
 			<p>Sync is metadata-only and never downloads book content. Use the catalog connection to express acquisition intent when you are ready.</p>
 		</section>
 	}
+}
+
+templ MetadataOnlyBookMetadataRegion(csrf string, book domain.MyBook, message string) {
+	<section id="book-metadata-region" data-focus-id="book-refresh-status" aria-labelledby="book-metadata-heading">
+		<h2 id="book-metadata-heading">Metadata freshness</h2>
+		if book.Book.UpdatedAt.IsZero() {
+			<p>Book metadata has not been refreshed yet.</p>
+		} else {
+			<p>Book metadata last refreshed: <time datetime={ book.Book.UpdatedAt.UTC().Format(time.RFC3339) }>{ book.Book.UpdatedAt.Format("2006-01-02 15:04") }</time>. This is distinct from the catalogue connection's last sync.</p>
+		}
+		<p id="book-refresh-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
+		if strings.Contains(message, "could not be refreshed") {
+			<p><a href="/connections">Check catalogue connections</a></p>
+		}
+		<form method="post" action={ templ.SafeURL("/books/" + book.Book.ID + "/refresh") } hx-post={ templ.SafeURL("/books/" + book.Book.ID + "/refresh") } hx-target="#book-metadata-region" hx-swap="outerHTML" data-focus-results="true">
+			<input type="hidden" name="csrf_token" value={ csrf }/>
+			<button type="submit">Refresh metadata</button>
+		</form>
+	</section>
 }
 
 templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string) {
