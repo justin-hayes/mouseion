@@ -117,6 +117,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 40. [ADR 0040: One current analysis per book](adr/0040-one-current-analysis-per-book.md) — proposes one book-centered learner analysis surface while retaining prior immutable runs as operational audit history.
 41. [ADR 0041: Catalogue sync is metadata-first and non-destructive](adr/0041-catalog-sync-metadata-first.md) — proposes per-connection ready-language metadata reconciliation, lazy content acquisition, and non-destructive sync.
 42. [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — proposes a private evidence-only language lens over current analyses and known vocabulary.
+43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination.
 
 ## Deployment and operations
 
