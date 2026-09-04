@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
@@ -26,7 +28,12 @@ func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	language := strings.TrimSpace(r.FormValue("language"))
-	supported, degraded := h.supportedNLP(r.Context())
+	language = canonicalization.NormalizeLanguage(language)
+	supported, degraded, capabilityErr := h.supportedNLP(r.Context())
+	if capabilityErr != nil {
+		fail(w, capabilityErr)
+		return
+	}
 	if degraded {
 		http.Error(w, "NLP language discovery is temporarily unavailable", http.StatusServiceUnavailable)
 		return
@@ -34,10 +41,6 @@ func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
 	var err error
 	for _, candidate := range supported {
 		if candidate.Language == language {
-			if _, err = h.services.Store.PutSupportedLanguage(r.Context(), candidate.Language, candidate.DisplayName); err != nil {
-				fail(w, err)
-				return
-			}
 			if _, err = h.services.Store.PutLanguageProfile(r.Context(), user(r).ID, candidate.Language, candidate.DisplayName); err != nil {
 				fail(w, err)
 				return
@@ -63,13 +66,23 @@ func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	u := user(r)
-	supported, degraded := h.supportedNLP(r.Context())
+	supported, degraded, capabilityErr := h.supportedNLP(r.Context())
+	if capabilityErr != nil {
+		fail(w, capabilityErr)
+		return
+	}
 	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	language, _ := knownVocabImportContext(r)
+	language = canonicalization.NormalizeLanguage(language)
+	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
 	if known == nil && language != "" {
 		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
 		if err != nil {
@@ -77,40 +90,41 @@ func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result 
 			return
 		}
 	}
-	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, degraded, language, result, known, message))
+	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, studyLanguages, degraded, language, result, known, message))
 }
 
-func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage, bool) {
+func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage, bool, error) {
 	if h.services.Capabilities == nil {
-		return nil, true
+		return nil, true, nil
 	}
 	capabilities, err := h.services.Capabilities.GetCapabilities(ctx)
 	if err != nil {
-		return nil, true
+		return nil, true, nil
 	}
-	languages := make([]domain.SupportedLanguage, 0, len(capabilities.Languages))
-	for _, capability := range capabilities.Languages {
-		if capability.Ready {
-			languages = append(languages, domain.SupportedLanguage{Language: capability.Language, DisplayName: capability.DisplayName})
+	languages := analyzer.ReadySupportedLanguages(capabilities)
+	if h.services.Store != nil {
+		if err := h.services.Store.SyncSupportedLanguages(ctx, languages); err != nil {
+			return nil, false, fmt.Errorf("sync supported languages: %w", err)
 		}
 	}
-	return languages, capabilities.Degraded
+	return languages, capabilities.Degraded, nil
 }
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	requestedLanguage := strings.TrimSpace(r.URL.Query().Get("language"))
-	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	requestedLanguage = canonicalization.NormalizeLanguage(requestedLanguage)
+	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, knownVocabSettingsTarget(requestedLanguage, profiles))
+	redirect(w, r, knownVocabSettingsTarget(requestedLanguage, studyLanguages))
 }
 
-func knownVocabSettingsTarget(requestedLanguage string, profiles []domain.LanguageProfile) string {
-	for _, profile := range profiles {
-		if requestedLanguage == profile.Language {
+func knownVocabSettingsTarget(requestedLanguage string, languages []domain.StudyLanguage) string {
+	for _, language := range languages {
+		if requestedLanguage == language.Language {
 			return "/settings?language=" + url.QueryEscape(requestedLanguage) + "#known-vocabulary"
 		}
 	}
@@ -129,6 +143,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	}
 	u := user(r)
 	language, _ := knownVocabImportContext(r)
+	language = canonicalization.NormalizeLanguage(language)
 	var input bytes.Buffer
 	file, header, err := r.FormFile("vocabulary_file")
 	if err == nil {
@@ -152,17 +167,17 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language before importing.")
 		return
 	}
-	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	selected := false
-	for _, profile := range profiles {
-		selected = selected || profile.Language == language
+	for _, studyLanguage := range studyLanguages {
+		selected = selected || studyLanguage.Language == language
 	}
 	if !selected {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose one of your study languages before importing.")
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language present in your library before importing.")
 		return
 	}
 	if input.Len() == 0 {
@@ -222,12 +237,12 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	u := user(r)
-	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), profiles, language, result, known, message))
+	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), studyLanguages, language, result, known, message))
 }
 
 func knownVocabImportContext(r *http.Request) (language, returnTo string) {

@@ -392,8 +392,32 @@ func (s *PostgresStore) DeleteLanguageProfile(ctx context.Context, owner, langua
 }
 
 func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name string) (v domain.SupportedLanguage, err error) {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = language
+	}
 	err = s.pool.QueryRow(ctx, `INSERT INTO supported_languages(language,display_name) VALUES($1,$2) ON CONFLICT(language) DO UPDATE SET display_name=excluded.display_name RETURNING language,display_name,created_at`, language, name).Scan(&v.Language, &v.DisplayName, &v.CreatedAt)
 	return
+}
+
+func (s *PostgresStore) SyncSupportedLanguages(ctx context.Context, languages []domain.SupportedLanguage) error {
+	for _, language := range languages {
+		language.Language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language.Language), "_", "-"))
+		if language.Language == "" {
+			continue
+		}
+		if strings.TrimSpace(language.DisplayName) == "" {
+			if _, err := s.pool.Exec(ctx, `INSERT INTO supported_languages(language,display_name) VALUES($1,$1) ON CONFLICT(language) DO NOTHING`, language.Language); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := s.PutSupportedLanguage(ctx, language.Language, language.DisplayName); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *PostgresStore) ListSupportedLanguages(ctx context.Context) ([]domain.SupportedLanguage, error) {
@@ -616,6 +640,14 @@ func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v doma
 	return
 }
 func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
+	lang = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(lang), "_", "-"))
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=$2 AND canonical_lemma=$3 AND upos=$4 ORDER BY id LIMIT 1`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
+	if err == nil {
+		return v, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return domain.KnownVocabulary{}, err
+	}
 	err = s.pool.QueryRow(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET canonical_lemma=excluded.canonical_lemma RETURNING id,owner_id,language,canonical_lemma,upos,created_at`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
 	return
 }
@@ -643,7 +675,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 				AND cv.graduated_at IS NOT NULL AND c.status='complete'
 		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
 		kv.created_at
-		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.language=$2 ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
+		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND lower(replace(kv.language, '_', '-'))=lower(replace($2, '_', '-')) ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -660,7 +692,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 }
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
 	var known bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=lower(replace($2, '_', '-')) AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
 	return known, err
 }
 func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {

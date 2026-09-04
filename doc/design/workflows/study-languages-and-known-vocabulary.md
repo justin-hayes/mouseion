@@ -23,28 +23,30 @@ The product behavior is defined primarily by:
 **Settings** is the sole primary-navigation destination for study languages and
 known vocabulary. The screen has two explicit sections:
 
-1. **Study languages** — learner preferences chosen from currently ready NLP
-   capabilities;
+1. **Study-language preferences** — learner selections chosen from currently
+   ready NLP capabilities and used for catalogue sync;
 2. **Known vocabulary** — owner-scoped vocabulary by language, including file
    import.
 
 The retained `/known-vocab` route is compatibility surface, not an independent
 product area. The implementation redirects `GET /known-vocab` to
 `/settings#known-vocabulary`, preserving a valid language selection as a
-`?language=` query parameter when that language is saved; Settings is
+`?language=` query parameter when that language is present in the library; Settings is
 canonical. New functionality belongs in Settings first.
 
 ## Study-language model
 
-Two concepts remain distinct:
+Three concepts remain distinct:
 
 - **Available analysis language** — currently advertised as ready by the NLP
   service;
-- **Study language** — a learner's saved preference;
+- **Study-language preference** — a learner's saved catalogue-sync preference;
+- **Library study language** — the distinct normalized language tags of the
+  learner's active chosen-language Books;
 
-Selecting a study language does not silently mutate NLP capability state or
-known-vocabulary state. Ready study languages also define the catalogue-sync
-scope; catalogue browsing itself happens in My Books.
+Selecting a study-language preference does not silently mutate known-vocabulary
+state. Library study languages define which languages may be viewed or imported
+in Known vocabulary; ready preferences define the catalogue-sync scope.
 
 ### Add a study language
 
@@ -123,7 +125,7 @@ Settings answers questions in this order:
 
 1. Which study languages have I saved, and is capability discovery healthy?
 2. Which ready languages can I add?
-3. Which language's known vocabulary am I viewing?
+3. Which library language's known vocabulary am I viewing?
 4. How can I import additional known lemmas?
 5. What happened during the latest import?
 6. Which entries are currently counted as known?
@@ -135,12 +137,12 @@ learner tasks.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No study languages | Explain preferences and currently ready options. | Add study language |
+| No study-language preferences or library languages | Explain preferences and currently ready options. | Add study language |
 | Saved languages available | Show saved preferences separately from addable capabilities. | Select language for vocabulary |
 | Discovery degraded | Preserve saved preferences and explain blocked additions. | Retry later |
 | No newly available languages | Explain that all ready languages are already saved. | Manage known vocabulary |
 | Remove preference confirmation | State that books and known vocabulary are preserved. | Remove study language |
-| No selected vocabulary language | Prompt for a saved or otherwise valid language context. | Select language |
+| No selected vocabulary language | Prompt for a library language context. | Select language |
 | No known vocabulary | Explain current coverage implications without implying no language ability. | Import lemma file |
 | Import ready | Show selected language and file contract. | Import known vocabulary |
 | Import processing | Show durable status and safe-leave guidance. | Cancel only when supported |

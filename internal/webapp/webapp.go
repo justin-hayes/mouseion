@@ -34,8 +34,10 @@ const csrfCookie = "mouseion_csrf"
 
 type Store interface {
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
+	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
+	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	DeleteLanguageProfile(context.Context, string, string) error
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)

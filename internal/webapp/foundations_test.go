@@ -207,7 +207,7 @@ func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 	var output bytes.Buffer
 	known := []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provenance: "Graduated from completed campaign", CreatedAt: time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)}}
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true, "de", &knownvocab.ImportResult{Imported: 1}, known, "").Render(context.Background(), &output); err != nil {
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, true, "de", &knownvocab.ImportResult{Imported: 1}, known, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -234,7 +234,7 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 	}
 
 	output.Reset()
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, false, "", nil, nil, "").Render(context.Background(), &output); err != nil {
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, false, "", nil, nil, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	readyHTML := output.String()
@@ -247,11 +247,11 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 }
 
 func TestKnownVocabSettingsTargetPreservesOnlyValidLanguage(t *testing.T) {
-	profiles := []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}
-	if got := knownVocabSettingsTarget("de", profiles); got != "/settings?language=de#known-vocabulary" {
+	languages := []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}
+	if got := knownVocabSettingsTarget("de", languages); got != "/settings?language=de#known-vocabulary" {
 		t.Fatalf("valid target = %q", got)
 	}
-	if got := knownVocabSettingsTarget("it", profiles); got != "/settings#known-vocabulary" {
+	if got := knownVocabSettingsTarget("it", languages); got != "/settings#known-vocabulary" {
 		t.Fatalf("invalid target = %q", got)
 	}
 	if got := knownVocabImportRecoveryTarget("de"); got != "/settings?language=de#known-vocabulary" {
@@ -317,6 +317,9 @@ func (s knownVocabContextStore) ListLanguageProfiles(context.Context, string) ([
 
 func (knownVocabContextStore) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
 	return []domain.KnownVocabulary{}, nil
+}
+func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
 
 func TestKnownVocabImportContextUsesParsedFormAndURLFallback(t *testing.T) {

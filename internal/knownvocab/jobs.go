@@ -117,12 +117,13 @@ type Worker struct {
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
 	a := job.Args
+	language := canonicalization.NormalizeLanguage(a.Language)
 	parsed, err := Parse(strings.NewReader(a.FileContents))
 	if err != nil {
 		return err
 	}
 	total := len(parsed.Entries) + len(parsed.Rejected)
-	if err = w.update(ctx, job.ID, a.OwnerID, "running", map[string]any{"language": a.Language, "processed": len(parsed.Rejected), "total": total, "imported": 0, "already_known": 0, "rejected": parsed.Rejected, "error": ""}, false); err != nil {
+	if err = w.update(ctx, job.ID, a.OwnerID, "running", map[string]any{"language": language, "processed": len(parsed.Rejected), "total": total, "imported": 0, "already_known": 0, "rejected": parsed.Rejected, "error": ""}, false); err != nil {
 		return err
 	}
 	defer func() {
@@ -135,9 +136,24 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		return err
 	}
 	defer tx.Rollback(ctx)
+	var libraryLanguage bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM books b
+		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+		WHERE b.owner_id=$1 AND b.language_state='chosen'
+		  AND lower(replace(trim(COALESCE(b.language_tag,'')), '_', '-'))=lower(replace(trim($2), '_', '-'))
+	)`, a.OwnerID, language).Scan(&libraryLanguage); err != nil {
+		return err
+	}
+	if !libraryLanguage {
+		return fmt.Errorf("known vocabulary language %q is not present in the library", language)
+	}
 	result := ImportResult{Rejected: parsed.Rejected}
 	for i, entry := range parsed.Entries {
-		normalized, normalizeErr := canonicalization.Normalize(a.Language, entry.RawLemma)
+		normalized, normalizeErr := normalizeImportLemma(language, entry.RawLemma)
+		if normalizeErr != nil && !errors.Is(normalizeErr, canonicalization.ErrUnsupportedLanguage) {
+			return normalizeErr
+		}
 		if normalizeErr != nil || !lexical.IsLemma(normalized.CanonicalLemma) {
 			if normalizeErr == nil {
 				normalizeErr = errors.New("canonical lemma must contain at least one letter")
@@ -147,13 +163,15 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 		entry.CanonicalLemma, entry.ProfileName, entry.ProfileVersion = normalized.CanonicalLemma, normalized.ProfileName, normalized.ProfileVersion
 		var known bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4)`, a.OwnerID, a.Language, entry.CanonicalLemma, entry.UPOS).Scan(&known); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=lower(replace($2, '_', '-')) AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS).Scan(&known); err != nil {
 			return fmt.Errorf("check row %d: %w", entry.Row, err)
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, a.OwnerID, a.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
-			return fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, err)
+		if !known {
+			if _, err = tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS); err != nil {
+				return fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, err)
+			}
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now()`, a.OwnerID, a.Language, entry.CanonicalLemma, entry.UPOS, string(vocabulary.Known)); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now()`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS, string(vocabulary.Known)); err != nil {
 			return fmt.Errorf("set known state row %d: %w", entry.Row, err)
 		}
 		result.Entries = append(result.Entries, entry)
@@ -169,7 +187,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 			}
 		}
 	}
-	final := map[string]any{"language": a.Language, "processed": total, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected, "error": ""}
+	final := map[string]any{"language": language, "processed": total, "total": total, "imported": result.Imported, "already_known": result.AlreadyKnown, "rejected": result.Rejected, "error": ""}
 	if err = w.updateTx(ctx, tx, job.ID, a.OwnerID, "completed", final); err != nil {
 		return err
 	}
@@ -177,6 +195,19 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		return err
 	}
 	return river.RecordOutput(ctx, result)
+}
+
+func normalizeImportLemma(language, rawLemma string) (canonicalization.NormalizedLemma, error) {
+	normalized, err := canonicalization.Normalize(language, rawLemma)
+	if !errors.Is(err, canonicalization.ErrUnsupportedLanguage) {
+		return normalized, err
+	}
+	return canonicalization.NormalizedLemma{
+		RawLemma:       rawLemma,
+		CanonicalLemma: canonicalization.Lemma(rawLemma),
+		ProfileName:    "language-neutral",
+		ProfileVersion: "1",
+	}, nil
 }
 
 func (w *Worker) update(ctx context.Context, id int64, owner, state string, fields map[string]any, completed bool) error {

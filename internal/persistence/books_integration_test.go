@@ -232,6 +232,59 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	}
 }
 
+func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
+	ctx := context.Background()
+	url, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	alice, err := store.CreateUser(ctx, "study-languages-alice", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.PutSupportedLanguage(ctx, "de-DE", "German"); err != nil {
+		t.Fatal(err)
+	}
+	for _, book := range []domain.Book{
+		{OwnerID: alice.ID, Title: "German one", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "DE_de"},
+		{OwnerID: alice.ID, Title: "German two", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"},
+		{OwnerID: alice.ID, Title: "Fallback", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "PT_br"},
+		{OwnerID: alice.ID, Title: "Unknown", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown},
+	} {
+		if _, err = store.CreateBook(ctx, book); err != nil {
+			t.Fatal(err)
+		}
+	}
+	books, err := store.ListMyBooks(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var duplicateBookID string
+	for _, book := range books {
+		if book.Title == "German one" {
+			duplicateBookID = book.ID
+			break
+		}
+	}
+	if duplicateBookID == "" {
+		t.Fatal("German one book missing")
+	}
+	if err = store.RemoveBookFromMyBooks(ctx, alice.ID, duplicateBookID); err != nil {
+		t.Fatal(err)
+	}
+
+	languages, err := store.ListStudyLanguages(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de-de", DisplayName: "German"}) || languages[1] != (domain.StudyLanguage{Language: "pt-br", DisplayName: "PT_br"}) {
+		t.Fatalf("derived study languages=%+v", languages)
+	}
+}
+
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 	sql, err := migrations.FS.ReadFile(name)

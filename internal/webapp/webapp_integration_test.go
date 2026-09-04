@@ -450,8 +450,9 @@ func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
 	if unsupported.Code != http.StatusBadRequest || !strings.Contains(unsupported.Body.String(), "unsupported study language") {
 		t.Fatalf("unsupported language=%d %s", unsupported.Code, unsupported.Body.String())
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM supported_languages`).Scan(&references); err != nil || references != 0 {
-		t.Fatalf("unsupported language changed references=%d err=%v", references, err)
+	var language, displayName string
+	if err = store.Pool().QueryRow(ctx, `SELECT language,display_name FROM supported_languages`).Scan(&language, &displayName); err != nil || language != "de" || displayName != "German" {
+		t.Fatalf("capability discovery did not sync reference language=%q display=%q err=%v", language, displayName, err)
 	}
 
 	added := perform(t, h, "POST", "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
@@ -461,6 +462,36 @@ func TestAddStudyLanguageSyncsFreshCapabilityReference(t *testing.T) {
 	profiles, err := store.ListLanguageProfiles(ctx, alice.ID)
 	if err != nil || len(profiles) != 1 || profiles[0].OwnerID != alice.ID || profiles[0].Language != "de" || profiles[0].DisplayName != "German" {
 		t.Fatalf("profiles=%+v err=%v", profiles, err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM supported_languages`).Scan(&references); err != nil || references != 1 {
+		t.Fatalf("add changed synced references=%d err=%v", references, err)
+	}
+}
+
+func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "known-vocab-derived-language-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
+		t.Fatal(err)
+	}
+	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, KnownVocab: known, SessionLifetime: time.Hour})
+	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
+
+	imported := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Haus\n")
+	if imported.Code != http.StatusSeeOther || imported.Header().Get("Location") != "/known-vocab/imports/77/status" {
+		t.Fatalf("derived-language import=%d location=%q body=%s", imported.Code, imported.Header().Get("Location"), imported.Body.String())
+	}
+	if known.owner != alice.ID || known.status.Language != "de" {
+		t.Fatalf("import was not submitted for derived language: owner=%q status=%+v", known.owner, known.status)
 	}
 }
 

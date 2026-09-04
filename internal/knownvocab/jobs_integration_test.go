@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -34,6 +35,9 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	}
 	bob, err := store.CreateUser(ctx, "known-job-bob", false)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
 		t.Fatal(err)
 	}
 	workers := river.NewWorkers()
@@ -70,12 +74,23 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 2 {
 		t.Fatalf("known rows=%d err=%v", knownRows, err)
 	}
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "it"}); err != nil {
+		t.Fatal(err)
+	}
+	italian, err := service.Submit(ctx, alice.ID, "it", "casa\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	status = waitKnownVocabJob(t, ctx, service, alice.ID, italian.ID)
+	if status.State != rivertype.JobStateCompleted || status.Imported != 1 || len(status.Rejected) != 0 {
+		t.Fatalf("library-language status = %+v", status)
+	}
 	// A forged retry without its owner-scoped history handle is rejected before writes.
 	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", FileContents: "neu"}}
 	if err = (&Worker{Pool: store.Pool()}).Work(ctx, forged); !errors.Is(err, ErrJobNotFound) {
 		t.Fatalf("forged work = %v", err)
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 2 {
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 3 {
 		t.Fatalf("rows after rejected retry=%d err=%v", knownRows, err)
 	}
 }

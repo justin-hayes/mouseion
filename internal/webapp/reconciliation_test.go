@@ -15,14 +15,17 @@ import (
 
 // redirectStore is a minimal Store used only by reconciliation handler tests.
 // It embeds the full Store interface so the Handler construction stays
-// identical to production, but only ListLanguageProfiles is reachable here.
+// identical to production, but only language-list methods are reachable here.
 type redirectStore struct {
 	Store
-	profiles []domain.LanguageProfile
+	languages []domain.StudyLanguage
 }
 
 func (s *redirectStore) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
-	return s.profiles, nil
+	return nil, nil
+}
+func (s *redirectStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return s.languages, nil
 }
 
 // TestReconciliation_NoRawHexInTemplates guards against designers inlining raw
@@ -74,21 +77,21 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 }
 
 func TestReconciliation_KnownVocabRedirectsToSettings(t *testing.T) {
-	h := &Handler{services: Services{Store: &redirectStore{profiles: []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}}}}
+	h := &Handler{services: Services{Store: &redirectStore{languages: []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}}}}
 	cases := []struct {
-		name     string
-		path     string
-		want     string
-		profiles []domain.LanguageProfile
+		name      string
+		path      string
+		want      string
+		languages []domain.StudyLanguage
 	}{
 		{name: "no language preserved", path: "/known-vocab", want: "/settings#known-vocabulary"},
 		{name: "unknown language falls back", path: "/known-vocab?language=fr", want: "/settings#known-vocabulary"},
-		{name: "saved language preserved", path: "/known-vocab?language=de", want: "/settings?language=de#known-vocabulary",
-			profiles: []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}},
+		{name: "library language preserved", path: "/known-vocab?language=de", want: "/settings?language=de#known-vocabulary",
+			languages: []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			h.services.Store = &redirectStore{profiles: tc.profiles}
+			h.services.Store = &redirectStore{languages: tc.languages}
 			rec := httptest.NewRecorder()
 			h.knownVocabPage(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
 			if rec.Code != http.StatusSeeOther {

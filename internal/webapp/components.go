@@ -23,6 +23,15 @@ func studyLanguageSaved(profiles []domain.LanguageProfile, language string) bool
 	return false
 }
 
+func studyLanguagePresent(languages []domain.StudyLanguage, language string) bool {
+	for _, candidate := range languages {
+		if candidate.Language == language {
+			return true
+		}
+	}
+	return false
+}
+
 func hasAddableStudyLanguage(supported []domain.SupportedLanguage, profiles []domain.LanguageProfile) bool {
 	for _, language := range supported {
 		if !studyLanguageSaved(profiles, language.Language) {
@@ -44,10 +53,10 @@ func studyLanguageStatus(profile domain.LanguageProfile, supported []domain.Supp
 	return "NLP analysis is not currently ready; this saved preference is retained."
 }
 
-func studyLanguageName(profiles []domain.LanguageProfile, language string) string {
-	for _, profile := range profiles {
-		if profile.Language == language {
-			return profile.DisplayName
+func studyLanguageName(languages []domain.StudyLanguage, language string) string {
+	for _, candidate := range languages {
+		if candidate.Language == language {
+			return candidate.DisplayName
 		}
 	}
 	return language

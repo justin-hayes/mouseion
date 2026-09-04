@@ -70,6 +70,12 @@ type SupportedLanguage struct {
 	Language, DisplayName string
 	CreatedAt             time.Time
 }
+
+// StudyLanguage is derived from the learner's active Books rather than saved
+// preferences.
+type StudyLanguage struct {
+	Language, DisplayName string
+}
 type SourceMaterial struct {
 	ID, OwnerID, Language, SourceIdentifier, Title, MediaType, ContentHash, FullText string
 	ContentRevisionID                                                                string

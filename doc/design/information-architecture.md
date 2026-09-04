@@ -146,8 +146,10 @@ These objects remain important, but they do not define principal navigation:
   connection. It is upsert-only and never destructive; content is trusted
   immutable for sync, so it never invalidates scope or analysis. The target
   contract is proposed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
-- **Study language** — owner-scoped preference selected from capabilities
-  advertised as ready by the NLP service.
+- **Study-language preference** — owner-scoped catalogue-sync selection from
+  capabilities advertised as ready by the NLP service.
+- **Library study language** — distinct normalized language tags of the owner's
+  active chosen-language Books; it defines known-vocabulary language context.
 - **Language lens** — a derived, evidence-only per-language aggregate over
   current analyses and known vocabulary. It owns no Book, scope, analysis, or
   action; [ADR 0042](../adr/0042-derived-language-corpus-view.md) proposes its

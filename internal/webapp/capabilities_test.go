@@ -25,17 +25,17 @@ func TestSupportedNLPOnlyReturnsReadyLanguages(t *testing.T) {
 		{Language: "it", DisplayName: "Italian", Ready: true},
 		{Language: "fr", DisplayName: "French", Ready: false},
 	}}}}}
-	languages, degraded := h.supportedNLP(context.Background())
-	if degraded || len(languages) != 2 || languages[0].Language != "de" || languages[0].DisplayName != "German" || languages[1].Language != "it" || languages[1].DisplayName != "Italian" {
-		t.Fatalf("languages = %+v, degraded = %v", languages, degraded)
+	languages, degraded, err := h.supportedNLP(context.Background())
+	if err != nil || degraded || len(languages) != 2 || languages[0].Language != "de" || languages[0].DisplayName != "German" || languages[1].Language != "it" || languages[1].DisplayName != "Italian" {
+		t.Fatalf("languages = %+v, degraded = %v, err = %v", languages, degraded, err)
 	}
 }
 
 func TestSupportedNLPDegradesWhenDiscoveryFails(t *testing.T) {
 	h := &Handler{services: Services{Capabilities: testCapabilities{err: errors.New("unavailable")}}}
-	languages, degraded := h.supportedNLP(context.Background())
-	if !degraded || len(languages) != 0 {
-		t.Fatalf("languages = %+v, degraded = %v", languages, degraded)
+	languages, degraded, err := h.supportedNLP(context.Background())
+	if err != nil || !degraded || len(languages) != 0 {
+		t.Fatalf("languages = %+v, degraded = %v, err = %v", languages, degraded, err)
 	}
 }
 
@@ -43,7 +43,7 @@ func TestSettingsPageKeepsSavedProfilesVisibleWhenDiscoveryIsDegraded(t *testing
 	var output bytes.Buffer
 	err := SettingsPage(
 		domain.User{Username: "learner"}, "csrf", nil,
-		[]domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true,
+		[]domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, nil, true,
 		"", nil, nil, "",
 	).Render(context.Background(), &output)
 	if err != nil {

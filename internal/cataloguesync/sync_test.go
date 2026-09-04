@@ -100,6 +100,9 @@ func (s *refreshStore) ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsC
 func (s *refreshStore) ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error) {
 	return append([]domain.SupportedLanguage(nil), s.supported...), nil
 }
+func (s *refreshStore) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error {
+	return nil
+}
 func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, sourceIdentifier, title, language string) (persistence.CatalogueEntryReconcileResult, error) {
 	s.reconciles++
 	s.lastOwner = owner
