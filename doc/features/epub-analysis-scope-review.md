@@ -1,8 +1,8 @@
 # EPUB analysis scope review
 
-Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-01
+Status: RETIRED / superseded by issue #551 · Updated: 2026-09-04
 
-This document is the canonical description of scope review. The former
+This document is retained as historical implementation context. The learner-facing scope review was removed by issue #551; analysis now always processes the entire acquired EPUB. Immutable reviewed-scope persistence remains internal provenance. The former
 classifier-led review described in [the historical classification record](epub-analysis-classification.md),
 [the historical scope-workflow record](epub-analysis-scope-workflows.md), and
 [the historical recommendation record](epub-analysis-recommendation-corrections.md)

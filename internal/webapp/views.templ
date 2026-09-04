@@ -811,62 +811,6 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 	}
 }
 
-templ EPUBScopeReviewPage(user domain.User, csrf string, review tocScopeView, pageError string, selectedCSV string) {
-	@ShellLayout("Review analysis scope", &user, csrf, NavigationLibrary) {
-		@Breadcrumb("/books/"+review.Book.ID, review.Book.Title)
-		@PageHeader("Review analysis scope", "Choose the readable EPUB units that should be used by a future analysis.", nil)
-		if pageError != "" {
-			@Feedback(FeedbackError, "Scope not saved.", pageError)
-		}
-		<section class="next-action" aria-labelledby="scope-next-action-heading"><h2 id="scope-next-action-heading">Next action</h2><p><strong>Confirm this scope.</strong> This saves an immutable selection for the book. It does not start analysis; after confirmation, return to the book page to choose <strong>Start analysis</strong>.</p></section>
-		<form method="post" action={ templ.SafeURL("/books/"+review.Book.ID+"/scope") } data-scope-review>
-			<input type="hidden" name="csrf_token" value={ csrf }/>
-			<input type="hidden" name="snapshot_id" value={ review.SnapshotID }/>
-			<fieldset class="scope-actions"><legend>Choose readable sections</legend><button type="button" class="outline" data-select="all">Check all</button><button type="button" class="outline secondary" data-select="none">Uncheck all</button></fieldset>
-			<div class="scope-summary" role="status" aria-live="polite" aria-atomic="true"><span>{ fmt.Sprintf("All units: %d characters, about %d tokens", scopeTotalCharacters(review.Choices), scopeTotalTokens(review.Choices)) }</span><strong data-selected-count>{ fmt.Sprintf("%d %s selected", scopeSelectedUnits(review.Choices, selectedCSV), unitPlural(scopeSelectedUnits(review.Choices, selectedCSV))) }</strong><span data-selected-size>{ fmt.Sprintf("Selected: %d characters, about %d tokens", scopeSelectedCharacters(review.Choices, selectedCSV), scopeSelectedTokens(review.Choices, selectedCSV)) }</span></div>
-			<fieldset class="scope-units"><legend>Readable sections in spine order</legend>
-				for _, choice := range review.Choices {
-					<article class="scope-choice" data-characters={ fmt.Sprintf("%d", choice.CharacterCount) } data-tokens={ fmt.Sprintf("%d", choice.TokenEstimate) } data-unit-count={ fmt.Sprintf("%d", len(choice.UnitIDs)) }>
-						<label for={ "scope-choice-"+fmt.Sprintf("%d", choice.First) }><input id={ "scope-choice-"+fmt.Sprintf("%d", choice.First) } type="checkbox" name="unit_id" value={ strings.Join(choice.UnitIDs, ",") } checked?={ scopeChoiceChecked(selectedCSV, choice.UnitIDs) }/> { choice.Label }</label>
-						<p><small>{ fmt.Sprintf("%d readable %s · %d characters · about %d tokens", len(choice.UnitIDs), unitPlural(len(choice.UnitIDs)), choice.CharacterCount, choice.TokenEstimate) }</small></p>
-					</article>
-				}
-			</fieldset>
-			<button type="submit">Confirm scope</button><small>This saves an immutable reviewed scope. Analysis is a separate action on the book page.</small>
-		</form>
-		<script>
-const scopeForm = document.querySelector('[data-scope-review]');
-if (scopeForm) {
-  const boxes = Array.from(scopeForm.querySelectorAll('input[name="unit_id"]'));
-  const updateScopeSummary = () => {
-    const selected = boxes.filter((box) => box.checked);
-    const units = selected.reduce((sum, box) => sum + Number(box.closest('[data-unit-count]').dataset.unitCount), 0);
-    const characters = selected.reduce((sum, box) => sum + Number(box.closest('[data-characters]').dataset.characters), 0);
-    const tokens = selected.reduce((sum, box) => sum + Number(box.closest('[data-tokens]').dataset.tokens), 0);
-    scopeForm.querySelector('[data-selected-count]').textContent = `${units} ${units === 1 ? 'unit' : 'units'} selected`;
-    scopeForm.querySelector('[data-selected-size]').textContent = `Selected: ${characters.toLocaleString()} characters, about ${tokens.toLocaleString()} tokens`;
-  };
-  scopeForm.addEventListener('change', updateScopeSummary);
-  scopeForm.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-select]');
-    if (!button) return;
-    boxes.forEach((box) => { box.checked = button.dataset.select === 'all'; });
-    updateScopeSummary();
-  });
-  updateScopeSummary();
-}
-		</script>
-	}
-}
-
-func scopeChoiceChecked(selectedCSV string, unitIDs []string) bool { if selectedCSV == "" { return true }; selected := make(map[string]struct{}); for _, id := range strings.Split(strings.TrimPrefix(selectedCSV, "submitted:"), ",") { selected[id] = struct{}{} }; for _, id := range unitIDs { if _, ok := selected[id]; !ok { return false } }; return true }
-func scopeTotalCharacters(choices []tocScopeChoice) int { total := 0; for _, choice := range choices { total += choice.CharacterCount }; return total }
-func scopeTotalTokens(choices []tocScopeChoice) int { total := 0; for _, choice := range choices { total += choice.TokenEstimate }; return total }
-func scopeSelectedUnits(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += len(choice.UnitIDs) } }; return total }
-func scopeSelectedCharacters(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.CharacterCount } }; return total }
-func scopeSelectedTokens(choices []tocScopeChoice, selectedCSV string) int { total := 0; for _, choice := range choices { if scopeChoiceChecked(selectedCSV, choice.UnitIDs) { total += choice.TokenEstimate } }; return total }
-func unitPlural(count int) string { if count == 1 { return "unit" }; return "units" }
-func scopeReviewURL(book domain.SourceMaterialSummary) string { return "/books/"+book.Source.ID+"/scope" }
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
 func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/books/" + url.PathEscape(book.Source.ID) + "/deck/preparations" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
@@ -1047,7 +991,7 @@ templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.
 	if returnTo != "" {
 		<input type="hidden" name="return_to" value={ returnTo }/>
 	}
-	<button type="submit">Acquire EPUB content</button><small>Downloads and validates the EPUB for later scope review. Analysis starts separately.</small></form>
+	<button type="submit">Acquire EPUB content</button><small>Downloads and validates the EPUB. Analysis starts separately from the book page.</small></form>
 }
 templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alreadyPresent bool, returnTo string) {
 	<article data-acquisition-result="settled"><h3>{ entry.Title }</h3>
@@ -1079,7 +1023,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 			@Feedback(FeedbackInfo, "", message)
 		}
 		if len(jobs) == 0 {
-			@EmptyState("No analysis runs yet", "Start analysis from a book after confirming its scope.") {
+			@EmptyState("No analysis runs yet", "Start analysis from any acquired book to generate insights.") {
 				<a href="/library">Go to My Books</a>
 			}
 		}
@@ -1110,7 +1054,7 @@ templ JobPage(user domain.User, csrf string, status analysis.Status) {
 templ JobStatus(csrf string, status analysis.Status) {
 	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status)) {
 		if status.Error != "" {
-			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when the confirmed scope is still valid.")
+			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.")
 		}
 		@ActionGroup() {
 			if jobRetryable(status) {
@@ -1290,7 +1234,7 @@ templ MetadataOnlyBookPageWithAcquisition(user domain.User, csrf string, book do
 		}
 		<article aria-labelledby="metadata-only-heading">
 			<h2 id="metadata-only-heading">Content not acquired</h2>
-			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis, scope review, and deck preparation are unavailable until content is acquired explicitly.</p>
+			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis and deck preparation are unavailable until content is acquired explicitly.</p>
 			<p>Sync is metadata-only and never downloads book content. Acquire the EPUB here when you are ready.</p>
 			if target != nil && token != "" {
 				@AcquisitionForm(csrf, target.ConnectionID, target.Language, "/books/"+book.Book.ID, target.Entry, token)

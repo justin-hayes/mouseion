@@ -201,7 +201,7 @@ func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (kn
 }
 
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
-	r.owner, r.source = owner, source
+	r.owner, r.source, r.scope = owner, source, ""
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 
@@ -227,138 +227,89 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "scope-web-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "scope-web-bob", "bob-password", false)
-	createBook := func(owner, language, identifier, firstTitle, secondTitle string) (domain.SourceMaterial, domain.ExtractedUnits) {
-		t.Helper()
-		firstText, secondText := "Erstes Kapitel.", "Bibliografia finale."
-		firstManifestID, secondManifestID := identifier+"-chapter", identifier+"-bibliography"
-		fullText := firstText + "\n\n" + secondText
-		units := domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{
-			{ID: domain.EPUBUnitID(0, firstManifestID), Order: 0, SpineIndex: 0, Title: firstTitle, TitleSource: domain.UnitTitleHeading, Text: firstText, EndOffset: uint64(len([]rune(firstText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/chapter.xhtml", ManifestID: firstManifestID, MediaType: "application/xhtml+xml", Linear: true},
-			{ID: domain.EPUBUnitID(1, secondManifestID), Order: 1, SpineIndex: 1, Title: secondTitle, TitleSource: domain.UnitTitleManifestID, Text: secondText, StartOffset: uint64(len([]rune(firstText)) + 2), EndOffset: uint64(len([]rune(fullText))), PackagePath: "OPS/package.opf", ResolvedHref: "OPS/Text/Teil/bibliography.xhtml", ManifestID: secondManifestID, MediaType: "application/xhtml+xml", Linear: true},
-		}}
-		if language == "de" {
-			units.Units[0].NavigationLabels = []string{"Teil Eins"}
-			units.Units[1].NavigationLabels = []string{"Teil Eins"}
-		} else {
-			units.Units[0].ResolvedHref = "OPS/capitolo.xhtml"
-			units.Units[1].ResolvedHref = "OPS/bibliografia.xhtml"
-		}
-		source, putErr := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: firstTitle, MediaType: "application/epub+zip", ContentHash: identifier, Content: []byte(fullText), FullText: fullText}, units)
-		if putErr != nil {
-			t.Fatal(putErr)
-		}
-		return source, units
-	}
-	german, germanUnits := createBook(alice.ID, "de", "review-de", "Erstes Kapitel", "bibliography")
-	italian, _ := createBook(alice.ID, "it", "review-it", "Capitolo primo", "bibliografia")
-	_, bobUnits := createBook(bob.ID, "de", "review-bob", "Privates Kapitel", "private-bibliography")
-	germanSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, german.ID)
+	createAccount(t, ctx, store, "scope-web-bob", "bob-password", false)
+
+	units := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
+		{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Text: "Erstes Kapitel.", EndOffset: 15, ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
+		{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Text: "Bibliografia finale.", StartOffset: 17, EndOffset: 37, ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
+	}}
+	content := []byte("Erstes Kapitel.\n\nBibliografia finale.")
+	german, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
+		OwnerID: alice.ID, Language: "de", SourceIdentifier: "analyze-de", Title: "Analyze book", MediaType: "application/epub+zip", Content: content, FullText: string(content),
+	}, units)
 	if err != nil {
 		t.Fatal(err)
 	}
-	italianSnapshot, _, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, italian.ID)
+	plain, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{
+		OwnerID: alice.ID, Language: "de", SourceIdentifier: "analyze-plain", Title: "Plain text", MediaType: "text/plain", Content: []byte("plain text"), FullText: "plain text",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	missingUnits, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{
+		OwnerID: alice.ID, Language: "de", SourceIdentifier: "analyze-missing", Title: "Missing units", MediaType: "application/epub+zip", Content: []byte("epub"), FullText: "epub",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	recorder := &recordingAnalysis{}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
-	bobCookies, _ := loginCookies(t, h, "scope-web-bob", "bob-password")
-	for _, test := range []struct{ id, title string }{{german.ID, "Erstes Kapitel"}, {italian.ID, "Capitolo primo"}} {
-		page := perform(t, h, "GET", "/books/"+test.id+"/scope", nil, cookies)
-		body := page.Body.String()
-		for _, want := range []string{test.title, "Check all", "Uncheck all", "All units:", "Selected:", `aria-live="polite"`} {
-			if page.Code != http.StatusOK || !strings.Contains(body, want) {
-				t.Fatalf("scope page %s missing %q: status=%d body=%s", test.id, want, page.Code, body)
-			}
-		}
-		for _, forbidden := range []string{"Category", "Confidence", "Recommendation", "Classification evidence", "High-confidence exclusion", "scope-groups"} {
-			if strings.Contains(body, forbidden) {
-				t.Fatalf("classifier-era scope UI contains %q", forbidden)
-			}
-		}
+	bobCookies, bobCSRF := loginCookies(t, h, "scope-web-bob", "bob-password")
+
+	first := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if first.Code != http.StatusSeeOther || recorder.scope == "" {
+		t.Fatalf("first EPUB analysis=%d scope=%q body=%s", first.Code, recorder.scope, first.Body.String())
 	}
-	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner scope review=%d %s", got.Code, got.Body.String())
-	}
-	if got := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"unit_id": {germanUnits.Units[0].ID}}, cookies); got.Code != http.StatusForbidden {
-		t.Fatalf("scope without csrf=%d", got.Code)
-	}
-	stale := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {"stale-snapshot"}, "unit_id": {germanUnits.Units[0].ID}}, cookies)
-	if stale.Code != http.StatusBadRequest || !strings.Contains(stale.Body.String(), "snapshot changed") {
-		t.Fatalf("stale scope=%d %s", stale.Code, stale.Body.String())
-	}
-	empty := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}}, cookies)
-	if empty.Code != http.StatusBadRequest || !strings.Contains(empty.Body.String(), "Select at least one readable unit") {
-		t.Fatalf("empty scope=%d %s", empty.Code, empty.Body.String())
-	}
-	foreign := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {bobUnits.Units[0].ID}}, cookies)
-	if foreign.Code != http.StatusBadRequest || !strings.Contains(foreign.Body.String(), "does not belong to this book") {
-		t.Fatalf("foreign scope=%d %s", foreign.Code, foreign.Body.String())
-	}
-	override := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
-	if override.Code != http.StatusSeeOther || !strings.Contains(override.Header().Get("Location"), "Analysis+scope+saved+with+2+selected+units") {
-		t.Fatalf("override=%d location=%q body=%s", override.Code, override.Header().Get("Location"), override.Body.String())
-	}
-	var selected int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2`, alice.ID, german.ID).Scan(&selected); err != nil || selected != 2 {
-		t.Fatalf("persisted selected units=%d err=%v", selected, err)
-	}
-	if recorder.owner != "" || recorder.source != "" || recorder.scope != "" {
-		t.Fatalf("scope confirmation enqueued analysis owner=%q source=%q scope=%q", recorder.owner, recorder.source, recorder.scope)
-	}
-	var analysisJobs int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&analysisJobs); err != nil || analysisJobs != 0 {
-		t.Fatalf("scope confirmation created analysis jobs=%d err=%v", analysisJobs, err)
-	}
-	var priorScopeID string
-	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&priorScopeID); err != nil {
-		t.Fatal(err)
-	}
-	if analyzed := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies); analyzed.Code != http.StatusSeeOther || recorder.scope != priorScopeID {
-		t.Fatalf("explicit scoped analysis=%d scope=%q want %q body=%s", analyzed.Code, recorder.scope, priorScopeID, analyzed.Body.String())
-	}
-	expanded, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, priorScopeID)
-	if err != nil || len(expanded.SelectedUnits) != 2 || expanded.SelectedUnits[0].UnitID != germanUnits.Units[0].ID || expanded.SelectedUnits[1].UnitID != germanUnits.Units[1].ID {
-		t.Fatalf("group expansion selected unintended or unordered units: scope=%+v err=%v", expanded, err)
-	}
-	checklistReview := perform(t, h, "GET", "/books/"+german.ID+"/scope?preset=prior&prior_scope_id="+priorScopeID, nil, cookies)
-	if checklistReview.Code != http.StatusOK || !strings.Contains(checklistReview.Body.String(), "Check all") || strings.Contains(checklistReview.Body.String(), "Scope comparison") {
-		t.Fatalf("scope query did not remain classifier-free: status=%d body=%s", checklistReview.Code, checklistReview.Body.String())
-	}
-	if got := perform(t, h, "GET", "/books/"+german.ID+"/scope", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner scope review=%d %s", got.Code, got.Body.String())
-	}
-	clone := perform(t, h, "POST", "/books/"+german.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {germanSnapshot}, "unit_id": {germanUnits.Units[0].ID, germanUnits.Units[1].ID}}, cookies)
-	if clone.Code != http.StatusSeeOther {
-		t.Fatalf("clone=%d location=%q body=%s", clone.Code, clone.Header().Get("Location"), clone.Body.String())
-	}
-	var cloneScopeID string
-	if err = store.Pool().QueryRow(ctx, `SELECT scope_id::text FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC,scope_id DESC LIMIT 1`, alice.ID, german.ID).Scan(&cloneScopeID); err != nil {
-		t.Fatal(err)
-	}
-	if cloneScopeID == priorScopeID {
-		t.Fatalf("equivalent confirmation reused scope %q", priorScopeID)
-	}
-	var cloneCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM epub_reviewed_scopes WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, german.ID).Scan(&cloneCount); err != nil || cloneCount != 2 {
-		t.Fatalf("immutable clone history count=%d err=%v", cloneCount, err)
-	}
-	cloned, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, cloneScopeID)
-	if err != nil || !reflect.DeepEqual(cloned.SelectedUnits, expanded.SelectedUnits) || cloned.SourceUnitSnapshot != expanded.SourceUnitSnapshot {
-		t.Fatalf("scope clone changed deterministic inputs: original=%+v clone=%+v err=%v", expanded, cloned, err)
-	}
-	_, italianUnits, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, italian.ID)
+	firstScopeID := recorder.scope
+	snapshotID, extracted, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, german.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	recommended := perform(t, h, "POST", "/books/"+italian.ID+"/scope", url.Values{"csrf_token": {csrf}, "snapshot_id": {italianSnapshot}, "unit_id": {italianUnits.Units[0].ID}}, cookies)
-	if recommended.Code != http.StatusSeeOther {
-		t.Fatalf("recommended=%d location=%q body=%s", recommended.Code, recommended.Header().Get("Location"), recommended.Body.String())
+	scope, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, firstScopeID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(u.unit_id) FROM epub_reviewed_scopes s JOIN epub_reviewed_scope_units u USING(scope_id) WHERE s.owner_id=$1 AND s.source_material_id=$2`, alice.ID, italian.ID).Scan(&selected); err != nil || selected != 1 {
-		t.Fatalf("selected=%d err=%v", selected, err)
+	if scope.SourceContent.RevisionID != german.ContentRevisionID || scope.SourceContent.Digest != german.ContentDigest || scope.SourceContent.DigestVersion != german.ContentDigestVersion {
+		t.Fatalf("scope content identity=%+v source=%+v", scope.SourceContent, german)
+	}
+	if scope.SourceUnitSnapshot.SnapshotID != snapshotID || scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != extracted.SchemaVersion {
+		t.Fatalf("scope snapshot identity=%+v snapshot=%s units=%+v", scope.SourceUnitSnapshot, snapshotID, extracted)
+	}
+	var expected []domain.EPUBSelectedUnitReference
+	for _, unit := range extracted.Units {
+		if strings.TrimSpace(unit.Text) != "" {
+			expected = append(expected, domain.EPUBSelectedUnitReference{UnitID: unit.ID, Order: unit.Order})
+		}
+	}
+	if !reflect.DeepEqual(scope.SelectedUnits, expected) {
+		t.Fatalf("full-book scope selected=%+v want=%+v", scope.SelectedUnits, expected)
+	}
+
+	recorder.scope = ""
+	second := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if second.Code != http.StatusSeeOther || recorder.scope != firstScopeID {
+		t.Fatalf("idempotent EPUB analysis=%d scope=%q want=%q body=%s", second.Code, recorder.scope, firstScopeID, second.Body.String())
+	}
+
+	recorder.scope = "sentinel"
+	plainResult := perform(t, h, "POST", "/books/"+plain.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if plainResult.Code != http.StatusSeeOther || recorder.scope != "" || recorder.source != plain.ID {
+		t.Fatalf("plain analysis=%d owner=%q source=%q scope=%q body=%s", plainResult.Code, recorder.owner, recorder.source, recorder.scope, plainResult.Body.String())
+	}
+	if csrfResult := perform(t, h, "POST", "/books/"+plain.ID+"/analyze", nil, cookies); csrfResult.Code != http.StatusForbidden {
+		t.Fatalf("analyze without csrf=%d body=%s", csrfResult.Code, csrfResult.Body.String())
+	}
+	if got := perform(t, h, "GET", "/books/"+german.ID+"/analyze", nil, bobCookies); got.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("cross-owner analyze GET=%d body=%s", got.Code, got.Body.String())
+	}
+	if got := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner analyze POST=%d body=%s", got.Code, got.Body.String())
+	}
+	missing := perform(t, h, "POST", "/books/"+missingUnits.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if missing.Code != http.StatusConflict || !strings.Contains(missing.Body.String(), "no extracted EPUB units") {
+		t.Fatalf("missing EPUB units=%d body=%s", missing.Code, missing.Body.String())
 	}
 }
 

@@ -250,7 +250,7 @@ func statusTone(value string) StatusTone {
 		return StatusSuccess
 	case "analyzing", "queued", "running", "preparing", "analysis queued", "analysis running":
 		return StatusInfo
-	case "review_required", "degraded", "scope review required":
+	case "review_required", "degraded":
 		return StatusWarning
 	case "unavailable":
 		return StatusDanger
@@ -315,7 +315,7 @@ func myBookAnalysisLabel(status string) string {
 	case "not analyzed":
 		return "No analysis run"
 	case "scope confirmed":
-		return "Scope confirmed"
+		return "Ready to analyze"
 	case "analyzed", "analysis result ready":
 		return "Analysis complete"
 	case "analysis failed":
@@ -341,7 +341,7 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 		}
 	}
 	if state == domain.MyBookStale {
-		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Review the scope again before starting analysis.", Label: "Review scope", URL: scopeReviewActionURL(*book.Acquired), Tone: StatusWarning}
+		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Acquired.Source.ID) + "/analyze", Tone: StatusWarning, Submit: true}
 	}
 	return bookLifecycleActionFor(*book.Acquired, nil)
 }
@@ -399,17 +399,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 		state = ""
 	}
 
-	if book.ConfirmedScopeID != "" || book.ReviewedScopeID != "" || status == "scope confirmed" {
-		return bookLifecycleAction{"Ready to analyze", "A confirmed scope is ready. Start analysis when you are ready to spend analysis resources.", "Start analysis", "/books/" + book.Source.ID + "/analyze", StatusSuccess, true}
-	}
-	if book.Source.MediaType == "application/epub+zip" || status == "not analyzed" || status == "scope review required" || status == "" {
-		return bookLifecycleAction{"Scope review required", "Choose the readable EPUB units before starting analysis.", "Review scope", scopeReviewActionURL(book), StatusWarning, false}
-	}
-	return bookLifecycleAction{"Ready to analyze", "This book is ready for an explicit analysis submission.", "Start analysis", "/books/" + book.Source.ID + "/analyze", StatusSuccess, true}
-}
-
-func scopeReviewActionURL(book domain.SourceMaterialSummary) string {
-	return "/books/" + book.Source.ID + "/scope"
+	return bookLifecycleAction{"Ready to analyze", "This book is ready for an explicit analysis submission.", "Start analysis", "/books/" + url.PathEscape(book.Source.ID) + "/analyze", StatusSuccess, true}
 }
 
 func analysisHistoryURL(sourceID string, job domain.AnalysisJob) string {

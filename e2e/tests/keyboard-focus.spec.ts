@@ -83,19 +83,16 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(goalLink).toBeFocused();
   });
 
-  test('scope confirmation is keyboard-only, returns to the book, and does not start analysis', async ({ page }) => {
+  test('book page starts analysis for an acquired EPUB', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book/scope');
-    await expect(page.getByRole('heading', { name: 'Review analysis scope' })).toBeVisible();
-    const confirm = page.getByRole('button', { name: 'Confirm scope' });
-    await confirm.focus();
-    await expect(confirm).toBeFocused();
-    await confirm.press('Enter');
-    await expect(page).toHaveURL(/\/books\/fixture-book\?message=/);
-    await expect(page.getByRole('heading', { name: 'Der lange Weg nach Hause' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'View analysis result' }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
-    await expect(page.getByText('Analysis scope saved')).toBeVisible();
+    await page.goto('/books/fixture-empty');
+    const analyze = page.getByRole('button', { name: 'Start analysis' });
+    await expect(analyze).toBeVisible();
+    await analyze.focus();
+    await expect(analyze).toBeFocused();
+    await analyze.press('Enter');
+    await expect(page).toHaveURL(/\/books\/fixture-empty\?message=/);
+    await expect(page.getByText(/Analysis job .* submitted/)).toBeVisible();
   });
 
   test('book page leads to preparation and terminal polling stops', async ({ page }) => {

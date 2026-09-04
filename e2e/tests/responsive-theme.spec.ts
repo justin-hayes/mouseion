@@ -11,7 +11,6 @@ async function signIn(page: Page) {
 const representativePages: Array<[string, RegExp]> = [
   ['/library', /My Books/],
   ['/books/fixture-book', /Der lange Weg nach Hause/],
-  ['/books/fixture-book/scope', /Review analysis scope/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
@@ -76,7 +75,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('#campaign-fixture-queued-campaign-6')).toBeVisible();
     await expect(page.locator('[aria-labelledby="campaign-operations-heading"] article').first()).toBeVisible();
     await page.goto('/jobs/43');
-    await expect(page.getByRole('alert')).toContainText(/Reload the confirmed scope and retry/);
+    await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
     await page.goto('/settings?language=it');
     await expect(page.getByText(/Known vocabulary/).first()).toBeVisible();
