@@ -201,7 +201,7 @@ func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (kn
 }
 
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
-	r.owner, r.source = owner, source
+	r.owner, r.source, r.scope = owner, source, ""
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 
@@ -230,8 +230,8 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	createAccount(t, ctx, store, "scope-web-bob", "bob-password", false)
 
 	units := domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{
-		{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Text: "Erstes Kapitel.", EndOffset: 16, ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
-		{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Text: "Bibliografia finale.", StartOffset: 18, EndOffset: 39, ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
+		{ID: domain.EPUBUnitID(0, "chapter"), Order: 0, SpineIndex: 0, Text: "Erstes Kapitel.", EndOffset: 15, ManifestID: "chapter", MediaType: "application/xhtml+xml", Linear: true},
+		{ID: domain.EPUBUnitID(1, "bibliography"), Order: 1, SpineIndex: 1, Text: "Bibliografia finale.", StartOffset: 17, EndOffset: 37, ManifestID: "bibliography", MediaType: "application/xhtml+xml", Linear: true},
 	}}
 	content := []byte("Erstes Kapitel.\n\nBibliografia finale.")
 	german, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
@@ -301,7 +301,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if csrfResult := perform(t, h, "POST", "/books/"+plain.ID+"/analyze", nil, cookies); csrfResult.Code != http.StatusForbidden {
 		t.Fatalf("analyze without csrf=%d body=%s", csrfResult.Code, csrfResult.Body.String())
 	}
-	if got := perform(t, h, "GET", "/books/"+german.ID+"/analyze", nil, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "GET", "/books/"+german.ID+"/analyze", nil, bobCookies); got.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("cross-owner analyze GET=%d body=%s", got.Code, got.Body.String())
 	}
 	if got := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
