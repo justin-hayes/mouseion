@@ -58,3 +58,17 @@ See ADR 0038. Rules an agent will otherwise get wrong:
 - NLP language availability is discovered from the running service (capabilities), not a web-app allowlist. Deployment-supported languages are `de` and `it`; `make dev` default is `de` only.
 - App is meant to be reachable only over the tailnet (plain HTTP, ADR 0009); `MOUSEION_COOKIE_SECURE` only if serving HTTPS.
 - Generated decks and known vocabulary are deliberately separate — generating cards never marks vocabulary as known (ADR 0036).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `justin-hayes/mouseion`, managed with the `gh` CLI. See `doc/agents/issue-tracker.md`.
+
+### Triage labels
+
+Issues use the five canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `doc/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` at the repo root plus ADRs under `doc/adr/`. See `doc/agents/domain.md`.
