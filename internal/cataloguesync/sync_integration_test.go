@@ -82,11 +82,6 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	if _, err = store.PutSupportedLanguage(ctx, "fr", "French"); err != nil {
 		t.Fatal(err)
 	}
-	for _, language := range []struct{ code, name string }{{"de", "German"}, {"en", "English"}, {"it", "Italian"}} {
-		if _, err = store.PutLanguageProfile(ctx, alice.ID, language.code, language.name); err != nil {
-			t.Fatal(err)
-		}
-	}
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://catalog.example/opds", Password: "catalog-secret"})
 	if err != nil {
 		t.Fatal(err)
@@ -95,22 +90,32 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		"7":  {Entries: []opds.Entry{testEntry("entry-1", "First title")}},
 		"8":  {Entries: []opds.Entry{testEntry("english-entry", "Do not sync")}},
 		"9":  {Entries: []opds.Entry{testEntry("italian-entry", "Not ready")}},
-		"10": {Entries: []opds.Entry{testEntry("french-entry", "Not saved")}},
+		"10": {Entries: []opds.Entry{testEntry("french-entry", "French title")}},
 	}}
-	worker := &Worker{Store: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", Ready: true}, {Language: "en", Ready: true}, {Language: "it", Ready: false}, {Language: "fr", Ready: true}}}}}
+	worker := &Worker{Store: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: alice.ID, ConnectionID: connection.ID}}
 	if err = worker.Work(ctx, job); err != nil {
 		t.Fatal(err)
 	}
 	books, err := store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 1 || books[0].Title != "First title" || books[0].LanguageState != domain.LanguageChosen || books[0].LanguageTag != "de" || books[0].MetadataProvenance != domain.MetadataProvenanceCatalogueSync {
+	if err != nil || len(books) != 2 {
 		t.Fatalf("first sync books=%+v err=%v", books, err)
 	}
-	if len(reader.visited) != 1 || reader.visited[0] != "7" {
+	tags := make(map[string]string, len(books))
+	for _, book := range books {
+		tags[book.Title] = book.LanguageTag
+		if book.LanguageState != domain.LanguageChosen || book.MetadataProvenance != domain.MetadataProvenanceCatalogueSync {
+			t.Fatalf("first sync book=%+v", book)
+		}
+	}
+	if tags["First title"] != "de" || tags["French title"] != "fr" {
+		t.Fatalf("first sync language tags=%v", tags)
+	}
+	if len(reader.visited) != 2 || reader.visited[0] != "7" || reader.visited[1] != "10" {
 		t.Fatalf("visited catalog language IDs=%v", reader.visited)
 	}
 	status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	if err != nil || status.State != domain.CatalogueSyncSynced || status.LastSyncedAt == nil || status.LastError != "" || status.LastUpsertedCount != 1 {
+	if err != nil || status.State != domain.CatalogueSyncSynced || status.LastSyncedAt == nil || status.LastError != "" || status.LastUpsertedCount != 2 {
 		t.Fatalf("sync status=%+v err=%v", status, err)
 	}
 	if err = worker.Work(ctx, job); err != nil {
@@ -125,8 +130,15 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	books, err = store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 1 || books[0].Title != "Updated title" {
+	if err != nil || len(books) != 2 {
 		t.Fatalf("rerun books=%+v err=%v", books, err)
+	}
+	updatedTitles := make(map[string]string, len(books))
+	for _, book := range books {
+		updatedTitles[book.Title] = book.LanguageTag
+	}
+	if updatedTitles["Updated title"] != "de" || updatedTitles["French title"] != "fr" {
+		t.Fatalf("rerun language tags=%v", updatedTitles)
 	}
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	if err != nil || status.LastUpsertedCount != 1 {
@@ -139,7 +151,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, alice.ID).Scan(&memberships); err != nil {
 		t.Fatal(err)
 	}
-	if aliases != 1 || memberships != 1 {
+	if aliases != 2 || memberships != 2 {
 		t.Fatalf("rerun aliases=%d memberships=%d", aliases, memberships)
 	}
 	reader.feeds["7"] = opds.Feed{}
@@ -147,7 +159,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	books, err = store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 1 {
+	if err != nil || len(books) != 2 {
 		t.Fatalf("upstream removal changed My Books=%+v err=%v", books, err)
 	}
 	if err = worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}); err != nil {
@@ -190,7 +202,7 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	if _, err = store.PutLanguageProfile(ctx, owner.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
-	worker := &Worker{Store: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", Ready: true}}}}}
+	worker := &Worker{Store: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
 	if err = worker.Work(ctx, job); err == nil || err.Error() != "authentication failed for connection Private catalog" {
 		t.Fatalf("safe worker error=%v", err)
