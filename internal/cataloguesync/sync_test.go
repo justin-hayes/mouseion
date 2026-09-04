@@ -13,21 +13,21 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func TestEligibleLanguagesIntersectsSavedReadyAndExcludesEnglish(t *testing.T) {
-	profiles := []domain.LanguageProfile{
-		{Language: "de-DE", DisplayName: "German"},
-		{Language: "en", DisplayName: "English"},
-		{Language: "it", DisplayName: "Italian"},
-		{Language: "fr", DisplayName: "French"},
-	}
-	capabilities := analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
-		{Language: "de", Ready: true},
-		{Language: "en", Ready: true},
-		{Language: "it", Ready: false},
-		{Language: "fr", Ready: true},
+func TestEligibleLanguagesUsesReadyCatalogueLanguagesAndExcludesEnglish(t *testing.T) {
+	languages := opds.Feed{Entries: []opds.Entry{
+		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}},
+		{Title: "English", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/8"}}},
+		{Title: "French", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/10"}}},
 	}}
-	got := eligibleLanguages(profiles, capabilities)
-	if len(got) != 2 || got[0].profile.Language != "de-DE" || got[1].profile.Language != "fr" {
+	capabilities := analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
+		{Language: "de-DE", DisplayName: "German", Ready: true},
+		{Language: "en", DisplayName: "English", Ready: true},
+		{Language: "it", Ready: false},
+		{Language: "fr", DisplayName: "French", Ready: true},
+		{Language: "es", DisplayName: "Spanish", Ready: true},
+	}}
+	got := eligibleLanguages(languages, capabilities)
+	if len(got) != 2 || got[0].capability.Language != "de-DE" || got[0].languageID != "7" || got[1].capability.Language != "fr" || got[1].languageID != "10" {
 		t.Fatalf("eligible languages=%+v", got)
 	}
 }
@@ -63,7 +63,7 @@ type refreshStore struct {
 	book        domain.Book
 	alias       domain.BookAlias
 	connections []domain.OpdsConnection
-	profiles    []domain.LanguageProfile
+	supported   []domain.SupportedLanguage
 	reconciles  int
 	lastOwner   string
 	reconcile   persistence.CatalogueEntryReconcileResult
@@ -97,8 +97,8 @@ func (s *refreshStore) OpdsConnectionExists(context.Context, string, string) (bo
 func (s *refreshStore) ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error) {
 	return nil, nil
 }
-func (s *refreshStore) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
-	return append([]domain.LanguageProfile(nil), s.profiles...), nil
+func (s *refreshStore) ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error) {
+	return append([]domain.SupportedLanguage(nil), s.supported...), nil
 }
 func (s *refreshStore) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error {
 	return nil
@@ -131,14 +131,18 @@ func (s *refreshStore) ListCatalogueSyncStatuses(context.Context, string) ([]dom
 }
 
 type refreshReader struct {
-	feed  opds.Feed
-	err   error
-	reads int
+	languages opds.Feed
+	feed      opds.Feed
+	err       error
+	reads     int
 }
 
 func (r *refreshReader) Languages(context.Context, string, string) (opds.Feed, error) {
 	if r.err != nil {
 		return opds.Feed{}, r.err
+	}
+	if len(r.languages.Entries) > 0 {
+		return r.languages, nil
 	}
 	return opds.Feed{Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}}, nil
 }
@@ -177,7 +181,7 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 				book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
 				alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 				connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
-				profiles:    []domain.LanguageProfile{{Language: "de", DisplayName: "German"}},
+				supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 				reconcile:   persistence.CatalogueEntryReconcileResult{TitleChanged: tc.titleChange, Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "New title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 			}
 			result, err := newRefreshService(store, &refreshReader{feed: tc.feed, err: tc.readerErr}).RefreshEntry(context.Background(), "alice", "book-1")
@@ -205,7 +209,7 @@ func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Same title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
 		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
-		profiles:    []domain.LanguageProfile{{Language: "de", DisplayName: "German"}},
+		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "Same title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 	}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Same title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType}}}}}}
@@ -220,5 +224,40 @@ func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
 	}
 	if first.Updated || second.Updated || first.Created || second.Created || store.reconciles != 2 {
 		t.Fatalf("repeated refresh first=%+v second=%+v reconciles=%d", first, second, store.reconciles)
+	}
+}
+
+func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
+	store := &refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
+		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "Deutsch"}},
+		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+	reader := &refreshReader{
+		languages: opds.Feed{Entries: []opds.Entry{{Title: "Deutsch", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}},
+		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
+	}
+	result, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+	if err != nil || result.Missing || result.Failed || store.reconciles != 1 {
+		t.Fatalf("result=%+v err=%v reconciles=%d", result, err, store.reconciles)
+	}
+}
+
+func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
+	store := &refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
+		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "Deutsch"}},
+	}
+	reader := &refreshReader{
+		languages: opds.Feed{Entries: []opds.Entry{{Title: "Deutsch", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}},
+		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
+	}
+	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
+	if err != nil || target.Href != "https://catalog.example/book.epub" || target.Language != "de" {
+		t.Fatalf("target=%+v err=%v", target, err)
 	}
 }
