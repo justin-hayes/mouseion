@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -238,153 +237,28 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 	return &preparation, journeyAction, true
 }
 
-type tocScopeView struct {
-	Book       domain.SourceMaterial
-	SnapshotID string
-	History    []domain.AnalysisJob
-	Choices    []tocScopeChoice
-	UnitOrders map[string]uint64
-}
-
-type tocScopeChoice struct {
-	Label          string
-	UnitIDs        []string
-	First          uint64
-	CharacterCount int
-	TokenEstimate  int
-}
-
-func (h *Handler) loadEPUBScope(w http.ResponseWriter, r *http.Request, owner string) (tocScopeView, bool) {
-	book, err := h.services.Store.GetSourceMaterial(r.Context(), owner, r.PathValue("id"))
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return tocScopeView{}, false
-	}
+func (h *Handler) resolveFullEPUBScope(ctx context.Context, owner string, book domain.SourceMaterial) (domain.EPUBReviewedScopeSnapshot, error) {
+	snapshotID, units, err := h.services.Store.GetExtractedUnitSnapshot(ctx, owner, book.ID)
 	if err != nil {
-		fail(w, err)
-		return tocScopeView{}, false
+		return domain.EPUBReviewedScopeSnapshot{}, err
 	}
-	snapshotID, units, err := h.services.Store.GetExtractedUnitSnapshot(r.Context(), owner, book.ID)
-	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) {
-		http.Error(w, "Review is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
-		return tocScopeView{}, false
+	if existing, findErr := h.services.Store.FindFullBookScope(ctx, owner, book.ID, snapshotID); findErr == nil {
+		return existing, nil
+	} else if !errors.Is(findErr, persistence.ErrNotFound) {
+		return domain.EPUBReviewedScopeSnapshot{}, findErr
 	}
-	if err != nil {
-		fail(w, err)
-		return tocScopeView{}, false
-	}
-	projected := epub.ProjectTOCChoices(book.Content, units)
-	byID := make(map[string]domain.ExtractedUnit, len(units.Units))
+	selected := make([]domain.EPUBSelectedUnitReference, 0, len(units.Units))
 	for _, unit := range units.Units {
-		byID[unit.ID] = unit
-	}
-	view := tocScopeView{Book: book, SnapshotID: snapshotID, Choices: make([]tocScopeChoice, 0, len(projected)), UnitOrders: make(map[string]uint64, len(units.Units))}
-	for _, unit := range units.Units {
-		view.UnitOrders[unit.ID] = unit.Order
-	}
-	for _, choice := range projected {
-		item := tocScopeChoice{Label: choice.Label, UnitIDs: append([]string(nil), choice.UnitIDs...), First: choice.First}
-		for _, unitID := range choice.UnitIDs {
-			unit, exists := byID[unitID]
-			if !exists {
-				fail(w, errors.New("review scope: TOC choice references an unknown unit"))
-				return tocScopeView{}, false
-			}
-			characters := len([]rune(unit.Text))
-			item.CharacterCount += characters
-			item.TokenEstimate += (characters + 3) / 4
-		}
-		view.Choices = append(view.Choices, item)
-	}
-	jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), owner)
-	if err != nil {
-		fail(w, err)
-		return tocScopeView{}, false
-	}
-	for _, job := range jobs {
-		if job.SourceMaterialID == book.ID {
-			view.History = append(view.History, job)
+		if strings.TrimSpace(unit.Text) != "" {
+			selected = append(selected, domain.EPUBSelectedUnitReference{UnitID: unit.ID, Order: unit.Order})
 		}
 	}
-	return view, true
+	if len(selected) == 0 {
+		return domain.EPUBReviewedScopeSnapshot{}, domain.ErrEPUBReviewedScopeUnavailable
+	}
+	return h.services.Store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: owner, SourceMaterialID: book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: book.ContentRevisionID, Digest: book.ContentDigest, DigestVersion: book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: units.SchemaVersion}, SelectedUnits: selected})
 }
 
-func (h *Handler) reviewEPUBScope(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	view, ok := h.loadEPUBScope(w, r, u.ID)
-	if !ok {
-		return
-	}
-	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, "", ""))
-}
-
-func (h *Handler) confirmEPUBScope(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	view, ok := h.loadEPUBScope(w, r, u.ID)
-	if !ok {
-		return
-	}
-	if submittedSnapshot := r.FormValue("snapshot_id"); submittedSnapshot == "" || submittedSnapshot != view.SnapshotID {
-		h.renderEPUBScopeError(w, r, u, view, "The EPUB unit snapshot changed. Reload the page and review the current scope.")
-		return
-	}
-	selected := make(map[string]struct{}, len(r.Form["unit_id"]))
-	for _, value := range r.Form["unit_id"] {
-		for _, id := range strings.Split(value, ",") {
-			if id == "" {
-				h.renderEPUBScopeError(w, r, u, view, "The selection contains an invalid unit reference. Please review your selection.")
-				return
-			}
-			if _, duplicate := selected[id]; duplicate {
-				h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
-				return
-			}
-			selected[id] = struct{}{}
-		}
-	}
-	references := make([]domain.EPUBSelectedUnitReference, 0, len(selected))
-	for _, choice := range view.Choices {
-		for _, id := range choice.UnitIDs {
-			if _, included := selected[id]; !included {
-				continue
-			}
-			order, exists := view.UnitOrders[id]
-			if !exists {
-				h.renderEPUBScopeError(w, r, u, view, "The selection contains a unit that does not belong to this book.")
-				return
-			}
-			references = append(references, domain.EPUBSelectedUnitReference{UnitID: id, Order: order})
-		}
-	}
-	if len(references) != len(selected) {
-		h.renderEPUBScopeError(w, r, u, view, "The selection contains a unit that does not belong to this book.")
-		return
-	}
-	if len(references) == 0 {
-		h.renderEPUBScopeError(w, r, u, view, "Select at least one readable unit before confirming the analysis scope.")
-		return
-	}
-	for i := range references {
-		if i > 0 && references[i].Order <= references[i-1].Order {
-			h.renderEPUBScopeError(w, r, u, view, "A unit was submitted more than once. Please review your selection.")
-			return
-		}
-	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: u.ID, SourceMaterialID: view.Book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: view.Book.ContentRevisionID, Digest: view.Book.ContentDigest, DigestVersion: view.Book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: view.SnapshotID, ExtractedUnitsSchemaVersion: domain.ExtractedUnitsSchemaVersion}, SelectedUnits: references}
-	if _, err := h.services.Store.CreateEPUBReviewedScope(r.Context(), scope); err != nil {
-		h.renderEPUBScopeError(w, r, u, view, "The scope could not be saved. Reload the page and review the current units.")
-		return
-	}
-	redirect(w, r, "/books/"+view.Book.ID+"?message="+url.QueryEscape(fmt.Sprintf("Analysis scope saved with %d selected units. Start analysis when you are ready.", len(references))))
-}
-
-func (h *Handler) renderEPUBScopeError(w http.ResponseWriter, r *http.Request, u domain.User, view tocScopeView, message string) {
-	w.WriteHeader(http.StatusBadRequest)
-	render(w, r, EPUBScopeReviewPage(u, h.csrf(w, r), view, message, "submitted:"+strings.Join(r.Form["unit_id"], ",")))
-}
 func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -396,16 +270,17 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	}
 	var handle analysis.Handle
 	var err error
-	scopeID := book.ConfirmedScopeID
-	if scopeID == "" {
-		scopeID = book.ReviewedScopeID
-	}
-	if book.Source.MediaType == "application/epub+zip" && scopeID == "" {
-		redirect(w, r, "/books/"+book.Source.ID+"/scope")
-		return
-	}
-	if scopeID != "" {
-		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, scopeID)
+	if book.Source.MediaType == "application/epub+zip" {
+		scope, scopeErr := h.resolveFullEPUBScope(r.Context(), u.ID, book.Source)
+		if scopeErr != nil {
+			if errors.Is(scopeErr, domain.ErrExtractedUnitsUnavailable) || errors.Is(scopeErr, domain.ErrEPUBReviewedScopeUnavailable) {
+				http.Error(w, "Analysis is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
+				return
+			}
+			fail(w, scopeErr)
+			return
+		}
+		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, scope.ScopeID)
 	} else {
 		handle, err = h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
 	}

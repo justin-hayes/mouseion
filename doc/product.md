@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes a learner-confirmed EPUB scope, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes the entire acquired EPUB, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -36,7 +36,7 @@ disabled until readiness can be checked.
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
-- [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — separates OPDS intake, immutable scope confirmation, explicit analysis, insights, and deck preparation.
+- [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — separates OPDS intake, explicit whole-book analysis, insights, and deck preparation.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units, stable identity, provenance, and navigation data for review projection.
 - [EPUB Analysis Scope Review](features/epub-analysis-scope-review.md) — defines the current all-on top-level EPUB 3 TOC checklist, flat readable-unit fallback, and persisted ordered scope.
 - [Historical EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — records the retired deterministic classifier and recommendation pipeline for compatibility and history.
@@ -53,8 +53,8 @@ disabled until readiness can be checked.
 ## Current pipeline
 
 1. **My Books acquisition** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, browse the resulting local My Books collection, and acquire an EPUB from a selected Book's detail page via `POST /opds/acquire`. Acquisition creates or restores My Books membership and does not start analysis. A periodic job per catalogue connection also upserts metadata for ready study languages excluding English, creating metadata-only My Books entries whose content is acquired lazily on explicit learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis.
-2. **Scope review** — show reliable top-level EPUB 3 TOC entries as initially checked checkboxes, or fall back to initially checked readable persisted units in flat spine order; expand choices to the canonical ordered unit set and confirm an immutable scope revision. Metadata-only edits do not invalidate it; changed EPUB content requires a new review.
-3. **Explicit analysis** — start and observe an asynchronous analysis bound to one confirmed scope, producing an immutable completed corpus with source and scope provenance.
+2. **Whole-book analysis** — from the book page, explicitly start analysis of every readable unit in the current acquired EPUB snapshot. Metadata-only edits do not invalidate content; changed EPUB content is analyzed again on the next start.
+3. **Explicit analysis** — observe an asynchronous analysis bound to an internally persisted full-book scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights (target; ADR 0040 proposed)** — inspect the book's one current analysis on `/books/{id}`: headline current known coverage with an analyzed-units qualifier, vocabulary investment, highest-impact unknown vocabulary, warning-only quality information, and deck preparation. Prior runs remain operational history in `/jobs`; run-specific result URLs redirect to the book.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed scope, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 6. **Coverage selection** — classify explicitly known and graduated vocabulary as known, reserve active-campaign vocabulary without counting it as known, and leave abandoned-campaign vocabulary eligible again. Sort the remaining eligible unknown lemmas by analyzed-scope occurrence count and choose the smallest prefix accounting for at least a fixed 97% of their tokens.

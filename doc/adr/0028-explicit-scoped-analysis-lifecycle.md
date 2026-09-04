@@ -5,7 +5,7 @@ Status: **Accepted** · Date: 2026-08-26 · Updated: 2026-09-01 · Author: Justi
 ## Context
 
 Mouseion currently couples several transitions that need different learner
-decisions. OPDS acquisition can enqueue analysis immediately, scope confirmation
+decisions. OPDS acquisition can enqueue analysis immediately; issue #551 removes learner-facing scope confirmation
 can both save a decision and start work, and deck preparation can be offered from
 a book-level analyzed flag without naming the completed analysis it consumes.
 This makes it difficult to add several books for later review, understand which
@@ -22,8 +22,7 @@ Adopt this learner-visible lifecycle:
 
 ```text
 OPDS browse/add
-  → scope review
-  → explicit scoped analysis
+  → explicit whole-book analysis (internal scope provenance is created automatically)
   → analysis insights
   → deck preparation
   → download

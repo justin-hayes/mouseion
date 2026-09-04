@@ -44,9 +44,7 @@ Catalogue sync
     -> My Books
     -> Acquire EPUB content from Book detail
     -> Book detail
-    -> Scope review
-    -> Confirm scope
-    -> Book detail
+    -> Start analysis (entire book)
     -> Start analysis
     -> Analysis status
     -> Book detail with current analysis insights
@@ -75,7 +73,7 @@ The interface must answer:
 - Can I continue adding books without losing feed context?
 - If acquisition failed, what can I do next?
 
-### 2. Review and confirm scope
+### 2. Start analysis of the entire book
 
 **Learner decision:** Which parts of this EPUB represent the text I intend to
 read and analyze?

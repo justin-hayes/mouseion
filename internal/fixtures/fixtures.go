@@ -75,14 +75,14 @@ func NewStore() *Store {
 	return &Store{
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
-			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
+			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
 			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
 			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
-			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
-			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "ready", AnalysisState: "scope confirmed"},
+			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
+			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 		},
 		jobs:      fixtureJobs(),
 		campaigns: fixtureCampaigns(),
@@ -453,6 +453,35 @@ func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (strin
 		{ID: domain.EPUBUnitID(1, "fixture-002"), Order: 1, SpineIndex: 1, ManifestID: "fixture-002", Title: "Chapter two", Text: second, StartOffset: uint64(len([]rune(text)) + 2), EndOffset: uint64(len([]rune(text)) + 2 + len([]rune(second))), MediaType: "application/xhtml+xml", Linear: true},
 	}}, nil
 }
+func (s *Store) FindFullBookScope(_ context.Context, owner, sourceID, snapshotID string) (domain.EPUBReviewedScopeSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var expected []domain.EPUBSelectedUnitReference
+	for _, book := range s.books {
+		if book.Source.ID == sourceID && book.Source.OwnerID == owner {
+			expected = make([]domain.EPUBSelectedUnitReference, 0, 2)
+			for _, unit := range []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "fixture-001"), Order: 0}, {UnitID: domain.EPUBUnitID(1, "fixture-002"), Order: 1}} {
+				expected = append(expected, unit)
+			}
+			break
+		}
+	}
+	for _, scope := range s.reviewedScopes {
+		if scope.OwnerID == owner && scope.SourceMaterialID == sourceID && scope.SourceUnitSnapshot.SnapshotID == snapshotID && len(scope.SelectedUnits) == len(expected) {
+			match := true
+			for i := range expected {
+				if scope.SelectedUnits[i] != expected[i] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return scope, nil
+			}
+		}
+	}
+	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
+}
 func (s *Store) GetEPUBReviewedScope(_ context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -796,7 +825,7 @@ func (s *Store) fixtureBookExists(owner, bookID string) bool {
 }
 
 func fixtureJobs() []domain.AnalysisJob {
-	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nReload the confirmed scope and retry this analysis.", Progress: 42}}
+	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
 	for i := int64(3); i <= 18; i++ {
 		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: "fixture-history-" + fmt.Sprint(i), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
 	}
@@ -886,7 +915,7 @@ func (Analysis) SubmitScopedAnalysis(context.Context, string, string, string) (a
 }
 func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
 	if id == 43 {
-		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nReload the confirmed scope and retry this analysis.", LogicalState: "failed", Progress: 42}, nil
+		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil
 	}
 	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: BookID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
 }

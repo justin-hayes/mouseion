@@ -117,7 +117,7 @@ func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"Catalogue metadata", "Metadata only", "Content not acquired", "Analysis, scope review, and deck preparation are unavailable"} {
+	for _, want := range []string{"Catalogue metadata", "Metadata only", "Content not acquired", "Analysis and deck preparation are unavailable"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only page missing %q: %s", want, html)
 		}
