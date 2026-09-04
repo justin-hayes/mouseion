@@ -91,7 +91,7 @@ type connectionStore interface {
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
-	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
+	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	ReconcileCatalogueEntry(context.Context, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
 	GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error)
@@ -236,17 +236,11 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	if len(connections) == 0 {
 		return RefreshResult{}, ErrNotFound
 	}
-	profiles, err := s.store.ListLanguageProfiles(ctx, owner)
+	supported, err := s.store.ListSupportedLanguages(ctx)
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
 	}
-	displayName := ""
-	for _, profile := range profiles {
-		if sameLanguage(profile.Language, book.LanguageTag) {
-			displayName = profile.DisplayName
-			break
-		}
-	}
+	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
 	sort.SliceStable(connections, func(i, j int) bool {
 		if connections[i].Name != connections[j].Name {
 			return connections[i].Name < connections[j].Name
@@ -314,17 +308,11 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
-	profiles, err := s.store.ListLanguageProfiles(ctx, owner)
+	supported, err := s.store.ListSupportedLanguages(ctx)
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
-	displayName := ""
-	for _, profile := range profiles {
-		if sameLanguage(profile.Language, book.LanguageTag) {
-			displayName = profile.DisplayName
-			break
-		}
-	}
+	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
 	for _, connection := range connections {
 		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
 		if readErr != nil {
@@ -573,20 +561,21 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 }
 
 type languageScope struct {
-	profile    domain.LanguageProfile
 	capability analyzer.LanguageCapability
+	languageID string
 }
 
-func eligibleLanguages(profiles []domain.LanguageProfile, capabilities analyzer.Capabilities) []languageScope {
+func eligibleLanguages(languages opds.Feed, capabilities analyzer.Capabilities) []languageScope {
 	var out []languageScope
-	for _, profile := range profiles {
-		for _, capability := range capabilities.Languages {
-			if !capability.Ready || !sameLanguage(profile.Language, capability.Language) || isEnglish(profile.Language) {
-				continue
-			}
-			out = append(out, languageScope{profile: profile, capability: capability})
-			break
+	for _, capability := range capabilities.Languages {
+		if !capability.Ready || isEnglish(capability.Language) {
+			continue
 		}
+		languageID := opds.LanguageID(languages, capability.Language, capability.DisplayName)
+		if languageID == "" {
+			continue
+		}
+		out = append(out, languageScope{capability: capability, languageID: languageID})
 	}
 	return out
 }
@@ -608,16 +597,20 @@ func isEnglish(language string) bool {
 	return language == "en" || language == "eng" || baseLanguage(language) == "en"
 }
 
-// languageTag returns the normalized chosen-language tag for newly created
-// metadata-only Books. The tag comes from the learner's explicitly saved study
-// language that produced the feed being walked; it is never inferred from
-// content. The capability tag is the fallback when the learner profile tag is
-// blank, and the empty string makes the caller skip a Book rather than guess.
+// languageTag returns the normalized language tag for newly created
+// metadata-only Books. It comes from the capability that produced the feed
+// being walked; it is never inferred from content.
 func languageTag(scope languageScope) string {
-	if tag := canonicalization.NormalizeLanguage(scope.profile.Language); tag != "" {
-		return tag
-	}
 	return canonicalization.NormalizeLanguage(scope.capability.Language)
+}
+
+func supportedLanguageDisplayName(languages []domain.SupportedLanguage, language string) string {
+	for _, supported := range languages {
+		if sameLanguage(supported.Language, language) {
+			return supported.DisplayName
+		}
+	}
+	return ""
 }
 
 func logicalState(state string) string {
@@ -661,33 +654,19 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
 	}
-	profiles, err := s.store.ListLanguageProfiles(ctx, args.OwnerID)
-	if err != nil {
-		return 0, errors.New("could not load saved study languages")
-	}
 	capabilities, err := s.capabilities.GetCapabilities(ctx)
 	if err != nil {
 		return 0, errors.New("NLP language readiness could not be checked")
-	}
-	scope := eligibleLanguages(profiles, capabilities)
-	if len(scope) == 0 {
-		return 0, nil
 	}
 	languages, err := s.reader.Languages(ctx, args.OwnerID, args.ConnectionID)
 	if err != nil {
 		return 0, safeSyncError(err, connection)
 	}
+	scope := eligibleLanguages(languages, capabilities)
 	var firstConflict error
 	upserted := 0
 	for _, language := range scope {
-		languageID := opds.LanguageID(languages, language.profile.Language, language.profile.DisplayName)
-		if languageID == "" {
-			languageID = opds.LanguageID(languages, language.capability.Language, language.capability.DisplayName)
-		}
-		if languageID == "" {
-			continue
-		}
-		feed, feedErr := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, languageID)
+		feed, feedErr := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
 		if feedErr != nil {
 			return upserted, safeSyncError(feedErr, connection)
 		}
@@ -712,7 +691,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 }
 
 func safeSyncError(err error, connection domain.OpdsConnection) error {
-	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "could not load saved study languages") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalogue connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalogue returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
+	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalogue connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalogue returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
 		return errors.New(err.Error())
 	}
 	host := "the catalogue"
