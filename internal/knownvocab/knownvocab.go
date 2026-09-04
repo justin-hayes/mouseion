@@ -94,6 +94,7 @@ func NewService(store Store) *Service { return &Service{store: store} }
 
 func (s *Service) Import(ctx context.Context, owner, language string, reader io.Reader) (ImportResult, error) {
 	owner, language = strings.TrimSpace(owner), strings.TrimSpace(language)
+	language = canonicalization.NormalizeLanguage(language)
 	if s == nil || s.store == nil || owner == "" || language == "" || reader == nil {
 		return ImportResult{}, ErrInvalidInput
 	}

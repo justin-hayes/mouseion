@@ -88,6 +88,41 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 	return books, rows.Err()
 }
 
+// ListStudyLanguages derives the learner's study languages from active Books
+// with a chosen language. Reference names are optional so old or newly
+// discovered tags remain importable.
+func (s *PostgresStore) ListStudyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
+	rows, err := s.pool.Query(ctx, `WITH chosen_languages AS (
+		SELECT DISTINCT ON (lower(replace(trim(b.language_tag), '_', '-')))
+			lower(replace(trim(b.language_tag), '_', '-')) AS language, trim(b.language_tag) AS raw_tag
+		FROM books b
+		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+		WHERE b.owner_id=$1 AND b.language_state='chosen' AND trim(COALESCE(b.language_tag,'')) <> ''
+		ORDER BY lower(replace(trim(b.language_tag), '_', '-')), trim(b.language_tag), b.id
+	)
+	SELECT c.language, COALESCE(NULLIF(s.display_name,''), c.raw_tag)
+	FROM chosen_languages c
+	LEFT JOIN (SELECT DISTINCT ON (lower(replace(trim(language), '_', '-')))
+		lower(replace(trim(language), '_', '-')) AS language, display_name
+		FROM supported_languages
+		ORDER BY lower(replace(trim(language), '_', '-')), created_at DESC, language DESC
+	) s ON s.language=c.language
+	ORDER BY COALESCE(NULLIF(s.display_name,''), c.language), c.language`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.StudyLanguage
+	for rows.Next() {
+		var language domain.StudyLanguage
+		if err := rows.Scan(&language.Language, &language.DisplayName); err != nil {
+			return nil, err
+		}
+		out = append(out, language)
+	}
+	return out, rows.Err()
+}
+
 // ListMyBooksWithEvidence is the My Books collection read model. Membership
 // is the driving table, so metadata-only Books remain visible; the current
 // acquired source and analysis projection are optional evidence on each row.

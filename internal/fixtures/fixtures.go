@@ -135,6 +135,7 @@ func NewStore() *Store {
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
 	return domain.SupportedLanguage{}, nil
 }
+func (s *Store) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error { return nil }
 func (s *Store) PutLanguageProfile(_ context.Context, o, l, n string) (domain.LanguageProfile, error) {
 	p := domain.LanguageProfile{ID: "fixture-profile-" + l, OwnerID: o, Language: l, DisplayName: n}
 	s.profiles = append(s.profiles, p)
@@ -142,6 +143,53 @@ func (s *Store) PutLanguageProfile(_ context.Context, o, l, n string) (domain.La
 }
 func (s *Store) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
 	return append([]domain.LanguageProfile(nil), s.profiles...), nil
+}
+func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Fixture source summaries represent the active acquired library books; the
+	// fixture does not model a separate membership row for them.
+	seen := make(map[string]struct{})
+	displayNames := make(map[string]string, len(s.profiles))
+	for _, profile := range s.profiles {
+		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(profile.Language), "_", "-"))
+		if language != "" {
+			displayNames[language] = profile.DisplayName
+		}
+	}
+	var out []domain.StudyLanguage
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
+			continue
+		}
+		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Source.Language), "_", "-"))
+		if _, ok := seen[language]; ok {
+			continue
+		}
+		seen[language] = struct{}{}
+		displayName := displayNames[language]
+		if displayName == "" {
+			displayName = language
+		}
+		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+	}
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID != owner || book.Book.LanguageState != domain.LanguageChosen || strings.TrimSpace(book.Book.LanguageTag) == "" {
+			continue
+		}
+		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Book.LanguageTag), "_", "-"))
+		if _, ok := seen[language]; ok {
+			continue
+		}
+		seen[language] = struct{}{}
+		displayName := displayNames[language]
+		if displayName == "" {
+			displayName = language
+		}
+		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
+	return out, nil
 }
 func (s *Store) DeleteLanguageProfile(context.Context, string, string) error { return nil }
 func (s *Store) CreateOpdsConnection(_ context.Context, o string, c domain.OpdsConnection) (domain.OpdsConnection, error) {

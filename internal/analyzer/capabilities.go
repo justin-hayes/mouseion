@@ -4,6 +4,9 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 // CapabilityProvider reports the analysis languages currently exposed by the
@@ -23,6 +26,16 @@ type LanguageCapability struct {
 type Capabilities struct {
 	Languages []LanguageCapability
 	Degraded  bool
+}
+
+func ReadySupportedLanguages(value Capabilities) []domain.SupportedLanguage {
+	languages := make([]domain.SupportedLanguage, 0, len(value.Languages))
+	for _, capability := range value.Languages {
+		if capability.Ready {
+			languages = append(languages, domain.SupportedLanguage{Language: canonicalization.NormalizeLanguage(capability.Language), DisplayName: capability.DisplayName})
+		}
+	}
+	return languages
 }
 
 // CachedCapabilityProvider bounds capability RPC traffic and returns the last

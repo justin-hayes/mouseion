@@ -92,6 +92,7 @@ type connectionStore interface {
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
 	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
+	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ReconcileCatalogueEntry(context.Context, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
 	GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error)
@@ -668,6 +669,10 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	capabilities, err := s.capabilities.GetCapabilities(ctx)
 	if err != nil {
 		return 0, errors.New("NLP language readiness could not be checked")
+	}
+	readyLanguages := analyzer.ReadySupportedLanguages(capabilities)
+	if err = s.store.SyncSupportedLanguages(ctx, readyLanguages); err != nil {
+		return 0, errors.New("NLP language reference could not be updated")
 	}
 	scope := eligibleLanguages(profiles, capabilities)
 	if len(scope) == 0 {
