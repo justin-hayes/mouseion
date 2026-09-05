@@ -13,8 +13,8 @@ OPDS catalog connections, including catalog credentials encrypted at rest.
 The running NLP service is authoritative for analysis-language availability.
 Mouseion discovers the languages and features it currently advertises instead
 of maintaining a separate web-app language allowlist. If discovery is
-temporarily unavailable, saved study-language preferences remain intact while
-operations requiring a newly available analysis language are blocked.
+temporarily unavailable, previously discovered language display names remain
+available while operations requiring a newly available analysis language are blocked.
 
 See [the product specification](doc/product.md) and [documentation governance](doc/documentation-governance.md).
 

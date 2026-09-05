@@ -98,7 +98,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 | No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalogue connection |
 | Never synced | Identify the connection and explain that every offered non-English language with a ready NLP pipeline is eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
-| Last synced | Show the last successful time, the non-English ready-language scope, and retain ordinary edit/delete actions. | Sync now or My Books |
+| Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Open the book and acquire via `POST /opds/acquire` |
 | Lazy acquisition running or failed | Preserve book context and distinguish content work from analysis. | View status or retry |

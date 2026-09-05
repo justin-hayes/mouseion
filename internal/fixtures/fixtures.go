@@ -399,10 +399,17 @@ func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (b
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
-func (s *Store) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
+func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append([]domain.KnownVocabulary(nil), s.known...), nil
+	language = normalizeFixtureLanguage(language)
+	var result []domain.KnownVocabulary
+	for _, entry := range s.known {
+		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
+			result = append(result, entry)
+		}
+	}
+	return result, nil
 }
 func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
 	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
@@ -590,7 +597,11 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 	}
 	for _, source := range s.books {
 		if source.Source.OwnerID == owner && source.Source.ID == bookID {
-			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, nil
+			state := domain.LanguageChosen
+			if strings.TrimSpace(source.Source.Language) == "" {
+				state = domain.LanguageUnknown
+			}
+			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: state, LanguageTag: source.Source.Language}, nil
 		}
 	}
 	return domain.Book{}, errNotFound
@@ -608,10 +619,10 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 	for i := range s.books {
 		if s.books[i].Source.OwnerID == owner && s.books[i].Source.ID == bookID {
 			s.books[i].Source.Title = title
-			s.books[i].Source.Language = languageTag
 			if languageState == domain.LanguageUnknown {
-				s.books[i].Source.Language = ""
+				languageTag = ""
 			}
+			s.books[i].Source.Language = languageTag
 			return domain.Book{ID: bookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
 		}
 	}

@@ -5176,7 +5176,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 	})
 }
 
-func ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) templ.Component {
+func ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {

@@ -896,7 +896,7 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	}
 	</article> }
 }
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus) {
 	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses)
 }
 
