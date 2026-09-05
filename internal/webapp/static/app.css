@@ -1,23 +1,37 @@
 :root {
-  /* Semantic color aliases. Pico supplies the active light/dark palette. */
-  --mouseion-color-surface: var(--pico-background-color);
-  --mouseion-color-surface-raised: var(--pico-card-background-color);
-  --mouseion-color-text: var(--pico-color);
-  --mouseion-color-text-muted: var(--pico-muted-color);
-  --mouseion-color-border: var(--pico-muted-border-color);
-  --mouseion-color-accent: var(--pico-primary);
-  --mouseion-color-accent-hover: var(--pico-primary-hover);
-  --mouseion-color-focus: var(--pico-primary-focus);
-  --mouseion-color-info: var(--pico-primary);
-  --mouseion-color-success: var(--pico-ins-color);
+  /* A cool reading-room palette: ledger, paper, ink, and bottle green. */
+  --mouseion-color-surface: #eef1ed;
+  --mouseion-color-surface-raised: #fafbf8;
+  --mouseion-color-text: #18251f;
+  --mouseion-color-text-muted: #647068;
+  --mouseion-color-border: #c8cec8;
+  --mouseion-color-accent: #245849;
+  --mouseion-color-accent-hover: #173f34;
+  --mouseion-color-focus: #245849;
+  --mouseion-color-info: #245849;
+  --mouseion-color-success: #2d654b;
   --mouseion-color-warning: #7a4b00;
-  --mouseion-color-danger: var(--pico-del-color);
-  --mouseion-radius: var(--pico-border-radius);
+  --mouseion-color-danger: #9a3e32;
+  --mouseion-radius: 0.2rem;
   --mouseion-focus-width: var(--pico-outline-width);
 
+  --pico-background-color: var(--mouseion-color-surface);
+  --pico-card-background-color: var(--mouseion-color-surface-raised);
+  --pico-color: var(--mouseion-color-text);
+  --pico-muted-color: var(--mouseion-color-text-muted);
+  --pico-muted-border-color: var(--mouseion-color-border);
+  --pico-primary: var(--mouseion-color-accent);
+  --pico-primary-hover: var(--mouseion-color-accent-hover);
+  --pico-primary-background: var(--mouseion-color-accent);
+  --pico-primary-hover-background: var(--mouseion-color-accent-hover);
+  --pico-primary-border: var(--mouseion-color-accent);
+  --pico-primary-hover-border: var(--mouseion-color-accent-hover);
+  --pico-form-element-background-color: var(--mouseion-color-surface-raised);
+  --pico-form-element-border-color: #aeb8b0;
+
   /* Typography roles. */
-  --mouseion-font-application: var(--pico-font-family-sans-serif);
-  --mouseion-font-reading: Georgia, "Times New Roman", Times, serif;
+  --mouseion-font-application: "Avenir Next", Avenir, "Gill Sans", "Segoe UI", sans-serif;
+  --mouseion-font-reading: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --mouseion-line-height-reading: 1.7;
   --mouseion-font-size-metadata: 0.875rem;
   --mouseion-font-size-stat: 1.75rem;
@@ -39,12 +53,36 @@
 }
 
 [data-theme="dark"] {
+  --mouseion-color-surface: #17201c;
+  --mouseion-color-surface-raised: #202b26;
+  --mouseion-color-text: #edf2ed;
+  --mouseion-color-text-muted: #b4c0b8;
+  --mouseion-color-border: #46534b;
+  --mouseion-color-accent: #91c9b1;
+  --mouseion-color-accent-hover: #b1ddca;
+  --mouseion-color-focus: #91c9b1;
+  --mouseion-color-info: #91c9b1;
+  --mouseion-color-success: #9ed2ad;
   --mouseion-color-warning: #f2c66d;
+  --mouseion-color-danger: #f0a39a;
+  --pico-form-element-border-color: #5d6a62;
 }
 
 @media only screen and (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    --mouseion-color-surface: #17201c;
+    --mouseion-color-surface-raised: #202b26;
+    --mouseion-color-text: #edf2ed;
+    --mouseion-color-text-muted: #b4c0b8;
+    --mouseion-color-border: #46534b;
+    --mouseion-color-accent: #91c9b1;
+    --mouseion-color-accent-hover: #b1ddca;
+    --mouseion-color-focus: #91c9b1;
+    --mouseion-color-info: #91c9b1;
+    --mouseion-color-success: #9ed2ad;
     --mouseion-color-warning: #f2c66d;
+    --mouseion-color-danger: #f0a39a;
+    --pico-form-element-border-color: #5d6a62;
   }
 }
 
@@ -70,7 +108,8 @@ body {
 }
 
 .site-header {
-  padding-block: var(--mouseion-space-3);
+  padding-block: var(--mouseion-space-4);
+  border-bottom: 1px solid var(--mouseion-color-border);
 }
 
 .site-header__nav {
@@ -81,6 +120,12 @@ body {
 .site-header__brand,
 .site-header__navigation {
   align-items: center;
+}
+
+.site-header__brand strong {
+  font-family: var(--mouseion-font-reading);
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
 }
 
 .site-header__navigation {
@@ -94,10 +139,16 @@ body {
 }
 
 .site-nav__link--current {
-  font-weight: 700;
+  color: var(--mouseion-color-text);
+  font-weight: 650;
   text-decoration: underline;
-  text-decoration-thickness: 0.15em;
-  text-underline-offset: 0.25em;
+  text-decoration-color: var(--mouseion-color-accent);
+  text-decoration-thickness: 0.2em;
+  text-underline-offset: 0.45em;
+}
+
+#main-content {
+  padding-block: var(--mouseion-space-7) var(--mouseion-space-8);
 }
 
 #main-content:focus-visible {
@@ -121,7 +172,7 @@ body {
 .bibliographic-title {
   font-family: var(--mouseion-font-reading);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
 }
 
 .reading-text {
@@ -480,9 +531,108 @@ body {
   gap: var(--mouseion-space-4);
 }
 
+.library-masthead {
+  margin-bottom: var(--mouseion-space-7);
+}
+
+.library-masthead .page-header {
+  align-items: flex-end;
+  margin: 0;
+}
+
+.library-masthead h1 {
+  margin-bottom: var(--mouseion-space-2);
+  font-family: var(--mouseion-font-reading);
+  font-size: clamp(2.75rem, 7vw, 5.5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.library-masthead .page-header__content p {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  font-size: 1.05rem;
+}
+
+.library-add-book {
+  position: relative;
+  margin: 0;
+}
+
+.library-add-book > summary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
+  color: var(--mouseion-color-accent);
+  cursor: pointer;
+  font-weight: 650;
+  list-style: none;
+}
+
+.library-add-book > summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-add-book[open] > summary {
+  background: var(--mouseion-color-accent);
+  color: var(--mouseion-color-surface-raised);
+}
+
+.library-add-book__form {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + var(--mouseion-space-2));
+  right: 0;
+  width: min(34rem, calc(100vw - 2rem));
+  border: 1px solid var(--mouseion-color-border);
+  padding: var(--mouseion-space-5);
+  background: var(--mouseion-color-surface-raised);
+  box-shadow: 0 0.75rem 2rem rgb(24 37 31 / 12%);
+}
+
+.library-add-book__form > p {
+  color: var(--mouseion-color-text-muted);
+}
+
+.library-finder {
+  margin-bottom: var(--mouseion-space-6);
+  border-bottom: 1px solid var(--mouseion-color-border);
+  padding: var(--mouseion-space-5);
+  background: var(--mouseion-color-surface-raised);
+}
+
 .library-search {
-  max-width: var(--mouseion-width-form);
-  margin-bottom: var(--mouseion-space-4);
+  max-width: none;
+  margin-bottom: var(--mouseion-space-5);
+}
+
+.library-search label {
+  margin-bottom: var(--mouseion-space-2);
+  font-weight: 650;
+}
+
+.library-search__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.library-search__controls input,
+.library-search__controls button {
+  margin: 0;
+}
+
+.library-search__controls input {
+  border-right: 0;
+  border-radius: var(--mouseion-radius) 0 0 var(--mouseion-radius);
+}
+
+.library-search__controls button {
+  border-radius: 0 var(--mouseion-radius) var(--mouseion-radius) 0;
 }
 
 .library-language-pills,
@@ -494,7 +644,8 @@ body {
 }
 
 .library-language-pills {
-  margin-bottom: var(--mouseion-space-5);
+  gap: var(--mouseion-space-4);
+  margin: 0;
 }
 
 .library-paging {
@@ -505,6 +656,23 @@ body {
 .library-paging a {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.library-language-pills a {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: var(--mouseion-space-2) 0;
+  color: var(--mouseion-color-text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.library-language-pills a[aria-current="page"] {
+  border-bottom-color: var(--mouseion-color-accent);
+  color: var(--mouseion-color-text);
+  font-weight: 650;
 }
 
 .language-view-panel {
@@ -592,6 +760,21 @@ body {
   overflow-wrap: anywhere;
 }
 
+#library-books-heading,
+#acquired-books-heading {
+  margin-bottom: var(--mouseion-space-1);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+#library-results > p {
+  color: var(--mouseion-color-text-muted);
+}
+
+.library-list {
+  border-top: 1px solid var(--mouseion-color-border);
+}
+
 .library-list > h2 {
   margin-bottom: var(--mouseion-space-3);
 }
@@ -600,13 +783,52 @@ body {
   margin-bottom: var(--mouseion-space-1);
 }
 
+.library-list article.library-book {
+  position: relative;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--mouseion-color-border);
+  border-radius: 0;
+  padding: var(--mouseion-space-5) var(--mouseion-space-4) var(--mouseion-space-5) var(--mouseion-space-5);
+  background: transparent;
+  box-shadow: none;
+}
+
+.library-list article.library-book::before {
+  position: absolute;
+  top: var(--mouseion-space-5);
+  bottom: var(--mouseion-space-5);
+  left: 0;
+  width: var(--mouseion-space-1);
+  background: var(--mouseion-color-accent);
+  content: "";
+}
+
+.library-list article.library-book[data-acquired="false"]::before {
+  background: var(--mouseion-color-border);
+}
+
 .library-book__identity {
   min-width: 0;
   flex: 1 1 32rem;
 }
 
 .library-book__identity .bibliographic-title {
+  max-width: 34rem;
   overflow-wrap: anywhere;
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.library-book__identity .bibliographic-title a {
+  color: var(--mouseion-color-text);
+  text-decoration-color: transparent;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.library-book__identity .bibliographic-title a:hover {
+  text-decoration-color: var(--mouseion-color-accent);
 }
 
 .library-book__identity .metadata {
@@ -622,6 +844,27 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--mouseion-space-2);
+}
+
+.library-book__supporting .status-badge {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.library-book__supporting > p {
+  margin-bottom: 0;
+}
+
+.library-book__supporting .action-group {
+  margin-top: var(--mouseion-space-2);
+}
+
+.library-book__supporting .action-group button,
+.library-book__supporting .action-group a[role="button"] {
+  padding-inline: var(--mouseion-space-3);
+  font-size: var(--mouseion-font-size-metadata);
 }
 
 .library-list .library-next-action {
@@ -960,6 +1203,63 @@ section[aria-labelledby="campaign-operations-heading"] {
   .library-book__supporting {
     min-width: 0;
     width: 100%;
+  }
+
+  #main-content {
+    padding-top: var(--mouseion-space-5);
+  }
+
+  .library-masthead {
+    margin-bottom: var(--mouseion-space-5);
+  }
+
+  .library-masthead h1 {
+    font-size: clamp(3rem, 20vw, 4.25rem);
+  }
+
+  .library-add-book > summary {
+    justify-content: center;
+  }
+
+  .library-add-book__form {
+    position: static;
+    width: 100%;
+    margin-top: var(--mouseion-space-2);
+    box-shadow: none;
+  }
+
+  .library-finder {
+    margin-inline: calc(-1 * var(--mouseion-space-3));
+    padding: var(--mouseion-space-4) var(--mouseion-space-3);
+  }
+
+  .library-search__controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mouseion-space-2);
+  }
+
+  .library-search__controls input,
+  .library-search__controls button {
+    border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+    border-radius: var(--mouseion-radius);
+  }
+
+  .library-search__controls button {
+    border-color: var(--mouseion-color-accent);
+  }
+
+  .library-language-pills {
+    gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  }
+
+  .library-list article.library-book {
+    gap: var(--mouseion-space-3);
+    padding: var(--mouseion-space-5) 0 var(--mouseion-space-5) var(--mouseion-space-4);
+  }
+
+  .library-list article.library-book::before {
+    top: var(--mouseion-space-5);
+    bottom: var(--mouseion-space-5);
   }
 
   .action-group {

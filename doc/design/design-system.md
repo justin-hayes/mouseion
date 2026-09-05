@@ -60,9 +60,16 @@ Pico variables. The token implementation may map to Pico internally.
 | `--mouseion-color-warning`        | Non-blocking risk or degraded quality                   |
 | `--mouseion-color-danger`         | Error, failure, or destructive consequence              |
 
-Surface, text, accent, focus, success, and danger tokens alias the active Pico
-light/dark palette so they preserve its theme behavior. Mouseion supplies an
-explicit warning value because Pico does not provide the required semantic role:
+Mouseion owns the active palette and maps Pico's corresponding variables to it,
+so native controls and Mouseion components share one theme:
+
+- light surfaces use cool ledger `#eef1ed` and paper `#fafbf8`, with ink
+  `#18251f`, pencil `#647068`, and bottle-green `#245849`;
+- dark surfaces use `#17201c` and `#202b26`, with `#edf2ed` text and
+  pale-green `#91c9b1` emphasis;
+- danger uses oxide `#9a3e32` in light mode and `#f0a39a` in dark mode;
+- warning remains explicit because Pico does not provide the required semantic
+  role:
 
 - light: `#7a4b00`, measured at **7.41:1** against `#ffffff`;
 - dark: `#f2c66d`, measured at **11.17:1** against Pico's `#13171f` background.
@@ -83,10 +90,13 @@ never carries state alone; pair it with visible text or an accessible name.
 | `.metadata`                   | Dates, language, media type, provenance summary, and secondary labels          |
 | `.numeric`                    | Values that need stable comparison through tabular numerals                    |
 
-Application controls remain sans serif. Serif is a content role, not a generic
-“scholarly” decoration. Do not apply it to navigation, buttons, forms, or all
-headings. Coverage summaries use tabular numerals even when the `.numeric`
-class is not required on each generated value.
+Application controls use an Avenir Next / Gill Sans system stack. Bibliographic
+content uses a Palatino / Book Antiqua system stack whose open forms support long
+German and Italian titles. Serif is a content role, not a generic “scholarly”
+decoration: do not apply it to navigation, buttons, forms, or all headings. The
+My Books page title may use the reading face because it names the collection
+itself. Coverage summaries use tabular numerals even when the `.numeric` class
+is not required on each generated value.
 
 ## Spacing scale
 
