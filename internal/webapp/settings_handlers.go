@@ -2,7 +2,6 @@ package webapp
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,89 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 )
-
-func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
-	h.renderSettings(w, r, r.URL.Query().Get("message"))
-}
-
-func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	language := strings.TrimSpace(r.FormValue("language"))
-	language = canonicalization.NormalizeLanguage(language)
-	supported, degraded, capabilityErr := h.supportedNLP(r.Context())
-	if capabilityErr != nil {
-		fail(w, capabilityErr)
-		return
-	}
-	if degraded {
-		http.Error(w, "NLP language discovery is temporarily unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	var err error
-	for _, candidate := range supported {
-		if candidate.Language == language {
-			if _, err = h.services.Store.PutLanguageProfile(r.Context(), user(r).ID, candidate.Language, candidate.DisplayName); err != nil {
-				fail(w, err)
-				return
-			}
-			redirect(w, r, "/settings?message=Study+language+added")
-			return
-		}
-	}
-	http.Error(w, "unsupported study language", http.StatusBadRequest)
-}
-
-func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	if err := h.services.Store.DeleteLanguageProfile(r.Context(), user(r).ID, strings.TrimSpace(r.FormValue("language"))); err != nil {
-		fail(w, err)
-		return
-	}
-	language := strings.TrimSpace(r.FormValue("language"))
-	redirect(w, r, "/settings?language="+url.QueryEscape(language)+"&message="+url.QueryEscape("Study language removed; only the preference was removed. Your vocabulary, books, analyses, prepared decks, and campaigns remain."))
-}
-
-func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, message string) {
-	u := user(r)
-	supported, degraded, capabilityErr := h.supportedNLP(r.Context())
-	if capabilityErr != nil {
-		fail(w, capabilityErr)
-		return
-	}
-	profiles, err := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, degraded, message))
-}
-
-func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage, bool, error) {
-	if h.services.Capabilities == nil {
-		return nil, true, nil
-	}
-	capabilities, err := h.services.Capabilities.GetCapabilities(ctx)
-	if err != nil {
-		return nil, true, nil
-	}
-	languages := analyzer.ReadySupportedLanguages(capabilities)
-	if h.services.Store != nil {
-		if err := h.services.Store.SyncSupportedLanguages(ctx, languages); err != nil {
-			return nil, false, fmt.Errorf("sync supported languages: %w", err)
-		}
-	}
-	return languages, capabilities.Degraded, nil
-}
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/vocabulary")

@@ -141,9 +141,6 @@ func (s *Store) PutLanguageProfile(_ context.Context, o, l, n string) (domain.La
 	s.profiles = append(s.profiles, p)
 	return p, nil
 }
-func (s *Store) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
-	return append([]domain.LanguageProfile(nil), s.profiles...), nil
-}
 func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

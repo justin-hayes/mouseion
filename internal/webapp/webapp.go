@@ -35,10 +35,7 @@ const csrfCookie = "mouseion_csrf"
 type Store interface {
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
-	PutLanguageProfile(context.Context, string, string, string) (domain.LanguageProfile, error)
-	ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error)
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
-	DeleteLanguageProfile(context.Context, string, string) error
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
@@ -204,9 +201,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.user(http.HandlerFunc(h.enrichmentJobStatus)))
 	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelEnrichmentJob)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
-	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(h.settings)))
-	h.mux.Handle("POST /settings/languages", h.user(http.HandlerFunc(h.addStudyLanguage)))
-	h.mux.Handle("POST /settings/languages/remove", h.user(http.HandlerFunc(h.removeStudyLanguage)))
+	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirect(w, r, "/library")
+	})))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.connections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))

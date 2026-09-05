@@ -437,23 +437,6 @@ func (s *PostgresStore) ListSupportedLanguages(ctx context.Context) ([]domain.Su
 	return out, rows.Err()
 }
 
-func (s *PostgresStore) ListLanguageProfiles(ctx context.Context, owner string) ([]domain.LanguageProfile, error) {
-	rows, err := s.pool.Query(ctx, `SELECT p.id,p.owner_id,p.language,s.display_name,p.created_at FROM language_profiles p JOIN supported_languages s ON s.language=p.language WHERE p.owner_id=$1 ORDER BY s.display_name,p.language`, owner)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []domain.LanguageProfile
-	for rows.Next() {
-		var p domain.LanguageProfile
-		if err := rows.Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
 func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
 	rows, err := s.pool.Query(ctx, `SELECT j.river_job_id,j.display_number,j.owner_id,j.source_material_id,j.content_hash,COALESCE(j.corpus_id::text,''),COALESCE(j.reviewed_scope_id::text,''),COALESCE(j.analysis_run_id::text,''),COALESCE(r.state,''),j.progress,j.error,j.created_at,j.updated_at FROM analysis_jobs j LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id WHERE j.owner_id=$1 ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 100`, owner)
 	if err != nil {
