@@ -158,7 +158,7 @@ func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 
 func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	var upload bytes.Buffer
-	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, "de", nil, nil, "").Render(context.Background(), &upload); err != nil {
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, nil, "").Render(context.Background(), &upload); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{`method="post"`, `action="/vocabulary/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`, `id="vocabulary-results"`} {
@@ -188,7 +188,7 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 
 func TestVocabularyPageListsOnlyDerivedLanguages(t *testing.T) {
 	var output bytes.Buffer
-	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, "de", nil, nil, "").Render(context.Background(), &output); err != nil {
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, nil, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -200,9 +200,23 @@ func TestVocabularyPageListsOnlyDerivedLanguages(t *testing.T) {
 	}
 }
 
+func TestVocabularyPageKeepsHistoricalVocabularyDisplayable(t *testing.T) {
+	var output bytes.Buffer
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, "it", nil, []domain.KnownVocabulary{{Language: "it", CanonicalLemma: "casa"}}, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "Italian (it)") || !strings.Contains(html, "casa") || !strings.Contains(html, "Importing is unavailable") {
+		t.Fatalf("historical vocabulary is not displayable: %s", html)
+	}
+	if strings.Contains(html, `enctype="multipart/form-data"`) {
+		t.Fatalf("historical vocabulary exposes an import form: %s", html)
+	}
+}
+
 func TestVocabularyPageEmptyLibraryPointsToConnectionsAndHidesImport(t *testing.T) {
 	var output bytes.Buffer
-	if err := VocabularyPageWithResult(domain.User{}, "csrf", nil, "", nil, nil, "").Render(context.Background(), &output); err != nil {
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", nil, nil, "", nil, nil, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -299,6 +313,9 @@ func (knownVocabContextStore) ListKnownVocabulary(context.Context, string, strin
 	return []domain.KnownVocabulary{}, nil
 }
 func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
+}
+func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
 

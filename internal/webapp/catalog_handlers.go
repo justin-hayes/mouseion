@@ -22,11 +22,6 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	languages, e := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
-		return
-	}
 	statuses := make(map[string]domain.CatalogueSyncStatus)
 	if reader, ok := h.services.CatalogueSync.(interface {
 		ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
@@ -51,7 +46,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 			statuses[status.ConnectionID] = status
 		}
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses, languages))
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses))
 }
 
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {

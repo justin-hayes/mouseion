@@ -27,24 +27,24 @@ func renderPattern(t *testing.T, component templ.Component, child string) string
 	return output.String()
 }
 
-func TestCatalogueSyncConnectionViewExplainsEmptyEligibleScope(t *testing.T) {
+func TestCatalogueSyncConnectionViewExplainsEmptySyncResult(t *testing.T) {
 	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
 		"catalog": {State: domain.CatalogueSyncSynced, LastSyncedAt: &now},
-	}, nil)
+	})
 	html := renderPattern(t, CatalogueSyncConnectionStatus(view), "")
 	requireMarkup(t, html,
-		"No eligible study language to sync. Add or sync a book with a chosen language, then sync again.",
+		"Sync completed, but no eligible EPUB entries were found; the library was unchanged.",
 	)
 }
 
-func TestCatalogueSyncConnectionViewNamesEligibleScope(t *testing.T) {
+func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
 	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
 		"catalog": {State: domain.CatalogueSyncSynced, LastSyncedAt: &now},
-	}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}, {Language: "en", DisplayName: "English"}})
-	if view.EligibleScope != "German" || strings.Contains(view.Message, "already current") || !strings.Contains(view.Message, "German") {
-		t.Fatalf("scope view=%+v", view)
+	})
+	if strings.Contains(view.Message, "study language") || strings.Contains(view.Message, "German") {
+		t.Fatalf("sync view exposes a learner scope=%+v", view)
 	}
 }
 

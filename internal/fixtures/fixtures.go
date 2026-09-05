@@ -184,6 +184,39 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
 	return out, nil
 }
+func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := make(map[string]struct{})
+	displayNames := make(map[string]string, len(s.supported))
+	for _, language := range s.supported {
+		tag := normalizeFixtureLanguage(language.Language)
+		if tag != "" {
+			displayNames[tag] = language.DisplayName
+		}
+	}
+	var out []domain.StudyLanguage
+	for _, entry := range s.known {
+		if entry.OwnerID != owner {
+			continue
+		}
+		language := normalizeFixtureLanguage(entry.Language)
+		if language == "" {
+			continue
+		}
+		if _, ok := seen[language]; ok {
+			continue
+		}
+		seen[language] = struct{}{}
+		name := displayNames[language]
+		if name == "" {
+			name = language
+		}
+		out = append(out, domain.StudyLanguage{Language: language, DisplayName: name})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
+	return out, nil
+}
 func (s *Store) CreateOpdsConnection(_ context.Context, o string, c domain.OpdsConnection) (domain.OpdsConnection, error) {
 	c.ID = "fixture-new-connection"
 	c.OwnerID = o

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 const (
@@ -226,7 +228,7 @@ func FilterEPUBEntries(feed Feed) Feed {
 func LanguageID(feed Feed, language, displayName string) string {
 	for _, entry := range feed.Entries {
 		name := strings.TrimSpace(entry.Title)
-		if !strings.EqualFold(name, strings.TrimSpace(language)) && !strings.EqualFold(name, strings.TrimSpace(displayName)) {
+		if !sameLanguageLabel(name, language) && !strings.EqualFold(name, strings.TrimSpace(displayName)) {
 			continue
 		}
 		for _, link := range entry.Links {
@@ -252,6 +254,25 @@ func LanguageID(feed Feed, language, displayName string) string {
 		}
 	}
 	return ""
+}
+
+func sameLanguageLabel(left, right string) bool {
+	left = canonicalization.NormalizeLanguage(left)
+	right = canonicalization.NormalizeLanguage(right)
+	if left == "" || right == "" {
+		return left == right
+	}
+	if left == right {
+		return true
+	}
+	leftBase, rightBase := left, right
+	if index := strings.IndexByte(leftBase, '-'); index >= 0 {
+		leftBase = leftBase[:index]
+	}
+	if index := strings.IndexByte(rightBase, '-'); index >= 0 {
+		rightBase = rightBase[:index]
+	}
+	return leftBase == rightBase
 }
 
 // SupportsSearch reports whether a feed advertises an OpenSearch endpoint.

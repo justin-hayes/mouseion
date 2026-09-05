@@ -660,6 +660,36 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	}
 	return result, rows.Err()
 }
+
+func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
+	rows, err := s.pool.Query(ctx, `WITH known_languages AS (
+		SELECT DISTINCT lower(replace(trim(language), '_', '-')) AS language
+		FROM known_vocabulary
+		WHERE owner_id=$1 AND trim(language) <> ''
+	), language_names AS (
+		SELECT DISTINCT ON (lower(replace(trim(language), '_', '-')))
+			lower(replace(trim(language), '_', '-')) AS language, display_name
+		FROM supported_languages
+		ORDER BY lower(replace(trim(language), '_', '-')), created_at DESC, language DESC
+	)
+	SELECT k.language, COALESCE(NULLIF(n.display_name,''), k.language)
+	FROM known_languages k
+	LEFT JOIN language_names n ON n.language=k.language
+	ORDER BY COALESCE(NULLIF(n.display_name,''), k.language), k.language`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.StudyLanguage
+	for rows.Next() {
+		var language domain.StudyLanguage
+		if err := rows.Scan(&language.Language, &language.DisplayName); err != nil {
+			return nil, err
+		}
+		out = append(out, language)
+	}
+	return out, rows.Err()
+}
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
 	var known bool
 	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=lower(replace($2, '_', '-')) AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
