@@ -52,6 +52,10 @@ const edgeBookID = "fixture-edge-content"
 var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
+func normalizeFixtureLanguage(raw string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(raw), "_", "-"))
+}
+
 type Store struct {
 	mu              sync.Mutex
 	books           []domain.SourceMaterialSummary
@@ -144,16 +148,19 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	seen := make(map[string]struct{})
 	displayNames := make(map[string]string, len(s.supported))
 	for _, language := range s.supported {
-		displayNames[language.Language] = language.DisplayName
+		tag := normalizeFixtureLanguage(language.Language)
+		if tag != "" {
+			displayNames[tag] = language.DisplayName
+		}
 	}
 	var out []domain.StudyLanguage
-	for _, book := range s.books {
-		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
-			continue
+	addStudyLanguage := func(raw string) {
+		language := normalizeFixtureLanguage(raw)
+		if language == "" {
+			return
 		}
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Source.Language), "_", "-"))
 		if _, ok := seen[language]; ok {
-			continue
+			return
 		}
 		seen[language] = struct{}{}
 		displayName := displayNames[language]
@@ -161,21 +168,18 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 			displayName = language
 		}
 		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+	}
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
+			continue
+		}
+		addStudyLanguage(book.Source.Language)
 	}
 	for _, book := range s.myBooks {
 		if book.Book.OwnerID != owner || book.Book.LanguageState != domain.LanguageChosen || strings.TrimSpace(book.Book.LanguageTag) == "" {
 			continue
 		}
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Book.LanguageTag), "_", "-"))
-		if _, ok := seen[language]; ok {
-			continue
-		}
-		seen[language] = struct{}{}
-		displayName := displayNames[language]
-		if displayName == "" {
-			displayName = language
-		}
-		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+		addStudyLanguage(book.Book.LanguageTag)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
 	return out, nil
