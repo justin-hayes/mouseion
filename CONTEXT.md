@@ -33,3 +33,10 @@ state. Chosen book languages are the raw material from which a learner's study
 languages are derived.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
+
+**Catalogue entry**:
+A book as offered by a learner-owned catalogue, identified by the catalogue
+connection plus that connection's stable entry identifier. A Book may carry one
+catalogue-entry alias per connection; two connections may each offer the same
+entry identifier without being the same book.
+_Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
