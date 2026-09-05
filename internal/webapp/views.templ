@@ -135,7 +135,7 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li>
-		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
+		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
 }

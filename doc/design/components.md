@@ -51,6 +51,12 @@ markup.
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Campaign history and catalog connections                   |
 
+The application shell is visually an index margin on wide viewports and a top
+index on compact viewports. It remains one navigation landmark with the same
+document and keyboard order in both forms. Current context uses a textual link
+and annotation rule; do not add icon-only destinations, counters, or a second
+navigation system.
+
 ## Canonical shipped patterns
 
 These names describe durable interaction purposes. They do not require a

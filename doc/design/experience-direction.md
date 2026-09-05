@@ -40,6 +40,13 @@ navigation. Serif typography may distinguish book titles, quotations, or source
 text where it strengthens textual identity. Serif is not a generic scholarly
 decoration.
 
+On wide viewports, the single primary navigation occupies a quiet scholarly
+margin beside the working leaf. Annotation blue identifies current context,
+links, and focus; it is not a decorative wash. Catalogue entries, Journey books,
+evidence, and operations should read as distinct kinds of ruled records rather
+than interchangeable cards. On compact viewports the margin folds into a top
+index without changing document order.
+
 Avoid defaulting to generic SaaS aesthetics such as:
 
 - interchangeable dashboard cards;
