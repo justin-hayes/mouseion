@@ -261,6 +261,17 @@ func TestUnavailableFormat(t *testing.T) {
 	}
 }
 
+func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
+	feed := Feed{Entries: []Entry{
+		{Title: "German", Links: []Link{{Rel: "subsection", Href: "/language/7"}}},
+		{Title: "de-DE", Links: []Link{{Rel: "subsection", Href: "/language/8"}}},
+	}}
+
+	if got := LanguageID(feed, "de-DE", "German (Germany)"); got != "8" {
+		t.Fatalf("LanguageID()=%q, want exact regional feed 8", got)
+	}
+}
+
 func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	receivedCredentials := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

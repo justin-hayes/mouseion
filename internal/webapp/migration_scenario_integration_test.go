@@ -32,6 +32,16 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
+	var languageProfilesExists, languageProfilesForeignKeyExists bool
+	if err = store.Pool().QueryRow(ctx, `SELECT to_regclass('public.language_profiles') IS NOT NULL`).Scan(&languageProfilesExists); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='language_profiles_supported_language_fkey')`).Scan(&languageProfilesForeignKeyExists); err != nil {
+		t.Fatal(err)
+	}
+	if languageProfilesExists || languageProfilesForeignKeyExists {
+		t.Fatalf("language_profiles migration left table=%t foreign key=%t", languageProfilesExists, languageProfilesForeignKeyExists)
+	}
 
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "migration-alice", "alice-password", false)

@@ -59,13 +59,7 @@ type User struct {
 	ID, Username string
 	CreatedAt    time.Time
 }
-type LanguageProfile struct {
-	ID, OwnerID, Language, DisplayName string
-	CreatedAt                          time.Time
-}
-
 // SupportedLanguage is server-wide reference data discovered from the analyzer.
-// LanguageProfile remains an owner-scoped learner study-language selection.
 type SupportedLanguage struct {
 	Language, DisplayName string
 	CreatedAt             time.Time

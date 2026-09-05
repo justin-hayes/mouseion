@@ -36,6 +36,7 @@ type Store interface {
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
+	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
@@ -181,6 +182,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /journey/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
 	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
 	h.mux.Handle("POST /library/books", h.user(http.HandlerFunc(h.createMetadataBook)))
+	h.mux.Handle("POST /library/books/{id}", h.user(http.HandlerFunc(h.updateBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
 	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))

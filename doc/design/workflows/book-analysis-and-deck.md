@@ -188,8 +188,8 @@ The interface must answer:
   establish viable work.
 - Legacy/full-text analyses remain readable through operational audit paths but
   do not unlock new scoped deck preparation.
-- Degraded language-capability discovery preserves saved study preferences but
-  blocks unsupported new operations.
+- Degraded language-capability discovery does not erase derived language context
+  or stored display names, but blocks unsupported new operations.
 
 ## Target status-to-result transition
 

@@ -32,6 +32,13 @@ func studyLanguageName(languages []domain.StudyLanguage, language string) string
 	return language
 }
 
+func vocabularyLanguageName(studyLanguages, knownLanguages []domain.StudyLanguage, language string) string {
+	if name := studyLanguageName(studyLanguages, language); name != language {
+		return name
+	}
+	return studyLanguageName(knownLanguages, language)
+}
+
 func knownVocabProvenance(entry domain.KnownVocabulary) string {
 	if entry.Provenance != "" {
 		return entry.Provenance
@@ -77,22 +84,17 @@ type catalogueSyncConnectionView struct {
 	LastSyncedAt    string
 	LastSyncedAtISO string
 	UpsertSummary   string
-	EligibleScope   string
 	Syncing         bool
 	Failed          bool
 	HasLastSyncedAt bool
 }
 
-func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) catalogueSyncConnectionView {
+func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus) catalogueSyncConnectionView {
 	status, found := statuses[connection.ID]
-	view := catalogueSyncConnectionView{HasStatus: found, EligibleScope: eligibleCatalogueLanguageScope(languages)}
+	view := catalogueSyncConnectionView{HasStatus: found}
 	if !found {
 		view.State = "Never synced"
-		if view.EligibleScope == "" {
-			view.Message = fmt.Sprintf("%s has never synced. Add or sync a book with a chosen language, then sync; it does not download EPUB content.", connection.Name)
-		} else {
-			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
-		}
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalogue languages; it does not download EPUB content.", connection.Name)
 		return view
 	}
 	switch status.State {
@@ -108,11 +110,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 			view.LastSyncedAtISO = status.LastSyncedAt.Format(time.RFC3339)
 		}
 		if status.LastUpsertedCount == 0 {
-			if view.EligibleScope == "" {
-				view.Message = "No eligible study language to sync. Add or sync a book with a chosen language, then sync again."
-			} else {
-				view.Message = fmt.Sprintf("Sync ran for %s. No eligible EPUB entries were found for those languages; the library was unchanged.", view.EligibleScope)
-			}
+			view.Message = "Sync completed, but no eligible EPUB entries were found; the library was unchanged."
 		} else {
 			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalogue sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
 		}
@@ -123,46 +121,9 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 		view.Error = status.LastError
 	default:
 		view.State = "Never synced"
-		if view.EligibleScope == "" {
-			view.Message = fmt.Sprintf("%s has never synced. Add or sync a book with a chosen language, then sync; it does not download EPUB content.", connection.Name)
-		} else {
-			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
-		}
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalogue languages; it does not download EPUB content.", connection.Name)
 	}
 	return view
-}
-
-func eligibleCatalogueLanguageScope(studyLanguages []domain.StudyLanguage) string {
-	seen := make(map[string]struct{})
-	languages := make([]string, 0, len(studyLanguages))
-	for _, language := range studyLanguages {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(language.Language)), "en") {
-			continue
-		}
-		name := strings.TrimSpace(language.DisplayName)
-		if name == "" {
-			name = strings.TrimSpace(language.Language)
-		}
-		if name == "" {
-			continue
-		}
-		key := strings.ToLower(name)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		languages = append(languages, name)
-	}
-	switch len(languages) {
-	case 0:
-		return ""
-	case 1:
-		return languages[0]
-	case 2:
-		return languages[0] + " and " + languages[1]
-	default:
-		return strings.Join(languages[:len(languages)-1], ", ") + ", and " + languages[len(languages)-1]
-	}
 }
 
 // NavigationContext identifies the authenticated shell context. Acquisition

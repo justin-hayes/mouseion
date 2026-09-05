@@ -1,16 +1,17 @@
 # Study languages and known vocabulary workflow
 
-Status: **Canonical supporting workflow.** Campaign remains an internal accepted
-contract where needed for vocabulary provenance; learner-facing copy uses
-reading, preparation, and vocabulary-transition facts as defined in
-[`terminology.md`](../terminology.md).
+Status: **Canonical supporting workflow.** Study languages are derived from My
+Books and Vocabulary is the sole learner-facing home for known-vocabulary
+import. Campaign remains an internal accepted contract where needed for
+vocabulary provenance; learner-facing copy uses reading, preparation, and
+vocabulary-transition facts as defined in [`terminology.md`](../terminology.md).
 
 ## Goal
 
 Give a learner one coherent Vocabulary destination for importing known vocabulary
 without conflating runtime NLP capabilities, derived study languages, and
-vocabulary state. Study-language preferences remain on the supporting Settings
-route until that surface is removed.
+vocabulary state. No language preference needs to be configured: chosen-language
+Books define the available study languages.
 
 The product behavior is defined primarily by:
 
@@ -21,9 +22,8 @@ The product behavior is defined primarily by:
 
 ## Canonical destination
 
-**Vocabulary** is the primary-navigation destination for known vocabulary. The
-supporting Settings screen retains study-language preferences until that surface
-is removed. Vocabulary has one explicit workflow:
+**Vocabulary** is the primary-navigation destination for known vocabulary. It has
+one explicit workflow:
 
 1. **Known vocabulary** — owner-scoped vocabulary by derived study language,
    including file import.
@@ -38,38 +38,16 @@ Three concepts remain distinct:
 
 - **Available analysis language** — currently advertised as ready by the NLP
   service;
-- **Study-language preference** — a learner's saved catalogue-sync preference;
-- **Library study language** — the distinct normalized language tags of the
-  learner's active chosen-language Books;
+- **Study language** — the distinct normalized language tags of the learner's
+  active chosen-language Books;
+- **Known vocabulary** — owner-scoped lemmas explicitly imported or added
+  through a justified vocabulary transition.
 
-Selecting a study-language preference does not silently mutate known-vocabulary
-state. Library study languages define which languages may be viewed or imported
-in Known vocabulary; ready preferences define the catalogue-sync scope.
-
-### Add a study language
-
-The interface lists only currently ready capabilities that are not already
-saved. Adding a preference does not start analysis, acquire a book, or download
-an NLP model.
-
-### Degraded capability discovery
-
-If capability discovery fails:
-
-- saved study languages remain visible with their stored display names;
-- the interface explains that availability cannot currently be verified;
-- adding a newly available language is disabled;
-- existing preferences are not removed or rewritten;
-- unrelated known-vocabulary viewing remains available.
-
-### Remove a study language
-
-Removing a study-language preference does not delete known vocabulary, books,
-analyses, prepared decks, or campaigns for that language. The confirmation and
-success copy must state that only the preference is removed. If the current
-known-vocabulary filter uses that language, the interface keeps the language
-context long enough to explain the result or moves to another valid filter
-without claiming the vocabulary was deleted.
+Derived study languages define which languages may be viewed or imported in
+Vocabulary. A Book's language state can be corrected on My Books; changing it
+updates the derived set without deleting known vocabulary or the Book's derived
+history. Capability discovery still controls which catalogue feeds can be
+synchronized, but it does not directly create or remove known-vocabulary data.
 
 ## Known-vocabulary import
 
@@ -104,15 +82,15 @@ leave and return while durable processing continues.
 
 ## Vocabulary provenance and correction boundary
 
-The Settings list may contain explicitly imported vocabulary and vocabulary
+The Vocabulary list may contain explicitly imported vocabulary and vocabulary
 added through a justified completed transition. It must not label generated,
 reserved, or unfinished-work vocabulary as known. Where provenance is
 available, the interface may distinguish imported entries from entries added
 through the accepted transition without implying different coverage weight.
 
 The current product supports additive import but not learner-facing removal of
-individual known-vocabulary entries. Settings must not imply that removing a
-a study language deletes vocabulary or that a completed vocabulary transition
+individual known-vocabulary entries. Vocabulary must not imply that changing a
+Book's language deletes vocabulary or that a completed vocabulary transition
 can be undone. A future removal/correction workflow requires an explicit product
 contract for provenance, wildcard entries, internal Campaign graduation, and
 coverage recalculation.

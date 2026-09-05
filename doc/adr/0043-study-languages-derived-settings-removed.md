@@ -1,6 +1,6 @@
 # ADR 0043: Study languages are derived from the library and Settings is removed
 
-Status: **Proposed** · Date: 2026-09-04 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-09-04 · Author: Justin + opencode
 
 ## Context
 
@@ -46,6 +46,10 @@ and removes the Settings destination.
   "Open Settings" guidance link repoints to `/vocabulary`.
 - **The term "study language" is retained and redefined** as derived-from-library
   (recorded in the repo glossary).
+- **Migration rollout is backup-first.** Migration 000046 drops the obsolete
+  preference table after a pre-migration database backup. Its down migration can
+  recreate the table shape only; deleted preference rows require recovery from
+  that backup. No book, vocabulary, or analysis rows are rewritten.
 
 ## Alternatives considered
 

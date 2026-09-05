@@ -8,6 +8,16 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
+async function submitKnownVocabularyImport(page: Page) {
+  const importForm = page.locator('form[hx-post*="/vocabulary/import"]');
+  await importForm.locator('input[type="file"]').setInputFiles({
+    name: 'known-de.txt', mimeType: 'text/plain',
+    buffer: Buffer.from('Haus\nÜberraschung\n'),
+  });
+  await importForm.getByRole('button', { name: /import known vocabulary/i }).click();
+  await expect(page.locator('#vocabulary-results')).toContainText(/queued/i);
+}
+
 test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
@@ -109,9 +119,20 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
+    await page.goto('/vocabulary');
+    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    const languagePicker = page.locator('form.vocabulary-language-picker select[name="language"]');
+    await expect(languagePicker.locator('option[value="de"]')).toContainText('German');
+    await expect(languagePicker.locator('option[value="it"]')).toContainText('Italian');
+    await languagePicker.selectOption('de');
+    await page.getByRole('button', { name: 'View known vocabulary' }).click();
+    await expect(page).toHaveURL(/\/vocabulary\?language=de/);
+    await submitKnownVocabularyImport(page);
+    await page.goto('/library');
+    const primaryNavigation = page.locator('nav.site-header__nav');
+    await expect(primaryNavigation.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
     await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: /German/ })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Italian/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/library/);
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Analysis history' })).toBeVisible();
     await expect(page.getByRole('link', { name: '#1 · result' })).toBeVisible();
@@ -126,11 +147,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(importForm).toHaveCount(1);
     await expect(page.locator('#vocabulary-results')).toHaveCount(1);
     // Attach a small multilingual UTF-8 lemma file, then submit via HTMX.
-    await importForm.locator('input[type="file"]').setInputFiles({
-      name: 'known-de.txt', mimeType: 'text/plain',
-      buffer: Buffer.from('Haus\nÜberraschung\n'),
-    });
-    await importForm.getByRole('button', { name: /import known vocabulary/i }).click();
+    await submitKnownVocabularyImport(page);
     await expect(page).toHaveURL(/\/vocabulary/);
     // The HTMX submission replaces the region with a durable status.
     await expect(page.locator('#vocabulary-results')).toContainText(/queued/i);

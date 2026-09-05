@@ -37,7 +37,7 @@ completion** are not primary learner-facing concepts.
 | **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
 | **Acquire EPUB content** | Download and validate content for one metadata-only My Books Book from Book detail, without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
-| **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for ready study languages except English. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
+| **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
 | **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
 | **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |

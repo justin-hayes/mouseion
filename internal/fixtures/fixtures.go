@@ -52,12 +52,16 @@ const edgeBookID = "fixture-edge-content"
 var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
+func normalizeFixtureLanguage(raw string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(raw), "_", "-"))
+}
+
 type Store struct {
 	mu              sync.Mutex
 	books           []domain.SourceMaterialSummary
 	jobs            []domain.AnalysisJob
 	campaigns       []domain.LearningCampaign
-	profiles        []domain.LanguageProfile
+	supported       []domain.SupportedLanguage
 	connections     []domain.OpdsConnection
 	preps           []domain.DeckPreparation
 	known           []domain.KnownVocabulary
@@ -86,7 +90,7 @@ func NewStore() *Store {
 		},
 		jobs:      fixtureJobs(),
 		campaigns: fixtureCampaigns(),
-		profiles:  []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
+		supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}},
 		connections: []domain.OpdsConnection{
 			{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"},
 			{ID: "fixture-failed-connection", OwnerID: OwnerID, Name: "Fixture failed catalog", URL: "https://failed.fixture.invalid/opds"},
@@ -136,32 +140,27 @@ func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.Su
 	return domain.SupportedLanguage{}, nil
 }
 func (s *Store) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error { return nil }
-func (s *Store) PutLanguageProfile(_ context.Context, o, l, n string) (domain.LanguageProfile, error) {
-	p := domain.LanguageProfile{ID: "fixture-profile-" + l, OwnerID: o, Language: l, DisplayName: n}
-	s.profiles = append(s.profiles, p)
-	return p, nil
-}
 func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Fixture source summaries represent the active acquired library books; the
 	// fixture does not model a separate membership row for them.
 	seen := make(map[string]struct{})
-	displayNames := make(map[string]string, len(s.profiles))
-	for _, profile := range s.profiles {
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(profile.Language), "_", "-"))
-		if language != "" {
-			displayNames[language] = profile.DisplayName
+	displayNames := make(map[string]string, len(s.supported))
+	for _, language := range s.supported {
+		tag := normalizeFixtureLanguage(language.Language)
+		if tag != "" {
+			displayNames[tag] = language.DisplayName
 		}
 	}
 	var out []domain.StudyLanguage
-	for _, book := range s.books {
-		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
-			continue
+	addStudyLanguage := func(raw string) {
+		language := normalizeFixtureLanguage(raw)
+		if language == "" {
+			return
 		}
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Source.Language), "_", "-"))
 		if _, ok := seen[language]; ok {
-			continue
+			return
 		}
 		seen[language] = struct{}{}
 		displayName := displayNames[language]
@@ -169,26 +168,55 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 			displayName = language
 		}
 		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+	}
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || strings.TrimSpace(book.Source.Language) == "" {
+			continue
+		}
+		addStudyLanguage(book.Source.Language)
 	}
 	for _, book := range s.myBooks {
 		if book.Book.OwnerID != owner || book.Book.LanguageState != domain.LanguageChosen || strings.TrimSpace(book.Book.LanguageTag) == "" {
 			continue
 		}
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(book.Book.LanguageTag), "_", "-"))
-		if _, ok := seen[language]; ok {
-			continue
-		}
-		seen[language] = struct{}{}
-		displayName := displayNames[language]
-		if displayName == "" {
-			displayName = language
-		}
-		out = append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
+		addStudyLanguage(book.Book.LanguageTag)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
 	return out, nil
 }
-func (s *Store) DeleteLanguageProfile(context.Context, string, string) error { return nil }
+func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := make(map[string]struct{})
+	displayNames := make(map[string]string, len(s.supported))
+	for _, language := range s.supported {
+		tag := normalizeFixtureLanguage(language.Language)
+		if tag != "" {
+			displayNames[tag] = language.DisplayName
+		}
+	}
+	var out []domain.StudyLanguage
+	for _, entry := range s.known {
+		if entry.OwnerID != owner {
+			continue
+		}
+		language := normalizeFixtureLanguage(entry.Language)
+		if language == "" {
+			continue
+		}
+		if _, ok := seen[language]; ok {
+			continue
+		}
+		seen[language] = struct{}{}
+		name := displayNames[language]
+		if name == "" {
+			name = language
+		}
+		out = append(out, domain.StudyLanguage{Language: language, DisplayName: name})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
+	return out, nil
+}
 func (s *Store) CreateOpdsConnection(_ context.Context, o string, c domain.OpdsConnection) (domain.OpdsConnection, error) {
 	c.ID = "fixture-new-connection"
 	c.OwnerID = o
@@ -371,10 +399,17 @@ func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (b
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
-func (s *Store) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
+func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append([]domain.KnownVocabulary(nil), s.known...), nil
+	language = normalizeFixtureLanguage(language)
+	var result []domain.KnownVocabulary
+	for _, entry := range s.known {
+		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
+			result = append(result, entry)
+		}
+	}
+	return result, nil
 }
 func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
 	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
@@ -550,8 +585,8 @@ func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBRevi
 	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
 }
 
-// My Books persistence is not part of the browser fixture yet; these methods
-// keep the fixture's webapp.Store contract explicit until the later UI work.
+// My Books persistence is intentionally small in the browser fixture; these
+// methods cover the learner-facing metadata controls without a database.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
 
 func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
@@ -562,7 +597,11 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 	}
 	for _, source := range s.books {
 		if source.Source.OwnerID == owner && source.Source.ID == bookID {
-			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, nil
+			state := domain.LanguageChosen
+			if strings.TrimSpace(source.Source.Language) == "" {
+				state = domain.LanguageUnknown
+			}
+			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: state, LanguageTag: source.Source.Language}, nil
 		}
 	}
 	return domain.Book{}, errNotFound
@@ -574,7 +613,27 @@ func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, er
 	s.myBooks = append(s.myBooks, domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired})
 	return book, nil
 }
-func (s *Store) UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error) {
+func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].Source.OwnerID == owner && s.books[i].Source.ID == bookID {
+			s.books[i].Source.Title = title
+			if languageState == domain.LanguageUnknown {
+				languageTag = ""
+			}
+			s.books[i].Source.Language = languageTag
+			return domain.Book{ID: bookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
+		}
+	}
+	for i := range s.myBooks {
+		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
+			s.myBooks[i].Book.Title = title
+			s.myBooks[i].Book.LanguageState = languageState
+			s.myBooks[i].Book.LanguageTag = languageTag
+			return s.myBooks[i].Book, nil
+		}
+	}
 	return domain.Book{}, errNotFound
 }
 func (s *Store) AddBookToMyBooks(context.Context, string, string) error { return nil }

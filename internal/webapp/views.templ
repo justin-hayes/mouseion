@@ -187,6 +187,19 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 				if book.Book.ID != goalBookID {
 					<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
 				}
+				<details>
+					<summary>Fix book language</summary>
+					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID) }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<fieldset>
+							<legend>Book language</legend>
+							<label><input type="radio" name="language_state" value="unknown" checked?={ book.Book.LanguageState == domain.LanguageUnknown } required/> I have not chosen a language yet</label>
+							<label><input type="radio" name="language_state" value="chosen" checked?={ book.Book.LanguageState == domain.LanguageChosen }/> I chose this language explicitly</label>
+							<label>Chosen language tag<input name="language_tag" value={ book.Book.LanguageTag } placeholder="de" autocomplete="language"/></label>
+						</fieldset>
+						<button type="submit">Save book language</button>
+					</form>
+				</details>
 				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
 					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
 				}
@@ -883,11 +896,11 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	}
 	</article> }
 }
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
-	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses, languages)
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus) {
+	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses)
 }
 
-templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
 		@PageHeader("Add books", "Connect a catalog and add EPUB books to My Books.", nil)
 		if message != "" {
@@ -909,7 +922,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, languages))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, languages))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
@@ -1011,7 +1024,7 @@ templ JobStatus(csrf string, status analysis.Status) {
 		}
 	}
 }
-templ VocabularyPageWithResult(user domain.User, csrf string, languages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary", "Import words you already know so pre-learning decks focus on new vocabulary.", nil)
 		if len(languages) == 0 {
@@ -1024,11 +1037,22 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages []domain
 				<option value={ studyLanguage.Language } selected?={ language == studyLanguage.Language }>{ studyLanguage.DisplayName } ({ studyLanguage.Language })</option>
 			}
 			</select></label><button class="outline">View known vocabulary</button></form>
-			if language == "" {
-				<p>Select a study language to view known vocabulary or import a lemma file.</p>
-			} else {
-				<p>Viewing <strong>{ studyLanguageName(languages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
+		}
+		if len(knownLanguages) > 0 {
+			<section aria-labelledby="known-vocabulary-languages-heading"><h2 id="known-vocabulary-languages-heading">Known vocabulary by language</h2><ul>
+				for _, knownLanguage := range knownLanguages {
+					<li><a href={ templ.SafeURL("/vocabulary?language=" + knownLanguage.Language) }>{ knownLanguage.DisplayName } ({ knownLanguage.Language })</a></li>
+				}
+			</ul></section>
+		}
+		if language == "" {
+			<p>Select a study language to view known vocabulary or import a lemma file.</p>
+		} else {
+			<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
+			if studyLanguagePresent(languages, language) {
 				<form method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post="/vocabulary/import" hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+			} else {
+				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
 			}
 		}
 		<section id="vocabulary-results">@KnownVocabResult(language, result, known, message)</section>

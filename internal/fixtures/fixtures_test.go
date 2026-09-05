@@ -97,6 +97,39 @@ func TestFixtureLanguageCorpusViewIsStableAndOwnerScoped(t *testing.T) {
 	}
 }
 
+func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
+	store := NewStore()
+	store.supported = []domain.SupportedLanguage{{Language: " DE ", DisplayName: "German"}}
+	store.books = []domain.SourceMaterialSummary{
+		{Source: domain.SourceMaterial{OwnerID: OwnerID, Language: " DE "}},
+		{Source: domain.SourceMaterial{OwnerID: OwnerID, Language: "it_IT"}},
+		{Source: domain.SourceMaterial{OwnerID: "another-owner", Language: "fr"}},
+	}
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{OwnerID: OwnerID, LanguageState: domain.LanguageChosen, LanguageTag: "pt-BR"}},
+		{Book: domain.Book{OwnerID: OwnerID, LanguageState: domain.LanguageUnknown, LanguageTag: ""}},
+		{Book: domain.Book{OwnerID: "another-owner", LanguageState: domain.LanguageChosen, LanguageTag: "nl"}},
+	}
+
+	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []domain.StudyLanguage{
+		{Language: "de", DisplayName: "German"},
+		{Language: "it-it", DisplayName: "it-it"},
+		{Language: "pt-br", DisplayName: "pt-br"},
+	}
+	if len(languages) != len(want) {
+		t.Fatalf("study languages=%+v, want %+v", languages, want)
+	}
+	for i := range want {
+		if languages[i] != want[i] {
+			t.Fatalf("study language[%d]=%+v, want %+v", i, languages[i], want[i])
+		}
+	}
+}
+
 func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()

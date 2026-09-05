@@ -25,7 +25,7 @@ The product behavior is defined primarily by:
 ## Entry and destination decision
 
 **Add books** names catalogue setup and sync maintenance on `/connections`. It
-is not a peer destination beside My Books, Reading Journey, and Settings and
+is not a peer destination beside My Books, Reading Journey, and Vocabulary and
 does not appear in the top navigation. My Books is the sole browse surface.
 
 The action enters connection maintenance at `/connections`:
@@ -43,8 +43,7 @@ owner-scoped connection identity without changing ownership or credentials.
 ```text
 My Books empty state
     -> Add or choose catalogue connection
-    -> Set a ready study language
-    -> Sync catalogue metadata
+    -> Sync catalogue metadata for offered ready languages
     -> Browse My Books locally
     -> Open metadata-only Book
     -> Acquire EPUB content
@@ -105,8 +104,8 @@ Books or replace source evidence.
 | State | Required presentation | Primary action |
 |---|---|---|
 | No catalogue connections | Explain why a connection is needed. | Add catalogue connection |
-| Connections available | Show recognizable connection names, eligible sync scope, and maintenance separately. | Sync catalogue |
-| No ready study language | Explain that a ready saved study language is required. | Open Settings |
+| Connections available | Show recognizable connection names, sync status, and maintenance separately. | Sync catalogue |
+| No ready catalogue language | Explain that no offered non-English language currently has a ready NLP pipeline. | Retry sync or add a different catalogue |
 | Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
 | Acquiring EPUB | Disable duplicate submission and announce progress. | None |
 | Acquired | Show the acquired Book and make scope review available. | Review scope |
@@ -115,7 +114,7 @@ Books or replace source evidence.
 
 ## Navigation and responsive rules
 
-- Destination navigation is exactly My Books, Reading Journey, and Settings;
+- Destination navigation is exactly My Books, Reading Journey, and Vocabulary;
   Add books does not appear in the top navigation (reached via the `/connections`
   workflow from My Books and direct routes).
 - The current acquisition context is the selected Book and owner-scoped

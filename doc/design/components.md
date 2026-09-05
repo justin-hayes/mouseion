@@ -37,13 +37,13 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, book, scope review, Campaign history, Jobs, Settings |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, book, scope review, Campaign history, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, book detail, scope review |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the scope-review contract      | Book and scope review                                      |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
-| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Settings       |
-| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Settings                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Campaign history, Settings |
+| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Vocabulary       |
+| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Campaign history, Vocabulary |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and campaigns                                   |
 | `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Coverage thresholds, Journey projections, preparation progress |
 | `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Campaign progress                                          |
@@ -166,7 +166,7 @@ how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly My Books,
-Reading Journey, and Settings; there is no acquisition action in the top
+Reading Journey, and Vocabulary; there is no acquisition action in the top
 navigation. Catalogue setup and sync maintenance use `/connections`; My Books
 is the sole browse surface and Book detail owns per-book acquisition.
 Primary Goal belongs inside Reading Journey. The shipped shell marks the current

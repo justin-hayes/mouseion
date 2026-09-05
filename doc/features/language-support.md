@@ -6,15 +6,18 @@ Status: Implemented · Date: 2026-08-25 · Issues: #222, #223, #224, #225
 
 The NLP service is authoritative for language availability. It advertises only
 configured pipelines that warmed successfully, including their display names
-and supported features. The web application offers those ready languages for a
-learner's owner-scoped study-language selection and does not maintain a second
-language allowlist. German (`de`, display name **German**) and Italian (`it`,
-display name **Italian**) are provisioned by the standard deployment.
+and supported features. Catalogue sync uses those capabilities to walk every
+offered non-English language that is ready; the resulting chosen-language Books
+derive each learner's study-language set. The web application does not maintain
+a learner-selected language allowlist. German (`de`, display name **German**) and
+Italian (`it`, display name **Italian**) are provisioned by the standard
+deployment.
 
-If discovery is unavailable, saved selections remain visible and unchanged,
-while actions that require a newly discovered language are unavailable. A
-failed pipeline warmup leaves that language not ready without hiding other
-successfully warmed languages.
+If discovery is unavailable, stored display-name references keep derived
+language labels legible, while sync and actions requiring a newly ready
+capability are unavailable. A failed pipeline warmup leaves that language not
+ready without hiding other successfully warmed languages or deleting existing
+Books and vocabulary.
 
 ## Italian vertical
 
@@ -22,7 +25,8 @@ The deterministic Italian regression fixture validates the complete product
 contract where a live model or database is unavailable:
 
 1. capability discovery exposes ready Italian as **Italian**;
-2. learner study-language selection remains owner-scoped;
+2. the ready Italian capability is used by catalogue sync and Italian Books
+   become the learner's derived study language;
 3. Go consumes the Python/Stanza fixture with Italian contractions, accents,
    morphology, clitics, and named entities intact;
 4. selection aggregates canonical content-word lemmas while filtering

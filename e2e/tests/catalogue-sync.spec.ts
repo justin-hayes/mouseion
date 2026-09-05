@@ -17,7 +17,7 @@ test.describe('catalogue sync status', () => {
       { id: 'fixture-connection', label: 'Last synced', detail: /3 books added or updated/ },
       { id: 'fixture-failed-connection', label: 'Sync failed', detail: /Authentication failed for this connection/ },
       { id: 'fixture-syncing-connection', label: 'Syncing', detail: /Existing Books remain available/ },
-      { id: 'fixture-never-synced-connection', label: 'Never synced', detail: /ready study-language metadata/ },
+      { id: 'fixture-never-synced-connection', label: 'Never synced', detail: /ready non-English catalogue languages/ },
     ];
 
     for (const state of states) {
@@ -27,6 +27,7 @@ test.describe('catalogue sync status', () => {
       await expect(article).toContainText(state.detail);
       await expect(article.getByRole('button', { name: 'Sync now' })).toHaveCount(1);
     }
+    await expect(page.locator('#connection-fixture-never-synced-connection')).not.toContainText(/ready study-language metadata/);
 
     await expect(page.locator('#connection-fixture-syncing-connection button[disabled]')).toHaveCount(1);
     await expect(page.locator('#connection-fixture-syncing-connection').getByText('Sync already in progress.')).toBeVisible();

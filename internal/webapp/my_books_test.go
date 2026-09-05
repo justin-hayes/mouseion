@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
@@ -24,7 +25,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Open book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `name="language_state"`, "language not chosen"} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Open book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `action="/library/books/metadata-book"`, "Fix book language", `name="language_state"`, "language not chosen"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -41,6 +42,26 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 			t.Errorf("metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
 		}
 	}
+}
+
+func TestBookLanguageCanBeCorrectedFromMyBooks(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	response := goalRequest(t, h, "/library/books/fixture-empty", url.Values{
+		"csrf_token": {csrf}, "language_state": {domain.LanguageChosen}, "language_tag": {"fr"},
+	}, cookies)
+	if response.Code != http.StatusSeeOther || !strings.Contains(response.Header().Get("Location"), "Book+language+updated") {
+		t.Fatalf("update status=%d location=%q", response.Code, response.Header().Get("Location"))
+	}
+	languages, err := store.ListStudyLanguages(context.Background(), fixtures.OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, language := range languages {
+		if language.Language == "fr" {
+			return
+		}
+	}
+	t.Fatalf("corrected language missing from derived set: %+v", languages)
 }
 
 func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {

@@ -64,7 +64,7 @@ not implied by this decision.
 - **Resurrect Explore or Reading Horizon as primary destinations.** Rejected.
   These are alternatives from superseded discovery evidence, and the canonical
   information architecture explicitly permits only My Books, Reading Journey,
-  and Settings.
+  and Vocabulary.
 - **Persist a first-class Corpus object.** Rejected. This is derived evidence
   over current analyses and vocabulary; render-time computation avoids a new
   lifecycle and stale aggregate state.

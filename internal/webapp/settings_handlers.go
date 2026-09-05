@@ -28,8 +28,13 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	knownLanguages, err := h.services.Store.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
 	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.URL.Query().Get("language")))
-	if !studyLanguagePresent(languages, language) {
+	if !studyLanguagePresent(languages, language) && !studyLanguagePresent(knownLanguages, language) {
 		language = ""
 	}
 	var known []domain.KnownVocabulary
@@ -40,7 +45,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, language, nil, known, ""))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, knownLanguages, language, nil, known, ""))
 }
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
@@ -149,11 +154,16 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		fail(w, err)
 		return
 	}
-	if !studyLanguagePresent(studyLanguages, language) {
+	knownLanguages, err := h.services.Store.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !studyLanguagePresent(studyLanguages, language) && !studyLanguagePresent(knownLanguages, language) {
 		language = ""
 		known = nil
 	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, language, result, known, message))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, knownLanguages, language, result, known, message))
 }
 
 func knownVocabImportLanguage(r *http.Request) string {

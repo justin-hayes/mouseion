@@ -27,12 +27,13 @@ and each catalogue-backed book provides a metadata-refresh action for that book.
 Sync work remains operational work visible through the existing `/jobs` surface;
 it does not create a learner destination.
 
-A sync walks the Calibre-Web language feeds for the learner's **ready study
-languages, excluding English**. A ready study language is both saved by the
-learner and advertised as ready by the NLP service. English is excluded under
-the product assumption that it is every learner's native language. Languages
-that are merely present upstream, not saved, or not currently ready are outside
-the run.
+A sync walks the Calibre-Web language feeds for every non-English language the
+catalogue offers whose NLP pipeline is currently advertised as ready. English
+is excluded under the product assumption that it is every learner's native
+language. Study languages are derived from active Books whose language is
+chosen; no saved learner selection gates the run. Languages not present
+upstream or not currently ready are outside the run. See ADR 0043 for the
+derived-language decision and its migration consequences.
 
 Sync is **metadata-first**. It upserts bibliographic metadata only: title,
 language, and catalogue identity. New matches become metadata-only Books with

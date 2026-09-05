@@ -1,9 +1,11 @@
 # Catalogue sync to My Books workflow
 
 Status: **Canonical learner-facing workflow.** It is the automated,
-metadata-first path to the local My Books collection. Product behavior is proposed
-by [ADR 0041](../../adr/0041-catalog-sync-metadata-first.md) and the
-[Catalogue Sync feature](../../features/catalog-sync.md).
+metadata-first path to the local My Books collection. Product behavior is defined
+by the metadata-first and non-destructive contract in
+[ADR 0041](../../adr/0041-catalog-sync-metadata-first.md), with its language
+scope reconciled by [ADR 0043](../../adr/0043-study-languages-derived-settings-removed.md),
+and by the [Catalogue Sync feature](../../features/catalog-sync.md).
 
 ## Goal
 
@@ -17,8 +19,8 @@ The workflow answers these questions in order:
 
 1. Where should Mouseion look for my collection?
 2. Has this connection ever synchronized, and what happened most recently?
-3. Which Books were added or updated for languages Mouseion and I are ready to
-   study?
+3. Which Books were added or updated for non-English languages whose NLP
+   pipelines are ready?
 4. How can I find one Book in my local collection?
 5. Does this Book have content, or must Mouseion acquire it first?
 6. What scope do I want to analyze?
@@ -53,12 +55,13 @@ decks, or vocabulary.
 **Learner question:** Is Mouseion up to date with this catalogue?
 
 The connection surface shows one of never synced, syncing, last synced, or
-failed, and reports the eligible ready study-language scope. If no study
-language is eligible, it directs the learner to Settings rather than claiming
-the collection is current. **Sync now** submits the same owner-scoped River job used by the
-periodic schedule. The run examines only the learner's ready study languages,
-excluding English, and upserts metadata-only My Books entries. It never
-downloads EPUB content and never removes local state.
+failed, and reports that the run walks offered non-English languages whose NLP
+pipelines are ready. **Sync now** submits the same owner-scoped River job used by
+the periodic schedule. The run does not consult a saved study-language
+selection: it upserts metadata-only My Books entries for every eligible
+catalogue language, excluding English. It never downloads EPUB content and
+never removes local state. The chosen-language Books then define the learner's
+derived study-language set.
 
 The connection remains usable while sync work runs. Detailed attempts and recovery live on `/jobs`; the connection surface retains
 the concise learner-relevant status.
@@ -101,10 +104,10 @@ invalidates existing evidence.
 | State | Required presentation | Primary action |
 |---|---|---|
 | No connections | Explain why a learner-owned connection is needed and that sync is metadata-first. | Add catalogue connection |
-| Never synced | Name the connection and eligible ready-language scope, excluding English. | Sync now |
+| Never synced | Name the connection and explain the offered non-English ready-language scope. | Sync now |
 | Syncing | Preserve existing Books, identify metadata reconciliation as in progress, and provide operational detail without turning jobs into navigation. | View job status |
 | Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
-| Synced with no changes | Show the last-synced time and eligible languages; state that no eligible EPUB entries were found, or guide the learner to Settings when scope is empty. | Browse My Books |
+| Synced with no changes | Show the last-synced time and state that no eligible EPUB entries were found when the reconciliation produced no changes. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
 | Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Express acquisition intent |
 | Lazy acquisition running | Keep Book context and identify content acquisition separately from analysis. | View status when queued |
@@ -113,8 +116,9 @@ invalidates existing evidence.
 
 ## Navigation rules
 
-- The authenticated shell remains exactly My Books, Reading Journey, and Settings
-  with no acquisition action in the top navigation; `/connections` (Add books)
+- The authenticated shell remains exactly My Books, Reading Journey, and
+  Vocabulary with no acquisition action in the top navigation; `/connections`
+  (Add books)
   is reached from My Books, while My Books is the sole browse surface.
 - `/connections` owns configuration and concise sync status. `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
