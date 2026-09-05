@@ -40,3 +40,11 @@ connection plus that connection's stable entry identifier. A Book may carry one
 catalogue-entry alias per connection; two connections may each offer the same
 entry identifier without being the same book.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
+
+**Book**:
+A learner's bibliographic identity for a work, owned per learner and stable
+across acquisition, analysis, and content revisions. A Book is addressed by its
+owner-scoped Book ID; its current acquired source and analysis evidence are
+resolved underneath that identity.
+_Avoid_: source material (the acquired evidence, not the identity), acquired
+book.

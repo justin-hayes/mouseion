@@ -121,6 +121,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 42. [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — proposes a private evidence-only language lens over current analyses and known vocabulary.
 43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination.
 44. [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](adr/0044-catalogue-entry-connection-scoped-identity.md) — scopes the catalogue-entry alias to owner plus connection plus entry, threads the connection through sync/refresh/acquisition, and defers multi-connection conflict rules under a soft single-catalogue posture.
+45. [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — makes the owner-scoped Book ID the stable web identity for `/books/{id}`, resolves current acquired evidence underneath it, and keeps source-material-ID links working in place.
 
 ## Deployment and operations
 
