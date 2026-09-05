@@ -16,7 +16,11 @@ The NLP service is authoritative for supported analysis languages. It exposes a 
 - supported features;
 - readiness.
 
-The Go web application queries and caches this information. Learner study-language preferences remain owner-scoped, but may only select currently available NLP languages. Temporary NLP unavailability must not erase persisted learner preferences; the UI reports degraded capability discovery and blocks only operations that require unavailable analysis.
+The Go web application queries and caches this information. Study languages are
+derived from owner-scoped books whose language state is chosen; they are not
+learner preferences. Temporary NLP unavailability must not erase cached display
+names; the UI reports degraded capability discovery and blocks only operations
+that require unavailable analysis.
 
 No admin-managed language allowlist remains.
 

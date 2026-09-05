@@ -226,32 +226,51 @@ func FilterEPUBEntries(feed Feed) Feed {
 // catalog browser and never accepts an identifier that is not present in the
 // owner-scoped feed.
 func LanguageID(feed Feed, language, displayName string) string {
+	normalizedLanguage := canonicalization.NormalizeLanguage(language)
+	if normalizedLanguage != "" {
+		for _, entry := range feed.Entries {
+			if canonicalization.NormalizeLanguage(strings.TrimSpace(entry.Title)) != normalizedLanguage {
+				continue
+			}
+			if id := languageEntryID(entry); id != "" {
+				return id
+			}
+		}
+	}
+
 	for _, entry := range feed.Entries {
 		name := strings.TrimSpace(entry.Title)
 		if !sameLanguageLabel(name, language) && !strings.EqualFold(name, strings.TrimSpace(displayName)) {
 			continue
 		}
-		for _, link := range entry.Links {
-			if link.Rel != "subsection" && link.Rel != "alternate" && !(strings.EqualFold(link.Type, "application/atom+xml") && len(FindEPUBs(entry)) == 0) {
-				continue
-			}
-			parsed, err := url.Parse(link.Href)
-			if err != nil {
-				continue
-			}
-			id, err := strconv.Atoi(strings.Trim(strings.TrimRight(parsed.Path, "/"), "/"))
-			if err != nil || id < 1 {
-				parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-				if len(parts) == 0 {
-					continue
-				}
-				id, err = strconv.Atoi(parts[len(parts)-1])
-				if err != nil || id < 1 {
-					continue
-				}
-			}
-			return strconv.Itoa(id)
+		if id := languageEntryID(entry); id != "" {
+			return id
 		}
+	}
+	return ""
+}
+
+func languageEntryID(entry Entry) string {
+	for _, link := range entry.Links {
+		if link.Rel != "subsection" && link.Rel != "alternate" && !(strings.EqualFold(link.Type, "application/atom+xml") && len(FindEPUBs(entry)) == 0) {
+			continue
+		}
+		parsed, err := url.Parse(link.Href)
+		if err != nil {
+			continue
+		}
+		id, err := strconv.Atoi(strings.Trim(strings.TrimRight(parsed.Path, "/"), "/"))
+		if err != nil || id < 1 {
+			parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+			if len(parts) == 0 {
+				continue
+			}
+			id, err = strconv.Atoi(parts[len(parts)-1])
+			if err != nil || id < 1 {
+				continue
+			}
+		}
+		return strconv.Itoa(id)
 	}
 	return ""
 }
