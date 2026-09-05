@@ -287,8 +287,12 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	}
 
 	itSettings := perform(t, h, http.MethodGet, "/settings?language=it", nil, aliceCookies)
-	if itSettings.Code != http.StatusOK || !strings.Contains(itSettings.Body.String(), "casa") || !strings.Contains(itSettings.Body.String(), "Explicitly recorded") {
+	if itSettings.Code != http.StatusOK || !strings.Contains(itSettings.Body.String(), "Italian") || !strings.Contains(itSettings.Body.String(), "Saved study preference") {
 		t.Fatalf("explicit Italian settings=%d %s", itSettings.Code, itSettings.Body.String())
+	}
+	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary?language=de", nil, aliceCookies)
+	if deVocabulary.Code != http.StatusOK || !strings.Contains(deVocabulary.Body.String(), "Haus") || !strings.Contains(deVocabulary.Body.String(), "Explicitly recorded") {
+		t.Fatalf("explicit German vocabulary=%d %s", deVocabulary.Code, deVocabulary.Body.String())
 	}
 	degradedHandler := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Capabilities: staticCapabilities{err: errors.New("NLP unavailable")}, SessionLifetime: time.Hour})
 	degraded := perform(t, degradedHandler, http.MethodGet, "/settings", nil, aliceCookies)
