@@ -545,8 +545,8 @@ func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBRevi
 	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
 }
 
-// My Books persistence is not part of the browser fixture yet; these methods
-// keep the fixture's webapp.Store contract explicit until the later UI work.
+// My Books persistence is intentionally small in the browser fixture; these
+// methods cover the learner-facing metadata controls without a database.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
 
 func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
@@ -569,7 +569,27 @@ func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, er
 	s.myBooks = append(s.myBooks, domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired})
 	return book, nil
 }
-func (s *Store) UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error) {
+func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.books {
+		if s.books[i].Source.OwnerID == owner && s.books[i].Source.ID == bookID {
+			s.books[i].Source.Title = title
+			s.books[i].Source.Language = languageTag
+			if languageState == domain.LanguageUnknown {
+				s.books[i].Source.Language = ""
+			}
+			return domain.Book{ID: bookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
+		}
+	}
+	for i := range s.myBooks {
+		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
+			s.myBooks[i].Book.Title = title
+			s.myBooks[i].Book.LanguageState = languageState
+			s.myBooks[i].Book.LanguageTag = languageTag
+			return s.myBooks[i].Book, nil
+		}
+	}
 	return domain.Book{}, errNotFound
 }
 func (s *Store) AddBookToMyBooks(context.Context, string, string) error { return nil }
