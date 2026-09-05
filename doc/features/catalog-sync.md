@@ -110,8 +110,8 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - Detecting changed EPUB bytes or invalidating reviewed scope or analysis from
   sync.
 - Destructively reconciling upstream removals.
-- Synchronizing English, unready languages, or catalogue languages that are not
-  offered by the connected catalogue.
+- Synchronizing English, languages whose NLP pipeline is not ready, or languages
+  the connected catalogue does not expose.
 - Adding a fourth destination, a global sync dashboard, or an upstream catalog
   browser.
 - Batch-selecting Books for analysis; whether a future batch contract exists is
