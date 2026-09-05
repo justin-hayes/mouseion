@@ -57,7 +57,7 @@ type Store struct {
 	books           []domain.SourceMaterialSummary
 	jobs            []domain.AnalysisJob
 	campaigns       []domain.LearningCampaign
-	profiles        []domain.LanguageProfile
+	supported       []domain.SupportedLanguage
 	connections     []domain.OpdsConnection
 	preps           []domain.DeckPreparation
 	known           []domain.KnownVocabulary
@@ -86,7 +86,7 @@ func NewStore() *Store {
 		},
 		jobs:      fixtureJobs(),
 		campaigns: fixtureCampaigns(),
-		profiles:  []domain.LanguageProfile{{ID: "fixture-profile-de", OwnerID: OwnerID, Language: "de", DisplayName: "German"}, {ID: "fixture-profile-it", OwnerID: OwnerID, Language: "it", DisplayName: "Italian"}},
+		supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}},
 		connections: []domain.OpdsConnection{
 			{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"},
 			{ID: "fixture-failed-connection", OwnerID: OwnerID, Name: "Fixture failed catalog", URL: "https://failed.fixture.invalid/opds"},
@@ -136,23 +136,15 @@ func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.Su
 	return domain.SupportedLanguage{}, nil
 }
 func (s *Store) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error { return nil }
-func (s *Store) PutLanguageProfile(_ context.Context, o, l, n string) (domain.LanguageProfile, error) {
-	p := domain.LanguageProfile{ID: "fixture-profile-" + l, OwnerID: o, Language: l, DisplayName: n}
-	s.profiles = append(s.profiles, p)
-	return p, nil
-}
 func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Fixture source summaries represent the active acquired library books; the
 	// fixture does not model a separate membership row for them.
 	seen := make(map[string]struct{})
-	displayNames := make(map[string]string, len(s.profiles))
-	for _, profile := range s.profiles {
-		language := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(profile.Language), "_", "-"))
-		if language != "" {
-			displayNames[language] = profile.DisplayName
-		}
+	displayNames := make(map[string]string, len(s.supported))
+	for _, language := range s.supported {
+		displayNames[language.Language] = language.DisplayName
 	}
 	var out []domain.StudyLanguage
 	for _, book := range s.books {
@@ -188,7 +180,6 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	sort.Slice(out, func(i, j int) bool { return out[i].Language < out[j].Language })
 	return out, nil
 }
-func (s *Store) DeleteLanguageProfile(context.Context, string, string) error { return nil }
 func (s *Store) CreateOpdsConnection(_ context.Context, o string, c domain.OpdsConnection) (domain.OpdsConnection, error) {
 	c.ID = "fixture-new-connection"
 	c.OwnerID = o

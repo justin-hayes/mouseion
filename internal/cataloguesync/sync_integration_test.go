@@ -199,9 +199,6 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.PutLanguageProfile(ctx, owner.ID, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
 	worker := &Worker{Store: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
 	if err = worker.Work(ctx, job); err == nil || err.Error() != "authentication failed for connection Private catalog" {

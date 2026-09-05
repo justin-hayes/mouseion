@@ -378,19 +378,6 @@ func (s *PostgresStore) DeleteUserSessions(ctx context.Context, userID string) e
 	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, userID)
 	return err
 }
-func (s *PostgresStore) PutLanguageProfile(ctx context.Context, owner, language, name string) (p domain.LanguageProfile, err error) {
-	err = s.pool.QueryRow(ctx, `INSERT INTO language_profiles(owner_id,language,display_name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language) DO UPDATE SET display_name=excluded.display_name RETURNING id,owner_id,language,display_name,created_at`, owner, language, name).Scan(&p.ID, &p.OwnerID, &p.Language, &p.DisplayName, &p.CreatedAt)
-	return
-}
-
-func (s *PostgresStore) DeleteLanguageProfile(ctx context.Context, owner, language string) error {
-	result, err := s.pool.Exec(ctx, `DELETE FROM language_profiles WHERE owner_id=$1 AND language=$2`, owner, language)
-	if err == nil && result.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return err
-}
-
 func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name string) (v domain.SupportedLanguage, err error) {
 	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
 	name = strings.TrimSpace(name)

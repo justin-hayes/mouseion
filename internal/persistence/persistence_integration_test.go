@@ -33,9 +33,6 @@ func TestCreateFirstUserAndSessionIsAtomicAndOwnerReady(t *testing.T) {
 	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
 		t.Fatalf("supported language: %v", err)
 	}
-	if _, err = store.PutLanguageProfile(ctx, u.ID, "de", "German"); err != nil {
-		t.Fatalf("learner ownership: %v", err)
-	}
 	if _, created, err = store.CreateFirstUserAndSession(ctx, "bob", "hash", "other-token", time.Now().Add(time.Hour)); err != nil || created {
 		t.Fatalf("second create created=%v err=%v", created, err)
 	}
@@ -95,9 +92,6 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutLanguageProfile(ctx, alice.ID, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
 
