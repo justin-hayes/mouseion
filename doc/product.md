@@ -120,6 +120,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 41. [ADR 0041: Catalogue sync is metadata-first and non-destructive](adr/0041-catalog-sync-metadata-first.md) — proposes per-connection ready-language metadata reconciliation, lazy content acquisition, and non-destructive sync.
 42. [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — proposes a private evidence-only language lens over current analyses and known vocabulary.
 43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination.
+44. [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](adr/0044-catalogue-entry-connection-scoped-identity.md) — scopes the catalogue-entry alias to owner plus connection plus entry, threads the connection through sync/refresh/acquisition, and defers multi-connection conflict rules under a soft single-catalogue posture.
 
 ## Deployment and operations
 
