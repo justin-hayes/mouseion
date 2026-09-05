@@ -158,10 +158,10 @@ func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 
 func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	var upload bytes.Buffer
-	if err := KnownVocabPageWithResult(domain.User{}, "csrf", nil, "de", nil, nil, "").Render(context.Background(), &upload); err != nil {
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, "de", nil, nil, "").Render(context.Background(), &upload); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`method="post"`, `action="/known-vocab/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`} {
+	for _, want := range []string{`method="post"`, `action="/vocabulary/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`, `id="vocabulary-results"`} {
 		if !strings.Contains(upload.String(), want) {
 			t.Errorf("known-vocabulary upload missing %q: %s", want, upload.String())
 		}
@@ -186,6 +186,34 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	}
 }
 
+func TestVocabularyPageListsOnlyDerivedLanguages(t *testing.T) {
+	var output bytes.Buffer
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, "de", nil, nil, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, `<select name="language"`) || !strings.Contains(html, `<option value="de" selected`) {
+		t.Fatalf("selected derived language missing: %s", html)
+	}
+	if strings.Contains(html, "<datalist") || strings.Contains(html, "return_to") {
+		t.Fatalf("Vocabulary page exposes an unrestricted language or return_to field: %s", html)
+	}
+}
+
+func TestVocabularyPageEmptyLibraryPointsToConnectionsAndHidesImport(t *testing.T) {
+	var output bytes.Buffer
+	if err := VocabularyPageWithResult(domain.User{}, "csrf", nil, "", nil, nil, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "No study languages yet") || !strings.Contains(html, `href="/connections"`) {
+		t.Fatalf("empty Vocabulary state missing catalogue guidance: %s", html)
+	}
+	if strings.Contains(html, `enctype="multipart/form-data"`) || strings.Contains(html, "Choose a study language") {
+		t.Fatalf("empty Vocabulary state exposes import controls: %s", html)
+	}
+}
+
 func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 	var output bytes.Buffer
 	if err := EnrichmentJobStatus(enrichmentjob.Status{ID: 7, State: rivertype.JobStateCompleted, Completed: 5, Total: 5}, "csrf").Render(context.Background(), &output); err != nil {
@@ -204,26 +232,18 @@ func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 	}
 }
 
-func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
+func TestSettingsKeepsLanguagePreferenceContract(t *testing.T) {
 	var output bytes.Buffer
-	known := []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provenance: "Graduated from completed campaign", CreatedAt: time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)}}
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, true, "de", &knownvocab.ImportResult{Imported: 1}, known, "").Render(context.Background(), &output); err != nil {
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	for _, want := range []string{
 		`id="study-languages"`,
-		`id="known-vocabulary"`,
 		`German <code>de</code>`,
 		`ready study languages define catalogue-sync scope`,
 		`New study-language additions are disabled`,
 		`vocabulary, books, analyses, prepared decks, and campaigns for German remain`,
-		`action="/known-vocab/import?language=de`,
-		`enctype="multipart/form-data"`,
-		`hx-encoding="multipart/form-data"`,
-		`Graduated from completed campaign`,
-		`1 new`,
-		`0 duplicates`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("settings missing %q: %s", want, html)
@@ -234,7 +254,7 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 	}
 
 	output.Reset()
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, false, "", nil, nil, "").Render(context.Background(), &output); err != nil {
+	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, false, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	readyHTML := output.String()
@@ -246,18 +266,17 @@ func TestSettingsConsolidatesLanguageAndKnownVocabularyContracts(t *testing.T) {
 	}
 }
 
-func TestKnownVocabSettingsTargetPreservesOnlyValidLanguage(t *testing.T) {
-	languages := []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}
-	if got := knownVocabSettingsTarget("de", languages); got != "/settings?language=de#known-vocabulary" {
-		t.Fatalf("valid target = %q", got)
+func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
+	if got := knownVocabImportAction("de"); got != "/vocabulary/import?language=de" {
+		t.Fatalf("import target = %q", got)
 	}
-	if got := knownVocabSettingsTarget("it", languages); got != "/settings#known-vocabulary" {
-		t.Fatalf("invalid target = %q", got)
+	if got := knownVocabImportAction(""); got != "/vocabulary/import" {
+		t.Fatalf("empty import target = %q", got)
 	}
-	if got := knownVocabImportRecoveryTarget("de"); got != "/settings?language=de#known-vocabulary" {
+	if got := knownVocabImportRecoveryTarget("de"); got != "/vocabulary?language=de" {
 		t.Fatalf("recovery target = %q", got)
 	}
-	if got := knownVocabImportRecoveryTarget(""); got != "/settings#known-vocabulary" {
+	if got := knownVocabImportRecoveryTarget(""); got != "/vocabulary" {
 		t.Fatalf("empty recovery target = %q", got)
 	}
 }
@@ -267,7 +286,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 	if err := KnownVocabImportStatus(knownvocab.Status{ID: 12, Language: "de", State: rivertype.JobStateRunning, Processed: 1, Total: 3}).Render(context.Background(), &processing); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(processing.String(), "Processing") || !strings.Contains(processing.String(), "You can leave this page") || !strings.Contains(processing.String(), `aria-busy="true"`) {
+	if !strings.Contains(processing.String(), "Processing") || !strings.Contains(processing.String(), "You can leave this page") || !strings.Contains(processing.String(), `aria-busy="true"`) || !strings.Contains(processing.String(), `hx-get="/vocabulary/imports/12/status"`) {
 		t.Fatalf("processing status missing safe-leave contract: %s", processing.String())
 	}
 
@@ -294,8 +313,8 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 			if test.state == rivertype.JobStateDiscarded || test.state == rivertype.JobStateCancelled {
 				for _, want := range []string{
 					`Selected language: <code>de</code>`,
-					`href="/settings?language=de#known-vocabulary"`,
-					"Return to Known vocabulary settings to retry the import",
+					`href="/vocabulary?language=de"`,
+					"Return to Vocabulary to retry the import",
 				} {
 					if !strings.Contains(html, want) {
 						t.Errorf("recovery status missing %q: %s", want, html)
@@ -322,18 +341,18 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
 
-func TestKnownVocabImportContextUsesParsedFormAndURLFallback(t *testing.T) {
-	request := httptest.NewRequest(http.MethodPost, "/known-vocab/import?language=it&return_to=known-vocab", nil)
-	if gotLanguage, gotReturnTo := knownVocabImportContext(request); gotLanguage != "it" || gotReturnTo != "known-vocab" {
-		t.Fatalf("URL context = %q, %q", gotLanguage, gotReturnTo)
+func TestKnownVocabImportLanguageIgnoresReturnTo(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=it&return_to=known-vocab", nil)
+	if gotLanguage := knownVocabImportLanguage(request); gotLanguage != "it" {
+		t.Fatalf("URL language = %q", gotLanguage)
 	}
 	request.Form = url.Values{"language": {" de "}, "return_to": {" settings "}}
-	if gotLanguage, gotReturnTo := knownVocabImportContext(request); gotLanguage != "de" || gotReturnTo != "settings" {
-		t.Fatalf("form context = %q, %q", gotLanguage, gotReturnTo)
+	if gotLanguage := knownVocabImportLanguage(request); gotLanguage != "de" {
+		t.Fatalf("form language = %q", gotLanguage)
 	}
 }
 
-func TestKnownVocabImportParseFailuresPreserveSettingsContext(t *testing.T) {
+func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 	h := &Handler{services: Services{Store: knownVocabContextStore{
 		profiles: []domain.LanguageProfile{{Language: "de", DisplayName: "German"}},
 	}}}
@@ -350,7 +369,7 @@ func TestKnownVocabImportParseFailuresPreserveSettingsContext(t *testing.T) {
 		{name: "oversized", body: bytes.NewReader(oversized.Bytes())},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/known-vocab/import?language=de&return_to=settings", test.body)
+			request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=de", test.body)
 			request.Header.Set("Content-Type", `multipart/form-data; boundary=known-vocabulary`)
 			response := httptest.NewRecorder()
 			h.importKnownVocab(response, request)
@@ -360,8 +379,8 @@ func TestKnownVocabImportParseFailuresPreserveSettingsContext(t *testing.T) {
 			}
 			for _, want := range []string{
 				"The import is too large or could not be read.",
-				"German <code>de</code>",
-				`id="known-vocabulary"`,
+				"<strong>German</strong> <code>de</code>",
+				`id="vocabulary-results"`,
 			} {
 				if !strings.Contains(response.Body.String(), want) {
 					t.Errorf("parse failure response missing %q: %s", want, response.Body.String())

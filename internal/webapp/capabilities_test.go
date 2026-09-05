@@ -43,8 +43,7 @@ func TestSettingsPageKeepsSavedProfilesVisibleWhenDiscoveryIsDegraded(t *testing
 	var output bytes.Buffer
 	err := SettingsPage(
 		domain.User{Username: "learner"}, "csrf", nil,
-		[]domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, nil, true,
-		"", nil, nil, "",
+		[]domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true, "",
 	).Render(context.Background(), &output)
 	if err != nil {
 		t.Fatal(err)

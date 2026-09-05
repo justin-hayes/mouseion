@@ -19,8 +19,8 @@ rather than as independent destinations.
 ## Global shell
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
-**Reading Journey**, **Settings**, account identity, and **Log
-out**. My Books, Reading Journey, and Settings are the only destinations; there
+**Reading Journey**, **Vocabulary**, account identity, and **Log
+out**. My Books, Reading Journey, and Vocabulary are the only destinations; there
 is no acquisition action in the top navigation. Catalogue setup and sync
 maintenance are reached from My Books empty states and actions and via
 `/connections`. My Books is the sole browse surface; Book detail owns per-book
@@ -132,19 +132,20 @@ justified vocabulary transition shown by this surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Settings | Current `GET /settings` and `/settings/languages` mutations | Manage study-language preferences and known vocabulary. | Remain in Settings | No profile, ready languages, saved language while capability discovery is degraded, no newly available languages, add/remove success or failure |
-| Known-vocabulary import | Embedded in Settings; current `POST /known-vocab/import` and status endpoint | Upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
-| Direct known-vocabulary page | Current `GET /known-vocab` | Retained compatibility route that redirects to Settings. | Settings | Redirect to `/settings#known-vocabulary`; remaining states belong to embedded Settings |
+| Settings | Current `GET /settings` and `/settings/languages` mutations | Manage study-language preferences. | Remain in Settings | No profile, ready languages, saved language while capability discovery is degraded, no newly available languages, add/remove success or failure |
+| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No study languages, no selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
+| Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
-Settings is the canonical destination. Under the current contract, removing a
-study-language preference does not remove books, analyses, prepared artifacts,
-internal Campaigns, or known vocabulary for that language. Journey/Goal effects
-must not be claimed before those relationships receive a product contract.
+Vocabulary is the canonical destination for known vocabulary. Under the current
+contract, removing a study-language preference does not remove books, analyses,
+prepared artifacts, internal Campaigns, or known vocabulary for that language.
+Journey/Goal effects must not be claimed before those relationships receive a
+product contract.
 
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Shipped navigation is **My Books** / **Reading Journey** / **Settings** with no
+- Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** with no
   acquisition action in the top navigation; historical **My Library**, **Learning**, queue, and learner-facing Campaign labels remain only as compatibility fallbacks/redirects and are not the accepted target IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.

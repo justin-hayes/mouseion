@@ -7,9 +7,10 @@ reading, preparation, and vocabulary-transition facts as defined in
 
 ## Goal
 
-Give a learner one coherent Settings destination for maintaining study-language
-preferences and importing known vocabulary without conflating runtime NLP
-capabilities, learner preferences, and vocabulary state.
+Give a learner one coherent Vocabulary destination for importing known vocabulary
+without conflating runtime NLP capabilities, derived study languages, and
+vocabulary state. Study-language preferences remain on the supporting Settings
+route until that surface is removed.
 
 The product behavior is defined primarily by:
 
@@ -20,19 +21,16 @@ The product behavior is defined primarily by:
 
 ## Canonical destination
 
-**Settings** is the sole primary-navigation destination for study languages and
-known vocabulary. The screen has two explicit sections:
+**Vocabulary** is the primary-navigation destination for known vocabulary. The
+supporting Settings screen retains study-language preferences until that surface
+is removed. Vocabulary has one explicit workflow:
 
-1. **Study-language preferences** — learner selections chosen from currently
-   ready NLP capabilities and used for catalogue sync;
-2. **Known vocabulary** — owner-scoped vocabulary by language, including file
-   import.
+1. **Known vocabulary** — owner-scoped vocabulary by derived study language,
+   including file import.
 
 The retained `/known-vocab` route is compatibility surface, not an independent
-product area. The implementation redirects `GET /known-vocab` to
-`/settings#known-vocabulary`, preserving a valid language selection as a
-`?language=` query parameter when that language is present in the library; Settings is
-canonical. New functionality belongs in Settings first.
+product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
+New known-vocabulary functionality belongs in Vocabulary.
 
 ## Study-language model
 
@@ -121,14 +119,13 @@ coverage recalculation.
 
 ## Screen hierarchy
 
-Settings answers questions in this order:
+Vocabulary answers questions in this order:
 
-1. Which study languages have I saved, and is capability discovery healthy?
-2. Which ready languages can I add?
-3. Which library language's known vocabulary am I viewing?
-4. How can I import additional known lemmas?
-5. What happened during the latest import?
-6. Which entries are currently counted as known?
+1. Which study languages are derived from my chosen-language books?
+2. Which study language's known vocabulary am I viewing?
+3. How can I import additional known lemmas?
+4. What happened during the latest import?
+5. Which entries are currently counted as known?
 
 Account identity may appear as supporting context but should not displace these
 learner tasks.
@@ -137,12 +134,9 @@ learner tasks.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No study-language preferences or library languages | Explain preferences and currently ready options. | Add study language |
-| Saved languages available | Show saved preferences separately from addable capabilities. | Select language for vocabulary |
-| Discovery degraded | Preserve saved preferences and explain blocked additions. | Retry later |
-| No newly available languages | Explain that all ready languages are already saved. | Manage known vocabulary |
-| Remove preference confirmation | State that books and known vocabulary are preserved. | Remove study language |
-| No selected vocabulary language | Prompt for a library language context. | Select language |
+| No study languages | Explain that chosen-language books define available vocabulary languages. | Connect a catalogue |
+| Study languages available | Show derived study languages. | Select language for vocabulary |
+| No selected vocabulary language | Prompt for a study-language context. | Select language |
 | No known vocabulary | Explain current coverage implications without implying no language ability. | Import lemma file |
 | Import ready | Show selected language and file contract. | Import known vocabulary |
 | Import processing | Show durable status and safe-leave guidance. | Cancel only when supported |
@@ -152,8 +146,8 @@ learner tasks.
 
 ## Accessibility and responsive contract
 
-- Section headings and anchors make Study languages and Known vocabulary direct
-  destinations within Settings.
+- The Vocabulary heading and language picker make the current study-language
+  context direct and visible.
 - Language controls use names as primary labels and codes as supporting detail.
 - Import status and results use scoped live regions without repeatedly stealing
   focus.

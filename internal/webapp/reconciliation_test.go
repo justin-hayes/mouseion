@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,24 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/justin-hayes/mouseion/internal/domain"
 )
-
-// redirectStore is a minimal Store used only by reconciliation handler tests.
-// It embeds the full Store interface so the Handler construction stays
-// identical to production, but only language-list methods are reachable here.
-type redirectStore struct {
-	Store
-	languages []domain.StudyLanguage
-}
-
-func (s *redirectStore) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
-	return nil, nil
-}
-func (s *redirectStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
-	return s.languages, nil
-}
 
 // TestReconciliation_NoRawHexInTemplates guards against designers inlining raw
 // hex colors directly in Templ markup instead of using the documented CSS
@@ -76,29 +58,17 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	}
 }
 
-func TestReconciliation_KnownVocabRedirectsToSettings(t *testing.T) {
-	h := &Handler{services: Services{Store: &redirectStore{languages: []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}}}}
-	cases := []struct {
-		name      string
-		path      string
-		want      string
-		languages []domain.StudyLanguage
-	}{
-		{name: "no language preserved", path: "/known-vocab", want: "/settings#known-vocabulary"},
-		{name: "unknown language falls back", path: "/known-vocab?language=fr", want: "/settings#known-vocabulary"},
-		{name: "library language preserved", path: "/known-vocab?language=de", want: "/settings?language=de#known-vocabulary",
-			languages: []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			h.services.Store = &redirectStore{languages: tc.languages}
+func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
+	h := &Handler{}
+	for _, path := range []string{"/known-vocab", "/known-vocab?language=de"} {
+		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			h.knownVocabPage(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			h.knownVocabPage(rec, httptest.NewRequest(http.MethodGet, path, nil))
 			if rec.Code != http.StatusSeeOther {
-				t.Fatalf("GET %s status=%d want %d", tc.path, rec.Code, http.StatusSeeOther)
+				t.Fatalf("GET %s status=%d want %d", path, rec.Code, http.StatusSeeOther)
 			}
-			if got := rec.Header().Get("Location"); got != tc.want {
-				t.Fatalf("GET %s Location=%q want %q", tc.path, got, tc.want)
+			if got := rec.Header().Get("Location"); got != "/vocabulary" {
+				t.Fatalf("GET %s Location=%q want /vocabulary", path, got)
 			}
 		})
 	}

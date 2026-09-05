@@ -53,7 +53,7 @@ and surface a material conflict rather than silently choosing one.
   learner-facing Reading Journey and Primary Goal workflow, with explicit
   boundaries around the current internal Campaign contract.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
-  — Settings ownership, capability degradation, and vocabulary import.
+  — study-language ownership, capability degradation, and vocabulary import.
 
 Additional workflow documents should be added only when a cross-screen journey
 has durable rules that cannot be understood from the screen inventory and its
