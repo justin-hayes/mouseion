@@ -20,7 +20,7 @@ import (
 )
 
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
-	h.renderSettings(w, r, nil, nil, r.URL.Query().Get("message"))
+	h.renderSettings(w, r, r.URL.Query().Get("message"))
 }
 
 func (h *Handler) addStudyLanguage(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (h *Handler) removeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/settings?language="+url.QueryEscape(language)+"&message="+url.QueryEscape("Study language removed; only the preference was removed. Your vocabulary, books, analyses, prepared decks, and campaigns remain."))
 }
 
-func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, message string) {
 	u := user(r)
 	supported, degraded, capabilityErr := h.supportedNLP(r.Context())
 	if capabilityErr != nil {
@@ -76,21 +76,7 @@ func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, result 
 		fail(w, err)
 		return
 	}
-	language, _ := knownVocabImportContext(r)
-	language = canonicalization.NormalizeLanguage(language)
-	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if known == nil && language != "" {
-		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-	}
-	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, studyLanguages, degraded, language, result, known, message))
+	render(w, r, SettingsPage(u, h.csrf(w, r), supported, profiles, degraded, message))
 }
 
 func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage, bool, error) {
@@ -111,30 +97,35 @@ func (h *Handler) supportedNLP(ctx context.Context) ([]domain.SupportedLanguage,
 }
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
+	redirect(w, r, "/vocabulary")
+}
+
+func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	requestedLanguage := strings.TrimSpace(r.URL.Query().Get("language"))
-	requestedLanguage = canonicalization.NormalizeLanguage(requestedLanguage)
-	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
+	languages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, knownVocabSettingsTarget(requestedLanguage, studyLanguages))
-}
-
-func knownVocabSettingsTarget(requestedLanguage string, languages []domain.StudyLanguage) string {
-	for _, language := range languages {
-		if requestedLanguage == language.Language {
-			return "/settings?language=" + url.QueryEscape(requestedLanguage) + "#known-vocabulary"
+	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.URL.Query().Get("language")))
+	if !studyLanguagePresent(languages, language) {
+		language = ""
+	}
+	var known []domain.KnownVocabulary
+	if language != "" {
+		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+		if err != nil {
+			fail(w, err)
+			return
 		}
 	}
-	return "/settings#known-vocabulary"
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, language, nil, known, ""))
 }
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
-		language, _ := knownVocabImportContext(r)
+		language := knownVocabImportLanguage(r)
 		h.renderKnownVocabResult(w, r, language, nil, nil, "The import is too large or could not be read.")
 		return
 	}
@@ -142,7 +133,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	language, _ := knownVocabImportContext(r)
+	language := knownVocabImportLanguage(r)
 	language = canonicalization.NormalizeLanguage(language)
 	var input bytes.Buffer
 	file, header, err := r.FormFile("vocabulary_file")
@@ -177,7 +168,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		selected = selected || studyLanguage.Language == language
 	}
 	if !selected {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language present in your library before importing.")
+		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a study language present in your library before importing.")
 		return
 	}
 	if input.Len() == 0 {
@@ -197,7 +188,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		render(w, r, KnownVocabImportStatus(knownvocab.Status{ID: handle.ID, Language: language, State: rivertype.JobStateAvailable}))
 		return
 	}
-	redirect(w, r, fmt.Sprintf("/known-vocab/imports/%d/status", handle.ID))
+	redirect(w, r, fmt.Sprintf("/vocabulary/imports/%d/status", handle.ID))
 }
 
 func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request) {
@@ -231,25 +222,24 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		render(w, r, KnownVocabResult(language, result, known, message))
 		return
 	}
-	_, returnTo := knownVocabImportContext(r)
-	if returnTo == "settings" {
-		h.renderSettings(w, r, result, known, message)
-		return
-	}
 	u := user(r)
 	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, KnownVocabPageWithResult(u, h.csrf(w, r), studyLanguages, language, result, known, message))
+	if !studyLanguagePresent(studyLanguages, language) {
+		language = ""
+		known = nil
+	}
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, language, result, known, message))
 }
 
-func knownVocabImportContext(r *http.Request) (language, returnTo string) {
+func knownVocabImportLanguage(r *http.Request) string {
+	language := ""
 	language = strings.TrimSpace(r.URL.Query().Get("language"))
-	returnTo = strings.TrimSpace(r.URL.Query().Get("return_to"))
 	if r.Form == nil {
-		return language, returnTo
+		return language
 	}
 	if values, ok := r.Form["language"]; ok {
 		language = ""
@@ -257,34 +247,25 @@ func knownVocabImportContext(r *http.Request) (language, returnTo string) {
 			language = strings.TrimSpace(values[0])
 		}
 	}
-	if values, ok := r.Form["return_to"]; ok {
-		returnTo = ""
-		if len(values) > 0 {
-			returnTo = strings.TrimSpace(values[0])
-		}
-	}
-	return language, returnTo
+	return language
 }
 
-func knownVocabImportAction(language, returnTo string) string {
+func knownVocabImportAction(language string) string {
 	query := url.Values{}
 	if language = strings.TrimSpace(language); language != "" {
 		query.Set("language", language)
 	}
-	if returnTo = strings.TrimSpace(returnTo); returnTo != "" {
-		query.Set("return_to", returnTo)
-	}
 	if len(query) == 0 {
-		return "/known-vocab/import"
+		return "/vocabulary/import"
 	}
-	return "/known-vocab/import?" + query.Encode()
+	return "/vocabulary/import?" + query.Encode()
 }
 
 func knownVocabImportRecoveryTarget(language string) string {
 	if language = strings.TrimSpace(language); language == "" {
-		return "/settings#known-vocabulary"
+		return "/vocabulary"
 	}
-	return "/settings?language=" + url.QueryEscape(language) + "#known-vocabulary"
+	return "/vocabulary?language=" + url.QueryEscape(language)
 }
 
 func knownVocabJobLabel(status string) string {

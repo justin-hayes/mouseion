@@ -175,7 +175,7 @@ scrollable data table must label and contain its own overflow.
 ## Established and canonical interaction contracts
 
 - Canonical authenticated destinations are exactly My Books, Reading Journey, and
-  Settings; there is no acquisition action in the top navigation. Catalogue setup
+  Vocabulary; there is no acquisition action in the top navigation. Catalogue setup
   and sync maintenance happen on `/connections` reached from My Books. My Books
   is the sole browse surface, and Book detail owns per-book acquisition. Primary
   Goal is embedded in Reading Journey.
@@ -198,7 +198,8 @@ scrollable data table must label and contain its own overflow.
 - Campaign completion and abandonment retain distinct consequential confirmations
   in the secondary history/operations section; Primary Goal behavior is defined
   by ADR 0036.
-- Settings is canonical for study languages and known vocabulary.
+- Vocabulary is canonical for known vocabulary; study-language preferences remain
+  on the supporting Settings route until that surface is removed.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
 - Errors explain what happened and the next available action.

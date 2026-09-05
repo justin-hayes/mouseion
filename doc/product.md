@@ -7,7 +7,7 @@ Mouseion is a self-hosted web application for advanced foreign-language reading 
 ## Current learner-facing organization
 
 The authenticated shell has exactly three primary destinations: **My Books** at
-`/library`, **Reading Journey** at `/journey`, and **Settings** at `/settings`.
+`/library`, **Reading Journey** at `/journey`, and **Vocabulary** at `/vocabulary`.
 There is no acquisition action in the top navigation. Catalogue setup and sync
 maintenance are reached from My Books empty states and actions and via the
 `/connections` route; Add books is not a destination and is not a persistent
@@ -24,14 +24,14 @@ connection surface at `/connections`, with detailed work under `/jobs`; it does
 not change the three destinations and does not add an acquisition action to the
 top navigation.
 
-Settings owns saved study-language preferences and owner-scoped, language-scoped
-known vocabulary. Known-vocabulary import is explicit and additive: the learner
-chooses a saved study language and uploads a UTF-8 lemma file, with new,
-duplicate, and rejected rows reported separately. The direct `/known-vocab`
-route remains a compatibility redirect to the Settings section. When NLP
-capability discovery is degraded, saved preferences and known-vocabulary
-viewing remain available while adding a newly discovered study language is
-disabled until readiness can be checked.
+Settings retains saved study-language preferences as a supporting surface, while
+Vocabulary owns owner-scoped, language-scoped known vocabulary. Known-vocabulary
+import is explicit and additive: the learner chooses a derived study language
+and uploads a UTF-8 lemma file, with new, duplicate, and rejected rows reported
+separately. The direct `/known-vocab` route remains a compatibility redirect to
+Vocabulary. When NLP capability discovery is degraded, the Vocabulary page
+continues to use the derived study languages and does not offer an unrelated
+language for import.
 
 ## Feature specifications
 

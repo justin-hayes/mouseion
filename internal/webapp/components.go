@@ -210,7 +210,7 @@ const (
 	NavigationReadingJourney NavigationContext = "reading-journey"
 	NavigationLearning       NavigationContext = NavigationReadingJourney
 	NavigationAcquisition    NavigationContext = "acquisition"
-	NavigationSettings       NavigationContext = "settings"
+	NavigationVocabulary     NavigationContext = "vocabulary"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
@@ -219,8 +219,8 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationLibrary
 	case title == "Reading Journey", title == "Learning":
 		return NavigationReadingJourney
-	case title == "Settings", title == "Known vocabulary":
-		return NavigationSettings
+	case title == "Vocabulary", title == "Known vocabulary":
+		return NavigationVocabulary
 	case title == "Add books":
 		return NavigationAcquisition
 	default:
@@ -583,7 +583,7 @@ func catalogueSyncStatusRunning(status cataloguesync.Status) bool {
 func knownVocabImportAttributes(status knownvocab.Status) templ.Attributes {
 	attributes := templ.Attributes{"data-workflow": "known-vocabulary import"}
 	if knownVocabJobBusy(string(status.State)) {
-		attributes["hx-get"] = fmt.Sprintf("/known-vocab/imports/%d/status", status.ID)
+		attributes["hx-get"] = fmt.Sprintf("/vocabulary/imports/%d/status", status.ID)
 		attributes["hx-trigger"] = "every 2s"
 		attributes["hx-swap"] = "outerHTML"
 	}
@@ -603,7 +603,7 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 	}
 	switch status.State {
 	case "completed":
-		return "The import is complete. Review the updated known vocabulary in Settings."
+		return "The import is complete. Review the updated known vocabulary in Vocabulary."
 	case "cancelled":
 		return "The import was cancelled before a complete result was available. Upload the file again when ready."
 	case "discarded":

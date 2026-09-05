@@ -26,14 +26,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Reading Journey', 'Settings'];
+    const destinations = ['My Books', 'Reading Journey', 'Vocabulary'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', 'Reading Journey': '\\/journey', Settings: '\\/settings',
+        'My Books': '\\/library', 'Reading Journey': '\\/journey', Vocabulary: '\\/vocabulary',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -42,7 +42,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('representative tab order and focus indicators remain visible', async ({ page }) => {
     await signIn(page);
-    await page.goto('/settings?language=de');
+    await page.goto('/vocabulary?language=de');
     await page.keyboard.press('Tab');
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -229,16 +229,16 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {
     for (const disabled of [true, false]) {
       await signIn(page, disabled);
-      await page.goto('/settings?language=de');
-      const form = page.locator('form[hx-post*="/known-vocab/import"]');
+      await page.goto('/vocabulary?language=de');
+      const form = page.locator('form[hx-post*="/vocabulary/import"]');
       await form.locator('input[type="file"]').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nÜberraschung\n') });
       await form.getByRole('button', { name: /import known vocabulary/i }).press('Enter');
       if (disabled) {
-        await expect(page).toHaveURL(/\/known-vocab\/imports\/7\/status/);
+        await expect(page).toHaveURL(/\/vocabulary\/imports\/7\/status/);
         await expect(page.getByRole('status')).toContainText(/complete|queued/i);
       } else {
-        await expect(page).toHaveURL(/\/settings/);
-        await expect(page.locator('#known-vocabulary-results')).toContainText(/queued|complete/i);
+        await expect(page).toHaveURL(/\/vocabulary/);
+        await expect(page.locator('#vocabulary-results')).toContainText(/queued|complete/i);
       }
       if (disabled) await page.unroute('**/static/vendor/htmx-*.js');
       await page.context().clearCookies();

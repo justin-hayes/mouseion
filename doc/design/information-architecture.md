@@ -170,7 +170,8 @@ The authenticated shell exposes three principal destinations:
   surface for synced catalogue metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
-- **Settings** — study languages and known vocabulary.
+- **Vocabulary** — known vocabulary and its import workflow.
+- **Settings** — supporting study-language preferences until that surface is removed.
 
 The top navigation has no acquisition action. Catalogue setup and sync
 maintenance are supporting `/connections` routes reached from My Books empty
@@ -215,9 +216,10 @@ Catalogue maintenance
 Book detail
     per-book EPUB acquisition
 
-Settings
-    study languages
+Vocabulary
     known vocabulary and import
+Settings (supporting compatibility surface)
+    study languages
 
 Secondary history
     operational analysis history
@@ -233,7 +235,7 @@ redirect to `/journey`. The Journey page retains a secondary **Campaign history
 vocabulary-transition history. It does not present a duplicate queue or plan.
 
 The authenticated shell therefore exposes exactly My Books, Reading Journey, and
-Settings in the top navigation. `/connections` (catalogue maintenance and sync)
+Vocabulary in the top navigation. `/connections` (catalogue maintenance and sync)
 and `/jobs` are supporting surfaces reached from My Books and direct routes, not
 navigation destinations. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;
@@ -254,7 +256,8 @@ surface:
 /deck-preparations/{id}/download
 /connections
 /opds/acquire (per-book content acquisition)
-/settings and known-vocabulary support routes
+/settings (supporting study-language preferences)
+/vocabulary and known-vocabulary import support routes
 ```
 
 Mutation, fragment, and JSON status endpoints support a parent screen; they are
@@ -374,15 +377,15 @@ primary action is **View analysis result**, which opens the book page directly
 or through the compatibility redirect. `GET /jobs` remains the operational
 history surface for current and prior runs.
 
-## Settings ownership
+## Settings and Vocabulary ownership
 
-Settings owns study-language preferences and known vocabulary. Under the current
-contract, removing a study language removes only the preference; it does not
-delete books, analyses, decks, internal Campaigns, or known vocabulary.
-Known-vocabulary import remains additive and does not imply a correction or
-reversal path. Journey and Goal relationships are independent of Settings and
-known-vocabulary removal; their shipped consequences are defined by ADR 0034
-and ADR 0036.
+Settings owns study-language preferences, while Vocabulary owns known vocabulary.
+Under the current contract, removing a study language removes only the
+preference; it does not delete books, analyses, decks, internal Campaigns, or
+known vocabulary. Known-vocabulary import remains additive and does not imply a
+correction or reversal path. Journey and Goal relationships are independent of
+Settings and known-vocabulary removal; their shipped consequences are defined by
+ADR 0034 and ADR 0036.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
@@ -421,7 +424,7 @@ restores membership only after the validated source snapshot is persisted.
    the alternative is advisory evidence only and never overrides learner order
    or invents a composite score.
 7. **Routes and terminology** are reconciled in the shipped shell and supporting
-   surfaces: My Books, Reading Journey, and Settings are the active navigation
+   surfaces: My Books, Reading Journey, and Vocabulary are the active navigation
    destinations, with no acquisition action in the top navigation; `/known-vocab`
    and `/campaigns` remain compatibility
    routes with their documented redirects.

@@ -486,8 +486,8 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, KnownVocab: known, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
-	imported := multipartUpload(t, h, "/known-vocab/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Haus\n")
-	if imported.Code != http.StatusSeeOther || imported.Header().Get("Location") != "/known-vocab/imports/77/status" {
+	imported := multipartUpload(t, h, "/vocabulary/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Haus\n")
+	if imported.Code != http.StatusSeeOther || imported.Header().Get("Location") != "/vocabulary/imports/77/status" {
 		t.Fatalf("derived-language import=%d location=%q body=%s", imported.Code, imported.Header().Get("Location"), imported.Body.String())
 	}
 	if known.owner != alice.ID || known.status.Language != "de" {
@@ -988,7 +988,7 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 		}
 	}
 	field, filename := "dataset", "frequency.csv"
-	if path == "/known-vocab/import" {
+	if path == "/vocabulary/import" {
 		field, filename = "vocabulary_file", "known.txt"
 	}
 	part, err := writer.CreateFormFile(field, filename)

@@ -134,7 +134,7 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/settings" { destinationAttributes(context, NavigationSettings)... }>Settings</a></li>
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li>
 		<li><small>{ user.Username }</small></li><li><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
@@ -884,9 +884,9 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	}
 	</article> }
 }
-templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, studyLanguages []domain.StudyLanguage, degraded bool, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	@ShellLayout("Settings", &user, csrf, NavigationSettings) {
-	@PageHeader("Account settings", "Choose the languages you study and optionally import words you already know for each one.", nil)
+templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, message string) {
+	@ShellLayout("Settings", &user, csrf, NavigationNone) {
+	@PageHeader("Account settings", "Manage the languages used for catalogue synchronisation.", nil)
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
 	}
@@ -923,30 +923,6 @@ templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLa
 				}
 			}
 			</select></label><button>Add study language</button></form>
-		}
-	</section>
-	<section id="known-vocabulary" aria-labelledby="known-vocabulary-heading">
-		<h2 id="known-vocabulary-heading">Known vocabulary</h2>
-		<p>Known vocabulary is private to your account and language-scoped. It includes words you explicitly record and vocabulary graduated by a completed campaign; generated or active-campaign vocabulary is not counted as known.</p>
-		if len(studyLanguages) == 0 {
-			@EmptyState("No study language to select", "Add a chosen-language book to My Books before importing or viewing its known vocabulary.")
-		} else {
-			<form method="get" action="/settings#known-vocabulary" class="settings-language-picker"><label>Language<select name="language" required><option value="">Choose a study language</option>
-			for _, studyLanguage := range studyLanguages {
-				<option value={ studyLanguage.Language } selected?={ language == studyLanguage.Language }>{ studyLanguage.DisplayName } ({ studyLanguage.Language })</option>
-			}
-			</select></label><button class="outline">View known vocabulary</button></form>
-			if language == "" {
-				<p>Select a study language to view its known vocabulary or import a lemma file.</p>
-			} else {
-				<p>Viewing <strong>{ studyLanguageName(studyLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
-				if studyLanguagePresent(studyLanguages, language) {
-					<form method="post" action={ templ.SafeURL(knownVocabImportAction(language, "settings")) } enctype="multipart/form-data" hx-post={ knownVocabImportAction(language, "settings") } hx-encoding="multipart/form-data" hx-target="#known-vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value="settings"/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
-				} else {
-					<p>This language is no longer present in My Books. Existing known vocabulary remains available; add a chosen-language book before importing more.</p>
-				}
-				<section id="known-vocabulary-results">@KnownVocabResult(language, result, known, "")</section>
-			}
 		}
 	</section>
 	}
@@ -1079,13 +1055,28 @@ templ JobStatus(csrf string, status analysis.Status) {
 		}
 	}
 }
-templ KnownVocabPageWithResult(user domain.User, csrf string, languages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	@ShellLayout("Known vocabulary", &user, csrf, NavigationSettings) { <h1>Known vocabulary</h1><p>Import words you already know so pre-learning decks focus on new vocabulary.</p>
-	<article><form method="post" action="/known-vocab/import" enctype="multipart/form-data" hx-post="/known-vocab/import" hx-encoding="multipart/form-data" hx-target="#known-vocab-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>Language code<input name="language" value={ language } list="study-languages" placeholder="de" required/></label><datalist id="study-languages">
-	for _, studyLanguage := range languages {
-		<option value={ studyLanguage.Language }>{ studyLanguage.DisplayName }</option>
+templ VocabularyPageWithResult(user domain.User, csrf string, languages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary", "Import words you already know so pre-learning decks focus on new vocabulary.", nil)
+		if len(languages) == 0 {
+			@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
+				<a href="/connections">Connect a catalogue</a>
+			}
+		} else {
+			<form method="get" action="/vocabulary" class="vocabulary-language-picker"><label>Language<select name="language" required><option value="">Choose a study language</option>
+			for _, studyLanguage := range languages {
+				<option value={ studyLanguage.Language } selected?={ language == studyLanguage.Language }>{ studyLanguage.DisplayName } ({ studyLanguage.Language })</option>
+			}
+			</select></label><button class="outline">View known vocabulary</button></form>
+			if language == "" {
+				<p>Select a study language to view known vocabulary or import a lemma file.</p>
+			} else {
+				<p>Viewing <strong>{ studyLanguageName(languages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
+				<form method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post="/vocabulary/import" hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+			}
+		}
+		<section id="vocabulary-results">@KnownVocabResult(language, result, known, message)</section>
 	}
-	</datalist><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known words</button></form></article><section id="known-vocab-results">@KnownVocabResult(language, result, known, message)</section> }
 }
 templ KnownVocabResult(language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	if message != "" {
@@ -1141,7 +1132,7 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 }
 templ knownVocabImportStatusBody(status knownvocab.Status) {
 		if knownVocabJobBusy(string(status.State)) {
-			<p>Return to Settings to review the result after processing finishes.</p>
+			<p>Return to Vocabulary to review the result after processing finishes.</p>
 		}
 		if status.State == "completed" {
 			if len(status.Rejected) > 0 {
@@ -1171,7 +1162,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			if status.Language != "" {
 				<p>Selected language: <code>{ status.Language }</code></p>
 			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Known vocabulary settings to retry the import</a></p>
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Vocabulary to retry the import</a></p>
 		}
 		if status.State == "discarded" {
 			<p role="alert"><strong>Import failed.</strong>
@@ -1182,7 +1173,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			if status.Language != "" {
 				<p>Selected language: <code>{ status.Language }</code></p>
 			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Known vocabulary settings to retry the import</a></p>
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Vocabulary to retry the import</a></p>
 		}
 }
 
