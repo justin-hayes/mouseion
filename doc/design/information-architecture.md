@@ -144,8 +144,9 @@ These objects remain important, but they do not define principal navigation:
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
 - **Catalogue sync** — periodic metadata reconciliation for one learner-owned
   connection. It is upsert-only and never destructive; content is trusted
-  immutable for sync, so it never invalidates scope or analysis. The target
-  contract is proposed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
+  immutable for sync, so it never invalidates scope or analysis. The metadata
+  contract is defined by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md)
+  and its language scope is reconciled by ADR 0043.
 - **Study language** — a distinct normalized language tag of the owner's active
   chosen-language Books; it defines known-vocabulary language context and is
   derived rather than selected in Settings.

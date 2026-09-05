@@ -1,9 +1,11 @@
 # Catalogue sync to My Books workflow
 
 Status: **Canonical learner-facing workflow.** It is the automated,
-metadata-first path to the local My Books collection. Product behavior is proposed
-by [ADR 0041](../../adr/0041-catalog-sync-metadata-first.md) and the
-[Catalogue Sync feature](../../features/catalog-sync.md).
+metadata-first path to the local My Books collection. Product behavior is defined
+by the metadata-first and non-destructive contract in
+[ADR 0041](../../adr/0041-catalog-sync-metadata-first.md), with its language
+scope reconciled by [ADR 0043](../../adr/0043-study-languages-derived-settings-removed.md),
+and by the [Catalogue Sync feature](../../features/catalog-sync.md).
 
 ## Goal
 

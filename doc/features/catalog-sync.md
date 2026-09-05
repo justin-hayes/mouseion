@@ -24,7 +24,7 @@ This feature covers automated per-connection metadata sync, explicit **Sync
 now**, per-book metadata refresh, connection-level status, and the transition
 from a metadata-only Book to explicit per-book content acquisition. My Books is the sole
 browse surface for the synced collection; acquisition starts from Book detail.
-It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
+Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
 
 ## Requirements
 
@@ -110,7 +110,8 @@ It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 - Detecting changed EPUB bytes or invalidating reviewed scope or analysis from
   sync.
 - Destructively reconciling upstream removals.
-- Synchronizing English, unready languages, or every non-English language.
+- Synchronizing English, unready languages, or catalogue languages that are not
+  offered by the connected catalogue.
 - Adding a fourth destination, a global sync dashboard, or an upstream catalog
   browser.
 - Batch-selecting Books for analysis; whether a future batch contract exists is

@@ -40,6 +40,8 @@ Three concepts remain distinct:
   service;
 - **Study language** — the distinct normalized language tags of the learner's
   active chosen-language Books;
+- **Known vocabulary** — owner-scoped lemmas explicitly imported or added
+  through a justified vocabulary transition.
 
 Derived study languages define which languages may be viewed or imported in
 Vocabulary. A Book's language state can be corrected on My Books; changing it
