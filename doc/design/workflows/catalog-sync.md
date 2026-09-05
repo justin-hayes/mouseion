@@ -107,7 +107,7 @@ invalidates existing evidence.
 | Never synced | Name the connection and explain the offered non-English ready-language scope. | Sync now |
 | Syncing | Preserve existing Books, identify metadata reconciliation as in progress, and provide operational detail without turning jobs into navigation. | View job status |
 | Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
-| Synced with no changes | Show the last-synced time and eligible languages; state that no eligible EPUB entries were found when scope is empty. | Browse My Books |
+| Synced with no changes | Show the last-synced time and state that no eligible EPUB entries were found when the reconciliation produced no changes. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
 | Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Express acquisition intent |
 | Lazy acquisition running | Keep Book context and identify content acquisition separately from analysis. | View status when queued |

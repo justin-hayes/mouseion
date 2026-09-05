@@ -104,7 +104,7 @@ Books or replace source evidence.
 | State | Required presentation | Primary action |
 |---|---|---|
 | No catalogue connections | Explain why a connection is needed. | Add catalogue connection |
-| Connections available | Show recognizable connection names, eligible sync scope, and maintenance separately. | Sync catalogue |
+| Connections available | Show recognizable connection names, sync status, and maintenance separately. | Sync catalogue |
 | No ready catalogue language | Explain that no offered non-English language currently has a ready NLP pipeline. | Retry sync or add a different catalogue |
 | Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
 | Acquiring EPUB | Disable duplicate submission and announce progress. | None |
