@@ -889,7 +889,7 @@ templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsCo
 
 templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
-		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil)
+		@PageHeader("Add books", "Connect a catalog and add EPUB books to My Books.", nil)
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}

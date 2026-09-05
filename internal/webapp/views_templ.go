@@ -5175,7 +5175,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Add books", "Connect a catalog and add EPUB books to My Books.", nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
