@@ -1,6 +1,6 @@
 # ADR 0043: Study languages are derived from the library and Settings is removed
 
-Status: **Proposed** · Date: 2026-09-04 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-09-04 · Author: Justin + opencode
 
 ## Context
 

@@ -16,7 +16,7 @@ results, and prepare a deck through distinct, durable, reproducible steps.
 ## Learner journey
 
 1. Connect a learner-owned catalogue from the My Books empty state, choose a
-   ready study language, and synchronize metadata.
+   ready catalogue language, and synchronize metadata.
 2. Browse the local My Books collection and open a metadata-only Book.
 3. Acquire that Book's EPUB content without starting analysis.
 4. Review its extracted units and confirm a scope revision.

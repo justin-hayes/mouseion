@@ -13,8 +13,10 @@ acquisition and the explicit scope-and-analysis lifecycle.
 ## Goal
 
 Keep bibliographic metadata from each learner-owned catalogue connection
-reconciled into My Books for the learner's ready study languages, excluding
-English, without downloading EPUBs or deleting learner-owned state.
+reconciled into My Books for every non-English language the catalogue offers
+whose NLP pipeline is ready, without downloading EPUBs or deleting
+learner-owned state. The chosen-language Books produced by this process derive
+the learner's study-language set.
 
 ## Scope
 
@@ -54,13 +56,15 @@ It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 
 ### Language scope
 
-- A run includes only the intersection of the learner's saved study languages
-  and languages currently advertised as ready by the NLP service.
-- English is always removed from that intersection under the current product
-  assumption that it is every learner's native language.
-- A catalogue language that is not saved or not ready is not synchronized.
-- Removing a study-language preference never deletes already synchronized
-  metadata-only Books, acquired content, analyses, decks, or vocabulary.
+- A run walks every non-English language the catalogue offers whose NLP pipeline
+  is currently advertised as ready by the service.
+- English is always excluded under the current product assumption that it is
+  every learner's native language.
+- A catalogue language that is not offered or not ready is not synchronized.
+- Study languages are derived from active Books whose language is chosen; there
+  is no saved language selection to remove. Changing a Book's language state
+  does not delete its membership, acquired content, analyses, decks, or
+  vocabulary.
 
 ### Metadata-first reconciliation
 
@@ -92,9 +96,9 @@ It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
 | State | Required presentation | Primary action |
 |---|---|---|
 | No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalogue connection |
-| Never synced | Identify the connection and explain which ready study languages, excluding English, are eligible. | Sync now |
+| Never synced | Identify the connection and explain that every offered non-English language with a ready NLP pipeline is eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
-| Last synced | Show the last successful time, eligible scope, and retain ordinary edit/delete actions. | Sync now or My Books |
+| Last synced | Show the last successful time, the non-English ready-language scope, and retain ordinary edit/delete actions. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Open the book and acquire via `POST /opds/acquire` |
 | Lazy acquisition running or failed | Preserve book context and distinguish content work from analysis. | View status or retry |
@@ -123,7 +127,8 @@ It is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
   state has a usable server-rendered path and recovery where applicable.
 - **Sync now** and periodic execution invoke the same owner-scoped,
   idempotent reconciliation.
-- Only ready saved study languages except English are walked.
+- Every offered non-English language with a ready NLP pipeline is walked; no
+  saved study-language preference gates the run.
 - Repeated runs create no duplicates; upstream metadata changes update local
   metadata; upstream removal and connection deletion remove nothing from My
   Books.

@@ -21,7 +21,7 @@ The product supports these top-level goals:
 3. commit to finishing one Primary Goal at a time, when desired;
 4. understand trustworthy current and conditional preparation evidence;
 5. review how actual vocabulary changes affect books ahead;
-6. maintain study languages and known vocabulary.
+6. understand derived study languages and maintain known vocabulary.
 
 The recurring experience rhythm is:
 
@@ -146,10 +146,9 @@ These objects remain important, but they do not define principal navigation:
   connection. It is upsert-only and never destructive; content is trusted
   immutable for sync, so it never invalidates scope or analysis. The target
   contract is proposed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md).
-- **Study-language preference** — owner-scoped catalogue-sync selection from
-  capabilities advertised as ready by the NLP service.
-- **Library study language** — distinct normalized language tags of the owner's
-  active chosen-language Books; it defines known-vocabulary language context.
+- **Study language** — a distinct normalized language tag of the owner's active
+  chosen-language Books; it defines known-vocabulary language context and is
+  derived rather than selected in Settings.
 - **Language lens** — a derived, evidence-only per-language aggregate over
   current analyses and known vocabulary. It owns no Book, scope, analysis, or
   action; [ADR 0042](../adr/0042-derived-language-corpus-view.md) proposes its
@@ -171,7 +170,6 @@ The authenticated shell exposes three principal destinations:
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
 - **Vocabulary** — known vocabulary and its import workflow.
-- **Settings** — supporting study-language preferences until that surface is removed.
 
 The top navigation has no acquisition action. Catalogue setup and sync
 maintenance are supporting `/connections` routes reached from My Books empty
@@ -218,8 +216,6 @@ Book detail
 
 Vocabulary
     known vocabulary and import
-Settings (supporting compatibility surface)
-    study languages
 
 Secondary history
     operational analysis history
@@ -256,7 +252,7 @@ surface:
 /deck-preparations/{id}/download
 /connections
 /opds/acquire (per-book content acquisition)
-/settings (supporting study-language preferences)
+/settings (compatibility redirect to `/library`)
 /vocabulary and known-vocabulary import support routes
 ```
 
@@ -377,15 +373,17 @@ primary action is **View analysis result**, which opens the book page directly
 or through the compatibility redirect. `GET /jobs` remains the operational
 history surface for current and prior runs.
 
-## Settings and Vocabulary ownership
+## Study languages and Vocabulary ownership
 
-Settings owns study-language preferences, while Vocabulary owns known vocabulary.
-Under the current contract, removing a study language removes only the
-preference; it does not delete books, analyses, decks, internal Campaigns, or
-known vocabulary. Known-vocabulary import remains additive and does not imply a
-correction or reversal path. Journey and Goal relationships are independent of
-Settings and known-vocabulary removal; their shipped consequences are defined by
-ADR 0034 and ADR 0036.
+Study languages are derived from the distinct normalized language tags of the
+learner's active chosen-language Books. The per-book language control in My
+Books is therefore the source of truth; there is no separate Settings selection
+to maintain. Vocabulary owns known vocabulary and its additive import workflow.
+Import eligibility is limited to the derived study-language set, and changing a
+Book's language state does not delete known-vocabulary rows, books, analyses,
+decks, or internal Campaign history. Journey and Goal relationships remain
+independent of vocabulary import; their shipped consequences are defined by ADR
+0034 and ADR 0036.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
@@ -433,15 +431,22 @@ restores membership only after the validated source snapshot is persisted.
    the sole learner-facing insight surface, prior runs remain operational audit
    records, and run-specific result URLs redirect to the book.
 9. **Catalogue sync** is the target contract proposed by
-   [ADR 0041](../adr/0041-catalog-sync-metadata-first.md): each learner-owned
-   connection periodically reconciles metadata for ready study languages except
-   English, without downloading content, deleting local state, or invalidating
-   scope or analysis.
+   [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
+   scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
+   each learner-owned connection periodically reconciles metadata for every
+   non-English language whose NLP pipeline is ready, without downloading
+   content, deleting local state, or invalidating scope or analysis.
 10. **Derived language corpus lens** is the target contract proposed by
     [ADR 0042](../adr/0042-derived-language-corpus-view.md): an evidence-only
     per-language panel starts within My Books and derives aggregates from current
     analyses and known vocabulary. It may become a destination only after future
     explicit reconciliation at this checkpoint.
+11. **Derived study languages and Vocabulary** are resolved by
+    [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
+    chosen-language Books define the language set, Vocabulary owns
+    known-vocabulary import, and Settings is removed from primary navigation.
+    Any future change to the derived-language source or Vocabulary's destination
+    must return to this checkpoint.
 
 ## Cross-linking rules
 

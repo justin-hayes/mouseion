@@ -128,19 +128,19 @@ The single-active Campaign remains internal reservation state and secondary
 history/operations. ADR 0036 governs the independent reading outcome and
 justified vocabulary transition shown by this surface.
 
-## Settings and known vocabulary
+## Derived study languages and known vocabulary
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Settings | Current `GET /settings` and `/settings/languages` mutations | Manage study-language preferences. | Remain in Settings | No profile, ready languages, saved language while capability discovery is degraded, no newly available languages, add/remove success or failure |
-| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No study languages, no selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
+| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Select a language derived from My Books, upload one lemma per line, and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No derived study languages, no selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
-Vocabulary is the canonical destination for known vocabulary. Under the current
-contract, removing a study-language preference does not remove books, analyses,
-prepared artifacts, internal Campaigns, or known vocabulary for that language.
-Journey/Goal effects must not be claimed before those relationships receive a
-product contract.
+Vocabulary is the canonical destination for known vocabulary. Its language
+picker is limited to the distinct normalized language tags of active
+chosen-language Books. Changing a Book's language state does not remove books,
+analyses, prepared artifacts, internal Campaigns, or known vocabulary. The
+`/settings` compatibility route redirects to My Books; it is not a learner-facing
+screen.
 
 ## Inactive and supporting implementation
 

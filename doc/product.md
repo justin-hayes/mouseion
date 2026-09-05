@@ -24,13 +24,15 @@ connection surface at `/connections`, with detailed work under `/jobs`; it does
 not change the three destinations and does not add an acquisition action to the
 top navigation.
 
-Settings retains saved study-language preferences as a supporting surface, while
-Vocabulary owns owner-scoped, language-scoped known vocabulary. Known-vocabulary
-import is explicit and additive: the learner chooses a derived study language
-and uploads a UTF-8 lemma file, with new, duplicate, and rejected rows reported
-separately. The direct `/known-vocab` route remains a compatibility redirect to
-Vocabulary. When NLP capability discovery is degraded, the Vocabulary page
-continues to use the derived study languages and does not offer an unrelated
+Study languages are derived from the distinct normalized language tags of the
+learner's active chosen-language Books; there is no study-language preference or
+Settings destination. Vocabulary owns owner-scoped, language-scoped known
+vocabulary. Known-vocabulary import is explicit and additive: the learner
+chooses one derived study language and uploads a UTF-8 lemma file, with new,
+duplicate, and rejected rows reported separately. The direct `/known-vocab` route
+remains a compatibility redirect to Vocabulary, and `/settings` redirects to My
+Books. When NLP capability discovery is degraded, Vocabulary keeps derived
+languages legible from stored display names and does not offer an unrelated
 language for import.
 
 ## Feature specifications
@@ -52,7 +54,7 @@ language for import.
 
 ## Current pipeline
 
-1. **My Books acquisition** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, browse the resulting local My Books collection, and acquire an EPUB from a selected Book's detail page via `POST /opds/acquire`. Acquisition creates or restores My Books membership and does not start analysis. A periodic job per catalogue connection also upserts metadata for ready study languages excluding English, creating metadata-only My Books entries whose content is acquired lazily on explicit learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis.
+1. **My Books acquisition** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, browse the resulting local My Books collection, and acquire an EPUB from a selected Book's detail page via `POST /opds/acquire`. Acquisition creates or restores My Books membership and does not start analysis. A periodic job per catalogue connection walks every non-English language the catalogue offers whose NLP pipeline is ready, creating or updating chosen metadata-only My Books entries whose content is acquired lazily on explicit learner intent; a per-book metadata refresh is available, and sync is never destructive and never invalidates scope or analysis. The resulting chosen-language Books derive the learner's study-language set.
 2. **Whole-book analysis** — from the book page, explicitly start analysis of every readable unit in the current acquired EPUB snapshot. Metadata-only edits do not invalidate content; changed EPUB content is analyzed again on the next start.
 3. **Explicit analysis** — observe an asynchronous analysis bound to an internally persisted full-book scope, producing an immutable completed corpus with source and scope provenance.
 4. **Insights (target; ADR 0040 proposed)** — inspect the book's one current analysis on `/books/{id}`: headline current known coverage with an analyzed-units qualifier, vocabulary investment, highest-impact unknown vocabulary, warning-only quality information, and deck preparation. Prior runs remain operational history in `/jobs`; run-specific result URLs redirect to the book.
