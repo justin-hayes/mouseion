@@ -29,7 +29,9 @@ _Avoid_: known words, learned vocabulary.
 
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
-state. Chosen book languages are the raw material from which a learner's study
+state. A chosen tag is stored in one canonical base form — lowercased, with `_`
+as `-` and region subtags collapsed, so `de_DE` and `de-de` are the same as `de`.
+Chosen book languages are the raw material from which a learner's study
 languages are derived.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
