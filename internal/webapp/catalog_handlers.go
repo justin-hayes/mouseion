@@ -22,7 +22,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	profiles, e := h.services.Store.ListLanguageProfiles(r.Context(), u.ID)
+	languages, e := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
 		return
@@ -51,7 +51,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 			statuses[status.ConnectionID] = status
 		}
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses, profiles))
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses, languages))
 }
 
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {

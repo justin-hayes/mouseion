@@ -77,7 +77,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Connect a catalogue", "Set study language", `href="/connections"`, `href="/settings#study-languages"`, "acquire EPUB content"} {
+	for _, want := range []string{"Connect a catalogue", `href="/connections"`, "acquire EPUB content"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("empty My Books onboarding missing %q: %s", want, html)
 		}

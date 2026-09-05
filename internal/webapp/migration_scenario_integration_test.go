@@ -77,18 +77,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Language selection and the initial My Books form are server-rendered
-	// controls; these requests deliberately omit HX-Request.
-	settings := perform(t, h, http.MethodGet, "/settings", nil, aliceCookies)
-	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), `name="language"`) || !strings.Contains(settings.Body.String(), `name="csrf_token"`) {
-		t.Fatalf("initial settings=%d %s", settings.Code, settings.Body.String())
-	}
-	for _, language := range []string{"de", "it"} {
-		added := perform(t, h, http.MethodPost, "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {language}}, aliceCookies)
-		if added.Code != http.StatusSeeOther {
-			t.Fatalf("add %s language=%d %s", language, added.Code, added.Body.String())
-		}
-	}
 	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Haus", "NOUN"); err != nil {
 		t.Fatal(err)
 	}
@@ -286,21 +274,9 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("deck retry=%+v err=%v", requeued, err)
 	}
 
-	itSettings := perform(t, h, http.MethodGet, "/settings?language=it", nil, aliceCookies)
-	if itSettings.Code != http.StatusOK || !strings.Contains(itSettings.Body.String(), "Italian") || !strings.Contains(itSettings.Body.String(), "Saved study preference") {
-		t.Fatalf("explicit Italian settings=%d %s", itSettings.Code, itSettings.Body.String())
-	}
 	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary?language=de", nil, aliceCookies)
 	if deVocabulary.Code != http.StatusOK || !strings.Contains(deVocabulary.Body.String(), "Haus") || !strings.Contains(deVocabulary.Body.String(), "Explicitly recorded") {
 		t.Fatalf("explicit German vocabulary=%d %s", deVocabulary.Code, deVocabulary.Body.String())
-	}
-	degradedHandler := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Capabilities: staticCapabilities{err: errors.New("NLP unavailable")}, SessionLifetime: time.Hour})
-	degraded := perform(t, degradedHandler, http.MethodGet, "/settings", nil, aliceCookies)
-	if degraded.Code != http.StatusOK || !strings.Contains(degraded.Body.String(), "NLP language discovery is temporarily unavailable") || strings.Contains(degraded.Body.String(), `action="/settings/languages"`) {
-		t.Fatalf("degraded settings=%d %s", degraded.Code, degraded.Body.String())
-	}
-	if blocked := perform(t, degradedHandler, http.MethodPost, "/settings/languages", url.Values{"csrf_token": {csrf}, "language": {"fr"}}, aliceCookies); blocked.Code != http.StatusServiceUnavailable {
-		t.Fatalf("degraded language mutation=%d", blocked.Code)
 	}
 }
 

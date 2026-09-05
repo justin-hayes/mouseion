@@ -34,8 +34,7 @@ func TestCatalogueSyncConnectionViewExplainsEmptyEligibleScope(t *testing.T) {
 	}, nil)
 	html := renderPattern(t, CatalogueSyncConnectionStatus(view), "")
 	requireMarkup(t, html,
-		"No eligible study language to sync. Choose a ready study language in Settings, then sync again.",
-		`href="/settings"`,
+		"No eligible study language to sync. Add or sync a book with a chosen language, then sync again.",
 	)
 }
 
@@ -43,7 +42,7 @@ func TestCatalogueSyncConnectionViewNamesEligibleScope(t *testing.T) {
 	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
 		"catalog": {State: domain.CatalogueSyncSynced, LastSyncedAt: &now},
-	}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}, {Language: "en", DisplayName: "English"}})
+	}, []domain.StudyLanguage{{Language: "de", DisplayName: "German"}, {Language: "en", DisplayName: "English"}})
 	if view.EligibleScope != "German" || strings.Contains(view.Message, "already current") || !strings.Contains(view.Message, "German") {
 		t.Fatalf("scope view=%+v", view)
 	}

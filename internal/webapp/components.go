@@ -14,15 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
-func studyLanguageSaved(profiles []domain.LanguageProfile, language string) bool {
-	for _, profile := range profiles {
-		if profile.Language == language {
-			return true
-		}
-	}
-	return false
-}
-
 func studyLanguagePresent(languages []domain.StudyLanguage, language string) bool {
 	for _, candidate := range languages {
 		if candidate.Language == language {
@@ -30,27 +21,6 @@ func studyLanguagePresent(languages []domain.StudyLanguage, language string) boo
 		}
 	}
 	return false
-}
-
-func hasAddableStudyLanguage(supported []domain.SupportedLanguage, profiles []domain.LanguageProfile) bool {
-	for _, language := range supported {
-		if !studyLanguageSaved(profiles, language.Language) {
-			return true
-		}
-	}
-	return false
-}
-
-func studyLanguageStatus(profile domain.LanguageProfile, supported []domain.SupportedLanguage, degraded bool) string {
-	if degraded {
-		return "NLP readiness cannot currently be verified; this saved preference is retained."
-	}
-	for _, language := range supported {
-		if language.Language == profile.Language {
-			return "NLP analysis ready."
-		}
-	}
-	return "NLP analysis is not currently ready; this saved preference is retained."
 }
 
 func studyLanguageName(languages []domain.StudyLanguage, language string) string {
@@ -100,28 +70,26 @@ type MetadataItem struct {
 }
 
 type catalogueSyncConnectionView struct {
-	HasStatus        bool
-	State            string
-	Message          string
-	Error            string
-	LastSyncedAt     string
-	LastSyncedAtISO  string
-	UpsertSummary    string
-	EligibleScope    string
-	Syncing          bool
-	Failed           bool
-	HasLastSyncedAt  bool
-	SettingsGuidance bool
+	HasStatus       bool
+	State           string
+	Message         string
+	Error           string
+	LastSyncedAt    string
+	LastSyncedAtISO string
+	UpsertSummary   string
+	EligibleScope   string
+	Syncing         bool
+	Failed          bool
+	HasLastSyncedAt bool
 }
 
-func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) catalogueSyncConnectionView {
+func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) catalogueSyncConnectionView {
 	status, found := statuses[connection.ID]
-	view := catalogueSyncConnectionView{HasStatus: found, EligibleScope: eligibleCatalogueLanguageScope(profiles)}
+	view := catalogueSyncConnectionView{HasStatus: found, EligibleScope: eligibleCatalogueLanguageScope(languages)}
 	if !found {
 		view.State = "Never synced"
 		if view.EligibleScope == "" {
-			view.Message = fmt.Sprintf("%s has never synced. Choose a ready study language in Settings, then sync; it does not download EPUB content.", connection.Name)
-			view.SettingsGuidance = true
+			view.Message = fmt.Sprintf("%s has never synced. Add or sync a book with a chosen language, then sync; it does not download EPUB content.", connection.Name)
 		} else {
 			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
 		}
@@ -141,8 +109,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 		}
 		if status.LastUpsertedCount == 0 {
 			if view.EligibleScope == "" {
-				view.Message = "No eligible study language to sync. Choose a ready study language in Settings, then sync again."
-				view.SettingsGuidance = true
+				view.Message = "No eligible study language to sync. Add or sync a book with a chosen language, then sync again."
 			} else {
 				view.Message = fmt.Sprintf("Sync ran for %s. No eligible EPUB entries were found for those languages; the library was unchanged.", view.EligibleScope)
 			}
@@ -157,8 +124,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	default:
 		view.State = "Never synced"
 		if view.EligibleScope == "" {
-			view.Message = fmt.Sprintf("%s has never synced. Choose a ready study language in Settings, then sync; it does not download EPUB content.", connection.Name)
-			view.SettingsGuidance = true
+			view.Message = fmt.Sprintf("%s has never synced. Add or sync a book with a chosen language, then sync; it does not download EPUB content.", connection.Name)
 		} else {
 			view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready study-language metadata from %s, excluding English; it does not download EPUB content.", connection.Name, view.EligibleScope)
 		}
@@ -166,16 +132,16 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	return view
 }
 
-func eligibleCatalogueLanguageScope(profiles []domain.LanguageProfile) string {
+func eligibleCatalogueLanguageScope(studyLanguages []domain.StudyLanguage) string {
 	seen := make(map[string]struct{})
-	languages := make([]string, 0, len(profiles))
-	for _, profile := range profiles {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(profile.Language)), "en") {
+	languages := make([]string, 0, len(studyLanguages))
+	for _, language := range studyLanguages {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(language.Language)), "en") {
 			continue
 		}
-		name := strings.TrimSpace(profile.DisplayName)
+		name := strings.TrimSpace(language.DisplayName)
 		if name == "" {
-			name = strings.TrimSpace(profile.Language)
+			name = strings.TrimSpace(language.Language)
 		}
 		if name == "" {
 			continue

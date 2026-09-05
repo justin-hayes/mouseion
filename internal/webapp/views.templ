@@ -265,9 +265,8 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
 		if len(books) == 0 {
-			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, set a study language in Settings, then sync. Ready-language metadata will appear here; acquire EPUB content from a book when you are ready.") {
+			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then add or sync a book with a chosen language. Ready-language metadata will appear here; acquire EPUB content from a book when you are ready.") {
 				<a role="button" href="/connections">Connect a catalogue</a>
-				<a role="button" class="outline" href="/settings#study-languages">Set study language</a>
 				if hasCatalogueConnections {
 					<a role="button" class="outline" href="/connections">Sync catalogue</a>
 				}
@@ -884,54 +883,11 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	}
 	</article> }
 }
-templ SettingsPage(user domain.User, csrf string, supported []domain.SupportedLanguage, profiles []domain.LanguageProfile, degraded bool, message string) {
-	@ShellLayout("Settings", &user, csrf, NavigationNone) {
-	@PageHeader("Account settings", "Manage the languages used for catalogue synchronisation.", nil)
-	if message != "" {
-		@Feedback(FeedbackSuccess, "", message)
-	}
-	<section id="study-languages" aria-labelledby="study-languages-heading">
-		<h2 id="study-languages-heading">Study languages</h2>
-		<p>Study languages are saved learner preferences. NLP analysis readiness comes from the language service, and ready study languages define catalogue-sync scope; synced metadata is browsed in My Books.</p>
-		if degraded {
-			@Feedback(FeedbackWarning, "NLP language discovery is temporarily unavailable", "Your saved study languages are unchanged. New study-language additions are disabled until readiness can be checked.")
-		}
-		<h3>Saved study preferences</h3>
-		if len(profiles) == 0 {
-			<p>No study languages are saved yet. Choose a ready NLP language below when one is available.</p>
-		} else {
-			<div class="settings-language-list">
-			for _, profile := range profiles {
-				<article class="resource-card settings-language-item"><header class="page-heading"><div><h3>{ profile.DisplayName } <code>{ profile.Language }</code></h3><p class="metadata">Saved study preference</p></div></header><p>{ studyLanguageStatus(profile, supported, degraded) }</p>
-				@Confirmation("Remove study language", fmt.Sprintf("Remove %s as a study preference only. Your vocabulary, books, analyses, prepared decks, and campaigns for %s remain.", profile.DisplayName, profile.DisplayName), StatusDanger) {<form method="post" action="/settings/languages/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ profile.Language }/><button class="outline secondary">Confirm removal</button></form>}
-				</article>
-			}
-			</div>
-		}
-		if degraded {
-			<p class="metadata">Ready NLP capabilities cannot be verified right now, so only existing preferences remain actionable.</p>
-		} else if len(supported) == 0 {
-			<p>No analysis languages are currently ready. Readiness is provided by the NLP service and cannot be enabled by changing a preference.</p>
-		} else if !hasAddableStudyLanguage(supported, profiles) {
-			<p>All currently ready NLP languages are already saved as study preferences.</p>
-		} else {
-			<h3>Add a ready NLP language</h3>
-			<form method="post" action="/settings/languages"><input type="hidden" name="csrf_token" value={ csrf }/><label>Ready language<select name="language" required><option value="">Choose a language</option>
-			for _, candidate := range supported {
-				if !studyLanguageSaved(profiles, candidate.Language) {
-					<option value={ candidate.Language }>{ candidate.DisplayName } ({ candidate.Language })</option>
-				}
-			}
-			</select></label><button>Add study language</button></form>
-		}
-	</section>
-	}
-}
-templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) {
-	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses, profiles)
+templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
+	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses, languages)
 }
 
-templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus, profiles []domain.LanguageProfile) {
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus, languages []domain.StudyLanguage) {
 	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
 		@PageHeader("Add books", "Connect a catalog, choose a ready analysis language, and add EPUB books to My Books.", nil)
 		if message != "" {
@@ -953,7 +909,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, profiles))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, profiles))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses, languages))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses, languages))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}

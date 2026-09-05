@@ -232,40 +232,6 @@ func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 	}
 }
 
-func TestSettingsKeepsLanguagePreferenceContract(t *testing.T) {
-	var output bytes.Buffer
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, true, "").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	html := output.String()
-	for _, want := range []string{
-		`id="study-languages"`,
-		`German <code>de</code>`,
-		`ready study languages define catalogue-sync scope`,
-		`New study-language additions are disabled`,
-		`vocabulary, books, analyses, prepared decks, and campaigns for German remain`,
-	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("settings missing %q: %s", want, html)
-		}
-	}
-	if strings.Contains(html, `action="/settings/languages"`) && strings.Contains(html, "New study-language additions are disabled") {
-		t.Error("degraded settings must not expose an add-language form")
-	}
-
-	output.Reset()
-	if err := SettingsPage(domain.User{Username: "learner"}, "csrf", []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}}, []domain.LanguageProfile{{Language: "de", DisplayName: "German"}}, false, "").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	readyHTML := output.String()
-	if !strings.Contains(readyHTML, "Italian") || strings.Contains(readyHTML, "No analysis languages are currently ready") {
-		t.Fatalf("ready addable capability missing: %s", readyHTML)
-	}
-	if strings.Count(readyHTML, `<option value="de">German (de)</option>`) > 1 {
-		t.Errorf("saved language was offered as a new addition: %s", readyHTML)
-	}
-}
-
 func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
 	if got := knownVocabImportAction("de"); got != "/vocabulary/import?language=de" {
 		t.Fatalf("import target = %q", got)
@@ -327,11 +293,6 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 
 type knownVocabContextStore struct {
 	Store
-	profiles []domain.LanguageProfile
-}
-
-func (s knownVocabContextStore) ListLanguageProfiles(context.Context, string) ([]domain.LanguageProfile, error) {
-	return s.profiles, nil
 }
 
 func (knownVocabContextStore) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
@@ -353,9 +314,7 @@ func TestKnownVocabImportLanguageIgnoresReturnTo(t *testing.T) {
 }
 
 func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
-	h := &Handler{services: Services{Store: knownVocabContextStore{
-		profiles: []domain.LanguageProfile{{Language: "de", DisplayName: "German"}},
-	}}}
+	h := &Handler{services: Services{Store: knownVocabContextStore{}}}
 
 	var oversized bytes.Buffer
 	oversized.WriteString("--known-vocabulary\r\nContent-Disposition: form-data; name=\"vocabulary_file\"; filename=\"words.txt\"\r\nContent-Type: text/plain\r\n\r\n")
