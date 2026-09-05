@@ -49,6 +49,7 @@ Pico variables. The token implementation may map to Pico internally.
 | --------------------------------- | ------------------------------------------------------- |
 | `--mouseion-color-surface`        | Page background                                         |
 | `--mouseion-color-surface-raised` | Raised article and sticky-summary surface               |
+| `--mouseion-color-surface-quiet`  | Navigation margin, notes, and low-emphasis working areas |
 | `--mouseion-color-text`           | Primary text                                            |
 | `--mouseion-color-text-muted`     | Supporting metadata                                     |
 | `--mouseion-color-border`         | Neutral separation and status background                |
@@ -63,20 +64,22 @@ Pico variables. The token implementation may map to Pico internally.
 Mouseion owns the active palette and maps Pico's corresponding variables to it,
 so native controls and Mouseion components share one theme:
 
-- light surfaces use cool ledger `#eef1ed` and paper `#fafbf8`, with ink
-  `#18251f`, pencil `#647068`, and bottle-green `#245849`;
-- dark surfaces use `#17201c` and `#202b26`, with `#edf2ed` text and
-  pale-green `#91c9b1` emphasis;
-- danger uses oxide `#9a3e32` in light mode and `#f0a39a` in dark mode;
+- light surfaces use porcelain `#f3f6f7`, leaf `#fcfdfb`, and quiet blue-grey
+  `#e3ebf0`, with carbon `#17232d`, pencil `#586873`, and annotation blue
+  `#2457b2`;
+- dark surfaces use blue-black `#111a22`, raised slate `#192630`, and quiet
+  slate `#233441`, with `#edf3f5` text and pale-blue `#8fb4ff` emphasis;
+- danger uses proof red `#a03631` in light mode and `#ffaaa4` in dark mode;
 - warning remains explicit because Pico does not provide the required semantic
   role:
 
-- light: `#7a4b00`, measured at **7.41:1** against `#ffffff`;
-- dark: `#f2c66d`, measured at **11.17:1** against Pico's `#13171f` background.
+- light: `#7a4d00` against porcelain;
+- dark: `#f0c26b` against blue-black.
 
-These measurements exceed WCAG 2.2 AA for normal text. Contrast must be
-rechecked when a mapped Pico version or explicit Mouseion color changes. Color
-never carries state alone; pair it with visible text or an accessible name.
+The browser regression suite measures every semantic foreground against the live
+surface token in both themes and requires WCAG 2.2 AA for normal text. Contrast
+must be rechecked when a mapped Pico version or explicit Mouseion color changes.
+Color never carries state alone; pair it with visible text or an accessible name.
 
 ## Typography roles
 
@@ -151,6 +154,11 @@ Use when peer content and actions no longer fit comfortably side by side.
 
 This is the default content-led layout. Auto-fit grids use available space while
 preserving minimum readable item widths. Do not add tablet-specific variants.
+
+From `64rem`, the shared shell moves its one primary navigation into a narrow
+scholarly margin beside the working leaf. This is a visual transformation only:
+navigation, main content, and keyboard order remain unchanged. The margin has no
+icons, counters, or secondary destinations and must not read as dashboard chrome.
 
 ### Wide data — from `72rem`
 
