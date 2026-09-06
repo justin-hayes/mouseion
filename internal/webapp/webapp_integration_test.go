@@ -251,6 +251,15 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, source := range []domain.SourceMaterial{german, plain, missingUnits} {
+		bookID, resolveErr := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, source.SourceIdentifier, source.Language, source.Title)
+		if resolveErr != nil {
+			t.Fatal(resolveErr)
+		}
+		if linkErr := store.LinkSourceToBook(ctx, alice.ID, bookID, source.ID); linkErr != nil {
+			t.Fatal(linkErr)
+		}
+	}
 
 	recorder := &recordingAnalysis{}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
@@ -452,9 +461,17 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") == "" || !strings.HasPrefix(response.Header().Get("Location"), "/books/"+bookResult.Book.ID) {
 		t.Fatalf("metadata-only acquisition=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
+	acquiredPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
+	if acquiredPage.Code != http.StatusOK || !strings.Contains(acquiredPage.Body.String(), "Metadata-only synced book") || strings.Contains(acquiredPage.Body.String(), "Acquire EPUB content") {
+		t.Fatalf("canonical acquired book page=%d body=%s", acquiredPage.Code, acquiredPage.Body.String())
+	}
 	sources, err := store.ListSourceMaterials(ctx, owner.ID)
 	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
 		t.Fatalf("promoted sources=%+v err=%v", sources, err)
+	}
+	legacyPage := perform(t, h, "GET", "/books/"+sources[0].Source.ID, nil, cookies)
+	if legacyPage.Code != http.StatusOK || !strings.Contains(legacyPage.Body.String(), "Metadata-only synced book") {
+		t.Fatalf("legacy acquired book page=%d body=%s", legacyPage.Code, legacyPage.Body.String())
 	}
 	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
 	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {
