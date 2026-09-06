@@ -145,6 +145,11 @@ func NewStore() *Store {
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
 	return domain.SupportedLanguage{}, nil
 }
+func (s *Store) ListSupportedLanguages(_ context.Context) ([]domain.SupportedLanguage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]domain.SupportedLanguage(nil), s.supported...), nil
+}
 func (s *Store) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error { return nil }
 func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()

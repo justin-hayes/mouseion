@@ -82,10 +82,14 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	if browse.Enabled && browse.Language != "" && !strings.EqualFold(browse.Language, domain.LanguageUnknown) {
 		if provider, ok := h.services.AnalysisInsights.(languageCorpusProvider); ok {
-			panel, panelErr := buildLanguageCorpusPanel(r.Context(), provider, u.ID, browse.Language)
+			var supported []domain.SupportedLanguage
+			if reader, supportedOK := h.services.Store.(supportedLanguageReader); supportedOK {
+				supported, _ = reader.ListSupportedLanguages(r.Context())
+			}
+			panel, panelErr := buildLanguageCorpusPanel(r.Context(), provider, supported, u.ID, browse.Language)
 			if panelErr != nil {
 				log.Printf("mouseion: language view unavailable for owner %s: %v", u.ID, panelErr)
-				panel = unavailableLanguageCorpusPanel(browse.Language)
+				panel = unavailableLanguageCorpusPanel(browse.Language, supported)
 			}
 			browse.LanguageCorpus = &panel
 		}

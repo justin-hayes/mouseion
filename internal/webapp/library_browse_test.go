@@ -142,7 +142,7 @@ func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 }
 
 func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T) {
-	panel, err := buildLanguageCorpusPanel(context.Background(), fixtures.Insights{}, fixtures.OwnerID, "de")
+	panel, err := buildLanguageCorpusPanel(context.Background(), fixtures.Insights{}, []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}}, fixtures.OwnerID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
