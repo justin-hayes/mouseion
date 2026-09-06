@@ -11,7 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
-func TestBookAliasConnectionContract(t *testing.T) {
+func TestCatalogueAliasBackfillPersistenceIsScopedAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, databaseURL)
@@ -20,28 +20,56 @@ func TestBookAliasConnectionContract(t *testing.T) {
 	}
 	defer store.Close()
 
-	owner, err := store.CreateUser(ctx, "alias-contract-owner", false)
+	alice, err := store.CreateUser(ctx, "alias-backfill-alice", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Contract", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	bob, err := store.CreateUser(ctx, "alias-backfill-bob", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = store.AddBookAlias(ctx, owner.ID, book.ID, domain.AliasStrongBibliographic, "isbn", "978-contract"); err != nil {
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Legacy", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err = store.AddBookAlias(ctx, owner.ID, book.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "connection-required"); err == nil {
-		t.Fatal("connectionless catalogue alias was accepted")
-	}
-	var aliasCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, owner.ID).Scan(&aliasCount); err != nil {
+	if _, err = store.Pool().Exec(ctx, `ALTER TABLE book_aliases DROP CONSTRAINT book_aliases_connection_contract`); err != nil {
 		t.Fatal(err)
 	}
-	if aliasCount != 1 {
-		t.Fatalf("alias count=%d, want 1", aliasCount)
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,'catalog_entry','source_identifier','legacy-entry')`, alice.ID, book.ID); err != nil {
+		t.Fatal(err)
 	}
-	if err = store.SetCatalogueEntryAliasConnection(ctx, owner.ID, "00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000000"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("missing alias assignment error=%v", err)
+	if err = store.AddBookAlias(ctx, alice.ID, book.ID, domain.AliasStrongBibliographic, "isbn", "978-legacy"); err != nil {
+		t.Fatal(err)
+	}
+	aliceConnection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice", URL: "https://alice.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Bob", URL: "https://bob.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliases, err := store.ListUnscopedCatalogueEntryAliases(ctx)
+	if err != nil || len(aliases) != 1 || aliases[0].Value != "legacy-entry" {
+		t.Fatalf("unscoped aliases=%+v error=%v", aliases, err)
+	}
+	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, bobConnection.ID); !errors.Is(err, ErrAliasConflict) {
+		t.Fatalf("cross-owner assignment error=%v, want %v", err, ErrAliasConflict)
+	}
+	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, aliceConnection.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, aliceConnection.ID); err != nil {
+		t.Fatalf("idempotent assignment: %v", err)
+	}
+	if aliases, err = store.ListUnscopedCatalogueEntryAliases(ctx); err != nil || len(aliases) != 0 {
+		t.Fatalf("remaining unscoped aliases=%+v error=%v", aliases, err)
+	}
+	alias, err := store.GetBookCatalogEntryAlias(ctx, alice.ID, book.ID)
+	if err != nil || alias.ConnectionID != aliceConnection.ID {
+		t.Fatalf("scoped alias=%+v error=%v", alias, err)
+	}
+	if _, err = store.Pool().Exec(ctx, `ALTER TABLE book_aliases ADD CONSTRAINT book_aliases_connection_contract CHECK ((alias_type = 'catalog_entry' AND connection_id IS NOT NULL) OR (alias_type = 'strong_bibliographic' AND connection_id IS NULL))`); err != nil {
+		t.Fatal(err)
 	}
 }
