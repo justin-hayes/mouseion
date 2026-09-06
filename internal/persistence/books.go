@@ -563,20 +563,22 @@ func (s *PostgresStore) ResolveOrCreateBookForAcquisition(ctx context.Context, o
 // actually changed, so connection status can distinguish "synced with changes"
 // from "synced with no changes" without re-querying or implying content work.
 type CatalogueEntryReconcileResult struct {
-	Book         domain.Book
-	Created      bool
-	TitleChanged bool
+	Book            domain.Book
+	Created         bool
+	TitleChanged    bool
+	LanguageChanged bool
 }
 
 // Upserted reports whether the entry added or updated a Book.
-func (r CatalogueEntryReconcileResult) Upserted() bool { return r.Created || r.TitleChanged }
+func (r CatalogueEntryReconcileResult) Upserted() bool {
+	return r.Created || r.TitleChanged || r.LanguageChanged
+}
 
 // ReconcileCatalogueEntry performs the metadata-only, owner-scoped catalogue
 // upsert. New Books are created with a chosen language only when the catalogue
-// sync scope determines that language deterministically from the learner's
-// explicitly saved study language (never inferred); existing matched Books are
-// never flipped between language states. Source materials and acquired content
-// are never touched here: membership and identity are metadata-only.
+// sync scope determines that language deterministically from the catalogue
+// entry (never inferred). Source materials and acquired content are never
+// touched here: membership and identity are metadata-only.
 func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, language string) (CatalogueEntryReconcileResult, error) {
 	owner, connectionID, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
 	if owner == "" || connectionID == "" || sourceIdentifier == "" || title == "" || language == "" {
@@ -602,7 +604,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		bookID = *aliasBook
 	}
 	created := bookID == ""
-	var titleChanged bool
+	var titleChanged, languageChanged bool
 	if bookID == "" {
 		var createdBook domain.Book
 		createdBook, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,'chosen',$4) RETURNING `+bookColumns, owner, title, domain.MetadataProvenanceCatalogueSync, language))
@@ -611,16 +613,17 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		}
 		bookID = createdBook.ID
 	} else {
-		var currentTitle string
-		if err = tx.QueryRow(ctx, `SELECT title FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&currentTitle); err != nil {
+		var currentTitle, currentLanguageState, currentLanguageTag string
+		if err = tx.QueryRow(ctx, `SELECT title,language_state,COALESCE(language_tag,'') FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&currentTitle, &currentLanguageState, &currentLanguageTag); err != nil {
 			return CatalogueEntryReconcileResult{}, err
 		}
 		titleChanged = strings.TrimSpace(currentTitle) != title
+		languageChanged = currentLanguageState != domain.LanguageChosen || currentLanguageTag != language
 	}
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE books SET title=$3,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, bookID, title); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE books SET title=$3,language_state='chosen',language_tag=$4,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, bookID, title, language); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
@@ -638,7 +641,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err = tx.Commit(ctx); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged}, nil
+	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, LanguageChanged: languageChanged}, nil
 }
 
 // ResolveOrCreateBookForAcquisitionForBook promotes an explicitly selected
@@ -684,9 +687,6 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		}
 		if aliasedBook != nil && *aliasedBook != requestedBookID {
 			return "", ErrAliasConflict
-		}
-		if _, err = tx.Exec(ctx, `UPDATE books SET language_state='chosen',language_tag=$3,updated_at=now() WHERE owner_id=$1 AND id=$2 AND language_state='unknown'`, owner, requestedBookID, language); err != nil {
-			return "", err
 		}
 		if err = activateMembership(ctx, tx, owner, requestedBookID); err != nil {
 			return "", err

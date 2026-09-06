@@ -57,7 +57,6 @@ type Store interface {
 	ListMyBooks(context.Context, string) ([]domain.Book, error)
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error)
 	AddBookToMyBooks(context.Context, string, string) error
 	RemoveBookFromMyBooks(context.Context, string, string) error
 	ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error)

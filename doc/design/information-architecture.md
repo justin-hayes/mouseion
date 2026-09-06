@@ -377,14 +377,15 @@ history surface for current and prior runs.
 ## Study languages and Vocabulary ownership
 
 Study languages are derived from the distinct normalized language tags of the
-learner's active chosen-language Books. The per-book language control in My
-Books is therefore the source of truth; there is no separate Settings selection
-to maintain. Vocabulary owns known vocabulary and its additive import workflow.
-Import eligibility is limited to the derived study-language set, and changing a
-Book's language state does not delete known-vocabulary rows, books, analyses,
-decks, or internal Campaign history. Journey and Goal relationships remain
-independent of vocabulary import; their shipped consequences are defined by ADR
-0034 and ADR 0036.
+learner's active chosen-language Books. For catalogue-synced Books, the
+catalogue entry is the source of truth and connection re-sync is the only way
+the language changes; there is no separate Settings selection to maintain.
+Vocabulary owns known vocabulary and its additive import workflow. Import
+eligibility is limited to the derived study-language set, and catalogue
+metadata changes do not delete known-vocabulary rows, books, analyses, decks,
+or internal Campaign history. Journey and Goal relationships remain independent
+of vocabulary import; their shipped consequences are defined by ADR 0034 and
+ADR 0036.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
