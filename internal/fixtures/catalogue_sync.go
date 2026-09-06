@@ -19,6 +19,10 @@ var fixtureCatalogueSyncJobIDs = map[string]int64{
 	"fixture-never-synced-connection": 104,
 }
 
+var fixtureCatalogueEntries = map[string]opds.Entry{
+	"fixture-connection": {ID: "fixture-entry", Title: "Metadata-only migration book"},
+}
+
 // CatalogueSync is a small in-memory implementation of the wider sync seam
 // used by the webapp. It gives the browser fixture deterministic connection
 // states and exercises the same handler contracts as the River-backed service.
@@ -57,13 +61,11 @@ func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID
 		}
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
-	if _, err = s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
-		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrConnectionNotFound
-	}
-	if alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
+	entry, err := s.entryForAlias(ctx, owner, alias)
+	if err != nil {
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
-	return cataloguesync.AcquisitionTarget{ConnectionID: alias.ConnectionID, Language: book.LanguageTag, Entry: opds.Entry{ID: alias.Value, Title: book.Title}, Href: "https://fixture.invalid/book.epub"}, nil
+	return cataloguesync.AcquisitionTarget{ConnectionID: alias.ConnectionID, Language: book.LanguageTag, Entry: entry, Href: "https://fixture.invalid/book.epub"}, nil
 }
 
 // RefreshEntry mirrors the fixture catalogue feed without adding a reconcile
@@ -86,13 +88,14 @@ func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) 
 	if alias.ConnectionID == "" || strings.TrimSpace(alias.Value) == "" {
 		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
 	}
-	if _, err = s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
-		return cataloguesync.RefreshResult{Book: book, Failed: true}, cataloguesync.ErrConnectionNotFound
-	}
-	if alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
+	entry, err := s.entryForAlias(ctx, owner, alias)
+	if err != nil {
+		if errors.Is(err, cataloguesync.ErrConnectionNotFound) {
+			return cataloguesync.RefreshResult{Book: book, Failed: true}, err
+		}
 		return cataloguesync.RefreshResult{Book: book, Missing: true}, nil
 	}
-	entryTitle := "Metadata-only migration book"
+	entryTitle := entry.Title
 	if book.Title == entryTitle {
 		return cataloguesync.RefreshResult{Book: book}, nil
 	}
@@ -101,6 +104,17 @@ func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) 
 		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
 	}
 	return cataloguesync.RefreshResult{Book: updated, Updated: true}, nil
+}
+
+func (s *CatalogueSync) entryForAlias(ctx context.Context, owner string, alias domain.BookAlias) (opds.Entry, error) {
+	if _, err := s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
+		return opds.Entry{}, cataloguesync.ErrConnectionNotFound
+	}
+	entry, ok := fixtureCatalogueEntries[alias.ConnectionID]
+	if !ok || entry.ID != alias.Value {
+		return opds.Entry{}, cataloguesync.ErrNotFound
+	}
+	return entry, nil
 }
 
 func (s *CatalogueSync) List(ctx context.Context, owner string) ([]cataloguesync.Status, error) {
