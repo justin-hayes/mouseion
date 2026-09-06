@@ -38,6 +38,9 @@ Non-obvious setup:
 - `make gen` also needs `protoc` and `protoc-gen-go` on PATH; the Makefile only auto-installs `protoc-gen-go-grpc` v1.5.1 and `grpcio-tools==1.71.2`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
 - Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
 - Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). CI only runs `go test ./...`; verify `-tags=integration` work locally.
+- Integration tests use one named, reusable Testcontainers PostgreSQL instance and reset the schema between package processes. The full run can exceed an agent command timeout, so run it in the background and poll its log:
+  `mkdir -p .tmp && (make test-integration >.tmp/integration.log 2>&1; printf '%s\n' $? >.tmp/integration.exit) & printf '%s\n' $! >.tmp/integration.pid`
+  Check progress with `tail -n 100 .tmp/integration.log`; when the PID exits, read `.tmp/integration.exit` and treat only `0` as passing. Remove the reusable container after the run with `docker rm -f mouseion-test-postgres` when it is no longer needed.
 - `make dev` requires a running Postgres (`MOUSEION_DATABASE_URL`) and NLP gRPC (`MOUSEION_NLP_ADDR`, default `localhost:50051`); `MOUSEION_SECRET` is validated at startup.
 
 ## Generated artifacts
