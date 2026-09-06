@@ -232,6 +232,54 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	}
 }
 
+func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
+	ctx := context.Background()
+	url, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	alice, err := store.CreateUser(ctx, "book-detail-alice", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := store.CreateUser(ctx, "book-detail-bob", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Metadata", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataDetail, err := store.GetBookDetail(ctx, alice.ID, metadata.ID)
+	if err != nil || metadataDetail.Acquired != nil || metadataDetail.EvidenceState != domain.MyBookNotAcquired {
+		t.Fatalf("metadata detail=%+v err=%v", metadataDetail, err)
+	}
+
+	source := putBookSource(t, ctx, store, alice.ID, "detail-source", "Acquired", []byte("detail-epub"), "de")
+	bookID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, source.SourceIdentifier, source.Language, source.Title)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkSourceToBook(ctx, alice.ID, bookID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{bookID, source.ID} {
+		detail, detailErr := store.GetBookDetail(ctx, alice.ID, id)
+		if detailErr != nil || detail.Book.ID != bookID || detail.Acquired == nil || detail.Acquired.Source.ID != source.ID || detail.EvidenceState != domain.MyBookAcquiredUnassessed {
+			t.Fatalf("detail id=%q result=%+v err=%v", id, detail, detailErr)
+		}
+	}
+	if _, err = store.GetBookDetail(ctx, bob.ID, bookID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross-owner book detail error=%v", err)
+	}
+	if _, err = store.GetBookDetail(ctx, alice.ID, "missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown book detail error=%v", err)
+	}
+}
+
 func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
