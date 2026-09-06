@@ -284,8 +284,14 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, book := range s.myBooksForOwner(owner) {
-		if book.Book.ID == id || (book.Acquired != nil && book.Acquired.Source.ID == id) {
+	books := s.myBooksForOwner(owner)
+	for _, book := range books {
+		if book.Book.ID == id {
+			return book, nil
+		}
+	}
+	for _, book := range books {
+		if book.Acquired != nil && book.Acquired.Source.ID == id {
 			return book, nil
 		}
 	}
