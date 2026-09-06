@@ -59,7 +59,6 @@ type Store interface {
 	ListMyBooks(context.Context, string) ([]domain.Book, error)
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	CreateBook(context.Context, domain.Book) (domain.Book, error)
 	UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error)
 	AddBookToMyBooks(context.Context, string, string) error
 	RemoveBookFromMyBooks(context.Context, string, string) error
@@ -181,7 +180,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /journey/books/{id}/add", h.user(http.HandlerFunc(h.addDeckBookToJourney)))
 	h.mux.Handle("POST /journey/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
 	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
-	h.mux.Handle("POST /library/books", h.user(http.HandlerFunc(h.createMetadataBook)))
 	h.mux.Handle("POST /library/books/{id}", h.user(http.HandlerFunc(h.updateBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))

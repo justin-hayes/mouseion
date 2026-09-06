@@ -101,30 +101,6 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
 }
 
-func (h *Handler) createMetadataBook(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	state := strings.TrimSpace(r.FormValue("language_state"))
-	tag := strings.TrimSpace(r.FormValue("language_tag"))
-	book, err := domain.NewBook(u.ID, strings.TrimSpace(r.FormValue("title")), domain.MetadataProvenanceManualEntry, state, tag)
-	if err != nil {
-		redirect(w, r, "/library?error="+url.QueryEscape("The book was not added. Enter a title and choose an explicit language state."))
-		return
-	}
-	created, err := h.services.Store.CreateBook(r.Context(), book)
-	if err != nil {
-		redirect(w, r, "/library?error="+url.QueryEscape("The book could not be added to My Books. Check the details and try again."))
-		return
-	}
-	if err = h.services.Store.AddBookToMyBooks(r.Context(), u.ID, created.ID); err != nil {
-		redirect(w, r, "/library?error="+url.QueryEscape("The book identity was recorded, but My Books membership could not be activated. Refresh and try again."))
-		return
-	}
-	redirect(w, r, "/library?message="+url.QueryEscape("Book added to My Books. It has metadata only until you acquire an EPUB."))
-}
-
 func (h *Handler) updateBookMetadata(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return

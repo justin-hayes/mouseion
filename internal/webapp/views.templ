@@ -256,25 +256,6 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					<h1 id="library-page-title">My Books</h1>
 					<p>Your working collection: literature you care about, with clear evidence for what you can do next.</p>
 				</div>
-				<div class="page-header__actions">
-					<details id="book-form" class="library-add-book">
-						<summary>Add a book</summary>
-						<div class="library-add-book__form">
-							<p>Save bibliographic metadata now. Mouseion will not assume a language or pretend that an EPUB has been acquired.</p>
-							<form method="post" action="/library/books">
-								<input type="hidden" name="csrf_token" value={ csrf }/>
-								<label>Title<input name="title" required autocomplete="off"/></label>
-								<fieldset>
-									<legend>Language state</legend>
-									<label><input type="radio" name="language_state" value="unknown" required/> I have not chosen a language yet</label>
-									<label><input type="radio" name="language_state" value="chosen"/> I chose this language explicitly</label>
-									<label>Chosen language tag<input name="language_tag" placeholder="de" autocomplete="language"/></label>
-								</fieldset>
-								<button type="submit">Add to My Books</button>
-							</form>
-						</div>
-					</details>
-				</div>
 			</header>
 		</section>
 		if message != "" {
@@ -284,7 +265,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
 		if len(books) == 0 {
-			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then add or sync a book with a chosen language. Ready-language metadata will appear here; acquire EPUB content from a book when you are ready.") {
+			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
 				<a role="button" href="/connections">Connect a catalogue</a>
 				if hasCatalogueConnections {
 					<a role="button" class="outline" href="/connections">Sync catalogue</a>
