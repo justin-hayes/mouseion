@@ -123,6 +123,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 44. [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](adr/0044-catalogue-entry-connection-scoped-identity.md) — scopes the catalogue-entry alias to owner plus connection plus entry, threads the connection through sync/refresh/acquisition, and defers multi-connection conflict rules under a soft single-catalogue posture.
 45. [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — makes the owner-scoped Book ID the stable web identity for `/books/{id}`, resolves current acquired evidence underneath it, and keeps source-material-ID links working in place.
 46. [ADR 0046: Book language has one canonical base form enforced at the domain](adr/0046-book-language-canonical-base-form.md) — collapses a chosen Book language to its base tag (`de_DE`/`de-de`/`de` all canonicalize to `de`), enforces the form at the domain, converges legacy rows, and simplifies the tolerant SQL.
+47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — folds EPUB acquisition into the analysis action server-side, makes the catalogue the sole source of Book metadata (manual books and fix-language removed), drops plain-text analysis, and always analyzes the complete extracted scope, deferring destructive schema removal.
 
 ## Deployment and operations
 
