@@ -53,6 +53,13 @@ func TestCatalogueAliasBackfillPersistenceIsScopedAndIdempotent(t *testing.T) {
 	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, bobConnection.ID); !errors.Is(err, ErrAliasConflict) {
 		t.Fatalf("cross-owner assignment error=%v, want %v", err, ErrAliasConflict)
 	}
+	var strongAliasID string
+	if err = store.Pool().QueryRow(ctx, `SELECT id FROM book_aliases WHERE owner_id=$1 AND alias_type=$2`, alice.ID, domain.AliasStrongBibliographic).Scan(&strongAliasID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, strongAliasID, aliceConnection.ID); !errors.Is(err, ErrAliasConflict) {
+		t.Fatalf("strong-bibliographic assignment error=%v, want %v", err, ErrAliasConflict)
+	}
 	if err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, aliceConnection.ID); err != nil {
 		t.Fatal(err)
 	}

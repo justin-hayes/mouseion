@@ -357,7 +357,8 @@ func (s *PostgresStore) ListUnscopedCatalogueEntryAliases(ctx context.Context) (
 func (s *PostgresStore) SetCatalogueEntryAliasConnection(ctx context.Context, owner, aliasID, connectionID string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE book_aliases a SET connection_id=$3
 		WHERE a.owner_id=$1 AND a.id=$2 AND a.connection_id IS NULL
-		  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id=$1 AND c.id=$3)`, owner, aliasID, connectionID)
+		  AND a.alias_type=$4 AND a.namespace=$5
+		  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id=$1 AND c.id=$3)`, owner, aliasID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier)
 	if err != nil {
 		return aliasConflictError(err)
 	}
