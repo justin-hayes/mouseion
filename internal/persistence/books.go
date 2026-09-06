@@ -496,6 +496,9 @@ func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasTy
 	if err := alias.Validate(); err != nil {
 		return err
 	}
+	if aliasType == domain.AliasCatalogEntry {
+		return errors.New("persistence: catalogue entry alias requires a connection")
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -505,10 +508,10 @@ func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasTy
 		return err
 	}
 	var inserted string
-	err = tx.QueryRow(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,namespace,value) DO NOTHING RETURNING id::text`, owner, bookID, aliasType, alias.Namespace, alias.Value).Scan(&inserted)
+	err = tx.QueryRow(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,namespace,value) WHERE connection_id IS NULL DO NOTHING RETURNING id::text`, owner, bookID, aliasType, alias.Namespace, alias.Value).Scan(&inserted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var existingBook string
-		if err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3`, owner, alias.Namespace, alias.Value).Scan(&existingBook); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 AND connection_id IS NULL`, owner, alias.Namespace, alias.Value).Scan(&existingBook); err != nil {
 			return err
 		}
 		if existingBook != bookID {
@@ -586,26 +589,15 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	var sourceBook, aliasBook *string
-	err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND source_identifier=$2 FOR UPDATE`, owner, sourceIdentifier).Scan(&sourceBook)
-	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
-	} else if err != nil {
-		return CatalogueEntryReconcileResult{}, err
-	}
+	var aliasBook *string
 	err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND namespace=$3 AND value=$4 FOR UPDATE`, owner, connectionID, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasBook)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	} else if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if sourceBook != nil && aliasBook != nil && *sourceBook != *aliasBook {
-		return CatalogueEntryReconcileResult{}, ErrSourceBookConflict
-	}
 	bookID := ""
-	if sourceBook != nil {
-		bookID = *sourceBook
-	} else if aliasBook != nil {
+	if aliasBook != nil {
 		bookID = *aliasBook
 	}
 	created := bookID == ""
@@ -683,7 +675,7 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 			return "", ErrSourceBookConflict
 		}
 		var aliasedBook *string
-		err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 FOR UPDATE`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasedBook)
+		err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 AND connection_id IS NULL FOR UPDATE`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasedBook)
 		if errors.Is(err, pgx.ErrNoRows) {
 			err = nil
 		} else if err != nil {
@@ -691,11 +683,6 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		}
 		if aliasedBook != nil && *aliasedBook != requestedBookID {
 			return "", ErrAliasConflict
-		}
-		if aliasedBook == nil {
-			if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5)`, owner, requestedBookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
-				return "", aliasConflictError(err)
-			}
 		}
 		if _, err = tx.Exec(ctx, `UPDATE books SET language_state='chosen',language_tag=$3,updated_at=now() WHERE owner_id=$1 AND id=$2 AND language_state='unknown'`, owner, requestedBookID, language); err != nil {
 			return "", err
@@ -729,7 +716,7 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	}
 
 	var bookID string
-	err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN book_aliases a ON a.owner_id=b.owner_id AND a.book_id=b.id WHERE a.owner_id=$1 AND a.namespace=$2 AND a.value=$3 FOR UPDATE OF b,a`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&bookID)
+	err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN book_aliases a ON a.owner_id=b.owner_id AND a.book_id=b.id WHERE a.owner_id=$1 AND a.namespace=$2 AND a.value=$3 AND a.connection_id IS NULL FOR UPDATE OF b,a`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&bookID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	} else if err != nil {
@@ -752,9 +739,6 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	}
 	if err = activateMembership(ctx, tx, owner, created.ID); err != nil {
 		return "", err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5)`, owner, created.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
-		return "", aliasConflictError(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return "", err

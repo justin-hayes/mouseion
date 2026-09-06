@@ -46,9 +46,11 @@ interruption is safe. Feed errors, missing entries, and ambiguous
 connection matches stop the operation loudly; the operator corrects the
 catalogue or credentials and reruns it. Recovery is therefore forward-only and
 does not guess or merge data. Before the later contract migration makes the
-column non-null, an operator can restore a mistaken assignment from backup or
-set that specific alias back to NULL and rerun the resolver; no strong-
-bibliographic alias is changed by this operation.
+constraint validated, new writes already obey the contract while legacy rows
+remain pending validation. The command validates the contract after all
+assignments succeed; an operator can restore a mistaken assignment from backup
+or set that specific alias back to NULL and rerun the resolver before
+validation. No strong-bibliographic alias is changed by this operation.
 
 The rollout follows ADR 0038's expand → backfill → switch discipline: add the
 nullable column, backfill, then tighten uniqueness and make it non-null. The

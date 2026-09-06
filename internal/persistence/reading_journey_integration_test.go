@@ -281,7 +281,7 @@ func TestResolveJourneyBookID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.AddBookAlias(ctx, alice.ID, legacyBook.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "legacy-resolve-identifier"); err != nil {
+	if err := store.AddBookAlias(ctx, alice.ID, legacyBook.ID, domain.AliasStrongBibliographic, domain.NamespaceSourceIdentifier, "legacy-resolve-identifier"); err != nil {
 		t.Fatal(err)
 	}
 	if id, ok, resolveErr := store.ResolveJourneyBookID(ctx, alice.ID, legacyID); resolveErr != nil || !ok || id != legacyBook.ID {
