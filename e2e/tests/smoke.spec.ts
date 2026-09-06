@@ -54,18 +54,17 @@ test.describe('authenticated learner smoke', () => {
     await page.getByRole('button', { name: 'Add to My Books' }).click();
     await expect(page).toHaveURL(/\/library\?message=/);
 
-    const entry = page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' });
+    const entry = page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only browser book', exact: true }) });
     await expect(entry).toContainText('Not acquired');
-    await expect(entry.getByRole('button', { name: 'Open book' })).toHaveAttribute('href', /\/books\//);
+    await expect(entry.locator('form[action$="/analyze"]')).toContainText('Start analysis');
     await expect(entry.getByText('Review scope')).toHaveCount(0);
-    await expect(entry.getByText('Start analysis')).toHaveCount(0);
     await expect(entry.getByText('Prepare deck')).toHaveCount(0);
     await expect(entry).toContainText('language not chosen');
 
     await entry.getByText('Remove from My Books').click();
     await entry.getByRole('button', { name: 'Confirm removal' }).click();
     await expect(page).toHaveURL(/\/library\?message=/);
-    await expect(page.locator('article.library-book').filter({ hasText: 'Metadata-only browser book' })).toHaveCount(0);
+    await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only browser book', exact: true }) })).toHaveCount(0);
   });
 
   test('exact analysis result redirects to the book page', async ({ page }) => {

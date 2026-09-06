@@ -192,7 +192,7 @@ func statusTone(value string) StatusTone {
 		return StatusDanger
 	case "not acquired":
 		return StatusNeutral
-	case "acquired — unassessed", "stale analysis":
+	case "stale analysis":
 		return StatusWarning
 	case "abandoned", "cancelled", "discarded", "failed", "analysis failed", "analysis cancelled", "analysis failed — action required":
 		return StatusDanger
@@ -240,7 +240,7 @@ func myBookEvidenceLabel(state domain.MyBookEvidenceState) string {
 	case domain.MyBookNotAcquired:
 		return "Not acquired"
 	case domain.MyBookAcquiredUnassessed:
-		return "Acquired — unassessed"
+		return "Ready to analyze"
 	case domain.MyBookAnalyzed:
 		return "Analyzed"
 	case domain.MyBookStale:
@@ -272,6 +272,16 @@ func myBookAnalysisLabel(status string) string {
 func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 	state := myBookEvidenceStateFor(book)
 	if book.Acquired == nil || state == domain.MyBookUnavailable {
+		if state == domain.MyBookNotAcquired {
+			return bookLifecycleAction{
+				Status:      "Not acquired",
+				Description: "Acquire and analyze the EPUB in one action.",
+				Label:       "Start analysis",
+				URL:         "/books/" + url.PathEscape(book.Book.ID) + "/analyze",
+				Tone:        StatusNeutral,
+				Submit:      true,
+			}
+		}
 		return bookLifecycleAction{
 			Status:      myBookEvidenceLabel(state),
 			Description: "No usable acquired EPUB evidence is available for assessment. Open the book to acquire content before using later actions.",

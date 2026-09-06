@@ -1,4 +1,5 @@
 PYTHON ?= python3
+UV ?= uv
 VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
@@ -13,10 +14,10 @@ go-tmp:
 	mkdir -p $(GOTMPDIR)
 
 setup:
-	$(PYTHON) -m venv $(VENV)
-	$(VENV_BIN)/python -m pip install --disable-pip-version-check -r nlp/requirements-dev.txt
-	$(VENV_BIN)/python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
-	$(VENV_BIN)/python -m pip install --disable-pip-version-check -e nlp
+	$(UV) venv --clear --python 3.11 $(VENV)
+	$(UV) pip install --python $(VENV_BIN)/python -r nlp/requirements-dev.txt
+	$(UV) pip install --python $(VENV_BIN)/python torch --index-url https://download.pytorch.org/whl/cpu
+	$(UV) pip install --python $(VENV_BIN)/python -e nlp
 
 build: go-tmp
 	go build ./...
