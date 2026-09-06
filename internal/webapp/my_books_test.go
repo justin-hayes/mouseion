@@ -47,7 +47,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 func TestBookLanguageCanBeCorrectedFromMyBooks(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	response := goalRequest(t, h, "/library/books/fixture-empty", url.Values{
-		"csrf_token": {csrf}, "language_state": {domain.LanguageChosen}, "language_tag": {"fr"},
+		"csrf_token": {csrf}, "language_state": {domain.LanguageChosen}, "language_tag": {"fr-FR"},
 	}, cookies)
 	if response.Code != http.StatusSeeOther || !strings.Contains(response.Header().Get("Location"), "Book+language+updated") {
 		t.Fatalf("update status=%d location=%q", response.Code, response.Header().Get("Location"))

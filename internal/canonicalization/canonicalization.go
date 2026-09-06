@@ -148,7 +148,11 @@ func NormalizeLanguage(language string) string {
 }
 
 func normalizeLanguage(language string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	if base, _, found := strings.Cut(language, "-"); found {
+		return base
+	}
+	return language
 }
 
 func languageCandidates(language string) []string {

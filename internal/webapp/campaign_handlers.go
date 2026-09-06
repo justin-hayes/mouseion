@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
@@ -136,6 +137,9 @@ func (h *Handler) updateBookMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	state := strings.TrimSpace(r.FormValue("language_state"))
 	tag := strings.TrimSpace(r.FormValue("language_tag"))
+	if state == domain.LanguageChosen {
+		tag = canonicalization.NormalizeLanguage(tag)
+	}
 	if _, err = h.services.Store.UpdateBookMetadata(r.Context(), u.ID, book.ID, book.Title, state, tag); err != nil {
 		redirect(w, r, "/library?error="+url.QueryEscape("The book language could not be updated. Choose a valid language state and tag."))
 		return

@@ -18,6 +18,15 @@ func TestLemma(t *testing.T) {
 	}
 }
 
+func TestNormalizeLanguageUsesCanonicalBaseForm(t *testing.T) {
+	tests := map[string]string{"de_DE": "de", "de-de": "de", "de": "de", "  PT  ": "pt"}
+	for raw, want := range tests {
+		if got := NormalizeLanguage(raw); got != want {
+			t.Errorf("NormalizeLanguage(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
 func TestGermanPost1996Fixtures(t *testing.T) {
 	tests := []struct{ name, raw, want string }{
 		{"historical dass", "daß", "dass"}, {"historical muss casing", "  MUẞ  ", "muss"},
