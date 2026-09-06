@@ -56,8 +56,8 @@ type BookMembership struct {
 }
 
 type BookAlias struct {
-	ID, OwnerID, BookID, AliasType, Namespace, Value string
-	CreatedAt                                        time.Time
+	ID, OwnerID, BookID, ConnectionID, AliasType, Namespace, Value string
+	CreatedAt                                                      time.Time
 }
 
 // MyBook is the complete learner-facing My Books read model. Acquired is nil

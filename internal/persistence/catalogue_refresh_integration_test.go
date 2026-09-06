@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
@@ -24,15 +25,20 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Refresh catalog", URL: "https://catalog.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	other, err := store.CreateUser(ctx, "refresh-other-owner", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := putBookSource(t, ctx, store, owner.ID, "refresh-entry", "Old title", []byte("acquired content"), "readable text")
-	bookID, err := store.ResolveOrCreateBookForAcquisition(ctx, owner.ID, source.SourceIdentifier, source.Language, source.Title)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
+	bookID := book.ID
 	if err = store.LinkSourceToBook(ctx, owner.ID, bookID, source.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +58,13 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, source.SourceIdentifier, "New title", source.Language)
+	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", source.Language)
 	if err != nil || !result.TitleChanged || result.Book.Title != "New title" {
 		t.Fatalf("refresh result=%+v err=%v", result, err)
+	}
+	alias, err := store.GetBookCatalogEntryAlias(ctx, owner.ID, bookID)
+	if err != nil || alias.ConnectionID != connection.ID {
+		t.Fatalf("catalogue alias=%+v err=%v", alias, err)
 	}
 	afterSource, err := store.GetSourceMaterial(ctx, owner.ID, source.ID)
 	if err != nil {
@@ -70,7 +80,7 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterMemberships); err != nil {
 		t.Fatal(err)
 	}
-	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases != afterAliases || beforeMemberships != afterMemberships {
+	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases+1 != afterAliases || beforeMemberships != afterMemberships {
 		t.Fatalf("refresh changed acquired evidence before=%+v/%d/%d/%d after=%+v/%d/%d/%d", beforeSource, beforeRevisions, beforeAliases, beforeMemberships, afterSource, afterRevisions, afterAliases, afterMemberships)
 	}
 

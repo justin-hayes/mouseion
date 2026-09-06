@@ -312,12 +312,12 @@ func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (doma
 // not-found result.
 func (s *PostgresStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
 	var alias domain.BookAlias
-	err := s.pool.QueryRow(ctx, `SELECT a.id::text,a.owner_id::text,a.book_id::text,a.alias_type,a.namespace,a.value,a.created_at
+	err := s.pool.QueryRow(ctx, `SELECT a.id::text,a.owner_id::text,a.book_id::text,a.connection_id::text,a.alias_type,a.namespace,a.value,a.created_at
 		FROM book_aliases a
 		JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
 		JOIN book_membership m ON m.owner_id=a.owner_id AND m.book_id=a.book_id AND m.state='active'
 		WHERE a.owner_id=$1 AND a.book_id=$2 AND a.alias_type=$3 AND a.namespace=$4`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier).
-		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
+		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &alias.ConnectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
 	return alias, missing(err)
 }
 
@@ -530,9 +530,9 @@ func (r CatalogueEntryReconcileResult) Upserted() bool { return r.Created || r.T
 // explicitly saved study language (never inferred); existing matched Books are
 // never flipped between language states. Source materials and acquired content
 // are never touched here: membership and identity are metadata-only.
-func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, sourceIdentifier, title, language string) (CatalogueEntryReconcileResult, error) {
-	owner, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
-	if owner == "" || sourceIdentifier == "" || title == "" || language == "" {
+func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, language string) (CatalogueEntryReconcileResult, error) {
+	owner, connectionID, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
+	if owner == "" || connectionID == "" || sourceIdentifier == "" || title == "" || language == "" {
 		return CatalogueEntryReconcileResult{}, errors.New("persistence: catalogue entry identity is incomplete")
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -540,7 +540,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, sour
 		return CatalogueEntryReconcileResult{}, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+sourceIdentifier); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	var sourceBook, aliasBook *string
@@ -550,7 +550,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, sour
 	} else if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 FOR UPDATE`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasBook)
+	err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND namespace=$3 AND value=$4 FOR UPDATE`, owner, connectionID, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasBook)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = nil
 	} else if err != nil {
@@ -591,7 +591,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, sour
 		return CatalogueEntryReconcileResult{}, err
 	}
 	if aliasBook == nil {
-		if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,namespace,value) DO NOTHING`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5,$6)`, owner, bookID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
 			return CatalogueEntryReconcileResult{}, aliasConflictError(err)
 		}
 	}

@@ -60,14 +60,15 @@ func TestWorkerUnavailableDoesNotExposeInput(t *testing.T) {
 }
 
 type refreshStore struct {
-	book        domain.Book
-	alias       domain.BookAlias
-	connections []domain.OpdsConnection
-	supported   []domain.SupportedLanguage
-	reconciles  int
-	lastOwner   string
-	reconcile   persistence.CatalogueEntryReconcileResult
-	aliasErr    error
+	book           domain.Book
+	alias          domain.BookAlias
+	connections    []domain.OpdsConnection
+	supported      []domain.SupportedLanguage
+	reconciles     int
+	lastOwner      string
+	lastConnection string
+	reconcile      persistence.CatalogueEntryReconcileResult
+	aliasErr       error
 }
 
 func (s *refreshStore) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
@@ -103,9 +104,10 @@ func (s *refreshStore) ListSupportedLanguages(context.Context) ([]domain.Support
 func (s *refreshStore) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error {
 	return nil
 }
-func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, sourceIdentifier, title, language string) (persistence.CatalogueEntryReconcileResult, error) {
+func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connectionID, sourceIdentifier, title, language string) (persistence.CatalogueEntryReconcileResult, error) {
 	s.reconciles++
 	s.lastOwner = owner
+	s.lastConnection = connectionID
 	if s.reconcile.Book.ID == "" {
 		s.reconcile.Book = s.book
 	}
@@ -179,7 +181,7 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := &refreshStore{
 				book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
-				alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+				alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 				connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
 				supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 				reconcile:   persistence.CatalogueEntryReconcileResult{TitleChanged: tc.titleChange, Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "New title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
@@ -188,8 +190,8 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.Updated != tc.wantUpdated || result.Missing != tc.wantMissing || result.Failed != tc.wantFailed || store.reconciles != tc.wantReconciles || (tc.wantReconciles > 0 && store.lastOwner != "alice") {
-				t.Fatalf("result=%+v reconciles=%d owner=%q", result, store.reconciles, store.lastOwner)
+			if result.Updated != tc.wantUpdated || result.Missing != tc.wantMissing || result.Failed != tc.wantFailed || store.reconciles != tc.wantReconciles || (tc.wantReconciles > 0 && (store.lastOwner != "alice" || store.lastConnection != "connection-1")) {
+				t.Fatalf("result=%+v reconciles=%d owner=%q connection=%q", result, store.reconciles, store.lastOwner, store.lastConnection)
 			}
 		})
 	}
@@ -207,7 +209,7 @@ func TestRefreshEntryRejectsCrossOwnerBookWithoutReadingCatalogue(t *testing.T) 
 func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Same title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
-		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
 		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "Same title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
@@ -230,7 +232,7 @@ func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
 func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
-		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
 		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "Deutsch"}},
 		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
@@ -248,7 +250,7 @@ func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
 func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
-		alias:       domain.BookAlias{BookID: "book-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-1", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "Home"}},
 		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "Deutsch"}},
 	}
