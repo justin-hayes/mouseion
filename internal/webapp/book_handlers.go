@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -236,28 +235,6 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 	return &preparation, journeyAction, true
 }
 
-func (h *Handler) resolveFullEPUBScope(ctx context.Context, owner string, book domain.SourceMaterial) (domain.EPUBReviewedScopeSnapshot, error) {
-	snapshotID, units, err := h.services.Store.GetExtractedUnitSnapshot(ctx, owner, book.ID)
-	if err != nil {
-		return domain.EPUBReviewedScopeSnapshot{}, err
-	}
-	if existing, findErr := h.services.Store.FindFullBookScope(ctx, owner, book.ID, snapshotID); findErr == nil {
-		return existing, nil
-	} else if !errors.Is(findErr, persistence.ErrNotFound) {
-		return domain.EPUBReviewedScopeSnapshot{}, findErr
-	}
-	selected := make([]domain.EPUBSelectedUnitReference, 0, len(units.Units))
-	for _, unit := range units.Units {
-		if strings.TrimSpace(unit.Text) != "" {
-			selected = append(selected, domain.EPUBSelectedUnitReference{UnitID: unit.ID, Order: unit.Order})
-		}
-	}
-	if len(selected) == 0 {
-		return domain.EPUBReviewedScopeSnapshot{}, domain.ErrEPUBReviewedScopeUnavailable
-	}
-	return h.services.Store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: domain.EPUBReviewedScopeSchemaVersion, ScopeID: uuid.NewString(), OwnerID: owner, SourceMaterialID: book.ID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: book.ContentRevisionID, Digest: book.ContentDigest, DigestVersion: book.ContentDigestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: units.SchemaVersion}, SelectedUnits: selected})
-}
-
 func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -274,8 +251,8 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 			redirect(w, r, "/books/"+url.PathEscape(detail.Book.ID)+"?message="+url.QueryEscape(message))
 			return
 		}
-		// Acquisition promotes the existing Book. Reload it so scope resolution
-		// uses the persisted content revision and extracted-unit snapshot.
+		// Acquisition promotes the existing Book. Reload it so analysis uses the
+		// persisted content revision and extracted-unit snapshot.
 		detail, ok = h.bookDetail(w, r, u.ID, detail.Book.ID)
 		if !ok {
 			return
@@ -286,23 +263,16 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	book := *detail.Acquired
-	var handle analysis.Handle
-	var err error
-	if book.Source.MediaType == "application/epub+zip" {
-		scope, scopeErr := h.resolveFullEPUBScope(r.Context(), u.ID, book.Source)
-		if scopeErr != nil {
-			if errors.Is(scopeErr, domain.ErrExtractedUnitsUnavailable) || errors.Is(scopeErr, domain.ErrEPUBReviewedScopeUnavailable) {
-				http.Error(w, "Analysis is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
-				return
-			}
-			fail(w, scopeErr)
+	if book.Source.MediaType != "application/epub+zip" {
+		http.Error(w, "Analysis requires an EPUB source.", http.StatusConflict)
+		return
+	}
+	handle, err := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
+	if err != nil {
+		if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
+			http.Error(w, "Analysis is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
 			return
 		}
-		handle, err = h.services.Analysis.SubmitScopedAnalysis(r.Context(), u.ID, book.Source.ID, scope.ScopeID)
-	} else {
-		handle, err = h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
-	}
-	if err != nil {
 		fail(w, err)
 		return
 	}

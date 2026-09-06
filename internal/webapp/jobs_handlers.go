@@ -232,9 +232,9 @@ func analysisStatusSummary(status analysis.Status) string {
 	case "completed":
 		return "Analysis complete. Open the exact result to review its insights."
 	case "failed":
-		return "Analysis failed. Review the message and retry the confirmed scope when it is still valid."
+		return "Analysis failed. Review the message and retry the EPUB snapshot when you are ready."
 	case "cancelled":
-		return "Analysis cancelled. Retry the confirmed scope when you are ready."
+		return "Analysis cancelled. Retry the EPUB snapshot when you are ready."
 	}
 	attempt := maxOne(status.Attempt)
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)

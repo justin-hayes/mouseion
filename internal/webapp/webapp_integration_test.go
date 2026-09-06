@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -271,43 +270,18 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	bobCookies, bobCSRF := loginCookies(t, h, "scope-web-bob", "bob-password")
 
 	first := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if first.Code != http.StatusSeeOther || recorder.scope == "" {
+	if first.Code != http.StatusSeeOther || recorder.scope != "" {
 		t.Fatalf("first EPUB analysis=%d scope=%q body=%s", first.Code, recorder.scope, first.Body.String())
 	}
-	firstScopeID := recorder.scope
-	snapshotID, extracted, err := store.GetExtractedUnitSnapshot(ctx, alice.ID, german.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scope, err := store.GetEPUBReviewedScope(ctx, alice.ID, german.ID, firstScopeID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if scope.SourceContent.RevisionID != german.ContentRevisionID || scope.SourceContent.Digest != german.ContentDigest || scope.SourceContent.DigestVersion != german.ContentDigestVersion {
-		t.Fatalf("scope content identity=%+v source=%+v", scope.SourceContent, german)
-	}
-	if scope.SourceUnitSnapshot.SnapshotID != snapshotID || scope.SourceUnitSnapshot.ExtractedUnitsSchemaVersion != extracted.SchemaVersion {
-		t.Fatalf("scope snapshot identity=%+v snapshot=%s units=%+v", scope.SourceUnitSnapshot, snapshotID, extracted)
-	}
-	var expected []domain.EPUBSelectedUnitReference
-	for _, unit := range extracted.Units {
-		if strings.TrimSpace(unit.Text) != "" {
-			expected = append(expected, domain.EPUBSelectedUnitReference{UnitID: unit.ID, Order: unit.Order})
-		}
-	}
-	if !reflect.DeepEqual(scope.SelectedUnits, expected) {
-		t.Fatalf("full-book scope selected=%+v want=%+v", scope.SelectedUnits, expected)
-	}
 
-	recorder.scope = ""
 	second := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if second.Code != http.StatusSeeOther || recorder.scope != firstScopeID {
-		t.Fatalf("idempotent EPUB analysis=%d scope=%q want=%q body=%s", second.Code, recorder.scope, firstScopeID, second.Body.String())
+	if second.Code != http.StatusSeeOther || recorder.scope != "" {
+		t.Fatalf("idempotent EPUB analysis=%d scope=%q body=%s", second.Code, recorder.scope, second.Body.String())
 	}
 
 	recorder.scope = "sentinel"
 	plainResult := perform(t, h, "POST", "/books/"+plain.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if plainResult.Code != http.StatusSeeOther || recorder.scope != "" || recorder.source != plain.ID {
+	if plainResult.Code != http.StatusConflict || recorder.scope != "sentinel" || recorder.source != german.ID {
 		t.Fatalf("plain analysis=%d owner=%q source=%q scope=%q body=%s", plainResult.Code, recorder.owner, recorder.source, recorder.scope, plainResult.Body.String())
 	}
 	if csrfResult := perform(t, h, "POST", "/books/"+plain.ID+"/analyze", nil, cookies); csrfResult.Code != http.StatusForbidden {
@@ -318,10 +292,6 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	}
 	if got := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner analyze POST=%d body=%s", got.Code, got.Body.String())
-	}
-	missing := perform(t, h, "POST", "/books/"+missingUnits.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if missing.Code != http.StatusConflict || !strings.Contains(missing.Body.String(), "no extracted EPUB units") {
-		t.Fatalf("missing EPUB units=%d body=%s", missing.Code, missing.Body.String())
 	}
 }
 
@@ -460,7 +430,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
 	}
 	started := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if started.Code != http.StatusSeeOther || recorder.scope == "" || downloads != 1 {
+	if started.Code != http.StatusSeeOther || recorder.scope != "" || downloads != 1 {
 		t.Fatalf("one-click analysis=%d scope=%q downloads=%d body=%s", started.Code, recorder.scope, downloads, started.Body.String())
 	}
 	retried := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)

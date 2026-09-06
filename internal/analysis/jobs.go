@@ -4,6 +4,7 @@ package analysis
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ const (
 )
 
 var ErrNotFound = errors.New("analysis job: not found")
+var ErrEPUBRequired = errors.New("analysis requires an EPUB source")
 
 type JobArgs struct {
 	RunID             string `json:"run_id,omitempty" river:"unique"`
@@ -133,7 +135,7 @@ func isLiveScopedJobState(state rivertype.JobState) bool {
 
 func (s *Service) ensureScopedAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, runID string, failOrphaned bool) (int64, error) {
 	var riverJobID int64
-	err := tx.QueryRow(ctx, `SELECT id FROM river_job WHERE kind=$1 AND args->>'run_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id DESC LIMIT 1`, (JobArgs{}).Kind(), runID).Scan(&riverJobID)
+	err := tx.QueryRow(ctx, `SELECT job.id FROM river_job job JOIN analysis_run_attempts attempt ON attempt.river_job_id=job.id AND attempt.run_id=$2::uuid AND attempt.state IN ('queued','running') WHERE job.kind=$1 AND job.args->>'run_id'=$2::text AND job.state IN ('available','pending','running','retryable','scheduled') ORDER BY job.id DESC LIMIT 1`, (JobArgs{}).Kind(), runID).Scan(&riverJobID)
 	if err == nil {
 		return riverJobID, nil
 	}
@@ -158,7 +160,7 @@ func (s *Service) ensureScopedAttemptTx(ctx context.Context, tx pgx.Tx, args Job
 		return 0, err
 	}
 	args.RunID, args.Attempt = runID, attempt
-	inserted, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: 1, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveScopedJobStates}})
+	inserted, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: 1})
 	if err != nil {
 		return 0, err
 	}
@@ -172,11 +174,92 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 	return &Service{pool: pool, client: client}
 }
 
-// SubmitAnalysis atomically records an owner-scoped handle and inserts its
-// River job. Ordinary uniqueness is based on owner + source content hash +
-// analysis contract identity.
+// SubmitAnalysis atomically records one snapshot-bound analysis run and inserts
+// its River job. The worker reloads the immutable extracted snapshot.
 func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (Handle, error) {
-	return s.submitAnalysis(ctx, owner, sourceID, "")
+	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
+		return Handle{}, fmt.Errorf("analysis owner and source are required")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Handle{}, fmt.Errorf("begin analysis submission: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var args JobArgs
+	var revisionID, snapshotID, mediaType string
+	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
+		COALESCE(r.revision_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,
+		COALESCE(s.current_snapshot_id::text,''),s.media_type
+		FROM source_materials s
+		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.source_material_id=s.id AND r.revision_id=s.current_content_revision_id
+		WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
+		Scan(&args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &revisionID, &args.ContentHash, &snapshotID, &mediaType)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Handle{}, ErrNotFound
+	}
+	if err != nil {
+		return Handle{}, fmt.Errorf("load EPUB for analysis: %w", err)
+	}
+	if mediaType != "application/epub+zip" {
+		return Handle{}, ErrEPUBRequired
+	}
+	if revisionID == "" || snapshotID == "" {
+		return Handle{}, domain.ErrExtractedUnitsUnavailable
+	}
+	args.RunID = ""
+	args.ContentRevisionID, args.SnapshotID = revisionID, snapshotID
+	args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity = scopedAnalyzerName, scopedAnalyzerVersion, scopedConfigIdentity
+	var readable int
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3 AND btrim(text)<>''`, owner, sourceID, snapshotID).Scan(&readable); err != nil {
+		return Handle{}, fmt.Errorf("check extracted EPUB units: %w", err)
+	}
+	if readable == 0 {
+		return Handle{}, domain.ErrExtractedUnitsUnavailable
+	}
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
+		return Handle{}, fmt.Errorf("lock analysis submission: %w", err)
+	}
+	var runID, state string
+	err = tx.QueryRow(ctx, `SELECT id::text,state FROM analysis_runs WHERE owner_id=$1 AND content_revision_id=$2 AND scope_id IS NULL AND analyzer_name=$3 AND analyzer_version=$4 AND config_identity=$5 FOR UPDATE`, owner, revisionID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID, &state)
+	if err == nil {
+		var id, display int64
+		if err = tx.QueryRow(ctx, `SELECT river_job_id,display_number FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner, runID).Scan(&id, &display); err != nil {
+			return Handle{}, fmt.Errorf("load existing analysis handle: %w", err)
+		}
+		if state == "queued" || state == "running" {
+			args.RunID = runID
+			if _, err = s.ensureScopedAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
+				return Handle{}, err
+			}
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return Handle{}, err
+		}
+		return Handle{ID: id, JobID: id, DisplayNumber: display, RunID: runID}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Handle{}, fmt.Errorf("check existing analysis: %w", err)
+	}
+	runID = uuid.NewString()
+	if err = tx.QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,scope_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,attempt_count) VALUES($1,$2,$3,NULL,$4,$5,$6,$7,'queued',1) RETURNING id::text`, owner, sourceID, revisionID, snapshotID, args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity).Scan(&runID); err != nil {
+		return Handle{}, fmt.Errorf("create analysis run: %w", err)
+	}
+	args.RunID, args.Attempt = runID, 1
+	inserted, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: 1})
+	if err != nil {
+		return Handle{}, fmt.Errorf("enqueue analysis: %w", err)
+	}
+	var display int64
+	if err = tx.QueryRow(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,analysis_run_id,display_number) VALUES($1,$2,$3,$4,$5::uuid,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2)) RETURNING display_number`, inserted.Job.ID, owner, sourceID, args.ContentHash, runID).Scan(&display); err != nil {
+		return Handle{}, err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO analysis_run_attempts(run_id,owner_id,source_material_id,attempt_number,river_job_id,state) VALUES($1,$2,$3,1,$4,'queued')`, runID, owner, sourceID, inserted.Job.ID); err != nil {
+		return Handle{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Handle{}, err
+	}
+	return Handle{ID: inserted.Job.ID, JobID: inserted.Job.ID, DisplayNumber: display, RunID: runID}, nil
 }
 
 // SubmitScopedAnalysis queues an immutable reviewed EPUB scope. Unit text is
@@ -354,7 +437,7 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 	}
 	if runID != "" {
 		var state, lastError, scopeID string
-		if err = s.pool.QueryRow(ctx, `SELECT state,last_error,COALESCE(corpus_id::text,''),scope_id::text,attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
+		if err = s.pool.QueryRow(ctx, `SELECT state,last_error,COALESCE(corpus_id::text,''),COALESCE(scope_id::text,''),attempt_count FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner, runID).
 			Scan(&state, &lastError, &status.CorpusID, &scopeID, &status.AttemptCount); err != nil {
 			return Status{}, fmt.Errorf("get scoped analysis run: %w", err)
 		}
@@ -409,7 +492,8 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 	var artifactHash, artifactLanguage, artifactSchemaVersion, artifactProfile, artifactNormalizationVersion, artifactAnalyzerName, artifactAnalyzerVersion string
 	var sourceDigest, sourceRevisionID string
 	var sourceDigestVersion int
-	var scopeSchemaVersion, scopeExtractedUnitsSchemaVersion int
+	var scopeSchemaVersion, scopeExtractedUnitsSchemaVersion sql.NullInt64
+	var scopeID, snapshotID sql.NullString
 
 	err := s.pool.QueryRow(ctx, `SELECT r.id::text,r.owner_id::text,r.source_material_id::text,r.scope_id::text,r.snapshot_id::text,
 		r.analyzer_name,r.analyzer_version,r.config_identity,r.completed_at,
@@ -422,11 +506,11 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 		JOIN analysis_jobs j ON j.owner_id=r.owner_id AND j.analysis_run_id=r.id AND j.source_material_id=r.source_material_id
 		JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
 		JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
-		JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.snapshot_id=r.snapshot_id
-		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.reviewed_scope_id=r.scope_id AND c.analysis_run_id=r.id AND c.status='complete'
+		LEFT JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.snapshot_id=r.snapshot_id
+		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.status='complete' AND ((r.scope_id IS NULL AND c.reviewed_scope_id IS NULL) OR c.reviewed_scope_id=r.scope_id)
 		JOIN normalized_corpus_artifacts a ON a.content_hash=c.artifact_hash
 		WHERE r.owner_id=$1 AND r.source_material_id=$2::uuid AND r.id=$3::uuid AND r.state='completed'`, owner, sourceID, runID).
-		Scan(&result.RunID, &result.OwnerID, &result.SourceMaterialID, &result.ScopeID, &result.SnapshotID,
+		Scan(&result.RunID, &result.OwnerID, &result.SourceMaterialID, &scopeID, &snapshotID,
 			&result.AnalyzerName, &result.AnalyzerVersion, &result.ConfigIdentity, &completedAt,
 			&result.JobID, &result.DisplayNumber,
 			&result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &sourceDigest, &sourceRevisionID, &sourceDigestVersion, &sourceCreatedAt,
@@ -440,6 +524,7 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 		return CompletedAnalysis{}, fmt.Errorf("get completed analysis: %w", err)
 	}
 	result.CompletedAt = completedAt
+	result.ScopeID, result.SnapshotID = scopeID.String, snapshotID.String
 	result.Source.ID = result.SourceMaterialID
 	result.Source.OwnerID = result.OwnerID
 	result.Source.ContentHash = sourceDigest
@@ -454,12 +539,12 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 	result.Corpus.AnalysisRunID = result.RunID
 	result.Corpus.CreatedAt = corpusCreatedAt
 	result.Scope = domain.EPUBReviewedScopeSnapshot{
-		SchemaVersion:      scopeSchemaVersion,
+		SchemaVersion:      int(scopeSchemaVersion.Int64),
 		ScopeID:            result.ScopeID,
 		OwnerID:            result.OwnerID,
 		SourceMaterialID:   result.SourceMaterialID,
 		SourceContent:      domain.EPUBContentRevisionIdentity{RevisionID: sourceRevisionID, Digest: sourceDigest, DigestVersion: sourceDigestVersion},
-		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: result.SnapshotID, ExtractedUnitsSchemaVersion: scopeExtractedUnitsSchemaVersion},
+		SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: result.SnapshotID, ExtractedUnitsSchemaVersion: int(scopeExtractedUnitsSchemaVersion.Int64)},
 		CreatedAt:          scopeCreatedAt,
 	}
 	result.Artifact = domain.NormalizedArtifact{ContentHash: artifactHash, Language: artifactLanguage, SchemaVersion: artifactSchemaVersion, NormalizationProfile: artifactProfile, NormalizationVersion: artifactNormalizationVersion, AnalyzerName: artifactAnalyzerName, AnalyzerVersion: artifactAnalyzerVersion, CreatedAt: artifactCreatedAt}
@@ -470,6 +555,9 @@ func (s *Service) GetCompletedAnalysis(ctx context.Context, owner, sourceID, run
 		}
 	}
 
+	if result.ScopeID == "" {
+		return result, nil
+	}
 	rows, err := s.pool.Query(ctx, `SELECT unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND scope_id=$3 ORDER BY unit_order`, owner, result.Corpus.ID, result.ScopeID)
 	if err != nil {
 		return CompletedAnalysis{}, fmt.Errorf("load completed analysis scope units: %w", err)
@@ -719,7 +807,7 @@ func (s *Service) liveScopedJobIDTx(ctx context.Context, q analysisQueryer, owne
 func scopedArgsTx(ctx context.Context, q analysisQueryer, owner, runID string) (JobArgs, error) {
 	var args JobArgs
 	err := q.QueryRow(ctx, `SELECT r.id::text,r.attempt_count,r.owner_id::text,r.source_material_id::text,
-		s.language,s.source_identifier,s.title,rev.content_digest,rev.revision_id::text,r.snapshot_id::text,r.scope_id::text
+		s.language,s.source_identifier,s.title,rev.content_digest,rev.revision_id::text,r.snapshot_id::text,COALESCE(r.scope_id::text,'')
 		FROM analysis_runs r JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
 		JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
 		WHERE r.owner_id=$1 AND r.id=$2`, owner, runID).Scan(&args.RunID, &args.Attempt, &args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &args.ContentHash, &args.ContentRevisionID, &args.SnapshotID, &args.ReviewedScopeID)
@@ -802,6 +890,39 @@ func loadScopedUnits(ctx context.Context, q queryRower, owner, sourceID, scopeID
 	}
 	if len(units) == 0 || len(units) != expectedCount {
 		return nil, fmt.Errorf("reviewed scope is missing, stale, cross-owner, empty, or invalid")
+	}
+	return units, nil
+}
+
+func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revisionID, snapshotID string) ([]scopedUnit, error) {
+	rows, err := q.Query(ctx, `SELECT u.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset
+		FROM source_material_units u
+		JOIN source_material_unit_snapshots snap ON snap.owner_id=u.owner_id AND snap.source_material_id=u.source_material_id AND snap.snapshot_id=u.snapshot_id AND snap.content_revision_id=$4
+		JOIN source_materials source ON source.owner_id=u.owner_id AND source.id=u.source_material_id AND source.current_content_revision_id=$4 AND source.current_snapshot_id=u.snapshot_id
+		WHERE u.owner_id=$1 AND u.source_material_id=$2 AND u.snapshot_id=$3 AND btrim(u.text)<>''
+		ORDER BY u.unit_order`, owner, sourceID, snapshotID, revisionID)
+	if err != nil {
+		return nil, fmt.Errorf("load extracted snapshot: %w", err)
+	}
+	defer rows.Close()
+	var units []scopedUnit
+	lastOrder := -1
+	for rows.Next() {
+		var unit scopedUnit
+		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset); err != nil {
+			return nil, fmt.Errorf("load extracted snapshot unit: %w", err)
+		}
+		if unit.UnitID == "" || unit.Order <= lastOrder || unit.EndOffset < unit.StartOffset {
+			return nil, errors.New("extracted snapshot is invalid")
+		}
+		lastOrder = unit.Order
+		units = append(units, unit)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("load extracted snapshot units: %w", err)
+	}
+	if len(units) == 0 {
+		return nil, domain.ErrExtractedUnitsUnavailable
 	}
 	return units, nil
 }
@@ -979,7 +1100,19 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 	}()
 
 	var valid bool
-	if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(
+	if a.ReviewedScopeID == "" {
+		if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(
+			SELECT 1 FROM analysis_runs r JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
+			JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
+			WHERE r.id=$1 AND r.owner_id=$2 AND r.source_material_id=$3 AND r.content_revision_id=$4 AND r.snapshot_id=$5
+			  AND s.current_content_revision_id=r.content_revision_id AND s.current_snapshot_id=r.snapshot_id AND rev.content_digest=$6
+		)`, a.RunID, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID, a.ContentHash).Scan(&valid); err != nil {
+			return err
+		}
+		if !valid {
+			return errors.New("the source content revision is no longer current")
+		}
+	} else if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1 FROM analysis_runs r
 		JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
 		JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
@@ -990,10 +1123,16 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 	)`, a.RunID, a.OwnerID, a.SourceMaterialID, a.ReviewedScopeID, a.ContentRevisionID, a.ContentHash).Scan(&valid); err != nil {
 		return err
 	}
-	if !valid {
+	if a.ReviewedScopeID != "" && !valid {
 		return errors.New("the confirmed scope is no longer current")
 	}
-	selectedUnits, err := loadScopedUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ReviewedScopeID)
+	var selectedUnits []scopedUnit
+	var err error
+	if a.ReviewedScopeID == "" {
+		selectedUnits, err = loadSnapshotUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID)
+	} else {
+		selectedUnits, err = loadScopedUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ReviewedScopeID)
+	}
 	if err != nil {
 		return err
 	}
@@ -1063,7 +1202,7 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 	profile := statistics.TextProfile
 	var corpusID string
 	err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,reviewed_scope_id,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
-		VALUES($1,$2,$3,$4::uuid,$5::uuid,'complete',$6,$7,$8,$9,$10,$11,$12,$13)
+		VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5::uuid,'complete',$6,$7,$8,$9,$10,$11,$12,$13)
 		ON CONFLICT(owner_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO NOTHING RETURNING id::text`, a.OwnerID, a.SourceMaterialID, artifactHash, a.ReviewedScopeID, a.RunID, statistics.AnalyzableTokenCount, statistics.DistinctLemmaCount, profile.SentenceCount, profile.NormalizedTokenCount, profile.EmptySentenceCount, profile.MedianSentenceTokenCount, profile.P90SentenceTokenCount, profile.LongSentenceCount).Scan(&corpusID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if err = tx.QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
@@ -1073,6 +1212,9 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 		return err
 	}
 	for _, unit := range selectedUnits {
+		if a.ReviewedScopeID == "" {
+			break
+		}
 		if _, err = tx.Exec(ctx, `INSERT INTO corpus_selected_units(corpus_id,owner_id,scope_id,source_material_id,snapshot_id,unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset)
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`, corpusID, a.OwnerID, a.ReviewedScopeID, a.SourceMaterialID, unit.SnapshotID, unit.UnitID, unit.Order, unit.SourceHref, unit.ResolvedHref, unit.Title, unit.StartOffset, unit.EndOffset); err != nil {
 			return err
@@ -1103,8 +1245,8 @@ func (w *Worker) workScoped(ctx context.Context, job *river.Job[JobArgs]) (workE
 			SELECT 1
 			FROM analysis_runs r
 			JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id AND s.book_id=$3
-			JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.content_revision_id=r.content_revision_id AND scope.snapshot_id=r.snapshot_id
-			JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.reviewed_scope_id=scope.scope_id AND c.status='complete'
+			LEFT JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id AND scope.content_revision_id=r.content_revision_id AND scope.snapshot_id=r.snapshot_id
+			JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.status='complete' AND ((r.scope_id IS NULL AND c.reviewed_scope_id IS NULL) OR c.reviewed_scope_id=scope.scope_id)
 			WHERE r.owner_id=$1 AND r.id=$2 AND r.state='completed'
 			  AND s.current_content_revision_id=r.content_revision_id AND s.current_snapshot_id=r.snapshot_id
 		)`, a.OwnerID, a.RunID, bookID).Scan(&eligible); err != nil {

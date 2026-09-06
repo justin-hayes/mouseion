@@ -4447,7 +4447,7 @@ func BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domai
 				return templ_7745c5c3_Err
 			}
 			if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 372, "<section aria-labelledby=\"deck-preparation-heading\"><h2 id=\"deck-preparation-heading\">Deck preparation</h2><p>Prepare vocabulary from this book's exact current analysis and its immutable scope. It does not start a learning campaign.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 372, "<section aria-labelledby=\"deck-preparation-heading\"><h2 id=\"deck-preparation-heading\">Deck preparation</h2><p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. It does not start a learning campaign.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
