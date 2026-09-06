@@ -260,13 +260,17 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 			t.Fatal(linkErr)
 		}
 	}
+	germanDetail, err := store.GetBookDetail(ctx, alice.ID, german.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	recorder := &recordingAnalysis{}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "scope-web-bob", "bob-password")
 
-	first := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	first := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
 	if first.Code != http.StatusSeeOther || recorder.scope == "" {
 		t.Fatalf("first EPUB analysis=%d scope=%q body=%s", first.Code, recorder.scope, first.Body.String())
 	}
@@ -312,7 +316,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if got := perform(t, h, "GET", "/books/"+german.ID+"/analyze", nil, bobCookies); got.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("cross-owner analyze GET=%d body=%s", got.Code, got.Body.String())
 	}
-	if got := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner analyze POST=%d body=%s", got.Code, got.Body.String())
 	}
 	missing := perform(t, h, "POST", "/books/"+missingUnits.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
