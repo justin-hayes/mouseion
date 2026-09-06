@@ -110,6 +110,7 @@ type connectionStore interface {
 type catalogueReader interface {
 	Languages(context.Context, string, string) (opds.Feed, error)
 	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
+	BrowseLanguageUnfiltered(context.Context, string, string, string) (opds.Feed, error)
 }
 
 type Service struct {
@@ -163,7 +164,7 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 				return result, fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
 			}
 			for _, languageID := range opds.LanguageIDs(languages) {
-				feed, err := s.reader.BrowseLanguage(ctx, alias.OwnerID, connection.ID, languageID)
+				feed, err := s.reader.BrowseLanguageUnfiltered(ctx, alias.OwnerID, connection.ID, languageID)
 				if err != nil {
 					return result, fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
 				}

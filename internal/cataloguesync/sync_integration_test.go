@@ -48,6 +48,9 @@ func (f *fakeReader) BrowseLanguage(_ context.Context, _ string, _ string, id st
 	f.visited = append(f.visited, id)
 	return f.feeds[id], nil
 }
+func (f *fakeReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, id string) (opds.Feed, error) {
+	return f.BrowseLanguage(ctx, owner, connection, id)
+}
 
 func testEntry(id, title string) opds.Entry {
 	return opds.Entry{ID: id, Title: title, Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/opds/epub/" + id}}}

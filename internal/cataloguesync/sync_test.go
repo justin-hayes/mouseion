@@ -174,6 +174,9 @@ func (r *refreshReader) BrowseLanguage(context.Context, string, string, string) 
 	}
 	return r.feed, nil
 }
+func (r *refreshReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
+	return r.BrowseLanguage(ctx, owner, connection, language)
+}
 
 func newRefreshService(store *refreshStore, reader catalogueReader) *Service {
 	return &Service{store: store, reader: reader}
@@ -189,6 +192,9 @@ func (r *backfillReader) Languages(_ context.Context, owner, connection string) 
 }
 func (r *backfillReader) BrowseLanguage(_ context.Context, owner, connection, language string) (opds.Feed, error) {
 	return r.feeds[owner+":"+connection+":"+language], nil
+}
+func (r *backfillReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
+	return r.BrowseLanguage(ctx, owner, connection, language)
 }
 
 func TestBackfillCatalogueEntryAliasesIsStrictAndIdempotent(t *testing.T) {

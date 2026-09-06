@@ -39,8 +39,10 @@ The data backfill is owned by the operator and is intentionally not a startup
 side effect. After applying migration `000047`, run the explicit
 `cataloguebackfill` command. It examines only null `connection_id` catalogue
 entry aliases, reads every language feed through the existing OPDS reader, and
-commits each assignment independently. A retry skips assigned rows, so a
-process interruption is safe. Feed errors, missing entries, and ambiguous
+commits each assignment independently in a short conditional transaction; the
+database row lock is held only for that update, so the backfill does not hold a
+long transaction across feed I/O. A retry skips assigned rows, so a process
+interruption is safe. Feed errors, missing entries, and ambiguous
 connection matches stop the operation loudly; the operator corrects the
 catalogue or credentials and reruns it. Recovery is therefore forward-only and
 does not guess or merge data. Before the later contract migration makes the
