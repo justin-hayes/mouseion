@@ -224,7 +224,11 @@ func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
 		if strings.EqualFold(source.AnalysisStatus, "analyzed") {
 			state = domain.MyBookAnalyzed
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
+		bookID := source.BookID
+		if bookID == "" {
+			bookID = source.Source.ID
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
 	}
 	return out
 }
@@ -277,9 +281,13 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 		}
 	}
 	if state == domain.MyBookStale {
-		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Acquired.Source.ID) + "/analyze", Tone: StatusWarning, Submit: true}
+		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Book.ID) + "/analyze", Tone: StatusWarning, Submit: true}
 	}
-	return bookLifecycleActionFor(*book.Acquired, nil)
+	action := bookLifecycleActionFor(*book.Acquired, nil)
+	if strings.HasPrefix(action.URL, "/books/") {
+		action.URL = "/books/" + url.PathEscape(book.Book.ID) + strings.TrimPrefix(action.URL, "/books/"+url.PathEscape(book.Acquired.Source.ID))
+	}
+	return action
 }
 
 type bookLifecycleAction struct {

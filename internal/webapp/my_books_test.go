@@ -76,7 +76,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 	for i, state := range states {
 		book := domain.MyBook{Book: domain.Book{ID: "book-" + string(rune('a'+i)), OwnerID: "owner", Title: "Book " + string(rune('A'+i)), LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: state}
 		if state != domain.MyBookNotAcquired {
-			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: "revision"}, AnalysisStatus: "not analyzed"}
+			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-" + book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: "revision"}, BookID: book.Book.ID, AnalysisStatus: "not analyzed"}
 		}
 		books = append(books, book)
 	}
@@ -89,6 +89,9 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		if strings.Count(html, label) != 1 {
 			t.Errorf("evidence label %q count=%d", label, strings.Count(html, label))
 		}
+	}
+	if !strings.Contains(html, `href="/books/book-d"`) || strings.Contains(html, `href="/books/source-book-d"`) {
+		t.Fatalf("learner My Books links were not canonical: %s", html)
 	}
 }
 
