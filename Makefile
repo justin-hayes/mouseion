@@ -4,9 +4,11 @@ VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
 HERMES_WORKER_IMAGE ?= mouseion-hermes-worker:local
+MOUSEION_TEST_PG_PORT ?= 55432
+MOUSEION_TEST_PACKAGES ?= ./internal/...
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration lint gen templ dev clean go-tmp hermes-worker-smoke browser-smoke
+.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp hermes-worker-smoke browser-smoke
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -27,6 +29,30 @@ test: go-tmp
 
 test-integration: go-tmp
 	go test -tags=integration ./internal/...
+
+test-integration-shared: go-tmp
+	@set -eu; \
+	if test -n "$${MOUSEION_TEST_DATABASE_URL:-}"; then \
+		go test -tags=integration -p 1 $(MOUSEION_TEST_PACKAGES); \
+		exit; \
+	fi; \
+	container="mouseion-test-postgres-$$$$"; \
+	port="$${MOUSEION_TEST_PG_PORT:-55432}"; \
+	database_url="postgres://postgres:postgres@127.0.0.1:$${port}/mouseion_test?sslmode=disable"; \
+	cleanup() { docker rm -f "$$container" >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT INT TERM; \
+	docker run --detach --rm --name "$$container" \
+		--env POSTGRES_PASSWORD=postgres \
+		--env POSTGRES_DB=mouseion_test \
+		--publish "127.0.0.1:$${port}:5432" \
+		postgres:16-alpine >/dev/null; \
+	ready=0; \
+	for attempt in $$(seq 1 60); do \
+		if docker exec "$$container" pg_isready -U postgres -d mouseion_test >/dev/null 2>&1; then ready=1; break; fi; \
+		sleep 1; \
+	done; \
+	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
+	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -tags=integration -p 1 $(MOUSEION_TEST_PACKAGES)
 
 lint: go-tmp
 	go vet ./...

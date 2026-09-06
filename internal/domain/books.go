@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 const (
@@ -70,6 +72,9 @@ type MyBook struct {
 }
 
 func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {
+	if languageState == LanguageChosen {
+		languageTag = canonicalization.NormalizeLanguage(languageTag)
+	}
 	b := Book{OwnerID: ownerID, Title: title, MetadataProvenance: metadataProvenance, LanguageState: languageState, LanguageTag: languageTag}
 	return b, b.Validate()
 }
@@ -92,6 +97,9 @@ func (b Book) Validate() error {
 	case LanguageChosen:
 		if strings.TrimSpace(b.LanguageTag) == "" {
 			return errors.New("domain: chosen book language requires a tag")
+		}
+		if b.LanguageTag != canonicalization.NormalizeLanguage(b.LanguageTag) {
+			return errors.New("domain: chosen book language must be canonical")
 		}
 	default:
 		return errors.New("domain: invalid book language state")

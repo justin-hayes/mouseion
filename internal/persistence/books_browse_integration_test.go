@@ -30,7 +30,11 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	create := func(owner, title, state, tag, provenance string) domain.Book {
-		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: provenance, LanguageState: state, LanguageTag: tag})
+		input, createErr := domain.NewBook(owner, title, provenance, state, tag)
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		book, createErr := store.CreateBook(ctx, input)
 		if createErr != nil {
 			t.Fatal(createErr)
 		}

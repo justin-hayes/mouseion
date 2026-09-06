@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -642,6 +643,9 @@ func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, er
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if languageState == domain.LanguageChosen {
+		languageTag = canonicalization.NormalizeLanguage(languageTag)
+	}
 	for i := range s.books {
 		if s.books[i].Source.OwnerID == owner && (s.books[i].Source.ID == bookID || s.books[i].BookID == bookID) {
 			resolvedBookID := s.books[i].BookID

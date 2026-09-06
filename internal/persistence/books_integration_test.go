@@ -298,12 +298,20 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	if _, err = store.PutSupportedLanguage(ctx, "de-DE", "German"); err != nil {
 		t.Fatal(err)
 	}
-	for _, book := range []domain.Book{
-		{OwnerID: alice.ID, Title: "German one", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "DE_de"},
-		{OwnerID: alice.ID, Title: "German two", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"},
-		{OwnerID: alice.ID, Title: "Fallback", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "PT_br"},
-		{OwnerID: alice.ID, Title: "Unknown", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown},
-	} {
+	inputs := []struct {
+		title, language string
+		state           string
+	}{
+		{title: "German one", language: "DE_de", state: domain.LanguageChosen},
+		{title: "German two", language: "de-DE", state: domain.LanguageChosen},
+		{title: "Fallback", language: "PT_br", state: domain.LanguageChosen},
+		{title: "Unknown", state: domain.LanguageUnknown},
+	}
+	for _, input := range inputs {
+		book, bookErr := domain.NewBook(alice.ID, input.title, domain.MetadataProvenanceManualEntry, input.state, input.language)
+		if bookErr != nil {
+			t.Fatal(bookErr)
+		}
 		if _, err = store.CreateBook(ctx, book); err != nil {
 			t.Fatal(err)
 		}
@@ -330,7 +338,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de-de", DisplayName: "German"}) || languages[1] != (domain.StudyLanguage{Language: "pt-br", DisplayName: "PT_br"}) {
+	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de", DisplayName: "de"}) || languages[1] != (domain.StudyLanguage{Language: "pt", DisplayName: "pt"}) {
 		t.Fatalf("derived study languages=%+v", languages)
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -420,6 +421,9 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		return domain.Book{}, err
 	}
 	candidate := current
+	if languageState == domain.LanguageChosen {
+		languageTag = canonicalization.NormalizeLanguage(languageTag)
+	}
 	candidate.Title, candidate.LanguageState, candidate.LanguageTag = title, languageState, languageTag
 	if err = candidate.Validate(); err != nil {
 		return domain.Book{}, err
