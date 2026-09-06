@@ -592,14 +592,28 @@ func (s *PostgresStore) GetArtifact(ctx context.Context, hash string) (a domain.
 	return a, ls, rows.Err()
 }
 func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash string) (v domain.Corpus, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC LIMIT 1`, owner, sourceID).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner+":"+sourceID); err != nil {
+		return v, err
+	}
+	err = tx.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC LIMIT 1`, owner, sourceID).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = s.pool.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash) VALUES($1,$2,$3) RETURNING id,owner_id,source_material_id,artifact_hash,status,created_at`, owner, sourceID, hash).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+		err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash) VALUES($1,$2,$3) RETURNING id,owner_id,source_material_id,artifact_hash,status,created_at`, owner, sourceID, hash).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
 		return
 	}
 	if err == nil {
-		_, err = s.pool.Exec(ctx, `UPDATE corpora SET artifact_hash=$3 WHERE owner_id=$1 AND id=$2`, owner, v.ID, hash)
+		_, err = tx.Exec(ctx, `UPDATE corpora SET artifact_hash=$3 WHERE owner_id=$1 AND id=$2`, owner, v.ID, hash)
 		v.ArtifactHash = hash
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
 	}
 	return
 }

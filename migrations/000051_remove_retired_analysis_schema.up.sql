@@ -6,6 +6,12 @@
 -- plain-text source material are recoverable only by restoring that backup or
 -- re-syncing the learner's catalogue; the down migration cannot restore data.
 -- The statements are safe to retry after a failed deployment.
+-- Apply during a maintenance window or with normal migration locking: the
+-- DELETEs take row locks and DROP TABLE/ALTER TABLE take brief ACCESS EXCLUSIVE
+-- locks. Observe migration completion and application startup; a failed run is
+-- rolled back by the migration runner and can be retried. If deletion has
+-- committed, recover from the verified pre-migration backup or re-sync the
+-- catalogue rather than attempting a down migration.
 
 -- Manual books are dead library data. ON DELETE CASCADE removes memberships,
 -- aliases, journey membership, goals, and current-analysis projections.

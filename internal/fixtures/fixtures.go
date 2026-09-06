@@ -73,7 +73,6 @@ type Store struct {
 	myBooks         []domain.MyBook
 	readingJourneys map[string]domain.ReadingJourney
 	primaryGoals    map[string]domain.PrimaryGoal
-	reviewedScopes  []domain.EPUBReviewedScopeSnapshot
 	syncStatuses    []domain.CatalogueSyncStatus
 }
 
@@ -568,57 +567,6 @@ func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (strin
 		{ID: domain.EPUBUnitID(1, "fixture-002"), Order: 1, SpineIndex: 1, ManifestID: "fixture-002", Title: "Chapter two", Text: second, StartOffset: uint64(len([]rune(text)) + 2), EndOffset: uint64(len([]rune(text)) + 2 + len([]rune(second))), MediaType: "application/xhtml+xml", Linear: true},
 	}}, nil
 }
-func (s *Store) FindFullBookScope(_ context.Context, owner, sourceID, snapshotID string) (domain.EPUBReviewedScopeSnapshot, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var expected []domain.EPUBSelectedUnitReference
-	for _, book := range s.books {
-		if book.Source.ID == sourceID && book.Source.OwnerID == owner {
-			expected = make([]domain.EPUBSelectedUnitReference, 0, 2)
-			for _, unit := range []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "fixture-001"), Order: 0}, {UnitID: domain.EPUBUnitID(1, "fixture-002"), Order: 1}} {
-				expected = append(expected, unit)
-			}
-			break
-		}
-	}
-	for _, scope := range s.reviewedScopes {
-		if scope.OwnerID == owner && scope.SourceMaterialID == sourceID && scope.SourceUnitSnapshot.SnapshotID == snapshotID && len(scope.SelectedUnits) == len(expected) {
-			match := true
-			for i := range expected {
-				if scope.SelectedUnits[i] != expected[i] {
-					match = false
-					break
-				}
-			}
-			if match {
-				return scope, nil
-			}
-		}
-	}
-	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
-}
-func (s *Store) GetEPUBReviewedScope(_ context.Context, owner, sourceID, scopeID string) (domain.EPUBReviewedScopeSnapshot, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, scope := range s.reviewedScopes {
-		if scope.OwnerID == owner && scope.SourceMaterialID == sourceID && scope.ScopeID == scopeID {
-			return scope, nil
-		}
-	}
-	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
-}
-func (s *Store) CreateEPUBReviewedScope(_ context.Context, scope domain.EPUBReviewedScopeSnapshot) (domain.EPUBReviewedScopeSnapshot, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.reviewedScopes = append(s.reviewedScopes, scope)
-	for i := range s.books {
-		if s.books[i].Source.ID == scope.SourceMaterialID && s.books[i].Source.OwnerID == scope.OwnerID {
-			s.books[i].ReviewedScopeID = scope.ScopeID
-			return scope, nil
-		}
-	}
-	return domain.EPUBReviewedScopeSnapshot{}, errNotFound
-}
 
 // My Books persistence is intentionally small in the browser fixture; these
 // methods cover the learner-facing metadata controls without a database.
@@ -1102,9 +1050,6 @@ type Analysis struct{}
 func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
 }
-func (Analysis) SubmitScopedAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
-	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
-}
 func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
 	if id == 43 {
 		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil
@@ -1115,7 +1060,7 @@ func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
 	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
 }
 func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error) {
-	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, ScopeID: "fixture-scope", SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "fixture-001", Title: "Chapter one"}, {UnitID: "fixture-002", Title: "Chapter two"}}, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
+	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
 }
 
 type Insights struct {
@@ -1268,7 +1213,7 @@ func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCovera
 		projections = append(projections, domain.CoverageProjection{TopLemmaCount: i * 3, SelectedLemmaCount: i * 3, OccurrenceCount: i * 2400, EligibleTokenCount: 80000, ProjectedTokenCount: 50000 + i*7000})
 	}
 	thresholds := []domain.CoverageThreshold{{TargetPercent: 90, LemmaCount: 120, OccurrenceCount: 90000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 95, LemmaCount: 240, OccurrenceCount: 95000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 97, LemmaCount: 390, OccurrenceCount: 97000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 99, LemmaCount: 999, OccurrenceCount: 0, EligibleTokenCount: 100000, Reachable: false}}
-	return domain.AnalysisCoverage{SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ReviewedScopeID: "fixture-scope", AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
+	return domain.AnalysisCoverage{SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
 }
 
 type KnownVocab struct{}
