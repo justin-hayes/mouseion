@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 type languageCorpusProvider interface {
 	LanguageCorpus(context.Context, string, string) (domain.LanguageCorpusView, error)
+}
+
+type supportedLanguageReader interface {
+	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 }
 
 type languageCorpusPanelView struct {
@@ -43,14 +48,14 @@ type languageCorpusBookView struct {
 	ExclusionReason      string
 }
 
-func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvider, owner, language string) (languageCorpusPanelView, error) {
+func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvider, supported []domain.SupportedLanguage, owner, language string) (languageCorpusPanelView, error) {
 	result, err := provider.LanguageCorpus(ctx, owner, language)
 	if err != nil {
 		return languageCorpusPanelView{}, err
 	}
 	view := languageCorpusPanelView{
 		Language:             result.Language,
-		LanguageLabel:        languageCorpusLanguageLabel(result.Language),
+		LanguageLabel:        languageCorpusLanguageLabel(result.Language, supported),
 		AnalyzedBookCount:    result.AnalyzedBookCount,
 		KnownTokenCount:      result.KnownTokenCount,
 		AnalyzableTokenCount: result.AnalyzableTokenCount,
@@ -59,7 +64,7 @@ func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvid
 	}
 	if view.Language == "" {
 		view.Language = strings.ToLower(strings.TrimSpace(language))
-		view.LanguageLabel = languageCorpusLanguageLabel(view.Language)
+		view.LanguageLabel = languageCorpusLanguageLabel(view.Language, supported)
 	}
 	for _, lemma := range result.TopUnknownLemmas {
 		view.TopUnknownLemmas = append(view.TopUnknownLemmas, languageCorpusLemmaView{
@@ -83,11 +88,11 @@ func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvid
 	return view, nil
 }
 
-func unavailableLanguageCorpusPanel(language string) languageCorpusPanelView {
-	language = strings.ToLower(strings.TrimSpace(language))
+func unavailableLanguageCorpusPanel(language string, supported []domain.SupportedLanguage) languageCorpusPanelView {
+	language = canonicalization.NormalizeLanguage(language)
 	return languageCorpusPanelView{
 		Language:         language,
-		LanguageLabel:    languageCorpusLanguageLabel(language),
+		LanguageLabel:    languageCorpusLanguageLabel(language, supported),
 		PanelUnavailable: true,
 		State:            "unavailable",
 	}
@@ -123,21 +128,17 @@ func languageCorpusState(result domain.LanguageCorpusView) string {
 	}
 }
 
-func languageCorpusLanguageLabel(language string) string {
-	switch strings.ToLower(strings.TrimSpace(language)) {
-	case "de":
-		return "German"
-	case "it":
-		return "Italian"
-	case "en":
-		return "English"
-	default:
-		language = strings.TrimSpace(language)
-		if language == "" {
-			return "the selected language"
-		}
-		return strings.ToUpper(language)
+func languageCorpusLanguageLabel(language string, supported []domain.SupportedLanguage) string {
+	language = canonicalization.NormalizeLanguage(language)
+	if language == "" {
+		return "the selected language"
 	}
+	for _, candidate := range supported {
+		if canonicalization.NormalizeLanguage(candidate.Language) == language && strings.TrimSpace(candidate.DisplayName) != "" {
+			return candidate.DisplayName
+		}
+	}
+	return language
 }
 
 func languageCorpusPercent(numerator, denominator int64) string {
