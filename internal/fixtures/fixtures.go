@@ -696,10 +696,11 @@ func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.Readi
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
 	return journey, nil
 }
-func (s *Store) ResolveJourneyBookID(_ context.Context, _ string, id string) (string, bool, error) {
-	// Fixtures use one unified id for source material and book, so the
-	// canonical book identity is the id itself.
-	return id, true, nil
+func (s *Store) ResolveJourneyBookID(_ context.Context, owner, id string) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	bookID := s.fixtureBookID(owner, id)
+	return bookID, bookID != "", nil
 }
 func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
 	s.mu.Lock()
@@ -711,6 +712,7 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, exp
 	if !s.fixtureBookExists(owner, bookID) {
 		return 0, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
 	for _, entry := range journey.Entries {
 		if entry.BookID == bookID {
 			return journey.Revision, nil
@@ -836,6 +838,7 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (doma
 	if !s.fixtureBookExists(owner, bookID) {
 		return domain.PrimaryGoal{}, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
 	if _, ok := s.primaryGoals[owner]; ok {
 		goal := s.primaryGoals[owner]
 		if goal.ReadingFinishedAt == nil {
@@ -946,17 +949,24 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookI
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
+	return s.fixtureBookID(owner, bookID) != ""
+}
+
+func (s *Store) fixtureBookID(owner, id string) string {
 	for _, source := range s.books {
-		if source.Source.OwnerID == owner && source.Source.ID == bookID {
-			return true
+		if source.Source.OwnerID == owner && (source.Source.ID == id || source.BookID == id) {
+			if source.BookID != "" {
+				return source.BookID
+			}
+			return source.Source.ID
 		}
 	}
 	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID {
-			return true
+		if book.Book.OwnerID == owner && book.Book.ID == id {
+			return book.Book.ID
 		}
 	}
-	return false
+	return ""
 }
 
 func (s *Store) fixtureSourceID(owner, bookID string) string {
