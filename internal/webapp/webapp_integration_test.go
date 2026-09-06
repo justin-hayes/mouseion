@@ -423,11 +423,13 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
+	downloads := 0
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/book.epub" {
 			http.NotFound(w, r)
 			return
 		}
+		downloads++
 		w.Header().Set("Content-Type", opds.EPUBMediaType)
 		_, _ = w.Write(testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
 	}))
@@ -446,15 +448,24 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 		Entry:        opds.Entry{ID: "metadata-entry", Title: "Metadata-only synced book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "/book.epub"}}},
 		Href:         "/book.epub",
 	}
+	recorder := &recordingAnalysis{}
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
-		OPDS:          opds.NewService(store, epub.NewService(store), catalog.Client()),
-		CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
+		OPDS:     opds.NewService(store, epub.NewService(store), catalog.Client()),
+		Analysis: recorder, CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
 	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Acquire EPUB content") || !strings.Contains(bookPage.Body.String(), `name="return_to" value="/books/`+bookResult.Book.ID+`"`) {
 		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
+	}
+	started := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if started.Code != http.StatusSeeOther || recorder.scope == "" || downloads != 1 {
+		t.Fatalf("one-click analysis=%d scope=%q downloads=%d body=%s", started.Code, recorder.scope, downloads, started.Body.String())
+	}
+	retried := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if retried.Code != http.StatusSeeOther || downloads != 1 {
+		t.Fatalf("re-analysis=%d downloads=%d body=%s", retried.Code, downloads, retried.Body.String())
 	}
 	acquisition := url.Values{
 		"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"},

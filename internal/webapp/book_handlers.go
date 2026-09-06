@@ -276,6 +276,20 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if detail.Acquired == nil {
+		target, err := h.acquireBookForAnalysis(r, u.ID, detail.Book.ID)
+		if err != nil {
+			message := analysisAcquisitionError(r.Context(), h.services.Store, u.ID, detail.Book.ID, detail.Book.Title, target, err)
+			redirect(w, r, "/books/"+url.PathEscape(detail.Book.ID)+"?message="+url.QueryEscape(message))
+			return
+		}
+		// Acquisition promotes the existing Book. Reload it so scope resolution
+		// uses the persisted content revision and extracted-unit snapshot.
+		detail, ok = h.bookDetail(w, r, u.ID, detail.Book.ID)
+		if !ok {
+			return
+		}
+	}
+	if detail.Acquired == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -301,4 +315,42 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.DisplayNumber))
+}
+
+func (h *Handler) acquireBookForAnalysis(r *http.Request, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+	provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider)
+	if !ok {
+		return cataloguesync.AcquisitionTarget{}, errors.New("catalogue acquisition is unavailable")
+	}
+	target, err := provider.FindAcquisitionTarget(r.Context(), owner, bookID)
+	if err != nil {
+		return target, err
+	}
+	if h.services.OPDS == nil {
+		return target, errors.New("catalogue acquisition cannot promote this book")
+	}
+	_, err = h.services.OPDS.AcquireForBook(r.Context(), owner, target.ConnectionID, target.Language, bookID, target.Entry)
+	return target, err
+}
+
+func analysisAcquisitionError(ctx context.Context, store Store, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
+	connectionName, entryTitle := "catalogue connection", "this book"
+	if strings.TrimSpace(target.Entry.Title) != "" {
+		entryTitle = target.Entry.Title
+	} else if strings.TrimSpace(bookTitle) != "" {
+		entryTitle = bookTitle
+	}
+	if strings.TrimSpace(target.ConnectionID) != "" {
+		connectionName = target.ConnectionID
+	}
+	if provider, ok := store.(catalogueAliasReader); ok {
+		if alias, aliasErr := provider.GetBookCatalogEntryAlias(ctx, owner, bookID); aliasErr == nil {
+			if connection, connectionErr := store.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
+				if strings.TrimSpace(connection.Name) != "" {
+					connectionName = connection.Name
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("Could not acquire %q from connection %s: %s", entryTitle, connectionName, opdsErrorMessage(err))
 }

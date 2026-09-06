@@ -25,7 +25,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Open book", "Remove from My Books", `action="/library/books/metadata-book/remove"`, `action="/library/books/metadata-book"`, "Fix book language", `name="language_state"`, "language not chosen"} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Start analysis", `action="/books/metadata-book/analyze"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`, `action="/library/books/metadata-book"`, "Fix book language", `name="language_state"`, "language not chosen"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -37,7 +37,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 			row = row[:end+len("</article>")]
 		}
 	}
-	for _, forbidden := range []string{"Review scope", "Start analysis", "Prepare deck", "View analysis result", "coverage"} {
+	for _, forbidden := range []string{"Review scope", "Prepare deck", "View analysis result", "coverage"} {
 		if strings.Contains(row, forbidden) {
 			t.Errorf("metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
 		}
@@ -85,8 +85,8 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, label := range []string{"Unavailable", "Not acquired", "Acquired — unassessed", "Analyzed", "Stale analysis"} {
-		if strings.Count(html, label) != 1 {
+	for label, count := range map[string]int{"Unavailable": 1, "Not acquired": 1, "Ready to analyze": 2, "Analyzed": 1, "Stale analysis": 1} {
+		if strings.Count(html, label) != count {
 			t.Errorf("evidence label %q count=%d", label, strings.Count(html, label))
 		}
 	}
@@ -141,12 +141,12 @@ func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"Catalogue metadata", "Metadata only", "Content not acquired", "Analysis and deck preparation are unavailable"} {
+	for _, want := range []string{"Catalogue metadata", "Metadata only", "Content not acquired", "Start analysis", "acquire, validate, and analyze the EPUB in one action"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only page missing %q: %s", want, html)
 		}
 	}
-	for _, forbidden := range []string{"Review scope", "Start analysis", "Prepare deck", "Refresh metadata", `action=\"/books/metadata-book/analyze\"`} {
+	for _, forbidden := range []string{"Review scope", "Prepare deck", "Refresh metadata"} {
 		if strings.Contains(html, forbidden) {
 			t.Errorf("metadata-only page exposed unsupported action %q: %s", forbidden, html)
 		}

@@ -1215,8 +1215,12 @@ templ MetadataOnlyBookPageWithAcquisition(user domain.User, csrf string, book do
 		}
 		<article aria-labelledby="metadata-only-heading">
 			<h2 id="metadata-only-heading">Content not acquired</h2>
-			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB. Analysis and deck preparation are unavailable until content is acquired explicitly.</p>
-			<p>Sync is metadata-only and never downloads book content. Acquire the EPUB here when you are ready.</p>
+			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB yet.</p>
+			<p>Sync is metadata-only and never downloads book content. Start analysis to acquire, validate, and analyze the EPUB in one action.</p>
+			<form method="post" action={ templ.SafeURL("/books/" + book.Book.ID + "/analyze") }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<button type="submit">Start analysis</button>
+			</form>
 			if target != nil && token != "" {
 				@AcquisitionForm(csrf, target.ConnectionID, target.Language, "/books/"+book.Book.ID, target.Entry, token)
 			} else {
