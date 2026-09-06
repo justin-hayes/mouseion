@@ -295,7 +295,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.PutSupportedLanguage(ctx, "de-DE", "German"); err != nil {
+	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
 		t.Fatal(err)
 	}
 	inputs := []struct {
@@ -338,7 +338,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de", DisplayName: "de"}) || languages[1] != (domain.StudyLanguage{Language: "pt", DisplayName: "pt"}) {
+	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de", DisplayName: "German"}) || languages[1] != (domain.StudyLanguage{Language: "pt", DisplayName: "pt"}) {
 		t.Fatalf("derived study languages=%+v", languages)
 	}
 }

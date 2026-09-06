@@ -90,24 +90,18 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 }
 
 // ListStudyLanguages derives the learner's study languages from active Books
-// with a chosen language. Reference names are optional so old or newly
+// with a chosen canonical language. Reference names are optional so newly
 // discovered tags remain importable.
 func (s *PostgresStore) ListStudyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
 	rows, err := s.pool.Query(ctx, `WITH chosen_languages AS (
-		SELECT DISTINCT ON (lower(replace(trim(b.language_tag), '_', '-')))
-			lower(replace(trim(b.language_tag), '_', '-')) AS language, trim(b.language_tag) AS raw_tag
+		SELECT DISTINCT b.language_tag AS language
 		FROM books b
 		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		WHERE b.owner_id=$1 AND b.language_state='chosen' AND trim(COALESCE(b.language_tag,'')) <> ''
-		ORDER BY lower(replace(trim(b.language_tag), '_', '-')), trim(b.language_tag), b.id
+		WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag <> ''
 	)
-	SELECT c.language, COALESCE(NULLIF(s.display_name,''), c.raw_tag)
+	SELECT c.language, COALESCE(NULLIF(s.display_name,''), c.language)
 	FROM chosen_languages c
-	LEFT JOIN (SELECT DISTINCT ON (lower(replace(trim(language), '_', '-')))
-		lower(replace(trim(language), '_', '-')) AS language, display_name
-		FROM supported_languages
-		ORDER BY lower(replace(trim(language), '_', '-')), created_at DESC, language DESC
-	) s ON s.language=c.language
+	LEFT JOIN supported_languages s ON s.language=c.language
 	ORDER BY COALESCE(NULLIF(s.display_name,''), c.language), c.language`, owner)
 	if err != nil {
 		return nil, err
@@ -144,11 +138,14 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 // locally stored title; backslash, percent, and underscore are escaped before
 // the SQL LIKE expression. It does not tokenize, stem, or query OPDS. language
 // is empty for all languages, "unknown" for the unknown bucket, or otherwise
-// matches a chosen tag case-insensitively. Items are ordered deterministically
+// matches a canonical chosen tag. Items are ordered deterministically
 // by lower(title), title, and id, and offset/limit select the requested page.
 func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language string, offset, limit int) (MyBooksBrowseResult, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
+	if language != domain.LanguageUnknown {
+		language = canonicalization.NormalizeLanguage(language)
+	}
 	if offset < 0 {
 		offset = 0
 	}
@@ -179,7 +176,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1`, owner).Scan(&result.AllCount); err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	counts, err := s.pool.Query(ctx, `SELECT CASE WHEN b.language_state='unknown' THEN 'unknown' ELSE lower(b.language_tag) END, count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1 AND b.language_state IN ('chosen','unknown') GROUP BY 1`, owner)
+	counts, err := s.pool.Query(ctx, `SELECT CASE WHEN b.language_state='unknown' THEN 'unknown' ELSE b.language_tag END, count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1 AND b.language_state IN ('chosen','unknown') GROUP BY 1`, owner)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
@@ -220,7 +217,7 @@ func myBooksBrowseWhere(owner, query, language string) (string, []any) {
 			conditions = append(conditions, "b.language_state='unknown'")
 		} else {
 			args = append(args, language)
-			conditions = append(conditions, fmt.Sprintf("b.language_state='chosen' AND lower(b.language_tag)=lower($%d)", len(args)))
+			conditions = append(conditions, fmt.Sprintf("b.language_state='chosen' AND b.language_tag=$%d", len(args)))
 		}
 	}
 	return strings.Join(conditions, " AND "), args

@@ -20,6 +20,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/migrations"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -379,7 +380,7 @@ func (s *PostgresStore) DeleteUserSessions(ctx context.Context, userID string) e
 	return err
 }
 func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name string) (v domain.SupportedLanguage, err error) {
-	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	language = canonicalization.NormalizeLanguage(language)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = language
@@ -390,7 +391,7 @@ func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name
 
 func (s *PostgresStore) SyncSupportedLanguages(ctx context.Context, languages []domain.SupportedLanguage) error {
 	for _, language := range languages {
-		language.Language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language.Language), "_", "-"))
+		language.Language = canonicalization.NormalizeLanguage(language.Language)
 		if language.Language == "" {
 			continue
 		}
@@ -610,8 +611,8 @@ func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v doma
 	return
 }
 func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
-	lang = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(lang), "_", "-"))
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=$2 AND canonical_lemma=$3 AND upos=$4 ORDER BY id LIMIT 1`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
+	lang = canonicalization.NormalizeLanguage(lang)
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,language,canonical_lemma,upos,created_at FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 ORDER BY id LIMIT 1`, owner, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.CreatedAt)
 	if err == nil {
 		return v, nil
 	}
@@ -636,6 +637,7 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	return
 }
 func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
+	lang = canonicalization.NormalizeLanguage(lang)
 	rows, err := s.pool.Query(ctx, `SELECT kv.id,kv.owner_id,kv.language,kv.canonical_lemma,kv.upos,
 		CASE WHEN EXISTS (
 			SELECT 1 FROM learning_campaign_vocabulary cv
@@ -645,7 +647,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 				AND cv.graduated_at IS NOT NULL AND c.status='complete'
 		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
 		kv.created_at
-		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND lower(replace(kv.language, '_', '-'))=lower(replace($2, '_', '-')) ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
+		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.language=$2 ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -663,14 +665,12 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 
 func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
 	rows, err := s.pool.Query(ctx, `WITH known_languages AS (
-		SELECT DISTINCT lower(replace(trim(language), '_', '-')) AS language
+		SELECT DISTINCT language
 		FROM known_vocabulary
-		WHERE owner_id=$1 AND trim(language) <> ''
+		WHERE owner_id=$1 AND language <> ''
 	), language_names AS (
-		SELECT DISTINCT ON (lower(replace(trim(language), '_', '-')))
-			lower(replace(trim(language), '_', '-')) AS language, display_name
+		SELECT language, display_name
 		FROM supported_languages
-		ORDER BY lower(replace(trim(language), '_', '-')), created_at DESC, language DESC
 	)
 	SELECT k.language, COALESCE(NULLIF(n.display_name,''), k.language)
 	FROM known_languages k
@@ -691,8 +691,9 @@ func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner 
 	return out, rows.Err()
 }
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
+	lang = canonicalization.NormalizeLanguage(lang)
 	var known bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=lower(replace($2, '_', '-')) AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, owner, lang, lemma, upos).Scan(&known)
 	return known, err
 }
 func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {

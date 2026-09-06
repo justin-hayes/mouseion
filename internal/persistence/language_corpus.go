@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -12,6 +13,7 @@ import (
 // with ANY rather than loaded per book. Neither query selects source text or
 // sentence data.
 func (s *PostgresStore) ListLanguageCorpusEvidence(ctx context.Context, owner, language string) ([]domain.LanguageCorpusBookEvidence, error) {
+	language = canonicalization.NormalizeLanguage(language)
 	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
 		SELECT b.id::text,b.owner_id::text,b.title,b.metadata_provenance,b.language_state,COALESCE(b.language_tag,''),b.created_at,b.updated_at,
 		       COALESCE(s.id::text,''),COALESCE(s.language,''),
@@ -32,7 +34,7 @@ func (s *PostgresStore) ListLanguageCorpusEvidence(ctx context.Context, owner, l
 			FROM source_materials s
 			WHERE s.owner_id=b.owner_id AND s.book_id=b.id
 			ORDER BY CASE WHEN p.source_material_id IS NOT NULL AND s.id=p.source_material_id THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC LIMIT 1) s ON true
-		WHERE b.owner_id=$1 AND b.language_state='chosen' AND lower(b.language_tag)=lower($2)
+		WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
 		ORDER BY lower(b.title),b.title,b.id`, owner, language)
 	if err != nil {
 		return nil, err
