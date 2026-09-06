@@ -32,7 +32,10 @@ const (
 	statusCancelledReason = "Catalogue sync cancelled before completion. Retry when ready."
 )
 
-var ErrNotFound = errors.New("catalogue sync job: not found")
+var (
+	ErrNotFound           = errors.New("catalogue sync job: not found")
+	ErrConnectionNotFound = errors.New("catalogue sync: alias connection not found")
+)
 
 var liveJobStates = []rivertype.JobState{
 	rivertype.JobStateAvailable,
@@ -302,53 +305,39 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	if alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
 		return RefreshResult{}, ErrNotFound
 	}
-	connections, err := s.store.ListOpdsConnections(ctx, owner)
+	connection, err := s.store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return RefreshResult{Book: book, Failed: true}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
+	}
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
-	}
-	if len(connections) == 0 {
-		return RefreshResult{}, ErrNotFound
 	}
 	supported, err := s.store.ListSupportedLanguages(ctx)
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
 	}
 	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-	sort.SliceStable(connections, func(i, j int) bool {
-		if connections[i].Name != connections[j].Name {
-			return connections[i].Name < connections[j].Name
-		}
-		return connections[i].ID < connections[j].ID
-	})
-	failedConnections := 0
-	for _, connection := range connections {
-		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
-		if readErr != nil {
-			failedConnections++
-			continue
-		}
-		languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
-		if languageID == "" {
-			continue
-		}
-		feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
-		if readErr != nil {
-			failedConnections++
-			continue
-		}
-		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
-				continue
-			}
-			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, book.LanguageTag)
-			if reconcileErr != nil {
-				return RefreshResult{Book: book, Failed: true}, reconcileErr
-			}
-			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged, Created: reconciled.Created}, nil
-		}
-	}
-	if failedConnections == len(connections) {
+	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
+	if readErr != nil {
 		return RefreshResult{Book: book, Failed: true}, nil
+	}
+	languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
+	if languageID == "" {
+		return RefreshResult{Book: book, Missing: true}, nil
+	}
+	feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+	if readErr != nil {
+		return RefreshResult{Book: book, Failed: true}, nil
+	}
+	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+		if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
+			continue
+		}
+		reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, book.LanguageTag)
+		if reconcileErr != nil {
+			return RefreshResult{Book: book, Failed: true}, reconcileErr
+		}
+		return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged, Created: reconciled.Created}, nil
 	}
 	return RefreshResult{Book: book, Missing: true}, nil
 }
@@ -377,7 +366,10 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 	if strings.TrimSpace(alias.Value) == "" {
 		return AcquisitionTarget{}, ErrNotFound
 	}
-	connections, err := s.store.ListOpdsConnections(ctx, owner)
+	connection, err := s.store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return AcquisitionTarget{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
+	}
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
@@ -386,27 +378,25 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 		return AcquisitionTarget{}, err
 	}
 	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-	for _, connection := range connections {
-		languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
-		if readErr != nil {
+	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
+	if readErr != nil {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
+	if languageID == "" {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
+	if readErr != nil {
+		return AcquisitionTarget{}, ErrNotFound
+	}
+	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+		if strings.TrimSpace(entry.ID) != alias.Value {
 			continue
 		}
-		languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
-		if languageID == "" {
-			continue
-		}
-		feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
-		if readErr != nil {
-			continue
-		}
-		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-			if strings.TrimSpace(entry.ID) != alias.Value {
-				continue
-			}
-			for _, link := range opds.FindEPUBs(entry) {
-				if strings.TrimSpace(link.Href) != "" {
-					return AcquisitionTarget{ConnectionID: connection.ID, Language: book.LanguageTag, Entry: entry, Href: link.Href}, nil
-				}
+		for _, link := range opds.FindEPUBs(entry) {
+			if strings.TrimSpace(link.Href) != "" {
+				return AcquisitionTarget{ConnectionID: connection.ID, Language: book.LanguageTag, Entry: entry, Href: link.Href}, nil
 			}
 		}
 	}
