@@ -456,7 +456,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
-	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Acquire EPUB content") || !strings.Contains(bookPage.Body.String(), `name="return_to" value="/books/`+bookResult.Book.ID+`"`) {
+	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Start analysis") || strings.Contains(bookPage.Body.String(), "Acquire EPUB content") {
 		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
 	}
 	started := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
@@ -466,15 +466,6 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	retried := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
 	if retried.Code != http.StatusSeeOther || downloads != 1 {
 		t.Fatalf("re-analysis=%d downloads=%d body=%s", retried.Code, downloads, retried.Body.String())
-	}
-	acquisition := url.Values{
-		"csrf_token": {csrf}, "connection": {connection.ID}, "language": {"de"},
-		"acquisition": {h.clientTargetToken(target.ConnectionID, target.Language, &target.Entry, target.Href)},
-		"return_to":   {"/books/" + bookResult.Book.ID},
-	}
-	response := perform(t, h, "POST", "/opds/acquire", acquisition, cookies)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") == "" || !strings.HasPrefix(response.Header().Get("Location"), "/books/"+bookResult.Book.ID) {
-		t.Fatalf("metadata-only acquisition=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
 	acquiredPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
 	if acquiredPage.Code != http.StatusOK || !strings.Contains(acquiredPage.Body.String(), "Metadata-only synced book") || strings.Contains(acquiredPage.Body.String(), "Acquire EPUB content") {

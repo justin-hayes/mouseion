@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/lexical"
-	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
@@ -256,25 +255,6 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					<h1 id="library-page-title">My Books</h1>
 					<p>Your working collection: literature you care about, with clear evidence for what you can do next.</p>
 				</div>
-				<div class="page-header__actions">
-					<details id="book-form" class="library-add-book">
-						<summary>Add a book</summary>
-						<div class="library-add-book__form">
-							<p>Save bibliographic metadata now. Mouseion will not assume a language or pretend that an EPUB has been acquired.</p>
-							<form method="post" action="/library/books">
-								<input type="hidden" name="csrf_token" value={ csrf }/>
-								<label>Title<input name="title" required autocomplete="off"/></label>
-								<fieldset>
-									<legend>Language state</legend>
-									<label><input type="radio" name="language_state" value="unknown" required/> I have not chosen a language yet</label>
-									<label><input type="radio" name="language_state" value="chosen"/> I chose this language explicitly</label>
-									<label>Chosen language tag<input name="language_tag" placeholder="de" autocomplete="language"/></label>
-								</fieldset>
-								<button type="submit">Add to My Books</button>
-							</form>
-						</div>
-					</details>
-				</div>
 			</header>
 		</section>
 		if message != "" {
@@ -284,7 +264,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
 		if len(books) == 0 {
-			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then add or sync a book with a chosen language. Ready-language metadata will appear here; acquire EPUB content from a book when you are ready.") {
+			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
 				<a role="button" href="/connections">Connect a catalogue</a>
 				if hasCatalogueConnections {
 					<a role="button" class="outline" href="/connections">Sync catalogue</a>
@@ -932,43 +912,9 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeAcquisitionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
 		}
 		</div>
-	}
-}
-templ AcquisitionForm(csrf, connectionID, language, returnTo string, entry opds.Entry, token string) {
-	<form method="post" action="/opds/acquire" data-acquire hx-post="/opds/acquire" hx-target="closest article" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="connection" value={ connectionID }/>
-	if language != "" {
-		<input type="hidden" name="language" value={ language }/>
-	}
-	<input type="hidden" name="acquisition" value={ token }/>
-	if returnTo != "" {
-		<input type="hidden" name="return_to" value={ returnTo }/>
-	}
-	<button type="submit">Acquire EPUB content</button><small>Downloads and validates the EPUB. Analysis starts separately from the book page.</small></form>
-}
-templ AcquisitionSuccessCardWithReturn(entry opds.Entry, sourceID string, alreadyPresent bool, returnTo string) {
-	<article data-acquisition-result="settled"><h3>{ entry.Title }</h3>
-	if alreadyPresent {
-		<p>Already in My Books; this acquisition resolved to the existing book.</p>
-	} else {
-		<p>Added to My Books.</p>
-	}
-	<p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a> when you are ready.</p><a href={ templ.SafeURL(returnTo) }>Return to My Books</a></article>
-}
-templ AcquisitionOwnedCard(entry opds.Entry, sourceID string) {
-	<article class="acquisition-owned"><p role="status"><strong>Already in My Books</strong></p><a href={ templ.SafeURL("/books/"+sourceID) }>Open owned book</a></article>
-}
-templ AcquisitionFailureCard(csrf, connectionID, connectionName, language, returnTo, message string, entry opds.Entry, href string) {
-	<article><h3>{ entry.Title }</h3><p role="alert">{ message }</p><p><strong>Affected connection:</strong> { connectionName }</p><p><a href={ templ.SafeURL("/connections#connection-"+connectionID) }>Edit connection</a> or retry the acquisition.</p>@AcquisitionForm(csrf, connectionID, language, returnTo, entry, href)</article>
-}
-
-templ AcquisitionFailurePage(user domain.User, csrf string, connection domain.OpdsConnection, language, returnTo, message string, entry opds.Entry, href string) {
-	@ShellLayout(connection.Name, &user, csrf, NavigationLibrary) {
-		@Breadcrumb("/library", "My Books")
-		@PageHeader(connection.Name, "The EPUB was not acquired.", nil)
-		<article><h2>{ entry.Title }</h2><p><strong>Affected connection:</strong> { connection.Name }</p><p role="alert">{ message }</p><p><a href={ templ.SafeURL("/connections#connection-"+connection.ID) }>Check connection settings</a> or retry below.</p>@AcquisitionForm(csrf, connection.ID, language, returnTo, entry, href)</article>
 	}
 }
 templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
@@ -1201,31 +1147,25 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 }
 
 templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool) {
-	@MetadataOnlyBookPageWithAcquisition(user, csrf, book, message, eligibleForRefresh, nil, "")
-}
-
-templ MetadataOnlyBookPageWithAcquisition(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool, target *cataloguesync.AcquisitionTarget, token string) {
 	@ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/library", "My Books")
 		@PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral))
-		if eligibleForRefresh {
+		if eligibleForRefresh && !strings.HasPrefix(message, "Could not acquire ") {
 			@MetadataOnlyBookMetadataRegion(csrf, book, message)
-		} else if message != "" {
+		} else if message != "" && !strings.HasPrefix(message, "Could not acquire ") {
 			@Feedback(FeedbackSuccess, "", message)
 		}
 		<article aria-labelledby="metadata-only-heading">
 			<h2 id="metadata-only-heading">Content not acquired</h2>
 			<p>This book is saved with catalogue metadata, but Mouseion has not acquired an EPUB yet.</p>
 			<p>Sync is metadata-only and never downloads book content. Start analysis to acquire, validate, and analyze the EPUB in one action.</p>
+			if strings.HasPrefix(message, "Could not acquire ") {
+				<p role="alert">{ message }</p>
+			}
 			<form method="post" action={ templ.SafeURL("/books/" + book.Book.ID + "/analyze") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/>
 				<button type="submit">Start analysis</button>
 			</form>
-			if target != nil && token != "" {
-				@AcquisitionForm(csrf, target.ConnectionID, target.Language, "/books/"+book.Book.ID, target.Entry, token)
-			} else {
-				<p>The catalogue entry is not currently available for acquisition. Try syncing the catalogue again later.</p>
-			}
 		</article>
 	}
 }

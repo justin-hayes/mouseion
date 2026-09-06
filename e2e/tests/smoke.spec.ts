@@ -41,30 +41,20 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
   });
 
-  test('metadata-only books can be added, show only supported actions, and removed', async ({ page }) => {
+  test('metadata-only books show catalogue-driven actions', async ({ page }) => {
     await page.goto('/books/fixture-metadata-only');
     await page.getByRole('button', { name: 'Refresh metadata' }).click();
     await expect(page.getByRole('status')).toContainText('Metadata is already up to date.');
 
     await page.goto('/library');
-    await page.locator('#book-form > summary').click();
-    await expect(page.locator('#book-form')).toHaveAttribute('open', '');
-    await page.getByRole('textbox', { name: 'Title' }).fill('Metadata-only browser book');
-    await page.getByRole('radio', { name: /not chosen/i }).check();
-    await page.getByRole('button', { name: 'Add to My Books' }).click();
-    await expect(page).toHaveURL(/\/library\?message=/);
-
-    const entry = page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only browser book', exact: true }) });
+    await expect(page.getByText('Add a book')).toHaveCount(0);
+    const entry = page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) });
     await expect(entry).toContainText('Not acquired');
     await expect(entry.locator('form[action$="/analyze"]')).toContainText('Start analysis');
     await expect(entry.getByText('Review scope')).toHaveCount(0);
     await expect(entry.getByText('Prepare deck')).toHaveCount(0);
     await expect(entry).toContainText('language not chosen');
 
-    await entry.getByText('Remove from My Books').click();
-    await entry.getByRole('button', { name: 'Confirm removal' }).click();
-    await expect(page).toHaveURL(/\/library\?message=/);
-    await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only browser book', exact: true }) })).toHaveCount(0);
   });
 
   test('exact analysis result redirects to the book page', async ({ page }) => {
@@ -106,9 +96,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
     await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/).first()).toBeVisible();
     await page.goto('/books/fixture-metadata-only');
-    await expect(page.getByRole('button', { name: 'Acquire EPUB content' })).toBeVisible();
-    await page.getByRole('button', { name: 'Acquire EPUB content' }).click();
-    await expect(page.getByText('Added to My Books.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start analysis' })).toBeVisible();
+    await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
     await page.goto('/campaigns?message=legacy-bookmark');
     await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();

@@ -4,10 +4,8 @@ package webapp
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -59,7 +57,6 @@ type Store interface {
 	ListMyBooks(context.Context, string) ([]domain.Book, error)
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	CreateBook(context.Context, domain.Book) (domain.Book, error)
 	UpdateBookMetadata(context.Context, string, string, string, string, string) (domain.Book, error)
 	AddBookToMyBooks(context.Context, string, string) error
 	RemoveBookFromMyBooks(context.Context, string, string) error
@@ -78,7 +75,6 @@ type Store interface {
 	ClearPrimaryGoal(context.Context, string, string) error
 }
 type OPDS interface {
-	Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error)
 	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
 type Analysis interface {
@@ -141,17 +137,11 @@ type Services struct {
 	CatalogueSync    CatalogueSyncScheduler
 	SecureCookies    bool
 	SessionLifetime  time.Duration
-	// These are optional explicit key injections for deterministic tests or
-	// another deliberately managed key provider. Production uses MOUSEION_SECRET.
-	AcquisitionKey       []byte
-	AcquisitionTargetKey []byte
 }
 
 type Handler struct {
-	services       Services
-	mux            *http.ServeMux
-	acquisitionKey []byte
-	targetKey      []byte
+	services Services
+	mux      *http.ServeMux
 }
 
 func New(s Services) *Handler {
@@ -163,11 +153,10 @@ func New(s Services) *Handler {
 }
 
 func NewWithError(s Services) (*Handler, error) {
-	cookieKey, targetKey, err := webKeys(s)
-	if err != nil {
-		return nil, err
+	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
+		return nil, fmt.Errorf("webapp: initialize web key: %w", err)
 	}
-	h := &Handler{services: s, mux: http.NewServeMux(), acquisitionKey: cookieKey, targetKey: targetKey}
+	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)
 	h.mux.HandleFunc("POST /login", h.login)
 	h.mux.HandleFunc("POST /onboarding", h.onboard)
@@ -181,7 +170,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /journey/books/{id}/add", h.user(http.HandlerFunc(h.addDeckBookToJourney)))
 	h.mux.Handle("POST /journey/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
 	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
-	h.mux.Handle("POST /library/books", h.user(http.HandlerFunc(h.createMetadataBook)))
 	h.mux.Handle("POST /library/books/{id}", h.user(http.HandlerFunc(h.updateBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
@@ -211,7 +199,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("POST /connections/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
-	h.mux.Handle("POST /opds/acquire", h.user(http.HandlerFunc(h.acquire)))
 	h.mux.Handle("GET /jobs", h.user(http.HandlerFunc(h.jobs)))
 	h.mux.Handle("GET /jobs/{id}", h.user(http.HandlerFunc(h.job)))
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
@@ -266,32 +253,6 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 func isHTMX(r *http.Request) bool      { return r.Header.Get("HX-Request") == "true" }
-
-func webKeyFromSecret(secret, purpose string) ([]byte, error) {
-	if err := persistence.ValidateSecret(secret); err != nil {
-		return nil, fmt.Errorf("webapp: initialize %s key: %w", purpose, err)
-	}
-	sum := sha256.Sum256([]byte("mouseion-webapp-" + purpose + "-v1\x00" + secret))
-	return sum[:], nil
-}
-
-func webKeys(s Services) ([]byte, []byte, error) {
-	if len(s.AcquisitionKey) > 0 || len(s.AcquisitionTargetKey) > 0 {
-		if len(s.AcquisitionKey) != 32 || len(s.AcquisitionTargetKey) != 32 {
-			return nil, nil, errors.New("webapp: explicitly injected acquisition keys must each be 32 bytes")
-		}
-		return append([]byte(nil), s.AcquisitionKey...), append([]byte(nil), s.AcquisitionTargetKey...), nil
-	}
-	cookieKey, err := webKeyFromSecret(os.Getenv("MOUSEION_SECRET"), "cookie")
-	if err != nil {
-		return nil, nil, err
-	}
-	targetKey, err := webKeyFromSecret(os.Getenv("MOUSEION_SECRET"), "target")
-	if err != nil {
-		return nil, nil, err
-	}
-	return cookieKey, targetKey, nil
-}
 
 func fail(w http.ResponseWriter, err error) {
 	log.Printf("mouseion: %v", err)
