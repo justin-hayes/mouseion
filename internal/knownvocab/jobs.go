@@ -141,7 +141,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		SELECT 1 FROM books b
 		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
 		WHERE b.owner_id=$1 AND b.language_state='chosen'
-		  AND lower(replace(trim(COALESCE(b.language_tag,'')), '_', '-'))=lower(replace(trim($2), '_', '-'))
+		  AND b.language_tag=$2
 	)`, a.OwnerID, language).Scan(&libraryLanguage); err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 		}
 		entry.CanonicalLemma, entry.ProfileName, entry.ProfileVersion = normalized.CanonicalLemma, normalized.ProfileName, normalized.ProfileVersion
 		var known bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND lower(replace(language, '_', '-'))=lower(replace($2, '_', '-')) AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS).Scan(&known); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND (upos=$4 OR upos=''))`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS).Scan(&known); err != nil {
 			return fmt.Errorf("check row %d: %w", entry.Row, err)
 		}
 		if !known {
