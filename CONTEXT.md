@@ -47,6 +47,7 @@ _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 A learner's bibliographic identity for a work, owned per learner and stable
 across acquisition, analysis, and content revisions. A Book is addressed by its
 owner-scoped Book ID; its current acquired source and analysis evidence are
-resolved underneath that identity.
+resolved underneath that identity. Books are catalogue-derived: they enter the
+library only through a connected catalogue, never by manual entry.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
