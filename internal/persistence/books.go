@@ -288,21 +288,6 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	LIMIT 1`, owner, id))
 }
 
-// IsMetadataOnlyMyBook reports whether the owner's Book is an active My Books
-// member with no acquired source. Metadata-only membership is the only Book
-// state whose page needs no acquired-content surface; every other state falls
-// through to the normal Book projection.
-func (s *PostgresStore) IsMetadataOnlyMyBook(ctx context.Context, owner, bookID string) (bool, error) {
-	var metadataOnly bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM books b
-		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		WHERE b.owner_id=$1 AND b.id::text=$2
-		  AND NOT EXISTS (SELECT 1 FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id))`,
-		owner, bookID).Scan(&metadataOnly)
-	return metadataOnly, err
-}
-
 func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (domain.Book, error) {
 	return scanBook(s.pool.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
 }
