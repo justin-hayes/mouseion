@@ -42,6 +42,10 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('metadata-only books can be added, show only supported actions, and removed', async ({ page }) => {
+    await page.goto('/books/fixture-metadata-only');
+    await page.getByRole('button', { name: 'Refresh metadata' }).click();
+    await expect(page.getByRole('status')).toContainText('Metadata is already up to date.');
+
     await page.goto('/library');
     await page.locator('#book-form > summary').click();
     await expect(page.locator('#book-form')).toHaveAttribute('open', '');
