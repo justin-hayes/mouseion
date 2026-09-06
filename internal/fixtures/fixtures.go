@@ -55,7 +55,7 @@ var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
 func normalizeFixtureLanguage(raw string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(raw), "_", "-"))
+	return canonicalization.NormalizeLanguage(raw)
 }
 
 type Store struct {
@@ -321,7 +321,7 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 			state = domain.MyBookAnalyzed
 		}
 		languageState := domain.LanguageChosen
-		languageTag := source.Source.Language
+		languageTag := normalizeFixtureLanguage(source.Source.Language)
 		if strings.TrimSpace(languageTag) == "" {
 			languageState = domain.LanguageUnknown
 			languageTag = ""
@@ -349,13 +349,16 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language stri
 	defer s.mu.Unlock()
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
+	if language != domain.LanguageUnknown {
+		language = normalizeFixtureLanguage(language)
+	}
 	all := s.myBooksForOwner(owner)
 	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
 	counts := map[string]int{}
 	for _, book := range all {
 		tag := domain.LanguageUnknown
 		if book.Book.LanguageState == domain.LanguageChosen {
-			tag = strings.ToLower(book.Book.LanguageTag)
+			tag = normalizeFixtureLanguage(book.Book.LanguageTag)
 		}
 		counts[tag]++
 	}
@@ -381,7 +384,7 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language stri
 			if book.Book.LanguageState != domain.LanguageUnknown {
 				continue
 			}
-		} else if language != "" && (book.Book.LanguageState != domain.LanguageChosen || !strings.EqualFold(book.Book.LanguageTag, language)) {
+		} else if language != "" && (book.Book.LanguageState != domain.LanguageChosen || normalizeFixtureLanguage(book.Book.LanguageTag) != language) {
 			continue
 		}
 		filtered = append(filtered, book)

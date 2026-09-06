@@ -157,8 +157,8 @@ func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 	}
 	want := []domain.StudyLanguage{
 		{Language: "de", DisplayName: "German"},
-		{Language: "it-it", DisplayName: "it-it"},
-		{Language: "pt-br", DisplayName: "pt-br"},
+		{Language: "it", DisplayName: "it"},
+		{Language: "pt", DisplayName: "pt"},
 	}
 	if len(languages) != len(want) {
 		t.Fatalf("study languages=%+v, want %+v", languages, want)
@@ -167,6 +167,21 @@ func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 		if languages[i] != want[i] {
 			t.Fatalf("study language[%d]=%+v, want %+v", i, languages[i], want[i])
 		}
+	}
+}
+
+func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "regional", OwnerID: OwnerID, Title: "Regional", LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"}},
+	}
+	result, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "DE_de", 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Counts[0].Tag != "de" {
+		t.Fatalf("canonical browse result=%+v", result)
 	}
 }
 
