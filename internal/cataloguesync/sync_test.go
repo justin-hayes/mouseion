@@ -357,8 +357,11 @@ func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
 		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
 	}
 	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	if err != nil || target.Href != "https://catalog.example/book.epub" || target.Language != "de" {
+	if err != nil || target.Href != "https://catalog.example/book.epub" || target.ConnectionID != "connection-1" || target.Language != "de" {
 		t.Fatalf("target=%+v err=%v", target, err)
+	}
+	if strings.Join(reader.connections, ",") != "connection-1,connection-1" {
+		t.Fatalf("acquisition catalogue connections=%v", reader.connections)
 	}
 }
 
