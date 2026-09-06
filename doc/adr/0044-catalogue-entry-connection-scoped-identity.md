@@ -35,6 +35,19 @@ afterthought:
   and re-runnable, and it fails loudly rather than guessing when an entry ID is
   absent from every feed or present in more than one.
 
+The data backfill is owned by the operator and is intentionally not a startup
+side effect. After applying migration `000047`, run the explicit
+`cataloguebackfill` command. It examines only null `connection_id` catalogue
+entry aliases, reads every language feed through the existing OPDS reader, and
+commits each assignment independently. A retry skips assigned rows, so a
+process interruption is safe. Feed errors, missing entries, and ambiguous
+connection matches stop the operation loudly; the operator corrects the
+catalogue or credentials and reruns it. Recovery is therefore forward-only and
+does not guess or merge data. Before the later contract migration makes the
+column non-null, an operator can restore a mistaken assignment from backup or
+set that specific alias back to NULL and rerun the resolver; no strong-
+bibliographic alias is changed by this operation.
+
 The rollout follows ADR 0038's expand → backfill → switch discipline: add the
 nullable column, backfill, then tighten uniqueness and make it non-null. The
 shipped migration `000036` remains immutable.

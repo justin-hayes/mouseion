@@ -84,9 +84,17 @@ type RefreshResult struct {
 	Failed  bool
 }
 
+// AliasBackfillResult reports the deterministic legacy alias migration.
+type AliasBackfillResult struct {
+	Examined int
+	Updated  int
+}
+
 type connectionStore interface {
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
+	ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error)
+	SetCatalogueEntryAliasConnection(context.Context, string, string, string) error
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
@@ -120,6 +128,69 @@ func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx], 
 		pool = store.Pool()
 	}
 	return &Service{store: store, pool: pool, client: client, reader: reader, capabilities: capabilities, periodicIDs: make(map[string]struct{})}
+}
+
+// BackfillCatalogueEntryAliases resolves each legacy catalogue-entry alias
+// against all language feeds of every owner connection. It deliberately does
+// not guess around feed errors, missing entries, or cross-connection matches.
+// The operation is explicit so an operator can run it after the expand
+// migration and retry it after correcting catalogue data or credentials.
+func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackfillResult, error) {
+	if s == nil || s.store == nil || s.reader == nil {
+		return AliasBackfillResult{}, errors.New("catalogue alias backfill service is unavailable")
+	}
+	aliases, err := s.store.ListUnscopedCatalogueEntryAliases(ctx)
+	if err != nil {
+		return AliasBackfillResult{}, fmt.Errorf("list unscoped catalogue aliases: %w", err)
+	}
+	result := AliasBackfillResult{}
+	for _, alias := range aliases {
+		if alias.ConnectionID != "" || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier {
+			continue
+		}
+		result.Examined++
+		connections, err := s.store.ListOpdsConnections(ctx, alias.OwnerID)
+		if err != nil {
+			return result, fmt.Errorf("list connections for alias %s: %w", alias.ID, err)
+		}
+		sort.SliceStable(connections, func(i, j int) bool {
+			return connections[i].ID < connections[j].ID
+		})
+		matches := make(map[string]struct{})
+		for _, connection := range connections {
+			languages, err := s.reader.Languages(ctx, alias.OwnerID, connection.ID)
+			if err != nil {
+				return result, fmt.Errorf("read languages for alias %s from connection %s: %w", alias.ID, connection.ID, err)
+			}
+			for _, languageID := range opds.LanguageIDs(languages) {
+				feed, err := s.reader.BrowseLanguage(ctx, alias.OwnerID, connection.ID, languageID)
+				if err != nil {
+					return result, fmt.Errorf("read feed %s for alias %s from connection %s: %w", languageID, alias.ID, connection.ID, err)
+				}
+				for _, entry := range feed.Entries {
+					if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
+						matches[connection.ID] = struct{}{}
+						break
+					}
+				}
+			}
+		}
+		if len(matches) == 0 {
+			return result, fmt.Errorf("catalogue alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
+		}
+		if len(matches) != 1 {
+			return result, fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
+		}
+		var connectionID string
+		for connectionID = range matches {
+			break
+		}
+		if err := s.store.SetCatalogueEntryAliasConnection(ctx, alias.OwnerID, alias.ID, connectionID); err != nil {
+			return result, fmt.Errorf("assign connection %s to alias %s: %w", connectionID, alias.ID, err)
+		}
+		result.Updated++
+	}
+	return result, nil
 }
 
 // PeriodicJobID is stable across process restarts and unique per owner and

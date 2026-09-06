@@ -60,15 +60,28 @@ func TestWorkerUnavailableDoesNotExposeInput(t *testing.T) {
 }
 
 type refreshStore struct {
-	book           domain.Book
-	alias          domain.BookAlias
-	connections    []domain.OpdsConnection
-	supported      []domain.SupportedLanguage
-	reconciles     int
-	lastOwner      string
-	lastConnection string
-	reconcile      persistence.CatalogueEntryReconcileResult
-	aliasErr       error
+	book            domain.Book
+	alias           domain.BookAlias
+	connections     []domain.OpdsConnection
+	supported       []domain.SupportedLanguage
+	reconciles      int
+	lastOwner       string
+	lastConnection  string
+	reconcile       persistence.CatalogueEntryReconcileResult
+	aliasErr        error
+	backfillAliases []domain.BookAlias
+	assigned        map[string]string
+}
+
+func (s *refreshStore) ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error) {
+	return append([]domain.BookAlias(nil), s.backfillAliases...), nil
+}
+func (s *refreshStore) SetCatalogueEntryAliasConnection(_ context.Context, owner, aliasID, connectionID string) error {
+	if s.assigned == nil {
+		s.assigned = make(map[string]string)
+	}
+	s.assigned[owner+":"+aliasID] = connectionID
+	return nil
 }
 
 func (s *refreshStore) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
@@ -89,8 +102,14 @@ func (s *refreshStore) GetBookCatalogEntryAlias(_ context.Context, owner, bookID
 func (s *refreshStore) GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error) {
 	return domain.OpdsConnection{}, persistence.ErrNotFound
 }
-func (s *refreshStore) ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error) {
-	return append([]domain.OpdsConnection(nil), s.connections...), nil
+func (s *refreshStore) ListOpdsConnections(_ context.Context, owner string) ([]domain.OpdsConnection, error) {
+	connections := make([]domain.OpdsConnection, 0, len(s.connections))
+	for _, connection := range s.connections {
+		if connection.OwnerID == "" || connection.OwnerID == owner {
+			connections = append(connections, connection)
+		}
+	}
+	return connections, nil
 }
 func (s *refreshStore) OpdsConnectionExists(context.Context, string, string) (bool, error) {
 	return false, nil
@@ -156,8 +175,71 @@ func (r *refreshReader) BrowseLanguage(context.Context, string, string, string) 
 	return r.feed, nil
 }
 
-func newRefreshService(store *refreshStore, reader *refreshReader) *Service {
+func newRefreshService(store *refreshStore, reader catalogueReader) *Service {
 	return &Service{store: store, reader: reader}
+}
+
+type backfillReader struct {
+	languages map[string]opds.Feed
+	feeds     map[string]opds.Feed
+}
+
+func (r *backfillReader) Languages(_ context.Context, owner, connection string) (opds.Feed, error) {
+	return r.languages[owner+":"+connection], nil
+}
+func (r *backfillReader) BrowseLanguage(_ context.Context, owner, connection, language string) (opds.Feed, error) {
+	return r.feeds[owner+":"+connection+":"+language], nil
+}
+
+func TestBackfillCatalogueEntryAliasesIsStrictAndIdempotent(t *testing.T) {
+	languages := func(id string) opds.Feed {
+		return opds.Feed{Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/" + id}}}}}
+	}
+	entry := func(id string) opds.Feed { return opds.Feed{Entries: []opds.Entry{{ID: id}}} }
+	tests := []struct {
+		name        string
+		aliases     []domain.BookAlias
+		connections []domain.OpdsConnection
+		feeds       map[string]opds.Feed
+		want        string
+		wantErr     string
+	}{
+		{name: "unique owner match", aliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}}, feeds: map[string]opds.Feed{"alice:one:7": entry("entry")}, want: "alice:a=one"},
+		{name: "missing fails", aliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "missing"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}}, feeds: map[string]opds.Feed{}, wantErr: "absent"},
+		{name: "ambiguous fails", aliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}, {ID: "two", OwnerID: "alice"}}, feeds: map[string]opds.Feed{"alice:one:7": entry("entry"), "alice:two:7": entry("entry")}, wantErr: "present in 2"},
+		{name: "owner isolation", aliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "bob"}}, feeds: map[string]opds.Feed{"alice:one:7": entry("entry")}, wantErr: "absent"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &refreshStore{backfillAliases: tc.aliases, connections: tc.connections}
+			reader := &backfillReader{languages: map[string]opds.Feed{"alice:one": languages("7"), "alice:two": languages("7")}, feeds: tc.feeds}
+			result, err := newRefreshService(store, reader).BackfillCatalogueEntryAliases(context.Background())
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error=%v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil || result.Examined != 1 || result.Updated != 1 || store.assigned["alice:a"] != "one" {
+				t.Fatalf("result=%+v error=%v assigned=%v", result, err, store.assigned)
+			}
+		})
+	}
+
+	store := &refreshStore{backfillAliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry", ConnectionID: "one"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}}}
+	reader := &backfillReader{languages: map[string]opds.Feed{"alice:one": languages("7")}, feeds: map[string]opds.Feed{"alice:one:7": entry("entry")}}
+	result, err := newRefreshService(store, reader).BackfillCatalogueEntryAliases(context.Background())
+	if err != nil || result.Examined != 0 || result.Updated != 0 {
+		t.Fatalf("idempotent result=%+v error=%v", result, err)
+	}
+}
+
+func TestBackfillLeavesStrongBibliographicAliasesUnselected(t *testing.T) {
+	store := &refreshStore{backfillAliases: []domain.BookAlias{{ID: "isbn", OwnerID: "alice", AliasType: domain.AliasStrongBibliographic, Namespace: "isbn", Value: "978"}}}
+	result, err := newRefreshService(store, &backfillReader{}).BackfillCatalogueEntryAliases(context.Background())
+	if err != nil || result.Examined != 0 || len(store.assigned) != 0 {
+		t.Fatalf("result=%+v error=%v assigned=%v", result, err, store.assigned)
+	}
 }
 
 func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {

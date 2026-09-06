@@ -312,13 +312,70 @@ func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (doma
 // not-found result.
 func (s *PostgresStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
 	var alias domain.BookAlias
+	var connectionID *string
 	err := s.pool.QueryRow(ctx, `SELECT a.id::text,a.owner_id::text,a.book_id::text,a.connection_id::text,a.alias_type,a.namespace,a.value,a.created_at
 		FROM book_aliases a
 		JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
 		JOIN book_membership m ON m.owner_id=a.owner_id AND m.book_id=a.book_id AND m.state='active'
 		WHERE a.owner_id=$1 AND a.book_id=$2 AND a.alias_type=$3 AND a.namespace=$4`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier).
-		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &alias.ConnectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
+		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &connectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
+	if connectionID != nil {
+		alias.ConnectionID = *connectionID
+	}
 	return alias, missing(err)
+}
+
+// ListUnscopedCatalogueEntryAliases returns only legacy catalogue-entry aliases
+// that still need the application-logic connection backfill. Strong
+// bibliographic aliases are intentionally excluded.
+func (s *PostgresStore) ListUnscopedCatalogueEntryAliases(ctx context.Context) ([]domain.BookAlias, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id::text,owner_id::text,book_id::text,connection_id::text,alias_type,namespace,value,created_at
+		FROM book_aliases
+		WHERE connection_id IS NULL AND alias_type=$1 AND namespace=$2
+		ORDER BY owner_id,id`, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var aliases []domain.BookAlias
+	for rows.Next() {
+		var alias domain.BookAlias
+		var connectionID *string
+		if err := rows.Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &connectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt); err != nil {
+			return nil, err
+		}
+		if connectionID != nil {
+			alias.ConnectionID = *connectionID
+		}
+		aliases = append(aliases, alias)
+	}
+	return aliases, rows.Err()
+}
+
+// SetCatalogueEntryAliasConnection assigns a legacy alias only while it is
+// unscoped and only to a connection owned by the same learner.
+func (s *PostgresStore) SetCatalogueEntryAliasConnection(ctx context.Context, owner, aliasID, connectionID string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE book_aliases a SET connection_id=$3
+		WHERE a.owner_id=$1 AND a.id=$2 AND a.connection_id IS NULL
+		  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id=$1 AND c.id=$3)`, owner, aliasID, connectionID)
+	if err != nil {
+		return aliasConflictError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		var current *string
+		err = s.pool.QueryRow(ctx, `SELECT connection_id::text FROM book_aliases WHERE owner_id=$1 AND id=$2`, owner, aliasID).Scan(&current)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if current != nil && *current == connectionID {
+			return nil
+		}
+		return ErrAliasConflict
+	}
+	return nil
 }
 
 func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.Book, error) {
