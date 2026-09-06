@@ -195,7 +195,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scopedBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Scoped book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	scopedBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Scoped book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}

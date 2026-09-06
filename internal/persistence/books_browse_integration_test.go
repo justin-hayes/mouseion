@@ -41,10 +41,10 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 		return book
 	}
 
-	percent := create(alice.ID, "100% real", domain.LanguageUnknown, "", domain.MetadataProvenanceManualEntry)
-	create(alice.ID, "German Upper", domain.LanguageChosen, "DE", domain.MetadataProvenanceManualEntry)
-	create(alice.ID, "German Lower", domain.LanguageChosen, "de", domain.MetadataProvenanceManualEntry)
-	metadataDampf := create(alice.ID, "Metadata Donaudampf", domain.LanguageUnknown, "", domain.MetadataProvenanceManualEntry)
+	percent := create(alice.ID, "100% real", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
+	create(alice.ID, "German Upper", domain.LanguageChosen, "DE", domain.MetadataProvenanceCatalogueSync)
+	create(alice.ID, "German Lower", domain.LanguageChosen, "de", domain.MetadataProvenanceCatalogueSync)
+	metadataDampf := create(alice.ID, "Metadata Donaudampf", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
 	acquiredSource := putBookSource(t, ctx, store, alice.ID, "browse-acquired", "Acquired Donaudampf", []byte("browse-content"), "browse content")
 	acquiredID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, acquiredSource.SourceIdentifier, acquiredSource.Language, acquiredSource.Title)
 	if err != nil {
@@ -58,7 +58,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	}
 	tieA := create(alice.ID, "Same title", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
 	tieB := create(alice.ID, "Same title", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
-	create(bob.ID, "Metadata Donaudampf", domain.LanguageUnknown, "", domain.MetadataProvenanceManualEntry)
+	create(bob.ID, "Metadata Donaudampf", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
 
 	result, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", "", 0, 25)
 	if err != nil {

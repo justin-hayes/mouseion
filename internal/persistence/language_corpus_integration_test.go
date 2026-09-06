@@ -42,7 +42,7 @@ func TestLanguageCorpusEvidenceIsCurrentOwnerAndLanguageScoped(t *testing.T) {
 	seedAnalysisBook(t, ctx, store, alice.ID, "Alice Italian", "it", "alice-it", "artifact-alice-it", []domain.SharedLemma{
 		{Language: "it", CanonicalLemma: "ciao", UPOS: "NOUN", Frequency: 100},
 	}, 100)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice pending", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice pending", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestLanguageCorpusEvidenceIsCurrentOwnerAndLanguageScoped(t *testing.T) {
 
 func seedAnalysisBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, title, language, identifier, artifactHash string, lemmas []domain.SharedLemma, analyzable int64) domain.Book {
 	t.Helper()
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: language})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 	if err != nil {
 		t.Fatal(err)
 	}

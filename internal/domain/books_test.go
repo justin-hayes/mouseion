@@ -3,20 +3,20 @@ package domain
 import "testing"
 
 func TestBookValidationLanguageState(t *testing.T) {
-	if _, err := NewBook("owner", "Metadata only", "manual", LanguageUnknown, ""); err != nil {
+	if _, err := NewBook("owner", "Metadata only", MetadataProvenanceCatalogueSync, LanguageUnknown, ""); err != nil {
 		t.Fatalf("unknown language book: %v", err)
 	}
-	if _, err := NewBook("owner", "Chosen language", "catalog", LanguageChosen, "de"); err != nil {
+	if _, err := NewBook("owner", "Chosen language", MetadataProvenanceCatalogueSync, LanguageChosen, "de"); err != nil {
 		t.Fatalf("chosen language book: %v", err)
 	}
-	book, err := NewBook("owner", "Regional language", "manual", LanguageChosen, "de_DE")
+	book, err := NewBook("owner", "Regional language", MetadataProvenanceCatalogueSync, LanguageChosen, "de_DE")
 	if err != nil || book.LanguageTag != "de" {
 		t.Fatalf("NewBook regional language = %+v, err=%v", book, err)
 	}
 	for _, book := range []Book{
-		{OwnerID: "owner", Title: "Missing tag", MetadataProvenance: "manual", LanguageState: LanguageChosen},
-		{OwnerID: "owner", Title: "Unexpected tag", MetadataProvenance: "manual", LanguageState: LanguageUnknown, LanguageTag: "de"},
-		{OwnerID: "owner", Title: "Non-canonical tag", MetadataProvenance: "manual", LanguageState: LanguageChosen, LanguageTag: "de-DE"},
+		{OwnerID: "owner", Title: "Missing tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen},
+		{OwnerID: "owner", Title: "Unexpected tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageUnknown, LanguageTag: "de"},
+		{OwnerID: "owner", Title: "Non-canonical tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen, LanguageTag: "de-DE"},
 	} {
 		if err := book.Validate(); err == nil {
 			t.Fatalf("invalid book accepted: %+v", book)

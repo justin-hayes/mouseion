@@ -396,7 +396,7 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
 		t.Fatal(err)
 	}
 	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
@@ -748,7 +748,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	alice := createAccount(t, ctx, store, "journey-web-alice", "alice-password", false)
 	bob := createAccount(t, ctx, store, "journey-web-bob", "bob-password", false)
 	newBook := func(owner domain.User, title string) domain.Book {
-		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
