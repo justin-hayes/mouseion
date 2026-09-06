@@ -90,6 +90,17 @@ func (s *Service) BrowseLanguage(ctx context.Context, ownerID, connectionID, lan
 	return FilterEPUBEntries(feed), nil
 }
 
+// BrowseLanguageUnfiltered returns every entry in a language feed, including
+// entries without an acquisition link. This is used when resolving historical
+// catalogue identities rather than when selecting downloadable books.
+func (s *Service) BrowseLanguageUnfiltered(ctx context.Context, ownerID, connectionID, languageID string) (Feed, error) {
+	connection, client, err := s.client(ctx, ownerID, connectionID)
+	if err != nil {
+		return Feed{}, err
+	}
+	return client.ListLanguage(ctx, connection.URL, languageID)
+}
+
 func (s *Service) BrowseLanguagePage(ctx context.Context, ownerID, connectionID, languageID, feedURL string) (Feed, error) {
 	connection, client, err := s.client(ctx, ownerID, connectionID)
 	if err != nil {

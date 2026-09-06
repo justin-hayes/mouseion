@@ -250,6 +250,25 @@ func LanguageID(feed Feed, language, displayName string) string {
 	return ""
 }
 
+// LanguageIDs returns the distinct language feed identifiers advertised by a
+// navigation feed, preserving their advertised order.
+func LanguageIDs(feed Feed) []string {
+	seen := make(map[string]struct{})
+	ids := make([]string, 0, len(feed.Entries))
+	for _, entry := range feed.Entries {
+		id := languageEntryID(entry)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 func languageEntryID(entry Entry) string {
 	for _, link := range entry.Links {
 		if link.Rel != "subsection" && link.Rel != "alternate" && !(strings.EqualFold(link.Type, "application/atom+xml") && len(FindEPUBs(entry)) == 0) {
