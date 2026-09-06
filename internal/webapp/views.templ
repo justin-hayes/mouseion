@@ -147,11 +147,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 	<article class="resource-card library-book" data-acquired={ boolString(book.Acquired != nil) } aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
-				if book.Acquired != nil {
-					<a href={ templ.SafeURL("/books/"+book.Acquired.Source.ID) }>{ book.Book.Title }</a>
-				} else {
-					<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
-				}
+				<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
 			</h2>
 			<p class="metadata">
 				if book.Book.LanguageState == domain.LanguageChosen {
