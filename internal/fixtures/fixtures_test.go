@@ -33,6 +33,41 @@ func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	}
 }
 
+func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	store.books = append(store.books, domain.SourceMaterialSummary{
+		Source:         domain.SourceMaterial{ID: "fixture-detail-source", OwnerID: OwnerID, Language: "de", Title: "Distinct fixture identities"},
+		BookID:         "fixture-detail-book",
+		AnalysisStatus: "not analyzed",
+	})
+
+	for _, id := range []string{BookID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {
+		detail, err := store.GetBookDetail(ctx, OwnerID, id)
+		if err != nil {
+			t.Fatalf("GetBookDetail(%q): %v", id, err)
+		}
+		if id == "fixture-detail-source" {
+			if detail.Book.ID != "fixture-detail-book" || detail.Acquired == nil {
+				t.Fatalf("source resolution=%+v", detail)
+			}
+		} else if detail.Book.ID != id {
+			t.Fatalf("GetBookDetail(%q) book=%q", id, detail.Book.ID)
+		}
+	}
+
+	detail, err := store.GetBookDetail(ctx, OwnerID, BookID)
+	if err != nil || detail.Acquired == nil || detail.EvidenceState != domain.MyBookAnalyzed {
+		t.Fatalf("acquired detail=%+v err=%v", detail, err)
+	}
+	if _, err = store.GetBookDetail(ctx, "other-owner", BookID); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("cross-owner detail error=%v", err)
+	}
+	if _, err = store.GetBookDetail(ctx, OwnerID, "unknown"); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("unknown detail error=%v", err)
+	}
+}
+
 func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *testing.T) {
 	store := NewStore()
 	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "")

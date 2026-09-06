@@ -281,6 +281,17 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	return s.myBooksForOwner(owner), nil
 }
 
+func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, book := range s.myBooksForOwner(owner) {
+		if book.Book.ID == id || (book.Acquired != nil && book.Acquired.Source.ID == id) {
+			return book, nil
+		}
+	}
+	return domain.MyBook{}, errNotFound
+}
+
 func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(s.books)+len(s.myBooks))
 	for i := range s.books {
@@ -298,7 +309,11 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 			languageState = domain.LanguageUnknown
 			languageTag = ""
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source, EvidenceState: state})
+		bookID := source.BookID
+		if bookID == "" {
+			bookID = source.Source.ID
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source, EvidenceState: state})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {

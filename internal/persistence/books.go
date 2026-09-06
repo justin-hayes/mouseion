@@ -233,35 +233,59 @@ func scanMyBookRows(rows pgx.Rows) ([]domain.MyBook, error) {
 	defer rows.Close()
 	var out []domain.MyBook
 	for rows.Next() {
-		var item domain.MyBook
-		var sourceID, sourceOwner, sourceLanguage, sourceIdentifier, sourceTitle, sourceMediaType string
-		var sourceContentHash, sourceDigest, sourceRevisionID string
-		var sourceCreatedAt *time.Time
-		var sourceExists bool
-		var evidenceState domain.MyBookEvidenceState
-		var analysisStatus, analysisState, analysisRunID, corpusID, reviewedScopeID, confirmedScopeID string
-		var analysisJobID int64
-		var digestVersion int
-		if err := rows.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
-			&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &digestVersion, &sourceCreatedAt, &sourceExists,
-			&evidenceState, &analysisStatus, &analysisState, &analysisRunID, &corpusID, &reviewedScopeID, &confirmedScopeID, &analysisJobID); err != nil {
+		item, err := scanMyBookRow(rows)
+		if err != nil {
 			return nil, err
-		}
-		item.EvidenceState = evidenceState
-		if sourceExists {
-			createdAt := time.Time{}
-			if sourceCreatedAt != nil {
-				createdAt = *sourceCreatedAt
-			}
-			item.Acquired = &domain.SourceMaterialSummary{
-				Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
-				BookID:         item.Book.ID,
-				AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, ReviewedScopeID: reviewedScopeID, ConfirmedScopeID: confirmedScopeID, AnalysisJobID: analysisJobID,
-			}
 		}
 		out = append(out, item)
 	}
 	return out, rows.Err()
+}
+
+type myBookRowScanner interface {
+	Scan(...any) error
+}
+
+func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
+	var item domain.MyBook
+	var sourceID, sourceOwner, sourceLanguage, sourceIdentifier, sourceTitle, sourceMediaType string
+	var sourceContentHash, sourceDigest, sourceRevisionID string
+	var sourceCreatedAt *time.Time
+	var sourceExists bool
+	var evidenceState domain.MyBookEvidenceState
+	var analysisStatus, analysisState, analysisRunID, corpusID, reviewedScopeID, confirmedScopeID string
+	var analysisJobID int64
+	var digestVersion int
+	if err := row.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
+		&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &digestVersion, &sourceCreatedAt, &sourceExists,
+		&evidenceState, &analysisStatus, &analysisState, &analysisRunID, &corpusID, &reviewedScopeID, &confirmedScopeID, &analysisJobID); err != nil {
+		return domain.MyBook{}, missing(err)
+	}
+	item.EvidenceState = evidenceState
+	if sourceExists {
+		createdAt := time.Time{}
+		if sourceCreatedAt != nil {
+			createdAt = *sourceCreatedAt
+		}
+		item.Acquired = &domain.SourceMaterialSummary{
+			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
+			BookID:         item.Book.ID,
+			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, ReviewedScopeID: reviewedScopeID, ConfirmedScopeID: confirmedScopeID, AnalysisJobID: analysisJobID,
+		}
+	}
+	return item, nil
+}
+
+// GetBookDetail resolves either the canonical Book ID or a historical source
+// material ID within the owner's active My Books membership.
+func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (domain.MyBook, error) {
+	return scanMyBookRow(s.pool.QueryRow(ctx, currentAnalysisCTE+myBooksEvidenceSelect+myBooksEvidenceFrom+`
+	WHERE b.owner_id=$1 AND (b.id::text=$2 OR EXISTS (
+		SELECT 1 FROM source_materials requested_source
+		WHERE requested_source.owner_id=b.owner_id AND requested_source.book_id=b.id AND requested_source.id::text=$2
+	))
+	ORDER BY CASE WHEN b.id::text=$2 THEN 0 ELSE 1 END
+	LIMIT 1`, owner, id))
 }
 
 // IsMetadataOnlyMyBook reports whether the owner's Book is an active My Books
