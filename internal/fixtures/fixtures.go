@@ -402,21 +402,6 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language stri
 	}
 	return result, nil
 }
-func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, source := range s.books {
-		if source.Source.OwnerID == owner && source.Source.ID == bookID {
-			return false, nil
-		}
-	}
-	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
