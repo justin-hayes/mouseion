@@ -29,6 +29,12 @@ make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
 
 Non-obvious setup:
+- Create the Python environment with `uv venv --clear --python 3.11 .venv` before
+  running Python tests. Then install the pinned requirements with
+  `uv pip install --python .venv/bin/python -r nlp/requirements-dev.txt`,
+  `uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu`,
+  and `uv pip install --python .venv/bin/python -e nlp`. This avoids relying on
+  the host `python3` version or Debian's `ensurepip` package.
 - `make gen` also needs `protoc` and `protoc-gen-go` on PATH; the Makefile only auto-installs `protoc-gen-go-grpc` v1.5.1 and `grpcio-tools==1.71.2`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
 - Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
 - Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). CI only runs `go test ./...`; verify `-tags=integration` work locally.
