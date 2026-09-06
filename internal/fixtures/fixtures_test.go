@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
@@ -277,5 +278,37 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 		if book.Book.ID == "fixture-metadata-only" && (book.Acquired != nil || book.EvidenceState != domain.MyBookNotAcquired) {
 			t.Fatalf("metadata-only fixture acquired evidence=%+v", book)
 		}
+	}
+}
+
+func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	sync := NewCatalogueSync(store)
+
+	alias, err := store.GetBookCatalogEntryAlias(ctx, OwnerID, "fixture-metadata-only")
+	if err != nil || alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
+		t.Fatalf("catalogue alias=%+v err=%v", alias, err)
+	}
+	target, err := sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.ConnectionID != alias.ConnectionID || target.Entry.ID != alias.Value {
+		t.Fatalf("acquisition target=%+v alias=%+v", target, alias)
+	}
+	store.myBooks[0].Book.Title = "Stale metadata"
+	result, err := sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
+	if err != nil || !result.Updated || result.Book.Title != "Metadata-only migration book" {
+		t.Fatalf("refresh result=%+v err=%v", result, err)
+	}
+
+	store.aliases[0].ConnectionID = "fixture-failed-connection"
+	if _, err = sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only"); !errors.Is(err, cataloguesync.ErrNotFound) {
+		t.Fatalf("wrong connection acquisition error=%v", err)
+	}
+	result, err = sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
+	if err != nil || !result.Missing || result.Failed {
+		t.Fatalf("wrong connection refresh=%+v err=%v", result, err)
 	}
 }

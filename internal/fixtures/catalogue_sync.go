@@ -2,11 +2,14 @@ package fixtures
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 var fixtureCatalogueSyncJobIDs = map[string]int64{
@@ -37,10 +40,67 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 }
 
 func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	if owner != OwnerID || bookID != "fixture-metadata-only" {
+	book, err := s.Store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
-	return cataloguesync.AcquisitionTarget{ConnectionID: "fixture-connection", Language: "de", Entry: opds.Entry{ID: "fixture-entry", Title: "Metadata-only migration book"}, Href: "https://fixture.invalid/book.epub"}, nil
+	if err != nil {
+		return cataloguesync.AcquisitionTarget{}, err
+	}
+	alias, err := s.Store.GetBookCatalogEntryAlias(ctx, owner, book.ID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
+	}
+	if err != nil || alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
+		if err != nil {
+			return cataloguesync.AcquisitionTarget{}, err
+		}
+		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
+	}
+	if _, err = s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
+		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrConnectionNotFound
+	}
+	if alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
+		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
+	}
+	return cataloguesync.AcquisitionTarget{ConnectionID: alias.ConnectionID, Language: book.LanguageTag, Entry: opds.Entry{ID: alias.Value, Title: book.Title}, Href: "https://fixture.invalid/book.epub"}, nil
+}
+
+// RefreshEntry mirrors the fixture catalogue feed without adding a reconcile
+// implementation that the fixture server does not otherwise use.
+func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) (cataloguesync.RefreshResult, error) {
+	book, err := s.Store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
+	}
+	if err != nil {
+		return cataloguesync.RefreshResult{Failed: true}, err
+	}
+	alias, err := s.Store.GetBookCatalogEntryAlias(ctx, owner, book.ID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
+	}
+	if err != nil {
+		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
+	}
+	if alias.ConnectionID == "" || strings.TrimSpace(alias.Value) == "" {
+		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
+	}
+	if _, err = s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
+		return cataloguesync.RefreshResult{Book: book, Failed: true}, cataloguesync.ErrConnectionNotFound
+	}
+	if alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
+		return cataloguesync.RefreshResult{Book: book, Missing: true}, nil
+	}
+	entryTitle := "Metadata-only migration book"
+	if book.Title == entryTitle {
+		return cataloguesync.RefreshResult{Book: book}, nil
+	}
+	updated, err := s.Store.UpdateBookMetadata(ctx, owner, book.ID, entryTitle, book.LanguageState, book.LanguageTag)
+	if err != nil {
+		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
+	}
+	return cataloguesync.RefreshResult{Book: updated, Updated: true}, nil
 }
 
 func (s *CatalogueSync) List(ctx context.Context, owner string) ([]cataloguesync.Status, error) {

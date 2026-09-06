@@ -64,6 +64,7 @@ type Store struct {
 	campaigns       []domain.LearningCampaign
 	supported       []domain.SupportedLanguage
 	connections     []domain.OpdsConnection
+	aliases         []domain.BookAlias
 	preps           []domain.DeckPreparation
 	known           []domain.KnownVocabulary
 	campaignVocab   []domain.CampaignVocabulary
@@ -97,6 +98,9 @@ func NewStore() *Store {
 			{ID: "fixture-failed-connection", OwnerID: OwnerID, Name: "Fixture failed catalog", URL: "https://failed.fixture.invalid/opds"},
 			{ID: "fixture-syncing-connection", OwnerID: OwnerID, Name: "Fixture syncing catalog", URL: "https://syncing.fixture.invalid/opds"},
 			{ID: "fixture-never-synced-connection", OwnerID: OwnerID, Name: "Fixture never-synced catalog", URL: "https://never.fixture.invalid/opds"},
+		},
+		aliases: []domain.BookAlias{
+			{ID: "fixture-metadata-only-alias", OwnerID: OwnerID, BookID: "fixture-metadata-only", ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-entry"},
 		},
 		syncStatuses: []domain.CatalogueSyncStatus{
 			{OwnerID: OwnerID, ConnectionID: "fixture-connection", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSyncedAt, LastUpsertedCount: 3, UpdatedAt: fixtureJourneyTime},
@@ -678,11 +682,33 @@ func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) e
 	}
 	return nil
 }
-func (s *Store) ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error) {
+func (s *Store) ResolveBookByAlias(ctx context.Context, owner, namespace, value string) (domain.Book, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, alias := range s.aliases {
+		if alias.OwnerID == owner && alias.Namespace == namespace && alias.Value == value {
+			for _, book := range s.myBooksForOwner(owner) {
+				if book.Book.ID == alias.BookID {
+					return book.Book, true, nil
+				}
+			}
+		}
+	}
 	return domain.Book{}, false, nil
 }
 func (s *Store) AddBookAlias(context.Context, string, string, string, string, string) error {
 	return nil
+}
+
+func (s *Store) GetBookCatalogEntryAlias(_ context.Context, owner, bookID string) (domain.BookAlias, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, alias := range s.aliases {
+		if alias.OwnerID == owner && alias.BookID == bookID && alias.AliasType == domain.AliasCatalogEntry && alias.Namespace == domain.NamespaceSourceIdentifier {
+			return alias, nil
+		}
+	}
+	return domain.BookAlias{}, errNotFound
 }
 func (s *Store) LinkSourceToBook(context.Context, string, string, string) error { return nil }
 func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error) {
