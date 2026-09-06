@@ -29,6 +29,7 @@ const (
 	Username               = "fixture-learner"
 	Password               = "fixture-password"
 	BookID                 = "fixture-book"
+	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
 	DeckID                 = "fixture-deck"
 	CampaignID             = "fixture-campaign"
@@ -78,7 +79,7 @@ func NewStore() *Store {
 	lastSyncedAt := fixtureJourneyTime
 	return &Store{
 		books: []domain.SourceMaterialSummary{
-			{Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
+			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
 			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
@@ -103,8 +104,8 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
-			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
+			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
+			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
 		known: []domain.KnownVocabulary{
 			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
@@ -402,6 +403,21 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language stri
 	}
 	return result, nil
 }
+func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, source := range s.books {
+		if source.Source.OwnerID == owner && (source.Source.ID == bookID || source.BookID == bookID) {
+			return false, nil
+		}
+	}
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
@@ -602,12 +618,16 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 		}
 	}
 	for _, source := range s.books {
-		if source.Source.OwnerID == owner && source.Source.ID == bookID {
+		if source.Source.OwnerID == owner && (source.Source.ID == bookID || source.BookID == bookID) {
 			state := domain.LanguageChosen
 			if strings.TrimSpace(source.Source.Language) == "" {
 				state = domain.LanguageUnknown
 			}
-			return domain.Book{ID: source.Source.ID, OwnerID: owner, Title: source.Source.Title, LanguageState: state, LanguageTag: source.Source.Language}, nil
+			resolvedBookID := source.BookID
+			if resolvedBookID == "" {
+				resolvedBookID = source.Source.ID
+			}
+			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: source.Source.Title, LanguageState: state, LanguageTag: source.Source.Language}, nil
 		}
 	}
 	return domain.Book{}, errNotFound
@@ -623,13 +643,17 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.books {
-		if s.books[i].Source.OwnerID == owner && s.books[i].Source.ID == bookID {
+		if s.books[i].Source.OwnerID == owner && (s.books[i].Source.ID == bookID || s.books[i].BookID == bookID) {
+			resolvedBookID := s.books[i].BookID
+			if resolvedBookID == "" {
+				resolvedBookID = s.books[i].Source.ID
+			}
 			s.books[i].Source.Title = title
 			if languageState == domain.LanguageUnknown {
 				languageTag = ""
 			}
 			s.books[i].Source.Language = languageTag
-			return domain.Book{ID: bookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
+			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
 		}
 	}
 	for i := range s.myBooks {
@@ -672,10 +696,11 @@ func (s *Store) GetReadingJourney(_ context.Context, owner string) (domain.Readi
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
 	return journey, nil
 }
-func (s *Store) ResolveJourneyBookID(_ context.Context, _ string, id string) (string, bool, error) {
-	// Fixtures use one unified id for source material and book, so the
-	// canonical book identity is the id itself.
-	return id, true, nil
+func (s *Store) ResolveJourneyBookID(_ context.Context, owner, id string) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	bookID := s.fixtureBookID(owner, id)
+	return bookID, bookID != "", nil
 }
 func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
 	s.mu.Lock()
@@ -687,6 +712,7 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, exp
 	if !s.fixtureBookExists(owner, bookID) {
 		return 0, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
 	for _, entry := range journey.Entries {
 		if entry.BookID == bookID {
 			return journey.Revision, nil
@@ -812,6 +838,7 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (doma
 	if !s.fixtureBookExists(owner, bookID) {
 		return domain.PrimaryGoal{}, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
 	if _, ok := s.primaryGoals[owner]; ok {
 		goal := s.primaryGoals[owner]
 		if goal.ReadingFinishedAt == nil {
@@ -885,9 +912,10 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookI
 	goal.UpdatedAt = now
 	s.primaryGoals[owner] = goal
 	result.Goal = goal
+	expectedSourceID := s.fixtureSourceID(owner, expectedBookID)
 	for i := range s.campaigns {
 		campaign := &s.campaigns[i]
-		if campaign.OwnerID != owner || campaign.SourceMaterialID != expectedBookID || campaign.Status != domain.CampaignActive {
+		if campaign.OwnerID != owner || campaign.SourceMaterialID != expectedSourceID || campaign.Status != domain.CampaignActive {
 			continue
 		}
 		campaign.BookProgress = domain.BookFinished
@@ -921,23 +949,39 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookI
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
+	return s.fixtureBookID(owner, bookID) != ""
+}
+
+func (s *Store) fixtureBookID(owner, id string) string {
 	for _, source := range s.books {
-		if source.Source.OwnerID == owner && source.Source.ID == bookID {
-			return true
+		if source.Source.OwnerID == owner && (source.Source.ID == id || source.BookID == id) {
+			if source.BookID != "" {
+				return source.BookID
+			}
+			return source.Source.ID
 		}
 	}
 	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID {
-			return true
+		if book.Book.OwnerID == owner && book.Book.ID == id {
+			return book.Book.ID
 		}
 	}
-	return false
+	return ""
+}
+
+func (s *Store) fixtureSourceID(owner, bookID string) string {
+	for _, source := range s.books {
+		if source.Source.OwnerID == owner && source.BookID == bookID {
+			return source.Source.ID
+		}
+	}
+	return bookID
 }
 
 func fixtureJobs() []domain.AnalysisJob {
-	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
+	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
 	for i := int64(3); i <= 18; i++ {
-		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: "fixture-history-" + fmt.Sprint(i), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
+		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-history-" + fmt.Sprint(i), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
 	}
 	return jobs
 }
@@ -946,13 +990,13 @@ func fixtureCampaigns() []domain.LearningCampaign {
 	completedAt := fixtureJourneyTime.Add(2 * time.Hour)
 	abandonedAt := fixtureJourneyTime.Add(3 * time.Hour)
 	campaigns := []domain.LearningCampaign{
-		{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
-		{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
-		{ID: "fixture-completed-campaign", OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: PrepID, BookProgress: domain.BookFinished, DeckProgress: domain.DeckReviewed, Status: domain.CampaignComplete, CompletedAt: &completedAt, VocabularyGraduatedAt: &completedAt},
-		{ID: "fixture-abandoned-campaign", OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned, Status: domain.CampaignAbandoned, AbandonedAt: &abandonedAt},
+		{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
+		{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
+		{ID: "fixture-completed-campaign", OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: PrepID, BookProgress: domain.BookFinished, DeckProgress: domain.DeckReviewed, Status: domain.CampaignComplete, CompletedAt: &completedAt, VocabularyGraduatedAt: &completedAt},
+		{ID: "fixture-abandoned-campaign", OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned, Status: domain.CampaignAbandoned, AbandonedAt: &abandonedAt},
 	}
 	for i := 1; i <= 6; i++ {
-		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: BookID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})
+		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})
 	}
 	return campaigns
 }
@@ -1027,13 +1071,13 @@ func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, err
 	if id == 43 {
 		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil
 	}
-	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: BookID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
+	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: SourceID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
 }
 func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
 	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
 }
 func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error) {
-	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: BookID, ScopeID: "fixture-scope", SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: BookID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "fixture-001", Title: "Chapter one"}, {UnitID: "fixture-002", Title: "Chapter two"}}, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
+	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, ScopeID: "fixture-scope", SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SelectedUnits: []domain.CorpusSelectedUnit{{UnitID: "fixture-001", Title: "Chapter one"}, {UnitID: "fixture-002", Title: "Chapter two"}}, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
 }
 
 type Insights struct {
@@ -1186,7 +1230,7 @@ func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCovera
 		projections = append(projections, domain.CoverageProjection{TopLemmaCount: i * 3, SelectedLemmaCount: i * 3, OccurrenceCount: i * 2400, EligibleTokenCount: 80000, ProjectedTokenCount: 50000 + i*7000})
 	}
 	thresholds := []domain.CoverageThreshold{{TargetPercent: 90, LemmaCount: 120, OccurrenceCount: 90000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 95, LemmaCount: 240, OccurrenceCount: 95000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 97, LemmaCount: 390, OccurrenceCount: 97000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 99, LemmaCount: 999, OccurrenceCount: 0, EligibleTokenCount: 100000, Reachable: false}}
-	return domain.AnalysisCoverage{SourceMaterialID: BookID, AnalysisRunID: ResultRunID, ReviewedScopeID: "fixture-scope", AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
+	return domain.AnalysisCoverage{SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ReviewedScopeID: "fixture-scope", AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
 }
 
 type KnownVocab struct{}
@@ -1213,10 +1257,10 @@ func (Enrichment) Cancel(context.Context, string, int64) (enrichmentjob.Status, 
 type PreparedDeck struct{}
 
 func (PreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
-	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 func fixturePreparationFor(owner, id string) domain.DeckPreparation {
-	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: BookID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
+	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
 	switch id {
 	case JourneyPrepID:
 		preparation.SourceMaterialID = "fixture-empty"

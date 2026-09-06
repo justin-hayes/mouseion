@@ -42,13 +42,17 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 		AnalysisStatus: "not analyzed",
 	})
 
-	for _, id := range []string{BookID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {
+	for _, id := range []string{BookID, SourceID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {
 		detail, err := store.GetBookDetail(ctx, OwnerID, id)
 		if err != nil {
 			t.Fatalf("GetBookDetail(%q): %v", id, err)
 		}
-		if id == "fixture-detail-source" {
-			if detail.Book.ID != "fixture-detail-book" || detail.Acquired == nil {
+		if id == SourceID || id == "fixture-detail-source" {
+			wantBookID := BookID
+			if id == "fixture-detail-source" {
+				wantBookID = "fixture-detail-book"
+			}
+			if detail.Book.ID != wantBookID || detail.Acquired == nil {
 				t.Fatalf("source resolution=%+v", detail)
 			}
 		} else if detail.Book.ID != id {

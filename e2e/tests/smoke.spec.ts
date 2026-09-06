@@ -34,6 +34,13 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
+  test('acquired books resolve from their canonical Book ID', async ({ page }) => {
+    await page.goto('/books/fixture-book');
+    await expect(page).toHaveURL('/books/fixture-book');
+    await expect(page.getByRole('heading', { name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
+    await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
+  });
+
   test('metadata-only books can be added, show only supported actions, and removed', async ({ page }) => {
     await page.goto('/library');
     await page.locator('#book-form > summary').click();
