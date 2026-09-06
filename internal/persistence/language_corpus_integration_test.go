@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -31,7 +30,6 @@ func TestLanguageCorpusEvidenceIsCurrentOwnerAndLanguageScoped(t *testing.T) {
 		{Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN", Frequency: 60},
 		{Language: "de", CanonicalLemma: "gemeinsam", UPOS: "NOUN", Frequency: 20},
 	}, 80)
-	seedHistoricalAnalysis(t, ctx, store, alice.ID, "alice-one", "artifact-alice-one-history")
 	seedAnalysisBook(t, ctx, store, alice.ID, "Alice two", "de", "alice-two", "artifact-alice-two", []domain.SharedLemma{
 		{Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN", Frequency: 10},
 		{Language: "de", CanonicalLemma: "gemeinsam", UPOS: "NOUN", Frequency: 30},
@@ -127,23 +125,19 @@ func seedAnalysisBook(t *testing.T, ctx context.Context, store *PostgresStore, o
 	if err = store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: artifactHash, Language: language, SchemaVersion: "1", NormalizationProfile: language, NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}, lemmas); err != nil {
 		t.Fatal(err)
 	}
-	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner, source.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "unit"), Order: 0}}})
-	if err != nil {
-		t.Fatal(err)
-	}
 	var runID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,scope_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,$5,'test','1',$6,'completed',now()) RETURNING id::text`, owner, source.ID, source.ContentRevisionID, scope.ScopeID, snapshotID, identifier).Scan(&runID); err != nil {
+	var snapshotID string
+	if err = store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, source.ID).Scan(&snapshotID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, owner, source.ID, source.ContentRevisionID, snapshotID, identifier).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	corpus, err := store.PutCorpus(ctx, owner, source.ID, artifactHash)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET reviewed_scope_id=$1,analysis_run_id=$2,analyzable_token_count=$3,distinct_lemma_count=$4,status='complete' WHERE owner_id=$5 AND id=$6`, scope.ScopeID, runID, analyzable, int64(len(lemmas)), owner, corpus.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analysis_run_id=$1,analyzable_token_count=$2,distinct_lemma_count=$3,status='complete' WHERE owner_id=$4 AND id=$5`, runID, analyzable, int64(len(lemmas)), owner, corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, corpus.ID, owner, runID); err != nil {
@@ -165,35 +159,4 @@ func seedSource(t *testing.T, ctx context.Context, store *PostgresStore, owner, 
 		t.Fatal(err)
 	}
 	return source
-}
-
-func seedHistoricalAnalysis(t *testing.T, ctx context.Context, store *PostgresStore, owner, identifier, artifactHash string) {
-	t.Helper()
-	var sourceID, revisionID, digest string
-	var digestVersion int
-	if err := store.Pool().QueryRow(ctx, `SELECT s.id::text,r.revision_id::text,r.content_digest,r.digest_version FROM source_materials s JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.source_identifier=$2`, owner, identifier).Scan(&sourceID, &revisionID, &digest, &digestVersion); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: artifactHash, Language: "de", SchemaVersion: "1", NormalizationProfile: "de", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}, []domain.SharedLemma{{Language: "de", CanonicalLemma: "history-only", UPOS: "NOUN", Morphology: []byte(`{}`), Frequency: 99}}); err != nil {
-		t.Fatal(err)
-	}
-	var snapshotID string
-	if err := store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, sourceID).Scan(&snapshotID); err != nil {
-		t.Fatal(err)
-	}
-	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner, SourceMaterialID: sourceID, SourceContent: domain.EPUBContentRevisionIdentity{RevisionID: revisionID, Digest: digest, DigestVersion: digestVersion}, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "unit"), Order: 0}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var runID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,scope_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,$5,'test','1','historical','completed',now()) RETURNING id::text`, owner, sourceID, revisionID, scope.ScopeID, snapshotID).Scan(&runID); err != nil {
-		t.Fatal(err)
-	}
-	corpus, err := store.PutCorpus(ctx, owner, sourceID, artifactHash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET reviewed_scope_id=$1,analysis_run_id=$2,analyzable_token_count=99,distinct_lemma_count=1,status='complete' WHERE owner_id=$3 AND id=$4`, scope.ScopeID, runID, owner, corpus.ID); err != nil {
-		t.Fatal(err)
-	}
 }

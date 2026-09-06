@@ -121,9 +121,9 @@ func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, co
 
 func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysisRunID string) (domain.Corpus, error) {
 	var corpus domain.Corpus
-	err := s.pool.QueryRow(ctx, `SELECT c.id::text,c.owner_id::text,c.source_material_id::text,c.artifact_hash,COALESCE(c.reviewed_scope_id::text,''),COALESCE(c.analysis_run_id::text,''),c.status,c.created_at
+	err := s.pool.QueryRow(ctx, `SELECT c.id::text,c.owner_id::text,c.source_material_id::text,c.artifact_hash,COALESCE(c.analysis_run_id::text,''),c.status,c.created_at
 		FROM corpora c JOIN analysis_runs r ON r.owner_id=c.owner_id AND r.id=c.analysis_run_id AND r.source_material_id=c.source_material_id
-		WHERE c.owner_id=$1 AND r.id=$2 AND r.state='completed' AND c.status='complete' AND ((r.scope_id IS NULL AND c.reviewed_scope_id IS NULL) OR c.reviewed_scope_id=r.scope_id)`, owner, analysisRunID).Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.ReviewedScopeID, &corpus.AnalysisRunID, &corpus.Status, &corpus.CreatedAt)
+		WHERE c.owner_id=$1 AND r.id=$2 AND r.state='completed' AND c.status='complete'`, owner, analysisRunID).Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.AnalysisRunID, &corpus.Status, &corpus.CreatedAt)
 	return corpus, missing(err)
 }
 

@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
@@ -47,20 +46,12 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotID, _, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, source.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scope, err := store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: 1}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: domain.EPUBUnitID(0, "unit"), Order: 0}}})
-	if err != nil {
-		t.Fatal(err)
-	}
 	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, selection.NewService(store))
 	if err != nil {
 		t.Fatal(err)
 	}
 	analysisService := analysis.NewService(store.Pool(), analysisRiver)
-	analysisHandle, err := analysisService.SubmitScopedAnalysis(ctx, owner.ID, source.ID, scope.ScopeID)
+	analysisHandle, err := analysisService.SubmitAnalysis(ctx, owner.ID, source.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +60,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 		t.Fatal(err)
 	}
 	var corpusID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,reviewed_scope_id,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,$5,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, scope.ScopeID, analysisHandle.RunID).Scan(&corpusID); err != nil {
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, analysisHandle.RunID).Scan(&corpusID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner.ID, corpusID, analysisHandle.RunID); err != nil {

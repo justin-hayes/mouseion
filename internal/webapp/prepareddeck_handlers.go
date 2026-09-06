@@ -53,7 +53,7 @@ func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Reque
 		fail(w, err)
 		return
 	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.ScopeID == "" || result.Corpus.ID != book.CorpusID {
+	if result.OwnerID != u.ID || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.Corpus.ID != book.CorpusID {
 		http.NotFound(w, r)
 		return
 	}
@@ -86,7 +86,7 @@ func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.R
 		fail(w, err)
 		return
 	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != detail.Acquired.Source.ID || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
+	if result.OwnerID != u.ID || result.SourceMaterialID != detail.Acquired.Source.ID || result.RunID != r.PathValue("runID") {
 		http.NotFound(w, r)
 		return
 	}

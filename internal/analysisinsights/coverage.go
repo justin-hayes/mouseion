@@ -132,9 +132,7 @@ func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
 func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, activeIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
-		ReviewedScopeID:      input.ReviewedScopeID,
 		AnalysisRunID:        input.AnalysisRunID,
-		SelectedUnits:        append([]domain.CorpusSelectedUnit(nil), input.SelectedUnits...),
 		AnalyzableTokenCount: input.Statistics.AnalyzableTokenCount,
 		DistinctLemmaCount:   input.Statistics.DistinctLemmaCount,
 		TextProfile:          input.Statistics.TextProfile,

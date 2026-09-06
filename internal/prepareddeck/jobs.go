@@ -171,10 +171,9 @@ type completedAnalysis struct {
 
 func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID string) (completedAnalysis, error) {
 	var result completedAnalysis
-	var runState, scopeID, snapshotID, corpusID string
+	var runState, snapshotID, corpusID string
 	var runRevisionID, jobContentHash, jobCorpusID string
-	var scopeOwner, scopeSource, scopeRevision, scopeSnapshot string
-	var corpusOwner, corpusSource, corpusScope, corpusRun, corpusStatus string
+	var corpusOwner, corpusSource, corpusRun, corpusStatus string
 	var contentDigest string
 	var runID string
 	condition := "j.river_job_id=$2"
@@ -190,16 +189,14 @@ func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID 
 	}
 	err := q.QueryRow(ctx, `SELECT COALESCE(j.analysis_run_id::text,''),s.id::text,s.owner_id::text,s.language,s.source_identifier,s.title,s.media_type,j.content_hash,COALESCE(j.corpus_id::text,''),
 		COALESCE(rev.content_digest,''),
-		COALESCE(r.state,''),COALESCE(r.scope_id::text,''),COALESCE(r.snapshot_id::text,''),COALESCE(r.content_revision_id::text,''),COALESCE(r.corpus_id::text,''),
-		COALESCE(scope.owner_id::text,''),COALESCE(scope.source_material_id::text,''),COALESCE(scope.content_revision_id::text,''),COALESCE(scope.snapshot_id::text,''),
-		COALESCE(c.owner_id::text,''),COALESCE(c.source_material_id::text,''),COALESCE(c.reviewed_scope_id::text,''),COALESCE(c.analysis_run_id::text,''),COALESCE(c.status,'')
+		COALESCE(r.state,''),COALESCE(r.snapshot_id::text,''),COALESCE(r.content_revision_id::text,''),COALESCE(r.corpus_id::text,''),
+		COALESCE(c.owner_id::text,''),COALESCE(c.source_material_id::text,''),COALESCE(c.analysis_run_id::text,''),COALESCE(c.status,'')
 		FROM analysis_jobs j
 		JOIN source_materials s ON s.owner_id=j.owner_id AND s.id=j.source_material_id
 		LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id AND r.source_material_id=j.source_material_id
 		LEFT JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
-		LEFT JOIN epub_reviewed_scopes scope ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id AND scope.source_material_id=r.source_material_id
 		LEFT JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id
-		WHERE j.owner_id=$1 AND `+condition, args...).Scan(&runID, &result.Source.ID, &result.Source.OwnerID, &result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &jobContentHash, &jobCorpusID, &contentDigest, &runState, &scopeID, &snapshotID, &runRevisionID, &corpusID, &scopeOwner, &scopeSource, &scopeRevision, &scopeSnapshot, &corpusOwner, &corpusSource, &corpusScope, &corpusRun, &corpusStatus)
+		WHERE j.owner_id=$1 AND `+condition, args...).Scan(&runID, &result.Source.ID, &result.Source.OwnerID, &result.Source.Language, &result.Source.SourceIdentifier, &result.Source.Title, &result.Source.MediaType, &jobContentHash, &jobCorpusID, &contentDigest, &runState, &snapshotID, &runRevisionID, &corpusID, &corpusOwner, &corpusSource, &corpusRun, &corpusStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return completedAnalysis{}, fmt.Errorf("%w: analysis result is missing or belongs to another owner", ErrAnalysisUnavailable)
 	}
@@ -214,10 +211,8 @@ func loadCompletedAnalysis(ctx context.Context, q queryRower, owner, analysisID 
 		message string
 	}{
 		{runState == "completed", "analysis is not completed (current state: " + runState + ")"},
-		{scopeID != "" && scopeOwner == result.Source.OwnerID && scopeSource == result.Source.ID, "analysis does not have an owned confirmed scope"},
-		{runRevisionID != "" && runRevisionID == scopeRevision && contentDigest != "" && jobContentHash == contentDigest, "analysis content revision is missing or contradictory"},
-		{snapshotID != "" && snapshotID == scopeSnapshot, "analysis scope snapshot is stale or contradictory"},
-		{corpusID != "" && jobCorpusID == corpusID && corpusOwner == result.Source.OwnerID && corpusSource == result.Source.ID && corpusScope == scopeID && corpusRun == runID && corpusStatus == "complete", "analysis has no completed matching corpus"},
+		{runRevisionID != "" && contentDigest != "" && jobContentHash == contentDigest, "analysis content revision is missing or contradictory"},
+		{corpusID != "" && jobCorpusID == corpusID && corpusOwner == result.Source.OwnerID && corpusSource == result.Source.ID && corpusRun == runID && corpusStatus == "complete", "analysis has no completed matching corpus"},
 	}
 	for _, check := range checks {
 		if !check.valid {

@@ -109,31 +109,18 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	}
 }
 
-func TestCoverageUsesAndReportsOnlyResultingCorpusScope(t *testing.T) {
+func TestCoverageUsesResultingCorpus(t *testing.T) {
 	known := []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN"}}
 	full := &memoryStore{known: known, input: domain.AnalysisCorpusVocabulary{
 		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 2},
 		Lemmas:     []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN", OccurrenceCount: 50}, {Language: "de", CanonicalLemma: "anhang", UPOS: "NOUN", OccurrenceCount: 50}},
 	}}
-	scoped := &memoryStore{known: known, input: domain.AnalysisCorpusVocabulary{
-		ReviewedScopeID: "scope-1",
-		SelectedUnits:   []domain.CorpusSelectedUnit{{UnitID: "chapter-1", Order: 1, Title: "Chapter One"}},
-		Statistics:      &domain.AnalysisStatistics{AnalyzableTokenCount: 60, DistinctLemmaCount: 2},
-		Lemmas:          []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN", OccurrenceCount: 50}, {Language: "de", CanonicalLemma: "kapitel", UPOS: "NOUN", OccurrenceCount: 10}},
-	}}
 	fullCoverage, err := NewService(full).Coverage(context.Background(), "alice", "full")
 	if err != nil {
 		t.Fatal(err)
 	}
-	scopedCoverage, err := NewService(scoped).Coverage(context.Background(), "alice", "scoped")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fullCoverage.KnownTokenCount != 50 || fullCoverage.AnalyzableTokenCount != 100 || scopedCoverage.KnownTokenCount != 50 || scopedCoverage.AnalyzableTokenCount != 60 {
-		t.Fatalf("full=%+v scoped=%+v", fullCoverage, scopedCoverage)
-	}
-	if scopedCoverage.ReviewedScopeID != "scope-1" || len(scopedCoverage.SelectedUnits) != 1 || scopedCoverage.SelectedUnits[0].Title != "Chapter One" {
-		t.Fatalf("scope provenance = %+v", scopedCoverage)
+	if fullCoverage.KnownTokenCount != 50 || fullCoverage.AnalyzableTokenCount != 100 {
+		t.Fatalf("full=%+v", fullCoverage)
 	}
 }
 

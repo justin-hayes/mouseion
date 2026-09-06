@@ -426,7 +426,7 @@ func (s *PostgresStore) ListSupportedLanguages(ctx context.Context) ([]domain.Su
 }
 
 func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
-	rows, err := s.pool.Query(ctx, `SELECT j.river_job_id,j.display_number,j.owner_id,j.source_material_id,j.content_hash,COALESCE(j.corpus_id::text,''),COALESCE(j.reviewed_scope_id::text,''),COALESCE(j.analysis_run_id::text,''),COALESCE(r.state,''),j.progress,j.error,j.created_at,j.updated_at FROM analysis_jobs j LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id WHERE j.owner_id=$1 ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 100`, owner)
+	rows, err := s.pool.Query(ctx, `SELECT j.river_job_id,j.display_number,j.owner_id,j.source_material_id,j.content_hash,COALESCE(j.corpus_id::text,''),COALESCE(j.analysis_run_id::text,''),COALESCE(r.state,''),j.progress,j.error,j.created_at,j.updated_at FROM analysis_jobs j LEFT JOIN analysis_runs r ON r.owner_id=j.owner_id AND r.id=j.analysis_run_id WHERE j.owner_id=$1 ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 100`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 	var out []domain.AnalysisJob
 	for rows.Next() {
 		var job domain.AnalysisJob
-		if err := rows.Scan(&job.ID, &job.DisplayNumber, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.ReviewedScopeID, &job.AnalysisRunID, &job.AnalysisState, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
+		if err := rows.Scan(&job.ID, &job.DisplayNumber, &job.OwnerID, &job.SourceMaterialID, &job.ContentHash, &job.CorpusID, &job.AnalysisRunID, &job.AnalysisState, &job.Progress, &job.Error, &job.CreatedAt, &job.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, job)
@@ -517,12 +517,11 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
 	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
 		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,COALESCE(s.book_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
-		       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
+			       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
 		            WHEN ar.state = 'failed' THEN 'analysis failed'
 		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
 		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-		            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
+			            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
 		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
 		            ELSE 'not analyzed' END,
 		       CASE WHEN ar.state IS NOT NULL THEN ar.state
@@ -531,14 +530,13 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
 		            ELSE '' END,
 		       COALESCE(ca.analysis_run_id::text,''),
-		       COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)
+			       COALESCE(ca.corpus_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
 		LEFT JOIN book_current_analyses p ON p.owner_id=s.owner_id AND p.source_material_id=s.id
 		LEFT JOIN current_analysis ca ON ca.owner_id=p.owner_id AND ca.source_material_id=p.source_material_id
 		LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,river_job_id DESC LIMIT 1) j ON true
 		LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-		LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,scope_id DESC LIMIT 1) scope ON true
 		WHERE s.owner_id=$1
 		ORDER BY s.created_at DESC,s.title,s.id`, owner)
 	if err != nil {
@@ -548,7 +546,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.ReviewedScopeID, &item.ConfirmedScopeID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)
@@ -594,13 +592,35 @@ func (s *PostgresStore) GetArtifact(ctx context.Context, hash string) (a domain.
 	return a, ls, rows.Err()
 }
 func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash string) (v domain.Corpus, err error) {
-	err = s.pool.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash) VALUES($1,$2,$3) ON CONFLICT(owner_id,source_material_id) WHERE reviewed_scope_id IS NULL DO UPDATE SET artifact_hash=excluded.artifact_hash RETURNING id,owner_id,source_material_id,artifact_hash,status,created_at`, owner, sourceID, hash).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner+":"+sourceID); err != nil {
+		return v, err
+	}
+	err = tx.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,status,created_at FROM corpora WHERE owner_id=$1 AND source_material_id=$2 ORDER BY created_at DESC LIMIT 1`, owner, sourceID).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash) VALUES($1,$2,$3) RETURNING id,owner_id,source_material_id,artifact_hash,status,created_at`, owner, sourceID, hash).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.Status, &v.CreatedAt)
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+		return
+	}
+	if err == nil {
+		_, err = tx.Exec(ctx, `UPDATE corpora SET artifact_hash=$3 WHERE owner_id=$1 AND id=$2`, owner, v.ID, hash)
+		v.ArtifactHash = hash
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+	}
 	return
 }
 func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v domain.Corpus, err error) {
 	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
 	var medianSentenceTokenCount *float64
-	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,COALESCE(reviewed_scope_id::text,''),COALESCE(analysis_run_id::text,''),status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.ReviewedScopeID, &v.AnalysisRunID, &v.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &v.CreatedAt)
+	err = s.pool.QueryRow(ctx, `SELECT id,owner_id,source_material_id,artifact_hash,COALESCE(analysis_run_id::text,''),status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count,created_at FROM corpora WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.SourceMaterialID, &v.ArtifactHash, &v.AnalysisRunID, &v.Status, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount, &v.CreatedAt)
 	err = missing(err)
 	if err == nil && analyzableTokenCount != nil && distinctLemmaCount != nil {
 		v.Statistics = &domain.AnalysisStatistics{AnalyzableTokenCount: *analyzableTokenCount, DistinctLemmaCount: *distinctLemmaCount}
