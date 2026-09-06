@@ -182,19 +182,6 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 				if book.Book.ID != goalBookID {
 					<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
 				}
-				<details>
-					<summary>Fix book language</summary>
-					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID) }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<fieldset>
-							<legend>Book language</legend>
-							<label><input type="radio" name="language_state" value="unknown" checked?={ book.Book.LanguageState == domain.LanguageUnknown } required/> I have not chosen a language yet</label>
-							<label><input type="radio" name="language_state" value="chosen" checked?={ book.Book.LanguageState == domain.LanguageChosen }/> I chose this language explicitly</label>
-							<label>Chosen language tag<input name="language_tag" value={ book.Book.LanguageTag } placeholder="de" autocomplete="language"/></label>
-						</fieldset>
-						<button type="submit">Save book language</button>
-					</form>
-				</details>
 				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
 					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
 				}

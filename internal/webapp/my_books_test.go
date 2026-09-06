@@ -99,7 +99,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
-	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search"} {
+	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search", "/library/books/book-id"} {
 		r := httptest.NewRequest(http.MethodGet, route, nil)
 		for _, cookie := range cookies {
 			r.AddCookie(cookie)
@@ -109,6 +109,15 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 		if response.Code != http.StatusNotFound {
 			t.Errorf("GET %s status=%d, want 404", route, response.Code)
 		}
+	}
+	request := httptest.NewRequest(http.MethodPost, "/library/books/book-id", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Errorf("POST /library/books/book-id status=%d, want 404", response.Code)
 	}
 }
 
