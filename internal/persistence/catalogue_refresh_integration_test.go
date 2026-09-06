@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
@@ -21,6 +22,10 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	defer store.Close()
 
 	owner, err := store.CreateUser(ctx, "refresh-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Refresh catalog", URL: "https://catalog.example/opds"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +57,13 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, source.SourceIdentifier, "New title", source.Language)
+	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", source.Language)
 	if err != nil || !result.TitleChanged || result.Book.Title != "New title" {
 		t.Fatalf("refresh result=%+v err=%v", result, err)
+	}
+	alias, err := store.GetBookCatalogEntryAlias(ctx, owner.ID, bookID)
+	if err != nil || alias.ConnectionID != connection.ID {
+		t.Fatalf("catalogue alias=%+v err=%v", alias, err)
 	}
 	afterSource, err := store.GetSourceMaterial(ctx, owner.ID, source.ID)
 	if err != nil {

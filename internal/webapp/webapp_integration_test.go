@@ -410,10 +410,6 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
-	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, "metadata-entry", "Metadata-only synced book", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/book.epub" {
 			http.NotFound(w, r)
@@ -424,6 +420,10 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	}))
 	defer catalog.Close()
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "metadata-entry", "Metadata-only synced book", "de")
 	if err != nil {
 		t.Fatal(err)
 	}

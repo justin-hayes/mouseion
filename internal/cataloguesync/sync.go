@@ -93,7 +93,7 @@ type connectionStore interface {
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
-	ReconcileCatalogueEntry(context.Context, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
+	ReconcileCatalogueEntry(context.Context, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
 	GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error)
 	ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
@@ -268,7 +268,7 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
 				continue
 			}
-			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, entry.ID, entry.Title, book.LanguageTag)
+			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, book.LanguageTag)
 			if reconcileErr != nil {
 				return RefreshResult{Book: book, Failed: true}, reconcileErr
 			}
@@ -680,7 +680,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 			if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
 				continue
 			}
-			if result, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, args.OwnerID, entry.ID, entry.Title, entryLanguage); reconcileErr != nil {
+			if result, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entryLanguage); reconcileErr != nil {
 				if firstConflict == nil {
 					firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, reconcileErr)
 				}
