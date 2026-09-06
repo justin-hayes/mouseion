@@ -88,16 +88,20 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 		return false, nil
 	}
 	alias, err := reader.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return false, nil
+	}
 	if err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
-			return false, nil
-		}
 		return false, err
 	}
-	if alias.AliasType == domain.AliasCatalogEntry && alias.Namespace == domain.NamespaceSourceIdentifier && strings.TrimSpace(alias.Value) != "" {
-		return true, nil
+	if alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
+		return false, nil
 	}
-	return false, nil
+	connections, err := h.services.Store.ListOpdsConnections(ctx, owner)
+	if err != nil {
+		return false, err
+	}
+	return len(connections) > 0, nil
 }
 
 func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {

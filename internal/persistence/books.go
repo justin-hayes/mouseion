@@ -532,20 +532,6 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	} else if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if aliasBook == nil && sourceBook != nil {
-		var legacyAliasBook string
-		err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id IS NULL AND alias_type=$2 AND namespace=$3 AND value=$4 FOR UPDATE`, owner, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&legacyAliasBook)
-		if errors.Is(err, pgx.ErrNoRows) {
-			err = nil
-		} else if err != nil {
-			return CatalogueEntryReconcileResult{}, err
-		} else if legacyAliasBook == *sourceBook {
-			aliasBook = &legacyAliasBook
-			if _, err = tx.Exec(ctx, `UPDATE book_aliases SET connection_id=$3 WHERE owner_id=$1 AND book_id=$2 AND connection_id IS NULL AND alias_type=$4 AND namespace=$5 AND value=$6`, owner, legacyAliasBook, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
-				return CatalogueEntryReconcileResult{}, err
-			}
-		}
-	}
 	if sourceBook != nil && aliasBook != nil && *sourceBook != *aliasBook {
 		return CatalogueEntryReconcileResult{}, ErrSourceBookConflict
 	}
