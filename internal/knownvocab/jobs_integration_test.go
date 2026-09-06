@@ -37,7 +37,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
 		t.Fatal(err)
 	}
 	workers := river.NewWorkers()
@@ -74,7 +74,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 2 {
 		t.Fatalf("known rows=%d err=%v", knownRows, err)
 	}
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian library book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageChosen, LanguageTag: "it"}); err != nil {
+	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"}); err != nil {
 		t.Fatal(err)
 	}
 	italian, err := service.Submit(ctx, alice.ID, "it", "casa\n")

@@ -84,7 +84,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		}
 	}
 
-	otherAliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice second goal book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	otherAliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice second goal book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		t.Fatalf("second goal error=%v, want ErrGoalExists", err)
 	}
 
-	noDeckBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol reading-only book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	noDeckBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol reading-only book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if !errors.Is(err, ErrNotFound) || changed != (domain.PrimaryGoal{}) {
 		t.Fatalf("cross-owner change goal=%+v err=%v, want ErrNotFound", changed, err)
 	}
-	replacementBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol replacement book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	replacementBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol replacement book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Finish this book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Finish this book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 		t.Fatalf("stale finish error=%v", err)
 	}
 
-	replacement, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Next book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	replacement, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Next book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}

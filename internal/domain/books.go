@@ -11,8 +11,8 @@ import (
 const (
 	LanguageUnknown                 = "unknown"
 	LanguageChosen                  = "chosen"
-	MetadataProvenanceManualEntry   = "manual_entry"
 	MetadataProvenanceCatalogueSync = "catalog_sync"
+	MetadataProvenanceAcquisition   = "acquisition"
 	AliasCatalogEntry               = "catalog_entry"
 	AliasStrongBibliographic        = "strong_bibliographic"
 	NamespaceSourceIdentifier       = "source_identifier"
@@ -88,6 +88,11 @@ func (b Book) Validate() error {
 	}
 	if strings.TrimSpace(b.MetadataProvenance) == "" {
 		return errors.New("domain: book metadata provenance is required")
+	}
+	switch b.MetadataProvenance {
+	case MetadataProvenanceCatalogueSync, MetadataProvenanceAcquisition, MetadataProvenanceBackfill:
+	default:
+		return errors.New("domain: invalid book metadata provenance")
 	}
 	switch b.LanguageState {
 	case LanguageUnknown:

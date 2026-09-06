@@ -33,7 +33,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	bob := createAccount(t, ctx, store, "goal-integration-bob", "bob-password", false)
 	newBook := func(owner domain.User, title string) domain.Book {
 		t.Helper()
-		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}

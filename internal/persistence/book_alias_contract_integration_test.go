@@ -24,7 +24,7 @@ func TestBookAliasConnectionContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Contract", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Contract", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}

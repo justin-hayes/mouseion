@@ -21,21 +21,20 @@ func Postgres(t *testing.T, ctx context.Context, migrate func(string) error) (st
 	databaseURL, explicit := externalDatabaseURL()
 	var container *postgres.PostgresContainer
 	if !explicit {
+		// The named database is shared across package processes; leave it alive
+		// for the next process instead of letting Ryuk reap it at process exit.
+		t.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 		var err error
 		container, err = postgres.Run(ctx, "postgres:16-alpine",
 			postgres.WithDatabase("mouseion_test"),
 			postgres.WithUsername("postgres"),
 			postgres.WithPassword("postgres"),
 			postgres.BasicWaitStrategies(),
+			testcontainers.WithReuseByName("mouseion-test-postgres"),
 		)
 		if err != nil {
 			t.Logf("Testcontainers unavailable; using external PostgreSQL fallback %s: %v", databaseURL, err)
 		} else {
-			t.Cleanup(func() {
-				if err := testcontainers.TerminateContainer(container); err != nil {
-					t.Errorf("terminate PostgreSQL container: %v", err)
-				}
-			})
 			databaseURL, err = container.ConnectionString(ctx, "sslmode=disable")
 			if err != nil {
 				t.Fatalf("get PostgreSQL container connection string: %v", err)

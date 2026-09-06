@@ -83,13 +83,13 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		t.Fatalf("backfilled source links=%d err=%v", linkedCount, err)
 	}
 
-	metadataOnly, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	metadataOnly, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
-	retriedMetadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
-	if err != nil || retriedMetadata.ID != metadataOnly.ID {
-		t.Fatalf("repeated metadata create book=%q want=%q err=%v", retriedMetadata.ID, metadataOnly.ID, err)
+	retriedMetadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	if err != nil || retriedMetadata.ID == metadataOnly.ID {
+		t.Fatalf("repeated metadata create book=%q unexpectedly reused=%q err=%v", retriedMetadata.ID, metadataOnly.ID, err)
 	}
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	if err != nil || !containsBook(books, metadataOnly.ID) {
@@ -113,7 +113,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		t.Fatalf("metadata-only read model=%+v", metadataView)
 	}
 
-	promotion, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Promote this book", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	promotion, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Promote this book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	for i := range view {
 		if view[i].Book.ID == promotion.ID {
 			foundPromotion = true
-			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageChosen || view[i].EvidenceState != domain.MyBookAcquiredUnassessed {
+			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageUnknown || view[i].Book.LanguageTag != "" || view[i].EvidenceState != domain.MyBookAcquiredUnassessed {
 				t.Fatalf("promoted read model=%+v", view[i])
 			}
 			break
@@ -190,7 +190,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	secondBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Second", MetadataProvenance: "manual", LanguageState: domain.LanguageUnknown})
+	secondBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Second", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Metadata", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	metadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Metadata", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 		{title: "Unknown", state: domain.LanguageUnknown},
 	}
 	for _, input := range inputs {
-		book, bookErr := domain.NewBook(alice.ID, input.title, domain.MetadataProvenanceManualEntry, input.state, input.language)
+		book, bookErr := domain.NewBook(alice.ID, input.title, domain.MetadataProvenanceCatalogueSync, input.state, input.language)
 		if bookErr != nil {
 			t.Fatal(bookErr)
 		}

@@ -373,25 +373,6 @@ func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.B
 		return domain.Book{}, err
 	}
 	defer tx.Rollback(ctx)
-	if b.MetadataProvenance == domain.MetadataProvenanceManualEntry {
-		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,467))`, b.OwnerID+":"+b.Title+":"+b.LanguageState+":"+b.LanguageTag); err != nil {
-			return domain.Book{}, err
-		}
-		var existing domain.Book
-		existing, err = scanBook(tx.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND metadata_provenance=$2 AND title=$3 AND language_state=$4 AND COALESCE(language_tag,'')=COALESCE($5,'') FOR UPDATE`, b.OwnerID, b.MetadataProvenance, b.Title, b.LanguageState, nullableLanguageTag(b.LanguageState, b.LanguageTag)))
-		if err == nil {
-			if err = activateMembership(ctx, tx, existing.OwnerID, existing.ID); err != nil {
-				return domain.Book{}, err
-			}
-			if err = tx.Commit(ctx); err != nil {
-				return domain.Book{}, err
-			}
-			return existing, nil
-		}
-		if !errors.Is(err, ErrNotFound) {
-			return domain.Book{}, err
-		}
-	}
 	created, err := scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,$4,$5) RETURNING `+bookColumns, b.OwnerID, b.Title, b.MetadataProvenance, b.LanguageState, nullableLanguageTag(b.LanguageState, b.LanguageTag)))
 	if err != nil {
 		return domain.Book{}, err
@@ -734,7 +715,7 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	}
 
 	var created domain.Book
-	created, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,'acquisition',$3,$4) RETURNING `+bookColumns, owner, title, domain.LanguageChosen, language))
+	created, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,$4,$5) RETURNING `+bookColumns, owner, title, domain.MetadataProvenanceAcquisition, domain.LanguageChosen, language))
 	if err != nil {
 		return "", err
 	}

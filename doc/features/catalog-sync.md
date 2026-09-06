@@ -36,8 +36,8 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - The primary empty-state action adds a catalogue connection at `/connections`.
   It enters the existing **Add books** workflow; it does not add a destination
   or silently create a connection.
-- Manual metadata entry remains possible where already supported, without
-  competing with the primary onboarding action.
+- Books enter My Books through catalogue synchronization; there is no manual
+  metadata-entry path.
 
 ### Connection configuration and status
 

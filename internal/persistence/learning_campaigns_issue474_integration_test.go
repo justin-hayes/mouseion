@@ -64,11 +64,11 @@ func TestLearningCampaignResidualWorkSurvivesGoalChangeAndGraduatesOnce(t *testi
 		t.Fatalf("reversed transition changed residual campaign=%+v", unchanged)
 	}
 
-	oldBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 old Goal", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	oldBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 old Goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
-	newBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 new Goal", MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	newBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 new Goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	if err != nil {
 		t.Fatal(err)
 	}
