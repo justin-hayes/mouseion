@@ -40,7 +40,9 @@ and removes the Settings destination.
 - **`supported_languages` remains the server-wide display-name reference**,
   now populated whenever capabilities are fetched (not on language add). Derived
   languages LEFT JOIN it, falling back to the raw tag when NLP is unavailable.
-- **The per-book language control on My Books stays** and feeds the derived set.
+- **Book language is catalogue metadata.** The per-book language control on My
+  Books is removed; connection re-sync updates a synced Book's language and
+  feeds the derived set.
 - **`/settings` redirects to `/library`**; the My Books empty-state study-language
   CTA and the connections-page language-scope line are removed; the
   "Open Settings" guidance link repoints to `/vocabulary`.

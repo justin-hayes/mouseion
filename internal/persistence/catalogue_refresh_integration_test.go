@@ -58,8 +58,8 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", source.Language)
-	if err != nil || !result.TitleChanged || result.Book.Title != "New title" {
+	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", "it")
+	if err != nil || !result.TitleChanged || !result.LanguageChanged || result.Book.Title != "New title" || result.Book.LanguageState != domain.LanguageChosen || result.Book.LanguageTag != "it" {
 		t.Fatalf("refresh result=%+v err=%v", result, err)
 	}
 	alias, err := store.GetBookCatalogEntryAlias(ctx, owner.ID, bookID)

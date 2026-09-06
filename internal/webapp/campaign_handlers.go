@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
@@ -99,32 +98,6 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
-}
-
-func (h *Handler) updateBookMetadata(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	book, err := h.services.Store.GetBook(r.Context(), u.ID, r.PathValue("id"))
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	state := strings.TrimSpace(r.FormValue("language_state"))
-	tag := strings.TrimSpace(r.FormValue("language_tag"))
-	if state == domain.LanguageChosen {
-		tag = canonicalization.NormalizeLanguage(tag)
-	}
-	if _, err = h.services.Store.UpdateBookMetadata(r.Context(), u.ID, book.ID, book.Title, state, tag); err != nil {
-		redirect(w, r, "/library?error="+url.QueryEscape("The book language could not be updated. Choose a valid language state and tag."))
-		return
-	}
-	redirect(w, r, "/library?message="+url.QueryEscape("Book language updated."))
 }
 
 func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {

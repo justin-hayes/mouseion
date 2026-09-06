@@ -316,28 +316,39 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
 	}
-	displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
 	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
 	if readErr != nil {
 		return RefreshResult{Book: book, Failed: true}, nil
 	}
-	languageID := opds.LanguageID(languages, book.LanguageTag, displayName)
-	if languageID == "" {
-		return RefreshResult{Book: book, Missing: true}, nil
-	}
-	feed, readErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, languageID)
-	if readErr != nil {
-		return RefreshResult{Book: book, Failed: true}, nil
-	}
-	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-		if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
-			continue
+	var scopes []languageScope
+	if s.capabilities != nil {
+		capabilities, capabilityErr := s.capabilities.GetCapabilities(ctx)
+		if capabilityErr != nil {
+			return RefreshResult{Book: book, Failed: true}, capabilityErr
 		}
-		reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, book.LanguageTag)
-		if reconcileErr != nil {
-			return RefreshResult{Book: book, Failed: true}, reconcileErr
+		scopes = eligibleLanguages(languages, capabilities)
+	} else {
+		displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
+		if languageID := opds.LanguageID(languages, book.LanguageTag, displayName); languageID != "" {
+			scopes = []languageScope{{capability: analyzer.LanguageCapability{Language: book.LanguageTag}, languageID: languageID}}
 		}
-		return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged, Created: reconciled.Created}, nil
+	}
+	for _, scope := range scopes {
+		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, scope.languageID)
+		if feedErr != nil {
+			return RefreshResult{Book: book, Failed: true}, nil
+		}
+		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
+				continue
+			}
+			entryLanguage := languageTag(scope)
+			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entryLanguage)
+			if reconcileErr != nil {
+				return RefreshResult{Book: book, Failed: true}, reconcileErr
+			}
+			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.LanguageChanged, Created: reconciled.Created}, nil
+		}
 	}
 	return RefreshResult{Book: book, Missing: true}, nil
 }

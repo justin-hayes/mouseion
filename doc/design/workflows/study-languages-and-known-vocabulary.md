@@ -44,10 +44,11 @@ Three concepts remain distinct:
   through a justified vocabulary transition.
 
 Derived study languages define which languages may be viewed or imported in
-Vocabulary. A Book's language state can be corrected on My Books; changing it
-updates the derived set without deleting known vocabulary or the Book's derived
-history. Capability discovery still controls which catalogue feeds can be
-synchronized, but it does not directly create or remove known-vocabulary data.
+Vocabulary. A catalogue-synced Book's language comes from its catalogue entry;
+connection re-sync is the only way that language changes. Metadata changes do
+not delete known vocabulary or the Book's derived history. Capability discovery
+still controls which catalogue feeds can be synchronized, but it does not
+directly create or remove known-vocabulary data.
 
 ## Known-vocabulary import
 
