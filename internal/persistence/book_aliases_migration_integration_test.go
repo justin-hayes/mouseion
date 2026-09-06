@@ -47,17 +47,18 @@ func TestConnectionScopedBookAliasesMigrationUpAndDown(t *testing.T) {
 
 	for _, index := range []struct {
 		name      string
+		columns   string
 		predicate string
 	}{
-		{name: "book_aliases_catalogue_entry_identity", predicate: "connection_id IS NOT NULL"},
-		{name: "book_aliases_strong_bibliographic_identity", predicate: "connection_id IS NULL"},
+		{name: "book_aliases_catalogue_entry_identity", columns: "(owner_id, connection_id, namespace, value)", predicate: "connection_id IS NOT NULL"},
+		{name: "book_aliases_strong_bibliographic_identity", columns: "(owner_id, namespace, value)", predicate: "connection_id IS NULL"},
 	} {
 		var definition string
 		if err := pool.QueryRow(ctx, `SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = $1`, index.name).Scan(&definition); err != nil {
 			t.Fatalf("index %q: %v", index.name, err)
 		}
-		if !strings.Contains(definition, index.predicate) {
-			t.Fatalf("index %q definition=%q does not contain partial predicate %q", index.name, definition, index.predicate)
+		if !strings.Contains(definition, index.columns) || !strings.Contains(definition, index.predicate) {
+			t.Fatalf("index %q definition=%q does not contain columns %q and partial predicate %q", index.name, definition, index.columns, index.predicate)
 		}
 	}
 
