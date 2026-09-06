@@ -31,5 +31,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if _, err = store.Pool().Exec(context.Background(), `ALTER TABLE book_aliases VALIDATE CONSTRAINT book_aliases_connection_contract`); err != nil {
+		log.Fatal(err)
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "catalogue alias backfill complete: examined=%d updated=%d\n", result.Examined, result.Updated)
 }

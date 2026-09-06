@@ -167,4 +167,7 @@ func TestConnectionScopedBookAliasesMigrationUpAndDown(t *testing.T) {
 	if aliasBookID != bookID {
 		t.Fatalf("legacy alias book_id=%q, want %q", aliasBookID, bookID)
 	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE book_aliases VALIDATE CONSTRAINT book_aliases_connection_contract`); err != nil {
+		t.Fatalf("validate restored contract: %v", err)
+	}
 }
