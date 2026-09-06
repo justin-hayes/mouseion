@@ -68,7 +68,6 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 			_ = h.services.Auth.Logout(r.Context(), c.Value)
 		}
 		h.clearSession(w)
-		h.clearAcquisition(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -79,7 +78,6 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		_ = h.services.Auth.Logout(r.Context(), c.Value)
 	}
 	h.clearSession(w)
-	h.clearAcquisition(w)
 	redirect(w, r, "/login")
 }
 func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +87,6 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.clearSession(w)
-		h.clearAcquisition(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -101,6 +98,5 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.clearSession(w)
-	h.clearAcquisition(w)
 	redirect(w, r, "/login")
 }

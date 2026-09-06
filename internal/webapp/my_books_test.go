@@ -11,7 +11,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
@@ -149,21 +148,6 @@ func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
 	}
 }
 
-func TestMetadataOnlyBookPageOffersPerBookAcquisition(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: domain.MyBookNotAcquired}
-	target := &cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Language: "de", Entry: opds.Entry{ID: "entry-1", Title: book.Book.Title}, Href: "https://catalog.example/book.epub"}
-	var output bytes.Buffer
-	if err := MetadataOnlyBookPageWithAcquisition(domain.User{Username: "learner"}, "csrf", book, "", false, target, "signed-target").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	html := output.String()
-	for _, want := range []string{`action="/opds/acquire"`, "Acquire EPUB content", `name="acquisition" value="signed-target"`, `name="return_to" value="/books/catalogue-book"`, `name="connection" value="connection-1"`} {
-		if !strings.Contains(html, want) {
-			t.Errorf("per-book acquisition form missing %q: %s", want, html)
-		}
-	}
-}
-
 type bookRefreshStub struct {
 	result cataloguesync.RefreshResult
 	owner  string
@@ -204,14 +188,5 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-metadata-region"`) || !strings.Contains(response.Body.String(), "catalogue entry is no longer available") {
 		t.Fatalf("HTMX refresh status=%d body=%s", response.Code, response.Body.String())
-	}
-}
-
-func TestBookIDFromReturnPathRejectsExternalTargets(t *testing.T) {
-	if got := bookIDFromReturnPath("/books/book-1"); got != "book-1" {
-		t.Fatalf("book id=%q", got)
-	}
-	if got := bookIDFromReturnPath("https://evil.example/?book_id=other"); got != "" {
-		t.Fatalf("external return path yielded book id=%q", got)
 	}
 }

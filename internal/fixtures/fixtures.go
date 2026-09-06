@@ -1333,9 +1333,6 @@ func (Capabilities) GetCapabilities(context.Context) (analyzer.Capabilities, err
 
 type OPDS struct{}
 
-func (OPDS) Acquire(context.Context, string, string, string, opds.Entry) (epub.ImportResult, error) {
-	return epub.ImportResult{Source: domain.SourceMaterial{ID: "fixture-acquired", OwnerID: OwnerID, Language: "de", Title: "Erworbenes Buch"}}, nil
-}
 func (OPDS) AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
 	return epub.ImportResult{Source: domain.SourceMaterial{ID: "fixture-metadata-only", OwnerID: OwnerID, Language: "de", Title: "Metadata-only migration book"}}, nil
 }

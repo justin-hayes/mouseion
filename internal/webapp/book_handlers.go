@@ -28,15 +28,7 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		var target *cataloguesync.AcquisitionTarget
-		acquisitionToken := ""
-		if provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider); ok {
-			if value, targetErr := provider.FindAcquisitionTarget(r.Context(), u.ID, detail.Book.ID); targetErr == nil {
-				target = &value
-				acquisitionToken = h.clientTargetToken(value.ConnectionID, value.Language, &value.Entry, value.Href)
-			}
-		}
-		render(w, r, MetadataOnlyBookPageWithAcquisition(u, h.csrf(w, r), detail, r.URL.Query().Get("message"), eligible, target, acquisitionToken))
+		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), detail, r.URL.Query().Get("message"), eligible))
 		return
 	}
 	if detail.Acquired == nil {

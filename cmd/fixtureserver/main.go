@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	if os.Getenv("MOUSEION_SECRET") == "" {
+		_ = os.Setenv("MOUSEION_SECRET", "fixture-server-secret-0123456789")
+	}
 	addr := os.Getenv("MOUSEION_FIXTURE_ADDR")
 	if addr == "" {
 		addr = "127.0.0.1:8099"
@@ -29,7 +32,6 @@ func main() {
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{}, Capabilities: fixtures.Capabilities{},
 		CatalogueSync: catalogueSync,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
-		AcquisitionKey: []byte("12345678901234567890123456789012"), AcquisitionTargetKey: []byte("abcdefghijklmnopqrstuvwxzy123456"),
 	})
 	if err != nil {
 		log.Fatalf("initialize fixture webapp: %v", err)

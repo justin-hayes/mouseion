@@ -96,9 +96,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
     await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/).first()).toBeVisible();
     await page.goto('/books/fixture-metadata-only');
-    await expect(page.getByRole('button', { name: 'Acquire EPUB content' })).toBeVisible();
-    await page.getByRole('button', { name: 'Acquire EPUB content' }).click();
-    await expect(page.getByText('Added to My Books.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start analysis' })).toBeVisible();
+    await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
     await page.goto('/campaigns?message=legacy-bookmark');
     await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();

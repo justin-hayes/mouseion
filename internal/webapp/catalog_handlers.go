@@ -3,7 +3,6 @@ package webapp
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -149,127 +148,6 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect(w, r, "/connections?message=Catalog+deleted")
 }
-func (h *Handler) acquire(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	target, decodeErr := decodeAcquisitionTarget(h.targetKey, r.FormValue("acquisition"))
-	if decodeErr != nil {
-		h.acquisitionFailure(w, r, r.FormValue("connection"), "", errors.New("invalid acquisition entry"), h.acquisitionReturnPath(r.FormValue("return_to")), opds.Entry{}, "")
-		return
-	}
-	language := target.Language
-	connectionID := target.Connection
-	if r.FormValue("connection") != "" && r.FormValue("connection") != connectionID || r.FormValue("language") != "" && r.FormValue("language") != language {
-		h.acquisitionFailure(w, r, connectionID, language, errors.New("invalid acquisition entry: catalog context changed"), h.acquisitionReturnPath(r.FormValue("return_to")), target.Entry, target.Href)
-		return
-	}
-	connection, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, connectionID)
-	if e != nil {
-		opdsFail(w, e)
-		return
-	}
-	if target.Entry.ID == "" || strings.TrimSpace(target.Entry.Title) == "" {
-		h.acquisitionFailure(w, r, connectionID, language, errors.New("invalid acquisition entry"), h.acquisitionReturnPath(r.FormValue("return_to")), target.Entry, target.Href)
-		return
-	}
-	target.Entry.Links = []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: target.Href}}
-	href := target.Href
-	entry := target.Entry
-	bookID := bookIDFromReturnPath(r.FormValue("return_to"))
-	var result epub.ImportResult
-	var acquireErr error
-	if bookID != "" {
-		if _, bookErr := h.services.Store.GetBook(r.Context(), u.ID, bookID); bookErr != nil {
-			if errors.Is(bookErr, persistence.ErrNotFound) {
-				redirect(w, r, "/library?error="+url.QueryEscape("That My Books entry is no longer available. Refresh My Books and choose an active entry."))
-				return
-			}
-			fail(w, bookErr)
-			return
-		}
-		acquirer, ok := h.services.OPDS.(interface {
-			AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-		})
-		if !ok {
-			h.acquisitionFailure(w, r, connectionID, language, errors.New("the selected My Books entry cannot be promoted by this catalog service"), h.acquisitionReturnPath(r.FormValue("return_to")), entry, href)
-			return
-		}
-		result, acquireErr = acquirer.AcquireForBook(r.Context(), u.ID, connectionID, language, bookID, entry)
-	} else {
-		result, acquireErr = h.services.OPDS.Acquire(r.Context(), u.ID, connectionID, language, entry)
-	}
-	e = acquireErr
-	if acquireErr == nil {
-		h.rememberAcquisition(w, r, connectionID, language, entry, href, result.Source.ID)
-		if isHTMX(r) {
-			render(w, r, AcquisitionSuccessCardWithReturn(entry, result.Source.ID, result.AlreadyPresent, h.acquisitionReturnPath(r.FormValue("return_to"))))
-			return
-		}
-		returnTo := h.acquisitionReturnPath(r.FormValue("return_to"))
-		message := "Added to My Books. Continue browsing or open the owned book; analysis starts separately."
-		if result.AlreadyPresent {
-			message = "That book is already in My Books. Continue browsing or open the existing book."
-		}
-		redirect(w, r, addQueryMessage(returnTo, message))
-		return
-	}
-	if e != nil {
-		message := opdsErrorMessage(e)
-		clientEntry, clientHref := h.acquisitionEntryForClient(connectionID, language, entry, href)
-		if isHTMX(r) && !errors.Is(e, persistence.ErrNotFound) {
-			renderStatus(w, r, catalogFailureStatus(e), AcquisitionFailureCard(h.csrf(w, r), connection.ID, connection.Name, language, r.FormValue("return_to"), message, clientEntry, clientHref))
-			return
-		}
-		if errors.Is(e, persistence.ErrNotFound) {
-			opdsFail(w, e)
-			return
-		}
-		renderStatus(w, r, catalogFailureStatus(e), AcquisitionFailurePage(user(r), h.csrf(w, r), connection, language, h.acquisitionReturnPath(r.FormValue("return_to")), message, clientEntry, clientHref))
-		return
-	}
-}
-
-func (h *Handler) acquisitionFailure(w http.ResponseWriter, r *http.Request, connectionID, language string, err error, retryURL string, entry opds.Entry, href string) {
-	if errors.Is(err, persistence.ErrNotFound) {
-		opdsFail(w, err)
-		return
-	}
-	connection, connectionErr := h.services.Store.GetOpdsConnection(r.Context(), user(r).ID, connectionID)
-	if connectionErr != nil {
-		opdsFail(w, connectionErr)
-		return
-	}
-	message := opdsErrorMessage(err)
-	if isHTMX(r) {
-		renderStatus(w, r, catalogFailureStatus(err), AcquisitionFailureCard(h.csrf(w, r), connection.ID, connection.Name, language, retryURL, message, entry, href))
-		return
-	}
-	renderStatus(w, r, catalogFailureStatus(err), AcquisitionFailurePage(user(r), h.csrf(w, r), connection, language, retryURL, message, entry, href))
-}
-
-func catalogFailureStatus(err error) int {
-	lower := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(lower, "discovery") || strings.Contains(lower, "temporarily unavailable"):
-		return http.StatusServiceUnavailable
-	case strings.Contains(lower, "unsupported"), strings.Contains(lower, "choose a language"), strings.Contains(lower, "does not advertise"), strings.Contains(lower, "invalid acquisition"), strings.Contains(lower, "invalid epub"), strings.Contains(lower, "no epub"), strings.Contains(lower, "incompatible media"):
-		return http.StatusBadRequest
-	default:
-		return http.StatusBadGateway
-	}
-}
-
-func opdsFail(w http.ResponseWriter, err error) {
-	log.Printf("mouseion: OPDS: %s", opdsErrorMessage(err))
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.Error(w, "catalog not found", http.StatusNotFound)
-		return
-	}
-	http.Error(w, opdsErrorMessage(err), http.StatusBadGateway)
-}
-
 func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."
 	lower := strings.ToLower(err.Error())
@@ -285,7 +163,7 @@ func opdsErrorMessage(err error) string {
 	case strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
 		message = "The downloaded EPUB could not be added. Choose another book or try again."
 	case strings.Contains(lower, "invalid acquisition"):
-		message = "This acquisition request is invalid. No book was added; return to My Books and choose an active entry."
+		message = "The catalogue could not acquire this book. Check the connection and try again."
 	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
 		message = "The catalog could not be reached. Check its URL and network availability, then try again."
 	}
