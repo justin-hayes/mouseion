@@ -34,11 +34,11 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := putBookSource(t, ctx, store, owner.ID, "refresh-entry", "Old title", []byte("acquired content"), "readable text")
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceManualEntry, LanguageState: domain.LanguageUnknown})
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, source.Title, source.Language)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bookID := book.ID
+	bookID := reconciled.Book.ID
 	if err = store.LinkSourceToBook(ctx, owner.ID, bookID, source.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterMemberships); err != nil {
 		t.Fatal(err)
 	}
-	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases+1 != afterAliases || beforeMemberships != afterMemberships {
+	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases != afterAliases || beforeMemberships != afterMemberships {
 		t.Fatalf("refresh changed acquired evidence before=%+v/%d/%d/%d after=%+v/%d/%d/%d", beforeSource, beforeRevisions, beforeAliases, beforeMemberships, afterSource, afterRevisions, afterAliases, afterMemberships)
 	}
 

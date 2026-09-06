@@ -24,9 +24,10 @@ func (f fakeCapabilities) GetCapabilities(context.Context) (analyzer.Capabilitie
 }
 
 type fakeReader struct {
-	feeds   map[string]opds.Feed
-	visited []string
-	err     error
+	feeds                map[string]opds.Feed
+	connectionFeedTitles map[string]string
+	visited              []string
+	err                  error
 }
 
 func (f *fakeReader) Languages(context.Context, string, string) (opds.Feed, error) {
@@ -41,11 +42,14 @@ func (f *fakeReader) Languages(context.Context, string, string) (opds.Feed, erro
 	}}, nil
 }
 
-func (f *fakeReader) BrowseLanguage(_ context.Context, _ string, _ string, id string) (opds.Feed, error) {
+func (f *fakeReader) BrowseLanguage(_ context.Context, _ string, connection, id string) (opds.Feed, error) {
 	if f.err != nil {
 		return opds.Feed{}, f.err
 	}
 	f.visited = append(f.visited, id)
+	if title, ok := f.connectionFeedTitles[connection]; ok {
+		return opds.Feed{Entries: []opds.Entry{testEntry("same-entry", title)}}, nil
+	}
 	return f.feeds[id], nil
 }
 func (f *fakeReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, id string) (opds.Feed, error) {
@@ -179,6 +183,65 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	}
 	if got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID); err != nil || got.Password != "catalog-secret" {
 		t.Fatalf("credential load got=%+v err=%v", got, err)
+	}
+}
+
+func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "sync-collision-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, language := range []string{"de"} {
+		if _, err = store.PutSupportedLanguage(ctx, language, "German"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First catalog", URL: "https://first.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second catalog", URL: "https://second.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &fakeReader{feeds: map[string]opds.Feed{
+		"7": {Entries: []opds.Entry{testEntry("same-entry", "First catalog title")}},
+	}, connectionFeedTitles: map[string]string{first.ID: "First catalog title", second.ID: "Second catalog title"}}
+	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
+	worker := &Worker{Store: store, Reader: reader, Capabilities: capabilities}
+	for _, connection := range []domain.OpdsConnection{first, second} {
+		if err = worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	books, err := store.ListMyBooks(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 2 {
+		t.Fatalf("same entry ID produced %d books, want 2: %+v", len(books), books)
+	}
+	titles := map[string]bool{}
+	for _, book := range books {
+		titles[book.Title] = true
+	}
+	if !titles["First catalog title"] || !titles["Second catalog title"] {
+		t.Fatalf("same entry ID titles=%v", titles)
+	}
+	var aliasCount int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='same-entry'`, owner.ID).Scan(&aliasCount); err != nil {
+		t.Fatal(err)
+	}
+	if aliasCount != 2 {
+		t.Fatalf("same entry ID aliases=%d, want 2", aliasCount)
 	}
 }
 

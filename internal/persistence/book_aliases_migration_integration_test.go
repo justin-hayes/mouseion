@@ -74,8 +74,32 @@ func TestConnectionScopedBookAliasesMigrationUpAndDown(t *testing.T) {
 	`).Scan(&legacyUnique); err != nil {
 		t.Fatalf("legacy unique constraint: %v", err)
 	}
-	if !legacyUnique {
-		t.Fatal("legacy book alias unique constraint was removed")
+	if legacyUnique {
+		t.Fatal("legacy book alias unique constraint was not removed")
+	}
+	var connectionContract bool
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_constraint c
+			JOIN pg_class table_info ON table_info.oid = c.conrelid
+			WHERE c.conname = 'book_aliases_connection_contract'
+			  AND table_info.relname = 'book_aliases'
+		)
+	`).Scan(&connectionContract); err != nil {
+		t.Fatalf("connection contract: %v", err)
+	}
+	if !connectionContract {
+		t.Fatal("book alias connection contract is missing")
+	}
+	var invalidRows int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE (alias_type = 'catalog_entry') <> (connection_id IS NOT NULL)`).Scan(&invalidRows); err != nil {
+		t.Fatalf("existing alias validity: %v", err)
+	}
+	if invalidRows != 0 {
+		t.Fatalf("found %d existing aliases invalid under connection contract", invalidRows)
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE book_aliases DROP CONSTRAINT book_aliases_connection_contract`); err != nil {
+		t.Fatalf("remove later contract for 000047 down: %v", err)
 	}
 
 	sql, err := migrations.FS.ReadFile("000047_connection_scoped_book_aliases.down.sql")
@@ -100,6 +124,9 @@ func TestConnectionScopedBookAliasesMigrationUpAndDown(t *testing.T) {
 	if downIndexCount != 0 {
 		t.Fatalf("down migration left %d connection-scoped indexes", downIndexCount)
 	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE book_aliases ADD CONSTRAINT book_aliases_owner_id_namespace_value_key UNIQUE(owner_id, namespace, value)`); err != nil {
+		t.Fatalf("restore legacy unique for 000048 up: %v", err)
+	}
 
 	var ownerID, bookID string
 	if err := pool.QueryRow(ctx, `INSERT INTO users(username,password_hash) VALUES('migration-alias-owner','hash') RETURNING id`).Scan(&ownerID); err != nil {
@@ -118,6 +145,13 @@ func TestConnectionScopedBookAliasesMigrationUpAndDown(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, string(sql)); err != nil {
 		t.Fatalf("execute up migration: %v", err)
+	}
+	sql, err = migrations.FS.ReadFile("000048_book_alias_connection_contract.up.sql")
+	if err != nil {
+		t.Fatalf("read contract migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		t.Fatalf("restore contract migration: %v", err)
 	}
 
 	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'book_aliases' AND column_name = 'connection_id')`).Scan(&nullable); err != nil {

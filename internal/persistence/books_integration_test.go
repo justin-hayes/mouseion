@@ -30,6 +30,14 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	aliceConnection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://alice.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Bob catalog", URL: "https://bob.example/opds"})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	legacySources := []struct {
 		owner, language, identifier, title string
@@ -43,13 +51,21 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		id := insertLegacySource(t, ctx, pool, source.owner, source.language, source.identifier, source.title, []byte("legacy-epub-"+string(rune('a'+i))))
 		legacyIDs = append(legacyIDs, id)
 	}
-	backfillUp := migrationSQL(t, "000037_my_books_backfill.up.sql")
-	if _, err = pool.Exec(ctx, backfillUp); err != nil {
-		t.Fatal(err)
-	}
-	// Re-running the data migration is intentionally a no-op for already linked sources.
-	if _, err = pool.Exec(ctx, backfillUp); err != nil {
-		t.Fatal(err)
+	for i, source := range legacySources {
+		connectionID := aliceConnection.ID
+		if source.owner == bob.ID {
+			connectionID = bobConnection.ID
+		}
+		if _, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, source.language); err != nil {
+			t.Fatal(err)
+		}
+		var bookID string
+		if err = pool.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND value=$3`, source.owner, connectionID, source.identifier).Scan(&bookID); err != nil {
+			t.Fatal(err)
+		}
+		if err = store.LinkSourceToBook(ctx, source.owner, bookID, legacyIDs[i]); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	books, err := store.ListMyBooks(ctx, alice.ID)
@@ -204,8 +220,8 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	if restored, err := store.GetBook(ctx, alice.ID, bookID); err != nil || restored.ID != bookID {
 		t.Fatalf("restored book=%+v err=%v", restored, err)
 	}
-	if _, found, err = store.ResolveBookByAlias(ctx, alice.ID, domain.NamespaceSourceIdentifier, "acquisition-source"); err != nil || !found {
-		t.Fatalf("source alias lost after membership removal: found=%v err=%v", found, err)
+	if _, found, err = store.ResolveBookByAlias(ctx, alice.ID, domain.NamespaceSourceIdentifier, "acquisition-source"); err != nil || found {
+		t.Fatalf("connectionless acquisition source alias was persisted: found=%v err=%v", found, err)
 	}
 
 	if err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, "invalid", "failure", "must-not-commit"); err == nil {
@@ -216,20 +232,6 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		t.Fatalf("failed alias left partial row count=%d err=%v", invalidAliases, err)
 	}
 
-	backfillDown := migrationSQL(t, "000037_my_books_backfill.down.sql")
-	if _, err = pool.Exec(ctx, backfillDown); err != nil {
-		t.Fatal(err)
-	}
-	for _, id := range legacyIDs {
-		var bookID *string
-		var content []byte
-		if err = pool.QueryRow(ctx, `SELECT book_id::text,content FROM source_materials WHERE id=$1`, id).Scan(&bookID, &content); err != nil {
-			t.Fatal(err)
-		}
-		if bookID != nil || len(content) == 0 {
-			t.Fatalf("backfill down changed source id=%s book=%v content=%d", id, bookID, len(content))
-		}
-	}
 }
 
 func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
