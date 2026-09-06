@@ -339,9 +339,9 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 	}
 	switch state {
 	case "queued":
-		return bookLifecycleAction{"Analysis queued", "The confirmed scope is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
+		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":
-		return bookLifecycleAction{"Analysis running", "The confirmed scope is being analyzed.", "View analysis status", jobURL, StatusInfo, false}
+		return bookLifecycleAction{"Analysis running", "The EPUB snapshot is being analyzed.", "View analysis status", jobURL, StatusInfo, false}
 	case "failed":
 		return bookLifecycleAction{"Analysis failed — action required", "The analysis needs attention before you can inspect a result.", "Review failed analysis", jobURL, StatusDanger, false}
 	case "cancelled":

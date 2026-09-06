@@ -67,6 +67,9 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 		t.Fatal(err)
 	}
 	defer store.Close()
+	if err = MigrateRiver(ctx, store.Pool()); err != nil {
+		t.Fatal(err)
+	}
 	owner, err := store.CreateUser(ctx, "scoped-lifecycle-owner", false)
 	if err != nil {
 		t.Fatal(err)
@@ -167,6 +170,7 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 	if _, err = service.Get(ctx, other.ID, cancelHandle.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner scoped lifecycle read=%v", err)
 	}
+	fake.setMode("success")
 
 	// Submit while no client is running, remove the unavailable queue row, and
 	// reconstruct the client as a process restart. Reconciliation must make the
@@ -207,8 +211,20 @@ func TestScopedAnalysisFailureCancellationRetryAndRestartReconciliation(t *testi
 		t.Fatalf("restarted scoped analysis=%+v err=%v", restarted, err)
 	}
 	var liveJobs int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'run_id'=$2 AND state IN ('available','pending','running','retryable','scheduled')`, (JobArgs{}).Kind(), restartHandle.RunID).Scan(&liveJobs); err != nil || liveJobs != 0 {
-		t.Fatalf("restart left live jobs=%d err=%v", liveJobs, err)
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for {
+		if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'run_id'=$2 AND state IN ('available','pending','running','retryable','scheduled')`, (JobArgs{}).Kind(), restartHandle.RunID).Scan(&liveJobs); err != nil {
+			t.Fatal(err)
+		}
+		if liveJobs == 0 {
+			break
+		}
+		select {
+		case <-deadline.C:
+			t.Fatalf("restart left live jobs=%d", liveJobs)
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 

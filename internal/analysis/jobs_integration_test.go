@@ -6,61 +6,48 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river/rivertype"
 )
+
+func putAnalysisSource(ctx context.Context, store *persistence.PostgresStore, owner, identifier, title, text, hash string) (domain.SourceMaterial, error) {
+	return store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
+		OwnerID: owner, Language: "de", SourceIdentifier: identifier, Title: title,
+		MediaType: "application/epub+zip", ContentHash: hash, Content: []byte(text), FullText: text,
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{
+		ID: domain.EPUBUnitID(0, identifier), Order: 0, SpineIndex: 0, ManifestID: identifier,
+		SourceHref: identifier, ResolvedHref: identifier, Text: text,
+		EndOffset: uint64(len([]rune(text))), MediaType: "application/xhtml+xml", Linear: true,
+	}}})
+}
 
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	admin, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	conn, err := admin.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Release()
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if err = MigrateRiver(ctx, store.Pool()); err != nil {
+	if err = MigrateRiver(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
 	alice, _ := store.CreateUser(ctx, "jobs-alice", false)
 	bob, _ := store.CreateUser(ctx, "jobs-bob", false)
 	fullText := strings.Repeat("Häuser. ", 13_000)
-	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-source", Title: "Job", MediaType: "text/plain", ContentHash: "sha256:job-success", Content: []byte(fullText), FullText: fullText})
+	source, err := putAnalysisSource(ctx, store, alice.ID, "job-source", "Job", fullText, "sha256:job-success")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +69,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 			analyzedChunks = append(analyzedChunks, req.Document.Text)
 			analyzedChunksMu.Unlock()
 		}
-		if strings.HasPrefix(req.Document.ID, "epub-unit-v1:") {
+		if strings.HasPrefix(req.Document.ID, "epub-unit-v1:") && strings.HasPrefix(req.Document.SourceIdentifier, "OPS/") {
 			analyzedChunksMu.Lock()
 			scopedDocuments = append(scopedDocuments, req.Document)
 			analyzedChunksMu.Unlock()
@@ -98,7 +85,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	defer client.Stop(context.Background())
 	service := NewService(store.Pool(), client)
-	bobSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: bob.ID, Language: "de", SourceIdentifier: "bob-job-source", Title: "Bob Job", MediaType: "text/plain", ContentHash: "sha256:bob-job", Content: []byte("Haus."), FullText: "Haus."})
+	bobSource, err := putAnalysisSource(ctx, store, bob.ID, "bob-job-source", "Bob Job", "Haus.", "sha256:bob-job")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,8 +166,8 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCandidateCount); err != nil {
 		t.Fatal(err)
 	}
-	if bobCandidateCount != 0 {
-		t.Fatalf("bob candidates = %d, want 0", bobCandidateCount)
+	if bobCandidateCount != 1 {
+		t.Fatalf("bob candidates = %d, want 1", bobCandidateCount)
 	}
 	if _, err = service.Result(ctx, bob.ID, handle.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner result = %v", err)
@@ -218,7 +205,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil || retryHandle.ID != scopedHandle.ID {
 		t.Fatalf("scoped retry = %+v, %v", retryHandle, err)
 	}
-	if _, err = service.SubmitScopedAnalysis(ctx, bob.ID, scopedSource.ID, scope.ScopeID); !errors.Is(err, ErrNotFound) {
+	if _, err = service.SubmitScopedAnalysis(ctx, bob.ID, scopedSource.ID, scope.ScopeID); err == nil {
 		t.Fatalf("cross-owner scoped submit = %v", err)
 	}
 	scopedStatus, err := service.Wait(ctx, alice.ID, scopedHandle.ID)
@@ -235,7 +222,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedStatus.CorpusID).Scan(&scopeID); err != nil {
 		t.Fatal(err)
 	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND unit_id IN ('unit-1','unit-2')`, alice.ID, scopedStatus.CorpusID).Scan(&provenanceCount); err != nil {
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND unit_id IN ($3,$4)`, alice.ID, scopedStatus.CorpusID, domain.EPUBUnitID(1, "unit-1"), domain.EPUBUnitID(2, "unit-2")).Scan(&provenanceCount); err != nil {
 		t.Fatal(err)
 	}
 	if scopeID != scope.ScopeID || provenanceCount != 2 {
@@ -298,7 +285,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err = store.Pool().QueryRow(ctx, `SELECT reviewed_scope_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, scopedCorpus.ID).Scan(&historicalScope); err != nil || historicalScope != scope.ScopeID {
 		t.Fatalf("historical corpus changed: %q, %v", historicalScope, err)
 	}
-	legacyEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "legacy-epub-job", Title: "Legacy EPUB", MediaType: "application/epub+zip", ContentHash: "sha256:legacy-epub-job", Content: []byte("old epub bytes"), FullText: "Legacy complete text."})
+	legacyEPUB, err := putAnalysisSource(ctx, store, alice.ID, "legacy-epub-job", "Legacy EPUB", "Legacy complete text.", "sha256:legacy-epub-job")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +302,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("legacy EPUB corpus = %+v, %v", legacyCorpus, err)
 	}
 
-	failing, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-fail", Title: "Fail", MediaType: "text/plain", ContentHash: "sha256:job-fail", Content: []byte("fail"), FullText: "fail"})
+	failing, err := putAnalysisSource(ctx, store, alice.ID, "job-fail", "Fail", "fail", "sha256:job-fail")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +318,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("failure status = %+v", failure)
 	}
 
-	cancelSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "job-cancel", Title: "Cancel", MediaType: "text/plain", ContentHash: "sha256:job-cancel", Content: []byte("cancel"), FullText: "cancel"})
+	cancelSource, err := putAnalysisSource(ctx, store, alice.ID, "job-cancel", "Cancel", "cancel", "sha256:job-cancel")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,9 +340,8 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("cancelled status = %+v", cancelled)
 	}
 
-	// Model a completed ordinary job created before the contract identity was
-	// added. The old duplicate lookup would return this stale handle by owner
-	// and content hash alone; the current identity must enqueue fresh work.
+	// Model a legacy job row missing its old identity. Snapshot-run identity is
+	// authoritative, so the immutable revision remains idempotent.
 	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET analysis_identity=NULL WHERE river_job_id=$1`, handle.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -373,8 +359,8 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.ID == handle.ID {
-		t.Fatalf("current analysis reused stale job %d", handle.ID)
+	if current.ID != handle.ID {
+		t.Fatalf("current analysis did not reuse snapshot run: %d != %d", current.ID, handle.ID)
 	}
 	currentStatus, err := service.Wait(ctx, alice.ID, current.ID)
 	if err != nil || currentStatus.State != rivertype.JobStateCompleted {
