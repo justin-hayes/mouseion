@@ -953,7 +953,7 @@ templ JobStatus(csrf string, status analysis.Status) {
 			}
 		}
 		if status.CorpusID != "" {
-			if status.ScopeID != "" && status.LogicalState == "completed" {
+			if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" {
 						<p>Analysis complete. Review the insights for this immutable analysis result.</p>
 						<a role="button" class="outline" href={ templ.SafeURL("/books/"+status.SourceMaterialID) }>View analysis result</a>

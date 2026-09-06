@@ -203,10 +203,6 @@ func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source stri
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 
-func (r *recordingAnalysis) SubmitScopedAnalysis(_ context.Context, owner, source, scope string) (analysis.Handle, error) {
-	r.owner, r.source, r.scope = owner, source, scope
-	return analysis.Handle{ID: 1, DisplayNumber: 1}, nil
-}
 func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
 	if owner != r.owner || id != 42 {
 		return analysis.Status{}, analysis.ErrNotFound

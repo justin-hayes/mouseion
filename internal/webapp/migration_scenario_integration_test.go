@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
@@ -301,14 +300,6 @@ func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persist
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshotID, units, err := store.GetExtractedUnitSnapshot(ctx, owner, source.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scope := domain.EPUBReviewedScopeSnapshot{SchemaVersion: 1, ScopeID: uuid.NewMD5(uuid.Nil, []byte("migration-scope-"+owner+"-"+suffix)).String(), OwnerID: owner, SourceMaterialID: source.ID, SourceUnitSnapshot: domain.EPUBUnitSnapshotIdentity{SnapshotID: snapshotID, ExtractedUnitsSchemaVersion: units.SchemaVersion}, SelectedUnits: []domain.EPUBSelectedUnitReference{{UnitID: units.Units[0].ID, Order: 0}}}
-	if _, err = store.CreateEPUBReviewedScope(ctx, scope); err != nil {
-		t.Fatal(err)
-	}
 	if err = store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: source.ContentHash, Language: "de", SchemaVersion: "1", NormalizationProfile: "migration", NormalizationVersion: "1", AnalyzerName: "migration-fixture", AnalyzerVersion: "1"}, toSharedLemmas(lemmas)); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +311,7 @@ func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persist
 	for _, lemma := range lemmas {
 		tokenCount += lemma.OccurrenceCount
 	}
-	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET reviewed_scope_id=$2,analyzable_token_count=$3,distinct_lemma_count=$4,sentence_count=1,normalized_token_count=$3,empty_sentence_count=0,median_sentence_token_count=1,p90_sentence_token_count=1,long_sentence_count=0 WHERE owner_id=$1 AND id=$5`, owner, scope.ScopeID, tokenCount, len(lemmas), corpus.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=$2,distinct_lemma_count=$3,sentence_count=1,normalized_token_count=$2,empty_sentence_count=0,median_sentence_token_count=1,p90_sentence_token_count=1,long_sentence_count=0 WHERE owner_id=$1 AND id=$4`, owner, tokenCount, len(lemmas), corpus.ID); err != nil {
 		t.Fatal(err)
 	}
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, Filename: suffix + ".apkg", DeckName: "Migration " + suffix, ContentHash: source.ContentHash})

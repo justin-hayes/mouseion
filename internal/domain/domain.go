@@ -59,6 +59,7 @@ type User struct {
 	ID, Username string
 	CreatedAt    time.Time
 }
+
 // SupportedLanguage is server-wide reference data discovered from the analyzer.
 type SupportedLanguage struct {
 	Language, DisplayName string
@@ -83,25 +84,22 @@ type SourceMaterial struct {
 // identity without loading the book's content. Analysis IDs are populated only
 // from the owner/book-scoped current-analysis projection.
 type SourceMaterialSummary struct {
-	Source           SourceMaterial
-	BookID           string
-	AnalysisStatus   string
-	AnalysisState    string
-	AnalysisRunID    string
-	CorpusID         string
-	ReviewedScopeID  string
-	ConfirmedScopeID string
-	AnalysisJobID    int64
+	Source         SourceMaterial
+	BookID         string
+	AnalysisStatus string
+	AnalysisState  string
+	AnalysisRunID  string
+	CorpusID       string
+	AnalysisJobID  int64
 }
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password string
 	CreatedAt, UpdatedAt                       time.Time
 }
 type Corpus struct {
-	ID, OwnerID, SourceMaterialID, ArtifactHash, ReviewedScopeID, AnalysisRunID, Status string
-	Statistics                                                                          *AnalysisStatistics
-	SelectedUnits                                                                       []CorpusSelectedUnit
-	CreatedAt                                                                           time.Time
+	ID, OwnerID, SourceMaterialID, ArtifactHash, AnalysisRunID, Status string
+	Statistics                                                         *AnalysisStatistics
+	CreatedAt                                                          time.Time
 }
 
 // AnalysisStatistics records immutable counts from the analyzed corpus before
@@ -127,8 +125,6 @@ type TextProfile struct {
 // vocabulary coverage calculations.
 type AnalysisCorpusVocabulary struct {
 	CorpusID, SourceMaterialID, AnalysisRunID string
-	ReviewedScopeID                           string
-	SelectedUnits                             []CorpusSelectedUnit
 	Statistics                                *AnalysisStatistics
 	Lemmas                                    []LemmaOccurrence
 }
@@ -159,9 +155,7 @@ type CoverageProjection struct {
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
 	SourceMaterialID         string
-	ReviewedScopeID          string
 	AnalysisRunID            string
-	SelectedUnits            []CorpusSelectedUnit
 	AnalyzableTokenCount     int64
 	DistinctLemmaCount       int64
 	KnownTokenCount          int64
@@ -206,12 +200,12 @@ type JourneyProjectionResult struct {
 	IncomparableCount        int
 }
 type AnalysisJob struct {
-	ID, DisplayNumber                                                        int64
-	OwnerID, SourceMaterialID, ContentHash, CorpusID, ReviewedScopeID, Error string
-	AnalysisRunID                                                            string
-	AnalysisState                                                            string
-	Progress                                                                 int
-	CreatedAt, UpdatedAt                                                     time.Time
+	ID, DisplayNumber                                       int64
+	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
+	AnalysisRunID                                           string
+	AnalysisState                                           string
+	Progress                                                int
+	CreatedAt, UpdatedAt                                    time.Time
 }
 type CorpusSelectedUnit struct {
 	UnitID, SourceHref, ResolvedHref, Title string

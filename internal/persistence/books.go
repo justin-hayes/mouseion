@@ -30,8 +30,7 @@ const myBooksEvidenceSelect = `SELECT ` + qualifiedBookColumns + `,
             WHEN ar.state = 'failed' THEN 'analysis failed'
             WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
             WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-            WHEN scope.scope_id IS NOT NULL THEN 'scope confirmed'
+		     WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
             WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
             ELSE 'not analyzed' END,
        CASE WHEN ar.state IS NOT NULL THEN ar.state
@@ -39,7 +38,7 @@ const myBooksEvidenceSelect = `SELECT ` + qualifiedBookColumns + `,
             WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
             WHEN j.river_job_id IS NOT NULL THEN 'queued'
             ELSE '' END,
-       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(ca.reviewed_scope_id::text,''),COALESCE(scope.scope_id::text,''),COALESCE(j.river_job_id,0)`
+	       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(j.river_job_id,0)`
 
 const myBooksEvidenceFrom = `
 FROM books b
@@ -50,7 +49,7 @@ LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_i
 LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
 LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs j WHERE j.owner_id=s.owner_id AND j.source_material_id=s.id ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 1) j ON true
 LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-LEFT JOIN LATERAL (SELECT scope_id FROM epub_reviewed_scopes scope WHERE scope.owner_id=s.owner_id AND scope.source_material_id=s.id ORDER BY scope.created_at DESC,scope.scope_id DESC LIMIT 1) scope ON true`
+	`
 
 // LanguageCount is one owner-scoped language pill count. Tag is "unknown"
 // for books whose language state is unknown.
@@ -251,12 +250,12 @@ func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
 	var sourceCreatedAt *time.Time
 	var sourceExists bool
 	var evidenceState domain.MyBookEvidenceState
-	var analysisStatus, analysisState, analysisRunID, corpusID, reviewedScopeID, confirmedScopeID string
+	var analysisStatus, analysisState, analysisRunID, corpusID string
 	var analysisJobID int64
 	var digestVersion int
 	if err := row.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
 		&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &digestVersion, &sourceCreatedAt, &sourceExists,
-		&evidenceState, &analysisStatus, &analysisState, &analysisRunID, &corpusID, &reviewedScopeID, &confirmedScopeID, &analysisJobID); err != nil {
+		&evidenceState, &analysisStatus, &analysisState, &analysisRunID, &corpusID, &analysisJobID); err != nil {
 		return domain.MyBook{}, missing(err)
 	}
 	item.EvidenceState = evidenceState
@@ -268,7 +267,7 @@ func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
 		item.Acquired = &domain.SourceMaterialSummary{
 			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
 			BookID:         item.Book.ID,
-			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, ReviewedScopeID: reviewedScopeID, ConfirmedScopeID: confirmedScopeID, AnalysisJobID: analysisJobID,
+			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, AnalysisJobID: analysisJobID,
 		}
 	}
 	return item, nil

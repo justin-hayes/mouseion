@@ -95,9 +95,6 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	if err != nil || !containsBook(books, metadataOnly.ID) {
 		t.Fatalf("metadata-only book missing from My Books: books=%+v err=%v", books, err)
 	}
-	if _, err = store.CreateEPUBReviewedScope(ctx, domain.EPUBReviewedScopeSnapshot{OwnerID: alice.ID, SourceMaterialID: metadataOnly.ID}); !errors.Is(err, domain.ErrEPUBReviewedScopeUnavailable) {
-		t.Fatalf("metadata-only scope creation error=%v", err)
-	}
 	view, err := store.ListMyBooksWithEvidence(ctx, alice.ID)
 	if err != nil {
 		t.Fatal(err)

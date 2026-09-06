@@ -7,7 +7,7 @@ const currentAnalysisCTE = `
 WITH current_analysis AS (
   SELECT p.owner_id,p.book_id,p.source_material_id,p.analysis_run_id,
          r.content_revision_id,r.snapshot_id,
-         c.id AS corpus_id,c.reviewed_scope_id,scope.scope_id AS scope_id
+          c.id AS corpus_id
   FROM book_current_analyses p
   JOIN source_materials source
     ON source.owner_id=p.owner_id AND source.id=p.source_material_id
@@ -15,16 +15,10 @@ WITH current_analysis AS (
   JOIN analysis_runs r
     ON r.owner_id=p.owner_id AND r.id=p.analysis_run_id
    AND r.source_material_id=p.source_material_id AND r.state='completed'
-   LEFT JOIN epub_reviewed_scopes scope
-    ON scope.scope_id=r.scope_id AND scope.owner_id=r.owner_id
-   AND scope.source_material_id=r.source_material_id
-   AND scope.content_revision_id=r.content_revision_id
-   AND scope.snapshot_id=r.snapshot_id
   JOIN corpora c
     ON c.owner_id=r.owner_id AND c.id=r.corpus_id
    AND c.source_material_id=r.source_material_id
     AND c.analysis_run_id=r.id
-    AND ((r.scope_id IS NULL AND c.reviewed_scope_id IS NULL) OR c.reviewed_scope_id=scope.scope_id)
    AND c.status='complete'
   WHERE source.current_content_revision_id=r.content_revision_id
     AND source.current_snapshot_id=r.snapshot_id

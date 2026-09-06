@@ -6,7 +6,7 @@ import "github.com/justin-hayes/mouseion/internal/domain"
 // contract for an ExtractedUnits document. It is independent of EPUB versions.
 const ExtractedUnitsSchemaVersion = domain.ExtractedUnitsSchemaVersion
 
-const ContentDigestVersion = domain.EPUBContentDigestVersion
+const ContentDigestVersion = 1
 
 // ContentDigest identifies the exact EPUB container bytes.
 func ContentDigest(content []byte) string { return domain.EPUBContentDigest(content) }

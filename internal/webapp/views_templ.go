@@ -5904,7 +5904,7 @@ func JobStatus(csrf string, status analysis.Status) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if status.CorpusID != "" {
-				if status.ScopeID != "" && status.LogicalState == "completed" {
+				if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 474, "<p>Analysis complete. Review the insights for this immutable analysis result.</p><a role=\"button\" class=\"outline\" href=\"")
 						if templ_7745c5c3_Err != nil {

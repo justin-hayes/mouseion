@@ -12,7 +12,7 @@ import (
 func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, corpusID string) (value domain.AnalysisCorpusVocabulary, err error) {
 	var analyzableTokenCount, distinctLemmaCount, sentenceCount, normalizedTokenCount, emptySentenceCount, p90SentenceTokenCount, longSentenceCount *int64
 	var medianSentenceTokenCount *float64
-	err = s.pool.QueryRow(ctx, `SELECT id::text,source_material_id::text,COALESCE(reviewed_scope_id::text,''),COALESCE(analysis_run_id::text,''),analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count FROM corpora WHERE owner_id=$1 AND id=$2`, owner, corpusID).Scan(&value.CorpusID, &value.SourceMaterialID, &value.ReviewedScopeID, &value.AnalysisRunID, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount)
+	err = s.pool.QueryRow(ctx, `SELECT id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count FROM corpora WHERE owner_id=$1 AND id=$2`, owner, corpusID).Scan(&value.CorpusID, &value.SourceMaterialID, &value.AnalysisRunID, &analyzableTokenCount, &distinctLemmaCount, &sentenceCount, &normalizedTokenCount, &emptySentenceCount, &medianSentenceTokenCount, &p90SentenceTokenCount, &longSentenceCount)
 	if err = missing(err); err != nil {
 		return value, err
 	}
@@ -21,25 +21,6 @@ func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, 
 		if sentenceCount != nil && normalizedTokenCount != nil && emptySentenceCount != nil && medianSentenceTokenCount != nil && p90SentenceTokenCount != nil && longSentenceCount != nil {
 			value.Statistics.TextProfile = &domain.TextProfile{SentenceCount: *sentenceCount, NormalizedTokenCount: *normalizedTokenCount, EmptySentenceCount: *emptySentenceCount, MedianSentenceTokenCount: *medianSentenceTokenCount, P90SentenceTokenCount: *p90SentenceTokenCount, LongSentenceCount: *longSentenceCount}
 		}
-	}
-	if value.ReviewedScopeID != "" {
-		unitRows, queryErr := s.pool.Query(ctx, `SELECT unit_id,unit_order,source_href,resolved_href,title,start_offset,end_offset FROM corpus_selected_units WHERE owner_id=$1 AND corpus_id=$2 AND scope_id=$3 ORDER BY unit_order`, owner, corpusID, value.ReviewedScopeID)
-		if queryErr != nil {
-			return value, queryErr
-		}
-		for unitRows.Next() {
-			var unit domain.CorpusSelectedUnit
-			if err = unitRows.Scan(&unit.UnitID, &unit.Order, &unit.SourceHref, &unit.ResolvedHref, &unit.Title, &unit.StartOffset, &unit.EndOffset); err != nil {
-				unitRows.Close()
-				return value, err
-			}
-			value.SelectedUnits = append(value.SelectedUnits, unit)
-		}
-		if err = unitRows.Err(); err != nil {
-			unitRows.Close()
-			return value, err
-		}
-		unitRows.Close()
 	}
 	rows, err := s.pool.Query(ctx, `SELECT sl.language,sl.canonical_lemma,sl.upos,SUM(sl.frequency)::bigint FROM corpora co JOIN shared_lemmas sl ON sl.content_hash=co.artifact_hash WHERE co.owner_id=$1 AND co.id=$2 AND upper(sl.upos) IN ('NOUN','VERB','ADJ','ADV') AND btrim(sl.canonical_lemma)<>'' GROUP BY sl.language,sl.canonical_lemma,sl.upos ORDER BY sl.language,sl.canonical_lemma,sl.upos`, owner, corpusID)
 	if err != nil {
