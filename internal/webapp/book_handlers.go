@@ -111,11 +111,17 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 	if alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
 		return false, nil
 	}
-	connections, err := h.services.Store.ListOpdsConnections(ctx, owner)
+	if strings.TrimSpace(alias.ConnectionID) == "" {
+		return false, nil
+	}
+	_, err = h.services.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}
-	return len(connections) > 0, nil
+	return true, nil
 }
 
 func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {

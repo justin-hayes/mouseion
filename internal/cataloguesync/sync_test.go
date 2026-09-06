@@ -99,7 +99,14 @@ func (s *refreshStore) GetBookCatalogEntryAlias(_ context.Context, owner, bookID
 	}
 	return s.alias, nil
 }
-func (s *refreshStore) GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error) {
+func (s *refreshStore) GetOpdsConnection(_ context.Context, owner, id string) (domain.OpdsConnection, error) {
+	for _, connection := range s.connections {
+		if connection.OwnerID == "" || connection.OwnerID == owner {
+			if connection.ID == id {
+				return connection, nil
+			}
+		}
+	}
 	return domain.OpdsConnection{}, persistence.ErrNotFound
 }
 func (s *refreshStore) ListOpdsConnections(_ context.Context, owner string) ([]domain.OpdsConnection, error) {
@@ -152,13 +159,15 @@ func (s *refreshStore) ListCatalogueSyncStatuses(context.Context, string) ([]dom
 }
 
 type refreshReader struct {
-	languages opds.Feed
-	feed      opds.Feed
-	err       error
-	reads     int
+	languages   opds.Feed
+	feed        opds.Feed
+	err         error
+	reads       int
+	connections []string
 }
 
-func (r *refreshReader) Languages(context.Context, string, string) (opds.Feed, error) {
+func (r *refreshReader) Languages(_ context.Context, _, connection string) (opds.Feed, error) {
+	r.connections = append(r.connections, connection)
 	if r.err != nil {
 		return opds.Feed{}, r.err
 	}
@@ -167,7 +176,8 @@ func (r *refreshReader) Languages(context.Context, string, string) (opds.Feed, e
 	}
 	return opds.Feed{Entries: []opds.Entry{{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}}}}, nil
 }
-func (r *refreshReader) BrowseLanguage(context.Context, string, string, string) (opds.Feed, error) {
+func (r *refreshReader) BrowseLanguage(_ context.Context, _, connection, _ string) (opds.Feed, error) {
+	r.connections = append(r.connections, connection)
 	r.reads++
 	if r.err != nil {
 		return opds.Feed{}, r.err
@@ -347,7 +357,44 @@ func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
 		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
 	}
 	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	if err != nil || target.Href != "https://catalog.example/book.epub" || target.Language != "de" {
+	if err != nil || target.Href != "https://catalog.example/book.epub" || target.ConnectionID != "connection-1" || target.Language != "de" {
 		t.Fatalf("target=%+v err=%v", target, err)
+	}
+	if strings.Join(reader.connections, ",") != "connection-1,connection-1" {
+		t.Fatalf("acquisition catalogue connections=%v", reader.connections)
+	}
+}
+
+func TestRefreshEntryUsesOnlyAliasConnection(t *testing.T) {
+	store := &refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "connection-2", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		connections: []domain.OpdsConnection{{ID: "connection-1", Name: "First"}, {ID: "connection-2", Name: "Second"}},
+		supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
+		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageTag: "de"}},
+	}
+	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Title"}}}}
+	if _, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(reader.connections, ",") != "connection-2,connection-2" {
+		t.Fatalf("catalogue connections=%v", reader.connections)
+	}
+}
+
+func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
+	store := &refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		alias:       domain.BookAlias{BookID: "book-1", ConnectionID: "deleted", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry-1"},
+		connections: []domain.OpdsConnection{{ID: "other", Name: "Other"}},
+	}
+	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Wrong connection"}}}}
+	_, refreshErr := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+	if !errors.Is(refreshErr, ErrConnectionNotFound) || len(reader.connections) != 0 {
+		t.Fatalf("refresh error=%v reads=%v", refreshErr, reader.connections)
+	}
+	_, acquisitionErr := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
+	if !errors.Is(acquisitionErr, ErrConnectionNotFound) || len(reader.connections) != 0 {
+		t.Fatalf("acquisition error=%v reads=%v", acquisitionErr, reader.connections)
 	}
 }
