@@ -18,16 +18,12 @@ import (
 
 func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	if metadataOnly, err := h.services.Store.IsMetadataOnlyMyBook(r.Context(), u.ID, r.PathValue("id")); err != nil {
-		fail(w, err)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	if !ok {
 		return
-	} else if metadataOnly {
-		book, err := h.services.Store.GetBook(r.Context(), u.ID, r.PathValue("id"))
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, book.ID)
+	}
+	if detail.EvidenceState == domain.MyBookNotAcquired {
+		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, detail.Book.ID)
 		if err != nil {
 			fail(w, err)
 			return
@@ -35,18 +31,19 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		var target *cataloguesync.AcquisitionTarget
 		acquisitionToken := ""
 		if provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider); ok {
-			if value, targetErr := provider.FindAcquisitionTarget(r.Context(), u.ID, book.ID); targetErr == nil {
+			if value, targetErr := provider.FindAcquisitionTarget(r.Context(), u.ID, detail.Book.ID); targetErr == nil {
 				target = &value
 				acquisitionToken = h.clientTargetToken(value.ConnectionID, value.Language, &value.Entry, value.Href)
 			}
 		}
-		render(w, r, MetadataOnlyBookPageWithAcquisition(u, h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, r.URL.Query().Get("message"), eligible, target, acquisitionToken))
+		render(w, r, MetadataOnlyBookPageWithAcquisition(u, h.csrf(w, r), detail, r.URL.Query().Get("message"), eligible, target, acquisitionToken))
 		return
 	}
-	summary, ok := h.loadBook(w, r, u.ID)
-	if !ok {
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
 		return
 	}
+	summary := *detail.Acquired
 	var coverage *domain.AnalysisCoverage
 	statisticsUnavailable := false
 	if summary.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
@@ -76,6 +73,23 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, BookPageWithHistoryAndPreparation(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message"), preparation, journeyAction))
+}
+
+func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {
+	if strings.TrimSpace(id) == "" {
+		http.NotFound(w, r)
+		return domain.MyBook{}, false
+	}
+	detail, err := h.services.Store.GetBookDetail(r.Context(), owner, id)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return domain.MyBook{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return domain.MyBook{}, false
+	}
+	return detail, true
 }
 
 type catalogueAliasReader interface {
@@ -114,7 +128,11 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		h.renderBookRefreshFailure(w, r, u, r.PathValue("id"))
 		return
 	}
-	result, err := refresher.RefreshEntry(r.Context(), u.ID, r.PathValue("id"))
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	result, err := refresher.RefreshEntry(r.Context(), u.ID, detail.Book.ID)
 	if errors.Is(err, cataloguesync.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -123,14 +141,10 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		result.Failed = true
 	}
 	if result.Book.ID == "" {
-		result.Book, _ = h.services.Store.GetBook(r.Context(), u.ID, r.PathValue("id"))
+		result.Book = detail.Book
 	}
 	message := refreshMessage(result)
 	if isHTMX(r) {
-		if result.Book.ID == "" {
-			http.NotFound(w, r)
-			return
-		}
 		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book, EvidenceState: domain.MyBookNotAcquired}, message))
 		return
 	}
@@ -140,16 +154,11 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
 	message := "Metadata could not be refreshed. Check the connection and try again."
 	if isHTMX(r) {
-		book, err := h.services.Store.GetBook(r.Context(), u.ID, bookID)
-		if errors.Is(err, persistence.ErrNotFound) {
-			http.NotFound(w, r)
+		book, ok := h.bookDetail(w, r, u.ID, bookID)
+		if !ok {
 			return
 		}
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired}, message))
+		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book.Book, EvidenceState: domain.MyBookNotAcquired}, message))
 		return
 	}
 	redirect(w, r, "/books/"+url.PathEscape(bookID)+"?message="+url.QueryEscape(message))
@@ -170,12 +179,17 @@ func refreshMessage(result cataloguesync.RefreshResult) string {
 
 func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	book, ok := h.loadBookID(w, r, u.ID, r.PathValue("id"))
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+	book := *detail.Acquired
 	runID := r.PathValue("runID")
-	redirectSourceID := book.Source.ID
+	redirectBookID := detail.Book.ID
 	if book.AnalysisRunID != runID {
 		jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
 		if err != nil {
@@ -193,21 +207,8 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		if book.BookID != "" {
-			candidates, err := h.services.Store.ListSourceMaterials(r.Context(), u.ID)
-			if err != nil {
-				fail(w, err)
-				return
-			}
-			for _, candidate := range candidates {
-				if candidate.BookID == book.BookID && candidate.AnalysisRunID != "" {
-					redirectSourceID = candidate.Source.ID
-					break
-				}
-			}
-		}
 	}
-	http.Redirect(w, r, "/books/"+url.PathEscape(redirectSourceID), http.StatusSeeOther)
+	http.Redirect(w, r, "/books/"+url.PathEscape(redirectBookID), http.StatusSeeOther)
 }
 
 func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary) (*domain.DeckPreparation, deckJourneyActionView, bool) {
@@ -264,10 +265,15 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	book, ok := h.loadBook(w, r, u.ID)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+	book := *detail.Acquired
 	var handle analysis.Handle
 	var err error
 	if book.Source.MediaType == "application/epub+zip" {
@@ -289,25 +295,4 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.DisplayNumber))
-}
-func (h *Handler) loadBook(w http.ResponseWriter, r *http.Request, owner string) (domain.SourceMaterialSummary, bool) {
-	return h.loadBookID(w, r, owner, r.PathValue("id"))
-}
-func (h *Handler) loadBookID(w http.ResponseWriter, r *http.Request, owner, id string) (domain.SourceMaterialSummary, bool) {
-	if strings.TrimSpace(id) == "" {
-		http.NotFound(w, r)
-		return domain.SourceMaterialSummary{}, false
-	}
-	books, err := h.services.Store.ListSourceMaterials(r.Context(), owner)
-	if err != nil {
-		fail(w, err)
-		return domain.SourceMaterialSummary{}, false
-	}
-	for _, book := range books {
-		if book.Source.ID == id {
-			return book, true
-		}
-	}
-	http.NotFound(w, r)
-	return domain.SourceMaterialSummary{}, false
 }

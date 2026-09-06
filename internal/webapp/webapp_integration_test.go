@@ -251,13 +251,26 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, source := range []domain.SourceMaterial{german, plain, missingUnits} {
+		bookID, resolveErr := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, source.SourceIdentifier, source.Language, source.Title)
+		if resolveErr != nil {
+			t.Fatal(resolveErr)
+		}
+		if linkErr := store.LinkSourceToBook(ctx, alice.ID, bookID, source.ID); linkErr != nil {
+			t.Fatal(linkErr)
+		}
+	}
+	germanDetail, err := store.GetBookDetail(ctx, alice.ID, german.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	recorder := &recordingAnalysis{}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Analysis: recorder, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "scope-web-alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "scope-web-bob", "bob-password")
 
-	first := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
+	first := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
 	if first.Code != http.StatusSeeOther || recorder.scope == "" {
 		t.Fatalf("first EPUB analysis=%d scope=%q body=%s", first.Code, recorder.scope, first.Body.String())
 	}
@@ -303,7 +316,7 @@ func TestEPUBScopeReviewGermanItalianOverridesValidationOwnershipAndCSRF(t *test
 	if got := perform(t, h, "GET", "/books/"+german.ID+"/analyze", nil, bobCookies); got.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("cross-owner analyze GET=%d body=%s", got.Code, got.Body.String())
 	}
-	if got := perform(t, h, "POST", "/books/"+german.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
+	if got := perform(t, h, "POST", "/books/"+germanDetail.Book.ID+"/analyze", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
 		t.Fatalf("cross-owner analyze POST=%d body=%s", got.Code, got.Body.String())
 	}
 	missing := perform(t, h, "POST", "/books/"+missingUnits.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
@@ -452,9 +465,17 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") == "" || !strings.HasPrefix(response.Header().Get("Location"), "/books/"+bookResult.Book.ID) {
 		t.Fatalf("metadata-only acquisition=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
+	acquiredPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
+	if acquiredPage.Code != http.StatusOK || !strings.Contains(acquiredPage.Body.String(), "Metadata-only synced book") || strings.Contains(acquiredPage.Body.String(), "Acquire EPUB content") {
+		t.Fatalf("canonical acquired book page=%d body=%s", acquiredPage.Code, acquiredPage.Body.String())
+	}
 	sources, err := store.ListSourceMaterials(ctx, owner.ID)
 	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
 		t.Fatalf("promoted sources=%+v err=%v", sources, err)
+	}
+	legacyPage := perform(t, h, "GET", "/books/"+sources[0].Source.ID, nil, cookies)
+	if legacyPage.Code != http.StatusOK || !strings.Contains(legacyPage.Body.String(), "Metadata-only synced book") {
+		t.Fatalf("legacy acquired book page=%d body=%s", legacyPage.Code, legacyPage.Body.String())
 	}
 	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
 	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {

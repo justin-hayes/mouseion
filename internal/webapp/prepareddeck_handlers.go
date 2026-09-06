@@ -26,10 +26,15 @@ func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	u := user(r)
-	book, ok := h.loadBook(w, r, u.ID)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+	book := *detail.Acquired
 	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || book.CorpusID == "" {
 		http.NotFound(w, r)
 		return
@@ -65,7 +70,14 @@ func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.R
 		return
 	}
 	u := user(r)
-	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, r.PathValue("id"), r.PathValue("runID"))
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	if !ok || detail.Acquired == nil {
+		if ok {
+			http.NotFound(w, r)
+		}
+		return
+	}
+	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, detail.Acquired.Source.ID, r.PathValue("runID"))
 	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -74,7 +86,7 @@ func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.R
 		fail(w, err)
 		return
 	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != r.PathValue("id") || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
+	if result.OwnerID != u.ID || result.SourceMaterialID != detail.Acquired.Source.ID || result.RunID != r.PathValue("runID") || result.ScopeID == "" {
 		http.NotFound(w, r)
 		return
 	}
