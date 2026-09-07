@@ -50,7 +50,9 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Add a book')).toHaveCount(0);
     const entry = page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) });
     await expect(entry).toContainText('Not acquired');
-    await expect(entry.locator('form[action$="/analyze"]')).toContainText('Start analysis');
+    // Analysis is started from the book detail page, not the library row.
+    await expect(entry.locator('form[action$="/analyze"]')).toHaveCount(0);
+    await expect(entry.getByText('Start analysis')).toHaveCount(0);
     await expect(entry.getByText('Review scope')).toHaveCount(0);
     await expect(entry.getByText('Prepare deck')).toHaveCount(0);
     await expect(entry).toContainText('language not chosen');
