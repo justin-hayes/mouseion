@@ -22,7 +22,8 @@ func TestLearningCampaignResidualWorkSurvivesGoalChangeAndGraduatesOnce(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, prep := readyCampaignFixture(t, ctx, store, owner.ID, "474-residual")
+	book, source, prep := createJourneyFixture(t, ctx, store, owner.ID, "474-residual")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
 	deck, err := store.PutDeck(ctx, owner.ID, "de", "Issue 474 residual")
 	if err != nil {
 		t.Fatal(err)
@@ -64,14 +65,9 @@ func TestLearningCampaignResidualWorkSurvivesGoalChangeAndGraduatesOnce(t *testi
 		t.Fatalf("reversed transition changed residual campaign=%+v", unchanged)
 	}
 
-	oldBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 old Goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
-	newBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Issue 474 new Goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
+	oldBook := book
+	newBook, newSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "474-new-goal")
+	makeJourneyMemberAnalyzed(t, ctx, store, newBook, newSource)
 	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, oldBook.ID); err != nil {
 		t.Fatal(err)
 	}

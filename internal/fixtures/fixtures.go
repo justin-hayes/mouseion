@@ -80,13 +80,13 @@ func NewStore() *Store {
 	lastSyncedAt := fixtureJourneyTime
 	return &Store{
 		books: []domain.SourceMaterialSummary{
-			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
+			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
-			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
-			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
-			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
-			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
+			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
+			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 		},
@@ -711,8 +711,35 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, exp
 	s.readingJourneys[owner] = journey
 	return journey.Revision, nil
 }
-func (s *Store) RemoveFromReadingJourney(_ context.Context, _ string, _ string, expectedRevision int64) (int64, error) {
-	return expectedRevision, nil
+func (s *Store) RemoveFromReadingJourney(_ context.Context, owner, bookID string, expectedRevision int64) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	journey := s.readingJourneys[owner]
+	if expectedRevision != journey.Revision {
+		return 0, persistence.ErrJourneyStale
+	}
+	bookID = s.fixtureBookID(owner, bookID)
+	member := -1
+	for i, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			member = i
+			break
+		}
+	}
+	if member < 0 {
+		return journey.Revision, nil
+	}
+	journey.Entries = append(journey.Entries[:member], journey.Entries[member+1:]...)
+	for i := range journey.Entries {
+		journey.Entries[i].Position = i + 1
+	}
+	journey.Revision++
+	journey.UpdatedAt = time.Now()
+	s.readingJourneys[owner] = journey
+	if goal := s.primaryGoals[owner]; goal.BookID == bookID {
+		delete(s.primaryGoals, owner)
+	}
+	return journey.Revision, nil
 }
 
 // MoveReadingJourneyEntry mirrors the Postgres store: when a Primary Goal book is
@@ -830,11 +857,17 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (doma
 		if goal.ReadingFinishedAt == nil {
 			return domain.PrimaryGoal{}, persistence.ErrGoalExists
 		}
+		if !s.fixturePrimaryGoalEligible(owner, bookID) {
+			return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
+		}
 		goal.BookID = bookID
 		goal.ReadingFinishedAt = nil
 		goal.UpdatedAt = time.Now()
 		s.primaryGoals[owner] = goal
 		return goal, nil
+	}
+	if !s.fixturePrimaryGoalEligible(owner, bookID) {
+		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
 	now := time.Now()
 	goal.CreatedAt, goal.UpdatedAt = now, now
@@ -854,10 +887,29 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, bookID, expectedBook
 	if !s.fixtureBookExists(owner, bookID) {
 		return domain.PrimaryGoal{}, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
+	if !s.fixturePrimaryGoalEligible(owner, bookID) {
+		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
+	}
 	goal.BookID = bookID
+	goal.ReadingFinishedAt = nil
 	goal.UpdatedAt = time.Now()
 	s.primaryGoals[owner] = goal
 	return goal, nil
+}
+
+func (s *Store) fixturePrimaryGoalEligible(owner, bookID string) bool {
+	for _, entry := range s.readingJourneys[owner].Entries {
+		if entry.BookID != bookID {
+			continue
+		}
+		for _, book := range s.books {
+			if s.fixtureBookID(owner, book.Source.ID) == bookID && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 func (s *Store) ClearPrimaryGoal(_ context.Context, owner, expectedBookID string) error {
 	s.mu.Lock()

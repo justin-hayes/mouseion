@@ -195,9 +195,6 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 					@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
 				}
 				@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
-				if book.Book.ID != goalBookID {
-					<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
-				}
 				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
 					<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
 				}
@@ -530,10 +527,14 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 				<div class="action-group">
 					if len(outcome.Journey.Provisional) > 0 {
 						<p><strong>First in your current order:</strong> { journeyBookTitle(outcome.Journey.Provisional[0].Book) }</p>
-						<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
+						if outcome.Journey.Provisional[0].CanChooseGoal {
+							<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
+						} else if outcome.Journey.Provisional[0].GoalEligibilityReason != "" {
+							<p class="metadata">{ outcome.Journey.Provisional[0].GoalEligibilityReason }</p>
+						}
 					}
 					<a role="button" class="outline" href="/journey">Reorder Reading Journey</a>
-					<a role="button" class="outline" href="/library">Choose another book from My Books</a>
+					<a role="button" class="outline" href="/journey">Choose another book from Reading Journey</a>
 					<a href="/journey">Pause without a new Goal</a>
 				</div>
 				<p><a href="/journey">Return to the recalculated Reading Journey</a></p>
@@ -563,7 +564,7 @@ templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string
 			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ sectionError }</p></article>
 		}
 		if goal == nil {
-			@EmptyState("No Primary Goal yet", "Choose a book as your current commitment from your provisional order or My Books when you are ready. Reading Journey membership and preparation remain separate.")
+			@EmptyState("No Primary Goal yet", "Choose an analyzed member as your current commitment from your Reading Journey.")
 		} else {
 			@JourneyBookCard(goalCardView(goal, residual), true, csrf, 0, "")
 		}
@@ -604,7 +605,11 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>
-			<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+			if item.CanChooseGoal {
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+			} else if item.GoalEligibilityReason != "" {
+				<p class="metadata">{ item.GoalEligibilityReason }</p>
+			}
 		</div>
 	} else {
 		<div class="goal-card__actions">
@@ -618,7 +623,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			} else {
 				<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
 			}
-			<p>To choose a different Goal, use Choose as Primary Goal on another book in your provisional order or My Books.</p>
+			<p>To choose a different Goal, use Choose as Primary Goal on another eligible book in your provisional order.</p>
 		</div>
 	}
 	</article>

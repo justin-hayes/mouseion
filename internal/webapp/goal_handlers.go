@@ -32,6 +32,7 @@ const (
 	goalStaleMessage       = "This Primary Goal changed since this page was loaded. No changes were made; review Reading Journey before trying again."
 	goalConcurrentMessage  = "Another book became your Primary Goal while you were choosing. No changes were made; review Reading Journey before trying again."
 	goalUnavailableMessage = "This book is not available in My Books."
+	goalIneligibleMessage  = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
 )
 
 func goalBookHasDeck(bookID string, campaigns []domain.LearningCampaign, preparations []domain.DeckPreparation) bool {
@@ -195,6 +196,10 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			h.respondGoal(w, r, "", goalUnavailableMessage, "")
 			return
 		}
+		if errors.Is(err, persistence.ErrGoalIneligible) {
+			h.respondGoal(w, r, "", goalIneligibleMessage, bookID)
+			return
+		}
 		if err != nil {
 			fail(w, err)
 			return
@@ -214,6 +219,10 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
+			return
+		}
+		if errors.Is(err, persistence.ErrGoalIneligible) {
+			h.respondGoal(w, r, "", goalIneligibleMessage, bookID)
 			return
 		}
 		if err != nil {

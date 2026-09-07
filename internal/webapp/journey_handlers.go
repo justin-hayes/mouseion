@@ -29,6 +29,8 @@ type journeyBookView struct {
 	GoalResidual          *goalResidualView
 	CanMoveEarlier        bool
 	CanMoveLater          bool
+	CanChooseGoal         bool
+	GoalEligibilityReason string
 	Coverage              *domain.AnalysisCoverage
 	StatisticsUnavailable bool
 }
@@ -153,6 +155,27 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	}
 	return bookLifecycleActionFor(item.Book, nil)
+}
+
+func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
+	if !strings.EqualFold(strings.TrimSpace(book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(book.Source.ContentRevisionID) == "" {
+		return false, "This book cannot become a Primary Goal until current EPUB content is available."
+	}
+	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus + " " + book.AnalysisState))
+	switch {
+	case strings.Contains(status, "queued") || strings.Contains(status, "running") || strings.Contains(status, "analyzing"):
+		return false, "This book cannot become a Primary Goal while its current analysis is still in progress."
+	case strings.Contains(status, "failed"):
+		return false, "This book cannot become a Primary Goal until its failed analysis is retried successfully."
+	case strings.Contains(status, "cancelled"):
+		return false, "This book cannot become a Primary Goal until its cancelled analysis is retried successfully."
+	case strings.Contains(status, "stale") || strings.Contains(status, "needs review"):
+		return false, "This book cannot become a Primary Goal until its analysis matches the current content."
+	}
+	if !bookHasCompletedAnalysis(book) {
+		return false, "This book needs a successfully completed current analysis before it can become a Primary Goal."
+	}
+	return true, ""
 }
 
 func journeyCurrentCoverage(item journeyBookView) string {
@@ -543,6 +566,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
+		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibility(book.Book)
 		view.Provisional = append(view.Provisional, book)
 	}
 	for i := range view.Provisional {

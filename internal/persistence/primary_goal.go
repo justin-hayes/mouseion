@@ -34,8 +34,8 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner string) (domai
 	return goal, err
 }
 
-// CreatePrimaryGoal creates the owner's only current Goal for an owner book.
-// The book only needs to exist; analysis and deck preparation are optional.
+// CreatePrimaryGoal creates the owner's only current Goal for an analyzed
+// Reading Journey member.
 func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID string) (domain.PrimaryGoal, error) {
 	goal := domain.PrimaryGoal{OwnerID: owner, BookID: bookID}
 	if err := goal.Validate(); err != nil {
@@ -50,6 +50,18 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID str
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
+	var currentBookID string
+	var readingFinishedAt *time.Time
+	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 FOR UPDATE`, owner).Scan(&currentBookID, &readingFinishedAt)
+	if err == nil && readingFinishedAt == nil {
+		return domain.PrimaryGoal{}, ErrGoalExists
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return domain.PrimaryGoal{}, err
+	}
+	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, bookID); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	goal, err = insertPrimaryGoal(ctx, tx, owner, bookID)
 	if err != nil {
 		return domain.PrimaryGoal{}, err
@@ -58,6 +70,29 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID str
 		return domain.PrimaryGoal{}, err
 	}
 	return goal, nil
+}
+
+func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+	var eligible bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1
+		FROM reading_journey_membership jm
+		JOIN source_materials s ON s.owner_id=jm.owner_id AND s.book_id=jm.book_id
+		JOIN book_current_analyses current ON current.owner_id=s.owner_id AND current.book_id=s.book_id AND current.source_material_id=s.id
+		JOIN analysis_runs r ON r.owner_id=current.owner_id AND r.id=current.analysis_run_id AND r.source_material_id=current.source_material_id AND r.state='completed'
+		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.status='complete'
+		WHERE jm.owner_id=$1 AND jm.book_id=$2
+		  AND lower(s.media_type)='application/epub+zip'
+		  AND s.current_content_revision_id=r.content_revision_id
+		  AND s.current_snapshot_id=r.snapshot_id
+	)`, owner, bookID).Scan(&eligible)
+	if err != nil {
+		return err
+	}
+	if !eligible {
+		return ErrGoalIneligible
+	}
+	return nil
 }
 
 func insertPrimaryGoal(ctx context.Context, tx pgx.Tx, owner, bookID string) (domain.PrimaryGoal, error) {
@@ -96,6 +131,9 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, bookID, ex
 		return domain.PrimaryGoal{}, ErrGoalStale
 	}
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
+	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET book_id=$2,reading_finished_at=NULL,updated_at=now() WHERE owner_id=$1 RETURNING owner_id::text,book_id::text,created_at,updated_at,reading_finished_at`, owner, bookID))

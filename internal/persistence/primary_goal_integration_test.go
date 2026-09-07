@@ -96,9 +96,11 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	goal, err = store.CreatePrimaryGoal(ctx, carol.ID, noDeckBook.ID)
-	if err != nil || goal.BookID != noDeckBook.ID {
-		t.Fatalf("no-deck goal=%+v err=%v", goal, err)
+	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, noDeckBook.ID); !errors.Is(err, ErrGoalIneligible) {
+		t.Fatalf("no-deck goal error=%v, want ErrGoalIneligible", err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, carol.ID, noDeckBook.ID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, bobBook.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner create error=%v, want ErrNotFound", err)
@@ -108,10 +110,8 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if !errors.Is(err, ErrNotFound) || changed != (domain.PrimaryGoal{}) {
 		t.Fatalf("cross-owner change goal=%+v err=%v, want ErrNotFound", changed, err)
 	}
-	replacementBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol replacement book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
+	replacementBook, replacementSource, _ := createJourneyFixture(t, ctx, store, carol.ID, "goal-replacement")
+	makeJourneyMemberAnalyzed(t, ctx, store, replacementBook, replacementSource)
 	if _, err = store.ChangePrimaryGoal(ctx, carol.ID, replacementBook.ID, "stale-book"); !errors.Is(err, ErrGoalStale) {
 		t.Fatalf("stale change error=%v, want ErrGoalStale", err)
 	}
@@ -183,7 +183,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, book.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, owner.ID, book.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -209,7 +209,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if goal, err := store.CreatePrimaryGoal(ctx, owner.ID, replacement.ID); err != nil || goal.BookID != replacement.ID || goal.ReadingFinishedAt != nil {
-		t.Fatalf("new Goal after finish=%+v err=%v", goal, err)
+	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, replacement.ID); !errors.Is(err, ErrGoalIneligible) {
+		t.Fatalf("ineligible new Goal error=%v, want ErrGoalIneligible", err)
 	}
 }

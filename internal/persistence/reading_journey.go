@@ -183,6 +183,9 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, boo
 	if _, err = tx.Exec(ctx, `DELETE FROM reading_journey_membership WHERE owner_id=$1 AND book_id=$2`, owner, bookID); err != nil {
 		return 0, err
 	}
+	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2`, owner, bookID); err != nil {
+		return 0, err
+	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
 	if err = rewriteReadingJourneyPositions(ctx, tx, owner, members); err != nil {
 		return 0, err
