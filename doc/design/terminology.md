@@ -17,14 +17,15 @@ language without a product reason.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible. | Learning queue, backlog, curriculum, plan, roadmap |
-| **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, not a separate destination. | Active campaign, target destination, current project |
+| **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible; adding a book expresses reading intent and automatically acquires and analyzes it (ensure-once) so it can be weighed against other candidates. | Learning queue, backlog, curriculum, plan, roadmap |
+| **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, not a separate destination, and is a promotion of an analyzed Journey member. | Active campaign, target destination, current project |
 | **Where next?** | The choice after a Primary Goal is finished or when no Goal exists. It invites selection or reconsideration without urgency or automatic advancement. | Start next, continue plan, complete Journey |
 
-Only the Primary Goal carries commitment. A learner may have no Primary Goal,
-an empty Reading Journey, or books in My Books that never enter the Journey.
-The Journey has no destination, schedule, overdue state, completion state, or
-progress percentage.
+Only the Primary Goal carries commitment. Reading Journey membership carries
+the consequence of automatic acquisition and analysis, but no commitment. A
+learner may have no Primary Goal, an empty Reading Journey, or books in My
+Books that never enter the Journey. The Journey has no destination, schedule,
+overdue state, completion state, or progress percentage.
 
 **Reading Horizon** may remain an internal design metaphor for changing
 possibility. **Campaign**, **milestone**, **destination**, and **Journey
@@ -35,11 +36,11 @@ completion** are not primary learner-facing concepts.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
-| **Acquire EPUB content** | Download and validate content for one metadata-only My Books Book from Book detail, without implying analysis, Journey membership, or commitment. | Import and analyze, add to queue |
+| **Acquire EPUB content** | Download and validate content for one metadata-only My Books Book from Book detail, without implying Journey membership or commitment. It does not itself start analysis; adding the book to Reading Journey acquires and analyzes it automatically. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
 | **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
-| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. | Sync download, automatic analysis |
+| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Adding a Book to Reading Journey is the intent that triggers acquisition and analysis. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
@@ -83,8 +84,8 @@ compatibility redirects to the book page.
 | **Vocabulary-efficient alternative** | An optional order of the same learner-selected books, optimized only for an explicitly stated lexical property and assumptions. | Best route, optimal Journey, recommended order |
 | **Modeled additional vocabulary identities** | Exact lemma-identity preparation counts under named threshold, scope, sequence, and transition assumptions. | Total coverage mapped, effort score, cost without a unit |
 | **Move earlier / Move later** | Visible keyboard-operable controls for reordering. Drag may supplement them. | Fix order, improve route |
-| **Choose as Primary Goal** | Make one learner-chosen book the current commitment. | Begin optimal text, promote milestone |
-| **Add to Reading Journey** | Include a book in the provisional sequence without committing to it. This learner-initiated backlog action also acquires the current EPUB when needed and submits whole-book analysis; re-adding is idempotent and reordering has no such side effects. | Queue for learning, schedule book |
+| **Choose as Primary Goal** | Promote one analyzed Reading Journey member to the current commitment, from the Reading Journey screen. Requires a successfully completed current analysis and does not start analysis. | Begin optimal text, promote milestone |
+| **Add to Reading Journey** | Express reading intent for a book: include it in the provisional sequence and automatically acquire and analyze it (ensure-once) so it can be weighed against other candidates. | Queue for learning, schedule book |
 | **Remove from Reading Journey** | Remove provisional membership without deleting the book from My Books. | Delete book, abandon campaign |
 
 Learner order always remains the active order unless the learner explicitly
@@ -105,6 +106,7 @@ Journey by …** Never style a preference change as an error or warning.
 | **Generated vocabulary** | Immutable provenance that a lemma was assigned to a deck. | Known vocabulary |
 | **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
 | **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by the accepted active-campaign contract. | Difficult words |
+| **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
 
 Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
@@ -130,6 +132,8 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.
+Prepared decks select recurring vocabulary and make no coverage claim; coverage
+thresholds remain whole-book planning markers.
 
 The internal feature name **language corpus view** is acceptable in technical
 documents, but the learner-facing surface is never called **Corpus**. `CorpusID`

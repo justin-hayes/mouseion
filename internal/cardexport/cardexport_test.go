@@ -658,7 +658,7 @@ func TestLongContextIsRejectedWithoutShorteningOrAlternativeFront(t *testing.T) 
 		FirstEncounter: 12,
 	}
 	store := &memoryStore{bookID: "book", candidates: []domain.SelectionCandidate{{
-		OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1,
+		OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3,
 		ObservedForms: []byte(`["Haus"]`), SentenceReferences: []byte(`[{"text":` + jsonString(longSentence) + `,"location":{"start_offset":12}}]`),
 	}}, entries: []Entry{entry}}
 
@@ -695,7 +695,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	store := &memoryStore{bookID: bookID}
 	for _, fixture := range fixtures {
 		store.candidates = append(store.candidates, domain.SelectionCandidate{
-			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, OccurrenceCount: 1,
+			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, OccurrenceCount: 3,
 			ObservedForms:      []byte("[" + jsonString(fixture.target) + "]"),
 			SentenceReferences: []byte("[{\"sentence_index\":0,\"text\":" + jsonString(fixture.sentence) + ",\"location\":{\"start_offset\":" + fmt.Sprint(fixture.firstEncounter) + "}}]"),
 		})
@@ -889,7 +889,7 @@ func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(
 	store := &memoryStore{bookID: bookID}
 	for _, fixture := range fixtures {
 		store.candidates = append(store.candidates, domain.SelectionCandidate{
-			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: fixture.first,
+			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: "NOUN", OccurrenceCount: 3, FirstEncounter: fixture.first,
 			ObservedForms:      []byte("[" + jsonString(strings.Title(fixture.lemma)) + "]"),
 			SentenceReferences: []byte("[{\"text\":" + jsonString(fixture.sentence) + ",\"location\":{\"start_offset\":" + fmt.Sprint(fixture.first) + "}}]"),
 		})
@@ -983,7 +983,7 @@ func jsonString(value string) string {
 func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 	store := &memoryStore{bookID: "libro"}
 	store.candidates = []domain.SelectionCandidate{{
-		Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 2,
+		Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 3,
 		ObservedForms:      []byte(`["porterà"]`),
 		SentenceReferences: []byte(`[{"sentence_index":0,"text":"Domani Lucia porterà finalmente il pane fresco alla sua famiglia.","location":{"start_offset":7}}]`),
 	}}
@@ -1006,7 +1006,7 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 func TestBuildCoverageForAnalysisUsesOnlyItsCorpus(t *testing.T) {
 	store := &scopedMemoryStore{memoryStore: &memoryStore{bookID: "libro"}, corpusID: "corpus-scoped"}
 	store.candidates = []domain.SelectionCandidate{
-		{OwnerID: "alice", CorpusID: "corpus-scoped", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 2, ObservedForms: []byte(`["porterà"]`), SentenceReferences: []byte(`[{"text":"Domani Lucia porterà finalmente il pane fresco alla sua famiglia.","location":{"start_offset":7}}]`)},
+		{OwnerID: "alice", CorpusID: "corpus-scoped", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`["porterà"]`), SentenceReferences: []byte(`[{"text":"Domani Lucia porterà finalmente il pane fresco alla sua famiglia.","location":{"start_offset":7}}]`)},
 		{OwnerID: "alice", CorpusID: "corpus-other", Language: "it", CanonicalLemma: "sbagliare", UPOS: "VERB", OccurrenceCount: 100, ObservedForms: []byte(`["sbaglia"]`), SentenceReferences: []byte(`[{"text":"Questo candidato appartiene a un altro risultato analizzato.","location":{"start_offset":7}}]`)},
 	}
 	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Translation: "to bring", SourceDocument: "Scoped Book"}}
@@ -1078,15 +1078,13 @@ func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
 		{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 100},
 		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 96},
 		{Language: "de", CanonicalLemma: "singleton-a", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "singleton-b", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "singleton-c", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "singleton-d", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "singleton-b", UPOS: "NOUN", OccurrenceCount: 2},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "current-book", candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || got[0].CanonicalLemma != "one" || got[1].CanonicalLemma != "singleton-a" {
+	if len(got) != 1 || got[0].CanonicalLemma != "one" {
 		t.Fatalf("coverage candidates = %#v", got)
 	}
 	if store.historyCalls["de"] != 1 {
@@ -1101,8 +1099,8 @@ func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
 		{OwnerID: "bob", Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN"},
 	}}
 	candidates := []domain.SelectionCandidate{
-		{Language: "de", CanonicalLemma: "same", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "same", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN", OccurrenceCount: 3},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", currentBook, candidates)
 	if err != nil {
@@ -1133,7 +1131,7 @@ func TestCoverageCandidatesReservesOnlyActiveCampaignVocabulary(t *testing.T) {
 	}
 }
 
-func TestCoverageCandidatesKnownLemmaWildcardAndSingleton(t *testing.T) {
+func TestCoverageCandidatesKnownLemmaWildcardAndRareWordExclusions(t *testing.T) {
 	store := &memoryStore{known: []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known"}}}
 	candidates := []domain.SelectionCandidate{
 		{Language: "de", CanonicalLemma: "known", UPOS: "VERB", OccurrenceCount: 10},
@@ -1143,51 +1141,40 @@ func TestCoverageCandidatesKnownLemmaWildcardAndSingleton(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].CanonicalLemma != "only" {
+	if len(got) != 0 {
 		t.Fatalf("coverage candidates = %#v", got)
 	}
 }
 
-func TestSelectCoverageCandidatesMetricContract(t *testing.T) {
+func TestSelectRecurringCandidatesAppliesFrequencyFloor(t *testing.T) {
+	if defaultDeckMinOccurrences != 3 {
+		t.Fatalf("default deck minimum occurrences = %d, want 3", defaultDeckMinOccurrences)
+	}
 	candidates := []domain.SelectionCandidate{
-		{Language: "de", CanonicalLemma: "eins", UPOS: "NOUN", OccurrenceCount: 94},
-		{Language: "de", CanonicalLemma: "zwei", UPOS: "NOUN", OccurrenceCount: 2},
-		{Language: "de", CanonicalLemma: "drei", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "beta", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "gamma", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "common", UPOS: "NOUN", OccurrenceCount: 4},
+		{Language: "de", CanonicalLemma: "boundary", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "rare-two", UPOS: "NOUN", OccurrenceCount: 2},
+		{Language: "de", CanonicalLemma: "rare-one", UPOS: "NOUN", OccurrenceCount: 1},
 	}
-	tests := []struct {
-		target int
-		want   []string
-	}{
-		{target: 95, want: []string{"eins", "zwei"}},
-		{target: 97, want: []string{"eins", "zwei", "alpha"}},
-		{target: 99, want: []string{"eins", "zwei", "alpha", "beta", "drei"}},
+	got := selectRecurringCandidates(candidates, defaultDeckMinOccurrences)
+	want := []string{"common", "boundary"}
+	if len(got) != len(want) {
+		t.Fatalf("selected %d candidates, want %d: %+v", len(got), len(want), got)
 	}
-	for _, tc := range tests {
-		t.Run(fmt.Sprintf("%d_percent", tc.target), func(t *testing.T) {
-			got := selectCoverageCandidates(candidates, tc.target)
-			if len(got) != len(tc.want) {
-				t.Fatalf("selected %d candidates, want %d: %+v", len(got), len(tc.want), got)
-			}
-			for i, candidate := range got {
-				if candidate.CanonicalLemma != tc.want[i] {
-					t.Fatalf("candidate %d = %q, want %q", i, candidate.CanonicalLemma, tc.want[i])
-				}
-			}
-		})
+	for i, candidate := range got {
+		if candidate.CanonicalLemma != want[i] {
+			t.Fatalf("candidate %d = %q, want %q", i, candidate.CanonicalLemma, want[i])
+		}
 	}
 }
 
-func TestSelectCoverageCandidatesStopsAtExactThreshold(t *testing.T) {
+func TestSelectRecurringCandidatesReturnsEmptyPoolWhenAllWordsAreRare(t *testing.T) {
 	candidates := []domain.SelectionCandidate{
-		{Language: "de", CanonicalLemma: "common", UPOS: "NOUN", OccurrenceCount: 97},
-		{Language: "de", CanonicalLemma: "rare", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "two", UPOS: "NOUN", OccurrenceCount: 2},
+		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 1},
 	}
-	got := selectCoverageCandidates(candidates, 97)
-	if len(got) != 1 || got[0].CanonicalLemma != "common" {
-		t.Fatalf("selected = %+v, want exact 97%% prefix", got)
+	if got := selectRecurringCandidates(candidates, defaultDeckMinOccurrences); len(got) != 0 {
+		t.Fatalf("selected = %+v, want empty pool", got)
 	}
 }
 
@@ -1256,8 +1243,8 @@ func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
 func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T) {
 	store := &memoryStore{bookID: "book"}
 	store.candidates = []domain.SelectionCandidate{
-		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: 10, ObservedForms: []byte(`["Haus"]`)},
-		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 1, FirstEncounter: 20, ObservedForms: []byte(`["Baum"]`)},
+		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 3, FirstEncounter: 10, ObservedForms: []byte(`["Haus"]`)},
+		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 3, FirstEncounter: 20, ObservedForms: []byte(`["Baum"]`)},
 	}
 	store.entries = []Entry{
 		{OwnerID: "alice", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Haus.", Translation: "house", SourceDocument: "Book", FirstEncounter: 10},

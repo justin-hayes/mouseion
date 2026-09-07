@@ -110,6 +110,51 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	}
 }
 
+func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-empty", SourceMaterialID: "book-empty", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg",
+	}
+	var output bytes.Buffer
+	if err := DeckPreparationStatus("csrf", preparation, "/books/book-empty", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{
+		"No recurring vocabulary",
+		"This book has no recurring vocabulary to study",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("empty deck state missing %q: %s", want, html)
+		}
+	}
+	for _, unwanted := range []string{"Completeness", "Download deck", "0 cards"} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("empty deck state contains %q: %s", unwanted, html)
+		}
+	}
+}
+
+func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-omitted", SourceMaterialID: "book-omitted", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", QualityOmissions: 1,
+	}
+	var output bytes.Buffer
+	if err := DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, "No recurring vocabulary") {
+		t.Fatalf("quality omissions were presented as missing vocabulary: %s", html)
+	}
+	for _, want := range []string{"Completeness", "0 cards", "Download deck"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("quality omission state missing %q: %s", want, html)
+		}
+	}
+}
+
 func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 10}
 	tests := []struct {
