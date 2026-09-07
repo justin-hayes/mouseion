@@ -3,6 +3,8 @@
 Status: **Canonical shipped learner-facing workflow.** Reading Journey and
 Primary Goal are shipped; Campaign remains secondary history/operations and its
 reservation and graduation details remain governed by ADRs 0027, 0034, and 0036.
+Reading-intent acquisition and analysis are governed by [ADR
+0049](../../adr/0049-reading-intent-triggers-analysis.md).
 
 The filename is retained to preserve existing links. **Learning campaign** is no
 longer the primary learner-facing name for this experience.
@@ -22,8 +24,10 @@ The workflow may begin with:
 
 - books in My Books but no Reading Journey;
 - a Journey but no Primary Goal;
-- a Primary Goal with or without analysis, a prepared deck, reading progress,
-  or vocabulary work;
+- a Journey with members whose current analysis is queued, running, complete,
+  stale, unavailable, or absent;
+- a Primary Goal with a successfully completed current analysis, a prepared
+  deck, reading progress, or vocabulary work;
 - a finished Primary Goal whose vocabulary transition is complete;
 - a finished Primary Goal with vocabulary work remaining.
 
@@ -48,11 +52,13 @@ My Books
 ```
 
 Acquisition, analysis, deck preparation, Goal choice, reading completion, and
-vocabulary graduation remain explicit transitions. Adding a book to Reading
-Journey is the learner-initiated trigger that also acquires its current EPUB
-and submits whole-book analysis; it does not silently trigger from catalogue
-sync, reordering, or any other transition. Scope confirmation and deck
-preparation remain separate explicit actions.
+vocabulary graduation remain distinct transitions. Adding a Book to Reading
+Journey is the learner-initiated trigger that also acquires its current EPUB and
+ensures whole-book analysis; it does not silently trigger from catalogue sync,
+reordering, or any other transition. **Start analysis** remains explicit on
+Book detail for a My Books Book and is the refresh lever after content changes.
+Goal choice remains a separate explicit promotion after current analysis is
+complete.
 
 ## 1. Shape Reading Journey
 
@@ -118,10 +124,10 @@ canonical.
 
 **Learner question:** Which one book do I intend to finish now?
 
-**Choose as Primary Goal** is an explicit action available from My Books,
-Reading Journey, or a book context when the underlying product contract permits
-it. Selection does not silently start analysis, prepare a deck, claim reading
-has begun, or mark vocabulary known.
+**Choose as Primary Goal** is an explicit action available only from the Reading
+Journey screen. It promotes a Journey member whose current analysis completed
+successfully. Selection does not start or re-run analysis, prepare a deck, claim
+reading has begun, or mark vocabulary known.
 
 The Primary Goal region leads with:
 
@@ -132,10 +138,10 @@ The Primary Goal region leads with:
 5. concise current evidence and clearly conditional projections;
 6. one next useful decision, with supporting actions demoted.
 
-A Goal can be meaningful before evidence exists. In that case, the interface
-preserves the commitment and explains whether Mouseion can assess the work,
-what prerequisite is missing, and which action is available. Lack of evidence
-must not make a desired Goal look invalid.
+An unassessed or unavailable Journey member remains visible in its learner-chosen
+position, but it cannot be promoted to Primary Goal. The interface names the
+evidence gap and offers the supported recovery path without treating membership
+as failed.
 
 ## 4. Prepare and read
 
@@ -234,8 +240,9 @@ or a completed plan.
   calm option to stop without a new commitment.
 - **No Journey:** My Books remains fully useful; the Journey empty state explains
   what provisional ordering can do without requiring setup.
-- **Desired but unassessable Goal:** keep desire and Goal identity primary;
-  explain the unsupported source, language, or missing prerequisite.
+- **Desired but unassessable Journey member:** keep the Book in its chosen
+  position, explain the unsupported source or missing evidence, and do not expose
+  Goal promotion until current analysis is complete.
 - **Stale or questionable evidence:** keep the book in place, label the evidence,
   omit unsafe comparisons, and provide an appropriate evidence-recovery path.
 - **Failed recalculation:** preserve the learner's accepted order and action,
@@ -254,7 +261,8 @@ or a completed plan.
 |---|---|---|
 | No Journey books | Calm explanation; My Books remains the source collection. | Add from My Books |
 | Journey, no Primary Goal | Provisional order and evidence; no failure or idle warning. | Choose a Goal or reorder |
-| Primary Goal, no assessment | Book and commitment first; name missing evidence. | Start the relevant evidence workflow when supported |
+| Journey member, no current assessment | Keep the Book in place; name missing/unavailable evidence. | Start analysis or recover acquisition |
+| Primary Goal, current analysis complete | Book and commitment first; show current evidence and independent reading state. | Continue the learner-chosen activity |
 | Primary Goal, reading/preparation active | Independent reading and vocabulary facts; current versus conditional evidence. | Continue the learner-chosen activity |
 | Route comparison available | Your order first; alternative and method secondary. | Keep, adopt, or adjust |
 | Order recalculating | Preserve the accepted order; identify updating evidence. | None |

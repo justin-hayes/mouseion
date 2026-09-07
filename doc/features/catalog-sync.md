@@ -1,14 +1,16 @@
 # Catalogue Sync
 
-Status: Proposed · Date: 2026-09-02
+Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-07
 
 ## Motivation
 
 A learner may already curate a large collection in Calibre and expose it through
 Calibre-Web OPDS. Adding those books one at a time makes My Books incomplete and
 turns catalogue maintenance into repetitive work. Mouseion should recognize the
-studyable part of that collection while preserving deliberate content
-acquisition and the explicit scope-and-analysis lifecycle.
+studyable part of that collection while keeping sync metadata-only. Acquisition
+and analysis happen only through explicit **Start analysis** or learner intent
+expressed by Reading Journey membership, as defined by [ADR
+0049](../adr/0049-reading-intent-triggers-analysis.md).
 
 ## Goal
 
@@ -82,8 +84,10 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 ### Lazy content acquisition and per-book refresh
 
 - Sync never downloads or re-downloads EPUB content.
-- When the learner opens a metadata-only Book, Book detail offers explicit
-  acquisition via `POST /opds/acquire`.
+- When the learner opens a metadata-only Book, Book detail offers **Start
+  analysis**. That explicit action acquires, validates, and analyzes the EPUB in
+  one flow; **Add to Reading Journey** is the other learner-facing path and
+  performs the same work as an ensure-once consequence of reading intent.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
 - Each catalogue-backed Book offers a metadata refresh for that entry. Refresh
@@ -100,15 +104,15 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
 | Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
-| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Open the book and acquire via `POST /opds/acquire` |
-| Lazy acquisition running or failed | Preserve book context and distinguish content work from analysis. | View status or retry |
+| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Start analysis or add to Reading Journey |
+| Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
+| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Start analysis |
 | Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to book |
 
 ## Non-goals
 
 - Downloading all content during sync or re-downloading content on resync.
-- Detecting changed EPUB bytes or invalidating reviewed scope or analysis from
-  sync.
+- Detecting changed EPUB bytes or invalidating current analysis from sync.
 - Destructively reconciling upstream removals.
 - Synchronizing English, languages whose NLP pipeline is not ready, or languages
   the connected catalogue does not expose.

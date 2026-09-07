@@ -37,9 +37,9 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, book, scope review, Campaign history, Jobs, Vocabulary |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, book detail, scope review |
-| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the scope-review contract      | Book and scope review                                      |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Book detail, Campaign history, Jobs, Vocabulary |
+| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Book detail, Reading Journey |
+| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Book/Job workflow      | Book and analysis status                                      |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Vocabulary       |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
@@ -197,8 +197,9 @@ warnings, progress, or multiple resource actions in the header.
 Use a concise state description to make the learner-facing lifecycle action
 explicit. The action itself remains a native link or form button owned by the
 screen; the summary must not introduce a second competing route. My Books and
-book detail use the same state projection, while scope review names **Confirm
-this scope** and explains that confirmation does not start analysis.
+Book detail use the same state projection. Metadata-only and stale states name
+**Start analysis**; Reading Journey names the intent-triggered ensure-once
+analysis consequence.
 
 On Journey surfaces, `NextAction` must not turn the first provisional book or a
 vocabulary-efficient alternative into a recommendation. Use plain relationship

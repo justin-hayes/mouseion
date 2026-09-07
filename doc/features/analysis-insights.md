@@ -179,22 +179,21 @@ persisted corpus statistics and current owner-scoped vocabulary state. This
 keeps the learner-specific values current after known-vocabulary or generated-
 deck changes without persisting derived mastery claims.
 
-## EPUB scope and reanalysis
+## EPUB analysis and reanalysis
 
-The current analysis derives from an immutable reviewed EPUB scope. Its
-coverage, thresholds, and top unknowns use only the resulting corpus; the
-one-line coverage qualifier states that the headline applies to the analyzed
-units without exposing a separate scope-detail section.
+The current analysis processes the entire acquired EPUB. Its coverage,
+thresholds, and top unknowns use the resulting corpus; the one-line coverage
+qualifier states that the headline applies to the analyzed book without
+exposing a separate scope-detail section.
 
 Deck preparation starts on the book page but remains bound internally to the
 exact immutable completed analysis that owns the corpus. It is not available
 for queued, running, failed, cancelled, or legacy-only analysis state.
 
-Reanalysis may reuse a confirmed reviewed scope deterministically. Reviewing a
-different selection creates a new immutable scope; explicitly submitting it
-creates a new run and corpus. When the run completes, it replaces the book's
+Reanalysis explicitly submits a new whole-book run for the current source
+revision. When the run completes, it replaces the book's
 single current learner-facing analysis. Earlier immutable analyses and corpora
 remain owner- and source-material-scoped operational audit records available
-through `/jobs`, not learner-facing result history. Corpora without a reviewed
-scope remain identifiable as legacy/full-text operational records and require
-a scoped rerun before they can become the current analysis.
+through `/jobs`, not learner-facing result history. Internal source and
+extracted-unit provenance remains available for audit and compatibility without
+exposing a learner-facing scope-confirmation step.

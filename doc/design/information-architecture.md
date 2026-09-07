@@ -1,10 +1,11 @@
 # Information architecture
 
-Status: **Canonical learner-facing architecture.** This document includes the
-target one-current-analysis contract proposed in
-[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
-unshipped until its implementation issues land. ADRs continue to own
-persistence and historical decision details.
+Status: **Canonical shipped learner-facing architecture.** This document follows
+the one-current-analysis contract in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
+reading-intent analysis trigger in
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). ADRs continue to
+own persistence and historical decision details.
 
 Mouseion is organized around literature the learner cares about, one current
 reading commitment, and the changed possibilities that follow from justified
@@ -36,12 +37,13 @@ My Books
     -> Where next?
 ```
 
-This rhythm does not imply a required pipeline for every book. Catalogue
-acquisition, scope confirmation, analysis, deck preparation, Primary Goal
-choice, reading completion, and vocabulary graduation remain separate
-transitions. The learner-initiated **Add to Reading Journey** action is the
-exception: it adds membership and intentionally acquires the current EPUB and
-submits whole-book analysis as one backlog action.
+This rhythm does not imply a required pipeline for every Book. Catalogue sync,
+analysis, deck preparation, Primary Goal choice, reading completion, and
+vocabulary graduation remain separate transitions. The learner-initiated **Add
+to Reading Journey** action is the analysis exception: it adds membership and
+intentionally acquires the current EPUB and ensures whole-book analysis as one
+backlog action. **Start analysis** remains the explicit Book-detail refresh
+path.
 
 ## Principal learner-facing model
 
@@ -177,7 +179,8 @@ The authenticated shell exposes three principal destinations:
 The top navigation has no acquisition action. Catalogue setup and sync
 maintenance are supporting `/connections` routes reached from My Books empty
 states and actions; My Books is the sole browse surface and Book detail owns
-per-book EPUB acquisition. The upstream catalog browser is retired.
+explicit analysis, acquiring the EPUB when needed. The upstream catalog browser
+is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
 preparation, catalog connections, and campaign history are supporting surfaces.
@@ -199,7 +202,7 @@ Authentication
 
 My Books
     book detail
-        scope review
+        Start analysis and acquisition when needed
         analysis status
         current analysis insights and deck-preparation action
         exact-analysis compatibility redirect
@@ -215,7 +218,7 @@ Reading Journey
 Catalogue maintenance
     connection setup and sync status
 Book detail
-    per-book EPUB acquisition
+    analysis/acquisition action
 
 Vocabulary
     known vocabulary and import
@@ -247,14 +250,12 @@ surface:
 
 ```text
 /books/{id}
-/books/{id}/scope
-/books/{id}/analyze
+/books/{id}/analyze (Start analysis and explicit re-analysis)
 /books/{id}/analyses/{analysis-run-id}
 /jobs/{id}
 /deck-preparations/{id}/status
 /deck-preparations/{id}/download
 /connections
-/opds/acquire (per-book content acquisition)
 /settings (compatibility redirect to `/library`)
 /vocabulary and known-vocabulary import support routes
 ```
@@ -393,25 +394,26 @@ ADR 0036.
 
 ## Architecture decisions and target reconciliation
 
-The following decisions record shipped architecture and the proposed
-one-current-analysis target. Accepted ADRs remain authoritative for persistence,
-historical records, and compatibility details until ADR 0040 is accepted and
-implemented.
+The following decisions record shipped architecture. Accepted ADRs remain
+authoritative for persistence, historical records, and compatibility details.
 
 Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
-immutable acquired source evidence. The shipped acquisition path creates or
-restores membership only after the validated source snapshot is persisted.
+immutable acquired source evidence. Catalogue sync creates metadata-only
+membership; Start analysis and Reading Journey intent acquire validated
+source evidence when needed.
 
 1. **Reading Journey identity and ordering** are resolved by [ADR 0034: One
    implicit Reading Journey with learner-canonical ordering and campaign-queue
    migration](../adr/0034-reading-journey-identity-ordering.md). The shipped
    Journey is the single learner-facing order, and `/campaigns` redirects to it.
-2. **Primary Goal identity** is resolved by [ADR 0036: Deck-independent Primary
-   Goal and single justified vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md):
-   one deck-independent Primary Goal per learner is meaningful before analysis or
-   deck preparation, and Campaign remains secondary reservation state.
+2. **Primary Goal identity and eligibility** use [ADR 0036: Deck-independent
+   Primary Goal and single justified vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md)
+   for Goal and graduation semantics, tightened by [ADR 0049: Reading intent
+   triggers analysis](../adr/0049-reading-intent-triggers-analysis.md): one
+   Primary Goal is promoted only from a Journey member with successfully
+   completed current analysis, and it clears when that member leaves the Journey.
 3. **Completion and vocabulary graduation** use the independent reading-finished
    fact and the single justified transition defined by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md).
    The finish outcome states current versus conditional evidence honestly.
@@ -430,11 +432,10 @@ restores membership only after the validated source snapshot is persisted.
    destinations, with no acquisition action in the top navigation; `/known-vocab`
    and `/campaigns` remain compatibility
    routes with their documented redirects.
-8. **One current analysis per book** is the target contract proposed by
-   [ADR 0040](../adr/0040-one-current-analysis-per-book.md): book detail becomes
-   the sole learner-facing insight surface, prior runs remain operational audit
-   records, and run-specific result URLs redirect to the book.
-9. **Catalogue sync** is the target contract proposed by
+8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
+   Book detail becomes the sole learner-facing insight surface, prior runs remain
+   operational audit records, and run-specific result URLs redirect to the Book.
+9. **Catalogue sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
    each learner-owned connection periodically reconciles metadata for every

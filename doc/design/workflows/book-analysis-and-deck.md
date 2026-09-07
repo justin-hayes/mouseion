@@ -1,18 +1,16 @@
 # Book analysis and deck workflow
 
-Status: **Canonical supporting workflow.** It includes the target
-one-current-analysis transition proposed in
-[ADR 0040](../../adr/0040-one-current-analysis-per-book.md), which remains
-unshipped until its implementation issues land. Analysis and deck preparation
-serve a book and, when present, its Primary Goal. Campaign remains a secondary
+Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
+serve a Book and, when present, its Primary Goal. Campaign remains a secondary
 history/operations concept under ADRs 0027, 0034, and 0036; it is not a second
-learner-facing plan.
+learner-facing plan. Reading Journey membership automatically ensures current
+analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md).
 
 ## Goal
 
-Help a learner move an owned EPUB from acquisition to a trustworthy, scoped
-analysis and an optional prepared Anki deck without collapsing distinct
-decisions into an automatic pipeline.
+Help a learner move a Book from catalogue discovery to trustworthy current
+analysis and an optional prepared Anki deck while keeping reading intent,
+analysis refresh, insights, and deck preparation distinct.
 
 The product behavior is defined primarily by:
 
@@ -22,17 +20,21 @@ The product behavior is defined primarily by:
 - [ADR 0028: Explicit scoped-analysis lifecycle](../../adr/0028-explicit-scoped-analysis-lifecycle.md)
 - [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)
 - [ADR 0040: One current analysis per book](../../adr/0040-one-current-analysis-per-book.md)
+- [ADR 0049: Reading intent triggers analysis](../../adr/0049-reading-intent-triggers-analysis.md)
 
 ## Starting state and outcome
 
-The primary path starts with an EPUB available in a learner-owned OPDS catalog.
+The primary path starts with a metadata-only or acquired Book in My Books.
 It ends with either:
 
 - an immutable completed analysis whose insights the learner can inspect; or
 - an immutable ready APKG that may be downloaded and used in support of the
-  book or its Primary Goal.
+  Book or its Primary Goal.
 
-Neither outcome adds the book to Reading Journey, selects a Primary Goal, marks
+**Start analysis** is always an explicit Book-detail action. Adding a Book to
+Reading Journey is the learner-initiated automatic path: it retains membership,
+acquires the current EPUB when needed, and ensures one whole-book analysis for
+the current content revision. Analysis never selects a Primary Goal, marks
 reading complete, or marks vocabulary known. Campaign operations remain
 secondary, and vocabulary graduation follows the single justified transition
 defined by ADR 0036.
@@ -42,83 +44,66 @@ defined by ADR 0036.
 ```text
 Catalogue sync
     -> My Books
-    -> Acquire EPUB content from Book detail
     -> Book detail
-    -> Start analysis (entire book)
-    -> Start analysis
+    -> Start analysis, or Add to Reading Journey
+    -> Acquire current EPUB and ensure whole-book analysis
     -> Analysis status
-    -> Book detail with current analysis insights
+    -> Book detail or Journey with current evidence
     -> Prepare deck from book detail
-    -> Deck-preparation status
-    -> Download deck or return to the book / Primary Goal
+    -> Download deck or return to the Book / Primary Goal
 ```
 
-Adding a book to Reading Journey from My Books or Book detail is a separate
-learner-initiated backlog path. It retains Journey membership first, acquires
-the current EPUB when needed, and submits whole-book analysis. Re-adding a
-member is idempotent; reordering never performs either side effect.
+Adding a Book to Reading Journey from My Books or Book detail is the
+learner-initiated reading-intent path. It retains Journey membership first,
+acquires the current EPUB when needed, and submits whole-book analysis.
+Re-adding a member reuses current completed or in-flight work; reordering never
+performs either side effect.
 
-### 1. Add to My Books
+### 1. Discover a Book in My Books
 
-**Learner decision:** Which book do I want Mouseion to know about?
+**Learner decision:** Which Book do I want to inspect or consider reading?
 
-The canonical acquisition control says **Add to My Books**. It validates and
-stores the EPUB source and extracted-unit snapshot, then updates the catalog
-entry in place. It does not start analysis, confirm a scope, add the book to
-Reading Journey, choose a Primary Goal, prepare a deck, or mark vocabulary
-known.
-
-Historical compatibility artifacts may say **Add to library**, but the shipped
-acquisition control says **Add to My Books**.
+Catalogue sync creates or updates the metadata-only My Books entry. It does not
+download content, start analysis, add the Book to Reading Journey, choose a
+Primary Goal, prepare a deck, or mark vocabulary known.
 
 The interface must answer:
 
-- Was this EPUB added successfully?
-- Was it already in My Books?
-- Can I continue adding books without losing feed context?
-- If acquisition failed, what can I do next?
+- Is this Book metadata-only or acquired?
+- Is current analysis available, queued, running, stale, failed, or absent?
+- Should I explicitly start analysis or add the Book to Reading Journey?
 
-### 2. Start analysis of the entire book
+### 2. Start analysis from Book detail
 
-**Learner decision:** Which parts of this EPUB represent the text I intend to
-read and analyze?
+**Learner decision:** Am I ready to analyze this Book's current EPUB?
 
-The scope page is a calm native checklist. A reliable top-level EPUB 3 TOC is
-shown as one initially checked checkbox per top-level entry; each entry covers
-its nested targets and expands to persisted readable unit IDs in spine order.
-When the TOC cannot be projected into a complete, non-overlapping partition,
-the page shows one initially checked checkbox per readable persisted unit in
-flat spine order. The learner may check or uncheck choices and confirm an
-immutable revision. Confirmation does not start analysis.
+The Book-detail **Start analysis** action acquires and validates the current EPUB
+when needed, then submits whole-book analysis. A completed or in-flight analysis
+for the same current content revision is reused. After the EPUB changes, this
+explicit action is the refresh lever; there is no background watcher.
 
 The interface must answer:
 
-- What is currently selected, and how large is it?
-- Is the page showing a reliable top-level TOC or the flat readable-unit
-  fallback?
-- Which persisted units will each checked choice include?
-- What will confirmation do, and what will it not do?
+- Which Book and content revision will be analyzed?
+- Is analysis queued, running, complete, failed, cancelled, stale, or unavailable?
+- What will this explicit action do, and what will it not do?
 
-My Books and book detail repeat the same learner-facing next action for this
-state. The scope review itself makes **Confirm this scope** the next action and
-states that confirmation returns the learner to the book page; it does not
-start analysis.
+My Books and Book detail identify the same current analysis state. Reading
+Journey adds the separate intent path: adding a Book automatically ensures the
+same analysis without requiring a separate Start analysis action.
 
-For long books, the ordered checklist and selected-scope summary should remain
-calm and scannable without turning the page into an evidence dashboard.
+### 3. Monitor analysis
 
-### 3. Start and monitor analysis
-
-**Learner decision:** Am I ready to spend analysis resources on this exact
-confirmed scope?
+**Learner decision:** What is the state of the analysis I explicitly started or
+that Reading Journey membership ensured?
 
 Submission creates or resolves an idempotent analysis run. The status experience
-keeps the book title and confirmed scope in context while showing queued,
+keeps the Book title and current content revision in context while showing queued,
 running, completed, failed, cancelled, and retrying state.
 
 The interface must answer:
 
-- Which book and scope are being analyzed?
+- Which Book and content revision are being analyzed?
 - Is work queued, running, blocked, failed, cancelled, or complete?
 - Is any action required?
 - What will retry or cancellation do?
@@ -182,15 +167,15 @@ The interface must answer:
 ## Alternate and edge paths
 
 - Repeated OPDS acquisition resolves to the existing owned book.
-- Failed acquisition never presents an invalid source as ready for scope review.
-- Empty, stale, foreign, or contradictory scope submissions are rejected while
-  preserving the learner's review context where possible.
+- Failed acquisition never presents an invalid source as ready for analysis.
+- Empty or unavailable acquisition states preserve Book/Journey context and offer
+  recovery without treating membership as failed.
 - A completed preparation with no recurring vocabulary shows an explicit empty
   state explaining that there are no cards to study; it does not offer an empty
   artifact download or a learning-campaign action. A zero-card preparation with
   quality omissions remains a completeness result and keeps its artifact action.
-- Metadata-only edits preserve scope identity; changed EPUB bytes require a new
-  source snapshot and scope review.
+- Metadata-only edits preserve current evidence; changed EPUB bytes create a
+  stale current-analysis state until the learner explicitly starts analysis.
 - Duplicate analysis or preparation submission resolves idempotently rather than
   enqueuing competing work.
 - Failed or cancelled analysis/preparation is retryable only when the server can
@@ -204,7 +189,7 @@ The interface must answer:
 
 - keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
   failure recovery;
-- completed scoped jobs expose **View analysis result**, opening `/books/{id}`
+- completed analysis jobs expose **View analysis result**, opening `/books/{id}`
   directly or through the run-specific compatibility redirect;
 - deck preparation is submitted from the book page after its warning-only note
   and retained insights;
@@ -214,7 +199,7 @@ The interface must answer:
   while prior immutable analyses remain operational audit records.
 
 The direct `POST /jobs/{id}/deck/preparations` action is retained only for
-legacy compatibility and is not a canonical path for new scoped analyses.
+legacy compatibility and is not a canonical path for new analyses.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
 book page and preparation status retain a coherent server-rendered baseline;
@@ -231,7 +216,7 @@ status JSON is not itself a learner-facing page.
   appropriate, and preserve the learner's selections.
 - Do not rely on color alone for checklist state, status, or error.
 - At narrow widths, preserve the reading order: identity and state, explanation,
-  primary action, then supporting provenance. Tables and scope evidence must not
+  primary action, then supporting provenance. Tables and analysis evidence must not
   force page-level horizontal scrolling.
 - Long-running analysis and Batch preparation must remain understandable when a
   learner leaves and returns later.
