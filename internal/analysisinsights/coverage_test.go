@@ -226,9 +226,19 @@ func TestCoverageThresholdUsesWholeBookDenominatorRatherThanDeckPool(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	threshold97 := got.Thresholds[1]
-	if !threshold97.Reachable || threshold97.LemmaCount != 2 || threshold97.OccurrenceCount != 8 {
-		t.Fatalf("97%% whole-book threshold = %+v, want two lemmas and 8 occurrences", threshold97)
+	wantThresholds := []struct {
+		lemmaCount      int64
+		occurrenceCount int64
+	}{
+		{lemmaCount: 1, occurrenceCount: 5},
+		{lemmaCount: 2, occurrenceCount: 8},
+		{lemmaCount: 3, occurrenceCount: 10},
+	}
+	for i, want := range wantThresholds {
+		threshold := got.Thresholds[i]
+		if !threshold.Reachable || threshold.LemmaCount != want.lemmaCount || threshold.OccurrenceCount != want.occurrenceCount {
+			t.Fatalf("%d%% whole-book threshold = %+v, want %d lemmas and %d occurrences", threshold.TargetPercent, threshold, want.lemmaCount, want.occurrenceCount)
+		}
 	}
 }
 

@@ -84,6 +84,24 @@ func TestJourneyPageRendersEmptyGoalAndProvisionalStates(t *testing.T) {
 	}
 }
 
+func TestJourneyPageRendersEmptyPreparedDeckWithoutDownload(t *testing.T) {
+	prepared := []preparedCampaignOption{{
+		Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "empty-book", Title: "Empty Book"}},
+		Deck: domain.DeckPreparation{ID: "empty-deck", State: domain.DeckPreparationReady},
+	}}
+	html := renderJourney(t, journeyPageView{Prepared: prepared}, "", "", "")
+	for _, expected := range []string{"No recurring vocabulary", "no cards were created"} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("empty prepared deck missing %q: %s", expected, html)
+		}
+	}
+	for _, forbidden := range []string{`status-badge status-badge--success">Deck ready`, "0 cards", "Download deck"} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("empty prepared deck contains %q: %s", forbidden, html)
+		}
+	}
+}
+
 func TestJourneyPageAnchorsGoalAndPreservesProvisionalOrder(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "ready")
 	provisional := []journeyBookView{

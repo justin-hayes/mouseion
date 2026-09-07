@@ -460,7 +460,17 @@ func deckPreparationStatusLabel(state domain.DeckPreparationState) string {
 }
 
 func deckPreparationTitle(preparation domain.DeckPreparation) string {
+	if deckPreparationEmpty(preparation) {
+		return "No recurring vocabulary"
+	}
 	return deckPreparationStatusLabel(preparation.State)
+}
+
+func deckPreparationStatusTone(preparation domain.DeckPreparation) StatusTone {
+	if deckPreparationEmpty(preparation) {
+		return StatusNeutral
+	}
+	return statusTone(string(preparation.State))
 }
 
 func deckPreparationSummary(preparation domain.DeckPreparation) string {
@@ -469,6 +479,9 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 	}
 	if preparation.State == domain.DeckPreparationCancelled {
 		return "Preparation was cancelled before the deck was ready. You can retry this exact analysis when you want to continue."
+	}
+	if deckPreparationEmpty(preparation) {
+		return "This book has no recurring vocabulary to study, so there is no deck to download."
 	}
 	if preparation.State == domain.DeckPreparationReady {
 		return "The immutable Anki artifact is ready to download."
@@ -490,6 +503,10 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 		return summary
 	}
 	return "Preparing the immutable Anki artifact. You can leave this page and return later."
+}
+
+func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
+	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0
 }
 
 func analysisResultURL(result analysis.CompletedAnalysis) string {
@@ -608,10 +625,10 @@ func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {
 	items := make([]StatItem, 0, len(thresholds))
 	for _, threshold := range thresholds {
 		if threshold.Reachable {
-			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%%", threshold.TargetPercent), Value: fmt.Sprintf("%d", threshold.LemmaCount)})
+			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%% of analyzed text", threshold.TargetPercent), Value: fmt.Sprintf("%d", threshold.LemmaCount)})
 			continue
 		}
-		items = append(items, StatItem{Label: fmt.Sprintf("%d%% cannot be reached with deck-eligible vocabulary", threshold.TargetPercent), Value: "Unavailable"})
+		items = append(items, StatItem{Label: fmt.Sprintf("%d%% of analyzed text cannot be reached with deck-eligible vocabulary", threshold.TargetPercent), Value: "Unavailable"})
 	}
 	return items
 }

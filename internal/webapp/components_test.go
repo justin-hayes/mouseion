@@ -162,6 +162,30 @@ func TestDataDisplayPatterns(t *testing.T) {
 	)
 }
 
+func TestCoveragePercentagesUseWholeAnalyzableDenominator(t *testing.T) {
+	coverage := domain.AnalysisCoverage{
+		AnalyzableTokenCount:     100,
+		KnownTokenCount:          80,
+		ActiveCampaignTokenCount: 5,
+	}
+	stats := coverageStatItems(coverage)
+	if stats[0].Value != "80.0%" || stats[1].Value != "85.0%" {
+		t.Fatalf("coverage stats = %+v, want 80%% and 85%% of all analyzable tokens", stats)
+	}
+
+	projection := projectionStatItems([]domain.CoverageProjection{{
+		TopLemmaCount: 3, EligibleTokenCount: 10, ProjectedTokenCount: 90,
+	}}, coverage.AnalyzableTokenCount)
+	if len(projection) != 1 || projection[0].Value != "90.0%" {
+		t.Fatalf("projected coverage = %+v, want 90%% of all analyzable tokens", projection)
+	}
+
+	thresholds := thresholdStatItems([]domain.CoverageThreshold{{TargetPercent: 97, LemmaCount: 2, Reachable: true}})
+	if len(thresholds) != 1 || thresholds[0].Label != "lemmas for 97% of analyzed text" {
+		t.Fatalf("threshold label = %+v, want whole-text basis", thresholds)
+	}
+}
+
 func TestAsyncStatusPattern(t *testing.T) {
 	html := renderPattern(t, AsyncStatus(nil, "analysis-progress", "Analysis running", "42% complete", 42, 100, true), `<button>Cancel analysis</button>`)
 	requireMarkup(t, html,
