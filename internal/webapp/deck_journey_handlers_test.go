@@ -9,7 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -196,5 +200,122 @@ func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
 	}
 	if action.State != deckJourneyUnknown || store.adds != 0 {
 		t.Fatalf("unresolvable add action=%+v add calls=%d", action, store.adds)
+	}
+}
+
+type journeyIntentStore struct {
+	*deckJourneyActionStore
+	detail domain.MyBook
+}
+
+func (s *journeyIntentStore) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
+	return s.detail, nil
+}
+
+type journeyIntentCatalogue struct {
+	target cataloguesync.AcquisitionTarget
+	err    error
+}
+
+func (journeyIntentCatalogue) RegisterConnection(context.Context, string, string) error { return nil }
+func (journeyIntentCatalogue) UnregisterConnection(string, string) error                { return nil }
+func (c journeyIntentCatalogue) FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+	return c.target, c.err
+}
+
+type journeyIntentOPDS struct {
+	acquire func()
+}
+
+func (o journeyIntentOPDS) AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+	if o.acquire != nil {
+		o.acquire()
+	}
+	return epub.ImportResult{}, nil
+}
+
+type journeyIntentAnalysis struct{ calls int }
+
+func (a *journeyIntentAnalysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
+	a.calls++
+	return analysis.Handle{ID: int64(a.calls), DisplayNumber: int64(a.calls)}, nil
+}
+func (journeyIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
+	return analysis.Status{}, nil
+}
+
+func TestAddingJourneyMemberEnsuresAcquisitionAndAnalysisOnce(t *testing.T) {
+	store := &journeyIntentStore{
+		deckJourneyActionStore: &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 2}},
+		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", OwnerID: "owner-1", Title: "Book one"}},
+	}
+	analysisService := &journeyIntentAnalysis{}
+	store.detail.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: opds.EPUBMediaType}}
+	h := &Handler{services: Services{
+		Store:         store,
+		Analysis:      analysisService,
+		CatalogueSync: journeyIntentCatalogue{},
+	}}
+
+	first, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.State != deckJourneyMember || analysisService.calls != 1 {
+		t.Fatalf("first add=%+v analysis calls=%d", first, analysisService.calls)
+	}
+
+	second, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.State != deckJourneyMember || analysisService.calls != 1 || !strings.Contains(second.Message, "already in your Reading Journey") {
+		t.Fatalf("re-add=%+v analysis calls=%d", second, analysisService.calls)
+	}
+}
+
+func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailable(t *testing.T) {
+	store := &journeyIntentStore{
+		deckJourneyActionStore: &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 1}},
+		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", OwnerID: "owner-1", Title: "Unavailable book"}},
+	}
+	h := &Handler{services: Services{
+		Store:         store,
+		Analysis:      &journeyIntentAnalysis{},
+		CatalogueSync: journeyIntentCatalogue{err: cataloguesync.ErrNotFound},
+	}}
+
+	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyMember || !strings.Contains(action.Error, "Journey entry is retained") || len(store.journey.Entries) != 1 {
+		t.Fatalf("unavailable acquisition action=%+v journey=%+v", action, store.journey)
+	}
+}
+
+func TestAddingMetadataOnlyBookAcquiresAndSubmitsAnalysis(t *testing.T) {
+	store := &journeyIntentStore{
+		deckJourneyActionStore: &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 1}},
+		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", OwnerID: "owner-1", Title: "Metadata book"}},
+	}
+	analysisService := &journeyIntentAnalysis{}
+	acquired := false
+	h := &Handler{services: Services{
+		Store:         store,
+		Analysis:      analysisService,
+		CatalogueSync: journeyIntentCatalogue{target: cataloguesync.AcquisitionTarget{ConnectionID: "catalogue-1", Language: "de"}},
+		OPDS: journeyIntentOPDS{acquire: func() {
+			acquired = true
+			store.detail.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: opds.EPUBMediaType}}
+		}},
+	}}
+
+	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.State != deckJourneyMember || !acquired || analysisService.calls != 1 || !strings.Contains(action.Message, "Analysis job #1") {
+		t.Fatalf("metadata add action=%+v acquired=%t analysis calls=%d", action, acquired, analysisService.calls)
 	}
 }

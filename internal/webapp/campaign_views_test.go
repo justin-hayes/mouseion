@@ -132,13 +132,36 @@ func TestJourneyPageAnchorsGoalAndPreservesProvisionalOrder(t *testing.T) {
 
 func TestJourneyPageRendersEvidenceStates(t *testing.T) {
 	current := testJourneyBook("current", "Current book", "analyzed")
+	current.Book.Source.MediaType = "application/epub+zip"
+	current.Book.Source.ContentRevisionID = "revision-current"
+	current.Book.AnalysisState = "completed"
+	current.Book.AnalysisRunID = "run-current"
+	current.Book.CorpusID = "corpus-current"
 	coverage := domain.AnalysisCoverage{AnalyzableTokenCount: 100, KnownTokenCount: 60, Projections: []domain.CoverageProjection{{TopLemmaCount: 3, ProjectedTokenCount: 80}}}
 	current.Coverage = &coverage
 	stale := testJourneyBook("stale", "Stale book", "stale")
 	unavailable := testJourneyBook("unavailable", "Unavailable book", "ready")
 	unavailable.StatisticsUnavailable = true
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unavailable}}, "", "", "")
-	for _, expected := range []string{"Current evidence", "Current coverage:", "Projected coverage:", "Stale evidence", "Coverage unavailable", "60.0%"} {
+	unavailableEPUB := testJourneyBook("unavailable-epub", "Unavailable EPUB book", "ready")
+	unavailableEPUB.Book.Source.MediaType = "application/epub+zip"
+	queued := testJourneyBook("queued", "Queued book", "queued")
+	queued.Book.Source.MediaType = "application/epub+zip"
+	queued.Book.Source.ContentRevisionID = "revision-queued"
+	queued.Book.AnalysisState = "queued"
+	running := testJourneyBook("running", "Running book", "running")
+	running.Book.Source.MediaType = "application/epub+zip"
+	running.Book.Source.ContentRevisionID = "revision-running"
+	running.Book.AnalysisState = "running"
+	failed := testJourneyBook("failed", "Failed book", "failed")
+	failed.Book.Source.MediaType = "application/epub+zip"
+	failed.Book.Source.ContentRevisionID = "revision-failed"
+	failed.Book.AnalysisState = "failed"
+	cancelled := testJourneyBook("cancelled", "Cancelled book", "cancelled")
+	cancelled.Book.Source.MediaType = "application/epub+zip"
+	cancelled.Book.Source.ContentRevisionID = "revision-cancelled"
+	cancelled.Book.AnalysisState = "cancelled"
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unavailable, unavailableEPUB, queued, running, failed, cancelled}}, "", "", "")
+	for _, expected := range []string{"Current evidence", "Analysis result ready", "Current coverage:", "Projected coverage:", "Stale evidence", "Coverage unavailable", "60.0%", "Assessment unavailable", "Analysis queued", "Analysis running", "Analysis failed", "Analysis cancelled"} {
 		if !strings.Contains(html, expected) {
 			t.Errorf("evidence state missing %q: %s", expected, html)
 		}

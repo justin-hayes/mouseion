@@ -70,6 +70,10 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
+	if err = h.annotateMyBooksWithJourney(r.Context(), u.ID, books); err != nil {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		return
+	}
 	connections, err := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
 	if err != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))

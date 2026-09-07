@@ -167,6 +167,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
+    const analysisSideEffects: string[] = [];
+    page.on('request', request => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.endsWith('/add') || pathname.endsWith('/analyze')) analysisSideEffects.push(pathname);
+    });
     await page.goto('/journey');
     await expect(page.locator('.journey-book--goal .journey-book__controls')).toHaveCount(0);
     const edge = page.locator('#journey-book-fixture-edge-content');
@@ -185,6 +190,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     await page.setViewportSize({ width: 375, height: 667 });
     await page.reload();
+    expect(analysisSideEffects).toEqual([]);
     for (const id of ['fixture-empty', 'fixture-edge-content']) {
       const book = page.locator(`#journey-book-${id}`);
       await expect(book.locator('.journey-book__controls')).toBeVisible();

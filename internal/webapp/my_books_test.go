@@ -23,7 +23,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Start analysis", `action="/books/metadata-book/analyze"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Start analysis", `action="/books/metadata-book/analyze"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -39,6 +39,66 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 		if strings.Contains(row, forbidden) {
 			t.Errorf("metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
 		}
+	}
+}
+
+func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
+	book := domain.MyBook{
+		Book:            domain.Book{ID: "journey-book", OwnerID: "owner", Title: "Journey book"},
+		JourneyMember:   true,
+		JourneyRevision: 7,
+		EvidenceState:   domain.MyBookNotAcquired,
+	}
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, `action="/journey/books/journey-book/add"`) || strings.Contains(html, "Add to Reading Journey") {
+		t.Fatalf("existing Journey member still exposed add action: %s", html)
+	}
+	if !strings.Contains(html, `href="/journey#journey-book-journey-book"`) {
+		t.Fatalf("existing Journey member omitted Journey link: %s", html)
+	}
+}
+
+func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
+	book := domain.MyBook{
+		Book:        domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Goal book"},
+		JourneyGoal: true,
+	}
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, `action="/journey/books/goal-book/add"`) || strings.Contains(html, "Add to Reading Journey") {
+		t.Fatalf("Primary Goal still exposed add action: %s", html)
+	}
+	if !strings.Contains(html, "Primary Goal") || !strings.Contains(html, `href="/journey#journey-book-goal-book"`) {
+		t.Fatalf("Primary Goal omitted Journey link: %s", html)
+	}
+}
+
+func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
+	book := domain.MyBook{
+		Book:          domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
+		EvidenceState: domain.MyBookAnalyzed,
+		Acquired: &domain.SourceMaterialSummary{
+			Source:         domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip"},
+			AnalysisStatus: "analyzed",
+			AnalysisState:  "completed",
+			AnalysisRunID:  "run-analyzed-book",
+			CorpusID:       "corpus-analyzed-book",
+		},
+	}
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "View analysis result") || strings.Contains(html, `action="/books/analyzed-book/analyze"`) {
+		t.Fatalf("analyzed book exposed an invalid duplicate analysis action: %s", html)
 	}
 }
 

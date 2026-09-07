@@ -227,6 +227,23 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 			if _, err = s.ensureAttemptTx(ctx, tx, args, runID, state == "running"); err != nil {
 				return Handle{}, err
 			}
+		} else if state == "failed" || state == "cancelled" {
+			if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='queued',last_error='',started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, runID); err != nil {
+				return Handle{}, err
+			}
+			args.RunID = runID
+			jobID, retryErr := s.ensureAttemptTx(ctx, tx, args, runID, false)
+			if retryErr != nil {
+				return Handle{}, retryErr
+			}
+			details, _ := json.Marshal(map[string]any{"run_id": runID, "from": state})
+			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
+				return Handle{}, err
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return Handle{}, err
+			}
+			return Handle{ID: id, JobID: jobID, DisplayNumber: display, RunID: runID}, nil
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return Handle{}, err

@@ -36,10 +36,12 @@ My Books
     -> Where next?
 ```
 
-This rhythm does not imply a required pipeline for every book. Acquisition,
-scope confirmation, analysis, deck preparation, Journey membership, Primary
-Goal choice, reading completion, and vocabulary graduation remain separate
-transitions.
+This rhythm does not imply a required pipeline for every book. Catalogue
+acquisition, scope confirmation, analysis, deck preparation, Primary Goal
+choice, reading completion, and vocabulary graduation remain separate
+transitions. The learner-initiated **Add to Reading Journey** action is the
+exception: it adds membership and intentionally acquires the current EPUB and
+submits whole-book analysis as one backlog action.
 
 ## Principal learner-facing model
 

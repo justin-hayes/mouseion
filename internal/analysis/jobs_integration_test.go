@@ -198,6 +198,20 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	if failure.State != rivertype.JobStateDiscarded || failure.Error == "" {
 		t.Fatalf("failure status = %+v", failure)
 	}
+	failureRetry, err := service.SubmitAnalysis(ctx, alice.ID, failing.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failureRetry.ID != failureHandle.ID || failureRetry.JobID == failureHandle.JobID {
+		t.Fatalf("failed analysis retry handles = first=%+v retry=%+v", failureHandle, failureRetry)
+	}
+	failureRetried, err := service.Wait(ctx, alice.ID, failureRetry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failureRetried.State != rivertype.JobStateDiscarded || failureRetried.AttemptCount != 2 {
+		t.Fatalf("failed analysis retry status = %+v", failureRetried)
+	}
 
 	cancelSource, err := putAnalysisSource(ctx, store, alice.ID, "job-cancel", "Cancel", "cancel", "sha256:job-cancel")
 	if err != nil {
@@ -219,6 +233,16 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	}
 	if cancelled.State != rivertype.JobStateCancelled {
 		t.Fatalf("cancelled status = %+v", cancelled)
+	}
+	cancelRetry, err := service.SubmitAnalysis(ctx, alice.ID, cancelSource.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelRetry.ID != cancelHandle.ID || cancelRetry.JobID == cancelHandle.JobID {
+		t.Fatalf("cancelled analysis retry handles = first=%+v retry=%+v", cancelHandle, cancelRetry)
+	}
+	if _, err = service.Cancel(ctx, alice.ID, cancelRetry.ID); err != nil {
+		t.Fatal(err)
 	}
 
 	// Model a legacy job row missing its old identity. Snapshot-run identity is
@@ -246,5 +270,23 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	currentStatus, err := service.Wait(ctx, alice.ID, current.ID)
 	if err != nil || currentStatus.State != rivertype.JobStateCompleted {
 		t.Fatalf("current analysis status = %+v, %v", currentStatus, err)
+	}
+	updated, err := putAnalysisSource(ctx, store, alice.ID, "job-source", "Job updated", "updated text", "sha256:job-success-updated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != source.ID || updated.ContentRevisionID == source.ContentRevisionID {
+		t.Fatalf("updated source revision = %+v, original=%+v", updated, source)
+	}
+	changed, err := service.SubmitAnalysis(ctx, alice.ID, updated.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.ID == handle.ID {
+		t.Fatalf("content revision reused completed analysis handle %d", handle.ID)
+	}
+	changedStatus, err := service.Wait(ctx, alice.ID, changed.ID)
+	if err != nil || changedStatus.State != rivertype.JobStateCompleted {
+		t.Fatalf("changed content analysis status = %+v, %v", changedStatus, err)
 	}
 }

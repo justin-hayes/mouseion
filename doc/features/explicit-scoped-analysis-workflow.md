@@ -97,8 +97,8 @@ The identity and state contracts for these resources are normative in
   run-specific learner result route redirects to the book page.
 - Legacy/full-text analysis does not unlock a new preparation under this
   workflow; the learner reviews a scope and completes a scoped analysis first.
-- Rollout prevents new automatic OPDS analysis before the UI advertises the new
-  explicit action and status model.
+- Rollout prevents new automatic OPDS analysis before the UI advertises the
+  learner-initiated Reading Journey Add action and its status model.
 - In-flight records are classified deterministically as resumable, completed,
   failed/actionable, or historical; rollout never leaves an indefinite waiting
   state.
@@ -108,20 +108,22 @@ Rollout is sequenced as follows:
 1. Deploy the explicit scope-review, analysis-status, retry, reconciliation,
    insights, and preparation-prerequisite paths while existing history remains
    readable.
-2. Verify that per-book OPDS acquisition only stores the source and returns to
-   Book detail; it does not create an analysis job. My Books and Book detail
-   explain that scope confirmation and explicit analysis are separate actions.
-3. Disable automatic acquisition analysis. Existing queued work with a live
-   River job is resumable; queued work without one is re-enqueued, running work
-   without one becomes failed/actionable, completed work remains completed, and
-   legacy records remain historical.
+2. Verify that direct per-book OPDS acquisition only stores the source and
+   returns to Book detail; it does not create an analysis job. The separate,
+   learner-initiated Reading Journey Add action acquires when needed and
+   submits whole-book analysis as its explicit backlog behavior.
+3. Keep direct catalogue acquisition free of analysis side effects. Existing
+   queued work with a live River job is resumable; queued work without one is
+   re-enqueued, running work without one becomes failed/actionable, completed
+   work remains completed, and legacy records remain historical.
 4. Monitor the status and reconciliation paths before enabling new deck
    preparation from the book's current completed scoped analysis only.
 
 ## Acceptance criteria
 
 - A learner adds several books from one OPDS feed without navigation and no
-  analysis jobs are created.
+  analysis jobs are created by catalogue sync; explicitly adding a book to
+  Reading Journey is the learner-initiated exception that submits analysis.
 - Confirming a scope creates immutable history but no analysis job.
 - Explicit analysis is owner-scoped, asynchronous, idempotent, observable, and
   retryable without orphaned waiting records.
@@ -136,7 +138,8 @@ Rollout is sequenced as follows:
 
 ## Non-goals
 
-- Automatic analysis, scope confirmation, or deck preparation.
+- Automatic analysis from catalogue sync, scope confirmation, or deck
+  preparation.
 - In-place EPUB content editing.
 - Cross-book scopes or aggregate decks.
 - Changes to historical classifier data, coverage math, card schema, or

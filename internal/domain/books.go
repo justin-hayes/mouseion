@@ -66,9 +66,12 @@ type BookAlias struct {
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
 type MyBook struct {
-	Book          Book
-	Acquired      *SourceMaterialSummary
-	EvidenceState MyBookEvidenceState
+	Book            Book
+	Acquired        *SourceMaterialSummary
+	EvidenceState   MyBookEvidenceState
+	JourneyMember   bool
+	JourneyGoal     bool
+	JourneyRevision int64
 }
 
 func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {

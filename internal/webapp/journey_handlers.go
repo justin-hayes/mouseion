@@ -10,8 +10,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -53,6 +56,13 @@ func journeyBookID(item journeyBookView) string {
 		return item.BookID
 	}
 	return item.Book.Source.ID
+}
+
+func journeyMembershipBookID(book domain.SourceMaterialSummary) string {
+	if book.BookID != "" {
+		return book.BookID
+	}
+	return book.Source.ID
 }
 
 func journeyMoveURL(bookID string, earlier bool) string {
@@ -131,6 +141,20 @@ func journeyEvidenceDescription(item journeyBookView) string {
 	}
 }
 
+func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
+	bookID := journeyBookID(item)
+	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" {
+		return bookLifecycleAction{
+			Status:      "Assessment unavailable",
+			Description: "No current EPUB content is available for this Journey entry. Open the book or retry acquisition from My Books when the catalogue can provide it.",
+			Label:       "View book",
+			URL:         "/books/" + url.PathEscape(bookID),
+			Tone:        StatusWarning,
+		}
+	}
+	return bookLifecycleActionFor(item.Book, nil)
+}
+
 func journeyCurrentCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
@@ -188,7 +212,7 @@ func deckJourneyActionID(bookID string) string {
 	return "deck-preparation-journey-action-" + bookID
 }
 
-func deckJourneyAddURL(bookID string) string {
+func journeyAddURL(bookID string) string {
 	return "/journey/books/" + url.PathEscape(bookID) + "/add"
 }
 
@@ -262,6 +286,15 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
+	if action.State == deckJourneyNotMember && h.services.Analysis != nil {
+		handle, target, title, acquisitionFailed, analysisErr := h.ensureJourneyAnalysis(ctx, owner, bookID)
+		if analysisErr != nil {
+			refreshed.Error = journeyAnalysisError(ctx, h.services.Store, owner, bookID, title, target, acquisitionFailed, analysisErr)
+		} else {
+			refreshed.Message = fmt.Sprintf("Book added to Reading Journey. Analysis job #%d submitted.", handle.DisplayNumber)
+		}
+		return refreshed, nil
+	}
 	if refreshed.State == deckJourneyMember {
 		if action.State == deckJourneyMember {
 			refreshed.Message = "This book is already in your Reading Journey."
@@ -270,6 +303,96 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		}
 	}
 	return refreshed, nil
+}
+
+func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
+	detail, err := h.services.Store.GetBookDetail(ctx, owner, bookID)
+	if err != nil {
+		return analysis.Handle{}, cataloguesync.AcquisitionTarget{}, "", false, err
+	}
+	target := cataloguesync.AcquisitionTarget{}
+	acquisitionAttempted := false
+	if detail.Acquired == nil {
+		acquisitionAttempted = true
+		target, err = h.acquireBookForAnalysisContext(ctx, owner, bookID)
+		if err != nil {
+			return analysis.Handle{}, target, detail.Book.Title, true, err
+		}
+		detail, err = h.services.Store.GetBookDetail(ctx, owner, bookID)
+		if err != nil {
+			return analysis.Handle{}, target, detail.Book.Title, true, err
+		}
+	}
+	if detail.Acquired == nil {
+		return analysis.Handle{}, target, detail.Book.Title, acquisitionAttempted, errors.New("the current EPUB could not be loaded after acquisition")
+	}
+	handle, err := h.services.Analysis.SubmitAnalysis(ctx, owner, detail.Acquired.Source.ID)
+	return handle, target, detail.Book.Title, false, err
+}
+
+func journeyAnalysisError(ctx context.Context, store Store, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
+	if acquisitionFailed {
+		return "Book added to Reading Journey, but " + analysisAcquisitionError(ctx, store, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
+	}
+	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
+		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey entry is retained; assessment is unavailable."
+	}
+	return "Book added to Reading Journey, but analysis could not start. The Journey entry is retained; retry from the analysis status when ready."
+}
+
+func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	if err != nil {
+		return err
+	}
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	if err != nil {
+		return err
+	}
+	goalBookID := ""
+	if primaryGoalIsActive(goal) {
+		goalBookID = goal.BookID
+	}
+	members := make(map[string]bool, len(journey.Entries))
+	for _, entry := range journey.Entries {
+		members[entry.BookID] = true
+	}
+	for i := range books {
+		books[i].JourneyMember = members[books[i].Book.ID]
+		books[i].JourneyGoal = books[i].Book.ID == goalBookID
+		books[i].JourneyRevision = journey.Revision
+		if books[i].Acquired != nil {
+			books[i].Acquired.JourneyMember = books[i].JourneyMember
+			books[i].Acquired.JourneyGoal = books[i].JourneyGoal
+			books[i].Acquired.JourneyRevision = journey.Revision
+		}
+	}
+	return nil
+}
+
+func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, book *domain.MyBook) error {
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	if err != nil {
+		return err
+	}
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	if err != nil {
+		return err
+	}
+	for _, entry := range journey.Entries {
+		if entry.BookID == book.Book.ID {
+			book.JourneyMember = true
+			break
+		}
+	}
+	book.JourneyGoal = primaryGoalIsActive(goal) && goal.BookID == book.Book.ID
+	book.JourneyRevision = journey.Revision
+	if book.Acquired != nil {
+		book.Acquired.JourneyMember = book.JourneyMember
+		book.Acquired.JourneyGoal = book.JourneyGoal
+		book.Acquired.JourneyRevision = journey.Revision
+	}
+	return nil
 }
 
 func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
@@ -377,6 +500,11 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 			for _, myBook := range myBooks {
 				if myBook.Acquired != nil {
 					bookByID[myBook.Book.ID] = *myBook.Acquired
+				} else {
+					bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
+						Source: domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
+						BookID: myBook.Book.ID,
+					}
 				}
 			}
 		}
