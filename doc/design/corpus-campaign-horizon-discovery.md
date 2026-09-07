@@ -600,9 +600,10 @@ Every placement keeps the exact values visible or one disclosure away:
 
 The whole-scope threshold investment used for horizon placement is **not** the
 Anki deck candidate count. Deck generation applies its own eligible-unknown-pool
-contract and can produce a different number at the same nominal 97% label. Deck
-count appears only inside the chosen Anki preparation mechanism and is labeled
-**Deck vocabulary**, never as horizon distance. A target that is unreachable
+contract with a frequency floor (ADR 0048) and can produce a different number
+from any threshold label. Deck count appears only inside the chosen Anki
+preparation mechanism and is labeled **Deck vocabulary**, never as horizon
+distance. A target that is unreachable
 under the metric contract displays the reason and no invented lemma count.
 
 Whole-scope investment supports an explicit **Preparation required** sort, with

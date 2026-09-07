@@ -1,6 +1,6 @@
 # ADR 0025: Analysis coverage and threshold metric contract
 
-Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036; cross-book route comparison extended by ADR 0037** · Date: 2026-08-24 · Author: Justin + Codex
+Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036; cross-book route comparison extended by ADR 0037; deck-selection clause amended by ADR 0048** · Date: 2026-08-24 · Author: Justin + Codex
 
 Clarifies **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and **ADR 0019** (Explicit generated-vocabulary exclusion policy).
@@ -54,8 +54,9 @@ learner knows those words. Integer comparison is authoritative; rounded display
 percentages do not affect selection. If all eligible identities cannot meet the
 comparison because generated or otherwise excluded occurrences remain unknown,
 the target is explicitly unreachable and no lemma count is presented. Initial
-targets are 95, 97, and 99. The deck-generation path continues to select 97% of
-its eligible unknown pool under ADR 0019; its count can therefore differ from an
+targets are 95, 97, and 99. The deck-generation path no longer selects to a
+coverage target: it selects every eligible unknown identity appearing at least
+`N` times (default three) under ADR 0048; its count can therefore differ from an
 insight threshold with the same numeric label. The cross-book route comparison
 reuses this exact per-book coverage, denominator, and integer semantics as the
 named lexical property it optimizes; it introduces no new denominator or
@@ -69,8 +70,9 @@ composite — see [ADR 0037](0037-cross-book-projection-advisory-ordering.md).
   categories, so generated cards do not inflate mastery.
 - Equal-frequency corpora produce stable results independent of database row
   order.
-- The 97% deck output is unchanged and is not presented as the 97% whole-book
-  insight threshold.
+- The deck output is not presented as a whole-book insight threshold: deck
+  selection applies a frequency floor over the eligible unknown pool
+  (ADR 0048), not a coverage target.
 - Each newly analyzed owner-scoped corpus persists total analyzable occurrences
   and distinct lemma+UPOS identity count. Legacy corpora leave both values
   absent because existing artifacts cannot reproduce the named-entity filter.

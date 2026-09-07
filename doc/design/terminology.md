@@ -105,6 +105,7 @@ Journey by …** Never style a preference change as an error or warning.
 | **Generated vocabulary** | Immutable provenance that a lemma was assigned to a deck. | Known vocabulary |
 | **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
 | **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by the accepted active-campaign contract. | Difficult words |
+| **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
 
 Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
@@ -130,6 +131,8 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.
+Prepared decks select recurring vocabulary and make no coverage claim; coverage
+thresholds remain whole-book planning markers.
 
 The internal feature name **language corpus view** is acceptable in technical
 documents, but the learner-facing surface is never called **Corpus**. `CorpusID`

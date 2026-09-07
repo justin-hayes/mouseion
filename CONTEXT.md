@@ -27,6 +27,13 @@ populated only by explicit lemma import or campaign graduation; card generation
 never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
+**Recurring vocabulary**:
+Unknown lemmas appearing at least N times in an analyzed book; the pool a
+prepared deck selects. N is a selection parameter with a default of three, and
+selection makes no coverage claim. Known vocabulary, generated vocabulary, and
+active-campaign vocabulary are excluded before the pool is formed.
+_Avoid_: frequent words, deck coverage.
+
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`

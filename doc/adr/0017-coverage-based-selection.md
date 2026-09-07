@@ -1,6 +1,6 @@
 # ADR 0017: Replace frequency-based ranking with coverage-based selection
 
-Status: **Accepted** · Date: 2026-08-23 · Author: Justin + Hermes
+Status: **Accepted; deck-selection algorithm amended by ADR 0048** · Date: 2026-08-23 · Author: Justin + Hermes
 
 Amends **ADR 0005** (Vocabulary identity, normalization, and initial ranking defaults).
 
