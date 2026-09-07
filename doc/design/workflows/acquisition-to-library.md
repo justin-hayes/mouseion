@@ -1,10 +1,11 @@
 # Acquisition to My Books workflow
 
-Status: **Canonical shipped learner-facing workflow.** The acquisition control
-says **Add to My Books** and creates or restores owner-scoped My Books membership
-after the validated EPUB snapshot is persisted. My Books can also contain
-metadata-only Books outside this acquisition path. The historical **Add to
-library** label may remain in compatibility artifacts.
+Status: **Canonical shipped learner-facing workflow.** Catalogue sync creates
+metadata-only My Books Books. From Book detail, **Start analysis** acquires and
+analyzes the current EPUB in one explicit action; adding the Book to Reading
+Journey expresses reading intent and performs the same acquisition plus
+ensure-once analysis. The historical **Add to library** label may remain in
+compatibility artifacts.
 
 The [catalogue sync workflow](catalog-sync.md) creates metadata-first My Books
 entries. This document defines the per-book content-acquisition step from Book
@@ -12,8 +13,9 @@ detail; sync never downloads content.
 
 ## Goal
 
-Help a learner acquire and validate one EPUB for a metadata-only My Books Book
-without starting analysis.
+Help a learner move a metadata-only My Books Book to trustworthy current
+evidence, either by explicitly starting analysis or by expressing reading intent
+through Reading Journey membership.
 
 The product behavior is defined primarily by:
 
@@ -21,6 +23,7 @@ The product behavior is defined primarily by:
 - [Language Support](../../features/language-support.md)
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
 - [ADR 0035: My Books membership and source provenance](../../adr/0035-my-books-membership-and-source-provenance.md)
+- [ADR 0049: Reading intent triggers analysis](../../adr/0049-reading-intent-triggers-analysis.md)
 
 ## Entry and destination decision
 
@@ -46,8 +49,9 @@ My Books empty state
     -> Sync catalogue metadata for offered ready languages
     -> Browse My Books locally
     -> Open metadata-only Book
-    -> Acquire EPUB content
-    -> Review scope and analyze explicitly
+    -> Start analysis (explicit) or Add to Reading Journey (reading intent)
+    -> Acquire current EPUB and ensure whole-book analysis
+    -> Inspect Book or Journey evidence
 ```
 
 ### 1. Configure a catalog connection
@@ -70,34 +74,38 @@ The interface must answer:
 Connection deletion is consequential and requires confirmation that states this
 boundary.
 
-### 2. Browse My Books and acquire one Book
+### 2. Browse My Books and choose a Book
 
 **Learner question:** Which books can Mouseion analyze with the currently ready
 NLP service?
 
 My Books owns language pills, local search, and paging. Opening a metadata-only
-Book shows its bibliographic identity and an explicit **Acquire EPUB content**
-form, submitted to `POST /opds/acquire`. The signed target carries the
-owner-scoped connection and a fresh
-catalogue download link; no upstream browser is exposed.
+Book shows its bibliographic identity and the two learner-facing paths: **Start
+analysis** explicitly acquires and analyzes the EPUB, while **Add to Reading
+Journey** expresses reading intent and triggers the same acquisition plus
+ensure-once analysis. No upstream browser is exposed.
 
-### 3. Acquire EPUB content
+### 3. Express reading intent or start analysis
 
-**Learner question:** Was this EPUB safely added, and can I continue browsing?
+**Learner question:** Am I ready to spend analysis resources on this Book, or do
+I want it in my provisional Journey?
 
-The Book detail action downloads and validates
-the EPUB, resolves the owner-scoped Book and duplicate rules from ADR 0035,
-stores immutable source content and extracted-unit identity, creates or restores
-My Books membership, and does not confirm a scope or start analysis. A Book that
-was already in My Books as metadata-only becomes acquired only after the full
-validated snapshot is stored; no partial source state is published.
+**Start analysis** is always explicit. It downloads and validates the EPUB when
+needed, stores immutable source content and extracted-unit identity, then starts
+or reuses whole-book analysis for the current content revision. It does not add
+Journey membership or choose a Primary Goal.
 
-Success returns to the Book detail page to review scope. Repeated
-acquisition resolves by owner-scoped Book aliases and immutable content digest.
-It reports an existing acquired revision without error, or creates a new
-immutable revision when the same source identifier now supplies different
-bytes. Ambiguous identity conflicts are actionable and never silently merge
-Books or replace source evidence.
+**Add to Reading Journey** first records reversible membership, then performs the
+same acquisition and ensure-once analysis. Re-adding a removed Book reuses
+current completed or in-flight work; reordering has no analysis side effect.
+
+When acquisition cannot currently resolve, the Journey membership remains. The
+Book stays in its learner-chosen position with unavailable/incomparable evidence
+and an actionable recovery path; it is not treated as a failed membership.
+
+Changed EPUB content creates a new current revision, but does not trigger a
+background watcher. The learner must use **Start analysis** or express intent
+again to refresh evidence.
 
 ## State model
 
@@ -107,10 +115,10 @@ Books or replace source evidence.
 | Connections available | Show recognizable connection names, sync status, and maintenance separately. | Sync catalogue |
 | No ready catalogue language | Explain that no offered non-English language currently has a ready NLP pipeline. | Retry sync or add a different catalogue |
 | Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
-| Acquiring EPUB | Disable duplicate submission and announce progress. | None |
-| Acquired | Show the acquired Book and make scope review available. | Review scope |
-| Already acquired | Link to the existing Book without treating idempotency as failure. | Open book |
-| Invalid/non-EPUB acquisition | Explain that no usable content was added. | Return to Book |
+| Acquiring or analyzing | Disable duplicate submission and announce durable acquisition/analysis progress. | View status |
+| Analysis complete | Show current evidence and the optional deck action. | Inspect analysis or prepare deck |
+| Stale current content | Explain that existing evidence is for an older revision. | Start analysis |
+| Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable/incomparable. | Retry or check catalogue connection |
 
 ## Navigation and responsive rules
 

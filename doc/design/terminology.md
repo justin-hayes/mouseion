@@ -1,11 +1,12 @@
 # Terminology
 
-Status: **Canonical learner-facing design language.** Analysis terms include
-the target contract proposed in
-[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
-unshipped until its implementation issues land. Terms that remain historical or
-internal are identified explicitly; they must not become active learner-facing
-navigation or plan labels.
+Status: **Canonical learner-facing design language.** Analysis terms follow the
+shipped one-current-analysis contract in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
+reading-intent trigger in
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Terms that remain
+historical or internal are identified explicitly; they must not become active
+learner-facing navigation or plan labels.
 
 Use these terms consistently in navigation, headings, actions, status messages,
 future feature documents, and tests. Backend names may remain in code, APIs,
@@ -36,7 +37,7 @@ completion** are not primary learner-facing concepts.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
-| **Acquire EPUB content** | Download and validate content for one metadata-only My Books Book from Book detail, without implying Journey membership or commitment. It does not itself start analysis; adding the book to Reading Journey acquires and analyzes it automatically. | Import and analyze, add to queue |
+| **Start analysis** | Explicitly acquire when needed and analyze the current EPUB for a My Books Book, or refresh evidence after content changes. It does not add Journey membership or choose a Primary Goal. | Import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
 | **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
@@ -45,10 +46,10 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. **Acquire EPUB
-content** creates or restores membership after the validated EPUB snapshot is
-persisted. Historical compatibility artifacts may retain **Add to My Books** or
-**Add to library**.
+upload unless a shipped route and feature contract support it. **Start analysis**
+acquires and validates content when needed; **Add to Reading Journey** performs
+the same work as an ensure-once consequence of reading intent. Historical
+compatibility artifacts may retain **Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for
@@ -59,22 +60,21 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Scope review** | Review an all-on top-level EPUB 3 TOC checklist, or a flat readable-unit checklist when the TOC cannot be projected reliably, and decide what should be analyzed. | Preprocessing, import review, evidence dashboard |
-| **TOC scope choice** | One top-level EPUB 3 navigation entry whose nested targets expand to existing persisted unit IDs in spine order. It is a view grouping, not a new durable unit. | Nested TOC control, hierarchy group |
-| **Readable-unit fallback** | One checkbox per readable persisted unit in flat spine order when a complete TOC-to-unit partition is unavailable. | Whole-book recommendation, degraded classifier mode |
-| **Confirmed scope** | An immutable learner-confirmed scope revision. | Current selection when historical identity matters |
-| **Start analysis** | Explicitly submit one confirmed scope for asynchronous analysis. | Continue, process book |
+| **Current analysis input** | The complete current extracted EPUB snapshot analyzed for the Book. Source revision and extracted-unit provenance remain durable internal facts. | Unscoped text, inferred content |
+| **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
+| **Start analysis** | Explicitly submit the current Book/source for asynchronous analysis or re-analysis. | Continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
-| **Analysis result** | The book's single current learner-facing analysis, shown on the book page. Immutable runs and exact source/scope provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the book page |
+| **Analysis result** | The Book's single current learner-facing analysis, shown on the Book page. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Book page |
 | **Analysis insights** | Current known coverage, vocabulary investment, highest-impact unknown vocabulary, and warning-only quality information for the current analysis. | Dashboard metrics, difficulty score, text profile on the learner surface |
 | **View analysis result** | Leave operational status and open the book page for its current analysis, directly or through the run-specific compatibility redirect. | View job, view exact result |
 
 Use **job** only for operational history or implementation-facing detail. A
-book's learner-facing state may be **scope review required**, **ready to
-analyze**, or **analysis result ready** even when backend state is expressed
-differently. **Analysis history** is operational language for `GET /jobs`, not
-a learner-facing book-page section. Run-specific analysis URLs remain only as
-compatibility redirects to the book page.
+Book's learner-facing state may be **ready to analyze**, **analysis queued**,
+**analysis running**, **analysis result ready**, **stale**, or **unavailable**
+even when backend state is expressed differently. **Analysis history** is
+operational language for `GET /jobs`, not a learner-facing Book-page section.
+Run-specific analysis URLs remain only as compatibility redirects to the Book
+page.
 
 ## Journey and route evidence
 
@@ -150,7 +150,7 @@ Use complete, factual labels where space permits:
 - reading finished;
 - vocabulary work in progress;
 - vocabulary work complete;
-- scope review required;
+- analysis stale or unavailable;
 - ready to analyze;
 - analysis queued, running, failed, cancelled, or result ready;
 - catalogue never synced, syncing, last synced, or sync failed;

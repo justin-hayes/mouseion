@@ -6,12 +6,14 @@ by the metadata-first and non-destructive contract in
 [ADR 0041](../../adr/0041-catalog-sync-metadata-first.md), with its language
 scope reconciled by [ADR 0043](../../adr/0043-study-languages-derived-settings-removed.md),
 and by the [Catalogue Sync feature](../../features/catalog-sync.md).
+Reading Journey's analysis consequence is defined by [ADR
+0049](../../adr/0049-reading-intent-triggers-analysis.md).
 
 ## Goal
 
 Help a learner connect the Calibre-Web catalogue they already curate, reconcile
 its studyable bibliographic metadata into My Books, find a Book locally, and
-acquire content only when they express intent to use that Book.
+express reading intent only when they are ready for acquisition and analysis.
 
 ## Learner questions
 
@@ -33,9 +35,9 @@ My Books empty state
     -> Sync now (then periodic reconciliation)
     -> Browse/search the local My Books collection
     -> Open a metadata-only Book
-    -> Express intent and lazily acquire validated EPUB content
-    -> Review scope (unchanged)
-    -> Explicitly start analysis (unchanged)
+    -> Start analysis explicitly, or add the Book to Reading Journey
+    -> Lazily acquire validated EPUB content and ensure whole-book analysis
+    -> Inspect Book or Journey evidence
 ```
 
 ### 1. Connect
@@ -83,21 +85,24 @@ evidence state remains supporting information.
 before analysis?
 
 Opening `/books/{id}` preserves the Book identity and states that the entry has
-metadata only. The Book detail page offers explicit acquisition via
-`POST /opds/acquire`. Mouseion acquires and validates the EPUB through its
-recorded owner-scoped catalogue identity. The transition is explicit and
-recoverable.
+metadata only. The Book detail page offers **Start analysis**, which acquires,
+validates, and analyzes the EPUB in one explicit action. It also offers **Add to
+Reading Journey**, which records reversible reading intent and performs the same
+acquisition plus ensure-once analysis. Both paths use the recorded owner-scoped
+catalogue identity.
 
 The Book becomes acquired only after a complete validated immutable snapshot is
 persisted. A missing upstream entry or acquisition failure leaves the Book and
 metadata intact and gives an actionable recovery path.
 
-### 5. Review scope and analyze
+### 5. Analyze and recover
 
-After lazy acquisition succeeds, the shipped manual lifecycle is unchanged:
-the learner reviews and confirms an immutable scope, then explicitly starts
-analysis. Sync never confirms scope, enqueues analysis, prepares a deck, or
-invalidates existing evidence.
+Sync itself remains metadata-only. **Start analysis** is the explicit manual
+path for a My Books Book and the refresh lever after content changes. Adding a
+Book to Reading Journey is the only automatic exception: it ensures current
+whole-book analysis once, without a background watcher. Re-adding and reordering
+do not duplicate work. Sync never acquires content, enqueues analysis, prepares a
+deck, or invalidates existing evidence.
 
 ## State model
 
@@ -109,10 +114,11 @@ invalidates existing evidence.
 | Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
 | Synced with no changes | Show the last-synced time and state that no eligible EPUB entries were found when the reconciliation produced no changes. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
-| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Express acquisition intent |
-| Lazy acquisition running | Keep Book context and identify content acquisition separately from analysis. | View status when queued |
-| Lazy acquisition failed or entry missing | Preserve the Book and metadata and state what could not be acquired. | Edit connection, retry, or return to My Books |
-| Content acquired | State that scope review is now available and no analysis has started. | Review scope |
+| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Start analysis or add to Reading Journey |
+| Acquisition/analysis running | Keep Book or Journey context and identify durable progress. | View status |
+| Acquisition failed or entry missing | Preserve the Book, metadata, and any Journey membership; state what could not be acquired. | Edit connection or retry |
+| Current analysis complete | State that evidence is available for the current content revision. | Inspect analysis or prepare deck |
+| Stale analysis | State that content changed and existing evidence is older. | Start analysis |
 
 ## Navigation rules
 
@@ -125,10 +131,11 @@ invalidates existing evidence.
   new destination.
 - My Books owns local language grouping, search, paging, and browsing of synced
   metadata. Book detail owns per-book EPUB acquisition.
-- Book detail owns lazy acquisition context, scope review, analysis, and deck
-  actions. The language-level aggregate lens remains evidence-only.
+- Book detail owns lazy acquisition context, Start analysis, current analysis,
+  and deck actions. Reading Journey owns reading intent and its ensure-once
+  analysis consequence. The language-level aggregate lens remains evidence-only.
 - HTMX may enhance forms and status regions, but connect, sync submission,
-  collection browsing, Book opening, acquisition recovery, scope review, and
-  analysis must retain coherent server-rendered paths.
+  collection browsing, Book opening, acquisition recovery, Start analysis, and
+  analysis status must retain coherent server-rendered paths.
 - Dynamic updates use scoped live regions and preserve focus. Connection names,
   status text, Book identity, and recovery actions never rely on color alone.

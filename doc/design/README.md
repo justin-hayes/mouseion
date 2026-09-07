@@ -45,10 +45,11 @@ and surface a material conflict rather than silently choosing one.
 ### Workflows
 
 - [`workflows/acquisition-to-library.md`](workflows/acquisition-to-library.md) —
-  catalogue setup, local My Books browsing, and per-book acquisition.
+  catalogue setup, local My Books browsing, and intent-driven acquisition and
+  analysis.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
-  the core scoped-analysis-to-deck lifecycle and target one-current-analysis
-  transition proposed by ADR 0040.
+  the core current-analysis-to-deck lifecycle, including explicit refresh and
+  Reading Journey's ensure-once analysis trigger.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
   learner-facing Reading Journey and Primary Goal workflow, with explicit
   boundaries around the current internal Campaign contract.

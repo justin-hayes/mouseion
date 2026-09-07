@@ -1,9 +1,10 @@
 # Screen inventory
 
-Status: **Canonical learner-facing screen inventory.** It includes the target
-one-current-analysis contract proposed in
-[ADR 0040](../adr/0040-one-current-analysis-per-book.md), which remains
-unshipped until its implementation issues land. Proposed catalogue-sync,
+Status: **Canonical shipped learner-facing screen inventory.** It includes the
+one-current-analysis contract in
+[ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
+reading-intent analysis trigger in
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Catalogue-sync,
 collection-browsing, and language-lens surfaces are owned by
 [ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and
 [ADR 0042](../adr/0042-derived-language-corpus-view.md) and are marked planned
@@ -23,8 +24,8 @@ Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 out**. My Books, Reading Journey, and Vocabulary are the only destinations; there
 is no acquisition action in the top navigation. Catalogue setup and sync
 maintenance are reached from My Books empty states and actions and via
-`/connections`. My Books is the sole browse surface; Book detail owns per-book
-EPUB acquisition.
+`/connections`. My Books is the sole browse surface; Book detail owns explicit
+analysis and acquires the EPUB when needed.
 
 Primary Goal is embedded in Reading Journey and is not a fourth destination.
 The shell identifies the current destination, supports skip navigation and
@@ -48,11 +49,10 @@ facing queue or plan is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; planned (Proposed) empty-state catalogue onboarding | Find a book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Choose as Primary Goal | Empty collection with no connections and primary `/connections` action, metadata-only book, acquisition success, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, scope required, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
+| My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, Add to Reading Journey, or Start analysis | Empty collection with no connections and primary `/connections` action, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
 | My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the local collection by language or text and move through a large result set. | Book detail or clear/revise controls | Language pills, unknown/no-language bucket, global local search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
 | Per-language lens panel | Planned (Proposed) within `GET /library` language view | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for one language. | `/books/{id}` zoom | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
-| Book detail and analysis insights | Target `GET /books/{id}`; planned (Proposed) metadata refresh | Understand one book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Scope review, analysis status, deck preparation, Journey/Goal action, prepared artifact, or metadata refresh | Source unavailable, metadata-only target state, lazy content acquisition/recovery, no confirmed scope, scope confirmed, analysis pending/failed/completed, no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts, metadata refreshed, upstream entry missing/no-op |
-| Scope review | Current `GET/POST /books/{id}/scope` | Review a calm native checklist of readable EPUB scope choices and confirm an immutable ordered scope. | Book detail | Reliable top-level TOC checklist or flat readable-unit fallback, all choices initially checked, Check all/Uncheck all, stale snapshot, empty selection, validation error preserving selection, successful confirmation |
+| Book detail and analysis insights | Current `GET /books/{id}`; metadata refresh is a supporting action | Understand one Book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Start analysis, analysis status, deck preparation, Journey/Goal action, prepared artifact, or metadata refresh | Source unavailable, metadata-only target state, lazy acquisition/analysis recovery, ready to analyze, analysis pending/failed/completed, stale or no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts, metadata refreshed, upstream entry missing/no-op |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Book detail when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or book detail | Empty history, mixed states, historical/legacy records |
 | Exact-analysis compatibility route | Target `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the book's single current analysis surface. | Book detail | Valid owned book/run redirect, historical deep link, missing or unauthorized reference |
@@ -64,40 +64,42 @@ and evidence state follow. Large cards and metric-first sorting are not the
 default.
 
 The My Books model includes metadata-only and currently unassessable works.
-Acquisition adds or restores owner-scoped My Books membership after the EPUB is
-validated and its immutable source snapshot is persisted.
+Catalogue sync creates metadata-only membership; Start analysis and Reading
+Journey intent acquire and validate EPUB content when needed.
 
 ### Analysis continuity
 
 | Surface | Canonical responsibility | Primary exit |
 |---|---|---|
-| Book detail | Show book-centered lifecycle and relationship state plus the one current analysis: headline **Current known coverage** with a one-line analyzed-units qualifier, **Vocabulary investment**, **Highest-impact unknown vocabulary**, warning-only quality note, and deck preparation. It does not show analyzed-scope detail, text profile, projected token coverage, the broader coverage-stat list, or learner-facing analysis history. | Scope review, analysis status, deck preparation, or Journey/Goal decision |
+| Book detail | Show Book-centered lifecycle and relationship state plus the one current analysis: headline **Current known coverage** with a one-line analyzed-units qualifier, **Vocabulary investment**, **Highest-impact unknown vocabulary**, warning-only quality note, and deck preparation. It does not show analyzed-scope detail, text profile, projected token coverage, the broader coverage-stat list, or learner-facing analysis history. | Start analysis, analysis status, deck preparation, or Journey/Goal decision |
 | Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining book context. | **View analysis result** opens book detail when complete |
 | Exact-analysis compatibility route | Redirect a valid historical result URL to book detail; do not render a distinct insight, identity, provenance, or history surface. | Book detail |
 | Deck preparation | Provide a coherent server-rendered status baseline before enhancement. | Download deck or return to book/Goal context |
 
-Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock scoped
+Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock current
 deck preparation. The older `POST /jobs/{id}/deck/preparations` path is retained
-for compatibility and is not a competing destination. Historical classifier
-and recommendation metadata is not a current scope-review surface.
+for compatibility and is not a competing destination. Historical classifier and
+recommendation metadata is not a current learner-facing surface.
 
 ## Book acquisition
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Catalogue connections | Current `GET/POST /connections` and mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
-| Per-book EPUB acquisition | Current `POST /opds/acquire`, launched from Book detail | Acquire content for one metadata-only My Books Book. | Book detail or My Books | Adding, success, duplicate/idempotent existing book, unsupported/non-EPUB entry, download/validation failure |
+| Book-detail analysis/acquisition | Current `POST /books/{id}/analyze`, launched from Book detail | Explicitly acquire and analyze one My Books Book, or refresh stale evidence. | Analysis status or Book detail | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
 | Per-book catalogue metadata refresh | Planned (Proposed) action on `GET /books/{id}` with a supporting mutation/status endpoint | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | Book detail | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
-The canonical design label for per-book content acquisition is **Acquire EPUB
-content** and must not imply analysis,
-Journey membership, or Primary Goal selection. The shipped implementation uses **Add to My Books** for My Books membership (compatibility copy **Add to library** may still appear in older compatibility strings/tests); broader collection semantics for metadata-only books shipped under [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md).
+The canonical Book-detail action is **Start analysis**: it acquires content when
+needed and analyzes the complete current EPUB without adding Journey membership
+or selecting a Primary Goal. **Add to Reading Journey** is the separate
+learner-intent action that performs the same acquisition and ensure-once analysis.
+Catalogue sync never performs either action.
 
 ## Reading Journey and Primary Goal
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); Campaign history and operations are secondary on the page | Understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, Goal with/without evidence, reorderable later books, unassessed/incomparable book, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
+| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); Campaign history and operations are secondary on the page | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
 | Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
 | Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand what finishing the book actually changed and choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice |
 | Reading/preparation/vocabulary history | Secondary **Campaign history & operations** section on Reading Journey | Review factual past reading, preparation, completion, abandonment, and vocabulary-transition events without restoring Campaign as principal IA. | Book or Journey context | Empty history, mixed historical states, legacy Campaign terminology, unavailable artifact |
