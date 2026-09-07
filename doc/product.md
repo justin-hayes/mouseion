@@ -125,6 +125,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 46. [ADR 0046: Book language has one canonical base form enforced at the domain](adr/0046-book-language-canonical-base-form.md) — collapses a chosen Book language to its base tag (`de_DE`/`de-de`/`de` all canonicalize to `de`), enforces the form at the domain, converges legacy rows, and simplifies the tolerant SQL.
 47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — folds EPUB acquisition into the analysis action server-side, makes the catalogue the sole source of Book metadata (manual books and fix-language removed), drops plain-text analysis, and always analyzes the complete extracted scope, deferring destructive schema removal.
 48. [ADR 0048: Frequency-floor deck selection](adr/0048-frequency-floor-deck-selection.md) — replaces the 97% coverage-prefix deck selection with a minimum-occurrence frequency floor (default three), dropping the deck's coverage guarantee.
+49. [ADR 0049: Reading intent triggers analysis](adr/0049-reading-intent-triggers-analysis.md) — makes analysis an automatic, ensure-once consequence of Reading Journey membership, defines Primary Goal as a promotion of an analyzed Journey member (choosable only from the Journey screen), and enforces the Goal/membership invariant at the persistence layer while keeping explicit Start analysis as the re-analysis lever.
 
 ## Deployment and operations
 
