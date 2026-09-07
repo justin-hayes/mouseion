@@ -6,8 +6,9 @@ Amends **ADR 0017** (Replace frequency-based ranking with coverage-based selecti
 
 ## Context
 
-The coverage-based deck algorithm selects unknown lemmas needed to reach the
-fixed 97% text-coverage target. The learner has two distinct reasons a word
+The deck algorithm selects unknown lemmas from the eligible unknown pool after
+learner-state exclusions (coverage-based selection under ADR 0017, amended to a
+frequency floor by ADR 0048). The learner has two distinct reasons a word
 should not be selected:
 
 1. The learner has explicitly recorded it in `known_vocabulary`.
@@ -51,7 +52,8 @@ word to known vocabulary.
 - Deck history becomes explicit, queryable, owner-scoped, and auditable.
 - A word exported in one book will not be selected for a different book's deck
   for the same learner.
-- The fixed 97% threshold applies to the remaining uncovered vocabulary after
+- The remaining selection rule (coverage-based under ADR 0017, amended to a
+  frequency floor by ADR 0048) applies to the eligible unknown pool after
   known/generated exclusions.
 - Existing `vocabulary_states.state = 'generated'` values may be retained
   temporarily for compatibility, but they are no longer the authoritative
