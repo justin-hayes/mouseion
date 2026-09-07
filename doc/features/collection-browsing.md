@@ -1,6 +1,6 @@
 # My Books Collection Browsing
 
-Status: Proposed · Date: 2026-09-02
+Status: Proposed · Date: 2026-09-02 · Updated: 2026-09-07
 
 ## Motivation
 
@@ -13,8 +13,10 @@ bibliographic catalogue; this feature makes that promise concrete.
 ## Goal
 
 Let learners find and open a Book in a large local My Books collection through
-language grouping, paging, and global text search while keeping bibliographic
-identity and learner intention ahead of analysis evidence.
+paging and text search scoped to the active study language, while keeping
+bibliographic identity and learner intention ahead of analysis evidence. My
+Books is always browsed within the active study language; there is no
+cross-language "All languages" default ([ADR 0050](../adr/0050-active-study-language.md)).
 
 ## Scope
 
@@ -25,39 +27,40 @@ search surface.
 
 ## Requirements
 
-### Language grouping
+### Active-language scope
 
-- My Books presents one pill for each language represented in the local active
-  collection, plus an **Unknown language** pill for Books whose language state is
-  unknown or absent.
-- Pill counts and result counts derive from the same owner-scoped collection
-  query and remain consistent with active My Books membership.
-- Selecting a language preserves the current text query where possible and
-  returns a paged subset for that language.
-- Language is a finding aid, not a readiness rank. Readiness does not determine
-  the default language or order.
+- My Books always presents the active study language's Books. Browse, paging,
+  and search are scoped to it; the shell's active-language switcher changes the
+  scope instead of a per-page control.
+- Books without a chosen language belong to no language partition and appear
+  only through an out-of-band **needs language** strip (display-only: fix the
+  language in the catalogue, then re-sync; no per-book actions), never as a
+  filter or browse state in the language view.
+- The active language is context, not a finding aid: it is carried by the page
+  heading and the switcher, not repeated per row.
 
-### Global collection search and paging
+### Scoped collection search and paging
 
-- One text search filters the learner's complete local My Books collection,
+- One text search filters the active study language's My Books collection,
   including metadata-only and acquired Books. It is explicitly not a live OPDS
   query and does not depend on an upstream connection being available.
-- Search combines predictably with the selected language and paging controls.
-- Paging uses stable, deterministic ordering and preserves the current language
-  and query in real links and forms.
-- Empty-collection, search-empty, and language-empty states remain distinct and
-  offer an appropriate way to clear a filter, revise a query, or start catalogue
-  setup through `/connections` and the Add books workflow.
+- Search combines predictably with the active language and paging controls.
+- Paging uses stable, deterministic ordering and preserves the current query in
+  real links and forms.
+- Empty-collection, search-empty, and no-language-results states remain distinct
+  and offer an appropriate way to clear a filter, revise a query, or start
+  catalogue setup through `/connections` and the Add books workflow.
 
 ### Row hierarchy and book selection
 
-- Rows lead with title and author, followed by edition or publication year and
-  language when available.
+- Rows lead with title and author, followed by edition or publication year when
+  available; the language tag is carried by the active-language heading, not
+  repeated per row.
 - Primary Goal / Reading Journey relationship and concise trustworthy evidence
   state follow bibliographic identity. Evidence never displaces the title or
   turns the collection into a metric-led dashboard.
-- Missing author, edition/year, or language is stated or omitted without
-  inventing metadata.
+- Missing author or edition/year is stated or omitted without inventing
+  metadata.
 - Choosing one Book opens `/books/{id}`. This is the selection point for scope
   review, per-book acquisition, or analysis decisions.
 - The list does not expose batch-select-then-analyze behavior.
@@ -74,25 +77,25 @@ search surface.
   restore focus, and do not announce every row.
 - Keyboard order follows search, language controls, results, and paging. Every
   book and page is reachable without pointer gestures.
-- Narrow layouts preserve title, author, edition/year, language, and the book
-  link without page-level horizontal scrolling. Long titles and names wrap
-  rather than being truncated into ambiguity.
+- Narrow layouts preserve title, author, edition/year, and the book link without
+  page-level horizontal scrolling. Long titles and names wrap rather than being
+  truncated into ambiguity.
 
 ## States
 
 | State | Required presentation | Primary action |
 |---|---|---|
 | Empty collection | Explain My Books and the Add books path to catalogue setup. | Add a catalogue connection |
-| Collection available | Show global search, language pills with counts, deterministic rows, and paging. | Open a book |
-| Unknown-language results | Group Books with no chosen language without inferring one. | Open a book or update it through an owned workflow |
-| Search empty | Retain the query and selected language and state that the local collection has no match. | Revise or clear search |
-| Language empty after search | Retain both controls and explain the combined filter. | Clear one filter |
-| Later page becomes empty | Return to the nearest valid page without losing the query/language context. | Continue browsing |
+| Collection available | Show scoped search, deterministic rows for the active language, and paging. | Open a book |
+| Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalogue metadata and re-sync |
+| Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
+| Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
 | Enhancement failed | Keep or restore the ordinary server-rendered form/link path. | Submit normally |
 
 ## Non-goals
 
 - Live OPDS search, catalogue discovery, or upstream pagination.
+- Cross-language browse or search; an "All languages" default.
 - Batch selection or batch analysis.
 - A default readiness ranking, recommendation, or “best next book.”
 - Changing Book identity, membership, evidence, Journey, or Primary Goal
@@ -101,12 +104,15 @@ search surface.
 
 ## Acceptance criteria
 
-- Language pills include an unknown/no-language bucket and accurate counts.
-- Query, language, and page combinations return stable owner-scoped results and
-  preserve their state in navigable URLs.
-- Search covers the complete local collection and performs no OPDS request.
+- Browse, search, and paging return only Books in the active study language.
+- A Book without a chosen language is reachable only through the **needs
+  language** strip and becomes a language Book after fix + re-sync.
+- Query and page combinations return stable owner-scoped results and preserve
+  their state in navigable URLs.
+- Search covers the active language's local collection and performs no OPDS
+  request.
 - Rows follow the information-architecture hierarchy and link to `/books/{id}`.
-- Empty, no-match, unknown-language, and paging-boundary states are distinct.
+- Empty, no-match, needs-language, and paging-boundary states are distinct.
 - The full workflow is keyboard-operable and usable without JavaScript; HTMX
   enhancement preserves focus, announcements, and URL meaning.
 - Narrow and long-content cases retain bibliographic identity and usable actions.

@@ -79,7 +79,9 @@ boundary.
 **Learner question:** Which books can Mouseion analyze with the currently ready
 NLP service?
 
-My Books owns language pills, local search, and paging. Opening a metadata-only
+My Books owns the active-language-scoped browse, search, and paging; there is no
+"All languages" default ([ADR 0050](../../adr/0050-active-study-language.md)).
+Opening a metadata-only
 Book shows its bibliographic identity and the two learner-facing paths: **Start
 analysis** explicitly acquires and analyzes the EPUB, while **Add to Reading
 Journey** expresses reading intent and triggers the same acquisition plus

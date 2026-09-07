@@ -45,7 +45,7 @@ or languages and is not persisted as a learner mastery snapshot.
 The starting panel shows:
 
 1. **Analyzed books** — the count of Books with a usable current analysis in the
-   selected language.
+   active study language.
 2. **Aggregate known coverage** — known analyzable occurrences divided by total
    analyzable occurrences across the included analyses, with token weighting and
    scope/current-state qualification stated.
@@ -62,7 +62,7 @@ status may remain visible so the lens does not hide collection membership.
 ### Placement and zoom
 
 - The initial surface is a per-language panel inside My Books, associated with
-  the selected language pill.
+  the active study language ([ADR 0050](../adr/0050-active-study-language.md)).
 - The panel remains subordinate to the searchable bibliographic collection; it
   is not a dashboard hero or a new navigation destination.
 - Each per-book row links to `/books/{id}` for details and any permitted action.

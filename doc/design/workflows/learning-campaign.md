@@ -4,16 +4,20 @@ Status: **Canonical shipped learner-facing workflow.** Reading Journey and
 Primary Goal are shipped; Campaign remains secondary history/operations and its
 reservation and graduation details remain governed by ADRs 0027, 0034, and 0036.
 Reading-intent acquisition and analysis are governed by [ADR
-0049](../../adr/0049-reading-intent-triggers-analysis.md).
+0049](../../adr/0049-reading-intent-triggers-analysis.md). Reading Journey and
+Primary Goal are one per study language ([ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md));
+this workflow describes the active study language's Journey and Goal.
 
 The filename is retained to preserve existing links. **Learning campaign** is no
 longer the primary learner-facing name for this experience.
 
 ## Goal
 
-Help a learner keep a fluid idea of books they may read, choose one book they
-intend to finish, understand preparation evidence without surrendering
-judgment, and return to a changed road ahead after finishing the book.
+Help a learner keep a fluid idea of books they may read in the active study
+language, choose one of those books to intend to finish, understand preparation
+evidence without surrendering judgment, and return to a changed road ahead after
+finishing the book. How many Goals are active across languages is the learner's
+own discipline, not an enforced invariant.
 
 Only Primary Goal carries commitment. Reading Journey remains provisional even
 when Mouseion can compare a vocabulary-efficient alternative.
@@ -66,8 +70,8 @@ complete.
 order?
 
 A learner can add books from My Books, remove provisional books, and reorder
-them freely. The Journey presents one unambiguous **Your order**. Later books do
-not look scheduled, overdue, locked, or committed.
+them freely. The Journey presents one unambiguous **Your order** for the active language.
+Later books do not look scheduled, overdue, locked, or committed.
 
 The interface must answer:
 
@@ -122,7 +126,7 @@ canonical.
 
 ## 3. Choose or view the Primary Goal
 
-**Learner question:** Which one book do I intend to finish now?
+**Learner question:** Which one book in this language do I intend to finish now?
 
 **Choose as Primary Goal** is an explicit action available only from the Reading
 Journey screen. It promotes a Journey member whose current analysis completed
@@ -309,13 +313,19 @@ This workflow deliberately does not decide:
 - whether another Goal can begin while vocabulary work remains (decided in
   [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): an explicit
   graduate-or-abandon resolution, one-active exclusivity preserved, deterministic
-  overlap);
+  overlap). The one-active exclusivity is owner-wide (`one_active_per_owner`),
+  even though Goals may be active in parallel languages under
+  [ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md); whether
+  a per-language active Campaign is ever warranted remains an open question in
+  ADR 0051;
 - implementation details beyond the route, interaction, and state contracts
   recorded here and in ADRs.
 
 Journey identity, ownership, ordering, stale-write behavior, and the migration
 of queued/active/complete/abandoned Campaign records are resolved in
-[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md). Primary Goal
+[ADR 0034](../../adr/0034-reading-journey-identity-ordering.md), with per-study-
+language Journey and Goal identity resolved in
+[ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md). Primary Goal
 identity, the single justified graduation transition (reading-finished
 independent of deck-reviewed; snapshot + confirmed review), and new-Goal-with-
 residual-work semantics are resolved in

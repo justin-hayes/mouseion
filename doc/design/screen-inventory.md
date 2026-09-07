@@ -4,7 +4,12 @@ Status: **Canonical shipped learner-facing screen inventory.** It includes the
 one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
-[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Catalogue-sync,
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Language is the
+app's organizing mode per
+[ADR 0050](../adr/0050-active-study-language.md) and
+[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
+study language scopes My Books, Reading Journey, and Vocabulary, and Journeys
+and Goals are one per language. Catalogue-sync,
 collection-browsing, and language-lens surfaces are owned by
 [ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and
 [ADR 0042](../adr/0042-derived-language-corpus-view.md) and are marked planned
@@ -33,6 +38,14 @@ keyboard use, and preserves a clear path back to the parent book or Journey.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
+The shell also carries a native **active study language** control alongside the
+three destinations, on every authenticated screen. It lists the learner's study
+languages plus any known-vocabulary-only language marked "no books", marks a
+newly arrived study language "new", and is keyboard-accessible and
+server-rendered before enhancement. Changing it navigates to the same screen in
+the new language on language-scoped screens and updates the stored mode
+elsewhere; it never auto-switches on navigation or sync.
+
 The shipped application routes `/` to `/library`, serves Reading Journey at
 `/journey`, and redirects `GET /campaigns` to `/journey`. Campaign history and
 operations remain a secondary section on the Journey page; no parallel learner-
@@ -50,8 +63,8 @@ facing queue or plan is exposed.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, or Add to Reading Journey | Empty collection with no connections and primary `/connections` action, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
-| My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the local collection by language or text and move through a large result set. | Book detail or clear/revise controls | Language pills, unknown/no-language bucket, global local search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
-| Per-language lens panel | Planned (Proposed) within `GET /library` language view | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for one language. | `/books/{id}` zoom | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
+| My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Book detail or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
+| Per-language lens panel | Planned (Proposed) within `GET /library` for the active language | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for the active language. | `/books/{id}` zoom | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
 | Book detail and analysis insights | Current `GET /books/{id}`; metadata refresh is a supporting action | Understand one Book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Start analysis, analysis status, deck preparation, Journey/Goal action, prepared artifact, or metadata refresh | Source unavailable, metadata-only target state, lazy acquisition/analysis recovery, ready to analyze, analysis pending/failed/completed, stale or no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts, metadata refreshed, upstream entry missing/no-op |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Book detail when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or book detail | Empty history, mixed states, historical/legacy records |
@@ -99,9 +112,9 @@ Catalogue sync never performs either action.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); Campaign history and operations are secondary on the page | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
-| Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
-| Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand what finishing the book actually changed and choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice |
+| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); Campaign history and operations are secondary on the page | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence — all for the active study language's Journey. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
+| Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change, within the active language's Journey. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
+| Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand what finishing the book actually changed and choose whether or where to commit next, for the active language's Goal. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
 | Reading/preparation/vocabulary history | Secondary **Campaign history & operations** section on Reading Journey | Review factual past reading, preparation, completion, abandonment, and vocabulary-transition events without restoring Campaign as principal IA. | Book or Journey context | Empty history, mixed historical states, legacy Campaign terminology, unavailable artifact |
 
 The Reading Journey is an ordered semantic list. The Primary Goal is anchored
@@ -128,21 +141,25 @@ Do not say the Journey is complete, automatically choose another Goal, call a
 book optimal, or claim vocabulary gains when the transition has not occurred.
 The single-active Campaign remains internal reservation state and secondary
 history/operations. ADR 0036 governs the independent reading outcome and
-justified vocabulary transition shown by this surface.
+justified vocabulary transition shown by this surface. Goals are one per study
+language (ADR 0051): finishing a Goal in the active language does not touch
+other languages' Goals.
 
-## Derived study languages and known vocabulary
+## Active study language, derived study languages, and known vocabulary
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Select a language derived from My Books, upload one lemma per line, and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No derived study languages, no selected language, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled |
+| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | View and import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
-Vocabulary is the canonical destination for known vocabulary. Its language
-picker is limited to the distinct normalized language tags of active
-chosen-language Books. Changing a Book's language state does not remove books,
-analyses, prepared artifacts, internal Campaigns, or known vocabulary. The
-`/settings` compatibility route redirects to My Books; it is not a learner-facing
-screen.
+Vocabulary is the canonical destination for known vocabulary, scoped to the
+active study language; its per-page language picker is removed in favour of the
+shell-level switcher. Known-vocabulary-only languages (no current chosen-language
+Book) remain selectable there as read-only "no books" entries; import stays
+limited to the derived study-language set. Changing a Book's language state does
+not remove books, analyses, prepared artifacts, internal Campaigns, or known
+vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
+learner-facing screen.
 
 ## Inactive and supporting implementation
 

@@ -9,7 +9,9 @@ configured pipelines that warmed successfully, including their display names
 and supported features. Catalogue sync uses those capabilities to walk every
 offered non-English language that is ready; the resulting chosen-language Books
 derive each learner's study-language set. The web application does not maintain
-a learner-selected language allowlist. German (`de`, display name **German**) and
+a learner-selected language allowlist; the learner's active study language
+([ADR 0050](../adr/0050-active-study-language.md)) is a context selection into
+the derived set, never an allowlist. German (`de`, display name **German**) and
 Italian (`it`, display name **Italian**) are provisioned by the standard
 deployment.
 

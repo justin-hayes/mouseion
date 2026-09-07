@@ -64,9 +64,11 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
   every learner's native language.
 - A catalogue language that is not offered or not ready is not synchronized.
 - Study languages are derived from active Books whose language is chosen; there
-  is no saved language selection to remove. Changing a Book's language state
-  does not delete its membership, acquired content, analyses, decks, or
-  vocabulary.
+  is no saved study-language preference gating the run. The learner's active
+  study language ([ADR 0050](../adr/0050-active-study-language.md)) is a stored
+  context pointing into that derived set — it never defines which languages sync
+  walks. Changing a Book's language state does not delete its membership,
+  acquired content, analyses, decks, or vocabulary.
 
 ### Metadata-first reconciliation
 

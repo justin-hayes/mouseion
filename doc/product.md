@@ -26,9 +26,13 @@ top navigation.
 
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books; there is no study-language preference or
-Settings destination. Vocabulary owns owner-scoped, language-scoped known
-vocabulary. Known-vocabulary import is explicit and additive: the learner
-chooses one derived study language and uploads a UTF-8 lemma file, with new,
+Settings destination. The learner's **active study language** is a stored context
+pointing into that derived set: it scopes My Books browse and search, Reading
+Journey, and Vocabulary through a shell-level switcher, and Reading Journey and
+Primary Goal are one per study language (ADR 0050/0051). Vocabulary owns
+owner-scoped, language-scoped known vocabulary. Known-vocabulary import is
+explicit and additive and targets the active study language: the learner
+uploads a UTF-8 lemma file, with new,
 duplicate, and rejected rows reported separately. The direct `/known-vocab` route
 remains a compatibility redirect to Vocabulary, and `/settings` redirects to My
 Books. When NLP capability discovery is degraded, Vocabulary keeps derived
@@ -46,7 +50,7 @@ language for import.
 - [Historical EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — records the retired recommendation-policy correction work.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
 - [Catalogue Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogues with lazy content acquisition.
-- [My Books Collection Browsing](features/collection-browsing.md) — language grouping, paging, and global local-collection search.
+- [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
 - [Language Corpus View](features/language-corpus-view.md) — a derived, evidence-only per-language lens over current analyses and known vocabulary.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
@@ -126,6 +130,8 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — folds EPUB acquisition into the analysis action server-side, makes the catalogue the sole source of Book metadata (manual books and fix-language removed), drops plain-text analysis, and always analyzes the complete extracted scope, deferring destructive schema removal.
 48. [ADR 0048: Frequency-floor deck selection](adr/0048-frequency-floor-deck-selection.md) — replaces the 97% coverage-prefix deck selection with a minimum-occurrence frequency floor (default three), dropping the deck's coverage guarantee.
 49. [ADR 0049: Reading intent triggers analysis](adr/0049-reading-intent-triggers-analysis.md) — makes analysis an automatic, ensure-once consequence of Reading Journey membership, defines Primary Goal as a promotion of an analyzed Journey member (choosable only from the Journey screen), and enforces the Goal/membership invariant at the persistence layer while keeping explicit Start analysis as the re-analysis lever.
+50. [ADR 0050: The app works in one active study language at a time](adr/0050-active-study-language.md) — makes the active study language a stored context pointing into the derived set, scopes every language-dependent surface through a shell-level switcher, and removes per-screen pickers and the "All languages" default.
+51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 
 ## Deployment and operations
 
