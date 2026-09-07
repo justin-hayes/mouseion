@@ -315,7 +315,9 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 
 	state := strings.ToLower(strings.TrimSpace(book.AnalysisState))
 	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus))
-	if state == "" {
+	if status == "stale" || status == "stale analysis" {
+		state = "stale"
+	} else if state == "" {
 		switch {
 		case (status == "analyzed" || status == "analysis result ready" || status == "completed") && runID != "" && book.CorpusID != "":
 			state = "completed"
@@ -323,6 +325,8 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 			state = "failed"
 		case status == "analysis cancelled" || status == "cancelled":
 			state = "cancelled"
+		case status == "stale" || status == "stale analysis":
+			state = "stale"
 		case status == "analysis queued" || status == "queued":
 			state = "queued"
 		case status == "analysis running" || status == "analyzing" || status == "running":
@@ -338,6 +342,8 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 		jobURL = "/books/" + book.Source.ID
 	}
 	switch state {
+	case "stale":
+		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", "Start analysis", "/books/" + url.PathEscape(book.Source.ID) + "/analyze", StatusWarning, true}
 	case "queued":
 		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":

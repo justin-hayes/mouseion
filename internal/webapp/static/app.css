@@ -1237,10 +1237,16 @@ section[aria-labelledby="campaign-operations-heading"] {
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .journey-book__controls form {
   margin: 0;
+}
+
+.journey-book__controls .confirmation {
+  min-width: 0;
 }
 
 .journey-status:empty {

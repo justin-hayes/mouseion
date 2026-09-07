@@ -118,6 +118,23 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	if tags["First title"] != "de" || tags["French title"] != "fr" {
 		t.Fatalf("first sync language tags=%v", tags)
 	}
+	var journeyBookID string
+	for _, book := range books {
+		if book.Title == "First title" {
+			journeyBookID = book.ID
+			break
+		}
+	}
+	if journeyBookID == "" {
+		t.Fatal("first synced book was not found for Journey lifecycle check")
+	}
+	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, journeyBookID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
 	if len(reader.visited) != 2 || reader.visited[0] != "7" || reader.visited[1] != "10" {
 		t.Fatalf("visited catalog language IDs=%v", reader.visited)
 	}
@@ -150,6 +167,16 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	if err != nil || status.LastUpsertedCount != 1 {
 		t.Fatalf("updated rerun sync status=%+v err=%v", status, err)
+	}
+	var analysisRuns, analysisJobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs); err != nil {
+		t.Fatal(err)
+	}
+	if analysisRuns != 0 || analysisJobs != 0 {
+		t.Fatalf("catalogue sync triggered analysis for Journey member: runs=%d jobs=%d", analysisRuns, analysisJobs)
 	}
 	var aliases, memberships int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, alice.ID).Scan(&aliases); err != nil {

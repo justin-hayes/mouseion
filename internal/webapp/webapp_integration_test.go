@@ -445,11 +445,15 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if readded.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
 		t.Fatalf("Journey re-add=%d downloads=%d analysis calls=%d location=%q body=%s", readded.Code, downloads, recorder.calls, readded.Header().Get("Location"), readded.Body.String())
 	}
-	journeyRevision, err := store.RemoveFromReadingJourney(ctx, owner.ID, bookResult.Book.ID, journey.Revision)
-	if err != nil {
-		t.Fatal(err)
+	removed := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/remove", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	if removed.Code != http.StatusSeeOther || !strings.Contains(removed.Header().Get("Location"), "removed+from+Reading+Journey") || recorder.calls != 1 {
+		t.Fatalf("Journey removal=%d location=%q analysis calls=%d body=%s", removed.Code, removed.Header().Get("Location"), recorder.calls, removed.Body.String())
 	}
-	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journeyRevision)}}, cookies)
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil || len(journey.Entries) != 0 {
+		t.Fatalf("Journey membership after removal=%+v err=%v", journey.Entries, err)
+	}
+	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
 	if alreadyAcquired.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 2 {
 		t.Fatalf("Journey acquired add=%d downloads=%d analysis calls=%d location=%q body=%s", alreadyAcquired.Code, downloads, recorder.calls, alreadyAcquired.Header().Get("Location"), alreadyAcquired.Body.String())
 	}
