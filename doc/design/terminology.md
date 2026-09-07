@@ -84,7 +84,7 @@ compatibility redirects to the book page.
 | **Modeled additional vocabulary identities** | Exact lemma-identity preparation counts under named threshold, scope, sequence, and transition assumptions. | Total coverage mapped, effort score, cost without a unit |
 | **Move earlier / Move later** | Visible keyboard-operable controls for reordering. Drag may supplement them. | Fix order, improve route |
 | **Choose as Primary Goal** | Make one learner-chosen book the current commitment. | Begin optimal text, promote milestone |
-| **Add to Reading Journey** | Include a book in the provisional sequence without committing to it. | Queue for learning, schedule book |
+| **Add to Reading Journey** | Include a book in the provisional sequence without committing to it. This learner-initiated backlog action also acquires the current EPUB when needed and submits whole-book analysis; re-adding is idempotent and reordering has no such side effects. | Queue for learning, schedule book |
 | **Remove from Reading Journey** | Remove provisional membership without deleting the book from My Books. | Delete book, abandon campaign |
 
 Learner order always remains the active order unless the learner explicitly

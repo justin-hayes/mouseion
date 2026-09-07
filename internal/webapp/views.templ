@@ -142,6 +142,19 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
+templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf string) {
+	if bookID != "" {
+		if member {
+			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View this Journey entry</a></p>
+		} else {
+			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
+				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
+				<button type="submit">Add to Reading Journey</button>
+			</form>
+		}
+	}
+}
+
 templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 	<article class="resource-card library-book" data-acquired={ boolString(book.Acquired != nil) } aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
@@ -164,7 +177,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 		</div>
 		<div class="library-book__supporting">
 			@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
-			if book.Book.ID == goalBookID {
+			if book.Book.ID == goalBookID || book.JourneyGoal {
 				@StatusBadge("Current Primary Goal", StatusInfo)
 				<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
 			}
@@ -178,6 +191,9 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 				{ myBookLifecycleActionFor(book).Description }
 			</p>
 			<div class="action-group">
+				if !book.JourneyGoal {
+					@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
+				}
 				@LifecycleActionControl(myBookLifecycleActionFor(book), csrf)
 				if book.Book.ID != goalBookID {
 					<form method="post" action={ templ.SafeURL("/goal/books/"+book.Book.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ goalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
@@ -570,7 +586,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			}
 		</p>
 	}
-	@JourneyEvidence(item)
+	@JourneyEvidence(item, csrf)
 	</div>
 	if !primary {
 		<div class="journey-book__controls" aria-label={ "Reorder "+journeyBookTitle(item.Book) }>
@@ -601,8 +617,19 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	}
 	</article>
 }
-templ JourneyEvidence(item journeyBookView) {
+templ JourneyEvidence(item journeyBookView, csrf string) {
 	<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
+	if journeyAnalysisAction(item).Status != "" {
+		<div class="journey-assessment">
+			<p><strong>Assessment:</strong> @StatusBadge(journeyAnalysisAction(item).Status, journeyAnalysisAction(item).Tone)</p>
+			if journeyAnalysisAction(item).Submit {
+				<form class="inline-action" method="post" action={ templ.SafeURL(journeyAnalysisAction(item).URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">{ journeyAnalysisAction(item).Label }</button></form>
+			} else {
+				<p><a href={ templ.SafeURL(journeyAnalysisAction(item).URL) }>{ journeyAnalysisAction(item).Label }</a></p>
+			}
+		</div>
+		<p>{ journeyAnalysisAction(item).Description }</p>
+	}
 	<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
 	<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
 }
@@ -689,6 +716,12 @@ templ BookPageWithHistoryAndPreparation(user domain.User, csrf string, book doma
 		@Feedback(FeedbackSuccess, "", message)
 	}
 	@NextActionSummary(bookLifecycleActionFor(book, history))
+	if book.JourneyGoal {
+		<p><strong>Primary Goal.</strong></p>
+		<p><a href={ templ.SafeURL("/journey#journey-book-"+journeyMembershipBookID(book)) }>View Primary Goal in Reading Journey</a></p>
+	} else {
+		@JourneyMembershipAction(journeyMembershipBookID(book), book.JourneyMember, book.JourneyRevision, csrf)
+	}
 	if coverage != nil {
 		if hasAnalysisWarnings(*coverage) {
 			<section aria-labelledby="analysis-quality-heading"><h2 id="analysis-quality-heading">Analysis quality</h2>
@@ -1115,7 +1148,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 			}
 			if action.State == deckJourneyNotMember {
 				<p><strong>Not in Reading Journey.</strong> Add this book to your provisional Reading Journey when you are ready.</p>
-				<form method="post" action={ templ.SafeURL(deckJourneyAddURL(action.BookID)) } hx-post={ templ.SafeURL(deckJourneyAddURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
+				<form method="post" action={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-post={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", action.Revision) }/>
 					if action.PreparationID != "" {
 						<input type="hidden" name="deck_preparation_id" value={ action.PreparationID }/>
@@ -1148,6 +1181,12 @@ templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, me
 			<p>Sync is metadata-only and never downloads book content. Start analysis to acquire, validate, and analyze the EPUB in one action.</p>
 			if strings.HasPrefix(message, "Could not acquire ") {
 				<p role="alert">{ message }</p>
+			}
+			if book.JourneyGoal {
+				<p><strong>Primary Goal.</strong></p>
+				<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
+			} else {
+				@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
 			}
 			<form method="post" action={ templ.SafeURL("/books/" + book.Book.ID + "/analyze") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/>

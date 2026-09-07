@@ -21,6 +21,10 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := h.annotateBookWithJourney(r.Context(), u.ID, &detail); err != nil {
+		fail(w, err)
+		return
+	}
 	if detail.EvidenceState == domain.MyBookNotAcquired {
 		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, detail.Book.ID)
 		if err != nil {
@@ -280,18 +284,22 @@ func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) acquireBookForAnalysis(r *http.Request, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+	return h.acquireBookForAnalysisContext(r.Context(), owner, bookID)
+}
+
+func (h *Handler) acquireBookForAnalysisContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
 	provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider)
 	if !ok {
 		return cataloguesync.AcquisitionTarget{}, errors.New("catalogue acquisition is unavailable")
 	}
-	target, err := provider.FindAcquisitionTarget(r.Context(), owner, bookID)
+	target, err := provider.FindAcquisitionTarget(ctx, owner, bookID)
 	if err != nil {
 		return target, err
 	}
 	if h.services.OPDS == nil {
 		return target, errors.New("catalogue acquisition cannot promote this book")
 	}
-	_, err = h.services.OPDS.AcquireForBook(r.Context(), owner, target.ConnectionID, target.Language, bookID, target.Entry)
+	_, err = h.services.OPDS.AcquireForBook(ctx, owner, target.ConnectionID, target.Language, bookID, target.Entry)
 	return target, err
 }
 

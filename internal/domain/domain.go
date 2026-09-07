@@ -84,13 +84,16 @@ type SourceMaterial struct {
 // identity without loading the book's content. Analysis IDs are populated only
 // from the owner/book-scoped current-analysis projection.
 type SourceMaterialSummary struct {
-	Source         SourceMaterial
-	BookID         string
-	AnalysisStatus string
-	AnalysisState  string
-	AnalysisRunID  string
-	CorpusID       string
-	AnalysisJobID  int64
+	Source          SourceMaterial
+	BookID          string
+	AnalysisStatus  string
+	AnalysisState   string
+	AnalysisRunID   string
+	CorpusID        string
+	AnalysisJobID   int64
+	JourneyMember   bool
+	JourneyGoal     bool
+	JourneyRevision int64
 }
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password string

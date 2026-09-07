@@ -54,7 +54,14 @@ test.describe('authenticated learner smoke', () => {
     await expect(entry.getByText('Review scope')).toHaveCount(0);
     await expect(entry.getByText('Prepare deck')).toHaveCount(0);
     await expect(entry).toContainText('language not chosen');
-
+    const addToJourney = entry.getByRole('button', { name: 'Add to Reading Journey' });
+    if (await addToJourney.count() > 0) {
+      await addToJourney.click();
+      await expect(page).toHaveURL(/\/journey\?error=/);
+    }
+    await page.goto('/journey');
+    await expect(page.getByRole('link', { name: 'Metadata-only migration book', exact: true })).toBeVisible();
+    await expect(page.locator('#journey-book-fixture-metadata-only')).toContainText('Assessment unavailable');
   });
 
   test('exact analysis result redirects to the book page', async ({ page }) => {

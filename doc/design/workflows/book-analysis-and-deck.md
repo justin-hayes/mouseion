@@ -53,6 +53,11 @@ Catalogue sync
     -> Download deck or return to the book / Primary Goal
 ```
 
+Adding a book to Reading Journey from My Books or Book detail is a separate
+learner-initiated backlog path. It retains Journey membership first, acquires
+the current EPUB when needed, and submits whole-book analysis. Re-adding a
+member is idempotent; reordering never performs either side effect.
+
 ### 1. Add to My Books
 
 **Learner decision:** Which book do I want Mouseion to know about?

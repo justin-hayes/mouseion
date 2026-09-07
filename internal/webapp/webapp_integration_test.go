@@ -34,7 +34,10 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-type recordingAnalysis struct{ owner, source, scope string }
+type recordingAnalysis struct {
+	owner, source, scope string
+	calls                int
+}
 type recordingAnalysisInsights struct {
 	owner, corpus string
 	coverage      domain.AnalysisCoverage
@@ -200,6 +203,7 @@ func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (kn
 
 func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
 	r.owner, r.source, r.scope = owner, source, ""
+	r.calls++
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 
@@ -424,6 +428,30 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
 	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Start analysis") || strings.Contains(bookPage.Body.String(), "Acquire EPUB content") {
 		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
+	}
+	journey, err := store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	added := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	if added.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
+		t.Fatalf("Journey metadata add=%d downloads=%d analysis calls=%d location=%q body=%s", added.Code, downloads, recorder.calls, added.Header().Get("Location"), added.Body.String())
+	}
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil || len(journey.Entries) != 1 || journey.Entries[0].BookID != bookResult.Book.ID {
+		t.Fatalf("Journey membership after metadata add=%+v err=%v", journey.Entries, err)
+	}
+	readded := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	if readded.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
+		t.Fatalf("Journey re-add=%d downloads=%d analysis calls=%d location=%q body=%s", readded.Code, downloads, recorder.calls, readded.Header().Get("Location"), readded.Body.String())
+	}
+	journeyRevision, err := store.RemoveFromReadingJourney(ctx, owner.ID, bookResult.Book.ID, journey.Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journeyRevision)}}, cookies)
+	if alreadyAcquired.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 2 {
+		t.Fatalf("Journey acquired add=%d downloads=%d analysis calls=%d location=%q body=%s", alreadyAcquired.Code, downloads, recorder.calls, alreadyAcquired.Header().Get("Location"), alreadyAcquired.Body.String())
 	}
 	started := perform(t, h, "POST", "/books/"+bookResult.Book.ID+"/analyze", url.Values{"csrf_token": {csrf}}, cookies)
 	if started.Code != http.StatusSeeOther || recorder.scope != "" || downloads != 1 {

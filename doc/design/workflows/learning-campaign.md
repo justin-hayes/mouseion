@@ -47,9 +47,12 @@ My Books
     -> Choose, reorder, add/remove, or remain between Goals
 ```
 
-Acquisition, scope confirmation, analysis, deck preparation, Journey membership,
-Goal choice, reading completion, and vocabulary graduation remain explicit
-transitions. None silently triggers the next.
+Acquisition, analysis, deck preparation, Goal choice, reading completion, and
+vocabulary graduation remain explicit transitions. Adding a book to Reading
+Journey is the learner-initiated trigger that also acquires its current EPUB
+and submits whole-book analysis; it does not silently trigger from catalogue
+sync, reordering, or any other transition. Scope confirmation and deck
+preparation remain separate explicit actions.
 
 ## 1. Shape Reading Journey
 

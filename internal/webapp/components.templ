@@ -23,7 +23,7 @@ templ PageHeader(title, description string, status templ.Component) {
 
 templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
 	if action.Submit {
-		<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">{ action.Label }</button></form>
+		<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">{ action.Label }</button></form>
 	} else if action.URL != "" {
 		<a role="button" href={ templ.SafeURL(action.URL) }>{ action.Label }</a>
 	}
