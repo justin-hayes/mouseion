@@ -61,7 +61,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		}
 		return source.ID
 	}
-	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 1, 10})
+	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 3, 10})
 	if _, err = pool.Exec(ctx, `UPDATE selection_candidates SET eligible_sentence_refs='[{"location":{"start_offset":1},"text":"Inhaltsverzeichnis: Das Haus und seine Geschichte ..... 12."},{"location":{"start_offset":10},"text":"Das alte Haus ist überraschend groß."}]' WHERE owner_id=$1 AND canonical_lemma='Haus' AND corpus_id=(SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2)`, alice.ID, aliceBookA); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	if secondBook.Count != 2 || contains(secondBook.TSV, "Haus") || contains(secondBook.TSV, "Welt") || !contains(secondBook.TSV, "Baum") || !contains(secondBook.TSV, "Weg") {
-		t.Fatalf("book B exclusions or 97%% selection incorrect: %+v", secondBook)
+		t.Fatalf("book B exclusions or frequency-floor selection incorrect: %+v", secondBook)
 	}
 	if strings.Index(secondBook.TSV, "Weg") > strings.Index(secondBook.TSV, "Baum") {
 		t.Fatalf("book B TSV is not in first-encounter order: %s", secondBook.TSV)
@@ -145,16 +145,16 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bobArtifact.Count != 1 || !contains(bobArtifact.TSV, "Haus") {
+	if bobArtifact.Count != 0 || contains(bobArtifact.TSV, "Haus") {
 		t.Fatalf("Alice's generated history affected Bob: %+v", bobArtifact)
 	}
 	var bobGenerated int
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, bob.ID, bobBook).Scan(&bobGenerated)
-	if bobGenerated != 1 {
+	if bobGenerated != 0 {
 		t.Fatalf("Bob generated provenance=%d", bobGenerated)
 	}
 
-	badBook := seedBook(alice, "export-quality", "Quality Book", fixtureCandidate{"Fragment", "Fragment.", 1, 10})
+	badBook := seedBook(alice, "export-quality", "Quality Book", fixtureCandidate{"Fragment", "Fragment.", 3, 10})
 	omitted, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, badBook)
 	if err != nil {
 		t.Fatal(err)
