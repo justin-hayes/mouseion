@@ -1233,12 +1233,13 @@ section[aria-labelledby="campaign-operations-heading"] {
 
 .journey-book__controls {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 22rem;
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
   align-items: center;
   min-width: 0;
   max-width: 100%;
+  width: min(100%, 22rem);
 }
 
 .journey-book__controls form {
