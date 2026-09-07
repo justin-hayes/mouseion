@@ -35,6 +35,9 @@ type Store interface {
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
+	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
+	SetActiveStudyLanguage(context.Context, string, string) error
+	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
@@ -200,13 +203,27 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
 	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyPage)))
+	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
 	h.mux.Handle("POST /vocabulary/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /vocabulary/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	return h, nil
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
-func (h *Handler) user(next http.Handler) http.Handler              { return h.services.WebAuth.RequireUser(next) }
+func (h *Handler) user(next http.Handler) http.Handler {
+	return h.services.WebAuth.RequireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := user(r)
+		view, err := h.loadShellView(r.Context(), u.ID, shellReturnPath(r))
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		if view != nil {
+			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
+		}
+		next.ServeHTTP(w, r)
+	}))
+}
 func render(w http.ResponseWriter, r *http.Request, component interface {
 	Render(context.Context, io.Writer) error
 }) {

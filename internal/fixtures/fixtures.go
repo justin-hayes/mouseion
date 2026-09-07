@@ -59,25 +59,28 @@ func normalizeFixtureLanguage(raw string) string {
 }
 
 type Store struct {
-	mu              sync.Mutex
-	books           []domain.SourceMaterialSummary
-	jobs            []domain.AnalysisJob
-	campaigns       []domain.LearningCampaign
-	supported       []domain.SupportedLanguage
-	connections     []domain.OpdsConnection
-	aliases         []domain.BookAlias
-	preps           []domain.DeckPreparation
-	known           []domain.KnownVocabulary
-	campaignVocab   []domain.CampaignVocabulary
-	legacyGenerated []domain.GeneratedVocabulary
-	myBooks         []domain.MyBook
-	readingJourneys map[string]domain.ReadingJourney
-	primaryGoals    map[string]domain.PrimaryGoal
-	syncStatuses    []domain.CatalogueSyncStatus
+	mu                   sync.Mutex
+	books                []domain.SourceMaterialSummary
+	jobs                 []domain.AnalysisJob
+	campaigns            []domain.LearningCampaign
+	supported            []domain.SupportedLanguage
+	connections          []domain.OpdsConnection
+	aliases              []domain.BookAlias
+	preps                []domain.DeckPreparation
+	known                []domain.KnownVocabulary
+	campaignVocab        []domain.CampaignVocabulary
+	legacyGenerated      []domain.GeneratedVocabulary
+	myBooks              []domain.MyBook
+	readingJourneys      map[string]domain.ReadingJourney
+	primaryGoals         map[string]domain.PrimaryGoal
+	syncStatuses         []domain.CatalogueSyncStatus
+	storedActiveLanguage *string
+	mostRecentLanguage   string
 }
 
 func NewStore() *Store {
 	lastSyncedAt := fixtureJourneyTime
+	initialActiveLanguage := "de"
 	return &Store{
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
@@ -113,6 +116,7 @@ func NewStore() *Store {
 		},
 		known: []domain.KnownVocabulary{
 			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
 			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
 			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", Provenance: "Graduated from completed campaign", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
 		},
@@ -139,7 +143,45 @@ func NewStore() *Store {
 		primaryGoals: map[string]domain.PrimaryGoal{
 			OwnerID: {OwnerID: OwnerID, BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
+		storedActiveLanguage: &initialActiveLanguage,
+		mostRecentLanguage:   "it",
 	}
+}
+
+func (s *Store) GetStoredActiveStudyLanguage(_ context.Context, owner string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner != OwnerID {
+		return "", errNotFound
+	}
+	if s.storedActiveLanguage == nil {
+		return "", nil
+	}
+	return *s.storedActiveLanguage, nil
+}
+
+func (s *Store) SetActiveStudyLanguage(_ context.Context, owner, language string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner != OwnerID {
+		return errNotFound
+	}
+	language = normalizeFixtureLanguage(language)
+	if language == "" {
+		s.storedActiveLanguage = nil
+	} else {
+		s.storedActiveLanguage = &language
+	}
+	return nil
+}
+
+func (s *Store) MostRecentlyActivatedStudyLanguage(_ context.Context, owner string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner != OwnerID {
+		return "", errNotFound
+	}
+	return s.mostRecentLanguage, nil
 }
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
 	return domain.SupportedLanguage{}, nil

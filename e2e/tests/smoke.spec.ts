@@ -34,6 +34,28 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
 
+  test('active study language persists and marks new and no-book languages', async ({ page }) => {
+    await page.goto('/library');
+    const switcher = page.getByLabel('Study language');
+    await expect(switcher).toHaveValue('de');
+    await expect(switcher.locator('option[value="it"]')).toContainText('(new)');
+    await expect(switcher.locator('option[value="fr"]')).toHaveAttribute('disabled', '');
+    await expect(switcher.locator('option[value="fr"]')).toContainText('(no books)');
+
+    await switcher.selectOption('it');
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/journey');
+    await expect(page.getByLabel('Study language')).toHaveValue('it');
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page).toHaveURL(/\/journey$/);
+
+    await page.goto('/books/fixture-book');
+    await page.getByLabel('Study language').selectOption('it');
+    await expect(page).toHaveURL('/books/fixture-book');
+    await expect(page.getByLabel('Study language')).toHaveValue('it');
+    await page.getByLabel('Study language').selectOption('de');
+  });
+
   test('acquired books resolve from their canonical Book ID', async ({ page }) => {
     await page.goto('/books/fixture-book');
     await expect(page).toHaveURL('/books/fixture-book');

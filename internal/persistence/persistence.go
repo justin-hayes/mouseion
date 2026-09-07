@@ -356,6 +356,51 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (u domain.Us
 	err = missing(err)
 	return
 }
+
+// GetStoredActiveStudyLanguage returns the nullable learner context without
+// resolving it against the currently derived study-language set.
+func (s *PostgresStore) GetStoredActiveStudyLanguage(ctx context.Context, owner string) (string, error) {
+	var language *string
+	err := s.pool.QueryRow(ctx, `SELECT active_study_language FROM users WHERE id=$1`, owner).Scan(&language)
+	if err = missing(err); err != nil {
+		return "", err
+	}
+	if language == nil {
+		return "", nil
+	}
+	return *language, nil
+}
+
+// SetActiveStudyLanguage stores only the context pointer. Callers validate it
+// against the derived study-language set before writing; reads remain lazy.
+func (s *PostgresStore) SetActiveStudyLanguage(ctx context.Context, owner, language string) error {
+	language = canonicalization.NormalizeLanguage(strings.TrimSpace(language))
+	var value any = language
+	if language == "" {
+		value = nil
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE users SET active_study_language=$2 WHERE id=$1`, owner, value)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// MostRecentlyActivatedStudyLanguage is deliberately a read-time fallback;
+// removing or retagging a Book never updates the stored context eagerly.
+func (s *PostgresStore) MostRecentlyActivatedStudyLanguage(ctx context.Context, owner string) (string, error) {
+	var language string
+	err := s.pool.QueryRow(ctx, `SELECT b.language_tag
+		FROM books b
+		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
+		WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag <> ''
+		ORDER BY m.activated_at DESC NULLS LAST,b.updated_at DESC,b.id DESC
+		LIMIT 1`, owner).Scan(&language)
+	if err = missing(err); err != nil {
+		return "", err
+	}
+	return language, nil
+}
 func (s *PostgresStore) SetUserPassword(ctx context.Context, userID, passwordHash string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE users SET password_hash=$2 WHERE id=$1`, userID, passwordHash)
 	if err == nil && tag.RowsAffected() == 0 {
