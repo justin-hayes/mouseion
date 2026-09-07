@@ -61,7 +61,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		}
 		return source.ID
 	}
-	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 1, 10})
+	aliceBookA := seedBook(alice, "export-a", "Book A", fixtureCandidate{"Haus", "Das alte Haus ist überraschend groß.", 3, 10})
 	if _, err = pool.Exec(ctx, `UPDATE selection_candidates SET eligible_sentence_refs='[{"location":{"start_offset":1},"text":"Inhaltsverzeichnis: Das Haus und seine Geschichte ..... 12."},{"location":{"start_offset":10},"text":"Das alte Haus ist überraschend groß."}]' WHERE owner_id=$1 AND canonical_lemma='Haus' AND corpus_id=(SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2)`, alice.ID, aliceBookA); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,39 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 		fixtureCandidate{"Welt", "Die ganze Welt ist wirklich sehr groß.", 100, 20},
 		fixtureCandidate{"Baum", "Der alte Baum trägt viele grüne Blätter.", 96, 40},
 		fixtureCandidate{"Weg", "Der schmale Weg führt durch den Wald.", 4, 30},
+		fixtureCandidate{"Himmel", "Der blaue Himmel leuchtet über dem Dorf.", 3, 50},
+		fixtureCandidate{"Karte", "Sie zeichnet eine Karte für die Reise.", 2, 60},
+		fixtureCandidate{"Rand", "Am Rand des Waldes beginnt ein Feld.", 1, 70},
+		fixtureCandidate{"Stern", "Ein heller Stern steht über dem Dorf.", 3, 80},
 	)
+	reservationPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: aliceBookB, Filename: "reservation.apkg", DeckName: "Reservation", ContentHash: "reservation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ClaimDeckPreparation(ctx, alice.ID, reservationPreparation.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, reservationPreparation.ID, domain.DeckPreparation{Artifact: []byte("reservation-artifact"), Filename: reservationPreparation.Filename, DeckName: reservationPreparation.DeckName}); err != nil {
+		t.Fatal(err)
+	}
+	reservationDeck, err := store.PutDeck(ctx, alice.ID, "de", "Reservation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "Himmel", UPOS: "NOUN", FirstDeckID: reservationDeck.ID, FirstSourceMaterialID: &aliceBookB}); err != nil {
+		t.Fatal(err)
+	}
+	reservationCampaign, err := store.CreateLearningCampaign(ctx, alice.ID, aliceBookB, reservationPreparation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, reservationCampaign.ID, persistence.LearningCampaignExpectedState{Status: reservationCampaign.Status, BookProgress: reservationCampaign.BookProgress, DeckProgress: reservationCampaign.DeckProgress}, domain.BookReading, domain.DeckStudying); err != nil {
+		t.Fatal(err)
+	}
+	activeVocabulary, err := store.ListActiveLearningCampaignVocabulary(ctx, alice.ID, "de")
+	if err != nil || len(activeVocabulary) != 1 || activeVocabulary[0].CanonicalLemma != "Himmel" {
+		t.Fatalf("active reservation vocabulary=%+v err=%v", activeVocabulary, err)
+	}
 	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs neues Haus steht nah am Fluss.", 1, 10})
 	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN"); err != nil {
 		t.Fatal(err)
@@ -97,12 +129,22 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards); err != nil {
 		t.Fatal(err)
 	}
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM decks WHERE owner_id=$1`, alice.ID).Scan(&decks)
-	_ = pool.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&state)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, alice.ID, aliceBookA).Scan(&generated)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&known)
-	if cards != 1 || decks != 1 || state != "generated" || audits != 1 || generated != 1 || known != 1 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM decks WHERE owner_id=$1`, alice.ID).Scan(&decks); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, alice.ID, aliceBookA).Scan(&generated); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&known); err != nil {
+		t.Fatal(err)
+	}
+	if cards != 1 || decks != 2 || state != "generated" || audits != 1 || generated != 1 || known != 1 {
 		t.Fatalf("cards=%d decks=%d state=%s audits=%d generated=%d known=%d", cards, decks, state, audits, generated, known)
 	}
 	var firstDeck, firstGeneratedAt string
@@ -113,13 +155,23 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if err != nil || again.Count != 1 || again.Completeness != (cardexport.Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1}) || !contains(again.TSV, "The <b>old house</b> is surprisingly large.") {
 		t.Fatalf("again=%+v err=%v", again, err)
 	}
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits)
-	if cards != 1 || audits != 1 {
-		t.Fatalf("idempotence cards=%d audits=%d", cards, audits)
+	var generatedRows int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, alice.ID).Scan(&cards); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, alice.ID).Scan(&audits); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, alice.ID, aliceBookA).Scan(&generatedRows); err != nil {
+		t.Fatal(err)
+	}
+	if cards != 1 || audits != 1 || generatedRows != 1 {
+		t.Fatalf("idempotence cards=%d audits=%d generated=%d", cards, audits, generatedRows)
 	}
 	var stableDeck, stableGeneratedAt string
-	_ = pool.QueryRow(ctx, `SELECT first_deck_id::text,first_generated_at::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&stableDeck, &stableGeneratedAt)
+	if err = pool.QueryRow(ctx, `SELECT first_deck_id::text,first_generated_at::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&stableDeck, &stableGeneratedAt); err != nil {
+		t.Fatal(err)
+	}
 	if stableDeck != firstDeck || stableGeneratedAt != firstGeneratedAt {
 		t.Fatalf("generated provenance changed: deck %s -> %s, time %s -> %s", firstDeck, stableDeck, firstGeneratedAt, stableGeneratedAt)
 	}
@@ -128,40 +180,60 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secondBook.Count != 2 || contains(secondBook.TSV, "Haus") || contains(secondBook.TSV, "Welt") || !contains(secondBook.TSV, "Baum") || !contains(secondBook.TSV, "Weg") {
-		t.Fatalf("book B exclusions or 97%% selection incorrect: %+v", secondBook)
+	if secondBook.Count != 3 || contains(secondBook.TSV, "Haus") || contains(secondBook.TSV, "Welt") || !contains(secondBook.TSV, "Baum") || !contains(secondBook.TSV, "Weg") || contains(secondBook.TSV, "Himmel") || contains(secondBook.TSV, "Karte") || contains(secondBook.TSV, "Rand") || !contains(secondBook.TSV, "Stern") {
+		t.Fatalf("book B exclusions or frequency-floor selection incorrect: %+v", secondBook)
 	}
-	if strings.Index(secondBook.TSV, "Weg") > strings.Index(secondBook.TSV, "Baum") {
+	if strings.Index(secondBook.TSV, "Weg") > strings.Index(secondBook.TSV, "Baum") || strings.Index(secondBook.TSV, "Baum") > strings.Index(secondBook.TSV, "Stern") {
 		t.Fatalf("book B TSV is not in first-encounter order: %s", secondBook.TSV)
 	}
 	var bookBGenerated, aliceKnown int
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2 AND canonical_lemma IN ('Baum','Weg')`, alice.ID, aliceBookB).Scan(&bookBGenerated)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Welt'`, alice.ID).Scan(&aliceKnown)
-	if bookBGenerated != 2 || aliceKnown != 0 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2 AND canonical_lemma IN ('Baum','Weg','Stern')`, alice.ID, aliceBookB).Scan(&bookBGenerated); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Welt'`, alice.ID).Scan(&aliceKnown); err != nil {
+		t.Fatal(err)
+	}
+	if bookBGenerated != 3 || aliceKnown != 0 {
 		t.Fatalf("book B provenance=%d generated-known=%d", bookBGenerated, aliceKnown)
+	}
+	var bookBDeckCards int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM cards c JOIN decks d ON d.owner_id=c.owner_id AND d.id=c.deck_id WHERE d.owner_id=$1 AND d.name='Book B'`, alice.ID).Scan(&bookBDeckCards); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM decks WHERE owner_id=$1`, alice.ID).Scan(&decks); err != nil {
+		t.Fatal(err)
+	}
+	if bookBDeckCards != 3 || decks != 3 {
+		t.Fatalf("book B persisted cards=%d owner decks=%d", bookBDeckCards, decks)
 	}
 
 	bobArtifact, err := cardexport.NewService(store).ExportCoverage(ctx, bob.ID, bobBook)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bobArtifact.Count != 1 || !contains(bobArtifact.TSV, "Haus") {
+	if bobArtifact.Count != 0 || contains(bobArtifact.TSV, "Haus") {
 		t.Fatalf("Alice's generated history affected Bob: %+v", bobArtifact)
 	}
 	var bobGenerated int
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, bob.ID, bobBook).Scan(&bobGenerated)
-	if bobGenerated != 1 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Haus' AND first_source_material_id=$2`, bob.ID, bobBook).Scan(&bobGenerated); err != nil {
+		t.Fatal(err)
+	}
+	if bobGenerated != 0 {
 		t.Fatalf("Bob generated provenance=%d", bobGenerated)
 	}
 
-	badBook := seedBook(alice, "export-quality", "Quality Book", fixtureCandidate{"Fragment", "Fragment.", 1, 10})
+	badBook := seedBook(alice, "export-quality", "Quality Book", fixtureCandidate{"Fragment", "Fragment.", 3, 10})
 	omitted, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, badBook)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var omittedGenerated, omittedCards int
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedCards)
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedCards); err != nil {
+		t.Fatal(err)
+	}
 	if omitted.Count != 0 || len(omitted.Omitted) != 1 || omittedGenerated != 0 || omittedCards != 0 {
 		t.Fatalf("omitted=%+v generated=%d cards=%d", omitted, omittedGenerated, omittedCards)
 	}
@@ -179,7 +251,9 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated)
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='Fragment'`, alice.ID).Scan(&omittedGenerated); err != nil {
+		t.Fatal(err)
+	}
 	if improved.Count != 1 || len(improved.Omitted) != 0 || omittedGenerated != 1 {
 		t.Fatalf("improved=%+v generated=%d", improved, omittedGenerated)
 	}

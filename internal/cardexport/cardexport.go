@@ -652,8 +652,7 @@ func DownloadFilename(bookTitle string) string {
 	return name + ".apkg"
 }
 
-// ExportCoverage exports the smallest set of unknown lemmas accounting for at
-// least 97 percent of the book's unknown lemma tokens, in reading order.
+// ExportCoverage exports recurring unknown lemmas in reading order.
 func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
 	artifact, err := s.BuildCoverage(ctx, owner, bookID)
 	if err != nil {
@@ -1049,26 +1048,16 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	return textmatch.CleanLexicalSurface(candidate.CanonicalLemma)
 }
 
-const coveragePercent = 97
+const defaultDeckMinOccurrences = 3
 
-func selectCoverageCandidates(candidates []domain.SelectionCandidate, targetPercent int) []domain.SelectionCandidate {
-	unknown := append([]domain.SelectionCandidate(nil), candidates...)
-	sort.SliceStable(unknown, func(i, j int) bool {
-		if unknown[i].OccurrenceCount != unknown[j].OccurrenceCount {
-			return unknown[i].OccurrenceCount > unknown[j].OccurrenceCount
+func selectRecurringCandidates(candidates []domain.SelectionCandidate, minOccurrences int) []domain.SelectionCandidate {
+	selected := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.OccurrenceCount >= minOccurrences {
+			selected = append(selected, candidate)
 		}
-		return candidateKey(unknown[i]) < candidateKey(unknown[j])
-	})
-	total := 0
-	for _, candidate := range unknown {
-		total += candidate.OccurrenceCount
 	}
-	cumulative, count := 0, 0
-	for count < len(unknown) && cumulative*100 < total*targetPercent {
-		cumulative += unknown[count].OccurrenceCount
-		count++
-	}
-	return unknown[:count]
+	return selected
 }
 
 func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
@@ -1116,7 +1105,7 @@ func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, 
 			unknown = append(unknown, candidate)
 		}
 	}
-	return selectCoverageCandidates(unknown, coveragePercent), nil
+	return selectRecurringCandidates(unknown, defaultDeckMinOccurrences), nil
 }
 
 func candidateKey(candidate domain.SelectionCandidate) string {

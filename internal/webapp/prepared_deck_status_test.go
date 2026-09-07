@@ -48,3 +48,17 @@ func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
 		t.Fatalf("failure response leaked raw error: %q", response.Error)
 	}
 }
+
+func TestEmptyReadyPreparationDoesNotExposeDownload(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{ID: "empty", State: domain.DeckPreparationReady})
+	if response.DownloadURL != "" {
+		t.Fatalf("empty preparation download URL = %q", response.DownloadURL)
+	}
+}
+
+func TestQualityOmittedZeroCardPreparationExposesDownload(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{ID: "omitted", State: domain.DeckPreparationReady, QualityOmissions: 1})
+	if response.DownloadURL == "" {
+		t.Fatal("quality-omitted zero-card preparation has no download URL")
+	}
+}

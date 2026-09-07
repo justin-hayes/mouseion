@@ -436,7 +436,13 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			if len(journey.Prepared) > 0 {
 				<h3>Prepared books and decks</h3><div class="campaign-list">
 				for _, item := range journey.Prepared {
-                    <article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge("Deck ready", StatusSuccess) <span aria-hidden="true">·</span> <code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p></div></article>
+					<article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge(deckPreparationTitle(item.Deck), deckPreparationStatusTone(item.Deck))</p>
+					if deckPreparationEmpty(item.Deck) {
+						<p>This book has no recurring vocabulary to study, so no cards were created.</p>
+					} else {
+						<p><code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p>
+					}
+					</div></article>
 				}
 				</div>
 			}
@@ -711,7 +717,7 @@ templ BookPageWithHistoryAndPreparation(user domain.User, csrf string, book doma
 		</section>
 		if len(coverage.Thresholds) > 0 {
 			<section aria-labelledby="vocabulary-investment-heading"><h2 id="vocabulary-investment-heading">Vocabulary investment</h2>
-				<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each coverage target:</p>
+				<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each target across all analyzable tokens:</p>
 				@StatGroup(thresholdStatItems(coverage.Thresholds))
 			</section>
 		}
@@ -760,7 +766,7 @@ templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domai
 		} else {
 			@Breadcrumb("/books/"+preparation.SourceMaterialID, "Book")
 		}
-		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationStatusLabel(preparation.State), statusTone(string(preparation.State))))
+		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationTitle(preparation), deckPreparationStatusTone(preparation)))
 		@DeckPreparationStatus(csrf, preparation, resultURL, journeyAction)
 	}
 }
@@ -776,15 +782,19 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		if preparation.BatchRequestCount > 0 {
 			<p><strong>Batch translation:</strong> { fmt.Sprintf("%d of %d requests complete · %d failed · %d expired · completion can take hours (up to 24h)", preparation.BatchCompletedRequests, preparation.BatchRequestCount, preparation.BatchFailedRequests, preparation.BatchExpiredRequests) }</p>
 		}
-		if preparation.DeckName != "" {
+		if preparation.DeckName != "" && !deckPreparationEmpty(preparation) {
 			<p><strong>Deck:</strong> <code>{ preparation.DeckName }</code> · <strong>Filename:</strong> <code>{ preparation.Filename }</code></p>
 		}
 		if preparation.State == domain.DeckPreparationReady {
-			<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
-			@ActionGroup() {
-				<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+			if deckPreparationEmpty(preparation) {
+				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
+			} else {
+				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
+				@ActionGroup() {
+					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+				}
+				@DeckJourneyAction(journeyAction, csrf)
 			}
-			@DeckJourneyAction(journeyAction, csrf)
 		} else if deckPreparationActive(preparation) {
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
 		} else {

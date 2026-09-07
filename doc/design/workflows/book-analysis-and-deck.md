@@ -180,6 +180,10 @@ The interface must answer:
 - Failed acquisition never presents an invalid source as ready for scope review.
 - Empty, stale, foreign, or contradictory scope submissions are rejected while
   preserving the learner's review context where possible.
+- A completed preparation with no recurring vocabulary shows an explicit empty
+  state explaining that there are no cards to study; it does not offer an empty
+  artifact download or a learning-campaign action. A zero-card preparation with
+  quality omissions remains a completeness result and keeps its artifact action.
 - Metadata-only edits preserve scope identity; changed EPUB bytes require a new
   source snapshot and scope review.
 - Duplicate analysis or preparation submission resolves idempotently rather than
