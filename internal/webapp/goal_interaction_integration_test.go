@@ -54,11 +54,11 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {""},
 	}, aliceCookies)
-	if chosen.Code != http.StatusSeeOther || !strings.HasPrefix(chosen.Header().Get("Location"), "/journey?message=") {
+	if chosen.Code != http.StatusSeeOther || !strings.Contains(chosen.Header().Get("Location"), "active+Reading+Journey+member") {
 		t.Fatalf("reading-only Goal response=%d location=%q body=%s", chosen.Code, chosen.Header().Get("Location"), chosen.Body.String())
 	}
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID)
-	if err != nil || goal.BookID != readingOnly.ID {
+	if err != nil || goal.BookID != "" {
 		t.Fatalf("Goal=%+v err=%v", goal, err)
 	}
 	journey, err := store.GetReadingJourney(ctx, alice.ID)
@@ -70,6 +70,9 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	}
 	if jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID); listErr != nil || len(jobs) != 0 {
 		t.Fatalf("choosing Goal created analysis jobs=%d err=%v", len(jobs), listErr)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, alice.ID, readingOnly.ID); err != nil {
+		t.Fatal(err)
 	}
 
 	stale := perform(t, h, http.MethodPost, "/goal/books/"+replacement.ID, url.Values{

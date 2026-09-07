@@ -748,21 +748,24 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		}
 		return book
 	}
-	goal := newBook(alice, "Anchored Goal")
+	goal, goalSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reorder-goal", "Anchored Goal", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "goal", UPOS: "NOUN", OccurrenceCount: 1}})
+	if err = store.LinkSourceToBook(ctx, alice.ID, goal.ID, goalSource.ID); err != nil {
+		t.Fatal(err)
+	}
 	first := newBook(alice, "First provisional")
 	second := newBook(alice, "Second provisional")
 	third := newBook(alice, "Third provisional")
 	foreign := newBook(bob, "Foreign provisional")
 	notMember := newBook(alice, "Removed provisional")
-	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, goal.ID); err != nil {
-		t.Fatal(err)
-	}
 	journeyRevision := int64(0)
-	for _, book := range []domain.Book{first, second, third} {
+	for _, book := range []domain.Book{goal, first, second, third} {
 		journeyRevision, err = store.AddToReadingJourney(ctx, alice.ID, book.ID, journeyRevision)
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, goal.ID); err != nil {
+		t.Fatal(err)
 	}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
 	aliceCookies, csrf := loginCookies(t, h, alice.Username, "alice-password")
@@ -779,7 +782,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		t.Fatalf("move earlier=%d location=%q body=%s", moved.Code, moved.Header().Get("Location"), moved.Body.String())
 	}
 	journey, err := store.GetReadingJourney(ctx, alice.ID)
-	if err != nil || journey.Entries[0].BookID != second.ID || journey.Entries[1].BookID != first.ID {
+	if err != nil || journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != second.ID || journey.Entries[2].BookID != first.ID {
 		t.Fatalf("after move earlier journey=%+v err=%v", journey.Entries, err)
 	}
 	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
@@ -787,7 +790,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		t.Fatalf("move later=%d location=%q", moved.Code, moved.Header().Get("Location"))
 	}
 	journey, _ = store.GetReadingJourney(ctx, alice.ID)
-	if journey.Entries[0].BookID != first.ID || journey.Entries[1].BookID != second.ID {
+	if journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != first.ID || journey.Entries[2].BookID != second.ID {
 		t.Fatalf("after move later journey=%+v", journey.Entries)
 	}
 	staleRevision := hiddenInputValue(t, page.Body.String(), "expected_revision")
@@ -835,7 +838,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		t.Fatalf("add to Journey=%d location=%q body=%s", added.Code, added.Header().Get("Location"), added.Body.String())
 	}
 	journey, err = store.GetReadingJourney(ctx, alice.ID)
-	if err != nil || len(journey.Entries) != 4 {
+	if err != nil || len(journey.Entries) != 5 {
 		t.Fatalf("added Journey=%+v err=%v", journey.Entries, err)
 	}
 	repeated := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(fmt.Sprintf("%d", journey.Revision)), aliceCookies)
@@ -867,7 +870,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		t.Fatalf("source-material add=%d location=%q body=%s", addedFromSource.Code, addedFromSource.Header().Get("Location"), addedFromSource.Body.String())
 	}
 	journey, err = store.GetReadingJourney(ctx, alice.ID)
-	if err != nil || len(journey.Entries) != 5 {
+	if err != nil || len(journey.Entries) != 6 {
 		t.Fatalf("source-material add Journey=%+v err=%v", journey.Entries, err)
 	}
 	containsDeckBook := false

@@ -75,7 +75,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadataView = migrationMyBook(t, ctx, store, alice.ID, book.ID)
-	if metadataView.Acquired == nil || metadataView.Acquired.Source.ID != source.ID || metadataView.Acquired.CorpusID != "" || metadataView.Book.LanguageState != domain.LanguageChosen {
+	if metadataView.Acquired == nil || metadataView.Acquired.Source.ID != source.ID || metadataView.Acquired.CorpusID == "" || metadataView.Book.LanguageState != domain.LanguageChosen {
 		t.Fatalf("acquisition promotion=%+v", metadataView)
 	}
 
@@ -145,7 +145,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("current versus conditional coverage before finish=%+v err=%v", beforeCoverage, err)
 	}
 	projectionBefore, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
-	if err != nil || len(projectionBefore.LearnerOrder) != 2 || len(projectionBefore.ConditionalAdvisoryOrder) != 0 {
+	if err != nil || len(projectionBefore.LearnerOrder) != 2 || len(projectionBefore.ConditionalAdvisoryOrder) != 2 {
 		t.Fatalf("projection before finish=%+v err=%v", projectionBefore, err)
 	}
 	learnerOrderBefore := []string{projectionBefore.LearnerOrder[0].BookID, projectionBefore.LearnerOrder[1].BookID}
@@ -300,6 +300,9 @@ func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persist
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = store.LinkSourceToBook(ctx, owner, book.ID, source.ID); err != nil {
+		t.Fatal(err)
+	}
 	if err = store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: source.ContentHash, Language: "de", SchemaVersion: "1", NormalizationProfile: "migration", NormalizationVersion: "1", AnalyzerName: "migration-fixture", AnalyzerVersion: "1"}, toSharedLemmas(lemmas)); err != nil {
 		t.Fatal(err)
 	}
@@ -312,6 +315,23 @@ func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persist
 		tokenCount += lemma.OccurrenceCount
 	}
 	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=$2,distinct_lemma_count=$3,sentence_count=1,normalized_token_count=$2,empty_sentence_count=0,median_sentence_token_count=1,p90_sentence_token_count=1,long_sentence_count=0 WHERE owner_id=$1 AND id=$4`, owner, tokenCount, len(lemmas), corpus.ID); err != nil {
+		t.Fatal(err)
+	}
+	var snapshotID string
+	if err = store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, source.ID).Scan(&snapshotID); err != nil {
+		t.Fatal(err)
+	}
+	var runID string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'migration-fixture','1',$5,'completed',now()) RETURNING id::text`, owner, source.ID, source.ContentRevisionID, snapshotID, suffix).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analysis_run_id=$1,status='complete' WHERE owner_id=$2 AND id=$3`, runID, owner, corpus.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, corpus.ID, owner, runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, book.ID, source.ID, runID); err != nil {
 		t.Fatal(err)
 	}
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, Filename: suffix + ".apkg", DeckName: "Migration " + suffix, ContentHash: source.ContentHash})

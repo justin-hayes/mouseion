@@ -336,6 +336,49 @@ func createJourneySourceAndPreparation(t *testing.T, ctx context.Context, store 
 	return book, source, prep
 }
 
+func makeJourneyMemberAnalyzed(t *testing.T, ctx context.Context, store *PostgresStore, book domain.Book, source domain.SourceMaterial) {
+	t.Helper()
+	journey, err := store.GetReadingJourney(ctx, book.OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, book.OwnerID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PutArtifact(ctx, domain.NormalizedArtifact{
+		ContentHash:          source.ContentHash,
+		Language:             source.Language,
+		SchemaVersion:        "1",
+		NormalizationProfile: source.Language,
+		NormalizationVersion: "1",
+		AnalyzerName:         "test",
+		AnalyzerVersion:      "1",
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	var snapshotID string
+	if err := store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, source.OwnerID, source.ID).Scan(&snapshotID); err != nil {
+		t.Fatal(err)
+	}
+	var runID string
+	if err := store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, source.OwnerID, source.ID, source.ContentRevisionID, snapshotID, source.ID).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	corpus, err := store.PutCorpus(ctx, source.OwnerID, source.ID, source.ContentHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE corpora SET analysis_run_id=$1,status='complete' WHERE owner_id=$2 AND id=$3`, runID, source.OwnerID, corpus.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, corpus.ID, source.OwnerID, runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, book.OwnerID, book.ID, source.ID, runID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func insertJourneyCampaign(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, sourceID, preparationID, bookStatus, deckStatus string, createdAt time.Time) string {
 	t.Helper()
 	var id string

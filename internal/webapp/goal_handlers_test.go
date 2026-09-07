@@ -34,7 +34,7 @@ func TestGoalSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 		`role="status"`,
 		"Primary Goal cleared.",
 		"No Primary Goal yet",
-		"provisional order or My Books",
+		"analyzed member as your current commitment",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("Goal section missing %q: %s", want, html)
@@ -86,11 +86,18 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 
 func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
-	first := testJourneyBook("first", "First book", "ready")
+	first := testJourneyBook("first", "First book", "analyzed")
 	second := testJourneyBook("second", "Second book", "ready")
+	first.Book.Source.MediaType = "application/epub+zip"
+	first.Book.Source.ContentRevisionID = "first-revision"
+	first.Book.AnalysisState = "completed"
+	first.Book.AnalysisRunID = "first-run"
+	first.Book.CorpusID = "first-corpus"
+	first.CanChooseGoal = true
+	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a Primary Goal."
 	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "", "")
-	if strings.Count(html, `action="/goal/books/first"`) != 1 || strings.Count(html, `action="/goal/books/second"`) != 1 {
-		t.Fatalf("expected one choose form per provisional card: %s", html)
+	if strings.Count(html, `action="/goal/books/first"`) != 1 || strings.Contains(html, `action="/goal/books/second"`) {
+		t.Fatalf("expected a choose form only for the eligible provisional card: %s", html)
 	}
 	if !strings.Contains(html, `name="expected_goal_book_id" value="goal"`) {
 		t.Fatalf("provisional choose forms did not carry the current Goal: %s", html)
@@ -128,8 +135,8 @@ func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 	if strings.Contains(goalCard, "Choose as Primary Goal") {
 		t.Fatalf("current Goal card exposed choose control: %s", goalCard)
 	}
-	if !strings.Contains(otherCard, `action="/goal/books/other-book"`) || !strings.Contains(otherCard, `name="expected_goal_book_id" value="goal-book"`) {
-		t.Fatalf("other book did not expose expected choose form: %s", otherCard)
+	if strings.Contains(otherCard, "Choose as Primary Goal") || strings.Contains(otherCard, `action="/goal/books/other-book"`) {
+		t.Fatalf("My Books exposed a choose form: %s", otherCard)
 	}
 }
 
@@ -202,19 +209,19 @@ func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.
 		t.Fatalf("idempotent choose=%d location=%q", idempotent.Code, idempotent.Header().Get("Location"))
 	}
 
-	changed := goalRequest(t, h, "/goal/books/fixture-empty", url.Values{
+	changed := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
 	if changed.Code != http.StatusSeeOther || !strings.Contains(changed.Header().Get("Location"), "reserved+vocabulary+are+unchanged") {
 		t.Fatalf("residual change=%d location=%q", changed.Code, changed.Header().Get("Location"))
 	}
 	goal, _ := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
-	if goal.BookID != "fixture-empty" {
+	if goal.BookID != "fixture-route-match" {
 		t.Fatalf("changed Goal=%+v", goal)
 	}
 
 	cleared := goalRequest(t, h, "/goal/clear", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {"fixture-empty"},
+		"csrf_token": {csrf}, "expected_goal_book_id": {"fixture-route-match"},
 	}, cookies)
 	if cleared.Code != http.StatusSeeOther {
 		t.Fatalf("clear=%d location=%q", cleared.Code, cleared.Header().Get("Location"))
@@ -243,7 +250,7 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		"Where next?",
 		"No new Primary Goal has been selected",
 		"conditional-projected coverage",
-		"Choose another book from My Books",
+		"Choose another book from Reading Journey",
 	} {
 		if !strings.Contains(finished.Body.String(), want) {
 			t.Errorf("finish outcome missing %q: %s", want, finished.Body.String())
