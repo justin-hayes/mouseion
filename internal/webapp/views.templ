@@ -146,12 +146,22 @@ templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf s
 	if bookID != "" {
 		if member {
 			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View this Journey entry</a></p>
+			@RemoveJourneyMembershipAction(bookID, revision, csrf)
 		} else {
 			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
 				<button type="submit">Add to Reading Journey</button>
 			</form>
 		}
+	}
+}
+
+templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) {
+	@Confirmation("Remove from Reading Journey", "This changes only Journey membership. Queued or running analysis continues, acquired content and completed analysis remain, and removing the current Primary Goal clears that Goal.", StatusDanger) {
+		<form method="post" action={ templ.SafeURL(journeyRemoveURL(bookID)) }>
+			<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
+			<button type="submit" class="outline secondary">Confirm removal</button>
+		</form>
 	}
 }
 
@@ -605,6 +615,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>
+			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
 			if item.CanChooseGoal {
 				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
 			} else if item.GoalEligibilityReason != "" {
@@ -623,6 +634,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			} else {
 				<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
 			}
+			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
 			<p>To choose a different Goal, use Choose as Primary Goal on another eligible book in your provisional order.</p>
 		</div>
 	}

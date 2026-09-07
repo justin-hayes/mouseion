@@ -140,6 +140,14 @@ func TestJourneyPageRendersEvidenceStates(t *testing.T) {
 	coverage := domain.AnalysisCoverage{AnalyzableTokenCount: 100, KnownTokenCount: 60, Projections: []domain.CoverageProjection{{TopLemmaCount: 3, ProjectedTokenCount: 80}}}
 	current.Coverage = &coverage
 	stale := testJourneyBook("stale", "Stale book", "stale")
+	stale.Book.Source.MediaType = "application/epub+zip"
+	stale.Book.Source.ContentRevisionID = "revision-stale"
+	stale.Book.AnalysisState = "completed"
+	stale.Book.AnalysisRunID = "stale-run"
+	stale.Book.CorpusID = "stale-corpus"
+	unassessed := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
+	unassessed.Book.Source.MediaType = "application/epub+zip"
+	unassessed.Book.Source.ContentRevisionID = "revision-unassessed"
 	unavailable := testJourneyBook("unavailable", "Unavailable book", "ready")
 	unavailable.StatisticsUnavailable = true
 	unavailableEPUB := testJourneyBook("unavailable-epub", "Unavailable EPUB book", "ready")
@@ -160,11 +168,24 @@ func TestJourneyPageRendersEvidenceStates(t *testing.T) {
 	cancelled.Book.Source.MediaType = "application/epub+zip"
 	cancelled.Book.Source.ContentRevisionID = "revision-cancelled"
 	cancelled.Book.AnalysisState = "cancelled"
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unavailable, unavailableEPUB, queued, running, failed, cancelled}}, "", "", "")
-	for _, expected := range []string{"Current evidence", "Analysis result ready", "Current coverage:", "Projected coverage:", "Stale evidence", "Coverage unavailable", "60.0%", "Assessment unavailable", "Analysis queued", "Analysis running", "Analysis failed", "Analysis cancelled"} {
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unassessed, unavailable, unavailableEPUB, queued, running, failed, cancelled}}, "", "", "")
+	for _, expected := range []string{"Current evidence", "Analysis result ready", "Current coverage:", "Projected coverage:", "Stale evidence", "Not yet assessed", "Coverage unavailable", "60.0%", "Assessment unavailable", "Analysis queued", "Analysis running", "Analysis failed", "Analysis cancelled"} {
 		if !strings.Contains(html, expected) {
 			t.Errorf("evidence state missing %q: %s", expected, html)
 		}
+	}
+}
+
+func TestJourneyStaleEvidenceOffersExplicitReanalysis(t *testing.T) {
+	book := testJourneyBook("stale", "Stale book", "stale")
+	book.Book.Source.MediaType = "application/epub+zip"
+	book.Book.Source.ContentRevisionID = "current-revision"
+	book.Book.AnalysisState = "completed"
+	book.Book.AnalysisRunID = "old-run"
+	book.Book.CorpusID = "old-corpus"
+	action := journeyAnalysisAction(book)
+	if action.Status != "Stale analysis" || action.Label != "Start analysis" || !strings.HasSuffix(action.URL, "/books/stale/analyze") {
+		t.Fatalf("stale Journey action=%+v", action)
 	}
 }
 

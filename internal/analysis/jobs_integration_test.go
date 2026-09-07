@@ -290,3 +290,141 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		t.Fatalf("changed content analysis status = %+v, %v", changedStatus, err)
 	}
 }
+
+func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err = MigrateRiver(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := store.CreateUser(ctx, "journey-lifecycle", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Journey lifecycle", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := putAnalysisSource(ctx, store, owner.ID, "journey-lifecycle", "Journey lifecycle", "Haus.", "sha256:journey-lifecycle")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, owner.ID, book.ID); err != nil {
+		t.Fatal(err)
+	}
+	journey, err := store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var startOnce, releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+	fake := &analyzertest.Fake{AnalyzeFunc: func(analyzeCtx context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		startOnce.Do(func() { close(started) })
+		select {
+		case <-release:
+		case <-analyzeCtx.Done():
+			return analyzer.Result{}, analyzeCtx.Err()
+		}
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN"}}}}}, nil
+	}}
+	client, err := NewClient(store.Pool(), fake, selection.NewService(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Stop(context.Background())
+	service := NewService(store.Pool(), client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-started:
+	case <-ctx.Done():
+		t.Fatal("analysis did not reach running state")
+	}
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if goal, goalErr := store.GetPrimaryGoal(ctx, owner.ID); goalErr != nil || goal.BookID != "" {
+		t.Fatalf("Goal after Journey removal=%+v err=%v", goal, goalErr)
+	}
+	var state string
+	if err = store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "running" {
+		t.Fatalf("analysis state after Journey removal=%q, want running", state)
+	}
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	reused, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reused.ID != handle.ID || reused.RunID != handle.RunID {
+		t.Fatalf("re-added running analysis=%+v, original=%+v", reused, handle)
+	}
+	releaseOnce.Do(func() { close(release) })
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	if err != nil || status.State != rivertype.JobStateCompleted {
+		t.Fatalf("re-added analysis status=%+v err=%v", status, err)
+	}
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+		t.Fatal(err)
+	}
+	reusedCompleted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reusedCompleted.ID != handle.ID {
+		t.Fatalf("re-added completed analysis=%+v, original=%+v", reusedCompleted, handle)
+	}
+	var runs, jobs int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&runs); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&jobs); err != nil {
+		t.Fatal(err)
+	}
+	if runs != 1 || jobs != 1 {
+		t.Fatalf("analysis lifecycle created duplicates: runs=%d jobs=%d", runs, jobs)
+	}
+	releaseOnce.Do(func() { close(release) })
+}

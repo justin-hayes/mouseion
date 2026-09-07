@@ -22,6 +22,7 @@ type journeyBookView struct {
 	Book                  domain.SourceMaterialSummary
 	BookID                string
 	Position              int
+	JourneyRevision       int64
 	PrimaryGoal           bool
 	GoalReadingOnly       bool
 	GoalUnassessed        bool
@@ -75,6 +76,10 @@ func journeyMoveURL(bookID string, earlier bool) string {
 	return "/journey/entries/" + bookID + "/" + direction
 }
 
+func journeyRemoveURL(bookID string) string {
+	return "/journey/books/" + url.PathEscape(bookID) + "/remove"
+}
+
 func journeyBookTitle(book domain.SourceMaterialSummary) string {
 	if strings.TrimSpace(book.Source.Title) != "" {
 		return book.Source.Title
@@ -115,6 +120,9 @@ func journeyEvidenceState(item journeyBookView) string {
 	if strings.Contains(status, "stale") || strings.Contains(status, "needs review") {
 		return "stale"
 	}
+	if strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) && strings.TrimSpace(item.Book.Source.ContentRevisionID) != "" && (strings.Contains(status, "not analyzed") || strings.Contains(status, "ready to analyze") || strings.TrimSpace(item.Book.AnalysisStatus) == "ready") {
+		return "unassessed"
+	}
 	if item.StatisticsUnavailable || item.Coverage == nil {
 		return "unavailable"
 	}
@@ -125,6 +133,8 @@ func journeyEvidenceLabel(item journeyBookView) string {
 	switch journeyEvidenceState(item) {
 	case "stale":
 		return "Stale evidence"
+	case "unassessed":
+		return "Not yet assessed"
 	case "unavailable":
 		return "Coverage unavailable"
 	default:
@@ -136,6 +146,8 @@ func journeyEvidenceDescription(item journeyBookView) string {
 	switch journeyEvidenceState(item) {
 	case "stale":
 		return "Current and projected coverage are unavailable until this book's analysis is reviewed."
+	case "unassessed":
+		return "Current EPUB content is available, but no completed analysis has produced evidence for this book yet."
 	case "unavailable":
 		return "This book is not currently assessed or its statistics are unavailable."
 	default:
@@ -540,6 +552,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 			return journeyPageView{}, bookErr
 		}
 		book.PrimaryGoal = true
+		book.JourneyRevision = journey.Revision
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
@@ -563,6 +576,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPa
 			return journeyPageView{}, bookErr
 		}
 		book.Position = entry.Position
+		book.JourneyRevision = journey.Revision
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
