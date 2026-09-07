@@ -104,6 +104,22 @@ test.describe('responsive and theme regression coverage', () => {
     expect(resultActions[0]).toMatch(/Prepare deck|Download deck/);
   });
 
+  test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
+    test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
+    await signIn(page);
+    await page.goto('/journey');
+    const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
+      const book = node.children[0].getBoundingClientRect();
+      const controls = node.querySelector<HTMLElement>('.journey-book__controls')?.getBoundingClientRect();
+      return { bookWidth: book.width, controlsWidth: controls?.width ?? 0, rowWidth: node.getBoundingClientRect().width };
+    }));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.bookWidth).toBeGreaterThan(200);
+      expect(row.controlsWidth).toBeLessThan(row.rowWidth * 0.6);
+    }
+  });
+
   test('semantic status text, readable measures, and live theme tokens meet contrast targets', async ({ page }) => {
     await signIn(page);
     await page.goto('/books/fixture-book/analyses/fixture-run');
