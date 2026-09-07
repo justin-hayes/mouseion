@@ -72,12 +72,15 @@ the concise learner-relevant status.
 
 **Learner question:** Which local Book do I want to inspect?
 
-After reconciliation the learner returns to My Books. Language pills, including
-an unknown-language bucket, global local-collection search, and paging support a
-large collection. This is the
+After reconciliation the learner returns to My Books, which is always browsed
+within the active study language ([ADR 0050](../../adr/0050-active-study-language.md)):
+search and paging are scoped to it, and there is no "All languages" default.
+Books awaiting a language appear only through an out-of-band **needs language**
+strip. This is the
 [My Books Collection Browsing](../../features/collection-browsing.md) contract,
-not OPDS search. Title and author lead; edition/year and language follow;
-evidence state remains supporting information.
+not OPDS search. Title and author lead; edition/year follows; the language is
+carried by the page heading, not repeated per row; evidence state remains
+supporting information.
 
 ### 4. Open a metadata-only Book and acquire content lazily
 
@@ -129,8 +132,8 @@ deck, or invalidates existing evidence.
 - `/connections` owns configuration and concise sync status. `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
   new destination.
-- My Books owns local language grouping, search, paging, and browsing of synced
-  metadata. Book detail owns per-book EPUB acquisition.
+- My Books owns active-language-scoped browse, search, paging, and browsing of
+  synced metadata. Book detail owns per-book EPUB acquisition.
 - Book detail owns lazy acquisition context, Start analysis, current analysis,
   and deck actions. Reading Journey owns reading intent and its ensure-once
   analysis consequence. The language-level aggregate lens remains evidence-only.

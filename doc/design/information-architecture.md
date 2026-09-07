@@ -4,7 +4,11 @@ Status: **Canonical shipped learner-facing architecture.** This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
-[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). ADRs continue to
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Language is the
+app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
+every language-dependent surface to one active study language, and
+[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md) makes Reading
+Journey and Primary Goal one per language. ADRs continue to
 own persistence and historical decision details.
 
 Mouseion is organized around literature the learner cares about, one current
@@ -18,11 +22,12 @@ dashboard.
 The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
-2. choose and revise a provisional Reading Journey;
-3. commit to finishing one Primary Goal at a time, when desired;
-4. understand trustworthy current and conditional preparation evidence;
-5. review how actual vocabulary changes affect books ahead;
-6. understand derived study languages and maintain known vocabulary.
+2. work in one active study language at a time;
+3. choose and revise a provisional Reading Journey in that language;
+4. commit to finishing one Primary Goal per language, when desired;
+5. understand trustworthy current and conditional preparation evidence;
+6. review how actual vocabulary changes affect books ahead;
+7. understand derived study languages and maintain known vocabulary.
 
 The recurring experience rhythm is:
 
@@ -65,12 +70,14 @@ list of obligations. Title, author, edition when relevant, and learner intent
 precede analysis status. Processing state appears only to explain available
 evidence or the next relevant action.
 
-The catalogue is browsable by language pills, including an unknown-language
-bucket, and supports paging plus global text search across the local collection.
-For a fresh account, its empty state explains catalogue setup and enters
-`/connections`; catalogue setup and sync maintenance do not become a
-destination, and no acquisition action appears in the top navigation. Synced
-catalogue metadata is browsed only here.
+The catalogue is browsed within the active study language: browse, paging, and
+search are scoped to it, and no "All languages" default exists. Books without a
+chosen language belong to no language partition and are surfaced only through
+an out-of-band **needs language** strip (fix the language in the catalogue, then
+re-sync; display-only, no per-book actions). For a fresh account, its empty
+state explains catalogue setup and enters `/connections`; catalogue setup and
+sync maintenance do not become a destination, and no acquisition action appears
+in the top navigation. Synced catalogue metadata is browsed only here.
 
 ### Reading Journey
 
@@ -96,17 +103,22 @@ The Journey:
 The first provisional book is a natural candidate for a future Primary Goal,
 not an automatic commitment or recommendation.
 
-Journey identity, owner-scoped membership, learner-canonical ordering,
-concurrency, stale-write behavior, and the migration of Campaign queue/history
-into the Journey are decided in
-[ADR 0034](../adr/0034-reading-journey-identity-ordering.md).
+There is one Journey per study language, created lazily and shown for the
+active language; a Book with a chosen language joins its language's Journey,
+and an unknown-language Book joins none. Journey identity, owner-scoped
+membership, learner-canonical ordering, concurrency, stale-write behavior, and
+the migration of Campaign queue/history into the Journey are decided in
+[ADR 0034](../adr/0034-reading-journey-identity-ordering.md) and
+[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md).
 
 ### Primary Goal
 
-**Primary Goal** is the one book the learner currently intends to finish. It is
-the only meaningful commitment in the principal architecture and is embedded
-at the beginning of Reading Journey rather than exposed as a peer destination.
-A learner may have no Primary Goal.
+**Primary Goal** is, per study language, the one book in that language's
+Reading Journey the learner currently intends to finish. It is the only
+meaningful commitment in the principal architecture and is embedded at the
+beginning of its Journey rather than exposed as a peer destination. A learner
+may have no Primary Goal; how many Goals are active across languages is the
+learner's own discipline, not an enforced invariant.
 
 The Primary Goal brings together the book's bibliographic identity and the
 ordinary facts needed to serve the current undertaking:
@@ -154,6 +166,9 @@ These objects remain important, but they do not define principal navigation:
 - **Study language** — a distinct normalized language tag of the owner's active
   chosen-language Books; it defines known-vocabulary language context and is
   derived rather than selected in Settings.
+- **Active study language** — the one study language the learner is currently
+  working in; a stored selection pointing into the derived set that scopes every
+  language-dependent surface ([ADR 0050](../adr/0050-active-study-language.md)).
 - **Language lens** — a derived, evidence-only per-language aggregate over
   current analyses and known vocabulary. It owns no Book, scope, analysis, or
   action; [ADR 0042](../adr/0042-derived-language-corpus-view.md) proposes its
@@ -187,6 +202,13 @@ preparation, catalog connections, and campaign history are supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
+The shell also carries a native **active study language** control alongside the
+three destinations. Changing it navigates to the same screen in the new language
+on language-scoped screens and updates the stored mode elsewhere; it lists the
+derived study languages plus any known-vocabulary-only language marked "no
+books", marks a newly arrived study language "new", and never auto-switches on
+navigation or sync.
+
 There is no separate **Catalogues / Browse** sub-navigation. `/connections` is
 for connection and sync maintenance; `/library` is the canonical local browse
 surface.
@@ -201,6 +223,7 @@ Authentication
     sign in or first-account onboarding
 
 My Books
+    needs-language strip (books awaiting a language)
     book detail
         Start analysis and acquisition when needed
         analysis status
@@ -208,7 +231,7 @@ My Books
         exact-analysis compatibility redirect
         deck preparation and download
 
-Reading Journey
+Reading Journey (active study language)
     embedded Primary Goal, when present
     provisional ordered books
     route comparison and reorder preview
@@ -273,10 +296,11 @@ My Books answers questions in this order:
 4. Which books are unassessed, stale, or cannot currently be assessed?
 5. What can I do with this book next?
 
-Rows lead with title, author, and edition/year/language where useful. Learner
-intent and Journey/Goal relationship precede concise evidence state. Search,
-filtering, and sorting support finding books but do not turn readiness into the
-default ranking.
+Rows lead with title, author, and edition/year where useful; the language tag is
+carried by the active-language heading, not repeated per row. Learner intent and
+Journey/Goal relationship precede concise evidence state. Search is scoped to
+the active language; filtering and sorting support finding books but do not turn
+readiness into the default ranking.
 
 Book detail remains the place for full lifecycle state, the one current
 analysis, and its actions. Exact analysis history and provenance are operational
@@ -377,18 +401,33 @@ primary action is **View analysis result**, which opens the book page directly
 or through the compatibility redirect. `GET /jobs` remains the operational
 history surface for current and prior runs.
 
-## Study languages and Vocabulary ownership
+## Active study language, study languages, and Vocabulary ownership
 
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books. For catalogue-synced Books, the
 catalogue entry is the source of truth and connection re-sync is the only way
 the language changes; there is no separate Settings selection to maintain.
-Vocabulary owns known vocabulary and its additive import workflow. Import
-eligibility is limited to the derived study-language set, and catalogue
+
+The **active study language** is a stored selection pointing into that derived
+set — context, not configuration: it chooses which study language the
+language-scoped surfaces (My Books browse and search, Reading Journey,
+Vocabulary) present, and never defines which languages are studied. It defaults
+deterministically (the sole study language, else the language of the most
+recently activated chosen-language Book) and resets lazily when the selection
+leaves the set. A shell-level switcher carries it on every authenticated screen;
+changing it navigates to the same screen in the new language on language-scoped
+screens. Book detail is not mode-scoped: it renders a Book's own language and
+never auto-switches the mode. A newly arrived study language appears passively
+in the switcher (marked "new") without changing the mode.
+
+Vocabulary owns known vocabulary and its additive import workflow, scoped to the
+active language; import is always eligible there. Import eligibility remains
+limited to the derived study-language set, and known-vocabulary-only languages
+stay selectable in the switcher as read-only "no books" entries. Catalogue
 metadata changes do not delete known-vocabulary rows, books, analyses, decks,
 or internal Campaign history. Journey and Goal relationships remain independent
-of vocabulary import; their shipped consequences are defined by ADR 0034 and
-ADR 0036.
+of vocabulary import; their shipped consequences are defined by ADR 0034,
+ADR 0036, ADR 0050, and ADR 0051.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
@@ -452,6 +491,19 @@ source evidence when needed.
     known-vocabulary import, and Settings is removed from primary navigation.
     Any future change to the derived-language source or Vocabulary's destination
     must return to this checkpoint.
+12. **Active study language mode** is resolved by
+    [ADR 0050](../adr/0050-active-study-language.md): one stored selection
+    pointing into the derived set scopes My Books, Reading Journey, and
+    Vocabulary; `?language=` params, the "All languages" pill, and per-row
+    language tags are removed; a shell-level native switcher carries the mode;
+    new languages arrive passively; legacy no-language Books surface only
+    through a **needs language** strip.
+13. **Per-language Journey and Goal** are resolved by
+    [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): Reading
+    Journey and Primary Goal identity are (owner, study language) with
+    per-language revisions; the ADR 0037 route comparison is language-correct by
+    construction; the legacy single Journey is split by a backfill migration
+    under ADR 0038.
 
 ## Cross-linking rules
 

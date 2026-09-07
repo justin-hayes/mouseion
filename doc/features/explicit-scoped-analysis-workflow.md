@@ -45,7 +45,8 @@ The identity and state contracts for these resources are normative in
   content or start analysis. Book detail's **Start analysis** action acquires and
   analyzes in one explicit flow. **Add to Reading Journey** is the separate
   reading-intent action that performs the same work ensure-once.
-- My Books owns local language grouping, search, paging, and Book selection.
+- My Books owns active-language-scoped browse, search, paging, and Book
+  selection ([ADR 0050](../adr/0050-active-study-language.md)).
 - A metadata-only Book offers **Start analysis** and **Add to Reading Journey**
   from its detail page. There is no separate learner-facing acquisition-only
   action in the shipped flow.

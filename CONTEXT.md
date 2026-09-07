@@ -13,7 +13,16 @@ in the learner's library (books with a chosen language), never configured by
 the learner; it defines the languages for which the learner can import known
 vocabulary.
 _Avoid_: configured language, preferred language, library language (as a stored
-selection).
+selection defining the set).
+
+**Active study language**:
+The one language the learner is currently working in. It is a stored selection
+pointing into the derived study-language set — context, not configuration: it
+chooses which study language the per-language surfaces (My Books browse,
+Reading Journey, Vocabulary) present, and never defines which languages are
+studied. When the set is unambiguous the selection defaults deterministically;
+if the selection leaves the set, it resets.
+_Avoid_: current language, mode, active profile.
 
 **Catalogue sync scope**:
 The set of non-English languages that a connected catalogue offers and the NLP
@@ -39,7 +48,8 @@ A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`
 as `-` and region subtags collapsed, so `de_DE` and `de-de` are the same as `de`.
 Chosen book languages are the raw material from which a learner's study
-languages are derived.
+languages are derived. A book without a chosen language belongs to no language
+partition: it participates in nothing until a re-sync admits it into one.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
 
@@ -70,15 +80,20 @@ of expressed intent, not a separate chore.
 _Avoid_: interest, wanting to read, commitment (which is Primary Goal).
 
 **Reading Journey**:
-A fluid, provisional order of learner-selected Books they currently imagine
-reading. Membership is reversible and expresses reading intent; adding a Book to
-the Journey automatically acquires and analyzes it (ensure-once) so it can be
-weighed against other members. It is a candidate pool, not a commitment.
+One per study language: a fluid, provisional order of that language's Books the
+learner currently imagines reading. Membership is reversible and expresses
+reading intent in that language; adding a Book to the Journey automatically
+acquires and analyzes it (ensure-once) so it can be weighed against other
+members of the same language. It is a candidate pool, not a commitment. A Book
+with a chosen language joins its language's Journey.
 _Avoid_: learning queue, backlog, curriculum, plan, roadmap.
 
 **Primary Goal**:
-The one Book the learner currently intends to finish, when one exists. It is a
-promotion of a Reading Journey member: choosable only for a member with a
-successfully completed current analysis, and it clears if that member leaves the
-Journey. The Goal carries commitment; Reading Journey membership does not.
+One per study language: the Book in that language's Reading Journey the learner
+currently intends to finish, when one exists. It is a promotion of a member of
+that language's Journey: choosable only for a member with a successfully
+completed current analysis, and it clears if that member leaves the Journey.
+How many Goals across languages are active at once is the learner's own
+discipline, not an enforced invariant. The Goal carries commitment; Reading
+Journey membership does not.
 _Avoid_: active campaign, target destination, current project.
