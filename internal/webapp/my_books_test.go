@@ -23,7 +23,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Start analysis", `action="/books/metadata-book/analyze"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", `href="/books/metadata-book"`, "Not acquired", "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -35,7 +35,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 			row = row[:end+len("</article>")]
 		}
 	}
-	for _, forbidden := range []string{"Review scope", "Prepare deck", "View analysis result", "coverage"} {
+	for _, forbidden := range []string{"Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage"} {
 		if strings.Contains(row, forbidden) {
 			t.Errorf("metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
 		}
@@ -130,6 +130,9 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 	}
 	if !strings.Contains(html, `href="/books/book-d"`) || strings.Contains(html, `href="/books/source-book-d"`) {
 		t.Fatalf("learner My Books links were not canonical: %s", html)
+	}
+	if strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`) {
+		t.Fatalf("My Books rows exposed an explicit analysis action: %s", html)
 	}
 }
 
