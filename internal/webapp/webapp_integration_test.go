@@ -916,7 +916,7 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 		}
 	}
 	field, filename := "dataset", "frequency.csv"
-	if path == "/vocabulary/import" {
+	if strings.HasPrefix(path, "/vocabulary/import") {
 		field, filename = "vocabulary_file", "known.txt"
 	}
 	part, err := writer.CreateFormFile(field, filename)
