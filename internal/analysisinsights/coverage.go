@@ -35,7 +35,7 @@ type JourneyStore interface {
 }
 
 type PrimaryGoalStore interface {
-	GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error)
+	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
 }
 
 type BookEvidenceStore interface {

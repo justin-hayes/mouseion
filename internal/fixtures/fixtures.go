@@ -30,6 +30,7 @@ const (
 	Username               = "fixture-learner"
 	Password               = "fixture-password"
 	BookID                 = "fixture-book"
+	ItalianGoalBookID      = "fixture-italian-goal"
 	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
 	DeckID                 = "fixture-deck"
@@ -70,6 +71,10 @@ func fixtureJourneyKey(owner, language string) string {
 	return owner + "\x00" + normalizeFixtureLanguage(language)
 }
 
+func fixtureGoalKey(owner, language string) string {
+	return fixtureJourneyKey(owner, language)
+}
+
 type Store struct {
 	mu                   sync.Mutex
 	books                []domain.SourceMaterialSummary
@@ -97,6 +102,7 @@ func NewStore() *Store {
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
+			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
 			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
 			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
@@ -161,11 +167,13 @@ func NewStore() *Store {
 				Entries: []domain.ReadingJourneyEntry{
 					{OwnerID: OwnerID, Language: "it", BookID: "fixture-empty", Position: 1, CreatedAt: fixtureJourneyTime},
 					{OwnerID: OwnerID, Language: "it", BookID: edgeBookID, Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
+					{OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
 				},
 			},
 		},
 		primaryGoals: map[string]domain.PrimaryGoal{
-			OwnerID: {OwnerID: OwnerID, BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
@@ -717,6 +725,7 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 				languageTag = ""
 			}
 			s.books[i].Source.Language = languageTag
+			s.clearFixtureGoalsForRetaggedBook(owner, resolvedBookID, languageState, languageTag)
 			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
 		}
 	}
@@ -725,10 +734,23 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 			s.myBooks[i].Book.Title = title
 			s.myBooks[i].Book.LanguageState = languageState
 			s.myBooks[i].Book.LanguageTag = languageTag
+			s.clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, languageTag)
 			return s.myBooks[i].Book, nil
 		}
 	}
 	return domain.Book{}, errNotFound
+}
+
+func (s *Store) clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, language string) {
+	language = normalizeFixtureLanguage(language)
+	for key, goal := range s.primaryGoals {
+		if goal.OwnerID != owner || goal.BookID != bookID {
+			continue
+		}
+		if languageState != domain.LanguageChosen || goal.Language != language {
+			delete(s.primaryGoals, key)
+		}
+	}
 }
 func (s *Store) AddBookToMyBooks(context.Context, string, string) error { return nil }
 func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) error {
@@ -849,14 +871,14 @@ func (s *Store) RemoveFromReadingJourney(_ context.Context, owner, language, boo
 	}
 	journey.Revision++
 	journey.UpdatedAt = time.Now()
+	if goal := s.primaryGoals[fixtureGoalKey(owner, language)]; goal.BookID == bookID {
+		delete(s.primaryGoals, fixtureGoalKey(owner, language))
+	}
 	if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
 		delete(s.readingJourneys, key)
 		return 0, nil
 	}
 	s.readingJourneys[key] = journey
-	if goal := s.primaryGoals[owner]; goal.BookID == bookID {
-		delete(s.primaryGoals, owner)
-	}
 	return journey.Revision, nil
 }
 
@@ -892,7 +914,7 @@ func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, language, book
 	if newPosition > len(journey.Entries) {
 		newPosition = len(journey.Entries)
 	}
-	goalBookID := s.primaryGoals[owner].BookID
+	goalBookID := s.primaryGoals[fixtureGoalKey(owner, language)].BookID
 	goalIndex := -1
 	if goalBookID != "" && goalBookID != bookID {
 		visible := make([]domain.ReadingJourneyEntry, 0, len(journey.Entries)-1)
@@ -955,19 +977,20 @@ func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, language, book
 	s.readingJourneys[key] = journey
 	return journey.Revision, nil
 }
-func (s *Store) GetPrimaryGoal(_ context.Context, owner string) (domain.PrimaryGoal, error) {
+func (s *Store) GetPrimaryGoal(_ context.Context, owner, language string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	goal, ok := s.primaryGoals[owner]
+	goal, ok := s.primaryGoals[fixtureGoalKey(owner, language)]
 	if !ok {
 		return domain.PrimaryGoal{}, nil
 	}
 	return goal, nil
 }
-func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (domain.PrimaryGoal, error) {
+func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	goal := domain.PrimaryGoal{OwnerID: owner, BookID: bookID}
+	language = normalizeFixtureLanguage(language)
+	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goal.Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -975,32 +998,35 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, bookID string) (doma
 		return domain.PrimaryGoal{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
-	if _, ok := s.primaryGoals[owner]; ok {
-		goal := s.primaryGoals[owner]
+	key := fixtureGoalKey(owner, language)
+	if _, ok := s.primaryGoals[key]; ok {
+		goal := s.primaryGoals[key]
 		if goal.ReadingFinishedAt == nil {
 			return domain.PrimaryGoal{}, persistence.ErrGoalExists
 		}
-		if !s.fixturePrimaryGoalEligible(owner, bookID) {
+		if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 			return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 		}
 		goal.BookID = bookID
 		goal.ReadingFinishedAt = nil
 		goal.UpdatedAt = time.Now()
-		s.primaryGoals[owner] = goal
+		s.primaryGoals[key] = goal
 		return goal, nil
 	}
-	if !s.fixturePrimaryGoalEligible(owner, bookID) {
+	if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
 	now := time.Now()
 	goal.CreatedAt, goal.UpdatedAt = now, now
-	s.primaryGoals[owner] = goal
+	s.primaryGoals[key] = goal
 	return goal, nil
 }
-func (s *Store) ChangePrimaryGoal(_ context.Context, owner, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
+func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	goal, ok := s.primaryGoals[owner]
+	language = normalizeFixtureLanguage(language)
+	key := fixtureGoalKey(owner, language)
+	goal, ok := s.primaryGoals[key]
 	if !ok {
 		return domain.PrimaryGoal{}, persistence.ErrNotFound
 	}
@@ -1011,35 +1037,40 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, bookID, expectedBook
 		return domain.PrimaryGoal{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
-	if !s.fixturePrimaryGoalEligible(owner, bookID) {
+	if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
 	goal.BookID = bookID
 	goal.ReadingFinishedAt = nil
 	goal.UpdatedAt = time.Now()
-	s.primaryGoals[owner] = goal
+	s.primaryGoals[key] = goal
 	return goal, nil
 }
 
-func (s *Store) fixturePrimaryGoalEligible(owner, bookID string) bool {
-	for _, journey := range s.readingJourneys {
-		for _, entry := range journey.Entries {
-			if entry.BookID != bookID {
-				continue
-			}
-			for _, book := range s.books {
-				if s.fixtureBookID(owner, book.Source.ID) == bookID && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
-					return true
-				}
+func (s *Store) fixturePrimaryGoalEligible(owner, language, bookID string) bool {
+	language = normalizeFixtureLanguage(language)
+	journey, exists := s.readingJourneys[fixtureJourneyKey(owner, language)]
+	if !exists {
+		return false
+	}
+	for _, entry := range journey.Entries {
+		if entry.BookID != bookID {
+			continue
+		}
+		for _, book := range s.books {
+			if s.fixtureBookID(owner, book.Source.ID) == bookID && normalizeFixtureLanguage(book.Source.Language) == language && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
+				return true
 			}
 		}
 	}
 	return false
 }
-func (s *Store) ClearPrimaryGoal(_ context.Context, owner, expectedBookID string) error {
+func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBookID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	goal, ok := s.primaryGoals[owner]
+	language = normalizeFixtureLanguage(language)
+	key := fixtureGoalKey(owner, language)
+	goal, ok := s.primaryGoals[key]
 	if !ok {
 		return persistence.ErrNotFound
 	}
@@ -1049,17 +1080,19 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, expectedBookID string
 	if goal.ReadingFinishedAt != nil {
 		return persistence.ErrNotFound
 	}
-	delete(s.primaryGoals, owner)
+	delete(s.primaryGoals, key)
 	return nil
 }
 
 // FinishReadingPrimaryGoal mirrors the production guard and keeps the browser
 // fixture useful for the finish receipt without pretending fixture data is a
 // source of vocabulary knowledge.
-func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookID string) (persistence.PrimaryGoalFinishResult, error) {
+func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.PrimaryGoalFinishResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	goal, ok := s.primaryGoals[owner]
+	language = normalizeFixtureLanguage(language)
+	key := fixtureGoalKey(owner, language)
+	goal, ok := s.primaryGoals[key]
 	if !ok {
 		return persistence.PrimaryGoalFinishResult{}, persistence.ErrNotFound
 	}
@@ -1073,7 +1106,7 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookI
 	now := time.Now()
 	goal.ReadingFinishedAt = &now
 	goal.UpdatedAt = now
-	s.primaryGoals[owner] = goal
+	s.primaryGoals[key] = goal
 	result.Goal = goal
 	expectedSourceID := s.fixtureSourceID(owner, expectedBookID)
 	for i := range s.campaigns {
@@ -1348,8 +1381,19 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 		conditional(routeTieBBookID, 50, 50, 6),
 		{BookID: routeUnavailableBookID, Language: language, Position: 7, IncomparableReason: "unassessed: no current analyzed corpus"},
 	}
+	if language == "it" {
+		defaultLearnerOrder = []domain.JourneyRouteBook{
+			{BookID: "fixture-empty", Language: language, Position: 1, IncomparableReason: "unassessed: no current analyzed corpus"},
+			{BookID: edgeBookID, Language: language, Position: 2, IncomparableReason: "unavailable: no current acquired source"},
+			conditional(ItalianGoalBookID, 60, 80, 3),
+		}
+	}
 	if insights.JourneyStore != nil {
 		journey, err := insights.JourneyStore.GetReadingJourney(ctx, owner, language)
+		if err != nil {
+			return domain.JourneyProjectionResult{}, err
+		}
+		goal, err := insights.JourneyStore.GetPrimaryGoal(ctx, owner, language)
 		if err != nil {
 			return domain.JourneyProjectionResult{}, err
 		}
@@ -1362,6 +1406,9 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 			book, ok := byID[entry.BookID]
 			if !ok {
 				book = domain.JourneyRouteBook{BookID: entry.BookID, IncomparableReason: "unavailable: no fixture evidence"}
+			}
+			if goal.BookID != "" && goal.ReadingFinishedAt == nil && goal.BookID == entry.BookID {
+				book.Fixed = true
 			}
 			book.Position = position + 1
 			defaultLearnerOrder = append(defaultLearnerOrder, book)

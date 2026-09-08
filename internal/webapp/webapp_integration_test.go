@@ -768,7 +768,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, goal.ID); err != nil {
+	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", goal.ID); err != nil {
 		t.Fatal(err)
 	}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})

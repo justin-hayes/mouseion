@@ -13,7 +13,7 @@ import (
 )
 
 type primaryGoalFinisher interface {
-	FinishReadingPrimaryGoal(context.Context, string, string) (persistence.PrimaryGoalFinishResult, error)
+	FinishReadingPrimaryGoal(context.Context, string, string, string) (persistence.PrimaryGoalFinishResult, error)
 }
 
 type finishEvidenceView struct {
@@ -48,18 +48,22 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" {
+		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
+		return
+	}
 	if expectedBookID == "" {
 		h.respondGoal(w, r, "", "No Primary Goal is available to finish. Review Reading Journey before trying again.", "")
 		return
 	}
 
-	language, _ := activeStudyLanguageForContext(r.Context())
 	before, err := h.buildJourneyView(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	result, err := finisher.FinishReadingPrimaryGoal(r.Context(), owner, expectedBookID)
+	result, err := finisher.FinishReadingPrimaryGoal(r.Context(), owner, language, expectedBookID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return

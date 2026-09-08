@@ -57,7 +57,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 		result.Language = language
 	}
 	if goals, ok := s.store.(PrimaryGoalStore); ok {
-		goal, goalErr := goals.GetPrimaryGoal(ctx, owner)
+		goal, goalErr := goals.GetPrimaryGoal(ctx, owner, language)
 		if goalErr != nil {
 			return domain.JourneyProjectionResult{}, fmt.Errorf("load primary goal: %w", goalErr)
 		}

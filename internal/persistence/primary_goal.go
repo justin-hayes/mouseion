@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 func scanPrimaryGoal(row pgx.Row) (goal domain.PrimaryGoal, err error) {
-	err = row.Scan(&goal.OwnerID, &goal.BookID, &goal.CreatedAt, &goal.UpdatedAt, &goal.ReadingFinishedAt)
+	err = row.Scan(&goal.OwnerID, &goal.Language, &goal.BookID, &goal.CreatedAt, &goal.UpdatedAt, &goal.ReadingFinishedAt)
 	return goal, missing(err)
 }
 
@@ -24,20 +25,25 @@ type PrimaryGoalFinishResult struct {
 	ResidualVocabularyCount int
 }
 
-// GetPrimaryGoal returns the owner's current Goal. No row is the ordinary
-// absent Goal state.
-func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner string) (domain.PrimaryGoal, error) {
-	goal, err := scanPrimaryGoal(s.pool.QueryRow(ctx, `SELECT owner_id::text,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1`, owner))
+// GetPrimaryGoal returns the owner's current Goal in one study language. No
+// row is the ordinary absent Goal state.
+func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language string) (domain.PrimaryGoal, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	if language == "" {
+		return domain.PrimaryGoal{}, nil
+	}
+	goal, err := scanPrimaryGoal(s.pool.QueryRow(ctx, `SELECT owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language))
 	if errors.Is(err, ErrNotFound) {
 		return domain.PrimaryGoal{}, nil
 	}
 	return goal, err
 }
 
-// CreatePrimaryGoal creates the owner's only current Goal for an analyzed
-// Reading Journey member.
-func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID string) (domain.PrimaryGoal, error) {
-	goal := domain.PrimaryGoal{OwnerID: owner, BookID: bookID}
+// CreatePrimaryGoal creates the owner's current Goal for an analyzed Reading
+// Journey member in language.
+func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, bookID string) (domain.PrimaryGoal, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goal.Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -52,17 +58,17 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID str
 	}
 	var currentBookID string
 	var readingFinishedAt *time.Time
-	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 FOR UPDATE`, owner).Scan(&currentBookID, &readingFinishedAt)
+	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language).Scan(&currentBookID, &readingFinishedAt)
 	if err == nil && readingFinishedAt == nil {
 		return domain.PrimaryGoal{}, ErrGoalExists
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, err
 	}
-	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, bookID); err != nil {
+	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	goal, err = insertPrimaryGoal(ctx, tx, owner, bookID)
+	goal, err = insertPrimaryGoal(ctx, tx, owner, language, bookID)
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -72,20 +78,21 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, bookID str
 	return goal, nil
 }
 
-func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language, bookID string) error {
 	var eligible bool
 	err := tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1
 		FROM reading_journey_membership jm
+		JOIN books b ON b.owner_id=jm.owner_id AND b.id=jm.book_id AND b.language_state='chosen' AND b.language_tag=$3
 		JOIN source_materials s ON s.owner_id=jm.owner_id AND s.book_id=jm.book_id
 		JOIN book_current_analyses current ON current.owner_id=s.owner_id AND current.book_id=s.book_id AND current.source_material_id=s.id
 		JOIN analysis_runs r ON r.owner_id=current.owner_id AND r.id=current.analysis_run_id AND r.source_material_id=current.source_material_id AND r.state='completed'
 		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.status='complete'
-		WHERE jm.owner_id=$1 AND jm.book_id=$2
+		WHERE jm.owner_id=$1 AND jm.language=$3 AND jm.book_id=$2
 		  AND lower(s.media_type)='application/epub+zip'
 		  AND s.current_content_revision_id=r.content_revision_id
 		  AND s.current_snapshot_id=r.snapshot_id
-	)`, owner, bookID).Scan(&eligible)
+	)`, owner, bookID, language).Scan(&eligible)
 	if err != nil {
 		return err
 	}
@@ -95,10 +102,10 @@ func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, bookID st
 	return nil
 }
 
-func insertPrimaryGoal(ctx context.Context, tx pgx.Tx, owner, bookID string) (domain.PrimaryGoal, error) {
-	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2) ON CONFLICT (owner_id) DO NOTHING RETURNING owner_id::text,book_id::text,created_at,updated_at,reading_finished_at`, owner, bookID))
+func insertPrimaryGoal(ctx context.Context, tx pgx.Tx, owner, language, bookID string) (domain.PrimaryGoal, error) {
+	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3) ON CONFLICT (owner_id,language) DO NOTHING RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language, bookID))
 	if errors.Is(err, ErrNotFound) {
-		goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET book_id=$2,reading_finished_at=NULL,updated_at=now() WHERE owner_id=$1 AND reading_finished_at IS NOT NULL RETURNING owner_id::text,book_id::text,created_at,updated_at,reading_finished_at`, owner, bookID))
+		goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET book_id=$3,reading_finished_at=NULL,updated_at=now() WHERE owner_id=$1 AND language=$2 AND reading_finished_at IS NOT NULL RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language, bookID))
 		if errors.Is(err, ErrNotFound) {
 			return domain.PrimaryGoal{}, ErrGoalExists
 		}
@@ -106,10 +113,11 @@ func insertPrimaryGoal(ctx context.Context, tx pgx.Tx, owner, bookID string) (do
 	return goal, err
 }
 
-// ChangePrimaryGoal changes the owner's Goal only when expectedBookID still
+// ChangePrimaryGoal changes the language's Goal only when expectedBookID still
 // names the current Goal, protecting callers from overwriting stale state.
-func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
-	if err := (domain.PrimaryGoal{OwnerID: owner, BookID: bookID}).Validate(); err != nil {
+func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	if err := (domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 
@@ -120,7 +128,7 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, bookID, ex
 	defer tx.Rollback(ctx)
 	var currentBookID string
 	var readingFinishedAt *time.Time
-	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 FOR UPDATE`, owner).Scan(&currentBookID, &readingFinishedAt)
+	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language).Scan(&currentBookID, &readingFinishedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, ErrNotFound
 	}
@@ -133,10 +141,10 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, bookID, ex
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, bookID); err != nil {
+	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET book_id=$2,reading_finished_at=NULL,updated_at=now() WHERE owner_id=$1 RETURNING owner_id::text,book_id::text,created_at,updated_at,reading_finished_at`, owner, bookID))
+	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET book_id=$3,reading_finished_at=NULL,updated_at=now() WHERE owner_id=$1 AND language=$2 RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language, bookID))
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -149,14 +157,15 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, bookID, ex
 // FinishReadingPrimaryGoal accepts the reading-finished fact for the current
 // Goal. The Goal row and any matching active campaign are changed in one
 // transaction, guarded by expectedBookID. A repeated request is idempotent.
-func (s *PostgresStore) FinishReadingPrimaryGoal(ctx context.Context, owner, expectedBookID string) (PrimaryGoalFinishResult, error) {
+func (s *PostgresStore) FinishReadingPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (PrimaryGoalFinishResult, error) {
+	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return PrimaryGoalFinishResult{}, err
 	}
 	defer tx.Rollback(ctx)
 
-	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `SELECT owner_id::text,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1 FOR UPDATE`, owner))
+	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `SELECT owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language))
 	if err != nil {
 		return PrimaryGoalFinishResult{}, err
 	}
@@ -165,7 +174,7 @@ func (s *PostgresStore) FinishReadingPrimaryGoal(ctx context.Context, owner, exp
 	}
 	result := PrimaryGoalFinishResult{Goal: goal}
 	if goal.ReadingFinishedAt == nil {
-		result.Goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET reading_finished_at=now(),updated_at=now() WHERE owner_id=$1 RETURNING owner_id::text,book_id::text,created_at,updated_at,reading_finished_at`, owner))
+		result.Goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET reading_finished_at=now(),updated_at=now() WHERE owner_id=$1 AND language=$2 RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language))
 		if err != nil {
 			return PrimaryGoalFinishResult{}, err
 		}
@@ -240,9 +249,10 @@ func countCampaignVocabularyToGraduateTx(ctx context.Context, tx pgx.Tx, owner, 
 	return count, err
 }
 
-// ClearPrimaryGoal removes the owner's Goal only when expectedBookID still
+// ClearPrimaryGoal removes the language's Goal only when expectedBookID still
 // names the current Goal.
-func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, expectedBookID string) error {
+func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) error {
+	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -250,7 +260,7 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, expectedBoo
 	defer tx.Rollback(ctx)
 	var currentBookID string
 	var readingFinishedAt *time.Time
-	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 FOR UPDATE`, owner).Scan(&currentBookID, &readingFinishedAt)
+	err = tx.QueryRow(ctx, `SELECT book_id::text,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language).Scan(&currentBookID, &readingFinishedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -263,7 +273,7 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, expectedBoo
 	if readingFinishedAt != nil {
 		return ErrNotFound
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1`, owner); err != nil {
+	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

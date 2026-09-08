@@ -51,7 +51,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	insertJourneyCampaign(t, ctx, pool, dave.ID, daveSource.ID, davePrep.ID, "finished", "reviewed", daveSource.CreatedAt)
 	insertJourneyCampaign(t, ctx, pool, erin.ID, erinSource.ID, erinPrep.ID, "abandoned", "queued", erinSource.CreatedAt)
 
-	if goal, err := store.GetPrimaryGoal(ctx, carol.ID); err != nil || goal != (domain.PrimaryGoal{}) {
+	if goal, err := store.GetPrimaryGoal(ctx, carol.ID, "de"); err != nil || goal != (domain.PrimaryGoal{}) {
 		t.Fatalf("legacy owner without active campaign goal=%+v err=%v", goal, err)
 	}
 	var beforeSource, beforePreparation string
@@ -59,17 +59,57 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	backfill := migrationSQL(t, "000041_primary_goals_backfill.up.sql")
-	if _, err = pool.Exec(ctx, backfill); err != nil {
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000057_primary_goals_language_constraint.down.sql")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, backfill); err != nil {
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.down.sql")); err != nil {
 		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000055_primary_goals_language.down.sql")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, alice.ID, aliceBook.ID); err != nil {
+		t.Fatal(err)
+	}
+	legacyUnknownBook, err := store.CreateBook(ctx, domain.Book{OwnerID: erin.ID, Title: "Legacy unknown-language goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, erin.ID, legacyUnknownBook.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000055_primary_goals_language.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000057_primary_goals_language_constraint.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.up.sql")); err != nil {
+		t.Fatalf("idempotent backfill: %v", err)
 	}
 
-	goal, err := store.GetPrimaryGoal(ctx, alice.ID)
+	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	if err != nil || goal.OwnerID != alice.ID || goal.BookID != aliceBook.ID {
 		t.Fatalf("migrated active goal=%+v err=%v", goal, err)
+	}
+	italianBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice Italian goal book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "it", italianBook.ID); err != nil {
+		t.Fatal(err)
+	}
+	if italianGoal, getErr := store.GetPrimaryGoal(ctx, alice.ID, "it"); getErr != nil || italianGoal.BookID != italianBook.ID {
+		t.Fatalf("parallel Italian goal=%+v err=%v", italianGoal, getErr)
+	}
+	if err = store.ClearPrimaryGoal(ctx, alice.ID, "it", italianBook.ID); err != nil {
+		t.Fatalf("clear parallel Italian goal: %v", err)
+	}
+	if germanGoal, getErr := store.GetPrimaryGoal(ctx, alice.ID, "de"); getErr != nil || germanGoal.BookID != aliceBook.ID {
+		t.Fatalf("German goal after Italian clear=%+v err=%v", germanGoal, getErr)
 	}
 	var afterSource, afterPreparation string
 	if err = pool.QueryRow(ctx, `SELECT source_material_id::text,deck_preparation_id::text FROM learning_campaigns WHERE owner_id=$1`, alice.ID).Scan(&afterSource, &afterPreparation); err != nil {
@@ -79,7 +119,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		t.Fatalf("migration changed campaign links: source %q -> %q, preparation %q -> %q", beforeSource, afterSource, beforePreparation, afterPreparation)
 	}
 	for _, owner := range []string{bob.ID, carol.ID, dave.ID, erin.ID} {
-		if goal, err := store.GetPrimaryGoal(ctx, owner); err != nil || goal != (domain.PrimaryGoal{}) {
+		if goal, err := store.GetPrimaryGoal(ctx, owner, "de"); err != nil || goal != (domain.PrimaryGoal{}) {
 			t.Fatalf("non-active owner=%s goal=%+v err=%v", owner, goal, err)
 		}
 	}
@@ -88,7 +128,7 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, otherAliceBook.ID); !errors.Is(err, ErrGoalExists) {
+	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", otherAliceBook.ID); !errors.Is(err, ErrGoalExists) {
 		t.Fatalf("second goal error=%v, want ErrGoalExists", err)
 	}
 
@@ -96,74 +136,45 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, noDeckBook.ID); !errors.Is(err, ErrGoalIneligible) {
+	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID); !errors.Is(err, ErrGoalIneligible) {
 		t.Fatalf("no-deck goal error=%v, want ErrGoalIneligible", err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, carol.ID, noDeckBook.ID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, carol.ID, "de", noDeckBook.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, bobBook.ID); !errors.Is(err, ErrNotFound) {
+	if _, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", bobBook.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner create error=%v, want ErrNotFound", err)
 	}
 
-	changed, err := store.ChangePrimaryGoal(ctx, carol.ID, otherAliceBook.ID, noDeckBook.ID)
+	changed, err := store.ChangePrimaryGoal(ctx, carol.ID, "de", otherAliceBook.ID, noDeckBook.ID)
 	if !errors.Is(err, ErrNotFound) || changed != (domain.PrimaryGoal{}) {
 		t.Fatalf("cross-owner change goal=%+v err=%v, want ErrNotFound", changed, err)
 	}
 	replacementBook, replacementSource, _ := createJourneyFixture(t, ctx, store, carol.ID, "goal-replacement")
 	makeJourneyMemberAnalyzed(t, ctx, store, replacementBook, replacementSource)
-	if _, err = store.ChangePrimaryGoal(ctx, carol.ID, replacementBook.ID, "stale-book"); !errors.Is(err, ErrGoalStale) {
+	if _, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, "stale-book"); !errors.Is(err, ErrGoalStale) {
 		t.Fatalf("stale change error=%v, want ErrGoalStale", err)
 	}
-	changed, err = store.ChangePrimaryGoal(ctx, carol.ID, replacementBook.ID, noDeckBook.ID)
+	changed, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, noDeckBook.ID)
 	if err != nil || changed.BookID != replacementBook.ID {
 		t.Fatalf("valid change goal=%+v err=%v", changed, err)
 	}
-	if err = store.ClearPrimaryGoal(ctx, carol.ID, noDeckBook.ID); !errors.Is(err, ErrGoalStale) {
+	if err = store.ClearPrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID); !errors.Is(err, ErrGoalStale) {
 		t.Fatalf("stale clear error=%v, want ErrGoalStale", err)
 	}
-	if err = store.ClearPrimaryGoal(ctx, carol.ID, replacementBook.ID); err != nil {
+	if err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID); err != nil {
 		t.Fatalf("valid clear: %v", err)
 	}
-	if err = store.ClearPrimaryGoal(ctx, carol.ID, replacementBook.ID); !errors.Is(err, ErrNotFound) {
+	if err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("clear absent error=%v, want ErrNotFound", err)
 	}
-	if err = store.ClearPrimaryGoal(ctx, bob.ID, aliceBook.ID); !errors.Is(err, ErrNotFound) {
+	if err = store.ClearPrimaryGoal(ctx, bob.ID, "de", aliceBook.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner clear error=%v, want ErrNotFound", err)
 	}
-	if goal, err = store.GetPrimaryGoal(ctx, bob.ID); err != nil || goal != (domain.PrimaryGoal{}) {
+	if goal, err = store.GetPrimaryGoal(ctx, bob.ID, "de"); err != nil || goal != (domain.PrimaryGoal{}) {
 		t.Fatalf("cross-owner get goal=%+v err=%v", goal, err)
 	}
 
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000041_primary_goals_backfill.down.sql")); err != nil {
-		t.Fatal(err)
-	}
-	var goalCount int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goals`).Scan(&goalCount); err != nil {
-		t.Fatal(err)
-	}
-	if goalCount != 0 {
-		t.Fatalf("backfill down left %d goals", goalCount)
-	}
-	if _, err = pool.Exec(ctx, backfill); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000040_primary_goals.down.sql")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000040_primary_goals.up.sql")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000042_primary_goal_reading_finished.up.sql")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, backfill); err != nil {
-		t.Fatal(err)
-	}
-	goal, err = store.GetPrimaryGoal(ctx, alice.ID)
-	if err != nil || goal.BookID != aliceBook.ID {
-		t.Fatalf("round-trip goal=%+v err=%v", goal, err)
-	}
 }
 
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
@@ -183,25 +194,25 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, owner.ID, book.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, owner.ID, "de", book.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	result, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, book.ID)
+	result, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	if err != nil || result.Goal.ReadingFinishedAt == nil || result.Campaign != nil || len(result.Graduated) != 0 {
 		t.Fatalf("reading-only finish=%+v err=%v", result, err)
 	}
 	finishedAt := *result.Goal.ReadingFinishedAt
-	persisted, err := store.GetPrimaryGoal(ctx, owner.ID)
+	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	if err != nil || persisted.ReadingFinishedAt == nil || !persisted.ReadingFinishedAt.Equal(finishedAt) {
 		t.Fatalf("persisted finish=%+v err=%v", persisted, err)
 	}
 
-	repeated, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, book.ID)
+	repeated, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	if err != nil || repeated.Goal.ReadingFinishedAt == nil || !repeated.Goal.ReadingFinishedAt.Equal(finishedAt) {
 		t.Fatalf("idempotent finish=%+v err=%v", repeated, err)
 	}
-	if _, err = store.FinishReadingPrimaryGoal(ctx, owner.ID, "stale-book"); !errors.Is(err, ErrGoalStale) {
+	if _, err = store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", "stale-book"); !errors.Is(err, ErrGoalStale) {
 		t.Fatalf("stale finish error=%v", err)
 	}
 
@@ -209,7 +220,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, replacement.ID); !errors.Is(err, ErrGoalIneligible) {
+	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, "de", replacement.ID); !errors.Is(err, ErrGoalIneligible) {
 		t.Fatalf("ineligible new Goal error=%v, want ErrGoalIneligible", err)
 	}
 }

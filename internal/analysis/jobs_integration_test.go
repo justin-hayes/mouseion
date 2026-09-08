@@ -318,7 +318,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	if err = store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, owner.ID, book.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, owner.ID, "de", book.ID); err != nil {
 		t.Fatal(err)
 	}
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
@@ -366,7 +366,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
-	if goal, goalErr := store.GetPrimaryGoal(ctx, owner.ID); goalErr != nil || goal.BookID != "" {
+	if goal, goalErr := store.GetPrimaryGoal(ctx, owner.ID, "de"); goalErr != nil || goal.BookID != "" {
 		t.Fatalf("Goal after Journey removal=%+v err=%v", goal, goalErr)
 	}
 	var state string

@@ -215,7 +215,7 @@ func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.
 	if changed.Code != http.StatusSeeOther || !strings.Contains(changed.Header().Get("Location"), "reserved+vocabulary+are+unchanged") {
 		t.Fatalf("residual change=%d location=%q", changed.Code, changed.Header().Get("Location"))
 	}
-	goal, _ := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
+	goal, _ := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	if goal.BookID != "fixture-route-match" {
 		t.Fatalf("changed Goal=%+v", goal)
 	}
@@ -259,8 +259,23 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 			t.Errorf("Italian Journey page missing %q: %s", want, body)
 		}
 	}
-	if strings.Contains(body, `class="resource-card journey-book journey-book--goal"`) || strings.Contains(body, `id="journey-book-fixture-book"`) {
+	if !strings.Contains(body, `id="journey-book-fixture-italian-goal"`) || strings.Contains(body, `id="journey-book-fixture-book"`) {
 		t.Fatalf("Italian Journey page exposed the German Goal: %s", body)
+	}
+	cleared := goalRequest(t, h, "/goal/clear", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.ItalianGoalBookID},
+	}, cookies)
+	if cleared.Code != http.StatusSeeOther {
+		t.Fatalf("clear Italian Goal=%d location=%q", cleared.Code, cleared.Header().Get("Location"))
+	}
+	chosen := goalRequest(t, h, "/goal/books/"+fixtures.ItalianGoalBookID, url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {""},
+	}, cookies)
+	if chosen.Code != http.StatusSeeOther || !strings.Contains(chosen.Header().Get("Location"), "is+your+Primary+Goal") {
+		t.Fatalf("choose Italian Goal=%d location=%q", chosen.Code, chosen.Header().Get("Location"))
+	}
+	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de"); err != nil || goal.BookID != fixtures.BookID {
+		t.Fatalf("German Goal after Italian mutation=%+v err=%v", goal, err)
 	}
 
 	moved := goalRequest(t, h, "/journey/entries/fixture-edge-content/move-earlier", url.Values{
@@ -355,11 +370,11 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 			t.Errorf("finish outcome missing %q: %s", want, finished.Body.String())
 		}
 	}
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	if err != nil || goal.ReadingFinishedAt == nil {
 		t.Fatalf("finished Goal=%+v err=%v", goal, err)
 	}
-	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID); err != nil || goal.BookID != fixtures.BookID {
+	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de"); err != nil || goal.BookID != fixtures.BookID {
 		t.Fatalf("finished Goal history=%+v err=%v", goal, err)
 	}
 
@@ -383,7 +398,7 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	if missingCSRF.Code != http.StatusForbidden {
 		t.Fatalf("missing csrf finish=%d body=%s", missingCSRF.Code, missingCSRF.Body.String())
 	}
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	if err != nil || goal.ReadingFinishedAt != nil {
 		t.Fatalf("rejected finish changed Goal=%+v err=%v", goal, err)
 	}

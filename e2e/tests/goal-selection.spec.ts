@@ -45,4 +45,25 @@ test.describe('Primary Goal selection', () => {
     await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
      await expect(page.locator('article.library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
   });
+
+  test('promotes and clears the active language Goal without touching another language', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture Goal runs once per browser suite.');
+    await signIn(page);
+    await page.getByLabel('Study language').selectOption('it');
+    await page.goto('/journey');
+    await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
+
+    await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
+    await expect(page).toHaveURL(/\/journey\?message=/);
+    await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');
+
+    await page.locator('#journey-book-fixture-italian-goal').getByRole('button', { name: 'Choose as Primary Goal' }).click();
+    await expect(page).toHaveURL(/\/journey\?message=/);
+    await expect(page.locator('#primary-goal-section')).toContainText('Una meta italiana');
+
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page).toHaveURL(/\/journey(?:\?|$)/);
+    await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('#primary-goal-section')).not.toContainText('Una meta italiana');
+  });
 });

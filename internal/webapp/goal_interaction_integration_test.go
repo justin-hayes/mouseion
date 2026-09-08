@@ -33,7 +33,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	bob := createAccount(t, ctx, store, "goal-integration-bob", "bob-password", false)
 	newBook := func(owner domain.User, title string) domain.Book {
 		t.Helper()
-		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
@@ -57,7 +57,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if chosen.Code != http.StatusSeeOther || !strings.Contains(chosen.Header().Get("Location"), "active+Reading+Journey+member") {
 		t.Fatalf("reading-only Goal response=%d location=%q body=%s", chosen.Code, chosen.Header().Get("Location"), chosen.Body.String())
 	}
-	goal, err := store.GetPrimaryGoal(ctx, alice.ID)
+	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	if err != nil || goal.BookID != "" {
 		t.Fatalf("Goal=%+v err=%v", goal, err)
 	}
@@ -71,7 +71,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID); listErr != nil || len(jobs) != 0 {
 		t.Fatalf("choosing Goal created analysis jobs=%d err=%v", len(jobs), listErr)
 	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, alice.ID, readingOnly.ID); err != nil {
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "de", readingOnly.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -82,7 +82,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed") {
 		t.Fatalf("stale Goal response=%d location=%q", stale.Code, stale.Header().Get("Location"))
 	}
-	goal, _ = store.GetPrimaryGoal(ctx, alice.ID)
+	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	if goal.BookID != readingOnly.ID {
 		t.Fatalf("stale request changed Goal=%+v", goal)
 	}
@@ -91,7 +91,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if csrfFailure.Code != http.StatusForbidden {
 		t.Fatalf("missing CSRF status=%d body=%s", csrfFailure.Code, csrfFailure.Body.String())
 	}
-	goal, _ = store.GetPrimaryGoal(ctx, alice.ID)
+	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	if goal.BookID != readingOnly.ID {
 		t.Fatalf("CSRF failure changed Goal=%+v", goal)
 	}
@@ -103,7 +103,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if foreign.Code != http.StatusSeeOther || !strings.Contains(foreign.Header().Get("Location"), "not+available+in+My+Books") {
 		t.Fatalf("cross-owner Goal response=%d location=%q", foreign.Code, foreign.Header().Get("Location"))
 	}
-	if bobGoal, getErr := store.GetPrimaryGoal(ctx, bob.ID); getErr != nil || bobGoal.BookID != "" {
+	if bobGoal, getErr := store.GetPrimaryGoal(ctx, bob.ID, "de"); getErr != nil || bobGoal.BookID != "" {
 		t.Fatalf("cross-owner request changed Bob's Goal=%+v err=%v", bobGoal, getErr)
 	}
 

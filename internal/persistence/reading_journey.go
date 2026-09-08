@@ -267,7 +267,7 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 	if _, err = tx.Exec(ctx, `DELETE FROM reading_journey_membership WHERE owner_id=$1 AND language=$2 AND book_id=$3`, owner, language, bookID); err != nil {
 		return 0, err
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2`, owner, bookID); err != nil {
+	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND language=$2 AND book_id=$3`, owner, language, bookID); err != nil {
 		return 0, err
 	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
@@ -344,7 +344,7 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, lang
 		return 0, ErrNotFound
 	}
 	var goalBookID string
-	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM primary_goals WHERE owner_id=$1`, owner).Scan(&goalBookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language).Scan(&goalBookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return 0, err
 	}
 	if goalBookID != "" && goalBookID != bookID {

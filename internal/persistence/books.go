@@ -410,7 +410,27 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 	if err = candidate.Validate(); err != nil {
 		return domain.Book{}, err
 	}
-	return scanBook(s.pool.QueryRow(ctx, `UPDATE books SET title=$3,language_state=$4,language_tag=$5,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+bookColumns, owner, bookID, title, languageState, nullableLanguageTag(languageState, languageTag)))
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.Book{}, err
+	}
+	defer tx.Rollback(ctx)
+	updated, err := scanBook(tx.QueryRow(ctx, `UPDATE books SET title=$3,language_state=$4,language_tag=$5,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+bookColumns, owner, bookID, title, languageState, nullableLanguageTag(languageState, languageTag)))
+	if err != nil {
+		return domain.Book{}, err
+	}
+	if languageState == domain.LanguageChosen {
+		_, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2 AND language<>$3`, owner, bookID, languageTag)
+	} else {
+		_, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2`, owner, bookID)
+	}
+	if err != nil {
+		return domain.Book{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.Book{}, err
+	}
+	return updated, nil
 }
 
 func ensureBookExists(ctx context.Context, tx pgx.Tx, owner, bookID string) error {

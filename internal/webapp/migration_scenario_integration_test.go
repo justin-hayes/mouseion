@@ -136,7 +136,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, book.ID); err != nil {
+	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,7 +155,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision); !errors.Is(err, persistence.ErrJourneyStale) {
 		t.Fatalf("stale Journey write=%v", err)
 	}
-	if _, err = store.ChangePrimaryGoal(ctx, alice.ID, secondBook.ID, "stale-book"); !errors.Is(err, persistence.ErrGoalStale) {
+	if _, err = store.ChangePrimaryGoal(ctx, alice.ID, "de", secondBook.ID, "stale-book"); !errors.Is(err, persistence.ErrGoalStale) {
 		t.Fatalf("stale Goal write=%v", err)
 	}
 	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(campaign), domain.BookReading, domain.DeckQueued); !errors.Is(err, persistence.ErrInvalidTransition) {
@@ -169,7 +169,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if foreign.Code != http.StatusSeeOther || !strings.Contains(foreign.Header().Get("Location"), "not+available") {
 		t.Fatalf("cross-owner Goal mutation=%d location=%q", foreign.Code, foreign.Header().Get("Location"))
 	}
-	if goal, goalErr := store.GetPrimaryGoal(ctx, bob.ID); goalErr != nil || goal.BookID != "" {
+	if goal, goalErr := store.GetPrimaryGoal(ctx, bob.ID, "de"); goalErr != nil || goal.BookID != "" {
 		t.Fatalf("cross-owner Goal state=%+v err=%v", goal, goalErr)
 	}
 	if bobJourney, journeyErr := store.GetReadingJourney(ctx, bob.ID, "de"); journeyErr != nil || len(bobJourney.Entries) != 0 {
@@ -258,7 +258,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 			t.Fatalf("projection changed learner order[%d]=%q want %q", i, item.BookID, learnerOrderBefore[i])
 		}
 	}
-	goal, err := store.GetPrimaryGoal(ctx, alice.ID)
+	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	if err != nil || goal.BookID != book.ID || goal.ReadingFinishedAt == nil {
 		t.Fatalf("finish auto-advanced Goal=%+v err=%v", goal, err)
 	}
