@@ -29,10 +29,11 @@ type goalSectionView struct {
 }
 
 const (
-	goalStaleMessage       = "This Primary Goal changed since this page was loaded. No changes were made; review Reading Journey before trying again."
-	goalConcurrentMessage  = "Another book became your Primary Goal while you were choosing. No changes were made; review Reading Journey before trying again."
-	goalUnavailableMessage = "This book is not available in My Books."
-	goalIneligibleMessage  = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
+	goalStaleMessage            = "This Primary Goal changed since this page was loaded. No changes were made; review Reading Journey before trying again."
+	goalConcurrentMessage       = "Another book became your Primary Goal while you were choosing. No changes were made; review Reading Journey before trying again."
+	goalUnavailableMessage      = "This book is not available in My Books."
+	goalIneligibleMessage       = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
+	goalLanguageRequiredMessage = "Choose a study language before setting a Primary Goal."
 )
 
 func goalBookHasDeck(bookID string, campaigns []domain.LearningCampaign, preparations []domain.DeckPreparation) bool {
@@ -148,13 +149,25 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID := strings.TrimSpace(r.PathValue("id"))
 	if bookID == "" {
 		h.respondGoal(w, r, "", "Choose a book before setting a Primary Goal.", "")
 		return
 	}
+	if language == "" {
+		if _, bookErr := h.services.Store.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
+			h.respondGoal(w, r, "", goalUnavailableMessage, "")
+			return
+		} else if bookErr != nil {
+			fail(w, bookErr)
+			return
+		}
+		h.respondGoal(w, r, "", goalLanguageRequiredMessage, bookID)
+		return
+	}
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner)
+	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -179,9 +192,9 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 			return
 		}
-		_, err = h.services.Store.CreatePrimaryGoal(r.Context(), owner, bookID)
+		_, err = h.services.Store.CreatePrimaryGoal(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrGoalExists) {
-			latest, readErr := h.services.Store.GetPrimaryGoal(r.Context(), owner)
+			latest, readErr := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
 			if readErr != nil {
 				fail(w, readErr)
 				return
@@ -206,7 +219,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		_, err = h.services.Store.ChangePrimaryGoal(r.Context(), owner, bookID, expectedBookID)
+		_, err = h.services.Store.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
 		if errors.Is(err, persistence.ErrGoalStale) {
 			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
 			return
@@ -243,8 +256,13 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" {
+		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
+		return
+	}
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner)
+	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -262,7 +280,7 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	residual := h.currentGoalResidual(r.Context(), owner, current.BookID)
-	err = h.services.Store.ClearPrimaryGoal(r.Context(), owner, expectedBookID)
+	err = h.services.Store.ClearPrimaryGoal(r.Context(), owner, language, expectedBookID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return

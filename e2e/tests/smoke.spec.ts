@@ -65,6 +65,7 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/journey');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page.getByRole('heading', { name: 'Reading Journey in Italian', exact: true })).toBeVisible();
+    await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
     await expect(page.locator('#journey-book-fixture-empty')).toBeVisible();
     await expect(page.locator('#journey-book-fixture-book')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
@@ -78,6 +79,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(page).toHaveURL(/\/journey$/);
     await expect(page.getByRole('heading', { name: 'Reading Journey in German', exact: true })).toBeVisible();
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
+    await expect(page.locator('#journey-book-fixture-italian-goal')).toHaveCount(0);
     await expect(page.locator('#journey-book-fixture-empty')).toHaveCount(0);
 
     await page.goto('/books/fixture-book');

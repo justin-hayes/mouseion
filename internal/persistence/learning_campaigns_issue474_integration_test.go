@@ -68,13 +68,13 @@ func TestLearningCampaignResidualWorkSurvivesGoalChangeAndGraduatesOnce(t *testi
 	oldBook := book
 	newBook, newSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "474-new-goal")
 	makeJourneyMemberAnalyzed(t, ctx, store, newBook, newSource)
-	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, oldBook.ID); err != nil {
+	if _, err = store.CreatePrimaryGoal(ctx, owner.ID, "de", oldBook.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.ChangePrimaryGoal(ctx, owner.ID, newBook.ID, oldBook.ID); err != nil {
+	if _, err = store.ChangePrimaryGoal(ctx, owner.ID, "de", newBook.ID, oldBook.ID); err != nil {
 		t.Fatal(err)
 	}
-	goal, err := store.GetPrimaryGoal(ctx, owner.ID)
+	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	if err != nil || goal.BookID != newBook.ID {
 		t.Fatalf("changed Goal=%+v err=%v", goal, err)
 	}

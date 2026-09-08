@@ -19,7 +19,7 @@ type routeStore struct {
 func (s *routeStore) GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error) {
 	return s.journey, nil
 }
-func (s *routeStore) GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error) {
+func (s *routeStore) GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error) {
 	return s.goal, nil
 }
 func (s *routeStore) ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error) {
@@ -66,7 +66,7 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 	}
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "a"}, {BookID: "b"}, {BookID: "c"}, {BookID: "d"}}},
-		goal:    domain.PrimaryGoal{OwnerID: "alice", BookID: "c"}, books: books,
+		goal:    domain.PrimaryGoal{OwnerID: "alice", Language: "de", BookID: "c"}, books: books,
 		corpora: map[string]domain.AnalysisCorpusVocabulary{"c-a": lemma("a", "de", 50), "c-b": lemma("b", "fr", 90), "c-c": lemma("c", "de", 50), "c-d": {CorpusID: "c-d", SourceMaterialID: "d", Statistics: nil}},
 		known:   []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known-a", UPOS: "NOUN"}, {OwnerID: "alice", Language: "de", CanonicalLemma: "known-c", UPOS: "NOUN"}},
 		active:  []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "unknown-a", UPOS: "NOUN"}},
@@ -120,7 +120,7 @@ func TestJourneyProjectionAnchorsGoalAfterIncomparableAndRecomputesVocabulary(t 
 	}
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "owner", Entries: []domain.ReadingJourneyEntry{{BookID: "missing"}, {BookID: "b"}, {BookID: "c"}}},
-		goal:    domain.PrimaryGoal{OwnerID: "owner", BookID: "c"}, books: books,
+		goal:    domain.PrimaryGoal{OwnerID: "owner", Language: "de", BookID: "c"}, books: books,
 		corpora: map[string]domain.AnalysisCorpusVocabulary{"cb": corpus("cb", "b", 50), "cc": corpus("cc", "c", 50)},
 		known:   []domain.KnownVocabulary{{OwnerID: "owner", Language: "de", CanonicalLemma: "shared", UPOS: ""}},
 	}

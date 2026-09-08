@@ -46,7 +46,7 @@ func (s *deckJourneyActionStore) ResolveJourneyBookID(_ context.Context, _ strin
 	return id, true, nil
 }
 
-func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error) {
+func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error) {
 	return s.goal, nil
 }
 

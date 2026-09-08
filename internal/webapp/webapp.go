@@ -68,10 +68,10 @@ type Store interface {
 	AddToReadingJourney(context.Context, string, string, string, int64) (int64, error)
 	RemoveFromReadingJourney(context.Context, string, string, string, int64) (int64, error)
 	MoveReadingJourneyEntry(context.Context, string, string, string, int, int64) (int64, error)
-	GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error)
-	CreatePrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
-	ChangePrimaryGoal(context.Context, string, string, string) (domain.PrimaryGoal, error)
-	ClearPrimaryGoal(context.Context, string, string) error
+	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
+	CreatePrimaryGoal(context.Context, string, string, string) (domain.PrimaryGoal, error)
+	ChangePrimaryGoal(context.Context, string, string, string, string) (domain.PrimaryGoal, error)
+	ClearPrimaryGoal(context.Context, string, string, string) error
 }
 type OPDS interface {
 	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)

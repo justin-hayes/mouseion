@@ -49,7 +49,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		fail(w, err)
 		return
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(r.Context(), owner)
+	goal, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return

@@ -12,7 +12,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -283,7 +282,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -401,7 +400,7 @@ func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, 
 	if err != nil {
 		return err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -432,7 +431,7 @@ func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, boo
 	if err != nil {
 		return err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -541,7 +540,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	if err != nil {
 		return journeyPageView{}, err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner)
+	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
 	}
@@ -552,15 +551,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
-	}
-	if primaryGoalIsActive(goal) {
-		goalLanguage, languageErr := h.journeyBookLanguage(ctx, owner, goal.BookID, bookByID)
-		if languageErr != nil {
-			return journeyPageView{}, languageErr
-		}
-		if canonicalization.NormalizeLanguage(goalLanguage) != canonicalization.NormalizeLanguage(language) {
-			goal = domain.PrimaryGoal{}
-		}
 	}
 	if reader, ok := h.services.Store.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)

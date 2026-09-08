@@ -129,7 +129,7 @@ func TestFixtureItalianJourneyProjectionUsesItalianEvidenceIdentity(t *testing.T
 	if result.Language != "it" {
 		t.Fatalf("Italian projection language=%q", result.Language)
 	}
-	if len(result.LearnerOrder) != 2 {
+	if len(result.LearnerOrder) != 3 {
 		t.Fatalf("Italian projection order=%+v", result.LearnerOrder)
 	}
 	for _, book := range result.LearnerOrder {
@@ -318,12 +318,12 @@ func TestStorePrimaryGoalFinishFixturesCoverReadingOnlyResidualAndReviewed(t *te
 	ctx := context.Background()
 	readingOnly := NewStore()
 	readingOnly.campaigns = nil
-	result, err := readingOnly.FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	result, err := readingOnly.FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
 	if err != nil || result.Campaign != nil || result.ResidualVocabularyCount != 0 || result.Goal.ReadingFinishedAt == nil {
 		t.Fatalf("reading-only result=%+v err=%v", result, err)
 	}
 
-	residual, err := NewStore().FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	residual, err := NewStore().FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
 	if err != nil || residual.Campaign == nil || residual.Campaign.Status != domain.CampaignActive || residual.ResidualVocabularyCount != 2 || len(residual.Graduated) != 0 {
 		t.Fatalf("residual result=%+v err=%v", residual, err)
 	}
@@ -336,9 +336,64 @@ func TestStorePrimaryGoalFinishFixturesCoverReadingOnlyResidualAndReviewed(t *te
 	if _, err = reviewed.UpdateLearningCampaignProgress(ctx, OwnerID, CampaignID, persistence.LearningCampaignExpectedState{}, domain.BookReading, domain.DeckReviewed); err != nil {
 		t.Fatal(err)
 	}
-	result, err = reviewed.FinishReadingPrimaryGoal(ctx, OwnerID, BookID)
+	result, err = reviewed.FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
 	if err != nil || result.Campaign == nil || result.Campaign.Status != domain.CampaignComplete || len(result.Graduated) != 2 || result.ResidualVocabularyCount != 0 {
 		t.Fatalf("reviewed-before-finish result=%+v campaign-before=%+v err=%v", result, campaign, err)
+	}
+}
+
+func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyThatLanguage(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	deGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "de")
+	if err != nil || deGoal.BookID != BookID {
+		t.Fatalf("German Goal=%+v err=%v", deGoal, err)
+	}
+	itGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "it")
+	if err != nil || itGoal.BookID != ItalianGoalBookID {
+		t.Fatalf("Italian Goal=%+v err=%v", itGoal, err)
+	}
+
+	if err = store.ClearPrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID); err != nil {
+		t.Fatalf("clear Italian Goal: %v", err)
+	}
+	if deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || deGoal.BookID != BookID {
+		t.Fatalf("German Goal after Italian clear=%+v err=%v", deGoal, err)
+	}
+	if itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || itGoal.BookID != "" {
+		t.Fatalf("Italian Goal after clear=%+v err=%v", itGoal, err)
+	}
+
+	if _, err = store.CreatePrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID); err != nil {
+		t.Fatalf("recreate Italian Goal: %v", err)
+	}
+	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RemoveFromReadingJourney(ctx, OwnerID, "it", ItalianGoalBookID, journey.Revision); err != nil {
+		t.Fatalf("remove Italian Goal member: %v", err)
+	}
+	if itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || itGoal.BookID != "" {
+		t.Fatalf("Italian Goal after Journey removal=%+v err=%v", itGoal, err)
+	}
+	if deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || deGoal.BookID != BookID {
+		t.Fatalf("German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
+	}
+}
+
+func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	if _, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", domain.LanguageUnknown, ""); err != nil {
+		t.Fatalf("retag Italian Goal book: %v", err)
+	}
+	if goal, err := store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || goal.BookID != "" {
+		t.Fatalf("Italian Goal after retag=%+v err=%v", goal, err)
+	}
+	if goal, err := store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || goal.BookID != BookID {
+		t.Fatalf("German Goal after Italian retag=%+v err=%v", goal, err)
 	}
 }
 

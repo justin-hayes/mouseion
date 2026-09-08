@@ -18,13 +18,13 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID)
+	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
+	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID, activeLanguage)
 	if goalErr != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
 	}
 	query, page, needsLanguage := parseMyBooksBrowseRequest(r.URL)
-	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
 		http.Redirect(w, r, myBooksURL(query, page, needsLanguage), http.StatusSeeOther)
 		return
