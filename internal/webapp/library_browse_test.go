@@ -20,7 +20,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 		{Book: domain.Book{ID: "de-book", OwnerID: "owner", Title: "De book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "unknown-book", OwnerID: "owner", Title: "Unknown book", LanguageState: domain.LanguageUnknown}},
 	}
-	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 4, Total: 2, Page: 2, PageCount: 2}
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", NeedsLanguageCount: 1, AllCount: 4, Total: 2, Page: 2, PageCount: 2}
 	var output bytes.Buffer
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	html := output.String()
 	for _, want := range []string{
 		`role="search"`, `label for="library-search-query">Search My Books`,
-		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`,
+		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`, `href="/library?needs-language"`,
 		`href="/library"`, `href="/library?page=2"`, `href="/books/de-book"`,
 	} {
 		if !strings.Contains(html, want) {

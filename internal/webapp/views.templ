@@ -283,6 +283,7 @@ templ NeedsLanguageStrip(count int) {
 			<p>{ fmt.Sprintf("%d books are outside the active language collections because the catalogue has not assigned a language.", count) }</p>
 		}
 		<p>Fix the language in the catalogue, then re-sync from <a href="/connections">Connections</a>.</p>
+		<p><a href="/library?needs-language">Review books awaiting a language</a></p>
 	</section>
 }
 
@@ -324,7 +325,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.") {}
 			}
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
-			if browse.NeedsLanguage && browse.NeedsLanguageCount > 0 {
+			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			}
 			<section class="library-finder" aria-label="Find books">
