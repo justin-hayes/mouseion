@@ -220,6 +220,43 @@ func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
 	}
 }
 
+func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
+	book := domain.SourceMaterialSummary{
+		Source: domain.SourceMaterial{
+			ID:        "italian-book",
+			Title:     "Una storia italiana",
+			Language:  "it",
+			MediaType: "application/epub+zip",
+		},
+		AnalysisStatus: "not analyzed",
+	}
+	var output bytes.Buffer
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "<h1>Una storia italiana</h1>") || !strings.Contains(html, "it · application/epub+zip") {
+		t.Fatalf("book detail omitted its own language: %s", html)
+	}
+}
+
+func TestMetadataOnlyBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
+	book := domain.MyBook{Book: domain.Book{
+		ID:            "italian-metadata-book",
+		OwnerID:       "owner",
+		Title:         "Una storia italiana",
+		LanguageState: domain.LanguageChosen,
+		LanguageTag:   "it",
+	}, EvidenceState: domain.MyBookNotAcquired}
+	var output bytes.Buffer
+	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "it · Metadata only") {
+		t.Fatalf("metadata-only detail omitted its own language: %s", output.String())
+	}
+}
+
 type bookRefreshStub struct {
 	result cataloguesync.RefreshResult
 	owner  string

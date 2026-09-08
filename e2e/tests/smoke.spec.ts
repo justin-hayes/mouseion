@@ -65,6 +65,18 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
   });
 
+  test('book detail keeps its own language without changing the active mode', async ({ page }) => {
+    await page.goto('/library');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
+    await page.goto('/books/fixture-empty');
+
+    await expect(page.getByRole('heading', { name: 'Empty chapter', exact: true })).toBeVisible();
+    await expect(page.getByText('it · application/epub+zip')).toBeVisible();
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
+    await expect(page.locator('main select[name="language"]')).toHaveCount(0);
+  });
+
   test('metadata-only books show catalogue-driven actions', async ({ page }) => {
     await page.goto('/books/fixture-metadata-only');
     await page.getByRole('button', { name: 'Refresh metadata' }).click();

@@ -1222,7 +1222,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 templ MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, message string, eligibleForRefresh bool) {
 	@ShellLayout(book.Book.Title, &user, csrf, NavigationLibrary) {
 		@Breadcrumb("/library", "My Books")
-		@PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral))
+		@PageHeader(book.Book.Title, metadataOnlyBookDescription(book.Book.LanguageTag), StatusBadge("Not acquired", StatusNeutral))
 		if eligibleForRefresh && !strings.HasPrefix(message, "Could not acquire ") {
 			@MetadataOnlyBookMetadataRegion(csrf, book, message)
 		} else if message != "" && !strings.HasPrefix(message, "Could not acquire ") {
