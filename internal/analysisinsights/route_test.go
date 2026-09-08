@@ -8,15 +8,17 @@ import (
 )
 
 type routeStore struct {
-	journey domain.ReadingJourney
-	goal    domain.PrimaryGoal
-	books   []domain.MyBook
-	corpora map[string]domain.AnalysisCorpusVocabulary
-	known   []domain.KnownVocabulary
-	active  []domain.CampaignVocabulary
+	journey         domain.ReadingJourney
+	journeyLanguage string
+	goal            domain.PrimaryGoal
+	books           []domain.MyBook
+	corpora         map[string]domain.AnalysisCorpusVocabulary
+	known           []domain.KnownVocabulary
+	active          []domain.CampaignVocabulary
 }
 
-func (s *routeStore) GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error) {
+func (s *routeStore) GetReadingJourney(_ context.Context, _, language string) (domain.ReadingJourney, error) {
+	s.journeyLanguage = language
 	return s.journey, nil
 }
 func (s *routeStore) GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error) {
@@ -75,7 +77,7 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Language != "de" || got.ComparableCount != 2 || got.IncomparableCount != 2 {
+	if got.Language != "de" || store.journeyLanguage != "de" || got.ComparableCount != 3 || got.IncomparableCount != 1 {
 		t.Fatalf("summary = %+v", got)
 	}
 	for i, want := range []string{"a", "b", "c", "d"} {
@@ -83,22 +85,80 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 			t.Fatalf("learner order = %+v", got.LearnerOrder)
 		}
 	}
-	for i, want := range []string{"c", "b", "a", "d"} {
+	for i, want := range []string{"c", "a", "b", "d"} {
 		if got.AdvisoryOrder[i].BookID != want {
 			t.Fatalf("advisory order = %+v", got.AdvisoryOrder)
 		}
 	}
-	if got.AdvisoryOrder[1].Rank != nil || got.AdvisoryOrder[2].Rank == nil {
+	for i := range got.AdvisoryOrder[:3] {
+		if got.AdvisoryOrder[i].Rank == nil {
+			t.Fatalf("comparable rank[%d] = %+v", i, got.AdvisoryOrder)
+		}
+	}
+	if got.AdvisoryOrder[3].Rank != nil {
 		t.Fatalf("ranks = %+v", got.AdvisoryOrder)
 	}
-	if got.LearnerOrder[1].Comparable || got.LearnerOrder[1].IncomparableReason != "different study language" {
-		t.Fatalf("language exclusion = %+v", got.LearnerOrder[1])
+	if !got.LearnerOrder[1].Comparable || got.LearnerOrder[1].IncomparableReason != "" {
+		t.Fatalf("explicit-language projection excluded book = %+v", got.LearnerOrder[1])
 	}
 	if got.LearnerOrder[3].Comparable || got.LearnerOrder[3].Rank != nil {
 		t.Fatalf("legacy exclusion = %+v", got.LearnerOrder[3])
 	}
 	if got.LearnerOrder[0].ConditionalCoverage.KnownTokenCount != 100 {
 		t.Fatalf("conditional coverage = %+v", got.LearnerOrder[0].ConditionalCoverage)
+	}
+}
+
+func TestJourneyProjectionClassifiesMismatchedCorpusAsEvidenceIntegrityFailure(t *testing.T) {
+	store := &routeStore{
+		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "book"}}},
+		books: []domain.MyBook{{
+			Book:          domain.Book{ID: "book", OwnerID: "alice"},
+			Acquired:      &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source", Language: "de"}, CorpusID: "corpus"},
+			EvidenceState: domain.MyBookAnalyzed,
+		}},
+		corpora: map[string]domain.AnalysisCorpusVocabulary{
+			"corpus": {
+				CorpusID: "corpus", SourceMaterialID: "source",
+				Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 1},
+				Lemmas:     []domain.LemmaOccurrence{{Language: "it", CanonicalLemma: "ciao", UPOS: "NOUN", OccurrenceCount: 1}},
+			},
+		},
+	}
+
+	result, err := NewService(store).JourneyProjection(context.Background(), "alice", "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	book := result.LearnerOrder[0]
+	if book.Comparable || book.IncomparableReason != "stale/incomplete: corpus evidence is not modeled book language" {
+		t.Fatalf("corpus integrity state = %+v", book)
+	}
+}
+
+func TestJourneyProjectionDoesNotInferLanguageFromJourneyMembers(t *testing.T) {
+	store := &routeStore{
+		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "book"}}},
+		books: []domain.MyBook{{
+			Book:          domain.Book{ID: "book", OwnerID: "alice"},
+			Acquired:      &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source", Language: "de"}, CorpusID: "corpus"},
+			EvidenceState: domain.MyBookAnalyzed,
+		}},
+		corpora: map[string]domain.AnalysisCorpusVocabulary{
+			"corpus": {
+				CorpusID: "corpus", SourceMaterialID: "source",
+				Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 1},
+				Lemmas:     []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "hallo", UPOS: "INTJ", OccurrenceCount: 1}},
+			},
+		},
+	}
+
+	result, err := NewService(store).JourneyProjection(context.Background(), "alice", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Language != "" {
+		t.Fatalf("projection inferred language %q", result.Language)
 	}
 }
 
