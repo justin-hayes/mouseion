@@ -54,6 +54,13 @@ const edgeBookID = "fixture-edge-content"
 var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
+var fixtureSyncArrivals = []domain.SupportedLanguage{
+	{Language: "es", DisplayName: "Spanish"},
+	{Language: "nl", DisplayName: "Dutch"},
+	{Language: "pt", DisplayName: "Portuguese"},
+	{Language: "sv", DisplayName: "Swedish"},
+}
+
 func normalizeFixtureLanguage(raw string) string {
 	return canonicalization.NormalizeLanguage(raw)
 }
@@ -182,6 +189,37 @@ func (s *Store) MostRecentlyActivatedStudyLanguage(_ context.Context, owner stri
 		return "", errNotFound
 	}
 	return s.mostRecentLanguage, nil
+}
+
+func (s *Store) arriveNextFixtureStudyLanguage() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, arrival := range fixtureSyncArrivals {
+		language := normalizeFixtureLanguage(arrival.Language)
+		alreadyPresent := false
+		for _, book := range s.books {
+			if book.Source.OwnerID == OwnerID && normalizeFixtureLanguage(book.Source.Language) == language {
+				alreadyPresent = true
+				break
+			}
+		}
+		if alreadyPresent {
+			continue
+		}
+		s.books = append(s.books, domain.SourceMaterialSummary{
+			Source: domain.SourceMaterial{
+				ID:        "fixture-arrival-" + language,
+				OwnerID:   OwnerID,
+				Language:  language,
+				Title:     arrival.DisplayName + " arrival",
+				MediaType: "application/epub+zip",
+			},
+			BookID: "fixture-arrival-" + language,
+		})
+		s.supported = append(s.supported, arrival)
+		s.mostRecentLanguage = language
+		return
+	}
 }
 func (s *Store) PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error) {
 	return domain.SupportedLanguage{}, nil
