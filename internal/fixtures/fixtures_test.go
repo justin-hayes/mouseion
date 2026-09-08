@@ -190,6 +190,44 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	}
 }
 
+func TestFixtureCatalogueSyncAddsPassiveStudyLanguageArrival(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	sync := NewCatalogueSync(store)
+
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
+		t.Fatalf("initial active language=%q err=%v", got, err)
+	}
+	if recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID); err != nil || recent != "it" {
+		t.Fatalf("initial recent language=%q err=%v", recent, err)
+	}
+
+	if _, err := sync.Enqueue(ctx, OwnerID, "fixture-connection"); err != nil {
+		t.Fatal(err)
+	}
+
+	languages, err := store.ListStudyLanguages(ctx, OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundSpanish bool
+	for _, language := range languages {
+		if language.Language == "es" {
+			foundSpanish = true
+			break
+		}
+	}
+	if !foundSpanish {
+		t.Fatalf("study languages after sync=%+v, want Spanish arrival", languages)
+	}
+	if recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID); err != nil || recent != "es" {
+		t.Fatalf("recent language after sync=%q err=%v", recent, err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
+		t.Fatalf("active language changed after sync=%q err=%v", got, err)
+	}
+}
+
 func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
 	store := NewStore()
 	if err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr"); err != nil {
@@ -386,7 +424,7 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	if err != nil || before.Total < 1 {
 		t.Fatalf("initial needs-language browse=%+v err=%v", before, err)
 	}
-	if _, err = sync.Enqueue(ctx, OwnerID, "fixture-connection"); err != nil {
+	if _, err = sync.Enqueue(ctx, OwnerID, "fixture-browser-sync-connection"); err != nil {
 		t.Fatal(err)
 	}
 	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
@@ -399,7 +437,7 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	}
 	found := false
 	for _, book := range afterGerman.Items {
-		if book.Book.ID == "fixture-metadata-only" {
+		if book.Book.ID == BrowserSyncBookID {
 			found = true
 			break
 		}

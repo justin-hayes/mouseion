@@ -42,7 +42,14 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 	if _, err := s.Store.GetOpdsConnection(ctx, owner, connectionID); err != nil {
 		return cataloguesync.Handle{}, cataloguesync.ErrNotFound
 	}
-	if err := s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime}); err != nil {
+	status := domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime}
+	if connectionID == "fixture-connection" {
+		s.Store.arriveNextFixtureStudyLanguage()
+		status.State = domain.CatalogueSyncSynced
+		status.LastSyncedAt = timePtr(fixtureJourneyTime)
+		status.LastUpsertedCount = 3
+	}
+	if err := s.Store.SetCatalogueSyncStatus(ctx, status); err != nil {
 		return cataloguesync.Handle{}, err
 	}
 	s.Store.admitFixtureCatalogueLanguage(owner, connectionID)
