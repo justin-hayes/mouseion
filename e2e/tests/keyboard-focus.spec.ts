@@ -61,8 +61,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
-    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
-    const title = page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    const title = page.locator('.library-list a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
@@ -155,7 +157,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('My Books and table region are keyboard-scrollable', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
-    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Analysis history' });
     await expect(region).toHaveAttribute('tabindex', '0');

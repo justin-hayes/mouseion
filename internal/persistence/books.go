@@ -59,10 +59,11 @@ type LanguageCount struct {
 }
 
 type MyBooksBrowseResult struct {
-	Items    []domain.MyBook
-	Total    int
-	Counts   []LanguageCount
-	AllCount int
+	Items      []domain.MyBook
+	ScopeTotal int
+	Total      int
+	Counts     []LanguageCount
+	AllCount   int
 }
 
 func scanBook(row pgx.Row) (domain.Book, error) {
@@ -170,6 +171,10 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	var result MyBooksBrowseResult
 	result.Items = items
 	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE `+where, args...).Scan(&result.Total); err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	scopeWhere, scopeArgs := myBooksBrowseWhere(owner, "", language)
+	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE `+scopeWhere, scopeArgs...).Scan(&result.ScopeTotal); err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1`, owner).Scan(&result.AllCount); err != nil {

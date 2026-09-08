@@ -21,11 +21,12 @@ test.describe('migration and epistemic regression coverage', () => {
 
   test('shows migrated My Books states and server-rendered controls', async ({ page }) => {
     await page.goto('/library');
-    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
-    await expect(page.getByText('Metadata-only migration book')).toBeVisible();
-    await expect(page.locator('article.library-book').filter({ hasText: 'Metadata-only migration book' })).toContainText('Not acquired');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('.library-list').getByText('Metadata-only migration book')).toHaveCount(0);
     await expect(page.getByText('Analysis result ready').first()).toBeVisible();
-    await expect(page.getByText('language not chosen').first()).toBeVisible();
+    await expect(page.getByText('language not chosen')).toHaveCount(0);
     await expectPostFormsCarryCSRF(page);
   });
 

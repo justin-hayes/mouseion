@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -24,33 +23,57 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
 	}
-	query, language, page := parseMyBooksBrowseRequest(r.URL)
+	query, page, needsLanguage := parseMyBooksBrowseRequest(r.URL)
+	activeLanguage, activeLanguageLabel := activeLanguageForLibrary(r.Context())
+	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
+		http.Redirect(w, r, myBooksURL(query, page, needsLanguage), http.StatusSeeOther)
+		return
+	}
+	requestedLanguage := activeLanguage
+	if needsLanguage {
+		requestedLanguage = domain.LanguageUnknown
+	}
 	var books []domain.MyBook
 	var err error
 	var browse MyBooksBrowseState
 	if reader, ok := h.services.Store.(interface {
 		ListMyBooksBrowse(context.Context, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
 	}); ok {
-		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, language, myBooksPageOffset(page), myBooksPageSize)
+		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, myBooksPageOffset(page), myBooksPageSize)
 		err = readErr
 		books = result.Items
-		browse = MyBooksBrowseState{
-			Enabled:         true,
-			Query:           query,
-			Language:        language,
-			AllCount:        result.AllCount,
-			Total:           result.Total,
-			Page:            page,
-			PageCount:       myBooksPageCount(result.Total),
-			TextNoMatch:     query != "" && result.Total == 0 && language == "",
-			CombinedNoMatch: query != "" && language != "" && result.Total == 0,
+		if activeLanguage == "" && !needsLanguage {
+			books = nil
+			result.Total = 0
 		}
-		for _, count := range result.Counts {
-			browse.Counts = append(browse.Counts, MyBooksLanguageCount{Tag: count.Tag, Count: count.Count})
+		browse = MyBooksBrowseState{
+			Enabled:            true,
+			Query:              query,
+			Language:           activeLanguage,
+			LanguageLabel:      activeLanguageLabel,
+			NeedsLanguage:      needsLanguage,
+			NeedsLanguageCount: needsLanguageCount(result.Counts),
+			AllCount:           result.AllCount,
+			ScopeTotal:         result.ScopeTotal,
+			Total:              result.Total,
+			Page:               page,
+			PageCount:          myBooksPageCount(result.Total),
+			TextNoMatch:        query != "" && result.Total == 0,
 		}
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
-			http.Redirect(w, r, myBooksBrowseURL(query, language, lastPage), http.StatusSeeOther)
+			http.Redirect(w, r, myBooksURL(query, lastPage, needsLanguage), http.StatusSeeOther)
+			return
+		}
+		if err == nil && page > 1 && result.Total == 0 {
+			lastPage := 1
+			if query == "" && requestedLanguage != "" {
+				lastPage = myBooksPageCount(result.ScopeTotal)
+				if lastPage == 0 {
+					lastPage = 1
+				}
+			}
+			http.Redirect(w, r, myBooksURL(query, lastPage, needsLanguage), http.StatusSeeOther)
 			return
 		}
 	} else if reader, ok := h.services.Store.(interface {
@@ -83,7 +106,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	if primaryGoalIsActive(goal) {
 		goalBookID = goal.BookID
 	}
-	if browse.Enabled && browse.Language != "" && !strings.EqualFold(browse.Language, domain.LanguageUnknown) {
+	if browse.Enabled && browse.Language != "" && !browse.NeedsLanguage {
 		if provider, ok := h.services.AnalysisInsights.(languageCorpusProvider); ok {
 			var supported []domain.SupportedLanguage
 			if reader, supportedOK := h.services.Store.(supportedLanguageReader); supportedOK {
@@ -102,6 +125,15 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
+}
+
+func needsLanguageCount(counts []persistence.LanguageCount) int {
+	for _, count := range counts {
+		if count.Tag == domain.LanguageUnknown {
+			return count.Count
+		}
+	}
+	return 0
 }
 
 func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {

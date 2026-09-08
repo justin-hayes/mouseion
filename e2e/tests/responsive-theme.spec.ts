@@ -47,18 +47,22 @@ test.describe('responsive and theme regression coverage', () => {
       if (test.info().project.name.startsWith('compact')) await expectNoPageOverflow(page);
     }
     await page.goto('/library');
-    await expect(page.locator('a[href="/books/fixture-edge-content"]')).toBeVisible();
-    await expect(page.locator('a[href="/books/fixture-empty"]')).toBeVisible();
-    await expect(page.locator('a[href="/books/fixture-failed"]')).toBeVisible();
-    // The fixed fixture set has 9 acquired + 1 metadata-only Book, and all 10
-    // rows now carry a bibliographic title link.
-    await expect(page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') })).toHaveCount(10);
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') {
+      await switcher.selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+    }
+    await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-failed"]')).toBeVisible();
+    await expect(page.locator('.library-list a[href="/books/fixture-edge-content"]')).toHaveCount(0);
+    await expect(page.locator('.library-list a[href="/books/fixture-empty"]')).toHaveCount(0);
+    expect(await page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') }).count()).toBeGreaterThan(0);
     if (test.info().project.name.startsWith('compact')) {
-      // Target the long-title fixture explicitly because all rows now carry a
-      // bibliographic title link and ordering is deterministic.
-      const longTitleBook = page.locator('.library-book').filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' });
-      await expect(longTitleBook).toContainText('Donaudampfschifffahrtsgesellschaftskapitänsmütze');
-      await expect(longTitleBook).toBeVisible();
+      // Book detail is intentionally not mode-scoped and retains the long-title
+      // fixture for narrow-layout coverage.
+      await page.goto('/books/fixture-edge-content');
+      await expect(page.getByText('Donaudampfschifffahrtsgesellschaftskapitänsmütze')).toBeVisible();
+      await expectNoPageOverflow(page);
     }
   });
 
