@@ -148,10 +148,10 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		Total: 1, ScopeTotal: 1, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: domain.LanguageUnknown, Count: 1}},
 	}
 	response = request("/library?needs-language")
-	if response.Code != http.StatusOK || store.language != domain.LanguageUnknown || !strings.Contains(response.Body.String(), "Books awaiting a language") || !strings.Contains(response.Body.String(), `href="/books/unknown-book"`) {
+	if response.Code != http.StatusOK || store.language != domain.LanguageUnknown || !strings.Contains(response.Body.String(), "Books awaiting a language") || !strings.Contains(response.Body.String(), "Unknown Book") {
 		t.Fatalf("needs-language browse status=%d language=%q body=%s", response.Code, store.language, response.Body.String())
 	}
-	if strings.Contains(response.Body.String(), "Add to Reading Journey") || strings.Contains(response.Body.String(), "Remove from My Books") {
+	if strings.Contains(response.Body.String(), `href="/books/unknown-book"`) || strings.Contains(response.Body.String(), "Add to Reading Journey") || strings.Contains(response.Body.String(), "Remove from My Books") {
 		t.Fatalf("needs-language browse exposed mutation actions: %s", response.Body.String())
 	}
 }

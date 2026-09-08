@@ -314,6 +314,10 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 			refreshed.Message = journeyStaleMessage
 			return refreshed, nil
 		}
+		if errors.Is(err, persistence.ErrBookLanguageRequired) {
+			refreshed.Error = "This book needs a language before it can join Reading Journey. Fix the language in the catalogue, then re-sync."
+			return refreshed, nil
+		}
 		refreshed.Error = "The book could not be added to Reading Journey. No Journey changes were made; try again."
 		return refreshed, nil
 	}

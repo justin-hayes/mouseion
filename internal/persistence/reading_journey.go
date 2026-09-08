@@ -26,7 +26,10 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner string) (do
 		return journey, missing(err)
 	}
 
-	rows, err := s.pool.Query(ctx, `SELECT book_id::text,position,created_at FROM reading_journey_membership WHERE owner_id=$1 ORDER BY position,created_at,book_id`, owner)
+	rows, err := s.pool.Query(ctx, `SELECT m.book_id::text,m.position,m.created_at
+		FROM reading_journey_membership m
+		JOIN books b ON b.owner_id=m.owner_id AND b.id=m.book_id AND b.language_state='chosen'
+		WHERE m.owner_id=$1 ORDER BY m.position,m.created_at,m.book_id`, owner)
 	if err != nil {
 		return journey, err
 	}
@@ -57,7 +60,10 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner s
 	if err = tx.QueryRow(ctx, `SELECT revision FROM reading_journeys WHERE owner_id=$1 FOR UPDATE`, owner).Scan(&revision); err != nil {
 		return rollback(missing(err))
 	}
-	rows, err := tx.Query(ctx, `SELECT book_id::text,position,created_at FROM reading_journey_membership WHERE owner_id=$1 ORDER BY position,created_at,book_id FOR UPDATE`, owner)
+	rows, err := tx.Query(ctx, `SELECT m.book_id::text,m.position,m.created_at
+		FROM reading_journey_membership m
+		JOIN books b ON b.owner_id=m.owner_id AND b.id=m.book_id AND b.language_state='chosen'
+		WHERE m.owner_id=$1 ORDER BY m.position,m.created_at,m.book_id FOR UPDATE`, owner)
 	if err != nil {
 		return rollback(err)
 	}
@@ -107,6 +113,13 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, bookID s
 	}
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
+	}
+	var languageState string
+	if err = tx.QueryRow(ctx, `SELECT language_state FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&languageState); err != nil {
+		return 0, err
+	}
+	if languageState != domain.LanguageChosen {
+		return 0, ErrBookLanguageRequired
 	}
 	for _, member := range members {
 		if member.bookID == bookID {

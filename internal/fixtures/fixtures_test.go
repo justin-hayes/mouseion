@@ -361,3 +361,50 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 		t.Fatalf("wrong connection refresh=%+v err=%v", result, err)
 	}
 }
+
+func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	journey, err := store.GetReadingJourney(ctx, OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, OwnerID, "fixture-metadata-only", journey.Revision); !errors.Is(err, persistence.ErrBookLanguageRequired) {
+		t.Fatalf("unknown-language Journey add error=%v", err)
+	}
+	unchanged, err := store.GetReadingJourney(ctx, OwnerID)
+	if err != nil || unchanged.Revision != journey.Revision {
+		t.Fatalf("unknown-language add changed Journey=%+v err=%v", unchanged, err)
+	}
+}
+
+func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	sync := NewCatalogueSync(store)
+	before, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
+	if err != nil || before.Total < 1 {
+		t.Fatalf("initial needs-language browse=%+v err=%v", before, err)
+	}
+	if _, err = sync.Enqueue(ctx, OwnerID, "fixture-connection"); err != nil {
+		t.Fatal(err)
+	}
+	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
+	if err != nil || afterUnknown.Total != before.Total-1 {
+		t.Fatalf("needs-language book remained after sync=%+v err=%v", afterUnknown, err)
+	}
+	afterGerman, err := store.ListMyBooksBrowse(ctx, OwnerID, "", "de", 0, 25)
+	if err != nil || afterGerman.Total == 0 {
+		t.Fatalf("re-synced book missing from German browse=%+v err=%v", afterGerman, err)
+	}
+	found := false
+	for _, book := range afterGerman.Items {
+		if book.Book.ID == "fixture-metadata-only" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("re-synced metadata book missing from German page=%+v", afterGerman.Items)
+	}
+}

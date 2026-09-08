@@ -746,7 +746,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	alice := createAccount(t, ctx, store, "journey-web-alice", "alice-password", false)
 	bob := createAccount(t, ctx, store, "journey-web-bob", "bob-password", false)
 	newBook := func(owner domain.User, title string) domain.Book {
-		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
