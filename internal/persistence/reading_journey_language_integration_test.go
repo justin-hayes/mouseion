@@ -28,14 +28,14 @@ func TestAddToReadingJourneyRejectsBookWithoutChosenLanguage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	journey, err := store.GetReadingJourney(ctx, owner.ID)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); !errors.Is(err, ErrBookLanguageRequired) {
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); !errors.Is(err, ErrBookLanguageRequired) {
 		t.Fatalf("unknown-language Journey add error=%v", err)
 	}
-	unchanged, err := store.GetReadingJourney(ctx, owner.ID)
+	unchanged, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil || len(unchanged.Entries) != 0 {
 		t.Fatalf("unknown-language add changed Journey=%+v err=%v", unchanged, err)
 	}
@@ -43,13 +43,13 @@ func TestAddToReadingJourneyRejectsBookWithoutChosenLanguage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, owner.ID, chosen.ID, unchanged.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", chosen.ID, unchanged.Revision); err != nil {
 		t.Fatalf("chosen-language Journey add error=%v", err)
 	}
-	if _, err = store.pool.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id,book_id,position) VALUES($1,$2,$3)`, owner.ID, book.ID, 2); err != nil {
+	if _, err = store.pool.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id,language,book_id,position) VALUES($1,$2,$3,$4)`, owner.ID, "de", book.ID, 2); err != nil {
 		t.Fatal(err)
 	}
-	filtered, err := store.GetReadingJourney(ctx, owner.ID)
+	filtered, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil || len(filtered.Entries) != 1 || filtered.Entries[0].BookID != chosen.ID {
 		t.Fatalf("unknown-language membership was visible Journey=%+v err=%v", filtered, err)
 	}

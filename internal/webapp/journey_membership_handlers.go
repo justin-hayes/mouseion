@@ -20,6 +20,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		return
 	}
 	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID, ok, err := h.services.Store.ResolveJourneyBookID(r.Context(), owner, r.PathValue("id"))
 	if err != nil {
 		fail(w, err)
@@ -29,7 +30,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
-	if _, err = h.services.Store.RemoveFromReadingJourney(r.Context(), owner, bookID, expectedRevision); err != nil {
+	if _, err = h.services.Store.RemoveFromReadingJourney(r.Context(), owner, language, bookID, expectedRevision); err != nil {
 		if errors.Is(err, persistence.ErrJourneyStale) {
 			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 			return

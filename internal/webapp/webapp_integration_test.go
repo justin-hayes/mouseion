@@ -429,7 +429,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if bookPage.Code != http.StatusOK || !strings.Contains(bookPage.Body.String(), "Start analysis") || strings.Contains(bookPage.Body.String(), "Acquire EPUB content") {
 		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
 	}
-	journey, err := store.GetReadingJourney(ctx, owner.ID)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -437,7 +437,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if added.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
 		t.Fatalf("Journey metadata add=%d downloads=%d analysis calls=%d location=%q body=%s", added.Code, downloads, recorder.calls, added.Header().Get("Location"), added.Body.String())
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil || len(journey.Entries) != 1 || journey.Entries[0].BookID != bookResult.Book.ID {
 		t.Fatalf("Journey membership after metadata add=%+v err=%v", journey.Entries, err)
 	}
@@ -449,7 +449,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	if removed.Code != http.StatusSeeOther || !strings.Contains(removed.Header().Get("Location"), "removed+from+Reading+Journey") || recorder.calls != 1 {
 		t.Fatalf("Journey removal=%d location=%q analysis calls=%d body=%s", removed.Code, removed.Header().Get("Location"), recorder.calls, removed.Body.String())
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil || len(journey.Entries) != 0 {
 		t.Fatalf("Journey membership after removal=%+v err=%v", journey.Entries, err)
 	}
@@ -763,7 +763,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	notMember := newBook(alice, "Removed provisional")
 	journeyRevision := int64(0)
 	for _, book := range []domain.Book{goal, first, second, third} {
-		journeyRevision, err = store.AddToReadingJourney(ctx, alice.ID, book.ID, journeyRevision)
+		journeyRevision, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journeyRevision)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -785,7 +785,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-earlier", moveForm(csrf, expected), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
 		t.Fatalf("move earlier=%d location=%q body=%s", moved.Code, moved.Header().Get("Location"), moved.Body.String())
 	}
-	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil || journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != second.ID || journey.Entries[2].BookID != first.ID {
 		t.Fatalf("after move earlier journey=%+v err=%v", journey.Entries, err)
 	}
@@ -793,7 +793,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-later", moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision")), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
 		t.Fatalf("move later=%d location=%q", moved.Code, moved.Header().Get("Location"))
 	}
-	journey, _ = store.GetReadingJourney(ctx, alice.ID)
+	journey, _ = store.GetReadingJourney(ctx, alice.ID, "de")
 	if journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != first.ID || journey.Entries[2].BookID != second.ID {
 		t.Fatalf("after move later journey=%+v", journey.Entries)
 	}
@@ -802,7 +802,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
 		t.Fatalf("stale=%d location=%q", stale.Code, stale.Header().Get("Location"))
 	}
-	journeyAfterStale, _ := store.GetReadingJourney(ctx, alice.ID)
+	journeyAfterStale, _ := store.GetReadingJourney(ctx, alice.ID, "de")
 	if len(journeyAfterStale.Entries) != len(journey.Entries) || journeyAfterStale.Entries[0].BookID != journey.Entries[0].BookID || journeyAfterStale.Entries[1].BookID != journey.Entries[1].BookID || journeyAfterStale.Entries[2].BookID != journey.Entries[2].BookID {
 		t.Fatalf("stale request changed journey=%+v before=%+v", journeyAfterStale.Entries, journey.Entries)
 	}
@@ -841,7 +841,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if added.Code != http.StatusSeeOther || !strings.HasPrefix(added.Header().Get("Location"), "/journey?message=") {
 		t.Fatalf("add to Journey=%d location=%q body=%s", added.Code, added.Header().Get("Location"), added.Body.String())
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil || len(journey.Entries) != 5 {
 		t.Fatalf("added Journey=%+v err=%v", journey.Entries, err)
 	}
@@ -873,7 +873,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	if addedFromSource.Code != http.StatusSeeOther || !strings.HasPrefix(addedFromSource.Header().Get("Location"), "/journey?message=") {
 		t.Fatalf("source-material add=%d location=%q body=%s", addedFromSource.Code, addedFromSource.Header().Get("Location"), addedFromSource.Body.String())
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil || len(journey.Entries) != 6 {
 		t.Fatalf("source-material add Journey=%+v err=%v", journey.Entries, err)
 	}

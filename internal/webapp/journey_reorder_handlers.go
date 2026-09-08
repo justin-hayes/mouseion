@@ -42,8 +42,9 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		return
 	}
 	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID := r.PathValue("id")
-	journey, err := h.services.Store.GetReadingJourney(r.Context(), owner)
+	journey, err := h.services.Store.GetReadingJourney(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -79,7 +80,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 			fail(w, bookErr)
 			return
 		}
-		_, err = h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, bookID, 1, expectedRevision)
+		_, err = h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, 1, expectedRevision)
 		if errors.Is(err, persistence.ErrJourneyStale) {
 			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 			return
@@ -108,7 +109,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	// A boundary request passes the current position through the store so the
 	// revision is still checked. The store returns the same revision for this
 	// deterministic no-op, which is announced without changing the order.
-	newRevision, err := h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, bookID, newPosition, expectedRevision)
+	newRevision, err := h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, newPosition, expectedRevision)
 	if errors.Is(err, persistence.ErrJourneyStale) {
 		redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 		return
@@ -122,7 +123,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		return
 	}
 
-	view, err := h.buildJourneyView(r.Context(), owner)
+	view, err := h.buildJourneyView(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return

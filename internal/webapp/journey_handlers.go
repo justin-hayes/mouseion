@@ -264,7 +264,8 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 		return deckJourneyActionView{}, nil
 	}
 	bookID = resolved
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	language, _ := activeStudyLanguageForContext(ctx)
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -295,6 +296,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		return deckJourneyActionView{}, nil
 	}
 	bookID = resolved
+	language, _ := activeStudyLanguageForContext(ctx)
 	action, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
@@ -304,7 +306,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	if action.State == deckJourneyGoal {
 		return action, nil
 	}
-	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, bookID, expectedRevision); err != nil {
+	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
 		log.Printf("mouseion: add book %s to Reading Journey failed: %v", bookID, err)
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
@@ -380,7 +382,8 @@ func journeyAnalysisError(ctx context.Context, store Store, owner, bookID, title
 }
 
 func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	language, _ := activeStudyLanguageForContext(ctx)
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -410,7 +413,8 @@ func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, 
 }
 
 func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, book *domain.MyBook) error {
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+	language, _ := activeStudyLanguageForContext(ctx)
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -485,7 +489,8 @@ func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	view, err := h.buildJourneyView(r.Context(), u.ID)
+	language, _ := activeStudyLanguageForContext(r.Context())
+	view, err := h.buildJourneyView(r.Context(), u.ID, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -503,7 +508,7 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 			for _, item := range view.Provisional {
 				titles[item.Book.Source.ID] = journeyBookTitle(item.Book)
 			}
-			comparison, projectionErr := journeyRouteComparison(r.Context(), provider, u.ID, titles)
+			comparison, projectionErr := journeyRouteComparison(r.Context(), provider, u.ID, language, titles)
 			if projectionErr != nil {
 				log.Printf("mouseion: Journey comparison unavailable for owner %s: %v", u.ID, projectionErr)
 				view.RouteComparison = &routeComparisonView{ComparisonUnavailable: true}
@@ -515,8 +520,8 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
 }
 
-func (h *Handler) buildJourneyView(ctx context.Context, owner string) (journeyPageView, error) {
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner)
+func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
+	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
 	}

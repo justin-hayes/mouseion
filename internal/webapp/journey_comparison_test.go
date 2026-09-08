@@ -64,18 +64,18 @@ func TestBuildRouteComparisonViewMarksEmptyProjectionUnavailable(t *testing.T) {
 }
 
 func TestJourneyRouteComparisonSoftensProviderFailureAndEmptyResult(t *testing.T) {
-	failed, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{err: errors.New("projection failed")}, "owner-1", nil)
+	failed, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{err: errors.New("projection failed")}, "owner-1", "de", nil)
 	if err == nil || failed != nil {
 		t.Fatalf("provider failure view=%#v err=%v", failed, err)
 	}
-	empty, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{}, "owner-1", nil)
+	empty, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{}, "owner-1", "de", nil)
 	if err != nil || empty == nil || !empty.ComparisonUnavailable {
 		t.Fatalf("empty provider result view=%#v err=%v", empty, err)
 	}
 	available, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{result: domain.JourneyProjectionResult{
 		LearnerOrder:  []domain.JourneyRouteBook{{BookID: "book-1"}},
 		AdvisoryOrder: []domain.JourneyRouteBook{{BookID: "book-1"}},
-	}}, "owner-1", nil)
+	}}, "owner-1", "de", nil)
 	if err != nil || available == nil || available.ComparisonUnavailable {
 		t.Fatalf("available provider result view=%#v err=%v", available, err)
 	}

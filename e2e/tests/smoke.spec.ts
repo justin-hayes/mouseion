@@ -112,16 +112,22 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('ready decks show truthful Primary Goal and Journey membership actions', async ({ page }) => {
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
     await page.goto('/deck-preparations/fixture-preparation/status');
     await expect(page.getByText('Primary Goal.', { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
     await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
 
+    await page.getByLabel('Study language').selectOption('it');
+    await expect(page.getByLabel('Study language')).toHaveValue('it');
     await page.goto('/deck-preparations/fixture-journey-preparation/status');
     await expect(page.getByText('In Reading Journey.', { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View this Journey entry' })).toHaveAttribute('href', '/journey#journey-book-fixture-empty');
     await expect(page.getByRole('button', { name: 'Add to Reading Journey' })).toHaveCount(0);
 
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
     await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
     const addToJourney = page.getByRole('button', { name: 'Add to Reading Journey' });
     if (await addToJourney.count() > 0) {

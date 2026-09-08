@@ -321,11 +321,11 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, owner.ID, book.ID); err != nil {
 		t.Fatal(err)
 	}
-	journey, err := store.GetReadingJourney(ctx, owner.ID)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	started := make(chan struct{})
@@ -359,11 +359,11 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("analysis did not reach running state")
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if goal, goalErr := store.GetPrimaryGoal(ctx, owner.ID); goalErr != nil || goal.BookID != "" {
@@ -376,11 +376,11 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	if state != "running" {
 		t.Fatalf("analysis state after Journey removal=%q, want running", state)
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	reused, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -395,18 +395,18 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	if err != nil || status.State != rivertype.JobStateCompleted {
 		t.Fatalf("re-added analysis status=%+v err=%v", status, err)
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, owner.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	reusedCompleted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)

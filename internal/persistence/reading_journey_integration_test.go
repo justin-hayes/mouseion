@@ -22,6 +22,14 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
+	// Start this scenario from the legacy one-row shape so it exercises both
+	// halves of the split migration rather than the already-migrated schema.
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000054_reading_journey_language_backfill.down.sql")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000053_reading_journey_language.down.sql")); err != nil {
+		t.Fatal(err)
+	}
 
 	alice, err := store.CreateUser(ctx, "journey-alice", false)
 	if err != nil {
@@ -38,6 +46,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	active, activeSource, activePrep := createJourneyFixture(t, ctx, store, alice.ID, "active")
 	_, completeSource, completePrep := createJourneyFixture(t, ctx, store, alice.ID, "complete")
 	_, abandonedSource, abandonedPrep := createJourneyFixture(t, ctx, store, alice.ID, "abandoned")
+	italian, italianSource, italianPrep := createJourneyFixtureInLanguage(t, ctx, store, alice.ID, "it", "queued-italian")
 	bobQueued, bobSource, bobPrep := createJourneyFixture(t, ctx, store, bob.ID, "bob-queued")
 
 	base := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -47,6 +56,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	insertJourneyCampaign(t, ctx, pool, alice.ID, activeSource.ID, activePrep.ID, "reading", "studying", base.Add(72*time.Hour))
 	insertJourneyCampaign(t, ctx, pool, alice.ID, completeSource.ID, completePrep.ID, "finished", "reviewed", base.Add(96*time.Hour))
 	insertJourneyCampaign(t, ctx, pool, alice.ID, abandonedSource.ID, abandonedPrep.ID, "abandoned", "queued", base.Add(120*time.Hour))
+	insertJourneyCampaign(t, ctx, pool, alice.ID, italianSource.ID, italianPrep.ID, "queued", "queued", base.Add(144*time.Hour))
 	insertJourneyCampaign(t, ctx, pool, bob.ID, bobSource.ID, bobPrep.ID, "queued", "queued", base.Add(24*time.Hour))
 
 	var beforeCampaigns, beforeVocabulary int
@@ -57,16 +67,28 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	backfill := migrationSQL(t, "000039_reading_journey_backfill.up.sql")
+	legacyBackfill := migrationSQL(t, "000039_reading_journey_backfill.up.sql")
+	if _, err = pool.Exec(ctx, legacyBackfill); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, migrationSQL(t, "000053_reading_journey_language.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	backfill := migrationSQL(t, "000054_reading_journey_language_backfill.up.sql")
 	if _, err = pool.Exec(ctx, backfill); err != nil {
 		t.Fatal(err)
 	}
-	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, journey, alice.ID, []string{queuedEarly.ID, shared.ID})
-	bobJourney, err := store.GetReadingJourney(ctx, bob.ID)
+	italianJourney, err := store.GetReadingJourney(ctx, alice.ID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJourneyEntries(t, italianJourney, alice.ID, []string{italian.ID})
+	bobJourney, err := store.GetReadingJourney(ctx, bob.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,16 +97,21 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	if _, err = pool.Exec(ctx, backfill); err != nil {
 		t.Fatal(err)
 	}
-	repeatedAlice, err := store.GetReadingJourney(ctx, alice.ID)
+	repeatedAlice, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, repeatedAlice, alice.ID, []string{queuedEarly.ID, shared.ID})
-	repeatedBob, err := store.GetReadingJourney(ctx, bob.ID)
+	repeatedBob, err := store.GetReadingJourney(ctx, bob.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, repeatedBob, bob.ID, []string{bobQueued.ID})
+	repeatedItalian, err := store.GetReadingJourney(ctx, alice.ID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJourneyEntries(t, repeatedItalian, alice.ID, []string{italian.ID})
 	var afterCampaigns, afterVocabulary int
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaigns`).Scan(&afterCampaigns); err != nil {
 		t.Fatal(err)
@@ -107,7 +134,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	empty, err := store.GetReadingJourney(ctx, carol.ID)
+	empty, err := store.GetReadingJourney(ctx, carol.ID, "de")
 	if err != nil || empty.Revision != 0 || len(empty.Entries) != 0 || empty.OwnerID != carol.ID {
 		t.Fatalf("empty journey=%+v err=%v", empty, err)
 	}
@@ -121,73 +148,73 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	revision, err := store.AddToReadingJourney(ctx, alice.ID, aliceExtra.ID, journey.Revision)
+	revision, err := store.AddToReadingJourney(ctx, alice.ID, "de", aliceExtra.ID, journey.Revision)
 	if err != nil || revision != 1 {
 		t.Fatalf("add alice extra revision=%d err=%v", revision, err)
 	}
-	if repeatedRevision, repeatErr := store.AddToReadingJourney(ctx, alice.ID, aliceExtra.ID, revision); repeatErr != nil || repeatedRevision != revision {
+	if repeatedRevision, repeatErr := store.AddToReadingJourney(ctx, alice.ID, "de", aliceExtra.ID, revision); repeatErr != nil || repeatedRevision != revision {
 		t.Fatalf("repeated add revision=%d want=%d err=%v", repeatedRevision, revision, repeatErr)
 	}
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, aliceExtra.ID, 0); !errors.Is(err, ErrJourneyStale) {
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", aliceExtra.ID, 0); !errors.Is(err, ErrJourneyStale) {
 		t.Fatalf("stale add error=%v", err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, bobQueued.ID, revision); !errors.Is(err, ErrNotFound) {
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", bobQueued.ID, revision); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner add error=%v", err)
 	}
 
-	if revision, err = store.RemoveFromReadingJourney(ctx, alice.ID, queuedEarly.ID, revision); err != nil || revision != 2 {
+	if revision, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", queuedEarly.ID, revision); err != nil || revision != 2 {
 		t.Fatalf("remove alice early revision=%d err=%v", revision, err)
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, journey, alice.ID, []string{shared.ID, aliceExtra.ID})
-	if revision, err = store.RemoveFromReadingJourney(ctx, alice.ID, active.ID, revision); err != nil || revision != 2 {
+	if revision, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", active.ID, revision); err != nil || revision != 2 {
 		t.Fatalf("remove absent revision=%d err=%v", revision, err)
 	}
 
-	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, aliceExtra.ID, 1, revision); err != nil || revision != 3 {
+	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 1, revision); err != nil || revision != 3 {
 		t.Fatalf("move earlier revision=%d err=%v", revision, err)
 	}
-	if unchanged, moveErr := store.MoveReadingJourneyEntry(ctx, alice.ID, aliceExtra.ID, 1, revision); moveErr != nil || unchanged != revision {
+	if unchanged, moveErr := store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 1, revision); moveErr != nil || unchanged != revision {
 		t.Fatalf("move current revision=%d want=%d err=%v", unchanged, revision, moveErr)
 	}
-	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, aliceExtra.ID, 99, revision); err != nil || revision != 4 {
+	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 99, revision); err != nil || revision != 4 {
 		t.Fatalf("move high clamp revision=%d err=%v", revision, err)
 	}
-	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, aliceExtra.ID, 0, revision); err != nil || revision != 5 {
+	if revision, err = store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 0, revision); err != nil || revision != 5 {
 		t.Fatalf("move low clamp revision=%d err=%v", revision, err)
 	}
-	if _, err = store.MoveReadingJourneyEntry(ctx, alice.ID, bobQueued.ID, 1, revision); !errors.Is(err, ErrNotFound) {
+	if _, err = store.MoveReadingJourneyEntry(ctx, alice.ID, "de", bobQueued.ID, 1, revision); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("move absent error=%v", err)
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, journey, alice.ID, []string{aliceExtra.ID, shared.ID})
 
-	bobJourney, err = store.GetReadingJourney(ctx, bob.ID)
+	bobJourney, err = store.GetReadingJourney(ctx, bob.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if revision, err = store.AddToReadingJourney(ctx, bob.ID, bobExtra.ID, bobJourney.Revision); err != nil || revision != 1 {
+	if revision, err = store.AddToReadingJourney(ctx, bob.ID, "de", bobExtra.ID, bobJourney.Revision); err != nil || revision != 1 {
 		t.Fatalf("add bob extra revision=%d err=%v", revision, err)
 	}
-	bobJourney, err = store.GetReadingJourney(ctx, bob.ID)
+	bobJourney, err = store.GetReadingJourney(ctx, bob.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, bobJourney, bob.ID, []string{bobQueued.ID, bobExtra.ID})
-	if revision, err = store.RemoveFromReadingJourney(ctx, bob.ID, bobExtra.ID, bobJourney.Revision); err != nil || revision != 2 {
+	if revision, err = store.RemoveFromReadingJourney(ctx, bob.ID, "de", bobExtra.ID, bobJourney.Revision); err != nil || revision != 2 {
 		t.Fatalf("remove bob extra revision=%d err=%v", revision, err)
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +227,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		go func() {
 			defer wait.Done()
-			result, moveErr := store.MoveReadingJourneyEntry(ctx, alice.ID, aliceExtra.ID, 2, journeyRevision)
+			result, moveErr := store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 2, journeyRevision)
 			results <- readingJourneyMoveResult{revision: result, err: moveErr}
 		}()
 	}
@@ -222,11 +249,110 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	if successes != 1 || stale != 1 {
 		t.Fatalf("concurrent move results successes=%d stale=%d", successes, stale)
 	}
-	journey, err = store.GetReadingJourney(ctx, alice.ID)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertJourneyEntries(t, journey, alice.ID, []string{shared.ID, aliceExtra.ID})
+}
+
+func TestReadingJourneyLanguageIsolationAndLazyLifecycle(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	owner, err := store.CreateUser(ctx, "journey-language-isolation", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "German", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deSecond, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Second German", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	itBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Needs language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deJourney, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	if err != nil || deJourney.Revision != 0 || deJourney.Language != "de" {
+		t.Fatalf("initial German Journey=%+v err=%v", deJourney, err)
+	}
+	itJourney, err := store.GetReadingJourney(ctx, owner.ID, "it")
+	if err != nil || itJourney.Revision != 0 || itJourney.Language != "it" {
+		t.Fatalf("initial Italian Journey=%+v err=%v", itJourney, err)
+	}
+	if _, err = store.AddToReadingJourney(ctx, owner.ID, "de", unknown.ID, 0); !errors.Is(err, ErrBookLanguageRequired) {
+		t.Fatalf("unknown-language add error=%v", err)
+	}
+	var journeyRows int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_journeys WHERE owner_id=$1`, owner.ID).Scan(&journeyRows); err != nil {
+		t.Fatal(err)
+	}
+	if journeyRows != 0 {
+		t.Fatalf("failed add materialized %d Journey rows", journeyRows)
+	}
+
+	if revision, err := store.AddToReadingJourney(ctx, owner.ID, "de", deBook.ID, 0); err != nil || revision != 1 {
+		t.Fatalf("German add revision=%d err=%v", revision, err)
+	}
+	if revision, err := store.AddToReadingJourney(ctx, owner.ID, "it", itBook.ID, 0); err != nil || revision != 1 {
+		t.Fatalf("Italian add revision=%d err=%v", revision, err)
+	}
+	if revision, err := store.AddToReadingJourney(ctx, owner.ID, "de", deSecond.ID, 1); err != nil || revision != 2 {
+		t.Fatalf("second German add revision=%d err=%v", revision, err)
+	}
+	itJourney, err = store.GetReadingJourney(ctx, owner.ID, "it")
+	if err != nil || itJourney.Revision != 1 || len(itJourney.Entries) != 1 || itJourney.Entries[0].BookID != itBook.ID {
+		t.Fatalf("Italian changed after German mutation=%+v err=%v", itJourney, err)
+	}
+	deJourney, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	if err != nil || deJourney.Revision != 2 || len(deJourney.Entries) != 2 || deJourney.Entries[0].Language != "de" {
+		t.Fatalf("German isolation result=%+v err=%v", deJourney, err)
+	}
+
+	// Retagging a member out of a language makes it invisible immediately; the
+	// next mutation cleans up the stale membership and can remove the Journey.
+	if _, err = store.UpdateBookMetadata(ctx, owner.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", deBook.ID, deJourney.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_journeys WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&journeyRows); err != nil {
+		t.Fatal(err)
+	}
+	if journeyRows != 1 {
+		t.Fatalf("German Journey was removed while another German Book remained: %d", journeyRows)
+	}
+	if _, err = store.UpdateBookMetadata(ctx, owner.ID, deSecond.ID, deSecond.Title, domain.LanguageUnknown, ""); err != nil {
+		t.Fatal(err)
+	}
+	deJourney, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	if err != nil || len(deJourney.Entries) != 0 {
+		t.Fatalf("cleaned German Journey=%+v err=%v", deJourney, err)
+	}
+	if _, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", deSecond.ID, deJourney.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_journeys WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&journeyRows); err != nil {
+		t.Fatal(err)
+	}
+	if journeyRows != 0 {
+		t.Fatalf("empty non-derived German Journey remained: %d", journeyRows)
+	}
 }
 
 type readingJourneyMoveResult struct {
@@ -301,14 +427,18 @@ func TestResolveJourneyBookID(t *testing.T) {
 	}
 
 	// The resolved book id is the identity an add persists.
-	if revision, addErr := store.AddToReadingJourney(ctx, alice.ID, book.ID, 0); addErr != nil || revision != 1 {
+	if revision, addErr := store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, 0); addErr != nil || revision != 1 {
 		t.Fatalf("add resolved book revision=%d err=%v", revision, addErr)
 	}
 }
 
 func createJourneyFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+	return createJourneyFixtureInLanguage(t, ctx, store, owner, "de", suffix)
+}
+
+func createJourneyFixtureInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
 	t.Helper()
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Journey " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Journey " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,8 +446,12 @@ func createJourneyFixture(t *testing.T, ctx context.Context, store *PostgresStor
 }
 
 func createJourneySourceAndPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+	return createJourneySourceAndPreparationInLanguage(t, ctx, store, owner, book, book.LanguageTag, suffix)
+}
+
+func createJourneySourceAndPreparationInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, language, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
 	t.Helper()
-	source := putBookSource(t, ctx, store, owner, "journey-"+suffix, "Journey "+suffix, []byte("journey-"+suffix), suffix)
+	source := putBookSourceInLanguage(t, ctx, store, owner, language, "journey-"+suffix, "Journey "+suffix, []byte("journey-"+suffix), suffix)
 	if err := store.LinkSourceToBook(ctx, owner, book.ID, source.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -338,11 +472,11 @@ func createJourneySourceAndPreparation(t *testing.T, ctx context.Context, store 
 
 func makeJourneyMemberAnalyzed(t *testing.T, ctx context.Context, store *PostgresStore, book domain.Book, source domain.SourceMaterial) {
 	t.Helper()
-	journey, err := store.GetReadingJourney(ctx, book.OwnerID)
+	journey, err := store.GetReadingJourney(ctx, book.OwnerID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, book.OwnerID, book.ID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, book.OwnerID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.PutArtifact(ctx, domain.NormalizedArtifact{

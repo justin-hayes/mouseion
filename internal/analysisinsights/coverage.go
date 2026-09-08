@@ -31,7 +31,7 @@ type Store interface {
 // JourneyStore, PrimaryGoalStore, and BookEvidenceStore are intentionally
 // separate from Store so existing single-book insight stores remain useful.
 type JourneyStore interface {
-	GetReadingJourney(context.Context, string) (domain.ReadingJourney, error)
+	GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error)
 }
 
 type PrimaryGoalStore interface {

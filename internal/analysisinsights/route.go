@@ -20,7 +20,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 	if !ok {
 		return domain.JourneyProjectionResult{}, fmt.Errorf("journey projection: store does not provide book evidence")
 	}
-	journey, err := journeyStore.GetReadingJourney(ctx, owner)
+	journey, err := journeyStore.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return domain.JourneyProjectionResult{}, fmt.Errorf("load reading journey: %w", err)
 	}

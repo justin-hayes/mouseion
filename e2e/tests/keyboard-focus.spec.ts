@@ -176,6 +176,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       const pathname = new URL(request.url()).pathname;
       if (pathname.endsWith('/add') || pathname.endsWith('/analyze')) analysisSideEffects.push(pathname);
     });
+    await page.getByLabel('Study language').selectOption('it');
+    await expect(page.getByLabel('Study language')).toHaveValue('it');
     await page.goto('/journey');
     await expect(page.locator('.journey-book--goal .journey-book__controls')).toHaveCount(0);
     const edge = page.locator('#journey-book-fixture-edge-content');
@@ -205,6 +207,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('learning completion and abandonment confirmations support cancel/confirm focus return', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
     await page.goto('/journey');
     const active = page.locator('#campaign-fixture-campaign');
     const finishBook = active.getByRole('button', { name: /Mark book finished/ });

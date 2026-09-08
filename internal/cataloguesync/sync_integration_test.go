@@ -128,11 +128,11 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	if journeyBookID == "" {
 		t.Fatal("first synced book was not found for Journey lifecycle check")
 	}
-	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, journeyBookID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if len(reader.visited) != 2 || reader.visited[0] != "7" || reader.visited[1] != "10" {

@@ -46,7 +46,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	aliceCookies, aliceCSRF := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 
-	initialJourney, err := store.GetReadingJourney(ctx, alice.ID)
+	initialJourney, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if err != nil || goal.BookID != "" {
 		t.Fatalf("Goal=%+v err=%v", goal, err)
 	}
-	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil || len(journey.Entries) != len(initialJourney.Entries) || journey.Revision != initialJourney.Revision {
 		t.Fatalf("choosing Goal changed Journey: before=%+v after=%+v err=%v", initialJourney, journey, err)
 	}

@@ -125,15 +125,15 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	journey, err := store.GetReadingJourney(ctx, alice.ID)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, book.ID, journey.Revision); err != nil {
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
-	journey, _ = store.GetReadingJourney(ctx, alice.ID)
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, secondBook.ID, journey.Revision); err != nil {
+	journey, _ = store.GetReadingJourney(ctx, alice.ID, "de")
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, book.ID); err != nil {
@@ -152,7 +152,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, secondBook.ID, journey.Revision); !errors.Is(err, persistence.ErrJourneyStale) {
+	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision); !errors.Is(err, persistence.ErrJourneyStale) {
 		t.Fatalf("stale Journey write=%v", err)
 	}
 	if _, err = store.ChangePrimaryGoal(ctx, alice.ID, secondBook.ID, "stale-book"); !errors.Is(err, persistence.ErrGoalStale) {
@@ -172,7 +172,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if goal, goalErr := store.GetPrimaryGoal(ctx, bob.ID); goalErr != nil || goal.BookID != "" {
 		t.Fatalf("cross-owner Goal state=%+v err=%v", goal, goalErr)
 	}
-	if bobJourney, journeyErr := store.GetReadingJourney(ctx, bob.ID); journeyErr != nil || len(bobJourney.Entries) != 0 {
+	if bobJourney, journeyErr := store.GetReadingJourney(ctx, bob.ID, "de"); journeyErr != nil || len(bobJourney.Entries) != 0 {
 		t.Fatalf("cross-owner Journey state=%+v err=%v", bobJourney, journeyErr)
 	}
 
