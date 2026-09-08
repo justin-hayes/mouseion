@@ -417,7 +417,7 @@ templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelVi
 }
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string, activeCampaignID string) {
 	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
-		@PageHeader("Reading Journey", "Keep one current Primary Goal anchored first, followed by the provisional order you chose.", nil) {
+		@PageHeader(journeyPageTitle(journey), "Keep one current Primary Goal anchored first, followed by the provisional order you chose.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
 		}
 		if message != "" {
@@ -589,7 +589,9 @@ templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusM
 	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
 		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
 		if len(journey.Provisional) == 0 {
-			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.")
+			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.") {
+				<a role="button" class="outline" href="/library">Browse My Books</a>
+			}
 		}
 		<div class="journey-list">
 			for _, item := range journey.Provisional {

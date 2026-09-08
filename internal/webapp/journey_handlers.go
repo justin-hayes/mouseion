@@ -12,6 +12,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -212,6 +213,8 @@ func journeyProjectionText(coverage domain.AnalysisCoverage) string {
 }
 
 type journeyPageView struct {
+	Language        string
+	LanguageLabel   string
 	Goal            *journeyBookView
 	Residual        *goalResidualView
 	Provisional     []journeyBookView
@@ -219,6 +222,17 @@ type journeyPageView struct {
 	Campaigns       []campaignView
 	Prepared        []preparedCampaignOption
 	RouteComparison *routeComparisonView
+}
+
+func journeyPageTitle(journey journeyPageView) string {
+	label := strings.TrimSpace(journey.LanguageLabel)
+	if label == "" {
+		label = strings.TrimSpace(journey.Language)
+	}
+	if label == "" {
+		return "Reading Journey"
+	}
+	return "Reading Journey in " + label
 }
 
 type deckJourneyState string
@@ -489,7 +503,7 @@ func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	language, _ := activeStudyLanguageForContext(r.Context())
+	language, languageLabel := activeStudyLanguageForContext(r.Context())
 	view, err := h.buildJourneyView(r.Context(), u.ID, language)
 	if err != nil {
 		fail(w, err)
@@ -517,6 +531,8 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	view.Language = language
+	view.LanguageLabel = languageLabel
 	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
 }
 
@@ -536,6 +552,15 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
+	}
+	if primaryGoalIsActive(goal) {
+		goalLanguage, languageErr := h.journeyBookLanguage(ctx, owner, goal.BookID, bookByID)
+		if languageErr != nil {
+			return journeyPageView{}, languageErr
+		}
+		if canonicalization.NormalizeLanguage(goalLanguage) != canonicalization.NormalizeLanguage(language) {
+			goal = domain.PrimaryGoal{}
+		}
 	}
 	if reader, ok := h.services.Store.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
@@ -604,6 +629,20 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 	}
 	return view, nil
+}
+
+func (h *Handler) journeyBookLanguage(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (string, error) {
+	if book, ok := bookByID[bookID]; ok {
+		return book.Source.Language, nil
+	}
+	book, err := h.services.Store.GetBook(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return book.LanguageTag, nil
 }
 
 func journeyHasActiveCampaign(campaigns []campaignView, id string) bool {

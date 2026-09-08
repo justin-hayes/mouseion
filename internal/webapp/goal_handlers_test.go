@@ -232,6 +232,105 @@ func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.
 	}
 }
 
+func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /journey status=%d body=%s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	for _, want := range []string{
+		"Reading Journey in Italian",
+		`id="journey-book-fixture-empty"`,
+		`name="expected_revision" value="1"`,
+		`action="/journey/entries/fixture-empty/move-later"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Italian Journey page missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `class="resource-card journey-book journey-book--goal"`) || strings.Contains(body, `id="journey-book-fixture-book"`) {
+		t.Fatalf("Italian Journey page exposed the German Goal: %s", body)
+	}
+
+	moved := goalRequest(t, h, "/journey/entries/fixture-edge-content/move-earlier", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"1"},
+	}, cookies)
+	if moved.Code != http.StatusSeeOther {
+		t.Fatalf("move Italian Journey entry=%d location=%q", moved.Code, moved.Header().Get("Location"))
+	}
+	italianJourney, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "it")
+	if err != nil || italianJourney.Entries[0].BookID != "fixture-edge-content" {
+		t.Fatalf("Italian Journey after move=%+v err=%v", italianJourney.Entries, err)
+	}
+	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"); err != nil {
+		t.Fatal(err)
+	}
+	request = httptest.NewRequest(http.MethodGet, "/journey", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response = httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET German /journey status=%d body=%s", response.Code, response.Body.String())
+	}
+	body = response.Body.String()
+	if !strings.Contains(body, "Reading Journey in German") || !strings.Contains(body, `id="journey-book-fixture-book"`) || strings.Contains(body, `id="journey-book-fixture-empty"`) {
+		t.Fatalf("German Journey did not remain isolated after Italian move: %s", body)
+	}
+}
+
+func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	ctx := context.Background()
+	journey, err := store.GetReadingJourney(ctx, fixtures.OwnerID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := len(journey.Entries) - 1; i >= 0; i-- {
+		if _, err = store.RemoveFromReadingJourney(ctx, fixtures.OwnerID, "it", journey.Entries[i].BookID, journey.Revision); err != nil {
+			t.Fatal(err)
+		}
+		journey, err = store.GetReadingJourney(ctx, fixtures.OwnerID, "it")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET empty Italian /journey status=%d body=%s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	for _, want := range []string{"Reading Journey in Italian", "No provisional books yet", "Browse My Books"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("empty Italian Journey page missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`) {
+		t.Fatalf("empty Italian Journey page exposed a member: %s", body)
+	}
+}
+
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
