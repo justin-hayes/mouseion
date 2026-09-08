@@ -47,8 +47,11 @@ test.describe('responsive and theme regression coverage', () => {
       if (test.info().project.name.startsWith('compact')) await expectNoPageOverflow(page);
     }
     await page.goto('/library');
-    await page.getByLabel('Study language').selectOption('de');
-    await page.goto('/library');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') {
+      await switcher.selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+    }
     await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-book"]')).toBeVisible();
     await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-failed"]')).toBeVisible();
     await expect(page.locator('.library-list a[href="/books/fixture-edge-content"]')).toHaveCount(0);
