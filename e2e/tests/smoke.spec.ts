@@ -40,9 +40,25 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     await expect(switcher).toHaveValue('de');
-    await expect(switcher.locator('option[value="it"]')).toContainText('(new)');
+    const initialNewArrival = switcher.locator('option').filter({ hasText: '(new)' });
+    await expect(initialNewArrival).toHaveCount(1);
+    const initialNewLanguage = await initialNewArrival.getAttribute('value');
+    expect(initialNewLanguage).toBeTruthy();
+    expect(initialNewLanguage).not.toBe('de');
     await expect(switcher.locator('option[value="fr"]')).not.toBeDisabled();
     await expect(switcher.locator('option[value="fr"]')).toContainText('(no books)');
+
+    await page.goto('/connections');
+    await page.locator('#connection-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
+    await expect(page).toHaveURL(/\/connections\?message=/);
+    await page.goto('/library');
+    const arrivedNewArrival = page.getByLabel('Study language').locator('option').filter({ hasText: '(new)' });
+    await expect(arrivedNewArrival).toHaveCount(1);
+    const arrivedNewLanguage = await arrivedNewArrival.getAttribute('value');
+    expect(arrivedNewLanguage).toBeTruthy();
+    expect(arrivedNewLanguage).not.toBe(initialNewLanguage);
+    await expect(page.getByLabel('Study language').locator(`option[value="${initialNewLanguage}"]`)).not.toContainText('(new)');
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
 
     await switcher.selectOption('it');
     await expect(page).toHaveURL(/\/library$/);
