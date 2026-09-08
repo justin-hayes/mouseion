@@ -32,7 +32,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 	for _, book := range evidence {
 		byBook[book.Book.ID] = book
 	}
-	result := domain.JourneyProjectionResult{OwnerID: owner}
+	result := domain.JourneyProjectionResult{OwnerID: owner, Language: language}
 	conditionalAvailable := false
 	for i, entry := range journey.Entries {
 		position := entry.Position
@@ -48,13 +48,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 			book.Language = item.Acquired.Source.Language
 			book.CorpusID = item.Acquired.CorpusID
 		}
-		if language == "" && result.Language == "" && book.Language != "" {
-			result.Language = book.Language
-		}
 		result.LearnerOrder = append(result.LearnerOrder, book)
-	}
-	if language != "" {
-		result.Language = language
 	}
 	if goals, ok := s.store.(PrimaryGoalStore); ok {
 		goal, goalErr := goals.GetPrimaryGoal(ctx, owner, language)
@@ -78,8 +72,6 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 			book.IncomparableReason = "unavailable: book language is unknown"
 		case item.EvidenceState == domain.MyBookStale:
 			book.IncomparableReason = "stale: analysis no longer matches the current book scope"
-		case result.Language != "" && book.Language != result.Language:
-			book.IncomparableReason = "different study language"
 		case book.CorpusID == "":
 			book.IncomparableReason = "unassessed: no current analyzed corpus"
 		default:
@@ -91,7 +83,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 			} else if input.SourceMaterialID != book.SourceMaterialID {
 				book.IncomparableReason = "stale: corpus does not represent the current source"
 			} else if !corpusLanguageMatches(input, book.Language) {
-				book.IncomparableReason = "different study language: corpus evidence is not modeled language"
+				book.IncomparableReason = "stale/incomplete: corpus evidence is not modeled book language"
 			} else {
 				current, coverageErr := s.coverage(ctx, owner, input, false)
 				if coverageErr != nil {

@@ -10,11 +10,15 @@ import (
 )
 
 type testJourneyProjectionProvider struct {
-	result domain.JourneyProjectionResult
-	err    error
+	result   domain.JourneyProjectionResult
+	err      error
+	language *string
 }
 
-func (p testJourneyProjectionProvider) JourneyProjection(context.Context, string, string) (domain.JourneyProjectionResult, error) {
+func (p testJourneyProjectionProvider) JourneyProjection(_ context.Context, _, language string) (domain.JourneyProjectionResult, error) {
+	if p.language != nil {
+		*p.language = language
+	}
 	return p.result, p.err
 }
 
@@ -29,7 +33,6 @@ func TestRouteEvidenceLabelsDistinguishEvidenceStates(t *testing.T) {
 		{name: "conditional", book: domain.JourneyRouteBook{Comparable: true, Coverage: coverage, ConditionalCoverage: coverage}, label: "Conditional"},
 		{name: "stale", book: domain.JourneyRouteBook{IncomparableReason: "stale: old corpus"}, label: "Stale"},
 		{name: "unavailable", book: domain.JourneyRouteBook{IncomparableReason: "unavailable: no corpus"}, label: "Coverage unavailable"},
-		{name: "different language", book: domain.JourneyRouteBook{IncomparableReason: "different study language"}, label: "Coverage unavailable"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -72,12 +75,16 @@ func TestJourneyRouteComparisonSoftensProviderFailureAndEmptyResult(t *testing.T
 	if err != nil || empty == nil || !empty.ComparisonUnavailable {
 		t.Fatalf("empty provider result view=%#v err=%v", empty, err)
 	}
+	requestedLanguage := ""
 	available, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{result: domain.JourneyProjectionResult{
 		LearnerOrder:  []domain.JourneyRouteBook{{BookID: "book-1"}},
 		AdvisoryOrder: []domain.JourneyRouteBook{{BookID: "book-1"}},
-	}}, "owner-1", "de", nil)
+	}, language: &requestedLanguage}, "owner-1", "de", nil)
 	if err != nil || available == nil || available.ComparisonUnavailable {
 		t.Fatalf("available provider result view=%#v err=%v", available, err)
+	}
+	if requestedLanguage != "de" {
+		t.Fatalf("projection language = %q, want de", requestedLanguage)
 	}
 }
 
@@ -106,6 +113,9 @@ func TestRouteComparisonRenderingKeepsOrderAndExplainsEvidence(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(html), "optimal") || strings.Contains(strings.ToLower(html), "best next book") {
 		t.Fatalf("comparison used prohibited recommendation language: %s", html)
+	}
+	if strings.Contains(strings.ToLower(html), "different study language") {
+		t.Fatalf("comparison exposed removed language mismatch reason: %s", html)
 	}
 	learnerStart := strings.Index(html, "Match")
 	differsStart := strings.Index(html, "Differs")

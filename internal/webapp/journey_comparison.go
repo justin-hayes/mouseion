@@ -116,9 +116,6 @@ func routeRankLabel(book domain.JourneyRouteBook) string {
 }
 
 func routeIncomparableDetail(book domain.JourneyRouteBook) string {
-	if strings.Contains(strings.ToLower(book.IncomparableReason), "different") {
-		return "Unavailable for this study language."
-	}
 	if book.IncomparableReason == "" {
 		return "No comparable evidence is available."
 	}
