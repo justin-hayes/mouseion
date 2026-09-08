@@ -373,7 +373,7 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, KnownVocab: known, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
-	imported := multipartUpload(t, h, "/vocabulary/import", cookies, map[string]string{"csrf_token": csrf, "language": "de"}, "Haus\n")
+	imported := multipartUpload(t, h, "/vocabulary/import?language=it", cookies, map[string]string{"csrf_token": csrf, "language": "it"}, "Haus\n")
 	if imported.Code != http.StatusSeeOther || imported.Header().Get("Location") != "/vocabulary/imports/77/status" {
 		t.Fatalf("derived-language import=%d location=%q body=%s", imported.Code, imported.Header().Get("Location"), imported.Body.String())
 	}
@@ -916,7 +916,7 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 		}
 	}
 	field, filename := "dataset", "frequency.csv"
-	if path == "/vocabulary/import" {
+	if strings.HasPrefix(path, "/vocabulary/import") {
 		field, filename = "vocabulary_file", "known.txt"
 	}
 	part, err := writer.CreateFormFile(field, filename)

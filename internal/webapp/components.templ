@@ -145,7 +145,7 @@ templ ActiveStudyLanguageSwitcher(view *shellView, csrf string) {
 	if view != nil {
 		<li class="site-header__language"><form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value={ view.ReturnTo }/><label for="active-study-language">Study language<select id="active-study-language" name="language" required onchange="this.form.submit()"><option value="" selected?={ view.ActiveLanguage == "" }>Choose a study language</option>
 			for _, option := range view.Options {
-				<option value={ option.Language } selected?={ view.ActiveLanguage == option.Language } disabled?={ !option.HasBooks }>{ activeStudyLanguageLabel(option) }</option>
+				<option value={ option.Language } selected?={ view.ActiveLanguage == option.Language }>{ activeStudyLanguageLabel(option) }</option>
 			}
 		</select></label><noscript><button type="submit">Switch language</button></noscript></form></li>
 	}

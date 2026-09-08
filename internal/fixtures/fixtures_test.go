@@ -190,6 +190,20 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	}
 }
 
+func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
+	store := NewStore()
+	if err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr"); err != nil {
+		t.Fatal(err)
+	}
+	known, err := store.ListKnownVocabulary(context.Background(), OwnerID, "fr")
+	if err != nil || len(known) != 1 || known[0].CanonicalLemma != "bonjour" {
+		t.Fatalf("known-only vocabulary=%+v err=%v", known, err)
+	}
+	if languages, err := store.ListStudyLanguages(context.Background(), OwnerID); err != nil || len(languages) != 2 {
+		t.Fatalf("study languages=%+v err=%v", languages, err)
+	}
+}
+
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	store := NewStore()
 	store.books = nil

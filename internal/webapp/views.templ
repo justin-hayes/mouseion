@@ -1065,30 +1065,21 @@ templ JobStatus(csrf string, status analysis.Status) {
 templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary", "Import words you already know so pre-learning decks focus on new vocabulary.", nil)
-		if len(languages) == 0 {
-			@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
-				<a href="/connections">Connect a catalogue</a>
-			}
-		} else {
-			<form method="get" action="/vocabulary" class="vocabulary-language-picker"><label>Language<select name="language" required><option value="">Choose a study language</option>
-			for _, studyLanguage := range languages {
-				<option value={ studyLanguage.Language } selected?={ language == studyLanguage.Language }>{ studyLanguage.DisplayName } ({ studyLanguage.Language })</option>
-			}
-			</select></label><button class="outline">View known vocabulary</button></form>
-		}
-		if len(knownLanguages) > 0 {
-			<section aria-labelledby="known-vocabulary-languages-heading"><h2 id="known-vocabulary-languages-heading">Known vocabulary by language</h2><ul>
-				for _, knownLanguage := range knownLanguages {
-					<li><a href={ templ.SafeURL("/vocabulary?language=" + knownLanguage.Language) }>{ knownLanguage.DisplayName } ({ knownLanguage.Language })</a></li>
-				}
-			</ul></section>
-		}
 		if language == "" {
-			<p>Select a study language to view known vocabulary or import a lemma file.</p>
+			if len(languages) == 0 {
+				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
+					<a href="/connections">Connect a catalogue</a>
+				}
+			} else {
+				<p>Choose a study language in the shell to view known vocabulary or import a lemma file.</p>
+			}
 		} else {
+			if len(languages) == 0 {
+				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>
+			}
 			<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
 			if studyLanguagePresent(languages, language) {
-				<form method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post="/vocabulary/import" hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ language }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+				<form method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
 			} else {
 				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
 			}
@@ -1167,7 +1158,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 					</tbody>
 				}
 				}
-				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Review known vocabulary</a></p>
+				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Review known vocabulary</a></p>
 		}
 		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
 			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
@@ -1180,7 +1171,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			if status.Language != "" {
 				<p>Selected language: <code>{ status.Language }</code></p>
 			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Vocabulary to retry the import</a></p>
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
 		}
 		if status.State == "discarded" {
 			<p role="alert"><strong>Import failed.</strong>
@@ -1191,7 +1182,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 			if status.Language != "" {
 				<p>Selected language: <code>{ status.Language }</code></p>
 			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget(status.Language)) }>Return to Vocabulary to retry the import</a></p>
+			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
 		}
 }
 

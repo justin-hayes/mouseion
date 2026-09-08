@@ -42,7 +42,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('representative tab order and focus indicators remain visible', async ({ page }) => {
     await signIn(page);
-    await page.goto('/vocabulary?language=de');
+    await page.goto('/vocabulary');
     await page.keyboard.press('Tab');
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -239,7 +239,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {
     for (const disabled of [true, false]) {
       await signIn(page, disabled);
-      await page.goto('/vocabulary?language=de');
+      await page.goto('/vocabulary');
+      const switcher = page.getByLabel('Study language');
+      if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
       const form = page.locator('form[hx-post*="/vocabulary/import"]');
       await form.locator('input[type="file"]').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nÜberraschung\n') });
       await form.getByRole('button', { name: /import known vocabulary/i }).press('Enter');
