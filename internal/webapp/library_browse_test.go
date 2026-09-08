@@ -15,29 +15,30 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func TestMyBooksBrowseControlsRenderAccessiblePillsAndPaging(t *testing.T) {
+func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	books := []domain.MyBook{
 		{Book: domain.Book{ID: "de-book", OwnerID: "owner", Title: "De book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "unknown-book", OwnerID: "owner", Title: "Unknown book", LanguageState: domain.LanguageUnknown}},
 	}
-	state := MyBooksBrowseState{Enabled: true, Language: "de", Counts: []MyBooksLanguageCount{{Tag: "de", Count: 2}, {Tag: "it", Count: 1}, {Tag: domain.LanguageUnknown, Count: 1}}, AllCount: 4, Total: 2, Page: 2, PageCount: 2}
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 4, Total: 2, Page: 2, PageCount: 2}
 	var output bytes.Buffer
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	for _, want := range []string{
-		`role="search"`, `label for="library-search-query">Search My Books`, `name="language" value="de"`,
-		`aria-label="Languages"`, `aria-current="page"`, "de (2) (selected)", "it (1)", "Unknown language (1)",
+		`role="search"`, `label for="library-search-query">Search My Books`,
 		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`,
-		`href="/library?language=de"`, `href="/library?language=de&amp;page=2"`, `href="/books/de-book"`, `href="/books/unknown-book"`,
+		`href="/library"`, `href="/library?page=2"`, `href="/books/de-book"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("browse markup missing %q: %s", want, html)
 		}
 	}
-	if strings.Index(html, "All languages") > strings.Index(html, "Unknown language") {
-		t.Fatal("language pills are not ordered with All first and Unknown last")
+	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
+		if strings.Contains(html, forbidden) {
+			t.Fatalf("legacy language browse markup remains %q: %s", forbidden, html)
+		}
 	}
 	if !strings.Contains(html, `hx-push-url="true"`) || !strings.Contains(html, `hx-target="#library-results"`) {
 		t.Fatalf("browse controls are missing HTMX URL enhancement: %s", html)
@@ -50,8 +51,8 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 		state MyBooksBrowseState
 		wants []string
 	}{
-		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", AllCount: 3, TextNoMatch: true}, wants: []string{"No books in your local collection match “missing title”", "Clear search", `href="/library"`}},
-		{name: "combined", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", AllCount: 3, CombinedNoMatch: true}, wants: []string{"No books in your local collection match “missing title” with language “de”", "Clear filters", `href="/library"`}},
+		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", LanguageLabel: "German", AllCount: 3, TextNoMatch: true}, wants: []string{"No books in your local collection in German match “missing title”", "Clear search", `href="/library"`}},
+		{name: "collection", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 3}, wants: []string{"No books in your local collection are in German."}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -115,12 +116,16 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 			t.Fatalf("GET %s browse call owner=%q offset=%d limit=%d", path, store.owner, store.offset, store.limit)
 		}
 	}
-	response := request("/library?q=%20Dampf%20&language=DE&page=3")
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library?language=DE&page=2&q=Dampf" {
+	response := request("/library?q=%20Dampf%20&page=3")
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library?page=2&q=Dampf" {
 		t.Fatalf("stale page status=%d location=%q", response.Code, response.Header().Get("Location"))
 	}
-	if store.query != "Dampf" || store.language != "DE" || store.offset != 50 {
+	if store.query != "Dampf" || store.language != "de" || store.offset != 50 {
 		t.Fatalf("browse filters were not passed through: query=%q language=%q offset=%d", store.query, store.language, store.offset)
+	}
+	legacy := request("/library?language=it&q=Dampf")
+	if legacy.Code != http.StatusSeeOther || legacy.Header().Get("Location") != "/library?q=Dampf" {
+		t.Fatalf("legacy language URL status=%d location=%q", legacy.Code, legacy.Header().Get("Location"))
 	}
 	htmxRequest := httptest.NewRequest(http.MethodGet, "/library?q=Dampf", nil)
 	htmxRequest.Header.Set("HX-Request", "true")
@@ -135,9 +140,9 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 }
 
 func TestMyBooksBrowseRequestDefaults(t *testing.T) {
-	query, language, page := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
-	if query != "title" || language != "de" || page != 1 {
-		t.Fatalf("parsed browse state=%q,%q,%d", query, language, page)
+	query, page := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
+	if query != "title" || page != 1 {
+		t.Fatalf("parsed browse state=%q,%d", query, page)
 	}
 }
 
@@ -149,6 +154,7 @@ func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T)
 	state := MyBooksBrowseState{
 		Enabled:        true,
 		Language:       "de",
+		LanguageLabel:  "German",
 		AllCount:       1,
 		Total:          1,
 		Page:           1,
@@ -209,22 +215,22 @@ func TestLibraryHandlerLanguageViewCapabilityAndFailureFallback(t *testing.T) {
 		return response
 	}
 
-	if response := request("/library?language=de"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
-		t.Fatal("selected language view rendered without the optional provider capability")
+	if response := request("/library"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatal("language view rendered without the optional provider capability")
 	}
 	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
-	if response := request("/library"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
-		t.Fatal("unselected My Books view unexpectedly rendered a language view")
+	if response := request("/library?language=de"); response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library" {
+		t.Fatalf("legacy language URL status=%d location=%q", response.Code, response.Header().Get("Location"))
 	}
-	if response := request("/library?language=de"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="language-view-panel"`) {
-		t.Fatalf("selected language view status=%d body=%s", response.Code, response.Body.String())
+	if response := request("/library"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="language-view-panel"`) {
+		t.Fatalf("active language view status=%d body=%s", response.Code, response.Body.String())
 	}
-	if response := request("/library?language=unknown"); strings.Contains(response.Body.String(), `id="language-view-panel"`) {
-		t.Fatal("unknown-language bucket unexpectedly rendered a language view")
+	if response := request("/library?language=unknown"); response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library" {
+		t.Fatalf("unknown-language URL status=%d location=%q", response.Code, response.Header().Get("Location"))
 	}
 
 	handler.services.AnalysisInsights = languageCorpusErrorInsights{}
-	response := request("/library?language=de")
+	response := request("/library")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Current analyzed evidence could not be loaded") || !strings.Contains(response.Body.String(), "Language view for German is unavailable") {
 		t.Fatalf("unavailable language view status=%d body=%s", response.Code, response.Body.String())
 	}

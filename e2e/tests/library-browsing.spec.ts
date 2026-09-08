@@ -9,30 +9,36 @@ async function signIn(page: Page) {
 }
 
 test.describe('My Books collection browsing', () => {
-  test('searches, filters by language, and opens acquired and metadata-only books', async ({ page }) => {
+  test('browses and searches only the active study language', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
 
     await expect(page.getByLabel('Search My Books')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Languages' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /^de /i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Unknown language/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Metadata-only migration book' })).toHaveAttribute('href', /\/books\/fixture-metadata-only$/);
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.getByRole('navigation', { name: 'Languages' })).toHaveCount(0);
+    await expect(page.getByText('All languages')).toHaveCount(0);
+    await expect(page.locator('.library-list').getByText('Der lange Weg nach Hause')).toBeVisible();
+    await expect(page.locator('.library-list').getByText('Empty chapter')).toHaveCount(0);
+    await expect(page.locator('.library-list')).not.toContainText('language:');
 
-    await page.getByLabel('Search My Books').fill('Donaudampf');
+    await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/)).toBeVisible();
+    await expect(page.locator('#library-results .library-list').getByText('Der lange Weg nach Hause')).toBeVisible();
     await expect(page.locator('#library-results a[href^="/books/"]').first()).toBeVisible();
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.getByText(/No books in your local collection match/)).toBeVisible();
+    await expect(page.getByText(/No books in your local collection.*match/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Clear search' })).toBeVisible();
 
     await page.goto('/library');
-    await page.getByRole('link', { name: /^de /i }).click();
-    // The language view panel also names the book in its per-book spread, so
-    // scope the assertion to the bibliographic collection list.
-    await expect(page.locator('.library-list').getByText('Der lange Weg nach Hause')).toBeVisible();
+    await switcher.selectOption('it');
+    await expect(page).toHaveURL('/library');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in Italian');
+    await expect(page.locator('.library-list').getByText('Empty chapter')).toBeVisible();
+    await expect(page.locator('.library-list').getByText('Der lange Weg nach Hause')).toHaveCount(0);
+    await switcher.selectOption('de');
   });
 });

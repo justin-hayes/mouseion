@@ -43,6 +43,20 @@ func shellViewFromContext(ctx context.Context) *shellView {
 	return view
 }
 
+func activeLanguageForLibrary(ctx context.Context) (language, label string) {
+	view := shellViewFromContext(ctx)
+	if view == nil {
+		return "", ""
+	}
+	language = view.ActiveLanguage
+	for _, option := range view.Options {
+		if option.Language == language {
+			return language, option.DisplayName
+		}
+	}
+	return language, language
+}
+
 func (h *Handler) loadShellView(ctx context.Context, owner, returnTo string) (*shellView, error) {
 	studyLanguages, err := h.services.Store.ListStudyLanguages(ctx, owner)
 	if err != nil {
@@ -126,7 +140,9 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 	}
 	if u.Path == "/library" || u.Path == "/journey" || u.Path == "/vocabulary" {
 		query := u.Query()
-		if query.Get("language") != "" && (u.Path == "/library" || u.Path == "/vocabulary") {
+		if u.Path == "/library" {
+			query.Del("language")
+		} else if query.Get("language") != "" && u.Path == "/vocabulary" {
 			query.Set("language", language)
 		}
 		u.RawQuery = query.Encode()

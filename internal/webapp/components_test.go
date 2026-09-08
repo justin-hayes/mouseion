@@ -61,7 +61,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 }
 
 func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {
-	if got := activeStudyLanguageReturnPath("/library?language=de&q=title", "it"); got != "/library?language=it&q=title" {
+	if got := activeStudyLanguageReturnPath("/library?language=de&q=title", "it"); got != "/library?q=title" {
 		t.Fatalf("library return path=%q", got)
 	}
 	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/books/book-1" {

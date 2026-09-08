@@ -25,11 +25,13 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
     await page.getByRole('link', { name: /my books/i }).first().click();
     await expect(page).toHaveURL(/\/library/);
-    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
     await expect(page.locator('section#library-results')).toBeVisible();
-    await expect(page.locator('a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
-    await expect(page.locator('a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
-    await expect(page.locator('a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toBeVisible();
+    await expect(page.locator('.library-list a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('.library-list a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
+    await expect(page.locator('.library-list a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
     await expect(page.getByText('Analysis failed — action required')).toBeVisible();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
   });
@@ -70,22 +72,7 @@ test.describe('authenticated learner smoke', () => {
 
     await page.goto('/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
-    const entry = page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) });
-    await expect(entry).toContainText('Not acquired');
-    // Analysis is started from the book detail page, not the library row.
-    await expect(entry.locator('form[action$="/analyze"]')).toHaveCount(0);
-    await expect(entry.getByText('Start analysis')).toHaveCount(0);
-    await expect(entry.getByText('Review scope')).toHaveCount(0);
-    await expect(entry.getByText('Prepare deck')).toHaveCount(0);
-    await expect(entry).toContainText('language not chosen');
-    const addToJourney = entry.getByRole('button', { name: 'Add to Reading Journey' });
-    if (await addToJourney.count() > 0) {
-      await addToJourney.click();
-      await expect(page).toHaveURL(/\/journey\?error=/);
-    }
-    await page.goto('/journey');
-    await expect(page.getByRole('link', { name: 'Metadata-only migration book', exact: true })).toBeVisible();
-    await expect(page.locator('#journey-book-fixture-metadata-only')).toContainText('Assessment unavailable');
+    await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) })).toHaveCount(0);
   });
 
   test('exact analysis result redirects to the book page', async ({ page }) => {
@@ -124,8 +111,7 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/connections');
     await expect(page.getByText('Fixture catalog')).toBeVisible();
     await page.goto('/library');
-    await expect(page.getByRole('heading', { name: 'My Books', exact: true })).toBeVisible();
-    await expect(page.getByText(/Donaudampfschifffahrtsgesellschaftskapitänsmütze/).first()).toBeVisible();
+    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
     await page.goto('/books/fixture-metadata-only');
     await expect(page.getByRole('button', { name: 'Start analysis' })).toBeVisible();
     await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);

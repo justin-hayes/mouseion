@@ -11,7 +11,8 @@ async function signIn(page: Page) {
 test('selected My Books language shows evidence and zoom links', async ({ page }) => {
   await signIn(page);
   await page.goto('/library');
-  await page.getByRole('link', { name: /^de /i }).click();
+  const switcher = page.getByLabel('Study language');
+  if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
 
   const panel = page.locator('#language-view-panel');
   await expect(panel).toBeVisible();

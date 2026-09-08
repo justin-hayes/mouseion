@@ -7,40 +7,32 @@ import (
 	"strings"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 const myBooksPageSize = 25
-
-// MyBooksLanguageCount is the count shown by one language filter pill.
-type MyBooksLanguageCount struct {
-	Tag   string
-	Count int
-}
 
 // MyBooksBrowseState carries the server-rendered collection controls and
 // result state. Enabled deliberately distinguishes the new read model from
 // the zero-value legacy rendering used by lightweight stores.
 type MyBooksBrowseState struct {
-	Enabled         bool
-	Query           string
-	Language        string
-	LanguageCorpus  *languageCorpusPanelView
-	Counts          []MyBooksLanguageCount
-	AllCount        int
-	Total           int
-	Page            int
-	PageCount       int
-	TextNoMatch     bool
-	CombinedNoMatch bool
+	Enabled            bool
+	Query              string
+	Language           string
+	LanguageLabel      string
+	LanguageCorpus     *languageCorpusPanelView
+	NeedsLanguageCount int
+	AllCount           int
+	Total              int
+	Page               int
+	PageCount          int
+	TextNoMatch        bool
 }
 
-func myBooksBrowseURL(query, language string, page int) string {
+func myBooksBrowseURL(query string, page int) string {
 	values := url.Values{}
 	if query != "" {
 		values.Set("q", query)
-	}
-	if language != "" {
-		values.Set("language", language)
 	}
 	if page > 1 {
 		values.Set("page", strconv.Itoa(page))
@@ -51,14 +43,13 @@ func myBooksBrowseURL(query, language string, page int) string {
 	return "/library"
 }
 
-func parseMyBooksBrowseRequest(rURL *url.URL) (query, language string, page int) {
+func parseMyBooksBrowseRequest(rURL *url.URL) (query string, page int) {
 	query = strings.TrimSpace(rURL.Query().Get("q"))
-	language = strings.TrimSpace(rURL.Query().Get("language"))
 	page = 1
 	if parsed, err := strconv.Atoi(rURL.Query().Get("page")); err == nil && parsed >= 1 {
 		page = parsed
 	}
-	return query, language, page
+	return query, page
 }
 
 func myBooksPageCount(total int) int {
@@ -73,17 +64,6 @@ func myBooksSelectedAttributes(selected bool) templ.Attributes {
 		return templ.Attributes{"aria-current": "page"}
 	}
 	return nil
-}
-
-func myBooksLanguageSelected(selected, tag string) bool {
-	return strings.EqualFold(strings.TrimSpace(selected), tag)
-}
-
-func myBooksSelectionSuffix(selected bool) string {
-	if selected {
-		return " (selected)"
-	}
-	return ""
 }
 
 func myBooksResultCount(total int) string {
@@ -101,13 +81,38 @@ func myBooksResultAnnouncementAttributes(panel *languageCorpusPanelView) templ.A
 }
 
 func myBooksResultsHeading(browse MyBooksBrowseState) string {
+	if browse.Language != "" {
+		language := myBooksLanguageName(browse)
+		if browse.Query != "" {
+			return fmt.Sprintf("My Books in %s matching “%s”", language, browse.Query)
+		}
+		return fmt.Sprintf("My Books in %s", language)
+	}
 	if browse.Query != "" {
 		return fmt.Sprintf("My Books matching “%s”", browse.Query)
 	}
-	if browse.Language != "" {
-		return fmt.Sprintf("My Books in %s", browse.Language)
-	}
 	return "Books in My Books"
+}
+
+func myBooksPageHeading(browse MyBooksBrowseState) string {
+	if browse.Language == "" {
+		return "My Books"
+	}
+	return fmt.Sprintf("My Books in %s", myBooksLanguageName(browse))
+}
+
+func myBooksLanguageName(browse MyBooksBrowseState) string {
+	if browse.LanguageLabel != "" {
+		return browse.LanguageLabel
+	}
+	return browse.Language
+}
+
+func myBooksBookInLanguage(browse MyBooksBrowseState, book domain.MyBook) bool {
+	if browse.Language == "" {
+		return true
+	}
+	return book.Book.LanguageState == domain.LanguageChosen && strings.EqualFold(strings.TrimSpace(book.Book.LanguageTag), browse.Language)
 }
 
 func myBooksPageOffset(page int) int {
