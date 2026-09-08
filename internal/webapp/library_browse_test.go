@@ -137,12 +137,30 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	if htmxResponse.Code != http.StatusOK || !strings.Contains(htmxResponse.Body.String(), `<section id="library-results"`) || strings.Contains(htmxResponse.Body.String(), "<!doctype html>") {
 		t.Fatalf("HTMX library response was not a results fragment: status=%d body=%s", htmxResponse.Code, htmxResponse.Body.String())
 	}
+	store.result.Total = 0
+	store.result.ScopeTotal = 26
+	response = request("/library?page=3")
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library?page=2" {
+		t.Fatalf("empty stale page status=%d location=%q", response.Code, response.Header().Get("Location"))
+	}
 }
 
 func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 	query, page := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
 	if query != "title" || page != 1 {
 		t.Fatalf("parsed browse state=%q,%d", query, page)
+	}
+}
+
+func TestMyBooksWithoutActiveLanguageKeepsCatalogueSetupAction(t *testing.T) {
+	var output bytes.Buffer
+	state := MyBooksBrowseState{Enabled: true}
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "Build My Books from your catalogue") || !strings.Contains(html, `href="/connections"`) {
+		t.Fatalf("empty unscoped My Books state lost catalogue setup: %s", html)
 	}
 }
 

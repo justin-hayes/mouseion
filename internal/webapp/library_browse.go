@@ -23,6 +23,7 @@ type MyBooksBrowseState struct {
 	LanguageCorpus     *languageCorpusPanelView
 	NeedsLanguageCount int
 	AllCount           int
+	ScopeTotal         int
 	Total              int
 	Page               int
 	PageCount          int

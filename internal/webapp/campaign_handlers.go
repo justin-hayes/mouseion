@@ -49,6 +49,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 			LanguageLabel:      activeLanguageLabel,
 			NeedsLanguageCount: needsLanguageCount(result.Counts),
 			AllCount:           result.AllCount,
+			ScopeTotal:         result.ScopeTotal,
 			Total:              result.Total,
 			Page:               page,
 			PageCount:          myBooksPageCount(result.Total),
@@ -56,6 +57,17 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
+			http.Redirect(w, r, myBooksBrowseURL(query, lastPage), http.StatusSeeOther)
+			return
+		}
+		if err == nil && activeLanguage != "" && page > 1 && result.Total == 0 {
+			lastPage := 1
+			if query == "" {
+				lastPage = myBooksPageCount(result.ScopeTotal)
+				if lastPage == 0 {
+					lastPage = 1
+				}
+			}
 			http.Redirect(w, r, myBooksBrowseURL(query, lastPage), http.StatusSeeOther)
 			return
 		}

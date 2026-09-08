@@ -418,6 +418,9 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language stri
 
 	filtered := make([]domain.MyBook, 0, len(all))
 	for _, book := range all {
+		if language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language) {
+			result.ScopeTotal++
+		}
 		if query != "" && !strings.Contains(strings.ToLower(book.Book.Title), query) {
 			continue
 		}

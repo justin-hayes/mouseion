@@ -296,6 +296,13 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		if browse.Enabled && browse.Language == "" {
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
+			} else if browse.AllCount == 0 {
+				@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
+					<a role="button" href="/connections">Connect a catalogue</a>
+					if hasCatalogueConnections {
+						<a role="button" class="outline" href="/connections">Sync catalogue</a>
+					}
+				}
 			} else {
 				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.") {}
 			}
