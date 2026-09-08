@@ -187,10 +187,10 @@ The authenticated shell also carries the active language switcher. It is a
 native, labeled `select` backed by an ordinary POST form; JavaScript may submit
 it immediately on change, while a no-script submit button remains available.
 Current study languages are selectable, newly arrived languages carry a visible
-`new` marker, and known-vocabulary-only languages carry `no books` and are
-disabled. The effective selection is resolved on each request from the stored
-learner pointer and current derived language set; rendering never writes a
-default.
+`new` marker, and known-vocabulary-only languages carry `no books` and remain
+selectable for read-only Vocabulary. The effective selection is resolved on each
+request from the stored learner pointer and current language context; rendering
+never writes a default.
 
 ### `PageHeader`
 

@@ -186,17 +186,17 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	}
 }
 
-func TestVocabularyPageListsOnlyDerivedLanguages(t *testing.T) {
+func TestVocabularyPageUsesActiveLanguageWithoutPicker(t *testing.T) {
 	var output bytes.Buffer
 	if err := VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, nil, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, `<select name="language"`) || !strings.Contains(html, `<option value="de" selected`) {
-		t.Fatalf("selected derived language missing: %s", html)
+	if !strings.Contains(html, "Viewing <strong>German</strong> <code>de</code>") {
+		t.Fatalf("active language context missing: %s", html)
 	}
-	if strings.Contains(html, "<datalist") || strings.Contains(html, "return_to") {
-		t.Fatalf("Vocabulary page exposes an unrestricted language or return_to field: %s", html)
+	if strings.Contains(html, `<select name="language"`) || strings.Contains(html, "Known vocabulary by language") || strings.Contains(html, "return_to") {
+		t.Fatalf("Vocabulary page exposes a per-page language control: %s", html)
 	}
 }
 
@@ -206,7 +206,7 @@ func TestVocabularyPageKeepsHistoricalVocabularyDisplayable(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, "Italian (it)") || !strings.Contains(html, "casa") || !strings.Contains(html, "Importing is unavailable") {
+	if !strings.Contains(html, "Viewing <strong>Italian</strong> <code>it</code>") || !strings.Contains(html, "casa") || !strings.Contains(html, "Importing is unavailable") {
 		t.Fatalf("historical vocabulary is not displayable: %s", html)
 	}
 	if strings.Contains(html, `enctype="multipart/form-data"`) {
@@ -223,7 +223,7 @@ func TestVocabularyPageEmptyLibraryPointsToConnectionsAndHidesImport(t *testing.
 	if !strings.Contains(html, "No study languages yet") || !strings.Contains(html, `href="/connections"`) {
 		t.Fatalf("empty Vocabulary state missing catalogue guidance: %s", html)
 	}
-	if strings.Contains(html, `enctype="multipart/form-data"`) || strings.Contains(html, "Choose a study language") {
+	if strings.Contains(html, `enctype="multipart/form-data"`) || strings.Contains(html, `name="language"`) {
 		t.Fatalf("empty Vocabulary state exposes import controls: %s", html)
 	}
 }
@@ -247,17 +247,11 @@ func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 }
 
 func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
-	if got := knownVocabImportAction("de"); got != "/vocabulary/import?language=de" {
+	if got := knownVocabImportAction(); got != "/vocabulary/import" {
 		t.Fatalf("import target = %q", got)
 	}
-	if got := knownVocabImportAction(""); got != "/vocabulary/import" {
-		t.Fatalf("empty import target = %q", got)
-	}
-	if got := knownVocabImportRecoveryTarget("de"); got != "/vocabulary?language=de" {
+	if got := knownVocabImportRecoveryTarget(); got != "/vocabulary" {
 		t.Fatalf("recovery target = %q", got)
-	}
-	if got := knownVocabImportRecoveryTarget(""); got != "/vocabulary" {
-		t.Fatalf("empty recovery target = %q", got)
 	}
 }
 
@@ -293,7 +287,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 			if test.state == rivertype.JobStateDiscarded || test.state == rivertype.JobStateCancelled {
 				for _, want := range []string{
 					`Selected language: <code>de</code>`,
-					`href="/vocabulary?language=de"`,
+					`href="/vocabulary"`,
 					"Return to Vocabulary to retry the import",
 				} {
 					if !strings.Contains(html, want) {
@@ -319,14 +313,30 @@ func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, stri
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
 
-func TestKnownVocabImportLanguageIgnoresReturnTo(t *testing.T) {
+func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=it&return_to=known-vocab", nil)
-	if gotLanguage := knownVocabImportLanguage(request); gotLanguage != "it" {
-		t.Fatalf("URL language = %q", gotLanguage)
+	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{ActiveLanguage: "de"}))
+	if gotLanguage := knownVocabImportLanguage(request); gotLanguage != "de" {
+		t.Fatalf("active language = %q", gotLanguage)
 	}
 	request.Form = url.Values{"language": {" de "}, "return_to": {" settings "}}
 	if gotLanguage := knownVocabImportLanguage(request); gotLanguage != "de" {
-		t.Fatalf("form language = %q", gotLanguage)
+		t.Fatalf("form language override = %q", gotLanguage)
+	}
+}
+
+func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
+	h := &Handler{services: Services{Store: knownVocabContextStore{}}}
+	request := httptest.NewRequest(http.MethodGet, "/vocabulary?language=it", nil)
+	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
+		ActiveLanguage: "de",
+		Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
+	}))
+	response := httptest.NewRecorder()
+	h.vocabularyPage(response, request)
+
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Viewing <strong>German</strong> <code>de</code>") || strings.Contains(response.Body.String(), "Italian") {
+		t.Fatalf("vocabulary page=%d body=%s", response.Code, response.Body.String())
 	}
 }
 
@@ -345,8 +355,12 @@ func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 		{name: "oversized", body: bytes.NewReader(oversized.Bytes())},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=de", test.body)
+			request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=it", test.body)
 			request.Header.Set("Content-Type", `multipart/form-data; boundary=known-vocabulary`)
+			request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
+				ActiveLanguage: "de",
+				Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
+			}))
 			response := httptest.NewRecorder()
 			h.importKnownVocab(response, request)
 

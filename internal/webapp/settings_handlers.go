@@ -7,9 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -33,8 +31,8 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.URL.Query().Get("language")))
-	if !studyLanguagePresent(languages, language) && !studyLanguagePresent(knownLanguages, language) {
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		language = ""
 	}
 	var known []domain.KnownVocabulary
@@ -159,7 +157,7 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		fail(w, err)
 		return
 	}
-	if !studyLanguagePresent(studyLanguages, language) && !studyLanguagePresent(knownLanguages, language) {
+	if !learnerLanguagePresent(studyLanguages, knownLanguages, language) {
 		language = ""
 		known = nil
 	}
@@ -167,36 +165,16 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 }
 
 func knownVocabImportLanguage(r *http.Request) string {
-	language := ""
-	language = strings.TrimSpace(r.URL.Query().Get("language"))
-	if r.Form == nil {
-		return language
-	}
-	if values, ok := r.Form["language"]; ok {
-		language = ""
-		if len(values) > 0 {
-			language = strings.TrimSpace(values[0])
-		}
-	}
+	language, _ := activeStudyLanguageForContext(r.Context())
 	return language
 }
 
-func knownVocabImportAction(language string) string {
-	query := url.Values{}
-	if language = strings.TrimSpace(language); language != "" {
-		query.Set("language", language)
-	}
-	if len(query) == 0 {
-		return "/vocabulary/import"
-	}
-	return "/vocabulary/import?" + query.Encode()
+func knownVocabImportAction() string {
+	return "/vocabulary/import"
 }
 
-func knownVocabImportRecoveryTarget(language string) string {
-	if language = strings.TrimSpace(language); language == "" {
-		return "/vocabulary"
-	}
-	return "/vocabulary?language=" + url.QueryEscape(language)
+func knownVocabImportRecoveryTarget() string {
+	return "/vocabulary"
 }
 
 func knownVocabJobLabel(status string) string {

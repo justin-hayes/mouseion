@@ -23,6 +23,10 @@ func studyLanguagePresent(languages []domain.StudyLanguage, language string) boo
 	return false
 }
 
+func learnerLanguagePresent(studyLanguages, knownLanguages []domain.StudyLanguage, language string) bool {
+	return studyLanguagePresent(studyLanguages, language) || studyLanguagePresent(knownLanguages, language)
+}
+
 func studyLanguageName(languages []domain.StudyLanguage, language string) string {
 	for _, candidate := range languages {
 		if candidate.Language == language {

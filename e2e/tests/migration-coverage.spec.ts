@@ -66,15 +66,12 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(goal.locator('form[action="/goal/finish"] input[name="csrf_token"]')).toHaveCount(1);
     await expect(goal.locator('form[action="/goal/finish"] input[name="expected_goal_book_id"]')).toHaveCount(1);
 
-    await page.goto('/vocabulary?language=de');
+    await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Explicitly recorded' }).first()).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Graduated from completed campaign' }).first()).toBeVisible();
-    const languagePicker = page.locator('form.vocabulary-language-picker select[name="language"]');
-    await expect(languagePicker).toBeVisible();
-    // Options inside a collapsed select are not "visible"; assert their content.
-    await expect(languagePicker.locator('option[value="de"]')).toContainText('German');
-    await expect(languagePicker.locator('option[value="it"]')).toContainText('Italian');
+    await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
+    await expect(page.getByText(/Viewing German/)).toBeVisible();
     await expectPostFormsCarryCSRF(page);
   });
 });

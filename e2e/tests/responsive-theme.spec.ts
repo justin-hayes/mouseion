@@ -17,7 +17,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/jobs', /Jobs/],
   ['/connections', /Add books/],
   ['/journey', /Reading Journey/],
-  ['/vocabulary?language=de', /Vocabulary/],
+  ['/vocabulary', /Vocabulary/],
 ];
 
 async function expectNoPageOverflow(page: Page) {
@@ -81,7 +81,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
-    await page.goto('/vocabulary?language=it');
+    await page.goto('/vocabulary');
     await expect(page.getByText(/Known vocabulary/).first()).toBeVisible();
   });
 

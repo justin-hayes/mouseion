@@ -54,7 +54,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`German (de)`,
 		`Italian (it) (new)`,
 		`French (fr) (no books)`,
-		`value="fr" disabled`,
+		`value="fr"`,
 		`<noscript><button type="submit">Switch language</button></noscript>`,
 		`action="/active-study-language"`,
 	)
@@ -66,6 +66,9 @@ func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing
 	}
 	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/books/book-1" {
 		t.Fatalf("book return path=%q", got)
+	}
+	if got := activeStudyLanguageReturnPath("/vocabulary?language=de", "it"); got != "/vocabulary" {
+		t.Fatalf("vocabulary return path=%q", got)
 	}
 }
 

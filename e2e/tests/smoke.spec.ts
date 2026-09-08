@@ -41,7 +41,7 @@ test.describe('authenticated learner smoke', () => {
     const switcher = page.getByLabel('Study language');
     await expect(switcher).toHaveValue('de');
     await expect(switcher.locator('option[value="it"]')).toContainText('(new)');
-    await expect(switcher.locator('option[value="fr"]')).toHaveAttribute('disabled', '');
+    await expect(switcher.locator('option[value="fr"]')).not.toBeDisabled();
     await expect(switcher.locator('option[value="fr"]')).toContainText('(no books)');
 
     await switcher.selectOption('it');
@@ -137,12 +137,14 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
     await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
-    const languagePicker = page.locator('form.vocabulary-language-picker select[name="language"]');
-    await expect(languagePicker.locator('option[value="de"]')).toContainText('German');
-    await expect(languagePicker.locator('option[value="it"]')).toContainText('Italian');
-    await languagePicker.selectOption('de');
-    await page.getByRole('button', { name: 'View known vocabulary' }).click();
-    await expect(page).toHaveURL(/\/vocabulary\?language=de/);
+    await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
+    await expect(page.getByText(/Viewing German/)).toBeVisible();
+    await page.getByLabel('Study language').selectOption('fr');
+    await expect(page).toHaveURL('/vocabulary');
+    await expect(page.getByText('bonjour')).toBeVisible();
+    await expect(page.getByRole('button', { name: /import known vocabulary/i })).toHaveCount(0);
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page.getByText(/Viewing German/)).toBeVisible();
     await submitKnownVocabularyImport(page);
     await page.goto('/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
@@ -157,7 +159,9 @@ test.describe('authenticated learner smoke', () => {
   test('asserts initial HTML before HTMX enhancement and observes status', async ({ page }) => {
     // The import form and its results region are server-rendered only once a
     // study language is selected on the Vocabulary page.
-    await page.goto('/vocabulary?language=de');
+    await page.goto('/vocabulary');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     const importForm = page.locator('form[hx-post*="/vocabulary/import"]');
     // Initial (pre-enhancement) HTML already carries the form and swap target.
     await expect(importForm).toHaveCount(1);

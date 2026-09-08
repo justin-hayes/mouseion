@@ -283,7 +283,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("deck retry=%+v err=%v", requeued, err)
 	}
 
-	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary?language=de", nil, aliceCookies)
+	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary", nil, aliceCookies)
 	if deVocabulary.Code != http.StatusOK || !strings.Contains(deVocabulary.Body.String(), "Haus") || !strings.Contains(deVocabulary.Body.String(), "Explicitly recorded") {
 		t.Fatalf("explicit German vocabulary=%d %s", deVocabulary.Code, deVocabulary.Body.String())
 	}

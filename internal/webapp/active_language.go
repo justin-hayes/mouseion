@@ -43,7 +43,7 @@ func shellViewFromContext(ctx context.Context) *shellView {
 	return view
 }
 
-func activeLanguageForLibrary(ctx context.Context) (language, label string) {
+func activeStudyLanguageForContext(ctx context.Context) (language, label string) {
 	view := shellViewFromContext(ctx)
 	if view == nil {
 		return "", ""
@@ -75,8 +75,14 @@ func (h *Handler) loadShellView(ctx context.Context, owner, returnTo string) (*s
 		return nil, err
 	}
 	recent = canonicalization.NormalizeLanguage(recent)
+	stored = canonicalization.NormalizeLanguage(stored)
+	active := domain.ResolveActiveStudyLanguage(studyLanguages, stored, recent)
+	// Historical vocabulary remains selectable so Vocabulary can show it read-only.
+	if !studyLanguagePresent(studyLanguages, stored) && studyLanguagePresent(knownLanguages, stored) {
+		active = stored
+	}
 	view := &shellView{
-		ActiveLanguage: domain.ResolveActiveStudyLanguage(studyLanguages, canonicalization.NormalizeLanguage(stored), canonicalization.NormalizeLanguage(recent)),
+		ActiveLanguage: active,
 		ReturnTo:       returnTo,
 	}
 	for _, language := range studyLanguages {
@@ -117,7 +123,12 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !studyLanguagePresent(languages, language) {
+	knownLanguages, err := h.services.Store.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		http.Error(w, "choose a current study language", http.StatusBadRequest)
 		return
 	}
@@ -142,8 +153,8 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		query := u.Query()
 		if u.Path == "/library" {
 			query.Del("language")
-		} else if query.Get("language") != "" && u.Path == "/vocabulary" {
-			query.Set("language", language)
+		} else if u.Path == "/vocabulary" {
+			query.Del("language")
 		}
 		u.RawQuery = query.Encode()
 	}

@@ -372,7 +372,7 @@ func (s *PostgresStore) GetStoredActiveStudyLanguage(ctx context.Context, owner 
 }
 
 // SetActiveStudyLanguage stores only the context pointer. Callers validate it
-// against the derived study-language set before writing; reads remain lazy.
+// against the learner's allowed language context before writing; reads remain lazy.
 func (s *PostgresStore) SetActiveStudyLanguage(ctx context.Context, owner, language string) error {
 	language = canonicalization.NormalizeLanguage(strings.TrimSpace(language))
 	var value any = language

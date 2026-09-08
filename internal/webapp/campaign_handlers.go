@@ -24,7 +24,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query, page, needsLanguage := parseMyBooksBrowseRequest(r.URL)
-	activeLanguage, activeLanguageLabel := activeLanguageForLibrary(r.Context())
+	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
 		http.Redirect(w, r, myBooksURL(query, page, needsLanguage), http.StatusSeeOther)
 		return
