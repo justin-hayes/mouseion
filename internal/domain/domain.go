@@ -71,6 +71,27 @@ type SupportedLanguage struct {
 type StudyLanguage struct {
 	Language, DisplayName string
 }
+
+// ResolveActiveStudyLanguage applies the lazy defaulting rules for the
+// learner's stored language pointer. Stored and recent values only win when
+// they still belong to the derived study-language set.
+func ResolveActiveStudyLanguage(languages []StudyLanguage, stored, mostRecent string) string {
+	if len(languages) == 1 {
+		return languages[0].Language
+	}
+	for _, language := range languages {
+		if language.Language == stored {
+			return stored
+		}
+	}
+	for _, language := range languages {
+		if language.Language == mostRecent {
+			return mostRecent
+		}
+	}
+	return ""
+}
+
 type SourceMaterial struct {
 	ID, OwnerID, Language, SourceIdentifier, Title, MediaType, ContentHash, FullText string
 	ContentRevisionID                                                                string

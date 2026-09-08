@@ -231,6 +231,89 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 
 }
 
+func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
+	ctx := context.Background()
+	url, pool := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	alice, err := store.CreateUser(ctx, "active-language-alice", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := store.CreateUser(ctx, "active-language-bob", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "" {
+		t.Fatalf("initial stored language=%q err=%v", got, err)
+	}
+	if err := store.SetActiveStudyLanguage(ctx, alice.ID, "IT_it"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "it" {
+		t.Fatalf("stored language=%q err=%v", got, err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, bob.ID); err != nil || got != "" {
+		t.Fatalf("other owner stored language=%q err=%v", got, err)
+	}
+
+	deBook, err := domain.NewBook(alice.ID, "German", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deBook, err = store.CreateBook(ctx, deBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	itBook, err := domain.NewBook(alice.ID, "Italian", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	itBook, err = store.CreateBook(ctx, itBook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE book_membership SET activated_at=CASE book_id WHEN $2 THEN now() - interval '1 minute' WHEN $3 THEN now() ELSE activated_at END WHERE owner_id=$1`, alice.ID, deBook.ID, itBook.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	languages, err := store.ListStudyLanguages(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, alice.ID)
+	if err != nil || recent != "it" {
+		t.Fatalf("recent language=%q err=%v", recent, err)
+	}
+	if got := domain.ResolveActiveStudyLanguage(languages, "fr", recent); got != "it" {
+		t.Fatalf("invalid stored language resolved=%q, want it", got)
+	}
+	if err = store.RemoveBookFromMyBooks(ctx, alice.ID, itBook.ID); err != nil {
+		t.Fatal(err)
+	}
+	recent, err = store.MostRecentlyActivatedStudyLanguage(ctx, alice.ID)
+	if err != nil || recent != "de" {
+		t.Fatalf("fallback recent language=%q err=%v", recent, err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "it" {
+		t.Fatalf("stored language changed during lazy fallback=%q err=%v", got, err)
+	}
+	if _, err = store.UpdateBookMetadata(ctx, alice.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, ""); err != nil {
+		t.Fatal(err)
+	}
+	languages, err = store.ListStudyLanguages(ctx, alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := domain.ResolveActiveStudyLanguage(languages, "fr", "de"); got != "" {
+		t.Fatalf("empty fallback language=%q, want none", got)
+	}
+}
+
 func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)

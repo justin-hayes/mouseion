@@ -170,6 +170,26 @@ func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 	}
 }
 
+func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
+	store := NewStore()
+	ctx := context.Background()
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
+		t.Fatalf("initial active language=%q err=%v", got, err)
+	}
+	if err := store.SetActiveStudyLanguage(ctx, OwnerID, "IT_it"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "it" {
+		t.Fatalf("stored active language=%q err=%v", got, err)
+	}
+	if err := store.SetActiveStudyLanguage(ctx, OwnerID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "" {
+		t.Fatalf("cleared active language=%q err=%v", got, err)
+	}
+}
+
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	store := NewStore()
 	store.books = nil

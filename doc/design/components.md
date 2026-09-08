@@ -50,6 +50,7 @@ markup.
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and known vocabulary                                  |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Campaign history and catalog connections                   |
+| Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |
 
 The application shell is visually an index margin on wide viewports and a top
 index on compact viewports. It remains one navigation landmark with the same
@@ -181,6 +182,15 @@ destination.
 
 The established shell provides landmarks, skip navigation, and explicit route
 context for the active destination or workflow action.
+
+The authenticated shell also carries the active language switcher. It is a
+native, labeled `select` backed by an ordinary POST form; JavaScript may submit
+it immediately on change, while a no-script submit button remains available.
+Current study languages are selectable, newly arrived languages carry a visible
+`new` marker, and known-vocabulary-only languages carry `no books` and are
+disabled. The effective selection is resolved on each request from the stored
+learner pointer and current derived language set; rendering never writes a
+default.
 
 ### `PageHeader`
 

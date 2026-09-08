@@ -38,6 +38,37 @@ func TestCatalogueSyncConnectionViewExplainsEmptySyncResult(t *testing.T) {
 	)
 }
 
+func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
+	view := &shellView{
+		ActiveLanguage: "de",
+		ReturnTo:       "/library",
+		Options: []activeStudyLanguageOption{
+			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
+			{StudyLanguage: domain.StudyLanguage{Language: "it", DisplayName: "Italian"}, HasBooks: true, NewArrival: true},
+			{StudyLanguage: domain.StudyLanguage{Language: "fr", DisplayName: "French"}},
+		},
+	}
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
+	requireMarkup(t, html,
+		`<select id="active-study-language" name="language"`,
+		`German (de)`,
+		`Italian (it) (new)`,
+		`French (fr) (no books)`,
+		`value="fr" disabled`,
+		`<noscript><button type="submit">Switch language</button></noscript>`,
+		`action="/active-study-language"`,
+	)
+}
+
+func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {
+	if got := activeStudyLanguageReturnPath("/library?language=de&q=title", "it"); got != "/library?language=it&q=title" {
+		t.Fatalf("library return path=%q", got)
+	}
+	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/books/book-1" {
+		t.Fatalf("book return path=%q", got)
+	}
+}
+
 func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
 	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
