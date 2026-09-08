@@ -41,4 +41,26 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.library-list').getByText('Der lange Weg nach Hause')).toHaveCount(0);
     await switcher.selectOption('de');
   });
+
+  test('reviews needs-language books without actions', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture sync runs once per browser suite.');
+    await signIn(page);
+    await page.goto('/library');
+    const strip = page.locator('section.library-needs-language');
+    await expect(strip).toContainText(/book[s]? .*outside the active language collections/);
+    await strip.getByRole('link', { name: 'Review books awaiting a language' }).click();
+    await expect(page).toHaveURL(/\/library\?needs-language/);
+    const needsRow = page.locator('.library-list article.library-book').filter({ hasText: 'Browser sync metadata book' });
+    await expect(needsRow).toBeVisible();
+    await expect(needsRow.locator('a')).toHaveCount(0);
+    await expect(needsRow.locator('form')).toHaveCount(0);
+
+    await page.goto('/connections');
+    await page.locator('#connection-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' }).click();
+    await expect(page).toHaveURL(/\/connections\?/);
+    await page.goto('/library?needs-language');
+    await expect(page.locator('.library-list').getByText('Browser sync metadata book')).toHaveCount(0);
+    await page.goto('/library');
+    await expect(page.locator('.library-list').getByText('Browser sync metadata book')).toBeVisible();
+  });
 });

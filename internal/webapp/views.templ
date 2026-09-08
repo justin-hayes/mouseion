@@ -216,9 +216,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 templ NeedsLanguageBookRow(book domain.MyBook) {
 	<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
-			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
-				<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
-			</h2>
+			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
 			<p class="metadata">Language not assigned in the catalogue</p>
 		</div>
 	</article>

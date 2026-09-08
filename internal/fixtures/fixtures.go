@@ -39,6 +39,7 @@ const (
 	QueuedPrepID           = "fixture-queued-preparation"
 	JourneyPrepID          = "fixture-journey-preparation"
 	OutsidePrepID          = "fixture-outside-journey-preparation"
+	BrowserSyncBookID      = "fixture-browser-sync-book"
 	LegacyGeneratedLemma   = "fixture-legacy-generated"
 	GraduatedKnownLemma    = "fixture-graduated-known"
 	IndependentKnownLemma  = "fixture-independent-known"
@@ -98,7 +99,7 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
-			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
+			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", Language: "it", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 		},
 		jobs:      fixtureJobs(),
 		campaigns: fixtureCampaigns(),
@@ -108,9 +109,11 @@ func NewStore() *Store {
 			{ID: "fixture-failed-connection", OwnerID: OwnerID, Name: "Fixture failed catalog", URL: "https://failed.fixture.invalid/opds"},
 			{ID: "fixture-syncing-connection", OwnerID: OwnerID, Name: "Fixture syncing catalog", URL: "https://syncing.fixture.invalid/opds"},
 			{ID: "fixture-never-synced-connection", OwnerID: OwnerID, Name: "Fixture never-synced catalog", URL: "https://never.fixture.invalid/opds"},
+			{ID: "fixture-browser-sync-connection", OwnerID: OwnerID, Name: "Browser sync catalog", URL: "https://browser-sync.fixture.invalid/opds"},
 		},
 		aliases: []domain.BookAlias{
 			{ID: "fixture-metadata-only-alias", OwnerID: OwnerID, BookID: "fixture-metadata-only", ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-entry"},
+			{ID: "fixture-browser-sync-alias", OwnerID: OwnerID, BookID: BrowserSyncBookID, ConnectionID: "fixture-browser-sync-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-browser-sync-entry"},
 		},
 		syncStatuses: []domain.CatalogueSyncStatus{
 			{OwnerID: OwnerID, ConnectionID: "fixture-connection", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSyncedAt, LastUpsertedCount: 3, UpdatedAt: fixtureJourneyTime},
@@ -131,6 +134,9 @@ func NewStore() *Store {
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
 			Book:          domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			EvidenceState: domain.MyBookNotAcquired,
+		}, {
+			Book:          domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			EvidenceState: domain.MyBookNotAcquired,
 		}},
 		readingJourneys: map[string]domain.ReadingJourney{
@@ -781,6 +787,9 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, bookID string, exp
 	if !s.fixtureBookExists(owner, bookID) {
 		return 0, errNotFound
 	}
+	if !s.fixtureBookHasChosenLanguage(owner, bookID) {
+		return 0, persistence.ErrBookLanguageRequired
+	}
 	bookID = s.fixtureBookID(owner, bookID)
 	for _, entry := range journey.Entries {
 		if entry.BookID == bookID {
@@ -1071,6 +1080,44 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, expectedBookI
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
 	return s.fixtureBookID(owner, bookID) != ""
+}
+
+func (s *Store) fixtureBookHasChosenLanguage(owner, bookID string) bool {
+	bookID = s.fixtureBookID(owner, bookID)
+	for _, source := range s.books {
+		resolved := source.BookID
+		if resolved == "" {
+			resolved = source.Source.ID
+		}
+		if source.Source.OwnerID == owner && resolved == bookID {
+			return strings.TrimSpace(source.Source.Language) != ""
+		}
+	}
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID {
+			return book.Book.LanguageState == domain.LanguageChosen && strings.TrimSpace(book.Book.LanguageTag) != ""
+		}
+	}
+	return false
+}
+
+func (s *Store) admitFixtureCatalogueLanguage(owner, connectionID string) {
+	if connectionID != "fixture-browser-sync-connection" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, alias := range s.aliases {
+		if alias.OwnerID != owner || alias.ConnectionID != connectionID {
+			continue
+		}
+		for i := range s.myBooks {
+			if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == alias.BookID && s.myBooks[i].Book.LanguageState == domain.LanguageUnknown {
+				s.myBooks[i].Book.LanguageState = domain.LanguageChosen
+				s.myBooks[i].Book.LanguageTag = fixtureCatalogueLanguage
+			}
+		}
+	}
 }
 
 func (s *Store) fixtureBookID(owner, id string) string {

@@ -93,6 +93,11 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4}, addErr: errors.New("write failed")},
 			wantState: deckJourneyNotMember, wantText: "No Journey changes were made", wantRev: 4, wantAdds: 1, wantErr: true,
 		},
+		{
+			name:      "language required",
+			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4}, addErr: persistence.ErrBookLanguageRequired},
+			wantState: deckJourneyNotMember, wantText: "Fix the language in the catalogue", wantRev: 4, wantAdds: 1, wantErr: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

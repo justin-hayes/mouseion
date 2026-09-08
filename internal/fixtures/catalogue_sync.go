@@ -17,11 +17,14 @@ var fixtureCatalogueSyncJobIDs = map[string]int64{
 	"fixture-failed-connection":       102,
 	"fixture-syncing-connection":      103,
 	"fixture-never-synced-connection": 104,
+	"fixture-browser-sync-connection": 105,
 }
 
 var fixtureCatalogueEntries = map[string]opds.Entry{
 	"fixture-connection": {ID: "fixture-entry", Title: "Metadata-only migration book"},
 }
+
+const fixtureCatalogueLanguage = "de"
 
 // CatalogueSync is a small in-memory implementation of the wider sync seam
 // used by the webapp. It gives the browser fixture deterministic connection
@@ -46,7 +49,10 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 		status.LastSyncedAt = timePtr(fixtureJourneyTime)
 		status.LastUpsertedCount = 3
 	}
-	s.Store.SetCatalogueSyncStatus(ctx, status)
+	if err := s.Store.SetCatalogueSyncStatus(ctx, status); err != nil {
+		return cataloguesync.Handle{}, err
+	}
+	s.Store.admitFixtureCatalogueLanguage(owner, connectionID)
 	return cataloguesync.Handle{ID: fixtureCatalogueSyncJobIDs[connectionID], DisplayNumber: fixtureCatalogueSyncJobIDs[connectionID]}, nil
 }
 

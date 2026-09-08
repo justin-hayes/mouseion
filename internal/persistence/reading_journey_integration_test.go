@@ -112,11 +112,11 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatalf("empty journey=%+v err=%v", empty, err)
 	}
 
-	aliceExtra, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice extra", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	aliceExtra, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice extra", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bobExtra, err := store.CreateBook(ctx, domain.Book{OwnerID: bob.ID, Title: "Bob extra", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	bobExtra, err := store.CreateBook(ctx, domain.Book{OwnerID: bob.ID, Title: "Bob extra", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestResolveJourneyBookID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Identity book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Identity book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestResolveJourneyBookID(t *testing.T) {
 
 func createJourneyFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
 	t.Helper()
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Journey " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Journey " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	if err != nil {
 		t.Fatal(err)
 	}
