@@ -213,8 +213,19 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 	</article>
 }
 
-templ MyBooksBrowseLink(query string, page int, label string, selected, focusResults bool) {
-	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksBrowseURL(query, page)) } hx-get={ myBooksBrowseURL(query, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
+templ NeedsLanguageBookRow(book domain.MyBook) {
+	<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
+		<div class="library-book__identity">
+			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
+				<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
+			</h2>
+			<p class="metadata">Language not assigned in the catalogue</p>
+		</div>
+	</article>
+}
+
+templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selected, focusResults bool) {
+	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, browse MyBooksBrowseState) {
@@ -222,8 +233,12 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes(browse.LanguageCorpus)... }>
-				if browse.TextNoMatch {
-					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksBrowseURL("", 1)) } hx-get={ myBooksBrowseURL("", 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+				if browse.TextNoMatch && browse.NeedsLanguage {
+					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksURL("", 1, true)) } hx-get={ myBooksURL("", 1, true) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+				} else if browse.TextNoMatch {
+					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksURL("", 1, browse.NeedsLanguage)) } hx-get={ myBooksURL("", 1, browse.NeedsLanguage) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+				} else if browse.NeedsLanguage {
+					No books are awaiting a language in the local collection.
 				} else if browse.Language != "" {
 					No books in your local collection are in { myBooksLanguageName(browse) }.
 				}
@@ -234,7 +249,9 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 		if len(books) > 0 {
 			<div class="library-list">
 				for _, book := range books {
-					if myBooksBookInLanguage(browse, book) {
+					if browse.NeedsLanguage {
+						@NeedsLanguageBookRow(book)
+					} else if myBooksBookInLanguage(browse, book) {
 						@MyBookRow(csrf, book, goalBookID)
 					}
 				}
@@ -243,11 +260,11 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 		if browse.PageCount > 1 {
 			<nav class="library-paging" aria-label="Paging">
 				if browse.Page > 1 {
-					@MyBooksBrowseLink(browse.Query, browse.Page-1, "Previous", false, true)
+					@MyBooksBrowseLink(browse, browse.Page-1, "Previous", false, true)
 				}
-				@MyBooksBrowseLink(browse.Query, browse.Page, fmt.Sprintf("Page %d of %d", browse.Page, browse.PageCount), true, true)
+				@MyBooksBrowseLink(browse, browse.Page, fmt.Sprintf("Page %d of %d", browse.Page, browse.PageCount), true, true)
 				if browse.Page < browse.PageCount {
-					@MyBooksBrowseLink(browse.Query, browse.Page+1, "Next", false, true)
+					@MyBooksBrowseLink(browse, browse.Page+1, "Next", false, true)
 				}
 			</nav>
 		}
@@ -293,7 +310,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				}
 			}
 		}
-		if browse.Enabled && browse.Language == "" {
+		if browse.Enabled && browse.Language == "" && !browse.NeedsLanguage {
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			} else if browse.AllCount == 0 {
@@ -306,12 +323,12 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			} else {
 				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.") {}
 			}
-		} else if browse.Enabled && browse.AllCount > 0 {
-			if browse.NeedsLanguageCount > 0 {
+		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
+			if browse.NeedsLanguage && browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			}
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action="/library" hx-get="/library" hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksURL("", 1, browse.NeedsLanguage)) } hx-get={ myBooksURL("", 1, browse.NeedsLanguage) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
 					<label for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>

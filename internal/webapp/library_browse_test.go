@@ -143,12 +143,33 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/library?page=2" {
 		t.Fatalf("empty stale page status=%d location=%q", response.Code, response.Header().Get("Location"))
 	}
+	store.result = persistence.MyBooksBrowseResult{
+		Items: []domain.MyBook{{Book: domain.Book{ID: "unknown-book", OwnerID: fixtures.OwnerID, Title: "Unknown Book", LanguageState: domain.LanguageUnknown}}},
+		Total: 1, ScopeTotal: 1, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: domain.LanguageUnknown, Count: 1}},
+	}
+	response = request("/library?needs-language")
+	if response.Code != http.StatusOK || store.language != domain.LanguageUnknown || !strings.Contains(response.Body.String(), "Books awaiting a language") || !strings.Contains(response.Body.String(), `href="/books/unknown-book"`) {
+		t.Fatalf("needs-language browse status=%d language=%q body=%s", response.Code, store.language, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "Add to Reading Journey") || strings.Contains(response.Body.String(), "Remove from My Books") {
+		t.Fatalf("needs-language browse exposed mutation actions: %s", response.Body.String())
+	}
 }
 
 func TestMyBooksBrowseRequestDefaults(t *testing.T) {
-	query, page := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
+	query, page, needsLanguage := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
 	if query != "title" || page != 1 {
 		t.Fatalf("parsed browse state=%q,%d", query, page)
+	}
+	if needsLanguage {
+		t.Fatal("ordinary browse request unexpectedly selected needs-language")
+	}
+	query, page, needsLanguage = parseMyBooksBrowseRequest(&url.URL{RawQuery: "needs-language&q=title&page=2"})
+	if query != "title" || page != 2 || !needsLanguage {
+		t.Fatalf("unexpected needs-language browse state: query=%q page=%d needs=%t", query, page, needsLanguage)
+	}
+	if got := myBooksURL("title", 2, true); got != "/library?needs-language&page=2&q=title" {
+		t.Fatalf("unexpected needs-language URL: %q", got)
 	}
 }
 

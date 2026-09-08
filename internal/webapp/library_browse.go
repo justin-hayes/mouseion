@@ -20,6 +20,7 @@ type MyBooksBrowseState struct {
 	Query              string
 	Language           string
 	LanguageLabel      string
+	NeedsLanguage      bool
 	LanguageCorpus     *languageCorpusPanelView
 	NeedsLanguageCount int
 	AllCount           int
@@ -31,7 +32,14 @@ type MyBooksBrowseState struct {
 }
 
 func myBooksBrowseURL(query string, page int) string {
+	return myBooksURL(query, page, false)
+}
+
+func myBooksURL(query string, page int, needsLanguage bool) string {
 	values := url.Values{}
+	if needsLanguage {
+		values.Set("needs-language", "")
+	}
 	if query != "" {
 		values.Set("q", query)
 	}
@@ -39,18 +47,26 @@ func myBooksBrowseURL(query string, page int) string {
 		values.Set("page", strconv.Itoa(page))
 	}
 	if encoded := values.Encode(); encoded != "" {
+		if needsLanguage {
+			encoded = strings.Replace(encoded, "needs-language=", "needs-language", 1)
+		}
 		return "/library?" + encoded
 	}
 	return "/library"
 }
 
-func parseMyBooksBrowseRequest(rURL *url.URL) (query string, page int) {
+func parseMyBooksBrowseRequest(rURL *url.URL) (query string, page int, needsLanguage bool) {
 	query = strings.TrimSpace(rURL.Query().Get("q"))
+	needsLanguage = rURL.Query().Has("needs-language")
 	page = 1
 	if parsed, err := strconv.Atoi(rURL.Query().Get("page")); err == nil && parsed >= 1 {
 		page = parsed
 	}
-	return query, page
+	return query, page, needsLanguage
+}
+
+func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
+	return myBooksURL(browse.Query, page, browse.NeedsLanguage)
 }
 
 func myBooksPageCount(total int) int {
@@ -82,6 +98,9 @@ func myBooksResultAnnouncementAttributes(panel *languageCorpusPanelView) templ.A
 }
 
 func myBooksResultsHeading(browse MyBooksBrowseState) string {
+	if browse.NeedsLanguage {
+		return "Books awaiting a language"
+	}
 	if browse.Language != "" {
 		language := myBooksLanguageName(browse)
 		if browse.Query != "" {
@@ -96,6 +115,9 @@ func myBooksResultsHeading(browse MyBooksBrowseState) string {
 }
 
 func myBooksPageHeading(browse MyBooksBrowseState) string {
+	if browse.NeedsLanguage {
+		return "Books awaiting a language"
+	}
 	if browse.Language == "" {
 		return "My Books"
 	}
