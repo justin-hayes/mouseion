@@ -1319,6 +1319,7 @@ type Insights struct {
 // for the browser harness to exercise the advisory states without deriving
 // evidence from a clock, database row order, or a persisted route.
 func (insights Insights) JourneyProjection(ctx context.Context, owner, language string) (domain.JourneyProjectionResult, error) {
+	language = normalizeFixtureLanguage(language)
 	thresholds := []domain.CoverageThreshold{
 		{TargetPercent: 95, LemmaCount: 2, Reachable: true},
 		{TargetPercent: 97, LemmaCount: 4, Reachable: true},
@@ -1333,19 +1334,19 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 	}
 	conditional := func(bookID string, current, projected int64, position int) domain.JourneyRouteBook {
 		return domain.JourneyRouteBook{
-			BookID: bookID, SourceMaterialID: bookID, Language: "de", CorpusID: bookID + "-corpus",
+			BookID: bookID, SourceMaterialID: bookID, Language: language, CorpusID: bookID + "-corpus",
 			Position: position, Coverage: coverage(current), ConditionalCoverage: coverage(projected),
 			Comparable: true,
 		}
 	}
 	defaultLearnerOrder := []domain.JourneyRouteBook{
-		{BookID: "fixture-empty", Position: 1, IncomparableReason: "different study language"},
-		{BookID: edgeBookID, Position: 2, IncomparableReason: "unavailable: no current acquired source"},
+		{BookID: "fixture-empty", Language: language, Position: 1, IncomparableReason: "unassessed: no current analyzed corpus"},
+		{BookID: edgeBookID, Language: language, Position: 2, IncomparableReason: "unavailable: no current acquired source"},
 		conditional(routeMatchBookID, 90, 90, 3),
 		conditional(routeDiffersBookID, 20, 95, 4),
 		conditional(routeTieABookID, 50, 50, 5),
 		conditional(routeTieBBookID, 50, 50, 6),
-		{BookID: routeUnavailableBookID, Position: 7, IncomparableReason: "unassessed: no current analyzed corpus"},
+		{BookID: routeUnavailableBookID, Language: language, Position: 7, IncomparableReason: "unassessed: no current analyzed corpus"},
 	}
 	if insights.JourneyStore != nil {
 		journey, err := insights.JourneyStore.GetReadingJourney(ctx, owner, language)
@@ -1418,7 +1419,7 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 		}
 	}
 	return domain.JourneyProjectionResult{
-		OwnerID: owner, Language: "de", LearnerOrder: defaultLearnerOrder, AdvisoryOrder: advisoryOrder,
+		OwnerID: owner, Language: language, LearnerOrder: defaultLearnerOrder, AdvisoryOrder: advisoryOrder,
 		ConditionalAdvisoryOrder: conditionalOrder, ComparableCount: comparableCount,
 		IncomparableCount: len(defaultLearnerOrder) - comparableCount,
 	}, nil

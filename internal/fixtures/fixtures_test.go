@@ -3,6 +3,7 @@ package fixtures
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -117,6 +118,27 @@ func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *test
 	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
 	if err != nil || result.LearnerOrder[1].BookID != routeDiffersBookID {
 		t.Fatalf("projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
+	}
+}
+
+func TestFixtureItalianJourneyProjectionUsesItalianEvidenceIdentity(t *testing.T) {
+	result, err := (Insights{JourneyStore: NewStore()}).JourneyProjection(context.Background(), OwnerID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Language != "it" {
+		t.Fatalf("Italian projection language=%q", result.Language)
+	}
+	if len(result.LearnerOrder) != 2 {
+		t.Fatalf("Italian projection order=%+v", result.LearnerOrder)
+	}
+	for _, book := range result.LearnerOrder {
+		if book.Language != "it" {
+			t.Fatalf("Italian projection book=%+v", book)
+		}
+		if strings.Contains(book.IncomparableReason, "different study language") {
+			t.Fatalf("Italian projection retained cross-language reason=%q", book.IncomparableReason)
+		}
 	}
 }
 
