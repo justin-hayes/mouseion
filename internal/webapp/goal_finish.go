@@ -53,7 +53,8 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before, err := h.buildJourneyView(r.Context(), owner)
+	language, _ := activeStudyLanguageForContext(r.Context())
+	before, err := h.buildJourneyView(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -72,7 +73,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	after, afterErr := h.buildJourneyView(r.Context(), owner)
+	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
 		BookTitle:          finishBookTitle(before, result.Goal.BookID),
 		Campaign:           result.Campaign,

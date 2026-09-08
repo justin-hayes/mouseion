@@ -16,7 +16,7 @@ type routeStore struct {
 	active  []domain.CampaignVocabulary
 }
 
-func (s *routeStore) GetReadingJourney(context.Context, string) (domain.ReadingJourney, error) {
+func (s *routeStore) GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error) {
 	return s.journey, nil
 }
 func (s *routeStore) GetPrimaryGoal(context.Context, string) (domain.PrimaryGoal, error) {

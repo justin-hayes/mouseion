@@ -8,6 +8,7 @@ import (
 
 type ReadingJourneyEntry struct {
 	OwnerID   string
+	Language  string
 	BookID    string
 	Position  int
 	CreatedAt time.Time
@@ -15,6 +16,7 @@ type ReadingJourneyEntry struct {
 
 type ReadingJourney struct {
 	OwnerID   string
+	Language  string
 	Revision  int64
 	UpdatedAt time.Time
 	Entries   []ReadingJourneyEntry // ordered by (position, created_at, book_id)

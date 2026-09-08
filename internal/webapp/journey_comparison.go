@@ -178,8 +178,8 @@ func buildRouteComparisonView(result domain.JourneyProjectionResult, titles map[
 	return view
 }
 
-func journeyRouteComparison(ctx context.Context, provider journeyProjectionProvider, owner string, titles map[string]string) (*routeComparisonView, error) {
-	result, err := provider.JourneyProjection(ctx, owner, "")
+func journeyRouteComparison(ctx context.Context, provider journeyProjectionProvider, owner, language string, titles map[string]string) (*routeComparisonView, error) {
+	result, err := provider.JourneyProjection(ctx, owner, language)
 	if err != nil {
 		return nil, err
 	}

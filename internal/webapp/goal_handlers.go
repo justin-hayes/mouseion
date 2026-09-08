@@ -111,7 +111,8 @@ func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) strin
 }
 
 func (h *Handler) goalSection(ctx context.Context, owner, message, pageError string) (goalSectionView, error) {
-	journey, err := h.buildJourneyView(ctx, owner)
+	language, _ := activeStudyLanguageForContext(ctx)
+	journey, err := h.buildJourneyView(ctx, owner, language)
 	if err != nil {
 		return goalSectionView{}, err
 	}

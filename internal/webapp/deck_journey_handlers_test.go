@@ -27,7 +27,7 @@ type deckJourneyActionStore struct {
 	noBookIdentity         map[string]bool
 }
 
-func (s *deckJourneyActionStore) GetReadingJourney(context.Context, string) (domain.ReadingJourney, error) {
+func (s *deckJourneyActionStore) GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error) {
 	journey := s.journey
 	journey.Entries = append([]domain.ReadingJourneyEntry(nil), s.journey.Entries...)
 	return journey, nil
@@ -50,7 +50,7 @@ func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string) (domain
 	return s.goal, nil
 }
 
-func (s *deckJourneyActionStore) AddToReadingJourney(_ context.Context, _ string, bookID string, expectedRevision int64) (int64, error) {
+func (s *deckJourneyActionStore) AddToReadingJourney(_ context.Context, _ string, _ string, bookID string, expectedRevision int64) (int64, error) {
 	s.adds++
 	if s.addErr != nil {
 		return 0, s.addErr

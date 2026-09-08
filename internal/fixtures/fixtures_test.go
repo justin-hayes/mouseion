@@ -14,22 +14,22 @@ import (
 func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
-	journey, err := store.GetReadingJourney(ctx, OwnerID)
+	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
 	if err != nil {
 		t.Fatal(err)
 	}
-	revision, err := store.MoveReadingJourneyEntry(ctx, OwnerID, edgeBookID, 1, journey.Revision)
+	revision, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)
 	if err != nil || revision != journey.Revision+1 {
 		t.Fatalf("move revision=%d err=%v", revision, err)
 	}
-	journey, _ = store.GetReadingJourney(ctx, OwnerID)
+	journey, _ = store.GetReadingJourney(ctx, OwnerID, "it")
 	if journey.Entries[0].BookID != edgeBookID || journey.Entries[0].Position != 1 || journey.Entries[1].Position != 2 {
 		t.Fatalf("reordered journey=%+v", journey.Entries)
 	}
-	if _, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "fixture-empty", 1, revision-1); !errors.Is(err, persistence.ErrJourneyStale) {
+	if _, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "it", "fixture-empty", 1, revision-1); !errors.Is(err, persistence.ErrJourneyStale) {
 		t.Fatalf("stale move error=%v", err)
 	}
-	if unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, edgeBookID, 0, revision); err != nil || unchanged != revision {
+	if unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 0, revision); err != nil || unchanged != revision {
 		t.Fatalf("clamped move revision=%d err=%v", unchanged, err)
 	}
 }
@@ -75,12 +75,12 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 
 func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *testing.T) {
 	store := NewStore()
-	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "")
+	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantLearner := []string{"fixture-empty", edgeBookID, routeMatchBookID, routeDiffersBookID, routeTieABookID, routeTieBBookID, routeUnavailableBookID}
-	wantAdvisory := []string{"fixture-empty", edgeBookID, routeMatchBookID, routeTieABookID, routeTieBBookID, routeDiffersBookID, routeUnavailableBookID}
+	wantLearner := []string{BookID, "fixture-failed", routeMatchBookID, routeDiffersBookID, routeTieABookID, routeTieBBookID, routeUnavailableBookID}
+	wantAdvisory := []string{BookID, "fixture-failed", routeMatchBookID, routeTieABookID, routeTieBBookID, routeDiffersBookID, routeUnavailableBookID}
 	for i, want := range wantLearner {
 		if result.LearnerOrder[i].BookID != want {
 			t.Fatalf("learner order[%d]=%q, want %q", i, result.LearnerOrder[i].BookID, want)
@@ -107,15 +107,15 @@ func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *test
 		t.Fatalf("conditional order did not differ=%+v", result.ConditionalAdvisoryOrder)
 	}
 
-	journey, err := store.GetReadingJourney(context.Background(), OwnerID)
+	journey, err := store.GetReadingJourney(context.Background(), OwnerID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, routeDiffersBookID, 1, journey.Revision); err != nil {
+	if _, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, "de", routeDiffersBookID, 1, journey.Revision); err != nil {
 		t.Fatal(err)
 	}
-	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "")
-	if err != nil || result.LearnerOrder[0].BookID != routeDiffersBookID {
+	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
+	if err != nil || result.LearnerOrder[1].BookID != routeDiffersBookID {
 		t.Fatalf("projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
 	}
 }
@@ -260,7 +260,7 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
-	journey, err := store.GetReadingJourney(ctx, OwnerID)
+	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		go func() {
 			defer wait.Done()
-			_, moveErr := store.MoveReadingJourneyEntry(ctx, OwnerID, edgeBookID, 1, journey.Revision)
+			_, moveErr := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)
 			results <- moveErr
 		}()
 	}
@@ -403,14 +403,14 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
-	journey, err := store.GetReadingJourney(ctx, OwnerID)
+	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.AddToReadingJourney(ctx, OwnerID, "fixture-metadata-only", journey.Revision); !errors.Is(err, persistence.ErrBookLanguageRequired) {
+	if _, err = store.AddToReadingJourney(ctx, OwnerID, "de", "fixture-metadata-only", journey.Revision); !errors.Is(err, persistence.ErrBookLanguageRequired) {
 		t.Fatalf("unknown-language Journey add error=%v", err)
 	}
-	unchanged, err := store.GetReadingJourney(ctx, OwnerID)
+	unchanged, err := store.GetReadingJourney(ctx, OwnerID, "de")
 	if err != nil || unchanged.Revision != journey.Revision {
 		t.Fatalf("unknown-language add changed Journey=%+v err=%v", unchanged, err)
 	}
