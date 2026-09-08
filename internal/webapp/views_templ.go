@@ -7686,7 +7686,7 @@ func MetadataOnlyBookPage(user domain.User, csrf string, book domain.MyBook, mes
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = PageHeader(book.Book.Title, "Metadata only", StatusBadge("Not acquired", StatusNeutral)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader(book.Book.Title, metadataOnlyBookDescription(book.Book.LanguageTag), StatusBadge("Not acquired", StatusNeutral)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

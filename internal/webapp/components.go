@@ -43,6 +43,14 @@ func vocabularyLanguageName(studyLanguages, knownLanguages []domain.StudyLanguag
 	return studyLanguageName(knownLanguages, language)
 }
 
+func metadataOnlyBookDescription(language string) string {
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return "Metadata only"
+	}
+	return language + " · Metadata only"
+}
+
 func knownVocabProvenance(entry domain.KnownVocabulary) string {
 	if entry.Provenance != "" {
 		return entry.Provenance
