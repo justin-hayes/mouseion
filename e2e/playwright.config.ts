@@ -2,8 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: true,
-  workers: process.env.CI ? 2 : 1,
+  fullyParallel: false,
+  // The fixture server has one shared mutable store for the whole suite.
+  // Parallel workers can otherwise observe another test's active language or
+  // stateful workflow midway through an assertion.
+  workers: 1,
   timeout: 15_000,
   expect: { timeout: 5_000 },
   retries: process.env.CI ? 1 : 0,
