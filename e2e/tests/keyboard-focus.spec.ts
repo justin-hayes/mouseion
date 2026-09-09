@@ -85,16 +85,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(goalLink).toBeFocused();
   });
 
-  test('book page starts analysis for an acquired EPUB', async ({ page }) => {
+  test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-empty');
-    const analyze = page.getByRole('button', { name: 'Start analysis' });
-    await expect(analyze).toBeVisible();
-    await analyze.focus();
-    await expect(analyze).toBeFocused();
-    await analyze.press('Enter');
-    await expect(page).toHaveURL(/\/books\/fixture-empty\?message=/);
-    await expect(page.getByText(/Analysis job .* submitted/)).toBeVisible();
+    const response = await page.goto('/books/fixture-empty');
+    expect(response?.status()).toBe(404);
+    await page.goto('/journey');
+    await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
   });
 
   test('book page leads to preparation and terminal polling stops', async ({ page }) => {
@@ -171,10 +167,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
-    const analysisSideEffects: string[] = [];
+    const journeyAddSideEffects: string[] = [];
     page.on('request', request => {
       const pathname = new URL(request.url()).pathname;
-      if (pathname.endsWith('/add') || pathname.endsWith('/analyze')) analysisSideEffects.push(pathname);
+      if (pathname.endsWith('/add')) journeyAddSideEffects.push(pathname);
     });
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
@@ -197,7 +193,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     await page.setViewportSize({ width: 375, height: 667 });
     await page.reload();
-    expect(analysisSideEffects).toEqual([]);
+    expect(journeyAddSideEffects).toEqual([]);
     for (const id of ['fixture-empty', 'fixture-edge-content']) {
       const book = page.locator(`#journey-book-${id}`);
       await expect(book.locator('.journey-book__controls')).toBeVisible();

@@ -255,10 +255,14 @@ func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T)
 		"Highest-impact unknown vocabulary",
 		"analysis failed or incomplete",
 		`href="/books/fixture-book"`,
-		`href="/books/fixture-failed"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("language view markup missing %q: %s", want, html)
+		}
+	}
+	for _, forbidden := range []string{`href="/books/fixture-failed"`, `href="/books/fixture-metadata-only"`} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("language view exposed a dead book link %q: %s", forbidden, html)
 		}
 	}
 	panelHTML := html[strings.Index(html, `id="language-view-panel"`):]

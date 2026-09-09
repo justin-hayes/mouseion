@@ -37,7 +37,7 @@ completion** are not primary learner-facing concepts.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
-| **Start analysis** | Explicitly acquire when needed and analyze the current EPUB for a My Books Book, or refresh evidence after content changes. It does not add Journey membership or choose a Primary Goal. | Import and analyze, add to queue |
+| **Add to Reading Journey** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
 | **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
@@ -46,10 +46,10 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. **Start analysis**
-acquires and validates content when needed; **Add to Reading Journey** performs
-the same work as an ensure-once consequence of reading intent. Historical
-compatibility artifacts may retain **Add to My Books** or **Add to library**.
+upload unless a shipped route and feature contract support it. **Add to Reading
+Journey** acquires and validates content when needed as an ensure-once
+consequence of reading intent. Historical compatibility artifacts may retain
+**Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for
@@ -62,11 +62,11 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 |---|---|---|
 | **Current analysis input** | The complete current extracted EPUB snapshot analyzed for the Book. Source revision and extracted-unit provenance remain durable internal facts. | Unscoped text, inferred content |
 | **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
-| **Start analysis** | Explicitly submit the current Book/source for asynchronous analysis or re-analysis. | Continue, process book |
+| **Analysis trigger** | Adding a Book to Reading Journey submits asynchronous analysis or re-analysis as needed. | Start analysis, continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
-| **Analysis result** | The Book's single current learner-facing analysis, shown on the Book page. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Book page |
+| **Analysis result** | The Book's single current learner-facing analysis, shown on the Book page and, for Journey members, in the Journey entry. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Book page |
 | **Analysis insights** | Current known coverage, vocabulary investment, highest-impact unknown vocabulary, and warning-only quality information for the current analysis. | Dashboard metrics, difficulty score, text profile on the learner surface |
-| **View analysis result** | Leave operational status and open the book page for its current analysis, directly or through the run-specific compatibility redirect. | View job, view exact result |
+| **View analysis result** | Leave operational status and open the current analysis context, directly or through the run-specific compatibility redirect. | View job, view exact result |
 
 Use **job** only for operational history or implementation-facing detail. A
 Book's learner-facing state may be **ready to analyze**, **analysis queued**,

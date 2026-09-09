@@ -43,14 +43,6 @@ func vocabularyLanguageName(studyLanguages, knownLanguages []domain.StudyLanguag
 	return studyLanguageName(knownLanguages, language)
 }
 
-func metadataOnlyBookDescription(language string) string {
-	language = strings.TrimSpace(language)
-	if language == "" {
-		return "Metadata only"
-	}
-	return language + " · Metadata only"
-}
-
 func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(bookID) }
 
 func knownVocabProvenance(entry domain.KnownVocabulary) string {
@@ -306,27 +298,18 @@ func myBookAnalysisLabel(status string) string {
 
 func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 	state := book.EvidenceState()
-	if book.Acquired == nil || state == domain.BookUnavailable {
+	if book.Acquired == nil || state == domain.BookUnavailable || state == domain.BookNotAcquired {
 		if state == domain.BookNotAcquired {
-			return bookLifecycleAction{
-				Status:      "Not acquired",
-				Description: "Acquire and analyze the EPUB in one action.",
-				Label:       "Start analysis",
-				URL:         "/books/" + url.PathEscape(book.Book.ID) + "/analyze",
-				Tone:        StatusNeutral,
-				Submit:      true,
-			}
+			return bookLifecycleAction{Status: "Not acquired", Description: "Add this book to Reading Journey to acquire and analyze its EPUB.", Tone: StatusNeutral}
 		}
 		return bookLifecycleAction{
 			Status:      myBookEvidenceLabel(state),
-			Description: "No usable acquired EPUB evidence is available for assessment. Open the book to acquire content before using later actions.",
-			Label:       "Open book",
-			URL:         "/books/" + url.PathEscape(book.Book.ID),
+			Description: "No usable acquired EPUB evidence is available for assessment. Add this book to Reading Journey when its catalogue content is available.",
 			Tone:        statusTone(myBookEvidenceLabel(state)),
 		}
 	}
 	if state == domain.BookStale {
-		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Book.ID) + "/analyze", Tone: StatusWarning, Submit: true}
+		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze it from its Reading Journey entry.", Tone: StatusWarning}
 	}
 	action := bookLifecycleActionFor(*book.Acquired)
 	if strings.HasPrefix(action.URL, "/books/") {
@@ -375,9 +358,13 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 	if jobURL == "" {
 		jobURL = "/books/" + book.Source.ID
 	}
+	bookID := book.BookID
+	if bookID == "" {
+		bookID = book.Source.ID
+	}
 	switch state {
 	case "stale":
-		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", "Start analysis", "/books/" + url.PathEscape(book.Source.ID) + "/analyze", StatusWarning, true}
+		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence for this Journey entry.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
 	case "queued":
 		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":
@@ -393,7 +380,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		state = ""
 	}
 
-	return bookLifecycleAction{"Ready to analyze", "This book is ready for an explicit analysis submission.", "Start analysis", "/books/" + url.PathEscape(book.Source.ID) + "/analyze", StatusSuccess, true}
+	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this Journey entry yet.", "", "", StatusInfo, false}
 }
 
 func feedbackClass(kind FeedbackKind) string {

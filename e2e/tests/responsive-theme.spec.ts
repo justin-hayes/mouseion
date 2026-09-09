@@ -58,10 +58,13 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('.library-list a[href="/books/fixture-empty"]')).toHaveCount(0);
     expect(await page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') }).count()).toBeGreaterThan(0);
     if (test.info().project.name.startsWith('compact')) {
-      // Book detail is intentionally not mode-scoped and retains the long-title
-      // fixture for narrow-layout coverage.
-      await page.goto('/books/fixture-edge-content');
-      await expect(page.getByText('Donaudampfschifffahrtsgesellschaftskapitänsmütze')).toBeVisible();
+      // The Italian Journey retains the long-title content for narrow-layout
+      // coverage without relying on the retired unassessed Book page.
+      await page.goto('/library');
+      await page.getByLabel('Study language').selectOption('it');
+      await expect(page).toHaveURL(/\/library$/);
+      await page.goto('/journey');
+      await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
       await expectNoPageOverflow(page);
     }
   });

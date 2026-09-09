@@ -7,7 +7,8 @@ by the metadata-first and non-destructive contract in
 scope reconciled by [ADR 0043](../../adr/0043-study-languages-derived-settings-removed.md),
 and by the [Catalogue Sync feature](../../features/catalog-sync.md).
 Reading Journey's analysis consequence is defined by [ADR
-0049](../../adr/0049-reading-intent-triggers-analysis.md).
+0049](../../adr/0049-reading-intent-triggers-analysis.md), with the standalone
+action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
 ## Goal
 
@@ -34,8 +35,7 @@ My Books empty state
     -> Add learner-owned catalogue connection
     -> Sync now (then periodic reconciliation)
     -> Browse/search the local My Books collection
-    -> Open a metadata-only Book
-    -> Start analysis explicitly, or add the Book to Reading Journey
+    -> Add a metadata-only Book to Reading Journey
     -> Lazily acquire validated EPUB content and ensure whole-book analysis
     -> Inspect Book or Journey evidence
 ```
@@ -82,17 +82,16 @@ not OPDS search. Title and author lead; edition/year follows; the language is
 carried by the page heading, not repeated per row; evidence state remains
 supporting information.
 
-### 4. Open a metadata-only Book and acquire content lazily
+### 4. Add a metadata-only Book and acquire content lazily
 
 **Learner question:** What evidence exists for this Book, and what is required
 before analysis?
 
-Opening `/books/{id}` preserves the Book identity and states that the entry has
-metadata only. The Book detail page offers **Start analysis**, which acquires,
-validates, and analyzes the EPUB in one explicit action. It also offers **Add to
-Reading Journey**, which records reversible reading intent and performs the same
-acquisition plus ensure-once analysis. Both paths use the recorded owner-scoped
-catalogue identity.
+Metadata-only Books remain in My Books with their bibliographic identity and
+row-level refresh, Journey, and removal actions. **Add to Reading Journey**
+records reversible reading intent and acquires, validates, and analyzes the EPUB
+with ensure-once semantics. There is no metadata-only detail page. The row uses
+the recorded owner-scoped catalogue identity.
 
 The Book becomes acquired only after a complete validated immutable snapshot is
 persisted. A missing upstream entry or acquisition failure leaves the Book and
@@ -100,12 +99,10 @@ metadata intact and gives an actionable recovery path.
 
 ### 5. Analyze and recover
 
-Sync itself remains metadata-only. **Start analysis** is the explicit manual
-path for a My Books Book and the refresh lever after content changes. Adding a
-Book to Reading Journey is the only automatic exception: it ensures current
-whole-book analysis once, without a background watcher. Re-adding and reordering
-do not duplicate work. Sync never acquires content, enqueues analysis, prepares a
-deck, or invalidates existing evidence.
+Sync itself remains metadata-only. Adding a Book to Reading Journey ensures
+current whole-book analysis once, without a background watcher. Re-adding and
+reordering do not duplicate work. Sync never acquires content, enqueues
+analysis, prepares a deck, or invalidates existing evidence.
 
 ## State model
 
@@ -117,11 +114,11 @@ deck, or invalidates existing evidence.
 | Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
 | Synced with no changes | Show the last-synced time and state that no eligible EPUB entries were found when the reconciliation produced no changes. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
-| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Start analysis or add to Reading Journey |
+| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Add to Reading Journey |
 | Acquisition/analysis running | Keep Book or Journey context and identify durable progress. | View status |
 | Acquisition failed or entry missing | Preserve the Book, metadata, and any Journey membership; state what could not be acquired. | Edit connection or retry |
 | Current analysis complete | State that evidence is available for the current content revision. | Inspect analysis or prepare deck |
-| Stale analysis | State that content changed and existing evidence is older. | Start analysis |
+| Stale analysis | State that content changed and existing evidence is older. | Re-analyze from the Journey card |
 
 ## Navigation rules
 
@@ -132,13 +129,13 @@ deck, or invalidates existing evidence.
 - `/connections` owns configuration and concise sync status. `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
   new destination.
-- My Books owns active-language-scoped browse, search, paging, and browsing of
-  synced metadata. Book detail owns per-book EPUB acquisition.
-- Book detail owns lazy acquisition context, Start analysis, current analysis,
-  and deck actions. Reading Journey owns reading intent and its ensure-once
-  analysis consequence. The language-level aggregate lens remains evidence-only.
+- My Books owns active-language-scoped browse, search, paging, browsing of
+  synced metadata, and the per-book acquisition intent action.
+- My Books rows own metadata refresh and acquisition intent. Reading Journey owns
+  ensure-once analysis consequence, current analysis, and deck actions. The
+  language-level aggregate lens remains evidence-only.
 - HTMX may enhance forms and status regions, but connect, sync submission,
-  collection browsing, Book opening, acquisition recovery, Start analysis, and
-  analysis status must retain coherent server-rendered paths.
+  collection browsing, acquisition recovery, and analysis status must retain
+  coherent server-rendered paths.
 - Dynamic updates use scoped live regions and preserve focus. Connection names,
   status text, Book identity, and recovery actions never rely on color alone.

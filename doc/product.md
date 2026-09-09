@@ -12,7 +12,7 @@ There is no acquisition action in the top navigation. Catalogue setup and sync
 maintenance are reached from My Books empty states and actions and via the
 `/connections` route; Add books is not a destination and is not a persistent
 shell action. My Books is the sole browse surface for the synced collection,
-and EPUB content is acquired from each Book's detail page. The upstream catalog
+and EPUB content is acquired when a Book is added to Reading Journey. The upstream catalog
 browser is retired. `/` redirects to My Books, and the
 compatibility route `GET /campaigns` redirects to Reading Journey. Vocabulary
 study is a book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
@@ -42,7 +42,7 @@ language for import.
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
-- [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — separates OPDS intake, explicit whole-book analysis, insights, and deck preparation.
+- [Explicit Scoped-Analysis Workflow](features/explicit-scoped-analysis-workflow.md) — historical context for the retired standalone analysis action and current whole-book analysis contract.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units, stable identity, provenance, and navigation data for review projection.
 - [EPUB Analysis Scope Review](features/epub-analysis-scope-review.md) — historical context for the retired learner-facing scope-review flow; current analysis processes the entire acquired EPUB.
 - [Historical EPUB Analysis Classification — Phase 2](features/epub-analysis-classification.md) — records the retired deterministic classifier and recommendation pipeline for compatibility and history.
@@ -59,13 +59,12 @@ language for import.
 ## Current pipeline
 
 1. **Catalogue discovery and My Books** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, and browse the resulting local My Books collection. Sync creates or updates metadata-only Books and never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
-2. **Reading intent** — add a Book to Reading Journey from My Books or Book detail when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it retains Journey membership, acquires the current EPUB when needed, and ensures one whole-book analysis for the current content revision. Re-adding and reordering are idempotent and do not create redundant work.
-3. **Explicit analysis** — from Book detail, **Start analysis** remains available for a Book in My Books. It acquires content when needed and explicitly starts or re-starts whole-book analysis; it is the refresh lever after content changes and does not add Journey membership or select a Primary Goal.
-4. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Book's one current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
-5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-6. **Deck selection** — classify explicitly known and graduated vocabulary as known, reserve the currently-studied Book's vocabulary without counting it as known, and leave released (abandoned) vocabulary eligible again. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
-7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
-8. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
+2. **Reading intent** — add a Book to Reading Journey from a My Books row when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it retains Journey membership, acquires the current EPUB when needed, and ensures one whole-book analysis for the current content revision. Re-adding and reordering are idempotent and do not create redundant work.
+3. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Journey entry's current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
+4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
+5. **Deck selection** — classify explicitly known and graduated vocabulary as known, reserve the currently-studied Book's vocabulary without counting it as known, and leave released (abandoned) vocabulary eligible again. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
+6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
+7. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
 
@@ -129,11 +128,12 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 46. [ADR 0046: Book language has one canonical base form enforced at the domain](adr/0046-book-language-canonical-base-form.md) — collapses a chosen Book language to its base tag (`de_DE`/`de-de`/`de` all canonicalize to `de`), enforces the form at the domain, converges legacy rows, and simplifies the tolerant SQL.
 47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — folds EPUB acquisition into the analysis action server-side, makes the catalogue the sole source of Book metadata (manual books and fix-language removed), drops plain-text analysis, and always analyzes the complete extracted scope, deferring destructive schema removal.
 48. [ADR 0048: Frequency-floor deck selection](adr/0048-frequency-floor-deck-selection.md) — replaces the 97% coverage-prefix deck selection with a minimum-occurrence frequency floor (default three), dropping the deck's coverage guarantee.
-49. [ADR 0049: Reading intent triggers analysis](adr/0049-reading-intent-triggers-analysis.md) — makes analysis an automatic, ensure-once consequence of Reading Journey membership, defines Primary Goal as a promotion of an analyzed Journey member (choosable only from the Journey screen), and enforces the Goal/membership invariant at the persistence layer while keeping explicit Start analysis as the re-analysis lever.
+49. [ADR 0049: Reading intent triggers analysis](adr/0049-reading-intent-triggers-analysis.md) — makes analysis an automatic, ensure-once consequence of Reading Journey membership, defines Primary Goal as a promotion of an analyzed Journey member (choosable only from the Journey screen), and enforces the Goal/membership invariant at the persistence layer. Its standalone-action portions are superseded by ADR 0054.
 50. [ADR 0050: The app works in one active study language at a time](adr/0050-active-study-language.md) — makes the active study language a stored context pointing into the derived set, scopes every language-dependent surface through a shell-level switcher, and removes per-screen pickers and the "All languages" default.
 51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 52. [ADR 0052: The domain owns evidence classification](adr/0052-domain-owns-evidence-classification.md) — makes the evidence state a single derivation on the domain types read by My Books, the Reading Journey, and corpus/route insights, removes the SQL-assigned `EvidenceState` and its webapp fallback, and keeps goal-eligibility a read-only projection with enforcement at the persistence layer.
 53. [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — dissolves the learning campaign as a separate reservation/plan object and anchors vocabulary-study state onto the Book, making the Book the single unit of the learner loop with independent reading and vocabulary facts; the campaign's dead-end tail (deck study → graduation) becomes a reachable, book-scoped action.
+54. [ADR 0054: Retire the standalone analysis action](adr/0054-retire-standalone-analysis-action.md) — removes the learner-facing analysis trigger and metadata-only Book detail page, making Add to Reading Journey the sole initial acquisition-and-analysis intent while preserving current completed-analysis pages and compatibility redirects.
 
 ## Deployment and operations
 

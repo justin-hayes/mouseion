@@ -224,6 +224,25 @@ func TestJourneyStaleEvidenceOffersExplicitReanalysis(t *testing.T) {
 	}
 }
 
+func TestJourneyUnavailableEvidenceOffersAcquisitionRetry(t *testing.T) {
+	book := testJourneyBook("unavailable", "Unavailable book", "not analyzed")
+	action := journeyAnalysisAction(book)
+	if action.Status != "Assessment unavailable" || action.Label != "Retry acquisition" || action.URL != "/journey/books/unavailable/reanalyze" || !action.Submit {
+		t.Fatalf("unavailable Journey action=%+v", action)
+	}
+}
+
+func TestJourneyUnassessedEvidenceOffersAnalysisRetry(t *testing.T) {
+	book := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
+	book.Book.Source.MediaType = "application/epub+zip"
+	book.Book.Source.ContentRevisionID = "revision"
+	book.Book.Source.ContentSnapshotID = "snapshot"
+	action := journeyAnalysisAction(book)
+	if action.Status != "Analysis not started" || action.Label != "Retry analysis" || action.URL != "/journey/books/unassessed/reanalyze" || !action.Submit {
+		t.Fatalf("unassessed Journey action=%+v", action)
+	}
+}
+
 func TestJourneyPageUsesBookIDForCompletedEntryLink(t *testing.T) {
 	book := testJourneyBook("source-book", "Completed book", "analyzed")
 	book.BookID = "canonical-book"

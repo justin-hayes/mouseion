@@ -175,7 +175,7 @@ Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly My Books,
 Reading Journey, and Vocabulary; there is no acquisition action in the top
 navigation. Catalogue setup and sync maintenance use `/connections`; My Books
-is the sole browse surface and Book detail owns per-book acquisition.
+is the sole browse surface and My Books rows own per-book acquisition.
 Primary Goal belongs inside Reading Journey. The shipped shell marks the current
 context while compatibility routes redirect without exposing Learning as a peer
 destination.
@@ -204,12 +204,12 @@ warnings, progress, or multiple resource actions in the header.
 
 ### `NextAction`
 
-Use a concise state description to make the learner-facing lifecycle action
+Use a concise state description to make the learner-facing lifecycle state
 explicit. The action itself remains a native link or form button owned by the
-screen; the summary must not introduce a second competing route. My Books and
-Book detail use the same state projection. Metadata-only and stale states name
-**Start analysis**; Reading Journey names the intent-triggered ensure-once
-analysis consequence.
+screen; the summary must not introduce a second competing route. My Books rows
+keep metadata-only actions local to the row. Reading Journey names the
+intent-triggered ensure-once analysis consequence and owns **Re-analyze** for
+stale members.
 
 On Journey surfaces, `NextAction` must not turn the first provisional book or a
 vocabulary-efficient alternative into a recommendation. Use plain relationship
