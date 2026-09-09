@@ -96,6 +96,19 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
   });
 
+  test('completed Journey members open their Journey entry', async ({ page }) => {
+    await page.goto('/journey/fixture-route-match');
+
+    await expect(page).toHaveURL('/journey/fixture-route-match');
+    await expect(page.getByRole('heading', { name: 'Route match: familiar German', exact: true })).toBeVisible();
+    await expect(page.locator('nav.site-header__nav a[aria-current="page"]')).toHaveText('Reading Journey');
+    await expect(page.getByRole('link', { name: '← Reading Journey', exact: true })).toHaveAttribute('href', '/journey');
+    await expect(page.getByRole('heading', { name: 'Vocabulary coverage', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vocabulary investment', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Prepare deck', exact: true })).toBeVisible();
+    await expect(page.getByText('Remove from Reading Journey', { exact: true })).toBeVisible();
+  });
+
   test('book detail keeps its own language without changing the active mode', async ({ page }) => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
