@@ -40,6 +40,43 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	}
 	summary := *detail.Acquired
 	summary.BookTitle = detail.Book.Title
+	if !h.renderBookPage(w, r, u, summary, currentBookPageOptions(summary), r.URL.Query().Get("message")) {
+		return
+	}
+}
+
+func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("bookID"))
+	if !ok {
+		return
+	}
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	summary := *detail.Acquired
+	summary.BookID = detail.Book.ID
+	summary.BookTitle = detail.Book.Title
+	language := strings.TrimSpace(detail.Book.LanguageTag)
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, language, &detail); err != nil {
+		fail(w, err)
+		return
+	}
+	if !detail.JourneyMember || summary.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(summary) {
+		http.NotFound(w, r)
+		return
+	}
+	summary.JourneyMember = detail.JourneyMember
+	summary.JourneyGoal = detail.JourneyGoal
+	summary.JourneyRevision = detail.JourneyRevision
+	if !h.renderBookPage(w, r, u, summary, journeyBookPageOptions(summary), r.URL.Query().Get("message")) {
+		return
+	}
+}
+
+func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domain.User, summary domain.SourceMaterialSummary, page bookPageOptions, message string) bool {
 	var coverage *domain.AnalysisCoverage
 	statisticsUnavailable := false
 	if summary.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
@@ -48,16 +85,17 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			statisticsUnavailable = true
 		} else if err != nil {
 			fail(w, err)
-			return
+			return false
 		} else {
 			coverage = &value
 		}
 	}
 	preparation, journeyAction, ok := h.currentBookPreparation(w, r, u.ID, summary)
 	if !ok {
-		return
+		return false
 	}
-	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, r.URL.Query().Get("message"), currentBookPageOptions(summary), preparation, journeyAction))
+	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, message, page, preparation, journeyAction))
+	return true
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {

@@ -159,10 +159,11 @@ type bookPageJourneyState struct {
 }
 
 type bookPageOptions struct {
-	BreadcrumbURL   string
-	BreadcrumbLabel string
-	Navigation      NavigationContext
-	Journey         bookPageJourneyState
+	BreadcrumbURL      string
+	BreadcrumbLabel    string
+	Navigation         NavigationContext
+	ShowJourneyRemoval bool
+	Journey            bookPageJourneyState
 }
 
 func currentBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
@@ -170,6 +171,20 @@ func currentBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
 		BreadcrumbURL:   "/library",
 		BreadcrumbLabel: "My Books",
 		Navigation:      NavigationLibrary,
+		Journey: bookPageJourneyState{
+			Member:   book.JourneyMember,
+			Goal:     book.JourneyGoal,
+			Revision: book.JourneyRevision,
+		},
+	}
+}
+
+func journeyBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
+	return bookPageOptions{
+		BreadcrumbURL:      "/journey",
+		BreadcrumbLabel:    "Reading Journey",
+		Navigation:         NavigationReadingJourney,
+		ShowJourneyRemoval: true,
 		Journey: bookPageJourneyState{
 			Member:   book.JourneyMember,
 			Goal:     book.JourneyGoal,

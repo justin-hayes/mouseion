@@ -776,6 +776,9 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	if page.Journey.Goal {
 		<p><strong>Primary Goal.</strong></p>
 		<p><a href={ templ.SafeURL("/journey#journey-book-"+journeyMembershipBookID(book)) }>View Primary Goal in Reading Journey</a></p>
+		if page.ShowJourneyRemoval {
+			@RemoveJourneyMembershipAction(journeyMembershipBookID(book), page.Journey.Revision, csrf)
+		}
 	} else {
 		@JourneyMembershipAction(journeyMembershipBookID(book), page.Journey.Member, page.Journey.Revision, csrf)
 	}

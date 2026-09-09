@@ -20,13 +20,26 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		return
 	}
 	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID, ok, err := h.services.Store.ResolveJourneyBookID(r.Context(), owner, r.PathValue("id"))
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	detail, err := h.services.Store.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	language := strings.TrimSpace(detail.Book.LanguageTag)
+	if language == "" {
 		http.NotFound(w, r)
 		return
 	}

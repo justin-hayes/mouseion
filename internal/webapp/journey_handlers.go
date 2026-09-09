@@ -428,6 +428,10 @@ func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, 
 
 func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, book *domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
+	return h.annotateBookWithJourneyLanguage(ctx, owner, language, book)
+}
+
+func (h *Handler) annotateBookWithJourneyLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
 	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return err
