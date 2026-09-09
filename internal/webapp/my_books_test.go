@@ -430,3 +430,20 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 		t.Fatalf("HTMX row refresh status=%d body=%s", response.Code, response.Body.String())
 	}
 }
+
+func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
+	h, cookies, csrf, _ := goalFixtureSession(t)
+	h.(*Handler).services.CatalogueSync = nil
+	request := httptest.NewRequest(http.MethodPost, "/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("HX-Request", "true")
+	request.Header.Set("HX-Target", "book-row-fixture-metadata-only")
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "Metadata could not be refreshed") || strings.Contains(response.Body.String(), `id="book-metadata-region"`) {
+		t.Fatalf("unavailable refresher row response status=%d body=%s", response.Code, response.Body.String())
+	}
+}
