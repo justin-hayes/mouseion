@@ -58,6 +58,27 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`<noscript><button type="submit">Switch language</button></noscript>`,
 		`action="/active-study-language"`,
 	)
+	if strings.Contains(html, `value="">Choose a study language`) {
+		t.Fatal("active language switcher exposes a selectable empty option")
+	}
+}
+
+func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
+	view := &shellView{
+		ReturnTo: "/library",
+		Options: []activeStudyLanguageOption{
+			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
+		},
+	}
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
+	requireMarkup(t, html, `<option value="" disabled selected>Choose a study language</option>`)
+}
+
+func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
+	if html != "" {
+		t.Fatalf("empty language switcher rendered markup: %s", html)
+	}
 }
 
 func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {

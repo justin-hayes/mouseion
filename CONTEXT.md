@@ -21,7 +21,10 @@ pointing into the derived study-language set — context, not configuration: it
 chooses which study language the per-language surfaces (My Books browse,
 Reading Journey, Vocabulary) present, and never defines which languages are
 studied. When the set is unambiguous the selection defaults deterministically;
-if the selection leaves the set, it resets.
+if the selection leaves the set, it resets. There is no "no language" choice:
+absence of an active study language is never a learner selection, only a
+transient result of defaulting (an ambiguous set with no history) or reset (the
+selection left the set with no remaining candidate).
 _Avoid_: current language, mode, active profile.
 
 **Catalogue sync scope**:
