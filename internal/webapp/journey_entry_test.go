@@ -190,3 +190,33 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 		})
 	}
 }
+func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
+	h, cookies, csrf, fixtureStore := goalFixtureSession(t)
+	analysisService := &journeyIntentAnalysis{}
+	store := &journeyEntryStore{
+		Store: fixtureStore,
+		detail: domain.MyBook{
+			Book: domain.Book{ID: "stale-book", OwnerID: fixtures.OwnerID, Title: "Stale book", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+			Acquired: &domain.SourceMaterialSummary{
+				Source:         domain.SourceMaterial{ID: "stale-source", OwnerID: fixtures.OwnerID, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: "current-revision", ContentSnapshotID: "current-snapshot"},
+				BookID:         "stale-book",
+				AnalysisStatus: "stale",
+				AnalysisState:  "stale",
+				AnalysisRunID:  "old-run",
+				CorpusID:       "old-corpus",
+			},
+		},
+		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Entries: []domain.ReadingJourneyEntry{{BookID: "stale-book"}}},
+	}
+	handler := h.(*Handler)
+	handler.services.Store = store
+	handler.services.Analysis = analysisService
+
+	response := goalRequest(t, h, "/journey/books/stale-book/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey?message=Analysis+job+%231+submitted." {
+		t.Fatalf("re-analyze response status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+	if analysisService.calls != 1 {
+		t.Fatalf("re-analyze submitted %d analysis jobs, want one", analysisService.calls)
+	}
+}

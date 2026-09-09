@@ -173,25 +173,39 @@ func TestJourneyPageRendersEvidenceStates(t *testing.T) {
 	queued.Book.Source.ContentRevisionID = "revision-queued"
 	queued.Book.Source.ContentSnapshotID = "snapshot-queued"
 	queued.Book.AnalysisState = "queued"
+	queued.Book.AnalysisJobID = 101
 	running := testJourneyBook("running", "Running book", "running")
 	running.Book.Source.MediaType = "application/epub+zip"
 	running.Book.Source.ContentRevisionID = "revision-running"
 	running.Book.Source.ContentSnapshotID = "snapshot-running"
 	running.Book.AnalysisState = "running"
+	running.Book.AnalysisJobID = 102
 	failed := testJourneyBook("failed", "Failed book", "failed")
 	failed.Book.Source.MediaType = "application/epub+zip"
 	failed.Book.Source.ContentRevisionID = "revision-failed"
 	failed.Book.Source.ContentSnapshotID = "snapshot-failed"
 	failed.Book.AnalysisState = "failed"
+	failed.Book.AnalysisJobID = 103
 	cancelled := testJourneyBook("cancelled", "Cancelled book", "cancelled")
 	cancelled.Book.Source.MediaType = "application/epub+zip"
 	cancelled.Book.Source.ContentRevisionID = "revision-cancelled"
 	cancelled.Book.Source.ContentSnapshotID = "snapshot-cancelled"
 	cancelled.Book.AnalysisState = "cancelled"
+	cancelled.Book.AnalysisJobID = 104
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{current, stale, unassessed, unavailable, unavailableEPUB, queued, running, failed, cancelled}}, "", "", "")
 	for _, expected := range []string{"Current evidence", "Analysis result ready", "Current coverage:", "Projected coverage:", "Stale evidence", "Not yet assessed", "Coverage unavailable", "60.0%", "Assessment unavailable", "Analysis queued", "Analysis running", "Analysis failed", "Analysis cancelled"} {
 		if !strings.Contains(html, expected) {
 			t.Errorf("evidence state missing %q: %s", expected, html)
+		}
+	}
+	for _, expected := range []string{`href="/journey/current"`, `href="/jobs/101"`, `href="/jobs/102"`, `href="/jobs/103"`, `href="/jobs/104"`} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("Journey state missing link %q: %s", expected, html)
+		}
+	}
+	for _, forbidden := range []string{`href="/books/current"`, `href="/books/queued"`, `href="/books/running"`, `href="/books/failed"`, `href="/books/cancelled"`, "Start analysis"} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("Journey state rendered forbidden detail/action %q: %s", forbidden, html)
 		}
 	}
 }
@@ -205,8 +219,24 @@ func TestJourneyStaleEvidenceOffersExplicitReanalysis(t *testing.T) {
 	book.Book.AnalysisRunID = "old-run"
 	book.Book.CorpusID = "old-corpus"
 	action := journeyAnalysisAction(book)
-	if action.Status != "Stale analysis" || action.Label != "Start analysis" || !strings.HasSuffix(action.URL, "/books/stale/analyze") {
+	if action.Status != "Stale analysis" || action.Label != "Re-analyze" || action.URL != "/journey/books/stale/reanalyze" || !action.Submit {
 		t.Fatalf("stale Journey action=%+v", action)
+	}
+}
+
+func TestJourneyPageUsesBookIDForCompletedEntryLink(t *testing.T) {
+	book := testJourneyBook("source-book", "Completed book", "analyzed")
+	book.BookID = "canonical-book"
+	book.Book.Source.MediaType = "application/epub+zip"
+	book.Book.Source.ContentRevisionID = "revision"
+	book.Book.Source.ContentSnapshotID = "snapshot"
+	book.Book.AnalysisState = "completed"
+	book.Book.AnalysisRunID = "run"
+	book.Book.CorpusID = "corpus"
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "", "")
+	if !strings.Contains(html, `href="/journey/canonical-book"`) || strings.Contains(html, `href="/books/source-book"`) {
+		t.Fatalf("completed Journey card used acquisition identity for entry link: %s", html)
 	}
 }
 

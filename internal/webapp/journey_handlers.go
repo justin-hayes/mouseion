@@ -76,6 +76,14 @@ func journeyRemoveURL(bookID string) string {
 	return "/journey/books/" + url.PathEscape(bookID) + "/remove"
 }
 
+func journeyReanalyzeURL(bookID string) string {
+	return "/journey/books/" + url.PathEscape(bookID) + "/reanalyze"
+}
+
+func journeyEntryURL(bookID string) string {
+	return "/journey/" + url.PathEscape(bookID)
+}
+
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
 	if strings.TrimSpace(book.BookTitle) != "" {
 		return book.BookTitle
@@ -165,12 +173,28 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
 			Description: "No current EPUB content is available for this Journey entry. Open the book or retry acquisition from My Books when the catalogue can provide it.",
-			Label:       "View book",
-			URL:         "/books/" + url.PathEscape(bookID),
 			Tone:        StatusWarning,
 		}
 	}
-	return bookLifecycleActionFor(item.Book)
+	action := bookLifecycleActionFor(item.Book)
+	switch {
+	case item.Book.EvidenceState() == domain.BookStale:
+		action.Label = "Re-analyze"
+		action.URL = journeyReanalyzeURL(bookID)
+		action.Submit = true
+	case action.Status == "Ready to analyze":
+		// Adding a member is the analysis trigger. A card reports missing
+		// evidence without exposing the retired standalone action.
+		action.Status = "Analysis not started"
+		action.Description = "Analysis evidence is not available for this Journey entry yet."
+		action.Label = ""
+		action.URL = ""
+		action.Submit = false
+	case action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book):
+		action.URL = journeyEntryURL(bookID)
+		action.Label = "View Journey entry"
+	}
+	return action
 }
 
 func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
@@ -488,6 +512,32 @@ func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectDeckJourneyAction(w, r, action.Message, action.Error)
+}
+
+func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
+		fail(w, err)
+		return
+	}
+	if !detail.JourneyMember || detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookStale {
+		http.NotFound(w, r)
+		return
+	}
+	handle, target, title, acquisitionFailed, err := h.ensureJourneyAnalysis(r.Context(), u.ID, detail.Book.ID)
+	if err != nil {
+		message := journeyAnalysisError(r.Context(), h.services.Store, u.ID, detail.Book.ID, title, target, acquisitionFailed, err)
+		redirect(w, r, "/journey?error="+url.QueryEscape(message))
+		return
+	}
+	redirect(w, r, "/journey?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
 }
 
 func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Request, message, pageError string) {

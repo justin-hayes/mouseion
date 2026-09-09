@@ -616,7 +616,13 @@ templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string
 	</section>
 }
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
-	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+journeyBookID(item)) }>{ canonicalBookTitle(item.Book) }</a></h3>
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3>
+	if journeyEntryAvailable(item) {
+		<a href={ templ.SafeURL(journeyEntryURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+	} else {
+		{ canonicalBookTitle(item.Book) }
+	}
+	</h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 	} else {
@@ -677,19 +683,24 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 }
 templ JourneyEvidence(item journeyBookView, csrf string) {
 	<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
-	if journeyAnalysisAction(item).Status != "" {
+	{{ action := journeyAnalysisAction(item) }}
+	if action.Status != "" {
 		<div class="journey-assessment">
-			<p><strong>Assessment:</strong> @StatusBadge(journeyAnalysisAction(item).Status, journeyAnalysisAction(item).Tone)</p>
-			if journeyAnalysisAction(item).Submit {
-				<form class="inline-action" method="post" action={ templ.SafeURL(journeyAnalysisAction(item).URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">{ journeyAnalysisAction(item).Label }</button></form>
-			} else {
-				<p><a href={ templ.SafeURL(journeyAnalysisAction(item).URL) }>{ journeyAnalysisAction(item).Label }</a></p>
+			<p><strong>Assessment:</strong> @StatusBadge(action.Status, action.Tone)</p>
+			if action.Label != "" && action.Submit {
+				<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">{ action.Label }</button></form>
+			} else if action.Label != "" && action.URL != "" {
+				<p><a href={ templ.SafeURL(action.URL) }>{ action.Label }</a></p>
 			}
 		</div>
-		<p>{ journeyAnalysisAction(item).Description }</p>
+		<p>{ action.Description }</p>
 	}
 	<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
 	<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
+}
+
+func journeyEntryAvailable(item journeyBookView) bool {
+	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
 	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ canonicalBookTitle(item.Book) }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
