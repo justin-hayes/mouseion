@@ -492,7 +492,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			if len(journey.Prepared) > 0 {
 				<h3>Prepared books and decks</h3><div class="campaign-list">
 				for _, item := range journey.Prepared {
-					<article class="resource-card"><div><h4>{ item.Book.Source.Title }</h4><p>@StatusBadge(deckPreparationTitle(item.Deck), deckPreparationStatusTone(item.Deck))</p>
+					<article class="resource-card"><div><h4>{ canonicalBookTitle(item.Book) }</h4><p>@StatusBadge(deckPreparationTitle(item.Deck), deckPreparationStatusTone(item.Deck))</p>
 					if deckPreparationEmpty(item.Deck) {
 						<p>This book has no recurring vocabulary to study, so no cards were created.</p>
 					} else {
@@ -555,7 +555,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 					}
 					for _, item := range outcome.Evidence {
 						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
-							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ journeyBookTitle(item.Book.Book) }</h3>
+							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ canonicalBookTitle(item.Book.Book) }</h3>
 							if item.Changed {
 								<p><strong>Before:</strong> { item.BeforeLabel }; current coverage { item.BeforeCurrent }; conditional-projected coverage { item.BeforeProjected }.</p>
 							}
@@ -569,7 +569,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 				<p>Choose what you want to do next. No new Primary Goal has been selected.</p>
 				<div class="action-group">
 					if len(outcome.Journey.Provisional) > 0 {
-						<p><strong>First in your current order:</strong> { journeyBookTitle(outcome.Journey.Provisional[0].Book) }</p>
+						<p><strong>First in your current order:</strong> { canonicalBookTitle(outcome.Journey.Provisional[0].Book) }</p>
 						if outcome.Journey.Provisional[0].CanChooseGoal {
 							<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
 						} else if outcome.Journey.Provisional[0].GoalEligibilityReason != "" {
@@ -616,7 +616,7 @@ templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string
 	</section>
 }
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
-	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+journeyBookID(item)) }>{ journeyBookTitle(item.Book) }</a></h3>
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3><a href={ templ.SafeURL("/books/"+journeyBookID(item)) }>{ canonicalBookTitle(item.Book) }</a></h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 	} else {
@@ -641,14 +641,14 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	@JourneyEvidence(item, csrf)
 	</div>
 	if !primary {
-		<div class="journey-book__controls" aria-label={ "Reorder "+journeyBookTitle(item.Book) }>
+		<div class="journey-book__controls" aria-label={ "Reorder "+canonicalBookTitle(item.Book) }>
 			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
+				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
 			</form>
 			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-				<button type="submit" class="outline" aria-label={ "Move "+journeyBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
+				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>
 			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
 			if item.CanChooseGoal {
@@ -692,7 +692,7 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 	<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ item.Book.Source.Title }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ canonicalBookTitle(item.Book) }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
 	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
 		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
 	}
@@ -743,7 +743,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 			}
 			}
 			@Confirmation("Abandon campaign", "This abandons the campaign without deleting it. The book, prepared deck, generated provenance, and campaign history remain available; any active reservation is released and its vocabulary can be eligible for future decks again unless independently known.", StatusDanger) {
-				<p>Book: { item.Book.Source.Title } · Prepared deck: { item.Deck.DeckName }</p><p>Abandonment is not deletion, and there is no completion or mastery claim.</p>
+				<p>Book: { canonicalBookTitle(item.Book) } · Prepared deck: { item.Deck.DeckName }</p><p>Abandonment is not deletion, and there is no completion or mastery claim.</p>
 				<p>{ campaignAbandonmentOutcome(item.Campaign.Status) }</p>
 				<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button class="outline">Confirm abandonment</button></form>
 			}
@@ -753,7 +753,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 }
 
 templ CampaignCompletionDetails(item campaignView) {
-		<dl class="metadata-list"><div><dt>Book</dt><dd>{ item.Book.Source.Title } — Finished</dd></div><div><dt>Prepared deck</dt><dd>{ item.Deck.DeckName } — Reviewed</dd></div></dl>
+		<dl class="metadata-list"><div><dt>Book</dt><dd>{ canonicalBookTitle(item.Book) } — Finished</dd></div><div><dt>Prepared deck</dt><dd>{ item.Deck.DeckName } — Reviewed</dd></div></dl>
 		<p>{ campaignGraduationOutcome(item) }</p>
 		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage evidence will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
 		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
@@ -765,9 +765,9 @@ templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMater
 	@BookPageWithHistoryAndPreparation(user, csrf, book, coverage, statisticsUnavailable, history, message, nil, emptyDeckJourneyAction())
 }
 templ BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
-	@ShellLayout(book.Source.Title, &user, csrf, NavigationLibrary) {
+	@ShellLayout(canonicalBookTitle(book), &user, csrf, NavigationLibrary) {
 	@Breadcrumb("/library", "My Books")
-	@PageHeader(book.Source.Title, book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
+	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
 		@LifecycleActionControl(bookLifecycleActionFor(book, history), csrf)
 	}
 	if message != "" {

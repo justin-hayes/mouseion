@@ -132,7 +132,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	title := bookID
 	for i, item := range view.Provisional {
 		if journeyBookID(item) == bookID {
-			title = journeyBookTitle(item.Book)
+			title = canonicalBookTitle(item.Book)
 			position = i + 1
 			break
 		}

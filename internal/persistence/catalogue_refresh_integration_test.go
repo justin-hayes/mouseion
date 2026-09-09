@@ -83,6 +83,10 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases != afterAliases || beforeMemberships != afterMemberships {
 		t.Fatalf("refresh changed acquired evidence before=%+v/%d/%d/%d after=%+v/%d/%d/%d", beforeSource, beforeRevisions, beforeAliases, beforeMemberships, afterSource, afterRevisions, afterAliases, afterMemberships)
 	}
+	updatedLibrary, err := store.ListSourceMaterials(ctx, owner.ID)
+	if err != nil || len(updatedLibrary) != 1 || updatedLibrary[0].BookTitle != "New title" {
+		t.Fatalf("refreshed canonical title was not projected into source summary: library=%+v err=%v", updatedLibrary, err)
+	}
 
 	if _, err = store.GetBookCatalogEntryAlias(ctx, other.ID, bookID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-owner alias lookup err=%v", err)

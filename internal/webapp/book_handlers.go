@@ -39,6 +39,7 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary := *detail.Acquired
+	summary.BookTitle = detail.Book.Title
 	var coverage *domain.AnalysisCoverage
 	statisticsUnavailable := false
 	if summary.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {

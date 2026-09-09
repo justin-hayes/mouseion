@@ -130,6 +130,19 @@ func TestJourneyPageAnchorsGoalAndPreservesProvisionalOrder(t *testing.T) {
 	}
 }
 
+func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
+	book := testJourneyBook("canonical-book", "Acquisition-internal title", "ready")
+	book.Book.BookTitle = "Refreshed catalogue title"
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "", "")
+	if !strings.Contains(html, "Refreshed catalogue title") {
+		t.Fatalf("Journey omitted canonical Book title: %s", html)
+	}
+	if strings.Contains(html, "Acquisition-internal title") {
+		t.Fatalf("Journey rendered acquisition-internal title: %s", html)
+	}
+}
+
 func TestJourneyPageRendersEvidenceStates(t *testing.T) {
 	current := testJourneyBook("current", "Current book", "analyzed")
 	current.Book.Source.MediaType = "application/epub+zip"

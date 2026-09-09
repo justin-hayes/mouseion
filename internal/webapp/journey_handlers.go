@@ -76,9 +76,15 @@ func journeyRemoveURL(bookID string) string {
 	return "/journey/books/" + url.PathEscape(bookID) + "/remove"
 }
 
-func journeyBookTitle(book domain.SourceMaterialSummary) string {
+func canonicalBookTitle(book domain.SourceMaterialSummary) string {
+	if strings.TrimSpace(book.BookTitle) != "" {
+		return book.BookTitle
+	}
 	if strings.TrimSpace(book.Source.Title) != "" {
 		return book.Source.Title
+	}
+	if book.BookID != "" {
+		return book.BookID
 	}
 	return book.Source.ID
 }
@@ -511,10 +517,10 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 		if provider, ok := h.services.AnalysisInsights.(journeyProjectionProvider); ok {
 			titles := make(map[string]string)
 			if view.Goal != nil {
-				titles[view.Goal.Book.Source.ID] = journeyBookTitle(view.Goal.Book)
+				titles[view.Goal.Book.Source.ID] = canonicalBookTitle(view.Goal.Book)
 			}
 			for _, item := range view.Provisional {
-				titles[item.Book.Source.ID] = journeyBookTitle(item.Book)
+				titles[item.Book.Source.ID] = canonicalBookTitle(item.Book)
 			}
 			comparison, projectionErr := journeyRouteComparison(r.Context(), provider, u.ID, language, titles)
 			if projectionErr != nil {
@@ -553,11 +559,15 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner); readErr == nil {
 			for _, myBook := range myBooks {
 				if myBook.Acquired != nil {
-					bookByID[myBook.Book.ID] = *myBook.Acquired
+					book := *myBook.Acquired
+					book.BookTitle = myBook.Book.Title
+					bookByID[myBook.Book.ID] = book
+					bookByID[book.Source.ID] = book
 				} else {
 					bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
-						Source: domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
-						BookID: myBook.Book.ID,
+						Source:    domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
+						BookTitle: myBook.Book.Title,
+						BookID:    myBook.Book.ID,
 					}
 				}
 			}
@@ -577,7 +587,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 		campaigns, _ := h.services.Store.ListLearningCampaigns(ctx, owner)
 		preparations, _ := h.services.Store.ListUnassignedReadyDeckPreparations(ctx, owner)
-		book.GoalResidual = h.goalResidual(ctx, owner, book.Book.Source.ID, journeyBookTitle(book.Book), campaigns)
+		book.GoalResidual = h.goalResidual(ctx, owner, book.Book.Source.ID, canonicalBookTitle(book.Book), campaigns)
 		book.GoalDeckAvailable = goalBookHasDeck(book.Book.Source.ID, campaigns, preparations)
 		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
 		book.GoalReadingOnly = !book.GoalDeckAvailable
@@ -655,7 +665,7 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 		}
 		return journeyBookView{}, err
 	}
-	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}}, BookID: book.ID}, nil
+	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}, BookTitle: book.Title}, BookID: book.ID}, nil
 }
 
 func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *journeyBookView) error {
