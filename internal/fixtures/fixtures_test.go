@@ -153,6 +153,12 @@ func TestFixtureLanguageCorpusViewIsStableAndOwnerScoped(t *testing.T) {
 	if len(view.TopUnknownLemmas) != 3 || len(view.PerBook) != 5 || view.PerBook[0].BookID != BookID || view.PerBook[3].Included || view.PerBook[3].ExclusionReason == "" {
 		t.Fatalf("language view evidence=%+v", view)
 	}
+	wantStates := []domain.BookEvidenceState{domain.BookAnalyzed, domain.BookAnalyzed, domain.BookAnalyzed, domain.BookUnavailable, domain.BookNotAcquired}
+	for i, want := range wantStates {
+		if view.PerBook[i].EvidenceState != want {
+			t.Fatalf("language view evidence state[%d]=%q, want %q", i, view.PerBook[i].EvidenceState, want)
+		}
+	}
 	empty, err := (Insights{}).LanguageCorpus(context.Background(), OwnerID, "it")
 	if err != nil || empty.AnalyzedBookCount != 0 || len(empty.PerBook) != 0 {
 		t.Fatalf("empty Italian language view=%+v err=%v", empty, err)

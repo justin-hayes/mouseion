@@ -1483,12 +1483,36 @@ func (Insights) LanguageCorpus(_ context.Context, owner, language string) (domai
 		{Language: "de", CanonicalLemma: "lernen", UPOS: "VERB", OccurrenceCount: 180},
 		{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 120},
 	}
+	languageCorpusSpread := func(evidence domain.LanguageCorpusBookEvidence, known, analyzable int64, included bool, reason string) domain.LanguageCorpusBookSpread {
+		return domain.LanguageCorpusBookSpread{
+			BookID: evidence.Book.ID, Title: evidence.Book.Title, SourceMaterialID: evidence.SourceMaterialID,
+			CorpusID: evidence.CorpusID, AnalysisRunID: evidence.AnalysisRunID,
+			KnownTokenCount: known, AnalyzableTokenCount: analyzable,
+			EvidenceState: evidence.EvidenceState(), Included: included, ExclusionReason: reason,
+		}
+	}
 	result.PerBook = []domain.LanguageCorpusBookSpread{
-		{BookID: BookID, Title: "Der lange Weg nach Hause", KnownTokenCount: 20000, AnalyzableTokenCount: 60000, EvidenceState: domain.BookAnalyzed, Included: true},
-		{BookID: routeMatchBookID, Title: "Route match: familiar German", KnownTokenCount: 15000, AnalyzableTokenCount: 40000, EvidenceState: domain.BookAnalyzed, Included: true},
-		{BookID: routeDiffersBookID, Title: "Route differs: new German", KnownTokenCount: 10678, AnalyzableTokenCount: 23456, EvidenceState: domain.BookAnalyzed, Included: true},
-		{BookID: "fixture-failed", Title: "Fehlgeschlagene Analyse", EvidenceState: domain.BookUnavailable, ExclusionReason: "analysis failed or incomplete"},
-		{BookID: "fixture-metadata-only", Title: "Metadata-only migration book", EvidenceState: domain.BookNotAcquired, ExclusionReason: "no current acquired source"},
+		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
+			Book: domain.Book{ID: BookID, Title: "Der lange Weg nach Hause"}, SourceMaterialID: SourceID,
+			CurrentContentRevisionID: "fixture-revision", CurrentSnapshotID: "fixture-snapshot",
+			CurrentSourceMaterialID: SourceID, CurrentAnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisRunID: ResultRunID,
+		}, 20000, 60000, true, ""),
+		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
+			Book: domain.Book{ID: routeMatchBookID, Title: "Route match: familiar German"}, SourceMaterialID: routeMatchBookID,
+			CurrentContentRevisionID: "fixture-route-match-revision", CurrentSnapshotID: "fixture-route-match-snapshot",
+			CurrentSourceMaterialID: routeMatchBookID, CurrentAnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus", AnalysisRunID: "fixture-route-match-run",
+		}, 15000, 40000, true, ""),
+		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
+			Book: domain.Book{ID: routeDiffersBookID, Title: "Route differs: new German"}, SourceMaterialID: routeDiffersBookID,
+			CurrentContentRevisionID: "fixture-route-differs-revision", CurrentSnapshotID: "fixture-route-differs-snapshot",
+			CurrentSourceMaterialID: routeDiffersBookID, CurrentAnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus", AnalysisRunID: "fixture-route-differs-run",
+		}, 10678, 23456, true, ""),
+		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
+			Book: domain.Book{ID: "fixture-failed", Title: "Fehlgeschlagene Analyse"}, SourceMaterialID: "fixture-failed",
+		}, 0, 0, false, "analysis failed or incomplete"),
+		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
+			Book: domain.Book{ID: "fixture-metadata-only", Title: "Metadata-only migration book"},
+		}, 0, 0, false, "no current acquired source"),
 	}
 	return result, nil
 }
