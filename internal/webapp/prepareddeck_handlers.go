@@ -219,7 +219,7 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	journeyAction := emptyDeckJourneyAction()
-	if p.SourceMaterialID != "" {
+	if p.State == domain.DeckPreparationReady && p.SourceMaterialID != "" {
 		journeyAction, err = h.deckJourneyAction(r.Context(), user(r).ID, p.ID, p.SourceMaterialID)
 		if err != nil {
 			fail(w, err)
