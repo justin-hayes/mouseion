@@ -5,42 +5,18 @@ package epub
 import (
 	"context"
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	ctx := context.Background()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	admin, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	conn, err := admin.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Release()
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-	if _, err = admin.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, admin := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)

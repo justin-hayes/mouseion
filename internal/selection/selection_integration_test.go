@@ -4,42 +4,16 @@ package selection
 
 import (
 	"context"
-	"os"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	ctx := context.Background()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-		conn.Release()
-		pool.Close()
-	})
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
@@ -98,10 +72,10 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 		t.Fatalf("bob candidates=%+v err=%v", got, err)
 	}
 	var aliceCount, bobCount int
-	if err = conn.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, alice.ID).Scan(&aliceCount); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, alice.ID).Scan(&aliceCount); err != nil {
 		t.Fatal(err)
 	}
-	if err = conn.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCount); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCount); err != nil {
 		t.Fatal(err)
 	}
 	if aliceCount != 2 || bobCount != 4 {
@@ -109,7 +83,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	}
 	var occurrences int
 	var forms, refs, provenance []byte
-	if err = conn.QueryRow(ctx, `SELECT occurrence_count,observed_forms,eligible_sentence_refs,provenance FROM selection_candidates WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&occurrences, &forms, &refs, &provenance); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT occurrence_count,observed_forms,eligible_sentence_refs,provenance FROM selection_candidates WHERE owner_id=$1 AND canonical_lemma='Haus'`, alice.ID).Scan(&occurrences, &forms, &refs, &provenance); err != nil {
 		t.Fatal(err)
 	}
 	if occurrences != 2 || len(forms) == 0 || len(refs) == 0 || len(provenance) == 0 {
@@ -127,7 +101,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 		t.Fatalf("released candidates=%+v err=%v", got, err)
 	}
 	var generated int
-	if err = conn.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='reserviert'`, alice.ID).Scan(&generated); err != nil || generated != 1 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='reserviert'`, alice.ID).Scan(&generated); err != nil || generated != 1 {
 		t.Fatalf("generated history=%d err=%v", generated, err)
 	}
 }
