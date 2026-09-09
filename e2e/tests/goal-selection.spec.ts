@@ -50,6 +50,7 @@ test.describe('Primary Goal selection', () => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture Goal runs once per browser suite.');
     await signIn(page);
     await page.getByLabel('Study language').selectOption('it');
+    await expect(page).toHaveURL(/\/library$/);
     await page.goto('/journey');
     await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
 
