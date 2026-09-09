@@ -4,7 +4,9 @@ Status: **Canonical shipped learner-facing architecture.** This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
-[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Language is the
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
+standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
+Language is the
 app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
 every language-dependent surface to one active study language, and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md) makes Reading
@@ -47,8 +49,8 @@ analysis, deck preparation, Primary Goal choice, reading completion, and
 vocabulary graduation remain separate transitions. The learner-initiated **Add
 to Reading Journey** action is the analysis exception: it adds membership and
 intentionally acquires the current EPUB and ensures whole-book analysis as one
-backlog action. **Start analysis** remains the explicit Book-detail refresh
-path.
+backlog action. My Books metadata refresh remains separate and never starts
+analysis.
 
 ## Principal learner-facing model
 
@@ -193,8 +195,8 @@ The authenticated shell exposes three principal destinations:
 
 The top navigation has no acquisition action. Catalogue setup and sync
 maintenance are supporting `/connections` routes reached from My Books empty
-states and actions; My Books is the sole browse surface and Book detail owns
-explicit analysis, acquiring the EPUB when needed. The upstream catalog browser
+states and actions; My Books is the sole browse surface and its rows own the
+Reading Journey acquisition-and-analysis intent. The upstream catalog browser
 is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
@@ -224,16 +226,15 @@ Authentication
 
 My Books
     needs-language strip (books awaiting a language)
-    book detail
-        Start analysis and acquisition when needed
-        analysis status
-        current analysis insights and deck-preparation action
-        exact-analysis compatibility redirect
-        deck preparation and download
+    metadata refresh on eligible rows
+    add/remove Reading Journey membership
 
 Reading Journey (active study language)
     embedded Primary Goal, when present
     provisional ordered books
+    Journey entry for current completed analysis
+        current analysis insights and deck-preparation action
+        exact-analysis compatibility redirect
     route comparison and reorder preview
     completion outcome
     Where next?
@@ -241,7 +242,7 @@ Reading Journey (active study language)
 Catalogue maintenance
     connection setup and sync status
 Book detail
-    analysis/acquisition action
+    current completed analysis compatibility view
 
 Vocabulary
     known vocabulary and import
@@ -273,7 +274,6 @@ surface:
 
 ```text
 /books/{id}
-/books/{id}/analyze (Start analysis and explicit re-analysis)
 /books/{id}/analyses/{analysis-run-id}
 /jobs/{id}
 /deck-preparations/{id}/status
@@ -302,9 +302,11 @@ Journey/Goal relationship precede concise evidence state. Search is scoped to
 the active language; filtering and sorting support finding books but do not turn
 readiness into the default ranking.
 
-Book detail remains the place for full lifecycle state, the one current
-analysis, and its actions. Exact analysis history and provenance are operational
-facts available through `/jobs`, not sections on the learner-facing book page.
+Book detail remains the place for full lifecycle state and the one current
+analysis when a Journey context is not being used; Journey entries present the
+same current analysis for members. Exact analysis history and provenance are
+operational facts available through `/jobs`, not sections on the learner-facing
+book page.
 My Books should be moderately dense and should not place every book in a large
 card.
 
@@ -368,11 +370,11 @@ completed plan.
 
 ## Analysis continuity
 
-The book page at `/books/{id}` is the canonical home for the book's one current
-analysis. The run-specific route
+The book page at `/books/{id}` and a member's Journey entry share the canonical
+presentation for the book's one current analysis. The run-specific route
 `/books/{book-id}/analyses/{analysis-run-id}` remains only as a compatibility
-redirect to that book page, preserving deep links and exact-analysis references
-without rendering a second insight surface.
+redirect to the applicable current context, preserving deep links and
+exact-analysis references without rendering a second insight surface.
 
 The book page answers completed-analysis questions in this order:
 
@@ -440,8 +442,8 @@ Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
 immutable acquired source evidence. Catalogue sync creates metadata-only
-membership; Start analysis and Reading Journey intent acquire validated
-source evidence when needed.
+membership; Reading Journey intent acquires validated source evidence when
+needed.
 
 1. **Reading Journey identity and ordering** are resolved by [ADR 0034: One
    implicit Reading Journey with learner-canonical ordering and campaign-queue
@@ -472,8 +474,9 @@ source evidence when needed.
    and `/campaigns` remain compatibility
    routes with their documented redirects.
 8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
-   Book detail becomes the sole learner-facing insight surface, prior runs remain
-   operational audit records, and run-specific result URLs redirect to the Book.
+  Book detail remains the current completed-analysis surface, Journey entries
+  are the canonical member context, prior runs remain operational audit records,
+  and run-specific result URLs redirect to the applicable current context.
 9. **Catalogue sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):

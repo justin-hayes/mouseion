@@ -5,7 +5,9 @@ Primary Goal are shipped; vocabulary study is book-anchored and its reservation
 and graduation details are governed by [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md)
 (as re-expressed from ADRs 0027, 0034, and 0036, which the Book-anchored
 decision consolidates). Reading-intent acquisition and analysis are governed by [ADR
-0049](../../adr/0049-reading-intent-triggers-analysis.md). Reading Journey and
+0049](../../adr/0049-reading-intent-triggers-analysis.md), with the standalone
+action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
+Reading Journey and
 Primary Goal are one per study language ([ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md));
 this workflow describes the active study language's Journey and Goal.
 
@@ -61,10 +63,8 @@ Acquisition, analysis, deck preparation, Goal choice, reading completion, and
 vocabulary graduation remain distinct transitions. Adding a Book to Reading
 Journey is the learner-initiated trigger that also acquires its current EPUB and
 ensures whole-book analysis; it does not silently trigger from catalogue sync,
-reordering, or any other transition. **Start analysis** remains explicit on
-Book detail for a My Books Book and is the refresh lever after content changes.
-Goal choice remains a separate explicit promotion after current analysis is
-complete.
+reordering, or any other transition. Goal choice remains a separate explicit
+promotion after current analysis is complete.
 
 ## 1. Shape Reading Journey
 
@@ -267,7 +267,7 @@ or a completed plan.
 |---|---|---|
 | No Journey books | Calm explanation; My Books remains the source collection. | Add from My Books |
 | Journey, no Primary Goal | Provisional order and evidence; no failure or idle warning. | Choose a Goal or reorder |
-| Journey member, no current assessment | Keep the Book in place; name missing/unavailable evidence. | Start analysis or recover acquisition |
+| Journey member, no current assessment | Keep the Book in place; name missing/unavailable evidence. | Re-analyze or recover acquisition |
 | Primary Goal, current analysis complete | Book and commitment first; show current evidence and independent reading state. | Continue the learner-chosen activity |
 | Primary Goal, reading/preparation active | Independent reading and vocabulary facts; current versus conditional evidence. | Continue the learner-chosen activity |
 | Route comparison available | Your order first; alternative and method secondary. | Keep, adopt, or adjust |

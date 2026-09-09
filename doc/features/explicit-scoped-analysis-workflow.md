@@ -1,15 +1,25 @@
 # Explicit scoped-analysis workflow
 
-Status: Implemented · Date: 2026-08-26 · Updated: 2026-09-01
+Status: Historical · Date: 2026-08-26 · Updated: 2026-09-09
+
+Issue #691, recorded in [ADR 0054](../adr/0054-retire-standalone-analysis-action.md),
+retired the standalone learner-facing analysis action described in this document.
+The current trigger is Add to Reading Journey; the details below are retained as
+historical context for the analysis contract and compatibility behavior.
+
+> Historical warning: the learner-facing action and submission paths described
+> below are not current behavior. Use [ADR 0054](../adr/0054-retire-standalone-analysis-action.md)
+> and the canonical workflow documents for current routing and controls.
 
 Shipped collection language is **My Books**. Historical **My Library** / **Add to
 My Books** / **Add to library** copy is retained only as a compatibility note;
 each catalogue entry maps to an owner-scoped Book with active My Books
 membership under
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md). That
-compatibility mapping does not mean every My Books Book has an EPUB. A
-metadata-only Book enters analysis through explicit **Start analysis** or through
-the learner's **Add to Reading Journey** intent action.
+compatibility mapping does not mean every My Books Book has an EPUB. Historically,
+a metadata-only Book entered analysis through explicit **Start analysis** or
+through the learner's **Add to Reading Journey** intent action; current learners
+use only the latter.
 
 ## Goal
 

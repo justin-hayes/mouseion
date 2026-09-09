@@ -4,7 +4,8 @@ Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
 serve a Book and, when present, its Primary Goal. Campaign remains a secondary
 history/operations concept under ADRs 0027, 0034, and 0036; it is not a second
 learner-facing plan. Reading Journey membership automatically ensures current
-analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md).
+analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
+with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
 ## Goal
 
@@ -21,6 +22,7 @@ The product behavior is defined primarily by:
 - [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)
 - [ADR 0040: One current analysis per book](../../adr/0040-one-current-analysis-per-book.md)
 - [ADR 0049: Reading intent triggers analysis](../../adr/0049-reading-intent-triggers-analysis.md)
+- [ADR 0054: Retire the standalone analysis action](../../adr/0054-retire-standalone-analysis-action.md)
 
 ## Starting state and outcome
 
@@ -31,26 +33,24 @@ It ends with either:
 - an immutable ready APKG that may be downloaded and used in support of the
   Book or its Primary Goal.
 
-**Start analysis** is always an explicit Book-detail action. Adding a Book to
-Reading Journey is the learner-initiated automatic path: it retains membership,
-acquires the current EPUB when needed, and ensures one whole-book analysis for
-the current content revision. Analysis never selects a Primary Goal, marks
-reading complete, or marks vocabulary known. Campaign operations remain
-secondary, and vocabulary graduation follows the single justified transition
-defined by ADR 0036.
+Adding a Book to Reading Journey is the sole learner-initiated acquisition and
+analysis path: it retains membership, acquires the current EPUB when needed, and
+ensures one whole-book analysis for the current content revision. Analysis never
+selects a Primary Goal, marks reading complete, or marks vocabulary known.
+Campaign operations remain secondary, and vocabulary graduation follows the
+single justified transition defined by ADR 0036.
 
 ## Primary path
 
 ```text
 Catalogue sync
     -> My Books
-    -> Book detail
-    -> Start analysis, or Add to Reading Journey
+    -> Add to Reading Journey
     -> Acquire current EPUB and ensure whole-book analysis
     -> Analysis status
-    -> Book detail or Journey with current evidence
-    -> Prepare deck from book detail
-    -> Download deck or return to the Book / Primary Goal
+    -> Journey entry with current evidence
+    -> Prepare deck from Journey entry
+    -> Download deck or return to the Journey / Primary Goal
 ```
 
 Adding a Book to Reading Journey from My Books or Book detail is the
@@ -64,38 +64,22 @@ performs either side effect.
 **Learner decision:** Which Book do I want to inspect or consider reading?
 
 Catalogue sync creates or updates the metadata-only My Books entry. It does not
-download content, start analysis, add the Book to Reading Journey, choose a
+download content, trigger analysis, add the Book to Reading Journey, choose a
 Primary Goal, prepare a deck, or mark vocabulary known.
 
 The interface must answer:
 
 - Is this Book metadata-only or acquired?
 - Is current analysis available, queued, running, stale, failed, or absent?
-- Should I explicitly start analysis or add the Book to Reading Journey?
+- Is this the Book I want to add to the Reading Journey?
 
-### 2. Start analysis from Book detail
+No detail page is offered before a current completed analysis exists. Analysis
+status and recovery live on the Jobs page and inline on Journey cards.
 
-**Learner decision:** Am I ready to analyze this Book's current EPUB?
+### 2. Monitor analysis
 
-The Book-detail **Start analysis** action acquires and validates the current EPUB
-when needed, then submits whole-book analysis. A completed or in-flight analysis
-for the same current content revision is reused. After the EPUB changes, this
-explicit action is the refresh lever; there is no background watcher.
-
-The interface must answer:
-
-- Which Book and content revision will be analyzed?
-- Is analysis queued, running, complete, failed, cancelled, stale, or unavailable?
-- What will this explicit action do, and what will it not do?
-
-My Books and Book detail identify the same current analysis state. Reading
-Journey adds the separate intent path: adding a Book automatically ensures the
-same analysis without requiring a separate Start analysis action.
-
-### 3. Monitor analysis
-
-**Learner decision:** What is the state of the analysis I explicitly started or
-that Reading Journey membership ensured?
+**Learner decision:** What is the state of the analysis that Reading Journey
+membership ensured?
 
 Submission creates or resolves an idempotent analysis run. The status experience
 keeps the Book title and current content revision in context while showing queued,
@@ -117,10 +101,11 @@ they must not replace book identity and next-step guidance.
 **Learner decision:** What does this book's current analysis say about my known
 coverage and vocabulary investment, and do I want to prepare a deck?
 
-The book page at `/books/{id}` is the sole learner-facing analysis surface. A
-newly completed reanalysis replaces the current analysis on that page; earlier
-runs remain operational audit records in `/jobs`. The compatibility route
-`/books/{book-id}/analyses/{analysis-run-id}` redirects to the book page rather
+The current completed analysis is presented on the Book page at `/books/{id}`
+and, for Journey members, in the Journey entry. A newly completed reanalysis
+replaces the current analysis; earlier runs remain operational audit records in
+`/jobs`. The compatibility route `/books/{book-id}/analyses/{analysis-run-id}`
+redirects to the Journey entry for members or the Book page otherwise, rather
 than presenting a separate exact-result experience.
 
 Information hierarchy answers, in order:
@@ -175,7 +160,7 @@ The interface must answer:
   artifact download or a learning-campaign action. A zero-card preparation with
   quality omissions remains a completeness result and keeps its artifact action.
 - Metadata-only edits preserve current evidence; changed EPUB bytes create a
-  stale current-analysis state until the learner explicitly starts analysis.
+  stale current-analysis state until the learner re-analyzes from Reading Journey.
 - Duplicate analysis or preparation submission resolves idempotently rather than
   enqueuing competing work.
 - Failed or cancelled analysis/preparation is retryable only when the server can
@@ -191,8 +176,8 @@ The interface must answer:
   failure recovery;
 - completed analysis jobs expose **View analysis result**, opening `/books/{id}`
   directly or through the run-specific compatibility redirect;
-- deck preparation is submitted from the book page after its warning-only note
-  and retained insights;
+- deck preparation is submitted from the Book page or Journey entry after its
+  warning-only note and retained insights;
 - do not list analysis history on the book page; `GET /jobs` remains the
   operational history surface; and
 - a newly completed rerun replaces the book's current learner-facing analysis

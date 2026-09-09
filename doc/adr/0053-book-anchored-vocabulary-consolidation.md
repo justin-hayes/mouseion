@@ -1,6 +1,6 @@
 # ADR 0053: Book-anchored vocabulary consolidation — the learning campaign dissolves into the Book
 
-Status: **Accepted** · Date: 2026-09-09 · Author: Justin + Hermes
+Status: **Accepted** · Date: 2026-09-09 · Author: Justin + Hermes · Learner-facing analysis-action wording superseded by [ADR 0054](0054-retire-standalone-analysis-action.md)
 
 Mouseion currently models reading and vocabulary acquisition as two parallel
 tracks joined by an internal **learning campaign** object. This decision
@@ -88,7 +88,7 @@ and confirmed deck review graduates vocabulary regardless of reading progress
 ### The consolidated learning loop
 
 ```text
-catalogue → My Books → analyze (Book) → prepare deck (Book's vocabulary)
+catalogue → My Books → add to Reading Journey → prepare deck (Book's vocabulary)
     → study (in the learner's own Anki) → confirm deck review → vocabulary
     graduates into known (book-anchored)
 ```
@@ -96,9 +96,9 @@ catalogue → My Books → analyze (Book) → prepare deck (Book's vocabulary)
 Each step is reachable and anchored to a Book:
 
 1. **Catalogue sync** produces a Book in My Books (unchanged).
-2. **Reading intent / analysis** — add a Book to the Reading Journey or Start
-   analysis from Book detail; the Book gets a completed current analysis
-   (unchanged).
+2. **Reading intent / analysis** — add a Book to the Reading Journey; the Book
+   gets a completed current analysis (the standalone action described here was
+   later retired by ADR 0054).
 3. **Prepare deck** — from a completed analysis, build a Book's deck (unchanged;
    preparation never starts study and never marks vocabulary known).
 4. **Study this Book's vocabulary** — a learner action on a ready, non-empty
@@ -121,8 +121,8 @@ vocabulary is studied at a time per owner.**
 A **Book has one current deck at a time.** There is no value in generating
 multiple concurrent decks for the same book: deck retry reuses the same
 preparation, and coverage and graduation are per-book. The only path that
-produces a second deck is content revision and re-analysis (Start analysis as
-the refresh lever), and that **replaces** the current deck rather than stacking
+produces a second deck is content revision and re-analysis from Reading Journey,
+and that **replaces** the current deck rather than stacking
 one beside it — the retired deck remains as immutable history for provenance,
 and the new deck becomes the Book's single current deck. This collapses the
 current `UNIQUE(owner_id, source_material_id, content_hash)` schema (which

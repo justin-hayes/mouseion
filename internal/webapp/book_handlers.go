@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -21,21 +20,12 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
+		http.NotFound(w, r)
+		return
+	}
 	if err := h.annotateBookWithJourney(r.Context(), u.ID, &detail); err != nil {
 		fail(w, err)
-		return
-	}
-	if detail.EvidenceState() == domain.BookNotAcquired {
-		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, detail.Book.ID)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		render(w, r, MetadataOnlyBookPage(u, h.csrf(w, r), detail, r.URL.Query().Get("message"), eligible))
-		return
-	}
-	if detail.Acquired == nil {
-		http.NotFound(w, r)
 		return
 	}
 	summary := *detail.Acquired
@@ -164,10 +154,6 @@ func (h *Handler) refreshableMyBookIDs(ctx context.Context, owner string, books 
 	return refreshable, nil
 }
 
-func myBookRowRefreshTarget(r *http.Request, bookID string) bool {
-	return strings.TrimPrefix(strings.TrimSpace(r.Header.Get("HX-Target")), "#") == myBookRowID(bookID)
-}
-
 func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -194,7 +180,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		result.Book = detail.Book
 	}
 	message := refreshMessage(result)
-	if isHTMX(r) && myBookRowRefreshTarget(r, detail.Book.ID) {
+	if isHTMX(r) {
 		row := domain.MyBook{Book: result.Book}
 		if err := h.annotateBookWithJourney(r.Context(), u.ID, &row); err != nil {
 			fail(w, err)
@@ -212,11 +198,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		render(w, r, MyBookRow(h.csrf(w, r), row, goalBookID, refreshEligible, message))
 		return
 	}
-	if isHTMX(r) {
-		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book}, message))
-		return
-	}
-	redirect(w, r, "/books/"+url.PathEscape(r.PathValue("id"))+"?message="+url.QueryEscape(message))
+	redirect(w, r, "/library?message="+url.QueryEscape(message))
 }
 
 func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
@@ -226,22 +208,18 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 		if !ok {
 			return
 		}
-		if myBookRowRefreshTarget(r, book.Book.ID) {
-			if err := h.annotateBookWithJourney(r.Context(), u.ID, &book); err != nil {
-				fail(w, err)
-				return
-			}
-			goalBookID := ""
-			if book.JourneyGoal {
-				goalBookID = book.Book.ID
-			}
-			render(w, r, MyBookRow(h.csrf(w, r), book, goalBookID, false, message))
+		if err := h.annotateBookWithJourney(r.Context(), u.ID, &book); err != nil {
+			fail(w, err)
 			return
 		}
-		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book.Book}, message))
+		goalBookID := ""
+		if book.JourneyGoal {
+			goalBookID = book.Book.ID
+		}
+		render(w, r, MyBookRow(h.csrf(w, r), book, goalBookID, false, message))
 		return
 	}
-	redirect(w, r, "/books/"+url.PathEscape(bookID)+"?message="+url.QueryEscape(message))
+	redirect(w, r, "/library?message="+url.QueryEscape(message))
 }
 
 func refreshMessage(result cataloguesync.RefreshResult) string {
@@ -268,6 +246,10 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	book := *detail.Acquired
+	if !bookHasCompletedAnalysis(book) {
+		http.NotFound(w, r)
+		return
+	}
 	runID := r.PathValue("runID")
 	redirectBookID := detail.Book.ID
 	if book.AnalysisRunID != runID {
@@ -287,6 +269,14 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+	}
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
+		fail(w, err)
+		return
+	}
+	if detail.JourneyMember {
+		http.Redirect(w, r, journeyEntryURL(redirectBookID), http.StatusSeeOther)
+		return
 	}
 	http.Redirect(w, r, "/books/"+url.PathEscape(redirectBookID), http.StatusSeeOther)
 }
@@ -318,55 +308,7 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 	return &preparation, journeyAction, true
 }
 
-func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
-	if !ok {
-		return
-	}
-	if detail.Acquired == nil {
-		target, err := h.acquireBookForAnalysis(r, u.ID, detail.Book.ID)
-		if err != nil {
-			message := analysisAcquisitionError(r.Context(), h.services.Store, u.ID, detail.Book.ID, detail.Book.Title, target, err)
-			redirect(w, r, "/books/"+url.PathEscape(detail.Book.ID)+"?message="+url.QueryEscape(message))
-			return
-		}
-		// Acquisition promotes the existing Book. Reload it so analysis uses the
-		// persisted content revision and extracted-unit snapshot.
-		detail, ok = h.bookDetail(w, r, u.ID, detail.Book.ID)
-		if !ok {
-			return
-		}
-	}
-	if detail.Acquired == nil {
-		http.NotFound(w, r)
-		return
-	}
-	book := *detail.Acquired
-	if book.Source.MediaType != "application/epub+zip" {
-		http.Error(w, "Analysis requires an EPUB source.", http.StatusConflict)
-		return
-	}
-	handle, err := h.services.Analysis.SubmitAnalysis(r.Context(), u.ID, book.Source.ID)
-	if err != nil {
-		if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-			http.Error(w, "Analysis is unavailable because this book has no extracted EPUB units.", http.StatusConflict)
-			return
-		}
-		fail(w, err)
-		return
-	}
-	redirect(w, r, fmt.Sprintf("/books/%s?message=Analysis+job+%d+submitted", r.PathValue("id"), handle.DisplayNumber))
-}
-
-func (h *Handler) acquireBookForAnalysis(r *http.Request, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	return h.acquireBookForAnalysisContext(r.Context(), owner, bookID)
-}
-
-func (h *Handler) acquireBookForAnalysisContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
 	provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider)
 	if !ok {
 		return cataloguesync.AcquisitionTarget{}, errors.New("catalogue acquisition is unavailable")
@@ -382,7 +324,7 @@ func (h *Handler) acquireBookForAnalysisContext(ctx context.Context, owner, book
 	return target, err
 }
 
-func analysisAcquisitionError(ctx context.Context, store Store, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
+func journeyAcquisitionError(ctx context.Context, store Store, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
 	connectionName, entryTitle := "catalogue connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {
 		entryTitle = target.Entry.Title

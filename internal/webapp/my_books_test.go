@@ -188,7 +188,7 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for label, count := range map[string]int{"Unavailable": 1, "Not acquired": 2, "Ready to analyze": 2, "Analyzed": 1, "Stale analysis": 1} {
+	for label, count := range map[string]int{"Unavailable": 1, "Not acquired": 2, "Ready to analyze": 1, "Analysis not started": 2, "Analyzed": 1, "Stale analysis": 1} {
 		if strings.Count(html, label) != count {
 			t.Errorf("evidence label %q count=%d", label, strings.Count(html, label))
 		}
@@ -249,39 +249,32 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	}
 }
 
-func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageUnknown}}
-	var output bytes.Buffer
-	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
+func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
+	h, cookies, csrf, _ := goalFixtureSession(t)
+	request := httptest.NewRequest(http.MethodGet, "/books/fixture-empty", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
 	}
-	html := output.String()
-	if main := strings.Index(html, "<main"); main >= 0 {
-		html = html[main:]
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unassessed book detail status=%d body=%s", response.Code, response.Body.String())
 	}
-	for _, want := range []string{"Catalogue metadata", "Metadata only", "Content not acquired", "Start analysis", "acquire, validate, and analyze the EPUB in one action"} {
-		if !strings.Contains(html, want) {
-			t.Errorf("metadata-only page missing %q: %s", want, html)
-		}
-	}
-	for _, forbidden := range []string{"Review scope", "Prepare deck", "Refresh metadata", "Fix book language", "Add a book"} {
-		if strings.Contains(html, forbidden) {
-			t.Errorf("metadata-only page exposed unsupported action %q: %s", forbidden, html)
-		}
+	if response := goalRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
+		t.Fatalf("standalone analysis status=%d body=%s", response.Code, response.Body.String())
 	}
 }
 
-func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}
-	var output bytes.Buffer
-	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "Metadata refreshed.", true).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
+func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T) {
+	h, cookies, _, _ := goalFixtureSession(t)
+	request := httptest.NewRequest(http.MethodGet, "/books/fixture-book/analyses/fixture-run", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
 	}
-	html := output.String()
-	for _, want := range []string{`id="book-metadata-region"`, "Refresh metadata", `method="post"`, `action="/books/catalogue-book/refresh"`, `name="csrf_token"`, `hx-post="/books/catalogue-book/refresh"`, `hx-target="#book-metadata-region"`, `aria-live="polite"`, "Metadata refreshed."} {
-		if !strings.Contains(html, want) {
-			t.Errorf("catalogue metadata refresh page missing %q: %s", want, html)
-		}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey/fixture-book" {
+		t.Fatalf("analysis compatibility route status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
 }
 
@@ -293,7 +286,10 @@ func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 			Language:  "it",
 			MediaType: "application/epub+zip",
 		},
-		AnalysisStatus: "not analyzed",
+		AnalysisStatus: "analyzed",
+		AnalysisState:  "completed",
+		AnalysisRunID:  "italian-run",
+		CorpusID:       "italian-corpus",
 	}
 	var output bytes.Buffer
 	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
@@ -307,8 +303,12 @@ func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 
 func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
 	book := domain.SourceMaterialSummary{
-		Source:    domain.SourceMaterial{ID: "canonical-book", Title: "Acquisition-internal title", Language: "de", MediaType: "application/epub+zip"},
-		BookTitle: "Refreshed catalogue title",
+		Source:         domain.SourceMaterial{ID: "canonical-book", Title: "Acquisition-internal title", Language: "de", MediaType: "application/epub+zip"},
+		BookTitle:      "Refreshed catalogue title",
+		AnalysisStatus: "analyzed",
+		AnalysisState:  "completed",
+		AnalysisRunID:  "canonical-run",
+		CorpusID:       "canonical-corpus",
 	}
 	var output bytes.Buffer
 	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
@@ -355,23 +355,6 @@ func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
 	}
 }
 
-func TestMetadataOnlyBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{
-		ID:            "italian-metadata-book",
-		OwnerID:       "owner",
-		Title:         "Una storia italiana",
-		LanguageState: domain.LanguageChosen,
-		LanguageTag:   "it",
-	}}
-	var output bytes.Buffer
-	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output.String(), "it · Metadata only") {
-		t.Fatalf("metadata-only detail omitted its own language: %s", output.String())
-	}
-}
-
 type bookRefreshStub struct {
 	result cataloguesync.RefreshResult
 	owner  string
@@ -410,7 +393,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-metadata-region"`) || !strings.Contains(response.Body.String(), "catalogue entry is no longer available") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "catalogue entry is no longer available") {
 		t.Fatalf("HTMX refresh status=%d body=%s", response.Code, response.Body.String())
 	}
 

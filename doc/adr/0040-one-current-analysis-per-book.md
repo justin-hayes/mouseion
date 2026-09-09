@@ -1,6 +1,6 @@
 # ADR 0040: One current analysis per book
 
-Status: **Proposed** · Date: 2026-09-02 · Author: Justin + Codex
+Status: **Proposed** · Date: 2026-09-02 · Author: Justin + Codex · Learner lifecycle wording reconciled by [ADR 0054](0054-retire-standalone-analysis-action.md)
 
 ## Context
 
@@ -27,10 +27,10 @@ analyses remain immutable backend and operational audit records; they are
 reachable through `GET /jobs` and applicable job detail, but are not listed on
 the book page or exposed through another learner result surface.
 
-The book page at `/books/{id}` is the sole learner-facing analysis surface. It
-keeps the book identity and existing lifecycle action for scope review,
-analysis, job progress, and failure. When a current analysis is available, the
-page presents one coherent set of decision evidence:
+The book page at `/books/{id}` and the Journey entry for a member share one
+learner-facing current-analysis presentation. My Books and Reading Journey own
+the lifecycle actions for acquisition and analysis; the page presents one
+coherent set of decision evidence when a current analysis is available:
 
 - **Current known coverage** as the headline and premier metric, with a
   one-line qualifier such as “of the analyzed units” rather than a separate
@@ -51,7 +51,7 @@ available to application logic and operations; this decision narrows their
 learner-facing presentation rather than deleting the underlying evidence.
 
 `GET /books/{id}/analyses/{runID}` becomes a thin compatibility redirect to the
-book page (or an equivalent rendering of that page). It preserves existing deep
+current Book page or the member's Journey entry. It preserves existing deep
 links, completed-job **View analysis result** links, and deck-preparation
 references without remaining a separate full-insight surface. Its former
 **Decision summary** contributes only current known coverage to the book page;
@@ -63,7 +63,8 @@ the learner surface.
 
 `GET /jobs/{id}` continues to own queued/running/cancelled/failed progress,
 retry, and recovery. A completed scoped job's **View analysis result** action
-opens the book page, directly or through the compatibility redirect.
+opens the book page, directly or through the compatibility redirect; Journey
+members reach their Journey context through that redirect.
 `GET /jobs` remains the operational analysis-history surface.
 
 This decision changes the learner-facing contract in ADR 0028 without changing

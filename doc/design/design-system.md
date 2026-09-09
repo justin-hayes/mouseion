@@ -195,7 +195,7 @@ scrollable data table must label and contain its own overflow.
 - Canonical authenticated destinations are exactly My Books, Reading Journey, and
   Vocabulary; there is no acquisition action in the top navigation. Catalogue setup
   and sync maintenance happen on `/connections` reached from My Books. My Books
-  is the sole browse surface, and Book detail owns per-book acquisition. Primary
+  is the sole browse surface, and My Books rows own per-book acquisition intent. Primary
   Goal is embedded in Reading Journey.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
@@ -207,8 +207,9 @@ scrollable data table must label and contain its own overflow.
 - Current knowledge, conditional projection, reading completion, preparation,
   and vocabulary transition remain visibly distinct.
 - Operational analysis status and the book page's single current analysis are
-  separate surfaces. Run-specific result URLs redirect to the book; deck
-  preparation follows its retained insights and any concrete quality warning.
+  separate surfaces. Run-specific result URLs redirect to the Journey entry for
+  members or the book page otherwise; deck preparation follows its retained
+  insights and any concrete quality warning.
 - Scope review is a calm native checklist: reliable top-level TOC choices or a
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence

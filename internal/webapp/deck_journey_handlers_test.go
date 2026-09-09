@@ -255,7 +255,7 @@ func TestAddingJourneyMemberEnsuresAcquisitionAndAnalysisOnce(t *testing.T) {
 		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", OwnerID: "owner-1", Title: "Book one"}},
 	}
 	analysisService := &journeyIntentAnalysis{}
-	store.detail.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: opds.EPUBMediaType}}
+	store.detail.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: opds.EPUBMediaType, ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}}
 	h := &Handler{services: Services{
 		Store:         store,
 		Analysis:      analysisService,

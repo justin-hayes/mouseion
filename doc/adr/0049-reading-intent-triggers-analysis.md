@@ -50,11 +50,10 @@ intent, and Primary Goal is a promotion out of the Journey backlog.**
   when no acquisition target currently resolves (catalogue unavailable, entry
   removed). The entry then shows the existing "cannot currently assess" /
   "unavailable" incomparable state and analysis proceeds once content exists.
-- **Explicit Start analysis survives.** The manual action remains available for
-  any My Books Book and remains the re-analysis lever after content changes.
-  Journey membership merely automates the same ensure; it is never required to
-  analyze, because analysis is evidence on the Book identity, not on Journey
-  membership.
+- **Standalone analysis action superseded.** ADR 0054 retires the manual action
+  from the learner surface. Reading Journey membership remains the initial
+  acquisition-and-analysis trigger; its Journey entry owns stale and failed
+  analysis recovery while analysis remains durable Book evidence.
 - **Primary Goal is a promotion.** Choosing a Primary Goal is the act of
   promoting a book out of the Journey backlog. The affordance is available only
   from the Reading Journey screen and requires the book to be a Journey member
@@ -75,7 +74,7 @@ intent, and Primary Goal is a promotion out of the Journey backlog.**
   next interaction.
 - **No background watcher.** Nothing re-analyzes a Journey member in the
   background when a newer catalogue revision appears. Ensure-once is evaluated
-  at the moment intent is expressed; the explicit Start analysis action is the
+  at the moment intent is expressed; Journey recovery actions are the
   re-analysis lever after content changes.
 
 This ADR reverses the residual stance of ADR 0041/0047 that analysis is only
