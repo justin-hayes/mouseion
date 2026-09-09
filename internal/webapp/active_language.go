@@ -118,6 +118,10 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 	}
 	u := user(r)
 	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.FormValue("language")))
+	if language == "" {
+		redirect(w, r, activeStudyLanguageReturnPath(r.FormValue("return_to"), language))
+		return
+	}
 	languages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)

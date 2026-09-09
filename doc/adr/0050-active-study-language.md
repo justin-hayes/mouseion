@@ -32,10 +32,11 @@ defines it.
   chosen-language Book. If the stored selection leaves the set (its last Book is
   removed or re-tagged by resync), it falls back to the most-recently-activated
   remaining language, else none. No eager writes on first run or on removal.
-- **The shell carries a native `<select>` for the active language**, visible on
-  every authenticated screen. Changing it on a language-scoped screen navigates
-  to the same screen in the new language; on other screens it merely updates the
-  stored mode.
+- **The shell carries a native `<select>` for the active language** whenever the
+  learner has a language to select. Changing it on a language-scoped screen
+  navigates to the same screen in the new language; on other screens it merely
+  updates the stored mode. When no active language is resolved, its prompt is
+  display-only rather than a choice.
 - **Language-scoped surfaces read the mode, not a URL param.** My Books browse
   and search, Reading Journey, and Vocabulary all render the active language.
   The `?language=` parameter is removed from `/library` and `/vocabulary`;

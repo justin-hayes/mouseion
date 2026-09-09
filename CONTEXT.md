@@ -21,7 +21,10 @@ pointing into the derived study-language set — context, not configuration: it
 chooses which study language the per-language surfaces (My Books browse,
 Reading Journey, Vocabulary) present, and never defines which languages are
 studied. When the set is unambiguous the selection defaults deterministically;
-if the selection leaves the set, it resets.
+if the selection leaves the set, it resets. There is no "no language" choice:
+absence of an active study language is never a learner selection, only a
+transient result of defaulting (an ambiguous set with no history) or reset (the
+selection left the set with no remaining candidate).
 _Avoid_: current language, mode, active profile.
 
 **Catalogue sync scope**:
@@ -42,6 +45,16 @@ prepared deck selects. N is a selection parameter with a default of three, and
 selection makes no coverage claim. Known vocabulary, generated vocabulary, and
 active-campaign vocabulary are excluded before the pool is formed.
 _Avoid_: frequent words, deck coverage.
+
+**Analysis evidence**:
+The classification of a Book's current acquired source against its analysis
+standing, owned per Book and derived from the raw analysis signals rather than
+stored by hand. It is the single state both My Books and the Reading Journey
+present: not acquired, unavailable (content present but no current revision),
+stale (a prior analysis no longer matches the current content), analyzed, or
+acquired-but-unassessed (current content present, analysis not yet complete).
+_Avoid_: book status, analysis state (the raw signal the classification reads,
+not the classification itself), deck readiness.
 
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language

@@ -33,10 +33,14 @@ labels use **Language** and the language's own name, never **Mode** or
 
 ### The switcher
 
-- The authenticated shell carries a native `<select>` for the active language on
-  every screen, labelled for accessibility, adjacent to the three destinations.
+- When the learner has a language, the authenticated shell carries a native
+  `<select>` for the active language on every screen, labelled for accessibility,
+  adjacent to the three destinations.
 - Options are the learner's study languages, plus any known-vocabulary-only
   language marked "no books". A newly arrived study language is marked "new".
+- The switcher is hidden until at least one such language exists. When no active
+  language is resolved, "Choose a study language" is a display-only prompt, not
+  a selectable language.
 - Changing the selection on a language-scoped screen navigates to the same
   screen in the new language; on other screens it only updates the mode.
 - Defaulting is deterministic: the sole study language when unambiguous;
