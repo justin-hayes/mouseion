@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -60,5 +61,43 @@ func TestQualityOmittedZeroCardPreparationExposesDownload(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{ID: "omitted", State: domain.DeckPreparationReady, QualityOmissions: 1})
 	if response.DownloadURL == "" {
 		t.Fatal("quality-omitted zero-card preparation has no download URL")
+	}
+}
+
+func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
+	tests := []struct {
+		name   string
+		action deckJourneyActionView
+		want   string
+	}{
+		{name: "journey member", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}, want: "/journey/book-1"},
+		{name: "primary goal", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyGoal}, want: "/journey/book-1"},
+		{name: "unresolved", action: emptyDeckJourneyAction()},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := preparationReturnURL(test.action); got != test.want {
+				t.Fatalf("return URL=%q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJourney(t *testing.T) {
+	store := &journeyIntentStore{
+		deckJourneyActionStore: &deckJourneyActionStore{journey: domain.ReadingJourney{Entries: []domain.ReadingJourneyEntry{{BookID: "book-1", Position: 1}}}},
+		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", LanguageTag: "de"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: "application/epub+zip", ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"}},
+	}
+	h := &Handler{services: Services{Store: store}}
+	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
+	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
+	if err != nil || got != "/journey/book-1" {
+		t.Fatalf("reachable URL=%q err=%v", got, err)
+	}
+
+	store.detail.Acquired.AnalysisState = "failed"
+	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
+	if err != nil || got != "" {
+		t.Fatalf("incomplete analysis URL=%q err=%v", got, err)
 	}
 }

@@ -875,9 +875,7 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
 	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
 		if resultURL != "" {
-			@Breadcrumb(resultURL, "Book")
-		} else {
-			@Breadcrumb("/books/"+preparation.SourceMaterialID, "Book")
+			@Breadcrumb(resultURL, "Reading Journey")
 		}
 		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationTitle(preparation), deckPreparationStatusTone(preparation)))
 		@DeckPreparationStatus(csrf, preparation, resultURL, journeyAction)

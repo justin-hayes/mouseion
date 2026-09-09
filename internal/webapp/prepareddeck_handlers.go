@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"mime"
@@ -217,10 +218,17 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		writePreparationStatus(w, p)
 		return
 	}
-	resultURL := preparationResultURL(p)
 	journeyAction := emptyDeckJourneyAction()
-	if p.State == domain.DeckPreparationReady {
+	if p.SourceMaterialID != "" {
 		journeyAction, err = h.deckJourneyAction(r.Context(), user(r).ID, p.ID, p.SourceMaterialID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	resultURL := ""
+	if journeyAction.BookID != "" {
+		resultURL, err = h.reachablePreparationReturnURL(r.Context(), user(r).ID, journeyAction)
 		if err != nil {
 			fail(w, err)
 			return
@@ -281,11 +289,31 @@ func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(r.PathValue("id"))+"/status", http.StatusSeeOther)
 }
 
-func preparationResultURL(p domain.DeckPreparation) string {
-	if p.SourceMaterialID == "" || p.AnalysisRunID == "" {
+func preparationReturnURL(action deckJourneyActionView) string {
+	if action.BookID == "" {
 		return ""
 	}
-	return "/books/" + url.PathEscape(p.SourceMaterialID)
+	return "/journey/" + url.PathEscape(action.BookID)
+}
+
+func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {
+	detail, err := h.services.Store.GetBookDetail(ctx, owner, action.BookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
+		return "", nil
+	}
+	if err := h.annotateBookWithJourneyLanguage(ctx, owner, detail.Book.LanguageTag, &detail); err != nil {
+		return "", err
+	}
+	if !detail.JourneyMember {
+		return "", nil
+	}
+	return preparationReturnURL(action), nil
 }
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {
