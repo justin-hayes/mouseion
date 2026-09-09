@@ -564,7 +564,7 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 // status, but never select a learner-facing result.
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
 	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
-		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,COALESCE(s.book_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),COALESCE(r.digest_version,0),s.created_at,
+		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,COALESCE(s.book_id::text,''),COALESCE(b.title,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),COALESCE(r.digest_version,0),s.created_at,
 			       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
 		            WHEN ar.state = 'failed' THEN 'analysis failed'
 		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
@@ -580,6 +580,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 		       COALESCE(ca.analysis_run_id::text,''),
 			       COALESCE(ca.corpus_id::text,''),COALESCE(j.river_job_id,0)
 		FROM source_materials s
+		LEFT JOIN books b ON b.owner_id=s.owner_id AND b.id=s.book_id
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
 		LEFT JOIN book_current_analyses p ON p.owner_id=s.owner_id AND p.source_material_id=s.id
 		LEFT JOIN current_analysis ca ON ca.owner_id=p.owner_id AND ca.source_material_id=p.source_material_id
@@ -594,7 +595,7 @@ func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) (
 	var out []domain.SourceMaterialSummary
 	for rows.Next() {
 		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentSnapshotID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.AnalysisJobID); err != nil {
+		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.BookTitle, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentSnapshotID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.AnalysisJobID); err != nil {
 			return nil, err
 		}
 		out = append(out, item)

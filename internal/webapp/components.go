@@ -220,7 +220,7 @@ func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
 		if bookID == "" {
 			bookID = source.Source.ID
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: canonicalBookTitle(source), LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
 	}
 	return out
 }

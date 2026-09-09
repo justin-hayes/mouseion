@@ -100,6 +100,26 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	}
 }
 
+func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
+	book := domain.MyBook{
+		Book: domain.Book{ID: "canonical-book", OwnerID: "owner", Title: "Refreshed catalogue title"},
+		Acquired: &domain.SourceMaterialSummary{
+			Source: domain.SourceMaterial{ID: "source-canonical-book", Title: "Acquisition-internal title"},
+		},
+	}
+	var output bytes.Buffer
+	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "Refreshed catalogue title") {
+		t.Fatalf("My Books omitted canonical Book title: %s", html)
+	}
+	if strings.Contains(html, "Acquisition-internal title") {
+		t.Fatalf("My Books rendered acquisition-internal title: %s", html)
+	}
+}
+
 func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 	states := []domain.BookEvidenceState{
 		domain.BookUnavailable,
@@ -246,6 +266,24 @@ func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 	html := output.String()
 	if !strings.Contains(html, "<h1>Una storia italiana</h1>") || !strings.Contains(html, "it · application/epub+zip") {
 		t.Fatalf("book detail omitted its own language: %s", html)
+	}
+}
+
+func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
+	book := domain.SourceMaterialSummary{
+		Source:    domain.SourceMaterial{ID: "canonical-book", Title: "Acquisition-internal title", Language: "de", MediaType: "application/epub+zip"},
+		BookTitle: "Refreshed catalogue title",
+	}
+	var output bytes.Buffer
+	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if !strings.Contains(html, "<h1>Refreshed catalogue title</h1>") {
+		t.Fatalf("analyzed page omitted canonical Book title: %s", html)
+	}
+	if strings.Contains(html, "Acquisition-internal title") {
+		t.Fatalf("analyzed page rendered acquisition-internal title: %s", html)
 	}
 }
 

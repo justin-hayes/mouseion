@@ -383,6 +383,9 @@ func (s *Store) ListSourceMaterials(_ context.Context, owner string) ([]domain.S
 	var result []domain.SourceMaterialSummary
 	for _, book := range s.books {
 		if book.Source.OwnerID == owner {
+			if book.BookTitle == "" {
+				book.BookTitle = book.Source.Title
+			}
 			result = append(result, book)
 		}
 	}
@@ -428,7 +431,10 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if bookID == "" {
 			bookID = source.Source.ID
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
+		if source.BookTitle == "" {
+			source.BookTitle = source.Source.Title
+		}
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
@@ -690,7 +696,11 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 			if resolvedBookID == "" {
 				resolvedBookID = source.Source.ID
 			}
-			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: source.Source.Title, LanguageState: state, LanguageTag: source.Source.Language}, nil
+			title := source.BookTitle
+			if title == "" {
+				title = source.Source.Title
+			}
+			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, LanguageState: state, LanguageTag: source.Source.Language}, nil
 		}
 	}
 	return domain.Book{}, errNotFound
@@ -714,7 +724,7 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 			if resolvedBookID == "" {
 				resolvedBookID = s.books[i].Source.ID
 			}
-			s.books[i].Source.Title = title
+			s.books[i].BookTitle = title
 			if languageState == domain.LanguageUnknown {
 				languageTag = ""
 			}

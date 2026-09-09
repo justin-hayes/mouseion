@@ -264,6 +264,7 @@ func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
 		}
 		item.Acquired = &domain.SourceMaterialSummary{
 			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentSnapshotID: sourceSnapshotID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
+			BookTitle:      item.Book.Title,
 			BookID:         item.Book.ID,
 			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, AnalysisJobID: analysisJobID,
 		}

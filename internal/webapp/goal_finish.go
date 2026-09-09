@@ -101,7 +101,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 func finishBookTitle(before journeyPageView, bookID string) string {
 	if before.Goal != nil && journeyBookID(*before.Goal) == bookID {
-		return journeyBookTitle(before.Goal.Book)
+		return canonicalBookTitle(before.Goal.Book)
 	}
 	return bookID
 }

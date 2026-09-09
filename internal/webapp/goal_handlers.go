@@ -101,7 +101,7 @@ func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) strin
 	if err == nil {
 		for _, book := range books {
 			if book.Source.ID == bookID {
-				return journeyBookTitle(book)
+				return canonicalBookTitle(book)
 			}
 		}
 	}

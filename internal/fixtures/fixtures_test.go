@@ -403,6 +403,27 @@ func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
 	}
 }
 
+func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *testing.T) {
+	store := NewStore()
+	store.books[0].Source.Title = "Acquisition-internal title"
+	store.books[0].BookTitle = "Refreshed catalogue title"
+
+	books, err := store.ListMyBooksWithEvidence(context.Background(), OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, book := range books {
+		if book.Book.ID != BookID {
+			continue
+		}
+		if book.Book.Title != "Refreshed catalogue title" || book.Acquired == nil || book.Acquired.BookTitle != "Refreshed catalogue title" || book.Acquired.Source.Title != "Acquisition-internal title" {
+			t.Fatalf("fixture read model=%+v", book)
+		}
+		return
+	}
+	t.Fatalf("fixture book %q not found", BookID)
+}
+
 func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()

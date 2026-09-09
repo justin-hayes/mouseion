@@ -109,7 +109,10 @@ type SourceMaterial struct {
 // identity without loading the book's content. Analysis IDs are populated only
 // from the owner/book-scoped current-analysis projection.
 type SourceMaterialSummary struct {
-	Source          SourceMaterial
+	Source SourceMaterial
+	// BookTitle is the canonical catalogue title when this source is projected
+	// onto its learner-facing Book identity.
+	BookTitle       string
 	BookID          string
 	AnalysisStatus  string
 	AnalysisState   string
