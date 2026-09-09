@@ -29,11 +29,14 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	for _, want := range []string{
 		`role="search"`, `label for="library-search-query">Search My Books`,
 		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`, `href="/library?needs-language"`,
-		`href="/library"`, `href="/library?page=2"`, `href="/books/de-book"`,
+		`href="/library"`, `href="/library?page=2"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("browse markup missing %q: %s", want, html)
 		}
+	}
+	if strings.Contains(html, `href="/books/de-book"`) {
+		t.Fatalf("My Books browse linked to the retired Book detail page: %s", html)
 	}
 	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
 		if strings.Contains(html, forbidden) {
@@ -153,6 +156,42 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	}
 	if strings.Contains(response.Body.String(), `href="/books/unknown-book"`) || strings.Contains(response.Body.String(), "Add to Reading Journey") || strings.Contains(response.Body.String(), "Remove from My Books") {
 		t.Fatalf("needs-language browse exposed mutation actions: %s", response.Body.String())
+	}
+}
+
+func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
+	h, cookies, _, fixtureStore := goalFixtureSession(t)
+	handler := h.(*Handler)
+	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
+		Items: []domain.MyBook{
+			{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: fixtures.OwnerID, Title: "Eligible metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+			{Book: domain.Book{ID: "no-alias", OwnerID: fixtures.OwnerID, Title: "Ineligible metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		},
+		Total: 2, ScopeTotal: 2, AllCount: 2, Counts: []persistence.LanguageCount{{Tag: "de", Count: 2}},
+	}}
+	handler.services.Store = store
+	request := httptest.NewRequest(http.MethodGet, "/library", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /library status=%d body=%s", response.Code, response.Body.String())
+	}
+	html := response.Body.String()
+	eligibleStart := strings.Index(html, `id="book-row-fixture-metadata-only"`)
+	ineligibleStart := strings.Index(html, `id="book-row-no-alias"`)
+	if eligibleStart < 0 || ineligibleStart < 0 {
+		t.Fatalf("metadata-only rows missing: %s", html)
+	}
+	eligibleRow := html[eligibleStart:ineligibleStart]
+	ineligibleRow := html[ineligibleStart:]
+	if !strings.Contains(eligibleRow, "Refresh metadata") || !strings.Contains(eligibleRow, `hx-target="#book-row-fixture-metadata-only"`) {
+		t.Fatalf("eligible metadata-only row omitted refresh: %s", eligibleRow)
+	}
+	if strings.Contains(ineligibleRow, "Refresh metadata") {
+		t.Fatalf("ineligible metadata-only row exposed refresh: %s", ineligibleRow)
 	}
 }
 

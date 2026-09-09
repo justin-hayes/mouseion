@@ -52,8 +52,8 @@ test.describe('responsive and theme regression coverage', () => {
       await switcher.selectOption('de');
       await expect(page).toHaveURL(/\/library$/);
     }
-    await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-book"]')).toBeVisible();
-    await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-failed"]')).toBeVisible();
+    await expect(page.locator('.library-list .bibliographic-title a[href="/journey/fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-failed"]')).toHaveCount(0);
     await expect(page.locator('.library-list a[href="/books/fixture-edge-content"]')).toHaveCount(0);
     await expect(page.locator('.library-list a[href="/books/fixture-empty"]')).toHaveCount(0);
     expect(await page.locator('.library-book').filter({ has: page.locator('.bibliographic-title a') }).count()).toBeGreaterThan(0);
