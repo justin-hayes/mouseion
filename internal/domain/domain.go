@@ -39,7 +39,6 @@ type DeckPreparation struct {
 	Artifact                                                                                           []byte
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations                              int
 	QualityOmissions                                                                                   int
-	VocabularyCount                                                                                    int
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.
@@ -57,35 +56,6 @@ type DeckPreparation struct {
 	BatchInputTokens, BatchOutputTokens                                                  int64
 	CreatedAt, UpdatedAt                                                                 time.Time
 	StartedAt, CompletedAt                                                               *time.Time
-	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt                                      *time.Time
-}
-
-type VocabularyStudyStatus string
-
-const (
-	VocabularyStudyNotStarted VocabularyStudyStatus = "not_started"
-	VocabularyStudyStudying   VocabularyStudyStatus = "studying"
-	VocabularyStudyReviewed   VocabularyStudyStatus = "reviewed"
-	VocabularyStudyReleased   VocabularyStudyStatus = "released"
-)
-
-func (p DeckPreparation) VocabularyStudyStatus() VocabularyStudyStatus {
-	switch {
-	case p.GraduatedAt != nil:
-		return VocabularyStudyReviewed
-	case p.StudyingAt != nil:
-		return VocabularyStudyStudying
-	case p.ReleasedAt != nil:
-		return VocabularyStudyReleased
-	default:
-		return VocabularyStudyNotStarted
-	}
-}
-
-type DeckPreparationVocabulary struct {
-	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
-	GeneratedAt                                                time.Time
-	GraduatedAt                                                *time.Time
 }
 
 type User struct {

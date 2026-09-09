@@ -161,12 +161,7 @@ func (s *PostgresStore) ListActiveLearningCampaignVocabulary(ctx context.Context
 		FROM learning_campaign_vocabulary cv
 		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
 		WHERE cv.owner_id=$1 AND cv.language=$2 AND c.status='active'
-		UNION ALL
-		SELECT dv.owner_id::text,dv.deck_preparation_id::text,dv.language,dv.canonical_lemma,dv.upos,dv.generated_at,dv.graduated_at
-		FROM deck_preparation_vocabulary dv
-		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
-		WHERE dv.owner_id=$1 AND dv.language=$2 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
-		ORDER BY canonical_lemma,upos`, owner, language)
+		ORDER BY cv.canonical_lemma,cv.upos`, owner, language)
 	if err != nil {
 		return nil, err
 	}
@@ -191,9 +186,6 @@ func (s *PostgresStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner
 		WHERE gv.owner_id=$1 AND gv.language=$2 AND NOT EXISTS (
 			SELECT 1 FROM learning_campaign_vocabulary cv
 			WHERE cv.owner_id=gv.owner_id AND cv.language=gv.language AND cv.canonical_lemma=gv.canonical_lemma AND cv.upos=gv.upos)
-		AND NOT EXISTS (
-			SELECT 1 FROM deck_preparation_vocabulary dv
-			WHERE dv.owner_id=gv.owner_id AND dv.language=gv.language AND dv.canonical_lemma=gv.canonical_lemma AND dv.upos=gv.upos)
 		ORDER BY gv.canonical_lemma,gv.upos`, owner, language)
 	if err != nil {
 		return nil, err
