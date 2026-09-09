@@ -19,13 +19,8 @@ const qualifiedBookColumns = `b.id::text,b.owner_id::text,b.title,b.metadata_pro
 
 const myBooksEvidenceSelect = `SELECT ` + qualifiedBookColumns + `,
        COALESCE(s.id::text,''),COALESCE(s.owner_id::text,''),COALESCE(s.language,''),COALESCE(s.source_identifier,''),COALESCE(s.title,''),COALESCE(s.media_type,''),
-       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(r.digest_version,0),s.created_at,
+       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),COALESCE(r.digest_version,0),s.created_at,
        s.id IS NOT NULL,
-       CASE WHEN s.id IS NULL THEN 'not_acquired'
-            WHEN s.current_content_revision_id IS NULL OR s.current_snapshot_id IS NULL THEN 'unavailable'
-            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-            ELSE 'acquired_unassessed' END,
        CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
             WHEN ar.state = 'failed' THEN 'analysis failed'
             WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
@@ -251,26 +246,24 @@ type myBookRowScanner interface {
 func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
 	var item domain.MyBook
 	var sourceID, sourceOwner, sourceLanguage, sourceIdentifier, sourceTitle, sourceMediaType string
-	var sourceContentHash, sourceDigest, sourceRevisionID string
+	var sourceContentHash, sourceDigest, sourceRevisionID, sourceSnapshotID string
 	var sourceCreatedAt *time.Time
 	var sourceExists bool
-	var evidenceState domain.MyBookEvidenceState
 	var analysisStatus, analysisState, analysisRunID, corpusID string
 	var analysisJobID int64
 	var digestVersion int
 	if err := row.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
-		&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &digestVersion, &sourceCreatedAt, &sourceExists,
-		&evidenceState, &analysisStatus, &analysisState, &analysisRunID, &corpusID, &analysisJobID); err != nil {
+		&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &sourceSnapshotID, &digestVersion, &sourceCreatedAt, &sourceExists,
+		&analysisStatus, &analysisState, &analysisRunID, &corpusID, &analysisJobID); err != nil {
 		return domain.MyBook{}, missing(err)
 	}
-	item.EvidenceState = evidenceState
 	if sourceExists {
 		createdAt := time.Time{}
 		if sourceCreatedAt != nil {
 			createdAt = *sourceCreatedAt
 		}
 		item.Acquired = &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
+			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentSnapshotID: sourceSnapshotID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
 			BookID:         item.Book.ID,
 			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, AnalysisJobID: analysisJobID,
 		}

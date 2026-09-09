@@ -86,7 +86,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		var acquired []domain.SourceMaterialSummary
 		acquired, err = h.services.Store.ListSourceMaterials(r.Context(), u.ID)
 		for _, source := range acquired {
-			books = append(books, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: domain.MyBookAnalyzed})
+			books = append(books, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
 		}
 	}
 	if err != nil {
@@ -103,7 +103,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	goalBookID := ""
-	if primaryGoalIsActive(goal) {
+	if goal.IsActive() {
 		goalBookID = goal.BookID
 	}
 	if browse.Enabled && browse.Language != "" && !browse.NeedsLanguage {

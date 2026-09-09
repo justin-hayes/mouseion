@@ -534,7 +534,7 @@ func MyBookRow(csrf string, book domain.MyBook, goalBookID string) templ.Compone
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book)))).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = StatusBadge(myBookEvidenceLabel(book.EvidenceState()), statusTone(myBookEvidenceLabel(book.EvidenceState()))).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -561,7 +561,7 @@ func MyBookRow(csrf string, book domain.MyBook, goalBookID string) templ.Compone
 				return templ_7745c5c3_Err
 			}
 		}
-		if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+		if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(book.EvidenceState()) {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<p class=\"metadata\">Analysis evidence: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -584,7 +584,7 @@ func MyBookRow(csrf string, book domain.MyBook, goalBookID string) templ.Compone
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+		if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(book.EvidenceState()) {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(myBookLifecycleActionFor(book).Status)
 			if templ_7745c5c3_Err != nil {

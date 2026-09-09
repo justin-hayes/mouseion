@@ -44,10 +44,9 @@ func (s *languageCorpusStore) ListLegacyGeneratedVocabulary(ctx context.Context,
 func corpusBook(owner, id, title, language, source, corpus, run string, stats int64, lemmas []domain.LemmaOccurrence) domain.LanguageCorpusBookEvidence {
 	return domain.LanguageCorpusBookEvidence{
 		Book:             domain.Book{ID: id, OwnerID: owner, Title: title, LanguageState: domain.LanguageChosen, LanguageTag: language},
-		SourceMaterialID: source, SourceLanguage: language, CurrentSourceMaterialID: source,
+		SourceMaterialID: source, SourceLanguage: language, CurrentContentRevisionID: "revision-" + source, CurrentSnapshotID: "snapshot-" + source, CurrentSourceMaterialID: source,
 		CurrentAnalysisRunID: run, AnalysisSourceMaterialID: source, CorpusID: corpus, AnalysisRunID: run,
-		EvidenceState: domain.MyBookAnalyzed,
-		Statistics:    &domain.AnalysisStatistics{AnalyzableTokenCount: stats, DistinctLemmaCount: int64(len(lemmas))}, Lemmas: lemmas,
+		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: stats, DistinctLemmaCount: int64(len(lemmas))}, Lemmas: lemmas,
 	}
 }
 
@@ -149,11 +148,11 @@ func TestLanguageCorpusUsesVocabularyCategoriesAndRecomputes(t *testing.T) {
 
 func TestLanguageCorpusExcludesEvidenceAndPreservesEmptyReasons(t *testing.T) {
 	books := []domain.LanguageCorpusBookEvidence{
-		{Book: domain.Book{ID: "missing", OwnerID: "alice", Title: "Missing", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: domain.MyBookNotAcquired},
-		{Book: domain.Book{ID: "stale", OwnerID: "alice", Title: "Stale", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", CurrentSourceMaterialID: "source", CurrentAnalysisRunID: "old-run", EvidenceState: domain.MyBookStale},
-		{Book: domain.Book{ID: "incomplete", OwnerID: "alice", Title: "Incomplete", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", EvidenceState: domain.MyBookAnalyzed, CorpusID: "incomplete-corpus"},
-		{Book: domain.Book{ID: "unavailable", OwnerID: "alice", Title: "Unavailable", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", EvidenceState: domain.MyBookUnavailable},
-		{Book: domain.Book{ID: "different", OwnerID: "alice", Title: "Different", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", SourceLanguage: "it", EvidenceState: domain.MyBookAnalyzed, CorpusID: "different-corpus", Statistics: &domain.AnalysisStatistics{}, Lemmas: []domain.LemmaOccurrence{{Language: "it", CanonicalLemma: "ciao", UPOS: "NOUN", OccurrenceCount: 1}}},
+		{Book: domain.Book{ID: "missing", OwnerID: "alice", Title: "Missing", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "stale", OwnerID: "alice", Title: "Stale", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", CurrentContentRevisionID: "revision", CurrentSnapshotID: "snapshot", AnalysisSourceMaterialID: "old-source", AnalysisRunID: "old-run", CurrentSourceMaterialID: "source", CurrentAnalysisRunID: "old-run", CorpusID: "old-corpus"},
+		{Book: domain.Book{ID: "incomplete", OwnerID: "alice", Title: "Incomplete", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", CurrentContentRevisionID: "revision", CurrentSnapshotID: "snapshot", CorpusID: "incomplete-corpus"},
+		{Book: domain.Book{ID: "unavailable", OwnerID: "alice", Title: "Unavailable", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", CurrentAnalysisRunID: "pending"},
+		{Book: domain.Book{ID: "different", OwnerID: "alice", Title: "Different", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, SourceMaterialID: "source", CurrentContentRevisionID: "revision", CurrentSnapshotID: "snapshot", SourceLanguage: "it", CorpusID: "different-corpus", Statistics: &domain.AnalysisStatistics{}, Lemmas: []domain.LemmaOccurrence{{Language: "it", CanonicalLemma: "ciao", UPOS: "NOUN", OccurrenceCount: 1}}},
 	}
 	store := &languageCorpusStore{memoryStore: &memoryStore{}, evidence: books}
 	got, err := NewService(store).LanguageCorpus(context.Background(), "alice", "de")

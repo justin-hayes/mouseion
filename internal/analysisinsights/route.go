@@ -70,7 +70,7 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 			book.IncomparableReason = "unavailable: no current acquired source"
 		case book.Language == "":
 			book.IncomparableReason = "unavailable: book language is unknown"
-		case item.EvidenceState == domain.MyBookStale:
+		case item.Acquired != nil && item.Acquired.EvidenceState() == domain.BookStale:
 			book.IncomparableReason = "stale: analysis no longer matches the current book scope"
 		case book.CorpusID == "":
 			book.IncomparableReason = "unassessed: no current analyzed corpus"

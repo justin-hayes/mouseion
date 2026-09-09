@@ -25,7 +25,7 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if detail.EvidenceState == domain.MyBookNotAcquired {
+	if detail.EvidenceState() == domain.BookNotAcquired {
 		eligible, err := h.bookRefreshEligible(r.Context(), u.ID, detail.Book.ID)
 		if err != nil {
 			fail(w, err)
@@ -146,7 +146,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	message := refreshMessage(result)
 	if isHTMX(r) {
-		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book, EvidenceState: domain.MyBookNotAcquired}, message))
+		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book}, message))
 		return
 	}
 	redirect(w, r, "/books/"+url.PathEscape(r.PathValue("id"))+"?message="+url.QueryEscape(message))
@@ -159,7 +159,7 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 		if !ok {
 			return
 		}
-		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book.Book, EvidenceState: domain.MyBookNotAcquired}, message))
+		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: book.Book}, message))
 		return
 	}
 	redirect(w, r, "/books/"+url.PathEscape(bookID)+"?message="+url.QueryEscape(message))

@@ -183,16 +183,16 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 				}
 		</div>
 		<div class="library-book__supporting">
-			@StatusBadge(myBookEvidenceLabel(myBookEvidenceStateFor(book)), statusTone(myBookEvidenceLabel(myBookEvidenceStateFor(book))))
+			@StatusBadge(myBookEvidenceLabel(book.EvidenceState()), statusTone(myBookEvidenceLabel(book.EvidenceState())))
 			if book.Book.ID == goalBookID || book.JourneyGoal {
 				@StatusBadge("Current Primary Goal", StatusInfo)
 				<p><a href={ templ.SafeURL("/journey#journey-book-"+book.Book.ID) }>View Primary Goal in Reading Journey</a></p>
 			}
-			if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+			if book.Acquired != nil && book.Acquired.AnalysisStatus != "" && book.Acquired.AnalysisStatus != myBookEvidenceLabel(book.EvidenceState()) {
 				<p class="metadata">Analysis evidence: { myBookAnalysisLabel(book.Acquired.AnalysisStatus) }</p>
 			}
 			<p class="library-next-action"><strong>Next action:</strong>
-				if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(myBookEvidenceStateFor(book)) {
+				if myBookLifecycleActionFor(book).Status != myBookEvidenceLabel(book.EvidenceState()) {
 					{ myBookLifecycleActionFor(book).Status }.
 				}
 				{ myBookLifecycleActionFor(book).Description }

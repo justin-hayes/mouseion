@@ -106,7 +106,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 			break
 		}
 	}
-	if metadataView == nil || metadataView.Acquired != nil || metadataView.EvidenceState != domain.MyBookNotAcquired || metadataView.Book.LanguageState != domain.LanguageUnknown {
+	if metadataView == nil || metadataView.Acquired != nil || metadataView.EvidenceState() != domain.BookNotAcquired || metadataView.Book.LanguageState != domain.LanguageUnknown {
 		t.Fatalf("metadata-only read model=%+v", metadataView)
 	}
 
@@ -133,7 +133,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	for i := range view {
 		if view[i].Book.ID == promotion.ID {
 			foundPromotion = true
-			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageUnknown || view[i].Book.LanguageTag != "" || view[i].EvidenceState != domain.MyBookAcquiredUnassessed {
+			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageUnknown || view[i].Book.LanguageTag != "" || view[i].EvidenceState() != domain.BookAcquiredUnassessed {
 				t.Fatalf("promoted read model=%+v", view[i])
 			}
 			break
@@ -336,7 +336,7 @@ func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadataDetail, err := store.GetBookDetail(ctx, alice.ID, metadata.ID)
-	if err != nil || metadataDetail.Acquired != nil || metadataDetail.EvidenceState != domain.MyBookNotAcquired {
+	if err != nil || metadataDetail.Acquired != nil || metadataDetail.EvidenceState() != domain.BookNotAcquired {
 		t.Fatalf("metadata detail=%+v err=%v", metadataDetail, err)
 	}
 
@@ -350,7 +350,7 @@ func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 	}
 	for _, id := range []string{bookID, source.ID} {
 		detail, detailErr := store.GetBookDetail(ctx, alice.ID, id)
-		if detailErr != nil || detail.Book.ID != bookID || detail.Acquired == nil || detail.Acquired.Source.ID != source.ID || detail.EvidenceState != domain.MyBookAcquiredUnassessed {
+		if detailErr != nil || detail.Book.ID != bookID || detail.Acquired == nil || detail.Acquired.Source.ID != source.ID || detail.EvidenceState() != domain.BookAcquiredUnassessed {
 			t.Fatalf("detail id=%q result=%+v err=%v", id, detail, detailErr)
 		}
 	}

@@ -36,14 +36,14 @@ type CatalogueSyncStatus struct {
 	UpdatedAt             time.Time
 }
 
-type MyBookEvidenceState string
+type BookEvidenceState string
 
 const (
-	MyBookUnavailable        MyBookEvidenceState = "unavailable"
-	MyBookNotAcquired        MyBookEvidenceState = "not_acquired"
-	MyBookAcquiredUnassessed MyBookEvidenceState = "acquired_unassessed"
-	MyBookAnalyzed           MyBookEvidenceState = "analyzed"
-	MyBookStale              MyBookEvidenceState = "stale"
+	BookUnavailable        BookEvidenceState = "unavailable"
+	BookNotAcquired        BookEvidenceState = "not_acquired"
+	BookAcquiredUnassessed BookEvidenceState = "acquired_unassessed"
+	BookAnalyzed           BookEvidenceState = "analyzed"
+	BookStale              BookEvidenceState = "stale"
 )
 
 type Book struct {
@@ -68,10 +68,17 @@ type BookAlias struct {
 type MyBook struct {
 	Book            Book
 	Acquired        *SourceMaterialSummary
-	EvidenceState   MyBookEvidenceState
 	JourneyMember   bool
 	JourneyGoal     bool
 	JourneyRevision int64
+}
+
+// EvidenceState classifies the acquired evidence shown in My Books.
+func (m MyBook) EvidenceState() BookEvidenceState {
+	if m.Acquired == nil {
+		return BookNotAcquired
+	}
+	return m.Acquired.EvidenceState()
 }
 
 func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {

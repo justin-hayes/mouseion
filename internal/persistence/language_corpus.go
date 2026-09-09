@@ -16,12 +16,7 @@ func (s *PostgresStore) ListLanguageCorpusEvidence(ctx context.Context, owner, l
 	language = canonicalization.NormalizeLanguage(language)
 	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
 		SELECT b.id::text,b.owner_id::text,b.title,b.metadata_provenance,b.language_state,COALESCE(b.language_tag,''),b.created_at,b.updated_at,
-		       COALESCE(s.id::text,''),COALESCE(s.language,''),
-		       CASE WHEN s.id IS NULL THEN 'not_acquired'
-		            WHEN s.current_content_revision_id IS NULL OR s.current_snapshot_id IS NULL THEN 'unavailable'
-		            WHEN p.analysis_run_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-		            ELSE 'acquired_unassessed' END,
+		       COALESCE(s.id::text,''),COALESCE(s.language,''),COALESCE(s.current_content_revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),
 		       COALESCE(p.source_material_id::text,''),COALESCE(p.analysis_run_id::text,''),
 		       COALESCE(ca.source_material_id::text,''),COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),
 		       c.analyzable_token_count,c.distinct_lemma_count
@@ -48,7 +43,7 @@ func (s *PostgresStore) ListLanguageCorpusEvidence(ctx context.Context, owner, l
 		var item domain.LanguageCorpusBookEvidence
 		var statisticsAnalyzable, statisticsDistinct *int64
 		if err := rows.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
-			&item.SourceMaterialID, &item.SourceLanguage, &item.EvidenceState,
+			&item.SourceMaterialID, &item.SourceLanguage, &item.CurrentContentRevisionID, &item.CurrentSnapshotID,
 			&item.CurrentSourceMaterialID, &item.CurrentAnalysisRunID, &item.AnalysisSourceMaterialID, &item.AnalysisRunID, &item.CorpusID,
 			&statisticsAnalyzable, &statisticsDistinct); err != nil {
 			return nil, err

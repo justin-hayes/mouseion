@@ -1,7 +1,10 @@
 // Package domain contains the core corpus and vocabulary models.
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type DeckPreparationState string
 
@@ -95,6 +98,7 @@ func ResolveActiveStudyLanguage(languages []StudyLanguage, stored, mostRecent st
 type SourceMaterial struct {
 	ID, OwnerID, Language, SourceIdentifier, Title, MediaType, ContentHash, FullText string
 	ContentRevisionID                                                                string
+	ContentSnapshotID                                                                string
 	ContentDigest                                                                    string
 	ContentDigestVersion                                                             int
 	Content                                                                          []byte
@@ -116,6 +120,26 @@ type SourceMaterialSummary struct {
 	JourneyGoal     bool
 	JourneyRevision int64
 }
+
+// EvidenceState classifies the raw acquisition and analysis signals for a
+// source summary without relying on a persisted projection.
+func (s SourceMaterialSummary) EvidenceState() BookEvidenceState {
+	if s.Source.ID == "" {
+		return BookNotAcquired
+	}
+	if s.Source.ContentRevisionID == "" || s.Source.ContentSnapshotID == "" {
+		return BookUnavailable
+	}
+	switch strings.ToLower(strings.TrimSpace(s.AnalysisStatus)) {
+	case "stale":
+		return BookStale
+	case "analyzed":
+		return BookAnalyzed
+	default:
+		return BookAcquiredUnassessed
+	}
+}
+
 type OpdsConnection struct {
 	ID, OwnerID, Name, URL, Username, Password string
 	CreatedAt, UpdatedAt                       time.Time

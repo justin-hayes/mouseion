@@ -100,14 +100,14 @@ func NewStore() *Store {
 	initialActiveLanguage := "de"
 	return &Store{
 		books: []domain.SourceMaterialSummary{
-			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
+			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
-			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
-			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
-			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
-			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
-			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
-			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
+			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
+			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-failed-revision", ContentSnapshotID: "fixture-failed-snapshot"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
+			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision", ContentSnapshotID: "fixture-route-match-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
+			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision", ContentSnapshotID: "fixture-route-differs-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision", ContentSnapshotID: "fixture-route-tie-a-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
+			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision", ContentSnapshotID: "fixture-route-tie-b-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", Language: "it", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 		},
@@ -143,11 +143,9 @@ func NewStore() *Store {
 		campaignVocab:   fixtureCampaignVocabulary(),
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
-			Book:          domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-			EvidenceState: domain.MyBookNotAcquired,
+			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}, {
-			Book:          domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-			EvidenceState: domain.MyBookNotAcquired,
+			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}},
 		readingJourneys: map[string]domain.ReadingJourney{
 			fixtureJourneyKey(OwnerID, "de"): {
@@ -420,10 +418,6 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if owner != "" && source.Source.OwnerID != owner {
 			continue
 		}
-		state := domain.MyBookAcquiredUnassessed
-		if source.AnalysisStatus == "analyzed" {
-			state = domain.MyBookAnalyzed
-		}
 		languageState := domain.LanguageChosen
 		languageTag := normalizeFixtureLanguage(source.Source.Language)
 		if strings.TrimSpace(languageTag) == "" {
@@ -434,7 +428,7 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if bookID == "" {
 			bookID = source.Source.ID
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source, EvidenceState: state})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
@@ -705,7 +699,7 @@ func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	book.ID = fmt.Sprintf("fixture-metadata-%d", len(s.myBooks)+1)
-	s.myBooks = append(s.myBooks, domain.MyBook{Book: book, EvidenceState: domain.MyBookNotAcquired})
+	s.myBooks = append(s.myBooks, domain.MyBook{Book: book})
 	return book, nil
 }
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
@@ -1490,11 +1484,11 @@ func (Insights) LanguageCorpus(_ context.Context, owner, language string) (domai
 		{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 120},
 	}
 	result.PerBook = []domain.LanguageCorpusBookSpread{
-		{BookID: BookID, Title: "Der lange Weg nach Hause", KnownTokenCount: 20000, AnalyzableTokenCount: 60000, EvidenceState: domain.MyBookAnalyzed, Included: true},
-		{BookID: routeMatchBookID, Title: "Route match: familiar German", KnownTokenCount: 15000, AnalyzableTokenCount: 40000, EvidenceState: domain.MyBookAnalyzed, Included: true},
-		{BookID: routeDiffersBookID, Title: "Route differs: new German", KnownTokenCount: 10678, AnalyzableTokenCount: 23456, EvidenceState: domain.MyBookAnalyzed, Included: true},
-		{BookID: "fixture-failed", Title: "Fehlgeschlagene Analyse", EvidenceState: domain.MyBookUnavailable, ExclusionReason: "analysis failed or incomplete"},
-		{BookID: "fixture-metadata-only", Title: "Metadata-only migration book", EvidenceState: domain.MyBookNotAcquired, ExclusionReason: "no current acquired source"},
+		{BookID: BookID, Title: "Der lange Weg nach Hause", KnownTokenCount: 20000, AnalyzableTokenCount: 60000, EvidenceState: domain.BookAnalyzed, Included: true},
+		{BookID: routeMatchBookID, Title: "Route match: familiar German", KnownTokenCount: 15000, AnalyzableTokenCount: 40000, EvidenceState: domain.BookAnalyzed, Included: true},
+		{BookID: routeDiffersBookID, Title: "Route differs: new German", KnownTokenCount: 10678, AnalyzableTokenCount: 23456, EvidenceState: domain.BookAnalyzed, Included: true},
+		{BookID: "fixture-failed", Title: "Fehlgeschlagene Analyse", EvidenceState: domain.BookUnavailable, ExclusionReason: "analysis failed or incomplete"},
+		{BookID: "fixture-metadata-only", Title: "Metadata-only migration book", EvidenceState: domain.BookNotAcquired, ExclusionReason: "no current acquired source"},
 	}
 	return result, nil
 }

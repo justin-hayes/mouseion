@@ -66,6 +66,15 @@ partition: it participates in nothing until a re-sync admits it into one.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
 
+**Book evidence state**:
+The domain-derived classification of a Book's current acquired evidence:
+`not_acquired`, `unavailable`, `acquired_unassessed`, `analyzed`, or `stale`.
+It is derived from raw acquisition and current-analysis signals rather than
+persisted as learner state. Goal eligibility is a separate domain derivation
+with reason codes for missing current content, analysis in progress, failed or
+cancelled analysis, stale analysis, no completed analysis, and eligibility.
+_Avoid_: evidence status as a persisted source of truth.
+
 **Catalogue entry**:
 A book as offered by a learner-owned catalogue, identified by the catalogue
 connection plus that connection's stable entry identifier. A Book may carry one

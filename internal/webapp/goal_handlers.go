@@ -173,7 +173,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	title := h.goalBookTitle(r.Context(), owner, bookID)
-	currentActive := primaryGoalIsActive(current)
+	currentActive := current.IsActive()
 	if currentActive && current.BookID == bookID {
 		h.respondGoal(w, r, title+" is already your Primary Goal.", "", bookID)
 		return
