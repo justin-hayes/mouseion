@@ -410,7 +410,7 @@ templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelVi
 								<li class="language-view-book-row">
 									<h4>
 									if book.JourneyEntryURL != "" {
-											<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
+										<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
 										} else {
 											{ book.Title }
 										}
