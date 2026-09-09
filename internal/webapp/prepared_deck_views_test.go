@@ -86,7 +86,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, QualityOmissions: 1}
-			if err := DeckPreparationStatus("csrf", preparation, "/books/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+			if err := DeckPreparationStatus("csrf", preparation, "/journey/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
 			html := output.String()
@@ -110,13 +110,41 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	}
 }
 
+func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T) {
+	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
+	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
+	var output bytes.Buffer
+	if err := DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey/book-1", action).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Count(html, `href="/journey/book-1"`) != 2 {
+		t.Fatalf("Journey entry link count=%d: %s", strings.Count(html, `href="/journey/book-1"`), html)
+	}
+	if strings.Contains(html, "/books/source-1") {
+		t.Fatalf("status page contains retired book link: %s", html)
+	}
+}
+
+func TestDeckPreparationStatusPageOmitsBackLinksWithoutJourneyEntry(t *testing.T) {
+	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationFailed}
+	var output bytes.Buffer
+	if err := DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	if strings.Contains(html, "Return to book") || strings.Contains(html, `href="/books/source-1"`) {
+		t.Fatalf("unreachable deck status page contains back link: %s", html)
+	}
+}
+
 func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 	preparation := domain.DeckPreparation{
 		ID: "prep-empty", SourceMaterialID: "book-empty", State: domain.DeckPreparationReady,
 		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg",
 	}
 	var output bytes.Buffer
-	if err := DeckPreparationStatus("csrf", preparation, "/books/book-empty", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+	if err := DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
