@@ -190,7 +190,6 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 		})
 	}
 }
-
 func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 	h, cookies, csrf, fixtureStore := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}
