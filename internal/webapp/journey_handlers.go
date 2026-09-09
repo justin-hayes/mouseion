@@ -170,7 +170,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 			Tone:        StatusWarning,
 		}
 	}
-	return bookLifecycleActionFor(item.Book, nil)
+	return bookLifecycleActionFor(item.Book)
 }
 
 func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {

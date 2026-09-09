@@ -20,7 +20,7 @@ func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string 
 	if preparation != nil && preparation.State == domain.DeckPreparationReady {
 		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
 	}
-	if err := BookPageWithHistoryAndPreparation(domain.User{Username: "learner"}, "csrf-372", book, nil, true, nil, "", preparation, journeyAction).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", currentBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	return output.String()

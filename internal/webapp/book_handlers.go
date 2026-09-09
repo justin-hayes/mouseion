@@ -53,22 +53,11 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 			coverage = &value
 		}
 	}
-	history, err := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	bookHistory := make([]domain.AnalysisJob, 0, len(history))
-	for _, job := range history {
-		if job.SourceMaterialID == summary.Source.ID {
-			bookHistory = append(bookHistory, job)
-		}
-	}
 	preparation, journeyAction, ok := h.currentBookPreparation(w, r, u.ID, summary)
 	if !ok {
 		return
 	}
-	render(w, r, BookPageWithHistoryAndPreparation(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message"), preparation, journeyAction))
+	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, r.URL.Query().Get("message"), currentBookPageOptions(summary), preparation, journeyAction))
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {

@@ -178,6 +178,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     });
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
+    await expect(page).toHaveURL(/\/library$/);
     await page.goto('/journey');
     await expect(page.locator('.journey-book--goal .journey-book__controls')).toHaveCount(0);
     const edge = page.locator('#journey-book-fixture-edge-content');
@@ -209,6 +210,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page, true);
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
+    await expect(page).toHaveURL(/\/library$/);
     await page.goto('/journey');
     const active = page.locator('#campaign-fixture-campaign');
     const finishBook = active.getByRole('button', { name: /Mark book finished/ });

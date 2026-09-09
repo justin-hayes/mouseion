@@ -759,26 +759,25 @@ templ CampaignCompletionDetails(item campaignView) {
 		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
 }
 templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
-	@BookPageWithHistory(user, csrf, book, coverage, statisticsUnavailable, nil, message)
+	@BookPageWithOptions(user, csrf, book, coverage, statisticsUnavailable, message, currentBookPageOptions(book), nil, emptyDeckJourneyAction())
 }
-templ BookPageWithHistory(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string) {
-	@BookPageWithHistoryAndPreparation(user, csrf, book, coverage, statisticsUnavailable, history, message, nil, emptyDeckJourneyAction())
-}
-templ BookPageWithHistoryAndPreparation(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, history []domain.AnalysisJob, message string, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
-	@ShellLayout(canonicalBookTitle(book), &user, csrf, NavigationLibrary) {
-	@Breadcrumb("/library", "My Books")
-	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(bookLifecycleActionFor(book, history).Status, bookLifecycleActionFor(book, history).Tone)) {
-		@LifecycleActionControl(bookLifecycleActionFor(book, history), csrf)
+
+templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string, page bookPageOptions, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
+	@ShellLayout(canonicalBookTitle(book), &user, csrf, page.Navigation) {
+	@Breadcrumb(page.BreadcrumbURL, page.BreadcrumbLabel)
+	{{ action := bookLifecycleActionFor(book) }}
+	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(action.Status, action.Tone)) {
+		@LifecycleActionControl(action, csrf)
 	}
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
 	}
-	@NextActionSummary(bookLifecycleActionFor(book, history))
-	if book.JourneyGoal {
+	@NextActionSummary(action)
+	if page.Journey.Goal {
 		<p><strong>Primary Goal.</strong></p>
 		<p><a href={ templ.SafeURL("/journey#journey-book-"+journeyMembershipBookID(book)) }>View Primary Goal in Reading Journey</a></p>
 	} else {
-		@JourneyMembershipAction(journeyMembershipBookID(book), book.JourneyMember, book.JourneyRevision, csrf)
+		@JourneyMembershipAction(journeyMembershipBookID(book), page.Journey.Member, page.Journey.Revision, csrf)
 	}
 	if coverage != nil {
 		if hasAnalysisWarnings(*coverage) {

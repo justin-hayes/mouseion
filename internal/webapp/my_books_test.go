@@ -287,6 +287,38 @@ func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
 	}
 }
 
+func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
+	book := domain.SourceMaterialSummary{
+		Source:    domain.SourceMaterial{ID: "journey-book", Title: "Internal title", Language: "de", MediaType: "application/epub+zip"},
+		BookTitle: "Journey title",
+	}
+	page := bookPageOptions{
+		BreadcrumbURL:   "/journey",
+		BreadcrumbLabel: "Reading Journey",
+		Navigation:      NavigationReadingJourney,
+		Journey:         bookPageJourneyState{Member: true, Revision: 3},
+	}
+	var output bytes.Buffer
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{
+		`data-navigation-context="reading-journey"`,
+		`href="/journey"`,
+		"← Reading Journey",
+		"In Reading Journey.",
+		`action="/journey/books/journey-book/remove"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("parameterized Journey page missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, "← My Books") || strings.Contains(html, `data-navigation-context="library"`) {
+		t.Fatalf("parameterized Journey page retained My Books context: %s", html)
+	}
+}
+
 func TestMetadataOnlyBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{
 		ID:            "italian-metadata-book",
