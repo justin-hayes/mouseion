@@ -84,7 +84,6 @@ type Store struct {
 	connections          []domain.OpdsConnection
 	aliases              []domain.BookAlias
 	preps                []domain.DeckPreparation
-	deckVocabulary       []domain.DeckPreparationVocabulary
 	known                []domain.KnownVocabulary
 	campaignVocab        []domain.CampaignVocabulary
 	legacyGenerated      []domain.GeneratedVocabulary
@@ -134,10 +133,6 @@ func NewStore() *Store {
 		preps: []domain.DeckPreparation{
 			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
-		},
-		deckVocabulary: []domain.DeckPreparationVocabulary{
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
 		},
 		known: []domain.KnownVocabulary{
 			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
@@ -552,108 +547,6 @@ func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) (
 	}
 	return result, nil
 }
-
-func (s *Store) CountDeckPreparationVocabularyToGraduate(_ context.Context, owner, preparationID string) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	count := 0
-	for _, item := range s.deckVocabulary {
-		if item.OwnerID == owner && item.DeckPreparationID == preparationID && item.GraduatedAt == nil && !fixtureKnown(s.known, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}) {
-			count++
-		}
-	}
-	return count, nil
-}
-
-func (s *Store) StartDeckVocabularyStudy(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.State != domain.DeckPreparationReady || preparation.TotalCards == 0 || len(s.deckVocabularyFor(owner, preparationID)) == 0 || preparation.GraduatedAt != nil || preparation.ReviewedAt != nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		if preparation.StudyingAt != nil {
-			return *preparation, nil
-		}
-		for _, other := range s.preps {
-			if other.OwnerID == owner && other.StudyingAt != nil && other.GraduatedAt == nil {
-				return domain.DeckPreparation{}, persistence.ErrActiveVocabularyStudy
-			}
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReleasedAt = &now, nil
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) ConfirmDeckVocabularyReview(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.GraduatedAt != nil {
-			return *preparation, nil
-		}
-		if preparation.StudyingAt == nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReviewedAt, preparation.GraduatedAt, preparation.ReleasedAt = nil, &now, &now, nil
-		for i := range s.deckVocabulary {
-			item := &s.deckVocabulary[i]
-			if item.OwnerID != owner || item.DeckPreparationID != preparationID {
-				continue
-			}
-			item.GraduatedAt = &now
-			vocabulary := domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}
-			if !fixtureKnown(s.known, vocabulary) {
-				s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-study-known-" + item.CanonicalLemma, OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, Provenance: "Graduated from reviewed deck", CreatedAt: now})
-			}
-		}
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) ReleaseDeckVocabularyStudy(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.GraduatedAt != nil || preparation.ReviewedAt != nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		if preparation.StudyingAt == nil {
-			return *preparation, nil
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReleasedAt = nil, &now
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) deckVocabularyFor(owner, preparationID string) []domain.DeckPreparationVocabulary {
-	var result []domain.DeckPreparationVocabulary
-	for _, item := range s.deckVocabulary {
-		if item.OwnerID == owner && item.DeckPreparationID == preparationID {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
 func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
 	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
 }
@@ -672,16 +565,6 @@ func (s *Store) ListActiveLearningCampaignVocabulary(_ context.Context, owner, l
 		for _, item := range s.campaignVocab {
 			if item.CampaignID == campaign.ID && item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, item) {
 				result = append(result, item)
-			}
-		}
-	}
-	for _, preparation := range s.preps {
-		if preparation.OwnerID != owner || preparation.StudyingAt == nil || preparation.GraduatedAt != nil {
-			continue
-		}
-		for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
-			if item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}) {
-				result = append(result, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, GeneratedAt: item.GeneratedAt})
 			}
 		}
 	}
@@ -1668,7 +1551,7 @@ func (Enrichment) Cancel(context.Context, string, int64) (enrichmentjob.Status, 
 	return enrichmentjob.Status{ID: 8, State: rivertype.JobStateCancelled}, nil
 }
 
-type PreparedDeck struct{ Store *Store }
+type PreparedDeck struct{}
 
 func (PreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
@@ -1688,40 +1571,8 @@ func fixturePreparationFor(owner, id string) domain.DeckPreparation {
 	return preparation
 }
 
-func (p PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
-	if p.Store != nil {
-		p.Store.mu.Lock()
-		defer p.Store.mu.Unlock()
-		for _, preparation := range p.Store.preps {
-			if preparation.OwnerID == owner && preparation.ID == id {
-				preparation.VocabularyCount = len(p.Store.deckVocabularyFor(owner, id))
-				return preparation, nil
-			}
-		}
-	}
+func (PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
 	return fixturePreparationFor(owner, id), nil
-}
-func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID {
-			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
-			return preparation, nil
-		}
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-func (s *Store) GetActiveDeckVocabularyStudy(_ context.Context, owner, sourceMaterialID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.StudyingAt != nil && preparation.GraduatedAt == nil {
-			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
-			return preparation, nil
-		}
-	}
-	return domain.DeckPreparation{}, errNotFound
 }
 func (PreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{ID: PrepID, State: domain.DeckPreparationCancelled}, nil
