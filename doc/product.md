@@ -133,6 +133,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 50. [ADR 0050: The app works in one active study language at a time](adr/0050-active-study-language.md) — makes the active study language a stored context pointing into the derived set, scopes every language-dependent surface through a shell-level switcher, and removes per-screen pickers and the "All languages" default.
 51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 52. [ADR 0052: The domain owns evidence classification](adr/0052-domain-owns-evidence-classification.md) — makes the evidence state a single derivation on the domain types read by My Books, the Reading Journey, and corpus/route insights, removes the SQL-assigned `EvidenceState` and its webapp fallback, and keeps goal-eligibility a read-only projection with enforcement at the persistence layer.
+53. [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — dissolves the learning campaign as a separate reservation/plan object and anchors vocabulary-study state onto the Book, making the Book the single unit of the learner loop with independent reading and vocabulary facts; the campaign's dead-end tail (deck study → graduation) becomes a reachable, book-scoped action.
 
 ## Deployment and operations
 
