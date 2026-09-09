@@ -90,6 +90,7 @@ func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	second := testJourneyBook("second", "Second book", "ready")
 	first.Book.Source.MediaType = "application/epub+zip"
 	first.Book.Source.ContentRevisionID = "first-revision"
+	first.Book.Source.ContentSnapshotID = "first-snapshot"
 	first.Book.AnalysisState = "completed"
 	first.Book.AnalysisRunID = "first-run"
 	first.Book.CorpusID = "first-corpus"

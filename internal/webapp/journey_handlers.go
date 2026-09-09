@@ -36,10 +36,6 @@ type journeyBookView struct {
 	StatisticsUnavailable bool
 }
 
-func primaryGoalIsActive(goal domain.PrimaryGoal) bool {
-	return goal.BookID != "" && goal.ReadingFinishedAt == nil
-}
-
 func journeyBookClass(primary bool) string {
 	if primary {
 		return "resource-card journey-book journey-book--goal"
@@ -116,17 +112,19 @@ func goalSectionFocusID(bookID string) string {
 }
 
 func journeyEvidenceState(item journeyBookView) string {
-	status := strings.ToLower(item.Book.AnalysisStatus + " " + item.Book.AnalysisState)
-	if strings.Contains(status, "stale") || strings.Contains(status, "needs review") {
+	switch item.Book.EvidenceState() {
+	case domain.BookStale:
 		return "stale"
-	}
-	if strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) && strings.TrimSpace(item.Book.Source.ContentRevisionID) != "" && (strings.Contains(status, "not analyzed") || strings.Contains(status, "ready to analyze") || strings.TrimSpace(item.Book.AnalysisStatus) == "ready") {
+	case domain.BookAcquiredUnassessed:
 		return "unassessed"
-	}
-	if item.StatisticsUnavailable || item.Coverage == nil {
+	case domain.BookNotAcquired, domain.BookUnavailable:
 		return "unavailable"
+	default:
+		if item.StatisticsUnavailable || item.Coverage == nil {
+			return "unavailable"
+		}
+		return "current"
 	}
-	return "current"
 }
 
 func journeyEvidenceLabel(item journeyBookView) string {
@@ -170,21 +168,18 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 }
 
 func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
-	if !strings.EqualFold(strings.TrimSpace(book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(book.Source.ContentRevisionID) == "" {
+	switch book.GoalEligibility() {
+	case domain.GoalNeedsCurrentContent:
 		return false, "This book cannot become a Primary Goal until current EPUB content is available."
-	}
-	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus + " " + book.AnalysisState))
-	switch {
-	case strings.Contains(status, "queued") || strings.Contains(status, "running") || strings.Contains(status, "analyzing"):
+	case domain.GoalAnalysisInProgress:
 		return false, "This book cannot become a Primary Goal while its current analysis is still in progress."
-	case strings.Contains(status, "failed"):
+	case domain.GoalFailed:
 		return false, "This book cannot become a Primary Goal until its failed analysis is retried successfully."
-	case strings.Contains(status, "cancelled"):
+	case domain.GoalCancelled:
 		return false, "This book cannot become a Primary Goal until its cancelled analysis is retried successfully."
-	case strings.Contains(status, "stale") || strings.Contains(status, "needs review"):
+	case domain.GoalStale:
 		return false, "This book cannot become a Primary Goal until its analysis matches the current content."
-	}
-	if !bookHasCompletedAnalysis(book) {
+	case domain.GoalNoCompletedAnalysis:
 		return false, "This book needs a successfully completed current analysis before it can become a Primary Goal."
 	}
 	return true, ""
@@ -287,7 +282,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 		return deckJourneyActionView{}, err
 	}
 	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, Revision: journey.Revision, State: deckJourneyNotMember}
-	if primaryGoalIsActive(goal) && goal.BookID == bookID {
+	if goal.IsActive() && goal.BookID == bookID {
 		action.State = deckJourneyGoal
 		return action, nil
 	}
@@ -405,7 +400,7 @@ func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, 
 		return err
 	}
 	goalBookID := ""
-	if primaryGoalIsActive(goal) {
+	if goal.IsActive() {
 		goalBookID = goal.BookID
 	}
 	members := make(map[string]bool, len(journey.Entries))
@@ -441,7 +436,7 @@ func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, boo
 			break
 		}
 	}
-	book.JourneyGoal = primaryGoalIsActive(goal) && goal.BookID == book.Book.ID
+	book.JourneyGoal = goal.IsActive() && goal.BookID == book.Book.ID
 	book.JourneyRevision = journey.Revision
 	if book.Acquired != nil {
 		book.Acquired.JourneyMember = book.JourneyMember
@@ -570,7 +565,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	}
 
 	view := journeyPageView{Revision: journey.Revision}
-	if primaryGoalIsActive(goal) {
+	if goal.IsActive() {
 		book, bookErr := h.journeyBook(ctx, owner, goal.BookID, bookByID)
 		if bookErr != nil {
 			return journeyPageView{}, bookErr
@@ -584,7 +579,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		preparations, _ := h.services.Store.ListUnassignedReadyDeckPreparations(ctx, owner)
 		book.GoalResidual = h.goalResidual(ctx, owner, book.Book.Source.ID, journeyBookTitle(book.Book), campaigns)
 		book.GoalDeckAvailable = goalBookHasDeck(book.Book.Source.ID, campaigns, preparations)
-		book.GoalUnassessed = !strings.EqualFold(strings.TrimSpace(book.Book.AnalysisStatus), "analyzed")
+		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
 		book.GoalReadingOnly = !book.GoalDeckAvailable
 		view.Residual = book.GoalResidual
 		view.Goal = &book
@@ -664,12 +659,12 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 }
 
 func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *journeyBookView) error {
-	status := strings.ToLower(book.Book.AnalysisStatus + " " + book.Book.AnalysisState)
-	if strings.Contains(status, "stale") || strings.Contains(status, "needs review") {
+	state := book.Book.EvidenceState()
+	if state == domain.BookStale {
 		return nil
 	}
-	if book.Book.AnalysisStatus != "analyzed" || book.Book.CorpusID == "" || h.services.AnalysisInsights == nil {
-		book.StatisticsUnavailable = book.Book.AnalysisStatus == "analyzed"
+	if state != domain.BookAnalyzed || book.Book.CorpusID == "" || h.services.AnalysisInsights == nil {
+		book.StatisticsUnavailable = state == domain.BookAnalyzed
 		return nil
 	}
 	coverage, err := h.services.AnalysisInsights.Coverage(ctx, owner, book.Book.CorpusID)

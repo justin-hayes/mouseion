@@ -213,49 +213,29 @@ func statusTone(value string) StatusTone {
 	}
 }
 
-func myBookEvidenceStateFor(book domain.MyBook) domain.MyBookEvidenceState {
-	if book.EvidenceState != "" {
-		return book.EvidenceState
-	}
-	if book.Acquired == nil {
-		return domain.MyBookNotAcquired
-	}
-	if book.Acquired.Source.ContentRevisionID == "" {
-		return domain.MyBookUnavailable
-	}
-	if strings.EqualFold(book.Acquired.AnalysisStatus, "analyzed") {
-		return domain.MyBookAnalyzed
-	}
-	return domain.MyBookAcquiredUnassessed
-}
-
 func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(books))
 	for _, source := range books {
-		state := domain.MyBookAcquiredUnassessed
-		if strings.EqualFold(source.AnalysisStatus, "analyzed") {
-			state = domain.MyBookAnalyzed
-		}
 		bookID := source.BookID
 		if bookID == "" {
 			bookID = source.Source.ID
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source, EvidenceState: state})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.Source.Title, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
 	}
 	return out
 }
 
-func myBookEvidenceLabel(state domain.MyBookEvidenceState) string {
+func myBookEvidenceLabel(state domain.BookEvidenceState) string {
 	switch state {
-	case domain.MyBookUnavailable:
+	case domain.BookUnavailable:
 		return "Unavailable"
-	case domain.MyBookNotAcquired:
+	case domain.BookNotAcquired:
 		return "Not acquired"
-	case domain.MyBookAcquiredUnassessed:
+	case domain.BookAcquiredUnassessed:
 		return "Ready to analyze"
-	case domain.MyBookAnalyzed:
+	case domain.BookAnalyzed:
 		return "Analyzed"
-	case domain.MyBookStale:
+	case domain.BookStale:
 		return "Stale analysis"
 	default:
 		return "Evidence unavailable"
@@ -282,9 +262,9 @@ func myBookAnalysisLabel(status string) string {
 }
 
 func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
-	state := myBookEvidenceStateFor(book)
-	if book.Acquired == nil || state == domain.MyBookUnavailable {
-		if state == domain.MyBookNotAcquired {
+	state := book.EvidenceState()
+	if book.Acquired == nil || state == domain.BookUnavailable {
+		if state == domain.BookNotAcquired {
 			return bookLifecycleAction{
 				Status:      "Not acquired",
 				Description: "Acquire and analyze the EPUB in one action.",
@@ -302,7 +282,7 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 			Tone:        statusTone(myBookEvidenceLabel(state)),
 		}
 	}
-	if state == domain.MyBookStale {
+	if state == domain.BookStale {
 		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Book.ID) + "/analyze", Tone: StatusWarning, Submit: true}
 	}
 	action := bookLifecycleActionFor(*book.Acquired, nil)

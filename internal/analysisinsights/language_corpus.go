@@ -52,7 +52,7 @@ func (s *Service) LanguageCorpus(ctx context.Context, owner, language string) (d
 			SourceMaterialID: book.SourceMaterialID,
 			CorpusID:         book.CorpusID,
 			AnalysisRunID:    book.AnalysisRunID,
-			EvidenceState:    book.EvidenceState,
+			EvidenceState:    book.EvidenceState(),
 		}
 		input := domain.AnalysisCorpusVocabulary{
 			CorpusID:         book.CorpusID,
@@ -111,11 +111,11 @@ func (s *Service) LanguageCorpus(ctx context.Context, owner, language string) (d
 
 func languageCorpusExclusion(book domain.LanguageCorpusBookEvidence, input domain.AnalysisCorpusVocabulary, language string) string {
 	switch {
-	case book.SourceMaterialID == "":
+	case book.EvidenceState() == domain.BookNotAcquired:
 		return "unavailable: no current acquired source"
-	case book.EvidenceState == domain.MyBookUnavailable:
+	case book.EvidenceState() == domain.BookUnavailable:
 		return "unavailable: current source content unavailable"
-	case book.EvidenceState == domain.MyBookStale:
+	case book.EvidenceState() == domain.BookStale:
 		return "stale: analysis no longer matches the current book scope"
 	case book.SourceLanguage != "" && !strings.EqualFold(book.SourceLanguage, language):
 		return "different study language"

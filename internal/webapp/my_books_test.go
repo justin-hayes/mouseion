@@ -14,7 +14,7 @@ import (
 )
 
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
+	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}}
 	var output bytes.Buffer
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,6 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 		Book:            domain.Book{ID: "journey-book", OwnerID: "owner", Title: "Journey book"},
 		JourneyMember:   true,
 		JourneyRevision: 7,
-		EvidenceState:   domain.MyBookNotAcquired,
 	}
 	var output bytes.Buffer
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
@@ -82,10 +81,9 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 
 func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
 	book := domain.MyBook{
-		Book:          domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
-		EvidenceState: domain.MyBookAnalyzed,
+		Book: domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
 		Acquired: &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip"},
+			Source:         domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
 			AnalysisStatus: "analyzed",
 			AnalysisState:  "completed",
 			AnalysisRunID:  "run-analyzed-book",
@@ -103,18 +101,29 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 }
 
 func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
-	states := []domain.MyBookEvidenceState{
-		domain.MyBookUnavailable,
-		domain.MyBookNotAcquired,
-		domain.MyBookAcquiredUnassessed,
-		domain.MyBookAnalyzed,
-		domain.MyBookStale,
+	states := []domain.BookEvidenceState{
+		domain.BookUnavailable,
+		domain.BookNotAcquired,
+		domain.BookAcquiredUnassessed,
+		domain.BookAnalyzed,
+		domain.BookStale,
 	}
 	books := make([]domain.MyBook, 0, len(states))
 	for i, state := range states {
-		book := domain.MyBook{Book: domain.Book{ID: "book-" + string(rune('a'+i)), OwnerID: "owner", Title: "Book " + string(rune('A'+i)), LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: state}
-		if state != domain.MyBookNotAcquired {
-			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-" + book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: "revision"}, BookID: book.Book.ID, AnalysisStatus: "not analyzed"}
+		book := domain.MyBook{Book: domain.Book{ID: "book-" + string(rune('a'+i)), OwnerID: "owner", Title: "Book " + string(rune('A'+i)), LanguageState: domain.LanguageChosen, LanguageTag: "de"}}
+		if state != domain.BookNotAcquired {
+			status := "not analyzed"
+			revision := "revision"
+			if state == domain.BookUnavailable {
+				revision = ""
+			}
+			if state == domain.BookAnalyzed {
+				status = "analyzed"
+			}
+			if state == domain.BookStale {
+				status = "stale"
+			}
+			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-" + book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: revision, ContentSnapshotID: "snapshot"}, BookID: book.Book.ID, AnalysisStatus: status}
 		}
 		books = append(books, book)
 	}
@@ -185,7 +194,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 }
 
 func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageUnknown}, EvidenceState: domain.MyBookNotAcquired}
+	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageUnknown}}
 	var output bytes.Buffer
 	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
@@ -207,7 +216,7 @@ func TestMetadataOnlyBookPageDoesNotExposeContentActions(t *testing.T) {
 }
 
 func TestMetadataOnlyBookPageExposesCatalogueMetadataRefresh(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, EvidenceState: domain.MyBookNotAcquired}
+	book := domain.MyBook{Book: domain.Book{ID: "catalogue-book", OwnerID: "owner", Title: "Catalogue metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}
 	var output bytes.Buffer
 	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "Metadata refreshed.", true).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
@@ -247,7 +256,7 @@ func TestMetadataOnlyBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 		Title:         "Una storia italiana",
 		LanguageState: domain.LanguageChosen,
 		LanguageTag:   "it",
-	}, EvidenceState: domain.MyBookNotAcquired}
+	}}
 	var output bytes.Buffer
 	if err := MetadataOnlyBookPage(domain.User{Username: "learner"}, "csrf", book, "", false).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)

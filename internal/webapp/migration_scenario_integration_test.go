@@ -61,7 +61,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadataView := migrationMyBook(t, ctx, store, alice.ID, metadata.ID)
-	if metadataView.Acquired != nil || metadataView.EvidenceState != domain.MyBookNotAcquired {
+	if metadataView.Acquired != nil || metadataView.EvidenceState() != domain.BookNotAcquired {
 		t.Fatalf("metadata-only book before acquisition=%+v", metadataView)
 	}
 

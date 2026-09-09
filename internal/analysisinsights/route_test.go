@@ -52,6 +52,16 @@ func (s *routeStore) ListLegacyGeneratedVocabulary(context.Context, string, stri
 	return nil, nil
 }
 
+func analyzedRouteSummary(id, language, corpus string) *domain.SourceMaterialSummary {
+	return &domain.SourceMaterialSummary{
+		Source:         domain.SourceMaterial{ID: id, Language: language, ContentRevisionID: "revision-" + id, ContentSnapshotID: "snapshot-" + id},
+		AnalysisStatus: "analyzed",
+		AnalysisState:  "completed",
+		AnalysisRunID:  "run-" + id,
+		CorpusID:       corpus,
+	}
+}
+
 func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *testing.T) {
 	ctx := context.Background()
 	stats := func(n int64) *domain.AnalysisStatistics {
@@ -61,10 +71,10 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 		return domain.AnalysisCorpusVocabulary{CorpusID: "c-" + book, SourceMaterialID: book, Statistics: stats(100), Lemmas: []domain.LemmaOccurrence{{Language: language, CanonicalLemma: "known-" + book, UPOS: "NOUN", OccurrenceCount: known}, {Language: language, CanonicalLemma: "unknown-" + book, UPOS: "NOUN", OccurrenceCount: 100 - known}}}
 	}
 	books := []domain.MyBook{
-		{Book: domain.Book{ID: "a", OwnerID: "alice"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "a", Language: "de"}, CorpusID: "c-a"}, EvidenceState: domain.MyBookAnalyzed},
-		{Book: domain.Book{ID: "b", OwnerID: "alice"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "b", Language: "fr"}, CorpusID: "c-b"}, EvidenceState: domain.MyBookAnalyzed},
-		{Book: domain.Book{ID: "c", OwnerID: "alice"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "c", Language: "de"}, CorpusID: "c-c"}, EvidenceState: domain.MyBookAnalyzed},
-		{Book: domain.Book{ID: "d", OwnerID: "alice"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "d", Language: "de"}, CorpusID: "c-d"}, EvidenceState: domain.MyBookAnalyzed},
+		{Book: domain.Book{ID: "a", OwnerID: "alice"}, Acquired: analyzedRouteSummary("a", "de", "c-a")},
+		{Book: domain.Book{ID: "b", OwnerID: "alice"}, Acquired: analyzedRouteSummary("b", "fr", "c-b")},
+		{Book: domain.Book{ID: "c", OwnerID: "alice"}, Acquired: analyzedRouteSummary("c", "de", "c-c")},
+		{Book: domain.Book{ID: "d", OwnerID: "alice"}, Acquired: analyzedRouteSummary("d", "de", "c-d")},
 	}
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "a"}, {BookID: "b"}, {BookID: "c"}, {BookID: "d"}}},
@@ -113,9 +123,8 @@ func TestJourneyProjectionClassifiesMismatchedCorpusAsEvidenceIntegrityFailure(t
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "book"}}},
 		books: []domain.MyBook{{
-			Book:          domain.Book{ID: "book", OwnerID: "alice"},
-			Acquired:      &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source", Language: "de"}, CorpusID: "corpus"},
-			EvidenceState: domain.MyBookAnalyzed,
+			Book:     domain.Book{ID: "book", OwnerID: "alice"},
+			Acquired: analyzedRouteSummary("source", "de", "corpus"),
 		}},
 		corpora: map[string]domain.AnalysisCorpusVocabulary{
 			"corpus": {
@@ -140,9 +149,8 @@ func TestJourneyProjectionDoesNotInferLanguageFromJourneyMembers(t *testing.T) {
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "book"}}},
 		books: []domain.MyBook{{
-			Book:          domain.Book{ID: "book", OwnerID: "alice"},
-			Acquired:      &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source", Language: "de"}, CorpusID: "corpus"},
-			EvidenceState: domain.MyBookAnalyzed,
+			Book:     domain.Book{ID: "book", OwnerID: "alice"},
+			Acquired: analyzedRouteSummary("source", "de", "corpus"),
 		}},
 		corpora: map[string]domain.AnalysisCorpusVocabulary{
 			"corpus": {
@@ -174,9 +182,9 @@ func TestJourneyProjectionAnchorsGoalAfterIncomparableAndRecomputesVocabulary(t 
 		}
 	}
 	books := []domain.MyBook{
-		{Book: domain.Book{ID: "missing", OwnerID: "owner"}, EvidenceState: domain.MyBookNotAcquired},
-		{Book: domain.Book{ID: "b", OwnerID: "owner"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "b", Language: "de"}, CorpusID: "cb"}, EvidenceState: domain.MyBookAnalyzed},
-		{Book: domain.Book{ID: "c", OwnerID: "owner"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "c", Language: "de"}, CorpusID: "cc"}, EvidenceState: domain.MyBookAnalyzed},
+		{Book: domain.Book{ID: "missing", OwnerID: "owner"}},
+		{Book: domain.Book{ID: "b", OwnerID: "owner"}, Acquired: analyzedRouteSummary("b", "de", "cb")},
+		{Book: domain.Book{ID: "c", OwnerID: "owner"}, Acquired: analyzedRouteSummary("c", "de", "cc")},
 	}
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "owner", Entries: []domain.ReadingJourneyEntry{{BookID: "missing"}, {BookID: "b"}, {BookID: "c"}}},
@@ -232,9 +240,9 @@ func TestJourneyProjectionTiesDeterministicOnEqualCoverageAndCarryThresholds(t *
 		return domain.MyBook{
 			Book: domain.Book{ID: id, OwnerID: "alice"},
 			Acquired: &domain.SourceMaterialSummary{
-				Source: domain.SourceMaterial{ID: id, Language: "de"}, CorpusID: "c-" + id,
+				Source: domain.SourceMaterial{ID: id, Language: "de", ContentRevisionID: "revision-" + id, ContentSnapshotID: "snapshot-" + id}, CorpusID: "c-" + id,
+				AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-" + id,
 			},
-			EvidenceState: domain.MyBookAnalyzed,
 		}
 	}
 	run := func(entries []string) domain.JourneyProjectionResult {

@@ -63,7 +63,7 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	}
 
 	detail, err := store.GetBookDetail(ctx, OwnerID, BookID)
-	if err != nil || detail.Acquired == nil || detail.EvidenceState != domain.MyBookAnalyzed {
+	if err != nil || detail.Acquired == nil || detail.EvidenceState() != domain.BookAnalyzed {
 		t.Fatalf("acquired detail=%+v err=%v", detail, err)
 	}
 	if _, err = store.GetBookDetail(ctx, "other-owner", BookID); !errors.Is(err, persistence.ErrNotFound) {
@@ -439,7 +439,7 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, book := range books {
-		if book.Book.ID == "fixture-metadata-only" && (book.Acquired != nil || book.EvidenceState != domain.MyBookNotAcquired) {
+		if book.Book.ID == "fixture-metadata-only" && (book.Acquired != nil || book.EvidenceState() != domain.BookNotAcquired) {
 			t.Fatalf("metadata-only fixture acquired evidence=%+v", book)
 		}
 	}

@@ -20,7 +20,7 @@ type LanguageCorpusBookSpread struct {
 	AnalysisRunID        string
 	KnownTokenCount      int64
 	AnalyzableTokenCount int64
-	EvidenceState        MyBookEvidenceState
+	EvidenceState        BookEvidenceState
 	Included             bool
 	ExclusionReason      string
 }
@@ -32,12 +32,35 @@ type LanguageCorpusBookEvidence struct {
 	Book                     Book
 	SourceMaterialID         string
 	SourceLanguage           string
+	CurrentContentRevisionID string
+	CurrentSnapshotID        string
 	CurrentSourceMaterialID  string
 	CurrentAnalysisRunID     string
 	AnalysisSourceMaterialID string
 	CorpusID                 string
 	AnalysisRunID            string
-	EvidenceState            MyBookEvidenceState
 	Statistics               *AnalysisStatistics
 	Lemmas                   []LemmaOccurrence
+}
+
+// EvidenceState classifies corpus evidence from its source and analysis
+// identities. A completed current analysis is analyzed; an older or broken
+// current projection is stale; otherwise acquired evidence is unassessed.
+func (b LanguageCorpusBookEvidence) EvidenceState() BookEvidenceState {
+	if b.SourceMaterialID == "" {
+		return BookNotAcquired
+	}
+	if b.CurrentContentRevisionID == "" || b.CurrentSnapshotID == "" {
+		return BookUnavailable
+	}
+	if (b.AnalysisSourceMaterialID != "" && b.AnalysisSourceMaterialID != b.SourceMaterialID) ||
+		(b.CurrentSourceMaterialID != "" && b.CurrentSourceMaterialID != b.SourceMaterialID) ||
+		(b.AnalysisRunID != "" && b.CurrentAnalysisRunID == "") ||
+		(b.CurrentAnalysisRunID != "" && b.CorpusID == "") {
+		return BookStale
+	}
+	if b.CurrentAnalysisRunID != "" && b.CorpusID != "" {
+		return BookAnalyzed
+	}
+	return BookAcquiredUnassessed
 }
