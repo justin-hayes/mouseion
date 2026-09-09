@@ -1,0 +1,2 @@
+-- Historical backfill is intentionally not reversed; the source campaign
+-- rows remain available for recovery and the new snapshot is immutable.

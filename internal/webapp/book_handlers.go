@@ -67,6 +67,12 @@ func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if preparation == nil {
+		preparation, ok = h.currentVocabularyStudyPreparation(w, r, u.ID, summary, false)
+		if !ok {
+			return
+		}
+	}
 	render(w, r, BookPageWithHistoryAndPreparation(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, bookHistory, r.URL.Query().Get("message"), preparation, journeyAction))
 }
 
@@ -235,8 +241,181 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 			fail(w, err)
 			return nil, journeyAction, false
 		}
+		if studyStore, ok := h.services.Store.(VocabularyStudyStore); ok {
+			preparation.VocabularyCount, err = studyStore.CountDeckPreparationVocabularyToGraduate(r.Context(), owner, preparation.ID)
+			if err != nil {
+				fail(w, err)
+				return nil, journeyAction, false
+			}
+		}
 	}
 	return &preparation, journeyAction, true
+}
+
+func (h *Handler) bookVocabularyStudyPreparation(w http.ResponseWriter, r *http.Request) (domain.DeckPreparation, bool) {
+	u := user(r)
+	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	if !ok {
+		return domain.DeckPreparation{}, false
+	}
+	if detail.Acquired == nil {
+		http.NotFound(w, r)
+		return domain.DeckPreparation{}, false
+	}
+	preparation, _, ok := h.currentBookPreparation(w, r, u.ID, *detail.Acquired)
+	if !ok {
+		return domain.DeckPreparation{}, false
+	}
+	if preparation == nil {
+		preparation, ok = h.currentVocabularyStudyPreparation(w, r, u.ID, *detail.Acquired, true)
+		if !ok {
+			return domain.DeckPreparation{}, false
+		}
+	}
+	if preparation == nil {
+		http.Error(w, "this Book has no current prepared deck", http.StatusConflict)
+		return domain.DeckPreparation{}, false
+	}
+	return *preparation, true
+}
+
+func (h *Handler) currentVocabularyStudyPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary, includeReady bool) (*domain.DeckPreparation, bool) {
+	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" {
+		return nil, true
+	}
+	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	if !ok {
+		return nil, true
+	}
+	preparation, err := reader.GetDeckPreparationForAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return nil, true
+	}
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return nil, false
+	}
+	if preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted && !includeReady {
+		preparation, err = reader.GetActiveDeckVocabularyStudy(r.Context(), owner, book.Source.ID)
+		if errors.Is(err, persistence.ErrNotFound) {
+			return nil, true
+		}
+		if err != nil {
+			handlePreparationError(w, r, err)
+			return nil, false
+		}
+	}
+	if preparation.State == domain.DeckPreparationReady {
+		studyStore, ok := h.services.Store.(VocabularyStudyStore)
+		if ok {
+			preparation.VocabularyCount, err = studyStore.CountDeckPreparationVocabularyToGraduate(r.Context(), owner, preparation.ID)
+			if err != nil {
+				fail(w, err)
+				return nil, false
+			}
+		}
+	}
+	return &preparation, true
+}
+
+func (h *Handler) startBookVocabularyStudy(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	store, ok := h.services.Store.(VocabularyStudyStore)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	preparation, ok := h.bookVocabularyStudyPreparation(w, r)
+	if !ok {
+		return
+	}
+	updated, err := store.StartDeckVocabularyStudy(r.Context(), user(r).ID, preparation.ID)
+	if errors.Is(err, persistence.ErrActiveVocabularyStudy) {
+		redirectBookVocabularyStudyError(w, r, "Finish or release the other Book's vocabulary study before starting this one.")
+		return
+	}
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		redirectBookVocabularyStudyError(w, r, "Only a ready, non-empty deck can start a vocabulary study.")
+		return
+	}
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	message := "Study this Book's vocabulary started. Its reserved vocabulary is not counted as known."
+	if updated.ID == "" {
+		message = "This Book's vocabulary study is already in progress."
+	}
+	redirectBookVocabularyStudy(w, r, message)
+}
+
+func (h *Handler) confirmBookVocabularyReview(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	store, ok := h.services.Store.(VocabularyStudyStore)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	preparation, ok := h.bookVocabularyStudyPreparation(w, r)
+	if !ok {
+		return
+	}
+	count := preparation.VocabularyCount
+	updated, err := store.ConfirmDeckVocabularyReview(r.Context(), user(r).ID, preparation.ID)
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		redirectBookVocabularyStudyError(w, r, "Start this Book's vocabulary study before confirming its deck review.")
+		return
+	}
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirectBookVocabularyStudy(w, r, fmt.Sprintf("Deck review confirmed. %d vocabulary identities graduated to known vocabulary.", count))
+	_ = updated
+}
+
+func (h *Handler) releaseBookVocabularyStudy(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	store, ok := h.services.Store.(VocabularyStudyStore)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	preparation, ok := h.bookVocabularyStudyPreparation(w, r)
+	if !ok {
+		return
+	}
+	if _, err := store.ReleaseDeckVocabularyStudy(r.Context(), user(r).ID, preparation.ID); errors.Is(err, persistence.ErrInvalidTransition) {
+		redirectBookVocabularyStudyError(w, r, "A reviewed Book vocabulary study cannot be released.")
+	} else if err != nil {
+		fail(w, err)
+	} else {
+		redirectBookVocabularyStudy(w, r, "Vocabulary study released. Its provenance remains recorded and the vocabulary is eligible again.")
+	}
+}
+
+func redirectBookVocabularyStudy(w http.ResponseWriter, r *http.Request, message string) {
+	redirect(w, r, "/books/"+url.PathEscape(r.PathValue("id"))+"?message="+url.QueryEscape(message))
+}
+
+func redirectBookVocabularyStudyError(w http.ResponseWriter, r *http.Request, message string) {
+	// Book detail currently has one feedback slot; keep blocked-study copy in
+	// that visible slot rather than silently dropping it on the redirect.
+	redirect(w, r, "/books/"+url.PathEscape(r.PathValue("id"))+"?message="+url.QueryEscape("Study action blocked: "+message))
 }
 
 func (h *Handler) analyzeBook(w http.ResponseWriter, r *http.Request) {
