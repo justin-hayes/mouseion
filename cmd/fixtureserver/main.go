@@ -29,7 +29,7 @@ func main() {
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: store, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{JourneyStore: store}, KnownVocab: fixtures.KnownVocab{},
-		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{}, Capabilities: fixtures.Capabilities{},
+		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
 		CatalogueSync: catalogueSync,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})

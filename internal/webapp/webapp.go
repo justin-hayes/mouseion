@@ -120,6 +120,18 @@ type PreparedDeckForAnalysis interface {
 	GetForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
 }
 
+type VocabularyStudyStore interface {
+	StartDeckVocabularyStudy(context.Context, string, string) (domain.DeckPreparation, error)
+	ConfirmDeckVocabularyReview(context.Context, string, string) (domain.DeckPreparation, error)
+	ReleaseDeckVocabularyStudy(context.Context, string, string) (domain.DeckPreparation, error)
+	CountDeckPreparationVocabularyToGraduate(context.Context, string, string) (int, error)
+}
+
+type VocabularyStudyPreparationReader interface {
+	GetDeckPreparationForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
+	GetActiveDeckVocabularyStudy(context.Context, string, string) (domain.DeckPreparation, error)
+}
+
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
 	Auth             *auth.Service
@@ -181,6 +193,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createBookDeckPreparation)))
 	h.mux.Handle("POST /books/{id}/analyses/{runID}/deck/preparations", h.user(http.HandlerFunc(h.createAnalysisDeckPreparation)))
 	h.mux.Handle("POST /books/{id}/analyze", h.user(http.HandlerFunc(h.analyzeBook)))
+	h.mux.Handle("POST /books/{id}/vocabulary-study", h.user(http.HandlerFunc(h.startBookVocabularyStudy)))
+	h.mux.Handle("POST /books/{id}/vocabulary-study/confirm", h.user(http.HandlerFunc(h.confirmBookVocabularyReview)))
+	h.mux.Handle("POST /books/{id}/vocabulary-study/release", h.user(http.HandlerFunc(h.releaseBookVocabularyStudy)))
 	h.mux.Handle("POST /jobs/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
