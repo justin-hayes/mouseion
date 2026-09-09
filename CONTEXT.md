@@ -46,6 +46,16 @@ selection makes no coverage claim. Known vocabulary, generated vocabulary, and
 active-campaign vocabulary are excluded before the pool is formed.
 _Avoid_: frequent words, deck coverage.
 
+**Analysis evidence**:
+The classification of a Book's current acquired source against its analysis
+standing, owned per Book and derived from the raw analysis signals rather than
+stored by hand. It is the single state both My Books and the Reading Journey
+present: not acquired, unavailable (content present but no current revision),
+stale (a prior analysis no longer matches the current content), analyzed, or
+acquired-but-unassessed (current content present, analysis not yet complete).
+_Avoid_: book status, analysis state (the raw signal the classification reads,
+not the classification itself), deck readiness.
+
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`
