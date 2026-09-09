@@ -1,15 +1,17 @@
 # Reading Journey and Primary Goal workflow
 
 Status: **Canonical shipped learner-facing workflow.** Reading Journey and
-Primary Goal are shipped; Campaign remains secondary history/operations and its
-reservation and graduation details remain governed by ADRs 0027, 0034, and 0036.
-Reading-intent acquisition and analysis are governed by [ADR
+Primary Goal are shipped; vocabulary study is book-anchored and its reservation
+and graduation details are governed by [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md)
+(as re-expressed from ADRs 0027, 0034, and 0036, which the Book-anchored
+decision consolidates). Reading-intent acquisition and analysis are governed by [ADR
 0049](../../adr/0049-reading-intent-triggers-analysis.md). Reading Journey and
 Primary Goal are one per study language ([ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md));
 this workflow describes the active study language's Journey and Goal.
 
-The filename is retained to preserve existing links. **Learning campaign** is no
-longer the primary learner-facing name for this experience.
+The filename is retained to preserve existing links. **Learning campaign** is
+retired as a learner-facing and internal plan object; a Book's vocabulary study
+and its deck carry the reservation/graduation facts (ADR 0053).
 
 ## Goal
 
@@ -179,7 +181,7 @@ Journey or proof of vocabulary knowledge. Once reading is finished, the book no
 longer occupies the current Primary Goal role; it remains in My Books and
 history, and any unfinished vocabulary work remains visible as a separate fact.
 No next Goal is created automatically. ADR 0036 defines this role transition and
-keeps any residual Campaign work explicit.
+keeps any residual vocabulary work explicit.
 
 The outcome view uses a restrained, book-led receipt rather than celebration
 chrome.
@@ -215,8 +217,8 @@ The reading achievement must not be withheld because vocabulary work remains.
 Conversely, achievement copy must not imply the vocabulary transition happened.
 
 ADR 0036 permits this learner-facing rhythm: reading-finished is independent of
-deck-reviewed, and residual Campaign work remains explicit until it is graduated
-or abandoned. The UI states those facts separately.
+deck-reviewed, and residual vocabulary work remains explicit until it is
+graduated or released. The UI states those facts separately.
 
 ## 6. Where next?
 
@@ -255,9 +257,9 @@ or a completed plan.
 - **Changing or clearing a Goal:** state what happens to reading history,
   prepared artifacts, vocabulary reservation, and unfinished work according to
   ADR 0036; do not invent different consequences in a generic confirmation.
-- **Historical completed or abandoned Campaigns:** keep them understandable as
-  reading/preparation/vocabulary-transition history without restoring Campaign
-  as principal navigation.
+- **Historical graduated or released vocabulary study:** keep a Book's past
+  decks understandable as reading/preparation/vocabulary-transition history
+  without restoring a separate plan as principal navigation.
 
 ## State model
 
@@ -305,31 +307,32 @@ This workflow deliberately does not decide:
   membership and order persistence are decided in
   [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md) and
   [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md));
-- how a Goal maps to or differs from a Campaign (decided in
-  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): a Goal never
-  reserves vocabulary itself; Campaign remains the internal reservation/
-  graduation mechanism, created when the learner elects deck-based vocabulary
-  work);
+- how vocabulary reservation and graduation work (decided in
+  [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md): a Book
+  carries the vocabulary-study facet; its one current deck reserves and, on
+  confirmed review, graduates the Book's snapshotted vocabulary. A Goal never
+  reserves vocabulary itself);
 - whether another Goal can begin while vocabulary work remains (decided in
-  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md): an explicit
-  graduate-or-abandon resolution, one-active exclusivity preserved, deterministic
-  overlap). The one-active exclusivity is owner-wide (`one_active_per_owner`),
-  even though Goals may be active in parallel languages under
+  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md) and re-expressed
+  in [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md): an
+  explicit graduate-or-release resolution, one-study exclusivity preserved,
+  deterministic overlap). One study is exclusive owner-wide, even though Goals
+  may be active in parallel languages under
   [ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md); whether
-  a per-language active Campaign is ever warranted remains an open question in
-  ADR 0051;
+  a per-language vocabulary study is ever warranted remains an open question
+  recorded in ADR 0053;
 - implementation details beyond the route, interaction, and state contracts
   recorded here and in ADRs.
 
-Journey identity, ownership, ordering, stale-write behavior, and the migration
-of queued/active/complete/abandoned Campaign records are resolved in
+Journey identity, ownership, ordering, and stale-write behavior are resolved in
 [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md), with per-study-
 language Journey and Goal identity resolved in
 [ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md). Primary Goal
 identity, the single justified graduation transition (reading-finished
 independent of deck-reviewed; snapshot + confirmed review), and new-Goal-with-
 residual-work semantics are resolved in
-[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md). Cross-book
-projection and route/terminology rollout are resolved by ADR 0037 and the
-shipped implementation respectively. ADR 0027 remains the historical/internal
-Campaign contract where it is not superseded.
+[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md) and made
+book-anchored in [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md).
+Cross-book projection and route/terminology rollout are resolved by ADR 0037 and
+the shipped implementation respectively. The historical Campaign contract
+remains provenance where not superseded by ADR 0053.

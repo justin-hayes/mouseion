@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes the entire acquired EPUB as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, Campaign history and operations, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes the entire acquired EPUB as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, vocabulary study (per Book), and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -14,10 +14,10 @@ maintenance are reached from My Books empty states and actions and via the
 shell action. My Books is the sole browse surface for the synced collection,
 and EPUB content is acquired from each Book's detail page. The upstream catalog
 browser is retired. `/` redirects to My Books, and the
-compatibility route `GET /campaigns` redirects to Reading Journey. Campaign
-history and operations remain available as a secondary section on Reading
-Journey for prepared-deck actions, reading/preparation facts, and vocabulary
-provenance; Campaign is not a second learner-facing plan.
+compatibility route `GET /campaigns` redirects to Reading Journey. Vocabulary
+study is a book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
+a Book's prepared-deck actions, reading/preparation facts, and vocabulary
+provenance live on Book detail, not on a second learner-facing plan.
 
 Catalogue synchronization status is an operational part of the learner-owned
 connection surface at `/connections`, with detailed work under `/jobs`; it does
@@ -63,13 +63,13 @@ language for import.
 3. **Explicit analysis** — from Book detail, **Start analysis** remains available for a Book in My Books. It acquires content when needed and explicitly starts or re-starts whole-book analysis; it is the refresh lever after content changes and does not add Journey membership or select a Primary Goal.
 4. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Book's one current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
 5. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-6. **Deck selection** — classify explicitly known and graduated vocabulary as known, reserve active-campaign vocabulary without counting it as known, and leave abandoned-campaign vocabulary eligible again. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
+6. **Deck selection** — classify explicitly known and graduated vocabulary as known, reserve the currently-studied Book's vocabulary without counting it as known, and leave released (abandoned) vocabulary eligible again. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
 7. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 8. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
-   named `Mouseion::<language>::<book title>`. The ready deck is available from the book and operational history; secondary campaign operations may reference prepared decks but do not imply a learner-facing queue, Journey membership, or automatic Primary Goal selection. Cards remain ordered by each lemma's first
+   named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. Active-campaign vocabulary is reserved for the current workflow but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0036](adr/0036-primary-goal-justified-graduation.md): a `learning_campaign_vocabulary` identity atomically linked to generated provenance, once study is confirmed by deck review; reading-finished alone graduates nothing. Abandoning the campaign makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
+Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. A Book's reserved vocabulary is held aside for study but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0036](adr/0036-primary-goal-justified-graduation.md) as re-expressed by [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md): a Book's deck-snapshotted, provenance-linked vocabulary identity graduates on confirmed deck review; reading-finished alone graduates nothing. Releasing a study makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
 
 ## Current stack
 
