@@ -64,7 +64,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
-    const title = page.locator('.library-list a[href="/books/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    const title = page.locator('.library-list a[href="/journey/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();

@@ -29,6 +29,7 @@ type MyBooksBrowseState struct {
 	Page               int
 	PageCount          int
 	TextNoMatch        bool
+	RefreshableBookIDs map[string]bool
 }
 
 func myBooksBrowseURL(query string, page int) string {

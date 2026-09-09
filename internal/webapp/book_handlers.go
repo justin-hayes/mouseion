@@ -147,6 +147,23 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 	return true, nil
 }
 
+func (h *Handler) refreshableMyBookIDs(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, error) {
+	refreshable := make(map[string]bool)
+	for _, book := range books {
+		if book.EvidenceState() != domain.BookNotAcquired {
+			continue
+		}
+		eligible, err := h.bookRefreshEligible(ctx, owner, book.Book.ID)
+		if err != nil {
+			return nil, err
+		}
+		if eligible {
+			refreshable[book.Book.ID] = true
+		}
+	}
+	return refreshable, nil
+}
+
 func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -173,6 +190,24 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		result.Book = detail.Book
 	}
 	message := refreshMessage(result)
+	if isHTMX(r) && strings.TrimPrefix(strings.TrimSpace(r.Header.Get("HX-Target")), "#") == myBookRowID(detail.Book.ID) {
+		row := domain.MyBook{Book: result.Book}
+		if err := h.annotateBookWithJourney(r.Context(), u.ID, &row); err != nil {
+			fail(w, err)
+			return
+		}
+		refreshEligible, err := h.bookRefreshEligible(r.Context(), u.ID, row.Book.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		goalBookID := ""
+		if row.JourneyGoal {
+			goalBookID = row.Book.ID
+		}
+		render(w, r, MyBookRow(h.csrf(w, r), row, goalBookID, refreshEligible, message))
+		return
+	}
 	if isHTMX(r) {
 		render(w, r, MetadataOnlyBookMetadataRegion(h.csrf(w, r), domain.MyBook{Book: result.Book}, message))
 		return

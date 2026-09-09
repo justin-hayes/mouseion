@@ -51,6 +51,8 @@ func metadataOnlyBookDescription(language string) string {
 	return language + " · Metadata only"
 }
 
+func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(bookID) }
+
 func knownVocabProvenance(entry domain.KnownVocabulary) string {
 	if entry.Provenance != "" {
 		return entry.Provenance

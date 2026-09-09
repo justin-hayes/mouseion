@@ -118,7 +118,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 			t.Errorf("library missing shared pattern %q", pattern)
 		}
 	}
-	if !strings.Contains(html, `class="bibliographic-title"><a href="/books/book-1">`) {
+	if !strings.Contains(html, `class="bibliographic-title">`) {
 		t.Error("book title must use the bibliographic typography role")
 	}
 	if !strings.Contains(html, `<p class="metadata">`) {

@@ -165,13 +165,19 @@ templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) 
 	}
 }
 
-templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
-	<article class="resource-card library-book" data-acquired={ boolString(book.Acquired != nil) } aria-labelledby={ "book-title-" + book.Book.ID }>
+templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligible bool, message string) {
+	<article id={ myBookRowID(book.Book.ID) } class="resource-card library-book" data-acquired={ boolString(book.Acquired != nil) } aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
-				<a href={ templ.SafeURL("/books/"+book.Book.ID) }>{ book.Book.Title }</a>
+				if book.EvidenceState() == domain.BookAnalyzed && book.JourneyMember {
+					<a href={ templ.SafeURL("/journey/" + url.PathEscape(book.Book.ID)) }>{ book.Book.Title }</a>
+				} else {
+					{ book.Book.Title }
+				}
 			</h2>
-			if book.Acquired != nil && (book.Acquired.Source.MediaType != "" || !book.Acquired.Source.CreatedAt.IsZero()) {
+			if book.EvidenceState() == domain.BookNotAcquired {
+				<p class="metadata">Not acquired / metadata only</p>
+			} else if book.Acquired != nil && (book.Acquired.Source.MediaType != "" || !book.Acquired.Source.CreatedAt.IsZero()) {
 				<p class="metadata">
 					if book.Acquired.Source.MediaType != "" {
 						<span>{ book.Acquired.Source.MediaType }</span>
@@ -197,12 +203,21 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string) {
 				}
 				{ myBookLifecycleActionFor(book).Description }
 			</p>
+			if message != "" {
+				<p role="status" aria-live="polite">{ message }</p>
+			}
 			<div class="action-group">
 				if !book.JourneyGoal {
 					@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
 				}
+				if book.EvidenceState() == domain.BookNotAcquired && refreshEligible {
+					<form method="post" action={ templ.SafeURL("/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<button type="submit" class="outline">Refresh metadata</button>
+					</form>
+				}
 				{{ action := myBookLifecycleActionFor(book) }}
-				if action.Label != "Start analysis" {
+				if action.Label != "Start analysis" && !strings.HasPrefix(action.URL, "/books/") {
 					@LifecycleActionControl(action, csrf)
 				}
 				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
@@ -250,7 +265,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 					if browse.NeedsLanguage {
 						@NeedsLanguageBookRow(book)
 					} else if myBooksBookInLanguage(browse, book) {
-						@MyBookRow(csrf, book, goalBookID)
+						@MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "")
 					}
 				}
 			</div>
@@ -340,7 +355,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			<section class="library-list" aria-labelledby="acquired-books-heading">
 				<h2 id="acquired-books-heading">Books in My Books</h2>
 				for _, book := range books {
-					@MyBookRow(csrf, book, goalBookID)
+					@MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "")
 				}
 			</section>
 		}

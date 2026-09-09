@@ -97,6 +97,12 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
+	refreshableBookIDs, err := h.refreshableMyBookIDs(r.Context(), u.ID, books)
+	if err != nil {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		return
+	}
+	browse.RefreshableBookIDs = refreshableBookIDs
 	connections, err := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
 	if err != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
