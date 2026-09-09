@@ -8,13 +8,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestFirstAccountAuthLifecycleAgainstPostgres(t *testing.T) {
@@ -35,38 +34,11 @@ func TestFirstAccountAuthLifecycleAgainstPostgres(t *testing.T) {
 	}
 }
 
-func testURL() string {
-	if v := os.Getenv("MOUSEION_TEST_DATABASE_URL"); v != "" {
-		return v
-	}
-	return "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-}
 func setup(t *testing.T) (*persistence.PostgresStore, *auth.Service, http.Handler) {
 	t.Helper()
 	ctx := context.Background()
-	url := testURL()
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-		conn.Release()
-		pool.Close()
-	})
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	var err error
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)

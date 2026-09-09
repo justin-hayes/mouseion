@@ -5,43 +5,19 @@ package enrichmentjob
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river/rivertype"
 )
 
 func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	admin, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	conn, err := admin.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Release()
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420029)`); err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420029)`)
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +42,7 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Stop(context.Background())
-	candidates := []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus", UPOS: "noun"}, ExampleSentence: "Das Haus ist groß."}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN"}}}
+	candidates := []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus", UPOS: "noun"}, ExampleSentence: "Das Haus ist groß."}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN"}, ExampleSentence: "Der Baum ist groß."}}
 	handle, err := service.SubmitEnrichment(ctx, "11111111-1111-1111-1111-111111111111", candidates)
 	if err != nil {
 		t.Fatal(err)

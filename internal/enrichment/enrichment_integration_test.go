@@ -4,43 +4,17 @@ package enrichment_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	ctx := context.Background()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(90420019)`); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420019)`)
-		conn.Release()
-		pool.Close()
-	})
-	if _, err = conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +56,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	if err != nil || again.Translation != "house" || again.SentenceTranslation != "The house is large." {
 		t.Fatalf("immutable put=%+v err=%v", again, err)
 	}
-	if _, err = conn.Exec(ctx, `UPDATE enrichment_cache SET translation='changed' WHERE language='de'`); err == nil {
+	if _, err = pool.Exec(ctx, `UPDATE enrichment_cache SET translation='changed' WHERE language='de'`); err == nil {
 		t.Fatal("direct update unexpectedly succeeded")
 	}
 }

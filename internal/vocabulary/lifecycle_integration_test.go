@@ -4,41 +4,16 @@ package vocabulary
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 )
 
 func TestLifecyclePersistsAcrossCorporaAndIsolatesUsers(t *testing.T) {
 	ctx := context.Background()
-	url := os.Getenv("MOUSEION_TEST_DATABASE_URL")
-	if url == "" {
-		url = "postgres://postgres@localhost:5432/mouseion_test?sslmode=disable"
-	}
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lockConn, err := pool.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = lockConn.Exec(ctx, `SELECT pg_advisory_lock(90420009)`); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
-		lockConn.Release()
-		pool.Close()
-	}()
-	if _, err = pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	if err = persistence.Migrate(url); err != nil {
-		t.Fatal(err)
-	}
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
