@@ -152,6 +152,32 @@ const (
 	NavigationVocabulary     NavigationContext = "vocabulary"
 )
 
+type bookPageJourneyState struct {
+	Member   bool
+	Goal     bool
+	Revision int64
+}
+
+type bookPageOptions struct {
+	BreadcrumbURL   string
+	BreadcrumbLabel string
+	Navigation      NavigationContext
+	Journey         bookPageJourneyState
+}
+
+func currentBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
+	return bookPageOptions{
+		BreadcrumbURL:   "/library",
+		BreadcrumbLabel: "My Books",
+		Navigation:      NavigationLibrary,
+		Journey: bookPageJourneyState{
+			Member:   book.JourneyMember,
+			Goal:     book.JourneyGoal,
+			Revision: book.JourneyRevision,
+		},
+	}
+}
+
 func navigationContextForTitle(title string) NavigationContext {
 	switch {
 	case title == "My Books", title == "My Library":
@@ -285,7 +311,7 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 	if state == domain.BookStale {
 		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze the whole book to refresh your insights for the current content.", Label: "Start analysis", URL: "/books/" + url.PathEscape(book.Book.ID) + "/analyze", Tone: StatusWarning, Submit: true}
 	}
-	action := bookLifecycleActionFor(*book.Acquired, nil)
+	action := bookLifecycleActionFor(*book.Acquired)
 	if strings.HasPrefix(action.URL, "/books/") {
 		action.URL = "/books/" + url.PathEscape(book.Book.ID) + strings.TrimPrefix(action.URL, "/books/"+url.PathEscape(book.Acquired.Source.ID))
 	}
@@ -301,9 +327,8 @@ type bookLifecycleAction struct {
 	Submit      bool
 }
 
-func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.AnalysisJob) bookLifecycleAction {
+func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleAction {
 	runID := book.AnalysisRunID
-	_ = history // Operational history is displayed separately and never selects the current result.
 
 	state := strings.ToLower(strings.TrimSpace(book.AnalysisState))
 	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus))
@@ -352,23 +377,6 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary, history []domain.
 	}
 
 	return bookLifecycleAction{"Ready to analyze", "This book is ready for an explicit analysis submission.", "Start analysis", "/books/" + url.PathEscape(book.Source.ID) + "/analyze", StatusSuccess, true}
-}
-
-func analysisHistoryURL(sourceID string, job domain.AnalysisJob) string {
-	if strings.TrimSpace(sourceID) == "" || job.SourceMaterialID != sourceID || job.ID <= 0 {
-		return ""
-	}
-	if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-		return "/books/" + url.PathEscape(sourceID)
-	}
-	return fmt.Sprintf("/jobs/%d", job.ID)
-}
-
-func analysisHistoryLabel(job domain.AnalysisJob) string {
-	if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-		return fmt.Sprintf("Completed analysis #%d", job.DisplayNumber)
-	}
-	return fmt.Sprintf("Analysis job #%d", job.DisplayNumber)
 }
 
 func feedbackClass(kind FeedbackKind) string {

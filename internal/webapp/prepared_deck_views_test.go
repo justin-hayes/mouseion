@@ -16,7 +16,7 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		Source:         domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
 		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-372", CorpusID: "corpus-372",
 	}
-	if err := BookPageWithHistoryAndPreparation(domain.User{Username: "learner"}, "csrf", book, nil, true, nil, "", nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", currentBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
