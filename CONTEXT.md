@@ -35,16 +35,56 @@ _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
 Words the learner already knows in a language, owned per learner and language,
-populated only by explicit lemma import or campaign graduation; card generation
-never marks vocabulary as known.
+populated only by explicit lemma import or the justified graduation of a Book's
+snapshotted vocabulary; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
 **Recurring vocabulary**:
 Unknown lemmas appearing at least N times in an analyzed book; the pool a
 prepared deck selects. N is a selection parameter with a default of three, and
 selection makes no coverage claim. Known vocabulary, generated vocabulary, and
-active-campaign vocabulary are excluded before the pool is formed.
+vocabulary reserved by the currently-studied book are excluded before the pool
+is formed.
 _Avoid_: frequent words, deck coverage.
+
+**Reserved vocabulary**:
+The snapshotted vocabulary of the book currently being studied, held aside so it
+is neither counted as known nor re-selected into another book's deck until the
+study is resolved (graduated to known or released on abandonment). It is the
+exclusion set of the current study; only one book's vocabulary is reserved at a
+time per owner.
+_Avoid_: active-campaign vocabulary, known vocabulary.
+
+**Prepared deck**:
+An Anki recognition deck built asynchronously from the recurring vocabulary of
+one exact completed analysis of a Book and that analysis's EPUB snapshot. The
+ready deck is downloaded and studied in the learner's own Anki; preparation
+itself never starts vocabulary study and never marks vocabulary known.
+_Avoid_: study plan, in-app review deck.
+
+**Book-anchored vocabulary study**:
+The vocabulary facet of a Book: a Book's vocabulary is reserved while its
+prepared deck is being studied, and graduates into known vocabulary on
+confirmed deck review. It is one of the Book's two independent facts (the other
+is its reading state on the Primary Goal / Journey). There is no separate
+campaign object; the Book is the unit of the learner loop. One Book's
+vocabulary is studied at a time per owner.
+_Avoid_: learning campaign, active campaign, plan (as a separate object).
+
+**Vocabulary study**:
+The learner's activity of working through a Book's prepared deck in their own
+Anki, recorded by Mouseion as that Book's vocabulary-study state. Confirming
+that the deck was reviewed is the justified study confirmation; it completes
+the study and graduates the Book's snapshotted vocabulary. Reading progress is
+an independent fact from study progress.
+_Avoid_: mastery, finishing the book, reading completion.
+
+**Graduation**:
+The consequential transition that promotes a Book's snapshotted,
+provenance-linked vocabulary identities into the learner's known vocabulary,
+justified only by confirmed deck review. Graduation is never implied by
+generation, assignment, reading, or Goal choice.
+_Avoid_: completion, mastering, promotion (reserved for Primary Goal).
 
 **Analysis evidence**:
 The classification of a Book's current acquired source against its analysis
