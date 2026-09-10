@@ -765,7 +765,9 @@ templ BookVocabularyStudy(bookID string, csrf string, preparation domain.DeckPre
 			if preparation.VocabularyStudyStatus() == domain.VocabularyStudyReleased {
 				<p>This study was released. Its provenance remains recorded and the vocabulary is eligible again.</p>
 			}
-			<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Study this Book's vocabulary</button></form>
+			@Confirmation("Start vocabulary study", "Reserve this deck's vocabulary for review. It will not count as known until you confirm the reviewed deck.", StatusNeutral) {
+				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Study this Book's vocabulary</button></form>
+			}
 		} else if preparation.VocabularyStudyStatus() == domain.VocabularyStudyStudying {
 			<p>The deck's vocabulary is reserved while you review it elsewhere; reserved vocabulary is not counted as known.</p>
 			@Confirmation("Confirm deck review", "This is a consequential transition: confirm only after reviewing this prepared deck. The snapshotted vocabulary will graduate into known vocabulary.", StatusNeutral) {

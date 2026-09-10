@@ -289,9 +289,29 @@ func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	var deckID string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','current-deck-test') RETURNING id`, owner.ID).Scan(&deckID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','eins','NUM',$2,$3)`, owner.ID, deckID, source.ID); err != nil {
+		t.Fatal(err)
+	}
 	first, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: firstRun, Filename: "one.apkg", DeckName: "One", ContentHash: source.ContentHash})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id,deck_preparation_id,language,canonical_lemma,upos,generated_at) VALUES($1,$2,'de','eins','NUM',now())`, owner.ID, first.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, first.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CompleteDeckPreparation(ctx, owner.ID, first.ID, domain.DeckPreparation{Artifact: []byte("one-apkg"), Filename: "one.apkg", DeckName: "One", TotalCards: 1}); err != nil {
+		t.Fatal(err)
+	}
+	first, err = store.StartDeckVocabularyStudy(ctx, owner.ID, first.ID)
+	if err != nil || first.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		t.Fatalf("start first study=%+v err=%v", first, err)
 	}
 	second, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: secondRun, Filename: "two.apkg", DeckName: "Two", ContentHash: source.ContentHash})
 	if err != nil {
@@ -303,6 +323,14 @@ func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
 	}
 	if first.ID == second.ID || second.RetiredAt != nil || first.RetiredAt == nil {
 		t.Fatalf("current deck transition first=%+v second=%+v", first, second)
+	}
+	active, err := store.GetActiveDeckVocabularyStudy(ctx, owner.ID, source.ID)
+	if err != nil || active.ID != first.ID || active.RetiredAt == nil || active.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		t.Fatalf("retired active study=%+v err=%v", active, err)
+	}
+	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
+	if err != nil || len(reserved) != 1 || reserved[0].DeckPreparationID != first.ID {
+		t.Fatalf("retired study reservation=%+v err=%v", reserved, err)
 	}
 	var current, history int
 	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE retired_at IS NULL), count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&current, &history); err != nil {

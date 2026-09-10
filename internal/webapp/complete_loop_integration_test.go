@@ -288,6 +288,10 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
 		t.Fatalf("studying preparation=%+v err=%v", preparation, err)
 	}
+	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
+	if err != nil || reservedCoverage.KnownTokenCount != 0 || reservedCoverage.ReservedTokenCount != 3 {
+		t.Fatalf("pre-confirmation coverage=%+v err=%v", reservedCoverage, err)
+	}
 	confirmed := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
 	if confirmed.Code != http.StatusSeeOther || !strings.Contains(confirmed.Header().Get("Location"), "graduated+to+known") {
 		t.Fatalf("confirm vocabulary study=%d location=%q body=%s", confirmed.Code, confirmed.Header().Get("Location"), confirmed.Body.String())

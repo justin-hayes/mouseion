@@ -102,10 +102,10 @@ Journey by …** Never style a preference change as an error or warning.
 | **Vocabulary work in progress** | Preparation or review activity remains incomplete. | Nearly mastered |
 | **Vocabulary work complete** | The product's accepted review condition has been recorded; any resulting knowledge transition must still be stated explicitly. | Mastered |
 | **Known vocabulary** | Lemmas explicitly imported/marked known or graduated through an accepted transition. | Generated vocabulary, mastered vocabulary |
-| **Active-campaign vocabulary** | Internal term for lemmas reserved by the accepted active-campaign contract but not counted as known. | Known, learned |
+| **Reserved vocabulary** | Lemmas reserved by an unfinished Book vocabulary study but not counted as known. | Known, learned |
 | **Generated vocabulary** | Immutable provenance that a lemma was assigned to a deck. | Known vocabulary |
 | **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
-| **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by the accepted active-campaign contract. | Difficult words |
+| **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by an unfinished Book vocabulary study. | Difficult words |
 | **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
 
 Do not use **mastered** as a synonym for generated, assigned, exported, merely

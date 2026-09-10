@@ -107,6 +107,23 @@ func TestJourneyEntryBookVocabularyStudyReachesGraduation(t *testing.T) {
 	t.Fatalf("graduated fixture vocabulary missing: %+v", known)
 }
 
+func TestJourneyEntryBookVocabularyStudyStartIsIdempotent(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	path := "/journey/books/fixture-book/vocabulary-study"
+	start := goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
+	if start.Code != http.StatusSeeOther {
+		t.Fatalf("first start status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
+	}
+	start = goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
+	if start.Code != http.StatusSeeOther || !strings.Contains(start.Header().Get("Location"), "already+in+progress") {
+		t.Fatalf("repeat start status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
+	}
+	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
+	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		t.Fatalf("repeated start changed study=%+v err=%v", preparation, err)
+	}
+}
+
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"); err != nil {

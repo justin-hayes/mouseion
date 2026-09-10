@@ -159,8 +159,8 @@ active study language; its per-page language picker is removed in favour of the
 shell-level switcher. Known-vocabulary-only languages (no current chosen-language
 Book) remain selectable there as read-only "no books" entries; import stays
 limited to the derived study-language set. Changing a Book's language state does
-not remove books, analyses, prepared artifacts, internal Campaigns, or known
-vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
+not remove books, analyses, prepared artifacts, vocabulary-study history, or
+known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
 
 ## Inactive and supporting implementation

@@ -2,9 +2,9 @@
 
 Status: **Canonical supporting workflow.** Study languages are derived from My
 Books and Vocabulary is the sole learner-facing home for known-vocabulary
-import. Campaign remains an internal accepted contract where needed for
-vocabulary provenance; learner-facing copy uses reading, preparation, and
-vocabulary-transition facts as defined in [`terminology.md`](../terminology.md).
+import. Book vocabulary study owns reservation and graduation provenance;
+learner-facing copy uses reading, preparation, and vocabulary-transition facts as
+defined in [`terminology.md`](../terminology.md).
 
 ## Goal
 
@@ -101,7 +101,7 @@ The current product supports additive import but not learner-facing removal of
 individual known-vocabulary entries. Vocabulary must not imply that changing a
 Book's language deletes vocabulary or that a completed vocabulary transition
 can be undone. A future removal/correction workflow requires an explicit product
-contract for provenance, wildcard entries, internal Campaign graduation, and
+contract for provenance, wildcard entries, Book vocabulary-study graduation, and
 coverage recalculation.
 
 ## Screen hierarchy
