@@ -34,6 +34,7 @@ var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrActiveCampaign = errors.New("persistence: owner already has an active learning campaign")
 var ErrStaleCampaignState = errors.New("persistence: learning campaign state is stale")
+var ErrActiveVocabularyStudy = errors.New("persistence: owner already has a vocabulary study in progress")
 var ErrJourneyStale = errors.New("persistence: reading journey state is stale")
 var ErrGoalExists = errors.New("persistence: primary goal already exists")
 var ErrGoalStale = errors.New("persistence: primary goal state is stale")
@@ -131,6 +132,10 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		SELECT 1 FROM learning_campaign_vocabulary cv
 		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
 		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
+		UNION ALL
+		SELECT 1 FROM deck_preparation_vocabulary dv
+		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+		WHERE dv.owner_id=$1 AND dv.language=$2 AND dv.canonical_lemma=$3 AND dv.upos=$4 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
 	)`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&reserved); err != nil {
 		return false, err
 	}
@@ -162,6 +167,10 @@ func (s *PostgresStore) IsLearningCampaignVocabularyReserved(ctx context.Context
 		SELECT 1 FROM learning_campaign_vocabulary cv
 		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
 		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
+		UNION ALL
+		SELECT 1 FROM deck_preparation_vocabulary dv
+		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+		WHERE dv.owner_id=$1 AND dv.language=$2 AND dv.canonical_lemma=$3 AND dv.upos=$4 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
 	)`, owner, language, lemma, upos).Scan(&reserved)
 	return reserved, err
 }
@@ -699,7 +708,13 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
 				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
 				AND cv.graduated_at IS NOT NULL AND c.status='complete'
-		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
+		) THEN 'Graduated from completed campaign' WHEN EXISTS (
+			SELECT 1 FROM deck_preparation_vocabulary dv
+			JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+			WHERE dv.owner_id=kv.owner_id AND dv.language=kv.language
+				AND dv.canonical_lemma=kv.canonical_lemma AND dv.upos=kv.upos
+				AND dv.graduated_at IS NOT NULL AND p.reviewed_at IS NOT NULL
+		) THEN 'Graduated from reviewed deck' ELSE 'Explicitly recorded' END,
 		kv.created_at
 		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.id=$2`, owner, id).Scan(&v.ID, &v.OwnerID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Provenance, &v.CreatedAt)
 	err = missing(err)
@@ -714,7 +729,13 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
 				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
 				AND cv.graduated_at IS NOT NULL AND c.status='complete'
-		) THEN 'Graduated from completed campaign' ELSE 'Explicitly recorded' END,
+		) THEN 'Graduated from completed campaign' WHEN EXISTS (
+			SELECT 1 FROM deck_preparation_vocabulary dv
+			JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+			WHERE dv.owner_id=kv.owner_id AND dv.language=kv.language
+				AND dv.canonical_lemma=kv.canonical_lemma AND dv.upos=kv.upos
+				AND dv.graduated_at IS NOT NULL AND p.reviewed_at IS NOT NULL
+		) THEN 'Graduated from reviewed deck' ELSE 'Explicitly recorded' END,
 		kv.created_at
 		FROM known_vocabulary kv WHERE kv.owner_id=$1 AND kv.language=$2 ORDER BY kv.canonical_lemma,kv.upos,kv.id`, owner, lang)
 	if err != nil {

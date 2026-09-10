@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -161,6 +162,69 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 			t.Errorf("empty deck state contains %q: %s", unwanted, html)
 		}
 	}
+}
+
+func TestBookVocabularyStudyRendersReachableTransitions(t *testing.T) {
+	tests := []struct {
+		name        string
+		preparation domain.DeckPreparation
+		want        []string
+		unwanted    []string
+	}{
+		{
+			name:        "ready",
+			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2},
+			want:        []string{"Ready to study", "Study this Book's vocabulary", `action="/journey/books/book-1/vocabulary-study"`},
+			unwanted:    []string{"Confirm deck review", "Release study"},
+		},
+		{
+			name:        "studying",
+			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: studyTimePtr()},
+			want:        []string{"Studying", "reserved", "not counted as known", "Confirm deck review", "Release study", `action="/journey/books/book-1/vocabulary-study/confirm"`, `action="/journey/books/book-1/vocabulary-study/release"`, "consequential transition"},
+		},
+		{
+			name:        "reviewed",
+			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, ReviewedAt: studyTimePtr(), GraduatedAt: studyTimePtr()},
+			want:        []string{"Reviewed and graduated", "Vocabulary graduated"},
+			unwanted:    []string{"Study this Book's vocabulary", "Confirm deck review", "Release study"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			if err := BookVocabularyStudy("book-1", "csrf", test.preparation).Render(context.Background(), &output); err != nil {
+				t.Fatal(err)
+			}
+			html := output.String()
+			for _, want := range test.want {
+				if !strings.Contains(html, want) {
+					t.Errorf("study view missing %q: %s", want, html)
+				}
+			}
+			for _, unwanted := range test.unwanted {
+				if strings.Contains(html, unwanted) {
+					t.Errorf("study view contains %q: %s", unwanted, html)
+				}
+			}
+		})
+	}
+}
+
+func TestEmptyReadyDeckDoesNotOfferVocabularyStudy(t *testing.T) {
+	var output bytes.Buffer
+	preparation := domain.DeckPreparation{ID: "prep-empty", State: domain.DeckPreparationReady}
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-empty", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-empty", CorpusID: "corpus-empty"}
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), &preparation, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "Study this Book's vocabulary") {
+		t.Fatalf("empty deck offered a study action: %s", output.String())
+	}
+}
+
+func studyTimePtr() *time.Time {
+	now := time.Now()
+	return &now
 }
 
 func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {

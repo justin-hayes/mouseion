@@ -72,6 +72,36 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	if len(got.Projections) != 3 || got.Projections[0].ProjectedTokenCount != 100 {
 		t.Fatalf("projections = %+v", got.Projections)
 	}
+	var deckID string
+	if err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','insights-study') RETURNING id`, alice.ID).Scan(&deckID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','zwei','VERB',$2,$3)`, alice.ID, deckID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: source.ID, Filename: "study.apkg", DeckName: "Study", ContentHash: "study-hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ClaimDeckPreparation(ctx, alice.ID, preparation.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, preparation.ID, domain.DeckPreparation{Artifact: []byte("study"), Filename: "study.apkg", DeckName: "Study", TotalCards: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID); err != nil {
+		t.Fatal(err)
+	}
+	graduatedCoverage, err := service.Coverage(ctx, alice.ID, corpus.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graduatedCoverage.KnownTokenCount != 90 || graduatedCoverage.UnknownTokenCount != 10 {
+		t.Fatalf("coverage after reviewed deck=%+v", graduatedCoverage)
+	}
 	if _, err = service.Coverage(ctx, bob.ID, corpus.ID); err == nil {
 		t.Fatal("bob read Alice's analysis insights")
 	}

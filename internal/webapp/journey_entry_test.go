@@ -72,9 +72,39 @@ func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 	}
 
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`) {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`) || !strings.Contains(response.Body.String(), "This Book's vocabulary study") || !strings.Contains(response.Body.String(), "Study this Book's vocabulary") {
 		t.Fatalf("Primary Goal Journey entry omitted removal action: status=%d body=%s", response.Code, response.Body.String())
 	}
+}
+
+func TestJourneyEntryBookVocabularyStudyReachesGraduation(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	start := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study", url.Values{"csrf_token": {csrf}}, cookies)
+	if start.Code != http.StatusSeeOther || !strings.Contains(start.Header().Get("Location"), "/journey/fixture-book?message=") {
+		t.Fatalf("start study status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
+	}
+	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
+	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		t.Fatalf("started preparation=%+v err=%v", preparation, err)
+	}
+	confirm := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
+	if confirm.Code != http.StatusSeeOther || !strings.Contains(confirm.Header().Get("Location"), "graduated+to+known") {
+		t.Fatalf("confirm study status=%d location=%q body=%s", confirm.Code, confirm.Header().Get("Location"), confirm.Body.String())
+	}
+	preparation, err = store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
+	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyReviewed || preparation.GraduatedAt == nil {
+		t.Fatalf("reviewed preparation=%+v err=%v", preparation, err)
+	}
+	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range known {
+		if item.CanonicalLemma == "gehen" && item.Provenance == "Graduated from reviewed deck" {
+			return
+		}
+	}
+	t.Fatalf("graduated fixture vocabulary missing: %+v", known)
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {

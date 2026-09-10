@@ -506,6 +506,39 @@ func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
 	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0
 }
 
+func bookFeedbackKind(message string) FeedbackKind {
+	if strings.HasPrefix(message, "Study action blocked:") {
+		return FeedbackError
+	}
+	return FeedbackSuccess
+}
+
+func vocabularyStudyLabel(preparation domain.DeckPreparation) string {
+	switch preparation.VocabularyStudyStatus() {
+	case domain.VocabularyStudyStudying:
+		return "Studying"
+	case domain.VocabularyStudyReviewed:
+		return "Reviewed and graduated"
+	case domain.VocabularyStudyReleased:
+		return "Released"
+	default:
+		return "Ready to study"
+	}
+}
+
+func vocabularyStudyTone(preparation domain.DeckPreparation) StatusTone {
+	switch preparation.VocabularyStudyStatus() {
+	case domain.VocabularyStudyStudying:
+		return StatusInfo
+	case domain.VocabularyStudyReviewed:
+		return StatusSuccess
+	case domain.VocabularyStudyReleased:
+		return StatusWarning
+	default:
+		return StatusNeutral
+	}
+}
+
 func jobStatusAttributes(id int64, running bool) templ.Attributes {
 	attributes := templ.Attributes{"data-workflow": "analysis"}
 	if !running {

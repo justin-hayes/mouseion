@@ -797,7 +797,7 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(action.Status, action.Tone)) {
 	}
 	if message != "" {
-		@Feedback(FeedbackSuccess, "", message)
+		@Feedback(bookFeedbackKind(message), "", message)
 	}
 	@NextActionSummary(action)
 	if page.Journey.Goal {
@@ -869,8 +869,37 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 			}
 		</section>
 	}
+	if preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
+		@BookVocabularyStudy(journeyMembershipBookID(book), csrf, *preparation)
+	}
 }
 
+}
+
+templ BookVocabularyStudy(bookID string, csrf string, preparation domain.DeckPreparation) {
+	<section aria-labelledby="vocabulary-study-heading" class="book-vocabulary-study">
+		<h2 id="vocabulary-study-heading">This Book's vocabulary study</h2>
+		<p>@StatusBadge(vocabularyStudyLabel(preparation), vocabularyStudyTone(preparation))</p>
+		if preparation.VocabularyCount > 0 {
+			<p>{ fmt.Sprintf("%d vocabulary identities are linked to this deck's immutable snapshot.", preparation.VocabularyCount) }</p>
+		}
+		if preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted || preparation.VocabularyStudyStatus() == domain.VocabularyStudyReleased {
+			if preparation.VocabularyStudyStatus() == domain.VocabularyStudyReleased {
+				<p>This study was released. Its provenance remains recorded and the vocabulary is eligible again.</p>
+			}
+			<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Study this Book's vocabulary</button></form>
+		} else if preparation.VocabularyStudyStatus() == domain.VocabularyStudyStudying {
+			<p>The deck's vocabulary is reserved while you review it elsewhere; reserved vocabulary is not counted as known.</p>
+			@Confirmation("Confirm deck review", "This is a consequential transition: confirm only after reviewing this prepared deck. The snapshotted vocabulary will graduate into known vocabulary.", StatusNeutral) {
+				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study/confirm") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Confirm deck review</button></form>
+			}
+			@Confirmation("Release study", "Release the reservation without deleting the deck or its vocabulary provenance. The vocabulary can be selected again later.", StatusDanger) {
+				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study/release") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Release study</button></form>
+			}
+		} else {
+			<p>Reviewed { completedAtLabel(preparation.ReviewedAt) }. Vocabulary graduated { completedAtLabel(preparation.GraduatedAt) }.</p>
+		}
+	</section>
 }
 
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
