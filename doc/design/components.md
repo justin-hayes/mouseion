@@ -39,7 +39,7 @@ markup.
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
 | `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Journey entry, Campaign history, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Journey entry, Reading Journey |
-| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Book/Job workflow      | Book and analysis status                                      |
+| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Journey-entry/Job workflow | Journey entry and analysis status                         |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Vocabulary       |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
