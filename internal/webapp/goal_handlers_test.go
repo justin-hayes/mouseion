@@ -17,17 +17,17 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-func renderGoalSection(t *testing.T, goal *journeyBookView, residual *goalResidualView, message, pageError, focusBookID string) string {
+func renderGoalSection(t *testing.T, goal *journeyBookView, message, pageError, focusBookID string) string {
 	t.Helper()
 	var output bytes.Buffer
-	if err := GoalSection(goal, residual, "csrf-token", message, pageError, focusBookID).Render(context.Background(), &output); err != nil {
+	if err := GoalSection(goal, "csrf-token", message, pageError, focusBookID).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	return output.String()
 }
 
 func TestGoalSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
-	html := renderGoalSection(t, nil, nil, "Primary Goal cleared.", "", "")
+	html := renderGoalSection(t, nil, "Primary Goal cleared.", "", "")
 	for _, want := range []string{
 		`id="primary-goal-section"`,
 		`id="goal-section-status"`,
@@ -41,7 +41,7 @@ func TestGoalSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 		}
 	}
 
-	html = renderGoalSection(t, nil, nil, "", "This Primary Goal changed since this page was loaded.", "")
+	html = renderGoalSection(t, nil, "", "This Primary Goal changed since this page was loaded.", "")
 	if !strings.Contains(html, `role="alert"`) || !strings.Contains(html, "This Primary Goal changed since this page was loaded") {
 		t.Fatalf("Goal section did not render an accessible error: %s", html)
 	}
@@ -51,7 +51,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	unassessed := testJourneyBook("reading-only", "Reading-only book", "ready")
 	unassessed.GoalReadingOnly = true
 	unassessed.GoalUnassessed = true
-	readingOnlyHTML := renderGoalSection(t, &unassessed, nil, "", "", "reading-only")
+	readingOnlyHTML := renderGoalSection(t, &unassessed, "", "", "reading-only")
 	for _, want := range []string{"Reading-only Goal", "No analysis or deck exists yet", "stands on its own", "nothing is prepared automatically"} {
 		if !strings.Contains(readingOnlyHTML, want) {
 			t.Errorf("unassessed Goal missing %q: %s", want, readingOnlyHTML)
@@ -61,26 +61,15 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	assessed := testJourneyBook("assessed", "Assessed without deck", "analyzed")
 	assessed.GoalReadingOnly = true
 	assessed.GoalUnassessed = false
-	assessedHTML := renderGoalSection(t, &assessed, nil, "", "", "assessed")
+	assessedHTML := renderGoalSection(t, &assessed, "", "", "assessed")
 	if !strings.Contains(assessedHTML, "Analysis evidence exists, but no deck has been prepared") {
 		t.Fatalf("assessed reading-only copy missing: %s", assessedHTML)
 	}
 
-	count := 4
-	residual := &goalResidualView{CampaignID: "campaign-1", BookTitle: "Goal book", ReservedCount: &count}
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
-	residualHTML := renderGoalSection(t, &goal, residual, "", "", "goal")
-	for _, want := range []string{
-		"Vocabulary work remains",
-		"4 ungraduated vocabulary identities remain reserved.",
-		"active campaign and its reserved vocabulary unchanged",
-		"Graduate or abandon",
-		"Clear Primary Goal",
-		`<details`,
-	} {
-		if !strings.Contains(residualHTML, want) {
-			t.Errorf("residual Goal missing %q: %s", want, residualHTML)
-		}
+	goalHTML := renderGoalSection(t, &goal, "", "", "goal")
+	if !strings.Contains(goalHTML, "Clear Primary Goal") {
+		t.Fatalf("Goal omitted clear action: %s", goalHTML)
 	}
 }
 
@@ -96,7 +85,7 @@ func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	first.Book.CorpusID = "first-corpus"
 	first.CanChooseGoal = true
 	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a Primary Goal."
-	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "", "")
+	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "")
 	if strings.Count(html, `action="/goal/books/first"`) != 1 || strings.Contains(html, `action="/goal/books/second"`) {
 		t.Fatalf("expected a choose form only for the eligible provisional card: %s", html)
 	}
@@ -201,7 +190,7 @@ func goalRequest(t *testing.T, h http.Handler, path string, form url.Values, coo
 	return response
 }
 
-func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.T) {
+func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	idempotent := goalRequest(t, h, "/goal/books/"+fixtures.BookID, url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
@@ -213,8 +202,8 @@ func TestGoalMutationRoutesAreIdempotentAndPreserveResidualCampaigns(t *testing.
 	changed := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
-	if changed.Code != http.StatusSeeOther || !strings.Contains(changed.Header().Get("Location"), "reserved+vocabulary+are+unchanged") {
-		t.Fatalf("residual change=%d location=%q", changed.Code, changed.Header().Get("Location"))
+	if changed.Code != http.StatusSeeOther || !strings.Contains(changed.Header().Get("Location"), "is+your+Primary+Goal") {
+		t.Fatalf("change=%d location=%q", changed.Code, changed.Header().Get("Location"))
 	}
 	goal, _ := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	if goal.BookID != "fixture-route-match" {
@@ -408,9 +397,9 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 func TestPrimaryGoalFinishOutcomeDistinguishesGraduationAndConditionalEvidence(t *testing.T) {
 	count := 2
 	graduated := primaryGoalFinishView{
-		BookTitle: "Finished book",
-		Campaign:  &domain.LearningCampaign{VocabularyGraduatedAt: timePtr(time.Now())},
-		Graduated: []domain.CampaignVocabulary{{CanonicalLemma: "gehen", UPOS: "VERB"}},
+		BookTitle:           "Finished book",
+		VocabularyGraduated: true,
+		Graduated:           []domain.CampaignVocabulary{{CanonicalLemma: "gehen", UPOS: "VERB"}},
 		Evidence: []finishEvidenceView{{
 			Book:            testJourneyBook("next", "Next book", "analyzed"),
 			Changed:         true,
@@ -432,7 +421,7 @@ func TestPrimaryGoalFinishOutcomeDistinguishesGraduationAndConditionalEvidence(t
 		}
 	}
 
-	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: count, Campaign: &domain.LearningCampaign{Status: domain.CampaignActive}}
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: count}
 	output.Reset()
 	if err := PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)

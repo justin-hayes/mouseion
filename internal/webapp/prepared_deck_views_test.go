@@ -28,7 +28,7 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		"outside Mouseion",
 		"configured translation provider",
 		"Without consent",
-		"does not start a learning campaign",
+		"does not start vocabulary study",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("exact result missing deck contract %q: %s", want, html)
@@ -207,6 +207,26 @@ func TestBookVocabularyStudyRendersReachableTransitions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBookPageRendersVocabularyStudyHistoryAlongsideCurrentStudy(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-history"}
+	now := time.Date(2026, time.September, 10, 9, 0, 0, 0, time.UTC)
+	page := journeyBookPageOptions(book)
+	page.VocabularyStudyHistory = []domain.DeckPreparation{{
+		ID: "old-study", DeckName: "Mouseion::de::Old deck", ReleasedAt: &now,
+	}}
+	current := domain.DeckPreparation{ID: "current-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: &now}
+	var output bytes.Buffer
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, &current, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+		t.Fatal(err)
+	}
+	html := output.String()
+	for _, want := range []string{"This Book's vocabulary study", "Studying", "This Book's vocabulary-study history", "Mouseion::de::Old deck", "Released", "2026-09-10 09:00 UTC"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("Book page missing %q: %s", want, html)
+		}
 	}
 }
 

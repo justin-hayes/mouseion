@@ -200,7 +200,8 @@ Reading Journey acquisition-and-analysis intent. The upstream catalog browser
 is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
-preparation, catalog connections, and campaign history are supporting surfaces.
+preparation, catalog connections, and per-Book vocabulary-study history are
+supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
@@ -255,10 +256,9 @@ Secondary history
 ### Current route compatibility
 
 The shipped application uses `/library` for My Books and `/journey` for Reading
-Journey. `/` redirects to `/library`, while `GET /campaigns` is a compatibility
-redirect to `/journey`. The Journey page retains a secondary **Campaign history
-& operations** section for prepared-deck actions and reading, preparation, and
-vocabulary-transition history. It does not present a duplicate queue or plan.
+Journey. `/` redirects to `/library`. A Journey entry at `/journey/{bookID}`
+owns the Book's current vocabulary-study state and a secondary per-Book study
+history. The application does not present a duplicate queue, campaign, or plan.
 
 The authenticated shell therefore exposes exactly My Books, Reading Journey, and
 Vocabulary in the top navigation. `/connections` (catalogue maintenance and sync)
@@ -447,7 +447,7 @@ needed.
 1. **Reading Journey identity and ordering** are resolved by [ADR 0034: One
    implicit Reading Journey with learner-canonical ordering and campaign-queue
    migration](../adr/0034-reading-journey-identity-ordering.md). The shipped
-   Journey is the single learner-facing order, and `/campaigns` redirects to it.
+   Journey is the single learner-facing order.
 2. **Primary Goal identity and eligibility** use [ADR 0036: Deck-independent
    Primary Goal and single justified vocabulary-graduation transition](../adr/0036-primary-goal-justified-graduation.md)
    for Goal and graduation semantics, tightened by [ADR 0049: Reading intent
@@ -461,8 +461,9 @@ needed.
    explicit, residual reservations require an explicit graduate-or-abandon
    resolution before new reserved work, and overlap remains deterministic.
 5. **Campaign queue replacement and history** follow ADR 0034: the Journey is
-   the only learner-facing plan, while active, completed, and abandoned Campaign
-   records remain available as secondary history/operations and provenance.
+   the only learner-facing plan. Historical Campaign records remain available
+   internally for migration and provenance while Book vocabulary-study history
+   is shown on the Journey entry.
 6. **Cross-book projection and route comparison** follow [ADR 0037: Cross-book
    vocabulary projection and advisory Journey ordering](../adr/0037-cross-book-projection-advisory-ordering.md):
    the alternative is advisory evidence only and never overrides learner order
@@ -470,8 +471,8 @@ needed.
 7. **Routes and terminology** are reconciled in the shipped shell and supporting
    surfaces: My Books, Reading Journey, and Vocabulary are the active navigation
    destinations, with no acquisition action in the top navigation; `/known-vocab`
-   and `/campaigns` remain compatibility
-   routes with their documented redirects.
+   remains a compatibility route with its documented redirect. Campaign routes
+   are not learner-facing webapp routes.
 8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
    Journey entries are the current completed-analysis surface for members, prior
    runs remain operational audit records, and run-specific result URLs redirect

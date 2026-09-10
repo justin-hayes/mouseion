@@ -33,7 +33,7 @@ func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
 		`name="external_translation_consent"`,
 		"English translation is optional",
 		"sends each selected lemma and its example sentence",
-		"does not start a learning campaign",
+		"does not start vocabulary study",
 		"data-deck-preparation",
 	} {
 		if !strings.Contains(html, want) {

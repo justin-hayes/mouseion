@@ -13,11 +13,11 @@ maintenance are reached from My Books empty states and actions and via the
 `/connections` route; Add books is not a destination and is not a persistent
 shell action. My Books is the sole browse surface for the synced collection,
 and EPUB content is acquired when a Book is added to Reading Journey. The upstream catalog
-browser is retired. `/` redirects to My Books, and the
-compatibility route `GET /campaigns` redirects to Reading Journey. Vocabulary
-study is a book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
-a Book's prepared-deck actions, reading/preparation facts, and vocabulary
-provenance live on the Journey entry, not on a second learner-facing plan.
+browser is retired. `/` redirects to My Books. Vocabulary study is a
+book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
+a Book's prepared-deck actions, vocabulary-study state and history, and
+vocabulary provenance live on the Journey entry, not on a second learner-facing
+plan.
 
 Catalogue synchronization status is an operational part of the learner-owned
 connection surface at `/connections`, with detailed work under `/jobs`; it does

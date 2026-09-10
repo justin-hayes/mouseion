@@ -1181,12 +1181,6 @@ progress {
   color: var(--mouseion-color-danger);
 }
 
-.campaign-list,
-section[aria-labelledby="campaign-operations-heading"] {
-  display: grid;
-  gap: var(--mouseion-space-5);
-}
-
 .journey-goal {
   margin-bottom: var(--mouseion-space-7);
   border: 1px solid var(--mouseion-color-accent);
@@ -1256,21 +1250,9 @@ section[aria-labelledby="campaign-operations-heading"] {
 
 .journey-book h3,
 .journey-book h3 a,
-.journey-book code,
-.campaign-card code,
-.campaign-list code {
+.journey-book code {
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-.campaign-list,
-section[aria-labelledby="campaign-operations-heading"] {
-  min-width: 0;
-}
-
-.campaign-list article,
-.campaign-card {
-  min-width: 0;
 }
 
 .journey-book--goal {
@@ -1295,99 +1277,6 @@ section[aria-labelledby="campaign-operations-heading"] {
   margin-top: var(--mouseion-space-5);
   border-block: 1px solid var(--mouseion-color-border);
   padding-block: var(--mouseion-space-4);
-}
-
-.journey-secondary {
-  margin-top: var(--mouseion-space-7);
-  border-top: 2px solid var(--mouseion-color-text);
-  padding-top: var(--mouseion-space-6);
-}
-
-.campaign-card,
-.campaign-list article {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mouseion-space-4);
-  margin: 0;
-  border: 0;
-  border-bottom: 1px solid var(--mouseion-color-border);
-  border-radius: 0;
-  padding: var(--mouseion-space-5) 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.campaign-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.campaign-card > div:first-child {
-  min-width: 0;
-}
-
-.campaign-card > .action-group,
-.campaign-card > .campaign-remaining {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-
-.campaign-card--active {
-  display: grid;
-  align-items: initial;
-  grid-template-columns: 1fr;
-  border-left: var(--mouseion-space-1) solid var(--mouseion-color-info);
-  padding-left: var(--mouseion-space-5);
-}
-
-.campaign-card--active .campaign-remaining,
-.campaign-card--active .action-group {
-  width: 100%;
-}
-
-.campaign-card h3,
-.campaign-list h3 {
-  margin-bottom: var(--mouseion-space-2);
-}
-
-.campaign-card form,
-.campaign-list form {
-  flex: 0 0 auto;
-}
-
-.campaign-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mouseion-space-2);
-}
-
-.campaign-remaining {
-  flex: 1 1 100%;
-  margin-top: var(--mouseion-space-4);
-}
-
-.campaign-remaining h4 {
-  margin-bottom: var(--mouseion-space-2);
-}
-
-.campaign-remaining p:last-child {
-  margin-bottom: 0;
-}
-
-.campaign-progress {
-  display: flex;
-  gap: var(--mouseion-space-6);
-  margin-bottom: var(--mouseion-space-2);
-}
-
-.campaign-progress div {
-  display: flex;
-  gap: var(--mouseion-space-2);
-}
-
-.campaign-progress dt {
-  font-weight: 700;
 }
 
 .book-actions {
@@ -1585,10 +1474,7 @@ section[aria-labelledby="campaign-operations-heading"] {
   .page-header,
   .page-heading,
   .library-list article,
-  .campaign-card,
   .journey-book,
-  .campaign-list article,
-  .campaign-progress,
   .scope-summary {
     align-items: stretch;
     flex-direction: column;
@@ -1690,9 +1576,7 @@ section[aria-labelledby="campaign-operations-heading"] {
     float: none;
   }
 
-  .campaign-card form,
-  .journey-book form,
-  .campaign-list form {
+  .journey-book form {
     width: 100%;
   }
 
@@ -1701,9 +1585,7 @@ section[aria-labelledby="campaign-operations-heading"] {
     align-items: stretch;
   }
 
-  .campaign-card form button,
-  .journey-book form button,
-  .campaign-list form button {
+  .journey-book form button {
     width: 100%;
   }
 

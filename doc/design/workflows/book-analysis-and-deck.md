@@ -1,9 +1,9 @@
 # Book analysis and deck workflow
 
 Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
-serve a Book and, when present, its Primary Goal. Campaign remains a secondary
-history/operations concept under ADRs 0027, 0034, and 0036; it is not a second
-learner-facing plan. Reading Journey membership automatically ensures current
+serve a Book and, when present, its Primary Goal. Historical Campaign records
+remain internal under ADRs 0027, 0034, and 0036; the Journey entry owns the
+learner-facing vocabulary-study state and history. Reading Journey membership automatically ensures current
 analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
@@ -37,8 +37,8 @@ Adding a Book to Reading Journey is the sole learner-initiated acquisition and
 analysis path: it retains membership, acquires the current EPUB when needed, and
 ensures one whole-book analysis for the current content revision. Analysis never
 selects a Primary Goal, marks reading complete, or marks vocabulary known.
-Campaign operations remain secondary, and vocabulary graduation follows the
-single justified transition defined by ADR 0036.
+Vocabulary graduation follows the single justified transition defined by ADR
+0036 and remains independent of reading completion.
 
 ## Primary path
 

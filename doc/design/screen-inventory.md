@@ -48,10 +48,10 @@ server-rendered before enhancement. Changing it navigates to the same screen in
 the new language on language-scoped screens and updates the stored mode
 elsewhere; it never auto-switches on navigation or sync.
 
-The shipped application routes `/` to `/library`, serves Reading Journey at
-`/journey`, and redirects `GET /campaigns` to `/journey`. Campaign history and
-operations remain a secondary section on the Journey page; no parallel learner-
-facing queue or plan is exposed.
+The shipped application routes `/` to `/library` and serves Reading Journey at
+`/journey`. The Journey entry at `/journey/{bookID}` owns the current Book
+vocabulary-study state and its per-Book study history; no parallel learner-facing
+queue, campaign, or plan is exposed.
 
 ## Authentication
 
@@ -114,10 +114,10 @@ metadata refresh never invalidates or re-triggers analysis.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Shipped `GET /journey` (compatibility `GET /campaigns` redirects to `/journey`); Campaign history and operations are secondary on the page | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence — all for the active study language's Journey. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
+| Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence — all for the active study language's Journey. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
 | Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change, within the active language's Journey. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
 | Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand what finishing the book actually changed and choose whether or where to commit next, for the active language's Goal. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
-| Reading/preparation/vocabulary history | Secondary **Campaign history & operations** section on Reading Journey | Review factual past reading, preparation, completion, abandonment, and vocabulary-transition events without restoring Campaign as principal IA. | Book or Journey context | Empty history, mixed historical states, legacy Campaign terminology, unavailable artifact |
+| Book vocabulary-study history | Secondary section on the Journey entry at `/journey/{bookID}` | Review prior vocabulary studies for the Book while preserving each prepared deck's provenance. | Book or Journey context | Empty history, studying, reviewed, released, unavailable artifact |
 
 The Reading Journey is an ordered semantic list. The Primary Goal is anchored
 above the provisional books. The learner's order remains canonical. A

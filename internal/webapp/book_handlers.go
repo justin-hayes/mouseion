@@ -71,8 +71,37 @@ func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domai
 			return false
 		}
 	}
+	history, historyErr := h.vocabularyStudyHistory(r.Context(), u.ID, summary.Source.ID, preparation)
+	if historyErr != nil {
+		fail(w, historyErr)
+		return false
+	}
+	page.VocabularyStudyHistory = history
 	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, message, page, preparation, journeyAction))
 	return true
+}
+
+func (h *Handler) vocabularyStudyHistory(ctx context.Context, owner, sourceMaterialID string, current *domain.DeckPreparation) ([]domain.DeckPreparation, error) {
+	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	if !ok {
+		return nil, nil
+	}
+	preparations, err := reader.ListDeckPreparationsForSourceMaterial(ctx, owner, sourceMaterialID)
+	if err != nil {
+		return nil, err
+	}
+	currentID := ""
+	if current != nil {
+		currentID = current.ID
+	}
+	history := make([]domain.DeckPreparation, 0, len(preparations))
+	for _, preparation := range preparations {
+		if preparation.ID == currentID || preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted {
+			continue
+		}
+		history = append(history, preparation)
+	}
+	return history, nil
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {

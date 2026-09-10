@@ -11,7 +11,7 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 	second := testJourneyBook("second", "Second provisional book", "ready")
 	first.Position, second.Position = 1, 2
 	first.CanMoveLater, second.CanMoveEarlier = true, true
-	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}, Revision: 7}, "", "", "")
+	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}, Revision: 7}, "", "")
 
 	for _, want := range []string{
 		`id="provisional-journey-list"`,

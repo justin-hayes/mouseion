@@ -472,6 +472,25 @@ func (s *PostgresStore) GetActiveDeckVocabularyStudy(ctx context.Context, owner,
 	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND studying_at IS NOT NULL AND graduated_at IS NULL ORDER BY studying_at DESC LIMIT 1`, owner, sourceMaterialID))
 }
 
+// ListDeckPreparationsForSourceMaterial returns the owner's preparation history
+// for one Book's acquired source, including released and graduated studies.
+func (s *PostgresStore) ListDeckPreparationsForSourceMaterial(ctx context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 ORDER BY COALESCE(completed_at,created_at) DESC,id`, owner, sourceMaterialID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var preparations []domain.DeckPreparation
+	for rows.Next() {
+		preparation, scanErr := scanDeckPreparation(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		preparations = append(preparations, preparation)
+	}
+	return preparations, rows.Err()
+}
+
 // ListUnassignedReadyDeckPreparations returns prepared decks that can still be
 // placed in the learner's campaign queue. The owner-scoped anti-join keeps
 // another learner's campaigns from affecting the result.

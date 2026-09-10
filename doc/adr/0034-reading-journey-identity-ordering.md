@@ -139,21 +139,20 @@ Journey. `learning_campaign_vocabulary` provenance and known-vocabulary rows are
 untouched. The Campaign object remains authoritative for reservation/graduation
 semantics during and after the transition.
 
-### `/campaigns` compatibility, redirects, and duplicate-queue removal
+### `/campaigns` retirement and duplicate-queue removal
 
-During and after rollout the `/campaigns` surface is retired as a learner-facing
-plan and **must not remain a duplicate queue** alongside Reading Journey:
+The staged rollout described below reached its webapp retirement step in T3
+(`#678`). The `/campaigns` surface is no longer a learner-facing route and
+**must not remain a duplicate queue** alongside Reading Journey:
 
-- `GET /campaigns` redirects (permanent 301/308) to the Reading Journey route.
-- Existing deep links into the queue surface redirect to the corresponding
-  Journey/My Books surface; book-centered Campaign actions remain reachable from
-  the book detail / operational history but never present a second plan.
+- `GET /campaigns` and campaign mutation routes are unregistered from the
+  webapp and return 404.
+- Existing deep links into the retired queue surface are not rendered; learners
+  use the corresponding Journey entry or My Books surface instead.
 - The queue-derived ordering is removed; the Journey table becomes the single
   authoritative learner order.
-- During the compatibility window `/campaigns` and the queue may be served for
-  deep-link continuity, but the queue UI is hidden from primary navigation and
-  the Journey is the only learner-facing plan. A banner-free redirect is
-  preferred to serving a parallel queue.
+- Historical Campaign records remain internal backend state for migration and
+  provenance; they do not create a learner-facing history or operations surface.
 
 ### Staged rollout consistent with #449
 

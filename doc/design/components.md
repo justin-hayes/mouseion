@@ -37,19 +37,19 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Journey entry, Campaign history, Jobs, Vocabulary |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Journey entry, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Journey entry, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Journey-entry/Job workflow | Journey entry and analysis status                         |
-| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
-| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Vocabulary       |
+| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, vocabulary-study surfaces            |
+| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Jobs, Vocabulary                         |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Campaign history, Vocabulary |
-| `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and campaigns                                   |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Vocabulary           |
+| `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and vocabulary study                            |
 | `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Coverage thresholds, Journey projections, preparation progress |
-| `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Campaign progress                                          |
+| `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Book and job facts                                         |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and known vocabulary                                  |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
-| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Campaign history and catalog connections                   |
+| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Vocabulary study and catalog connections                  |
 | Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |
 
 The application shell is visually an index margin on wide viewports and a top
@@ -311,15 +311,14 @@ uses explicit outcome language; generic **Confirm** or **Mark complete** copy is
 insufficient.
 
 Use neutral confirmation for an irreversible positive transition and danger for
-deletion or material abandonment. The current Campaign completion confirmation
-must continue to state that eligible assigned vocabulary becomes known and that
-the transition cannot currently be undone. Current Campaign abandonment must
-state that deck/history remain while reservations are released.
+deletion or material abandonment. Vocabulary-study review confirmation must
+state that eligible snapshotted vocabulary becomes known and that the transition
+cannot currently be undone. Study release must state that deck/history remain
+while reservations are released.
 
 The shipped Primary Goal workflow names independent facts: finishing reading,
 completing the justified vocabulary transition, or ending/changing a Goal.
-Campaign completion and abandonment remain secondary operations, and
-confirmations never imply that reading alone adds vocabulary to known.
+Confirmations never imply that reading alone adds vocabulary to known.
 
 ## Shipped pattern contracts
 

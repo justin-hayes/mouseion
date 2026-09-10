@@ -46,12 +46,6 @@ type Store interface {
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error)
-	GetLearningCampaign(context.Context, string, string) (domain.LearningCampaign, error)
-	CreateLearningCampaign(context.Context, string, string, string) (domain.LearningCampaign, error)
-	UpdateLearningCampaignProgress(context.Context, string, string, persistence.LearningCampaignExpectedState, domain.BookProgress, domain.DeckProgress) (domain.LearningCampaign, error)
-	AbandonLearningCampaign(context.Context, string, string, persistence.LearningCampaignExpectedState) (domain.LearningCampaign, error)
-	ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error)
 	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
 	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
 	ListMyBooks(context.Context, string) ([]domain.Book, error)
@@ -128,6 +122,7 @@ type VocabularyStudyStore interface {
 type VocabularyStudyPreparationReader interface {
 	GetDeckPreparationForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
 	GetActiveDeckVocabularyStudy(context.Context, string, string) (domain.DeckPreparation, error)
+	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
@@ -185,11 +180,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /journey/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
 	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
-	h.mux.Handle("GET /campaigns", h.user(http.HandlerFunc(h.campaigns)))
-	h.mux.Handle("POST /campaigns/{id}/activate", h.user(http.HandlerFunc(h.activateCampaign)))
-	h.mux.Handle("POST /campaigns/{id}/book-finished", h.user(http.HandlerFunc(h.finishCampaignBook)))
-	h.mux.Handle("POST /campaigns/{id}/deck-reviewed", h.user(http.HandlerFunc(h.reviewCampaignDeck)))
-	h.mux.Handle("POST /campaigns/{id}/abandon", h.user(http.HandlerFunc(h.abandonCampaign)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("POST /journey/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createJourneyEntryDeckPreparation)))

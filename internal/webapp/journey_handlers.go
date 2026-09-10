@@ -26,8 +26,6 @@ type journeyBookView struct {
 	PrimaryGoal           bool
 	GoalReadingOnly       bool
 	GoalUnassessed        bool
-	GoalDeckAvailable     bool
-	GoalResidual          *goalResidualView
 	CanMoveEarlier        bool
 	CanMoveLater          bool
 	CanChooseGoal         bool
@@ -102,17 +100,6 @@ func journeyExpectedGoalBookID(journey journeyPageView) string {
 		return ""
 	}
 	return journeyBookID(*journey.Goal)
-}
-
-func goalCardView(goal *journeyBookView, residual *goalResidualView) journeyBookView {
-	if goal == nil {
-		return journeyBookView{}
-	}
-	view := *goal
-	if residual != nil {
-		view.GoalResidual = residual
-	}
-	return view
 }
 
 func goalSectionFocusID(bookID string) string {
@@ -234,11 +221,8 @@ type journeyPageView struct {
 	Language        string
 	LanguageLabel   string
 	Goal            *journeyBookView
-	Residual        *goalResidualView
 	Provisional     []journeyBookView
 	Revision        int64
-	Campaigns       []campaignView
-	Prepared        []preparedCampaignOption
 	RouteComparison *routeComparisonView
 }
 
@@ -557,10 +541,6 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	activeCampaignID := r.URL.Query().Get("active_campaign_id")
-	if !journeyHasActiveCampaign(view.Campaigns, activeCampaignID) {
-		activeCampaignID = ""
-	}
 	if h.services.AnalysisInsights != nil && (len(view.Provisional) >= 2 || view.Goal != nil) {
 		if provider, ok := h.services.AnalysisInsights.(journeyProjectionProvider); ok {
 			titles := make(map[string]string)
@@ -581,7 +561,7 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	}
 	view.Language = language
 	view.LanguageLabel = languageLabel
-	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error"), activeCampaignID))
+	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 }
 
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
@@ -633,13 +613,11 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
-		campaigns, _ := h.services.Store.ListLearningCampaigns(ctx, owner)
-		preparations, _ := h.services.Store.ListUnassignedReadyDeckPreparations(ctx, owner)
-		book.GoalResidual = h.goalResidual(ctx, owner, book.Book.Source.ID, canonicalBookTitle(book.Book), campaigns)
-		book.GoalDeckAvailable = goalBookHasDeck(book.Book.Source.ID, campaigns, preparations)
 		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
-		book.GoalReadingOnly = !book.GoalDeckAvailable
-		view.Residual = book.GoalResidual
+		book.GoalReadingOnly = true
+		if preparation, preparationErr := h.currentVocabularyStudyPreparation(ctx, owner, book.Book, true); preparationErr == nil && preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
+			book.GoalReadingOnly = false
+		}
 		view.Goal = &book
 	}
 	for _, entry := range journey.Entries {
@@ -665,12 +643,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
 	}
 
-	if h.services.PreparedDeck != nil {
-		view.Campaigns, view.Prepared, err = h.campaignOperations(ctx, owner, bookByID)
-		if err != nil {
-			return journeyPageView{}, err
-		}
-	}
 	return view, nil
 }
 
@@ -686,18 +658,6 @@ func (h *Handler) journeyBookLanguage(ctx context.Context, owner, bookID string,
 		return "", err
 	}
 	return book.LanguageTag, nil
-}
-
-func journeyHasActiveCampaign(campaigns []campaignView, id string) bool {
-	if id == "" {
-		return false
-	}
-	for _, campaign := range campaigns {
-		if campaign.Campaign.ID == id && campaign.Campaign.Status == domain.CampaignActive {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (journeyBookView, error) {
@@ -735,50 +695,4 @@ func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *jo
 	}
 	book.Coverage = &coverage
 	return nil
-}
-
-func (h *Handler) campaignOperations(ctx context.Context, owner string, bookByID map[string]domain.SourceMaterialSummary) ([]campaignView, []preparedCampaignOption, error) {
-	campaigns, err := h.services.Store.ListLearningCampaigns(ctx, owner)
-	if err != nil {
-		return nil, nil, err
-	}
-	views := make([]campaignView, 0, len(campaigns))
-	for _, campaign := range campaigns {
-		deck, deckErr := h.services.PreparedDeck.Get(ctx, owner, campaign.DeckPreparationID)
-		if deckErr != nil {
-			return nil, nil, deckErr
-		}
-		book := bookByID[campaign.SourceMaterialID]
-		if book.Source.ID == "" {
-			bookView, bookErr := h.journeyBook(ctx, owner, campaign.SourceMaterialID, bookByID)
-			if bookErr != nil {
-				return nil, nil, bookErr
-			}
-			book = bookView.Book
-		}
-		view := campaignView{Campaign: campaign, Book: book, Deck: deck}
-		view.JourneyEntryURL, err = h.journeyEntryURLForSource(ctx, owner, campaign.SourceMaterialID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if campaign.Status == domain.CampaignActive {
-			if counter, ok := h.services.Store.(campaignVocabularyCounter); ok {
-				if count, countErr := counter.CountCampaignVocabularyToGraduate(ctx, owner, campaign.ID); countErr == nil {
-					view.GraduatableLemmaCount = &count
-				}
-			}
-		}
-		views = append(views, view)
-	}
-	ready, err := h.services.Store.ListUnassignedReadyDeckPreparations(ctx, owner)
-	if err != nil {
-		return nil, nil, err
-	}
-	prepared := make([]preparedCampaignOption, 0, len(ready))
-	for _, deck := range ready {
-		if book, ok := bookByID[deck.SourceMaterialID]; ok {
-			prepared = append(prepared, preparedCampaignOption{Book: book, Deck: deck})
-		}
-	}
-	return views, prepared, nil
 }

@@ -75,11 +75,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/journey?message=Journey%20updated');
     const goalHeading = page.locator('#primary-goal-heading');
     const provisionalHeading = page.locator('#provisional-journey-heading');
-    const operationsHeading = page.locator('#campaign-operations-heading');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Journey updated');
     expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
-    expect(await provisionalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#campaign-operations-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     const goalLink = page.locator('.journey-book--goal a').first();
     await goalLink.focus();
     await expect(goalLink).toBeFocused();
@@ -201,41 +200,29 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     }
   });
 
-  test('learning completion and abandonment confirmations support cancel/confirm focus return', async ({ page }) => {
+  test('vocabulary-study confirmation supports keyboard focus and review', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
     await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/journey');
-    const active = page.locator('#campaign-fixture-campaign');
-    const finishBook = active.getByRole('button', { name: /Mark book finished/ });
-    await finishBook.press('Enter');
-    await expect(page).toHaveURL(/\/journey\?message=/);
-    const completionDisclosure = page.locator('#campaign-fixture-campaign details').filter({ hasText: /Complete campaign/ }).first();
-    await expect(completionDisclosure).toBeVisible();
-    await completionDisclosure.locator('summary').press('Enter');
-    await expect(completionDisclosure).toHaveAttribute('open', '');
-    await completionDisclosure.locator('summary').press('Enter');
-    await expect(completionDisclosure.locator('summary')).toBeFocused();
-    await completionDisclosure.locator('summary').press('Enter');
-    await expect(completionDisclosure).toHaveAttribute('open', '');
-    await completionDisclosure.getByRole('button', { name: /Complete campaign/ }).press('Enter');
-    await expect(page).toHaveURL(/\/journey\?message=/);
-    await expect(page.getByText('Campaign complete')).toBeVisible();
-
-    const abandonment = page.locator('#campaign-fixture-queued-campaign');
-    const abandonSummary = abandonment.locator('summary', { hasText: 'Abandon campaign' });
-    await abandonSummary.press('Enter');
-    await expect(abandonSummary).toBeFocused();
-    const abandonDisclosure = abandonment.locator('details').filter({ hasText: 'Abandon campaign' }).first();
-    await abandonSummary.press('Enter');
-    await expect(abandonSummary).toBeFocused();
-    await abandonSummary.press('Enter');
-    await expect(abandonDisclosure).toHaveAttribute('open', '');
-    await abandonDisclosure.getByRole('button', { name: 'Confirm abandonment' }).press('Enter');
-    await expect(page).toHaveURL(/\/journey\?message=/);
-    await expect(page.getByText('Campaign abandoned')).toBeVisible();
+    await page.goto('/journey/fixture-book');
+    const study = page.locator('.book-vocabulary-study');
+    const start = study.getByRole('button', { name: 'Study this Book\'s vocabulary' });
+    await start.focus();
+    await expect(start).toBeFocused();
+    await start.press('Enter');
+    await expect(page).toHaveURL(/\/journey\/fixture-book\?message=/);
+    await expect(page.getByText(/Study this Book's vocabulary started/)).toBeVisible();
+    const confirmation = page.locator('.book-vocabulary-study details').filter({ hasText: 'Confirm deck review' }).first();
+    const summary = confirmation.locator('summary');
+    await summary.focus();
+    await expect(summary).toBeFocused();
+    await summary.press('Enter');
+    await expect(confirmation).toHaveAttribute('open', '');
+    await confirmation.getByRole('button', { name: 'Confirm deck review' }).press('Enter');
+    await expect(page).toHaveURL(/\/journey\/fixture-book\?message=/);
+    await expect(page.getByText(/Deck review confirmed/)).toBeVisible();
   });
 
   test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {

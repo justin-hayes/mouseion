@@ -10,7 +10,7 @@ import (
 
 // journeyEntryURLForSource returns a link only when the owner's current Book
 // evidence can be served by the Journey entry route. Source material IDs are
-// accepted because Jobs and campaign history retain acquisition identities.
+// accepted because Jobs and deck history retain acquisition identities.
 func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
 	if sourceID == "" {
 		return "", nil

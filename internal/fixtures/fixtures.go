@@ -768,6 +768,20 @@ func (s *Store) GetActiveDeckVocabularyStudy(_ context.Context, owner, sourceMat
 	}
 	return domain.DeckPreparation{}, errNotFound
 }
+
+func (s *Store) ListDeckPreparationsForSourceMaterial(_ context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.DeckPreparation
+	for _, preparation := range s.preps {
+		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID {
+			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
+			result = append(result, preparation)
+		}
+	}
+	return result, nil
+}
+
 func (s *Store) CreateLearningCampaign(_ context.Context, o, b, d string) (domain.LearningCampaign, error) {
 	c := domain.LearningCampaign{ID: "fixture-new-campaign", OwnerID: o, SourceMaterialID: b, DeckPreparationID: d, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued}
 	s.campaigns = append(s.campaigns, c)

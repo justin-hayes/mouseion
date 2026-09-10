@@ -28,13 +28,13 @@ type finishEvidenceView struct {
 }
 
 type primaryGoalFinishView struct {
-	BookTitle          string
-	Campaign           *domain.LearningCampaign
-	Graduated          []domain.CampaignVocabulary
-	ResidualVocabulary int
-	Evidence           []finishEvidenceView
-	Journey            journeyPageView
-	Error              string
+	BookTitle           string
+	Graduated           []domain.CampaignVocabulary
+	VocabularyGraduated bool
+	ResidualVocabulary  int
+	Evidence            []finishEvidenceView
+	Journey             journeyPageView
+	Error               string
 }
 
 func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
@@ -79,11 +79,11 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:          finishBookTitle(before, result.Goal.BookID),
-		Campaign:           result.Campaign,
-		Graduated:          result.Graduated,
-		ResidualVocabulary: result.ResidualVocabularyCount,
-		Journey:            after,
+		BookTitle:           finishBookTitle(before, result.Goal.BookID),
+		Graduated:           result.Graduated,
+		VocabularyGraduated: result.Campaign != nil && result.Campaign.VocabularyGraduatedAt != nil,
+		ResidualVocabulary:  result.ResidualVocabularyCount,
+		Journey:             after,
 	}
 	if afterErr != nil {
 		outcome.Error = "Reading finished was saved, but the recalculated Journey evidence is temporarily unavailable. Return to Reading Journey and try again."
@@ -137,10 +137,10 @@ func finishEvidence(before, after journeyPageView) []finishEvidenceView {
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {
-	if outcome.Campaign != nil && outcome.Campaign.VocabularyGraduatedAt != nil {
+	if outcome.VocabularyGraduated {
 		return fmt.Sprintf("The associated prepared-deck vocabulary work completed, and exactly %d eligible vocabulary identities were added to known vocabulary.", len(outcome.Graduated))
 	}
-	if outcome.Campaign != nil && outcome.ResidualVocabulary > 0 {
+	if outcome.ResidualVocabulary > 0 {
 		return fmt.Sprintf("No vocabulary was added to known vocabulary. Vocabulary work remains: %d ungraduated identities remain reserved, pending confirmed deck review; any future effect is conditional.", outcome.ResidualVocabulary)
 	}
 	return "No vocabulary was added to known vocabulary. Reading finished is a reading record, not evidence of vocabulary knowledge."
