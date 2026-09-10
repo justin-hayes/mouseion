@@ -63,6 +63,14 @@ func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domai
 	if !ok {
 		return false
 	}
+	if preparation == nil {
+		var studyErr error
+		preparation, studyErr = h.currentVocabularyStudyPreparation(r.Context(), u.ID, summary, false)
+		if studyErr != nil {
+			fail(w, studyErr)
+			return false
+		}
+	}
 	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, message, page, preparation, journeyAction))
 	return true
 }
@@ -260,6 +268,11 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 	}
 	if err != nil {
 		handlePreparationError(w, r, err)
+		return nil, journeyAction, false
+	}
+	preparation, err = h.attachVocabularyStudyPreparation(r.Context(), owner, book, preparation)
+	if err != nil {
+		fail(w, err)
 		return nil, journeyAction, false
 	}
 	if preparation.State == domain.DeckPreparationReady {

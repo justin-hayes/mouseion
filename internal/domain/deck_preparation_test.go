@@ -1,6 +1,9 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestDeckPreparationStateTransitions(t *testing.T) {
 	tests := []struct {
@@ -22,5 +25,21 @@ func TestDeckPreparationStateTransitions(t *testing.T) {
 		if got := tt.from.CanTransitionTo(tt.to); got != tt.want {
 			t.Errorf("%s -> %s = %v, want %v", tt.from, tt.to, got, tt.want)
 		}
+	}
+}
+
+func TestVocabularyStudyStatusPrioritizesTerminalFacts(t *testing.T) {
+	now := time.Now()
+	if got := (DeckPreparation{}).VocabularyStudyStatus(); got != VocabularyStudyNotStarted {
+		t.Fatalf("empty study status=%q", got)
+	}
+	if got := (DeckPreparation{ReleasedAt: &now}).VocabularyStudyStatus(); got != VocabularyStudyReleased {
+		t.Fatalf("released study status=%q", got)
+	}
+	if got := (DeckPreparation{StudyingAt: &now}).VocabularyStudyStatus(); got != VocabularyStudyStudying {
+		t.Fatalf("studying study status=%q", got)
+	}
+	if got := (DeckPreparation{StudyingAt: &now, GraduatedAt: &now}).VocabularyStudyStatus(); got != VocabularyStudyReviewed {
+		t.Fatalf("graduated study status=%q", got)
 	}
 }
