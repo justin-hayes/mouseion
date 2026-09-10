@@ -32,6 +32,6 @@ test('selected My Books language shows evidence and zoom links', async ({ page }
   const zoomLinks = panel.locator('.language-view-book-list a');
   expect(await zoomLinks.count()).toBeGreaterThan(0);
   for (const link of await zoomLinks.all()) {
-    await expect(link).toHaveAttribute('href', /^\/books\//);
+    await expect(link).toHaveAttribute('href', /^\/journey\//);
   }
 });

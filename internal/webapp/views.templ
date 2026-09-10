@@ -409,8 +409,8 @@ templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelVi
 							for _, book := range panel.PerBook {
 								<li class="language-view-book-row">
 									<h4>
-									if book.BookID != "" && book.Included {
-											<a href={ templ.SafeURL("/books/" + url.PathEscape(book.BookID)) }>{ book.Title }</a>
+									if book.JourneyEntryURL != "" {
+											<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
 										} else {
 											{ book.Title }
 										}
@@ -718,7 +718,13 @@ func journeyEntryAvailable(item journeyBookView) bool {
 	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
 }
 templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3><a href={ templ.SafeURL("/books/"+item.Book.Source.ID) }>{ canonicalBookTitle(item.Book) }</a></h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
+	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3>
+		if item.JourneyEntryURL != "" {
+			<a href={ templ.SafeURL(item.JourneyEntryURL) }>{ canonicalBookTitle(item.Book) }</a>
+		} else {
+			{ canonicalBookTitle(item.Book) }
+		}
+		</h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
 	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
 		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
 	}
@@ -1025,7 +1031,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		</div>
 	}
 }
-templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string) {
+templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, journeyEntryURLs map[string]string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
 		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
 		if message != "" {
@@ -1041,8 +1047,8 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 				<thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>
-						if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL("/books/"+job.SourceMaterialID) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
@@ -1054,13 +1060,13 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	}
 }
 
-templ JobPage(user domain.User, csrf string, status analysis.Status) {
+templ JobPage(user domain.User, csrf string, status analysis.Status, journeyEntryURL string) {
 	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
-		@JobStatus(csrf, status)
+		@JobStatus(csrf, status, journeyEntryURL)
 	}
 }
-templ JobStatus(csrf string, status analysis.Status) {
+templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
 	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status)) {
 		if status.Error != "" {
 			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.")
@@ -1075,12 +1081,16 @@ templ JobStatus(csrf string, status analysis.Status) {
 		}
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
-					if status.SourceMaterialID != "" && status.RunID != "" {
+					if status.SourceMaterialID != "" && status.RunID != "" && journeyEntryURL != "" {
 						<p>Analysis complete. Review the insights for this immutable analysis result.</p>
-						<a role="button" class="outline" href={ templ.SafeURL("/books/"+status.SourceMaterialID) }>View analysis result</a>
+						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View analysis result</a>
 					} else {
-						<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
-						<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+						if status.SourceMaterialID != "" && status.RunID != "" {
+							<p>Analysis complete, but its Journey entry is no longer available.</p>
+						} else {
+							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
+							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+						}
 					}
 			} else {
 				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
@@ -1245,7 +1255,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 	}
 }
 
-templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string) {
+templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, journeyEntryURLs map[string]string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
 		@PageHeader("Jobs", "Operational history for catalogue sync and analysis work.", nil)
 		if message != "" {
@@ -1268,8 +1278,8 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 				<thead><tr><th>Kind</th><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>Analysis</td><td>
-						if job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL("/books/"+job.SourceMaterialID) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}

@@ -122,6 +122,8 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 			if panelErr != nil {
 				log.Printf("mouseion: language view unavailable for owner %s: %v", u.ID, panelErr)
 				panel = unavailableLanguageCorpusPanel(browse.Language, supported)
+			} else if annotateErr := h.annotateLanguageCorpusPanel(r.Context(), u.ID, &panel); annotateErr != nil {
+				log.Printf("mouseion: language view links unavailable for owner %s: %v", u.ID, annotateErr)
 			}
 			browse.LanguageCorpus = &panel
 		}
@@ -162,6 +164,7 @@ type campaignView struct {
 	Campaign              domain.LearningCampaign
 	Book                  domain.SourceMaterialSummary
 	Deck                  domain.DeckPreparation
+	JourneyEntryURL       string
 	Coverage              *domain.AnalysisCoverage
 	GraduatableLemmaCount *int
 }

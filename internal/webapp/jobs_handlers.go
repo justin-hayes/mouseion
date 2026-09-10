@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
@@ -18,6 +19,11 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	jobs, e := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
+		return
+	}
+	journeyEntryURLs, err := h.journeyEntryURLs(r.Context(), u.ID, analysisJobSourceIDs(jobs))
+	if err != nil {
+		fail(w, err)
 		return
 	}
 	if service, ok := h.services.CatalogueSync.(interface {
@@ -28,10 +34,10 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 			fail(w, syncErr)
 			return
 		}
-		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message")))
+		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), journeyEntryURLs))
 		return
 	}
-	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message")))
+	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), journeyEntryURLs))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -45,7 +51,12 @@ func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, JobPage(u, h.csrf(w, r), status))
+	journeyURL, err := h.journeyEntryURLForSource(r.Context(), u.ID, status.SourceMaterialID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, JobPage(u, h.csrf(w, r), status, journeyURL))
 }
 func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if status, found, ok := h.loadCatalogueJob(r.Context(), user(r).ID, r.PathValue("id")); ok {
@@ -58,7 +69,12 @@ func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	render(w, r, JobStatus(h.csrf(w, r), status))
+	journeyURL, err := h.journeyEntryURLForSource(r.Context(), user(r).ID, status.SourceMaterialID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, JobStatus(h.csrf(w, r), status, journeyURL))
 }
 func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) (analysis.Status, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -249,6 +265,14 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
+	ids := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		ids = append(ids, job.SourceMaterialID)
+	}
+	return ids
 }
 func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
 
