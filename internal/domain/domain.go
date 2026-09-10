@@ -235,21 +235,21 @@ type CoverageProjection struct {
 
 // AnalysisCoverage separates explicit mastery from projected study investment.
 type AnalysisCoverage struct {
-	SourceMaterialID         string
-	AnalysisRunID            string
-	AnalyzableTokenCount     int64
-	DistinctLemmaCount       int64
-	KnownTokenCount          int64
-	KnownLemmaCount          int64
-	ActiveCampaignTokenCount int64
-	ActiveCampaignLemmaCount int64
-	UnknownTokenCount        int64
-	UnknownLemmaCount        int64
-	TopUnknownLemmas         []LemmaOccurrence
-	UnknownConcentration     CoverageProjection
-	Projections              []CoverageProjection
-	Thresholds               []CoverageThreshold
-	TextProfile              *TextProfile
+	SourceMaterialID     string
+	AnalysisRunID        string
+	AnalyzableTokenCount int64
+	DistinctLemmaCount   int64
+	KnownTokenCount      int64
+	KnownLemmaCount      int64
+	ReservedTokenCount   int64
+	ReservedLemmaCount   int64
+	UnknownTokenCount    int64
+	UnknownLemmaCount    int64
+	TopUnknownLemmas     []LemmaOccurrence
+	UnknownConcentration CoverageProjection
+	Projections          []CoverageProjection
+	Thresholds           []CoverageThreshold
+	TextProfile          *TextProfile
 }
 
 // JourneyRouteBook is the derived, on-demand comparison view of one Journey

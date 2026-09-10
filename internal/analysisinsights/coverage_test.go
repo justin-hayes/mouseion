@@ -13,7 +13,7 @@ type memoryStore struct {
 	input     domain.AnalysisCorpusVocabulary
 	known     []domain.KnownVocabulary
 	generated []domain.GeneratedVocabulary
-	active    []domain.CampaignVocabulary
+	reserved  []domain.DeckPreparationVocabulary
 	err       error
 }
 
@@ -38,9 +38,9 @@ func (m *memoryStore) ListLegacyGeneratedVocabulary(_ context.Context, owner, la
 	}
 	return result, nil
 }
-func (m *memoryStore) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
-	var result []domain.CampaignVocabulary
-	for _, word := range m.active {
+func (m *memoryStore) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	var result []domain.DeckPreparationVocabulary
+	for _, word := range m.reserved {
 		if word.OwnerID == owner && word.Language == language {
 			result = append(result, word)
 		}
@@ -176,37 +176,37 @@ func TestItalianCoverageUsesAggregatedLemmaOccurrences(t *testing.T) {
 	}
 }
 
-func TestCoverageSeparatesActiveCampaignProjectionAndReleasesAbandonedVocabulary(t *testing.T) {
+func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T) {
 	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 3}
 	store := &memoryStore{
 		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "future", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
 			{Language: "de", CanonicalLemma: "known", UPOS: "NOUN", OccurrenceCount: 50},
-			{Language: "de", CanonicalLemma: "active", UPOS: "VERB", OccurrenceCount: 30},
+			{Language: "de", CanonicalLemma: "reserved", UPOS: "VERB", OccurrenceCount: 30},
 			{Language: "de", CanonicalLemma: "released", UPOS: "ADJ", OccurrenceCount: 20},
 		}},
-		known:  []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
-		active: []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "active", UPOS: "VERB"}},
+		known:    []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
+		reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "VERB"}},
 	}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.KnownTokenCount != 50 || got.KnownLemmaCount != 1 || got.ActiveCampaignTokenCount != 30 || got.ActiveCampaignLemmaCount != 1 || got.UnknownTokenCount != 50 || got.UnknownLemmaCount != 2 {
-		t.Fatalf("campaign coverage = %+v", got)
+	if got.KnownTokenCount != 50 || got.KnownLemmaCount != 1 || got.ReservedTokenCount != 30 || got.ReservedLemmaCount != 1 || got.UnknownTokenCount != 50 || got.UnknownLemmaCount != 2 {
+		t.Fatalf("reserved coverage = %+v", got)
 	}
-	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma == "active" {
-		t.Fatalf("unfinished active vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
+	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma == "reserved" {
+		t.Fatalf("unfinished reserved vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
 	}
 	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma != "released" {
 		t.Fatalf("deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
 	}
-	store.active = nil // abandonment releases the reservation without persisting mastery
+	store.reserved = nil // release releases the reservation without persisting mastery
 	got, err = NewService(store).Coverage(context.Background(), "alice", "corpus")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ActiveCampaignTokenCount != 0 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "active" {
-		t.Fatalf("coverage after abandonment = %+v", got)
+	if got.ReservedTokenCount != 0 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "reserved" {
+		t.Fatalf("coverage after release = %+v", got)
 	}
 }
 

@@ -14,7 +14,7 @@ type routeStore struct {
 	books           []domain.MyBook
 	corpora         map[string]domain.AnalysisCorpusVocabulary
 	known           []domain.KnownVocabulary
-	active          []domain.CampaignVocabulary
+	reserved        []domain.DeckPreparationVocabulary
 }
 
 func (s *routeStore) GetReadingJourney(_ context.Context, _, language string) (domain.ReadingJourney, error) {
@@ -39,9 +39,9 @@ func (s *routeStore) ListKnownVocabulary(_ context.Context, owner, language stri
 	}
 	return out, nil
 }
-func (s *routeStore) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
-	var out []domain.CampaignVocabulary
-	for _, v := range s.active {
+func (s *routeStore) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	var out []domain.DeckPreparationVocabulary
+	for _, v := range s.reserved {
 		if v.OwnerID == owner && v.Language == language {
 			out = append(out, v)
 		}
@@ -79,9 +79,9 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 	store := &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "a"}, {BookID: "b"}, {BookID: "c"}, {BookID: "d"}}},
 		goal:    domain.PrimaryGoal{OwnerID: "alice", Language: "de", BookID: "c"}, books: books,
-		corpora: map[string]domain.AnalysisCorpusVocabulary{"c-a": lemma("a", "de", 50), "c-b": lemma("b", "fr", 90), "c-c": lemma("c", "de", 50), "c-d": {CorpusID: "c-d", SourceMaterialID: "d", Statistics: nil}},
-		known:   []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known-a", UPOS: "NOUN"}, {OwnerID: "alice", Language: "de", CanonicalLemma: "known-c", UPOS: "NOUN"}},
-		active:  []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "unknown-a", UPOS: "NOUN"}},
+		corpora:  map[string]domain.AnalysisCorpusVocabulary{"c-a": lemma("a", "de", 50), "c-b": lemma("b", "fr", 90), "c-c": lemma("c", "de", 50), "c-d": {CorpusID: "c-d", SourceMaterialID: "d", Statistics: nil}},
+		known:    []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "known-a", UPOS: "NOUN"}, {OwnerID: "alice", Language: "de", CanonicalLemma: "known-c", UPOS: "NOUN"}},
+		reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "unknown-a", UPOS: "NOUN"}},
 	}
 	got, err := NewService(store).JourneyProjection(ctx, "alice", "de")
 	if err != nil {

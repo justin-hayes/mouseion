@@ -124,6 +124,13 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The migration backfill maps an active campaign's reservation onto the
+	// book-anchored study path (migration 000059). Mirror that here so coverage
+	// and the Journey projection read the reservation from the studying deck,
+	// which is now the only source of reserved vocabulary.
+	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID); err != nil {
+		t.Fatal(err)
+	}
 
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
@@ -141,7 +148,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	}
 
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
-	if err != nil || beforeCoverage.KnownTokenCount != 1 || beforeCoverage.ActiveCampaignTokenCount != 2 {
+	if err != nil || beforeCoverage.KnownTokenCount != 1 || beforeCoverage.ReservedTokenCount != 2 {
 		t.Fatalf("current versus conditional coverage before finish=%+v err=%v", beforeCoverage, err)
 	}
 	projectionBefore, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
@@ -192,9 +199,9 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookFinished || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
 		t.Fatalf("reading finish changed vocabulary state=%+v", afterReading)
 	}
-	active, err := store.ListActiveLearningCampaignVocabulary(ctx, alice.ID, "de")
-	if err != nil || len(active) != 2 {
-		t.Fatalf("residual reservation after reading=%+v err=%v", active, err)
+	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
+	if err != nil || len(reserved) != 2 {
+		t.Fatalf("residual reservation after reading=%+v err=%v", reserved, err)
 	}
 	knownAfterReading, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	if err != nil || len(knownAfterReading) != 1 {
@@ -206,6 +213,11 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	}, aliceCookies)
 	if review.Code != http.StatusSeeOther || !strings.Contains(review.Header().Get("Location"), "Campaign+complete") {
 		t.Fatalf("review transition=%d location=%q", review.Code, review.Header().Get("Location"))
+	}
+	// Graduation is book-anchored: the studying deck's review is confirmed so
+	// its reservation is released and coverage stops counting it as reserved.
+	if _, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID); err != nil {
+		t.Fatal(err)
 	}
 	completed, err := store.GetLearningCampaign(ctx, alice.ID, campaign.ID)
 	if err != nil || completed.Status != domain.CampaignComplete || completed.VocabularyGraduatedAt == nil {
@@ -246,7 +258,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("idempotent graduation duplicated known vocabulary=%+v", knownAgain)
 	}
 	afterCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
-	if err != nil || afterCoverage.KnownTokenCount != 3 || afterCoverage.ActiveCampaignTokenCount != 0 {
+	if err != nil || afterCoverage.KnownTokenCount != 3 || afterCoverage.ReservedTokenCount != 0 {
 		t.Fatalf("current coverage after graduation=%+v err=%v", afterCoverage, err)
 	}
 	projectionAfter, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")

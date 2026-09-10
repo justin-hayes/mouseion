@@ -220,7 +220,7 @@ func journeyProjectedCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
 	}
-	return fmt.Sprintf("%.1f%% if active-campaign vocabulary graduates; %s", activeCampaignCoveragePercent(*item.Coverage), journeyProjectionText(*item.Coverage))
+	return fmt.Sprintf("%.1f%% if reserved vocabulary graduates; %s", reservedCoveragePercent(*item.Coverage), journeyProjectionText(*item.Coverage))
 }
 
 func journeyProjectionText(coverage domain.AnalysisCoverage) string {

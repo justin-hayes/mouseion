@@ -222,9 +222,9 @@ func TestDataDisplayPatterns(t *testing.T) {
 
 func TestCoveragePercentagesUseWholeAnalyzableDenominator(t *testing.T) {
 	coverage := domain.AnalysisCoverage{
-		AnalyzableTokenCount:     100,
-		KnownTokenCount:          80,
-		ActiveCampaignTokenCount: 5,
+		AnalyzableTokenCount: 100,
+		KnownTokenCount:      80,
+		ReservedTokenCount:   5,
 	}
 	stats := coverageStatItems(coverage)
 	if stats[0].Value != "80.0%" || stats[1].Value != "85.0%" {

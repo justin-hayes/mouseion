@@ -182,6 +182,32 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 	return result, rows.Err()
 }
 
+// ListReservedVocabulary returns the vocabulary currently reserved by the
+// owner's book-anchored study: the snapshotted vocabulary of every studying
+// deck that has not yet graduated, scoped to one language. Reserved vocabulary
+// is neither counted as known nor eligible for another deck until the study is
+// resolved.
+func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT dv.owner_id::text,dv.deck_preparation_id::text,dv.language,dv.canonical_lemma,dv.upos,dv.generated_at,dv.graduated_at
+		FROM deck_preparation_vocabulary dv
+		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+		WHERE dv.owner_id=$1 AND dv.language=$2 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL AND dv.graduated_at IS NULL
+		ORDER BY dv.canonical_lemma,dv.upos`, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.DeckPreparationVocabulary
+	for rows.Next() {
+		var item domain.DeckPreparationVocabulary
+		if err = rows.Scan(&item.OwnerID, &item.DeckPreparationID, &item.Language, &item.CanonicalLemma, &item.UPOS, &item.GeneratedAt, &item.GraduatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 // CountDeckPreparationVocabularyToGraduate supports the consequential review
 // confirmation without making the count authoritative for the transaction.
 func (s *PostgresStore) CountDeckPreparationVocabularyToGraduate(ctx context.Context, owner, preparationID string) (int, error) {

@@ -453,7 +453,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 				<h2 id="route-comparison-heading">Compare your order with a vocabulary-efficient alternative</h2>
 				<p class="reading-width">Your order above is canonical and remains the active order. This optional comparison is read-only evidence: it never reorders your Journey or selects a Primary Goal. It optimizes exactly one named lexical property—current known-token coverage—using exact integer token counts from current analyzed evidence.</p>
 				<p class="reading-width">The comparison is calculated when this page is requested. Fixed constraints, including an active Primary Goal when it is a Journey member, remain fixed. Thresholds for 95%, 97%, and 99% coverage are supporting per-book investment data, not ordering inputs. Structural difficulty, coverage, evidence quality, and learner desire remain separate; this view does not combine them into one score.</p>
-				<p class="reading-width">Current coverage is present evidence. Reserved active-campaign vocabulary is not current knowledge; when a reservation snapshot exists and is not confirmed, a separate conditional variant shows what would change if that single transition were confirmed. Reading a book does not change coverage.</p>
+				<p class="reading-width">Current coverage is present evidence. Reserved vocabulary is not current knowledge; when a reservation snapshot exists and is not confirmed, a separate conditional variant shows what would change if that single transition were confirmed. Reading a book does not change coverage.</p>
 				if journey.RouteComparison.ComparisonUnavailable {
 					<p role="status"><strong>Comparison unavailable.</strong> The current Journey evidence could not be loaded. Your canonical order is unchanged; try again when analyzed evidence is available.</p>
 				} else if len(journey.RouteComparison.LearnerOrder) == 0 {
@@ -488,7 +488,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 						</div>
 						if journey.RouteComparison.HasConditional && conditionalRouteDiffers(journey.RouteComparison.AdvisoryOrder, journey.RouteComparison.ConditionalOrder) {
 							<h3>If the pending study is confirmed (conditional projected evidence)</h3>
-							<p>This is a separate conditional projected variant, not current evidence. It assumes only the active campaign's reserved vocabulary graduates through the single justified transition.</p>
+							<p>This is a separate conditional projected variant, not current evidence. It assumes only the reserved vocabulary graduates through the single justified transition.</p>
 							<div class="table-region" tabindex="0" aria-label="Conditional advisory order table">
 								<table><caption>Conditional advisory order if the pending study is confirmed.</caption><thead><tr><th scope="col">Rank</th><th scope="col">Book</th><th scope="col">Conditional coverage</th><th scope="col">Placement</th></tr></thead><tbody>
 									for _, item := range journey.RouteComparison.ConditionalOrder {
@@ -726,7 +726,7 @@ templ CampaignCard(item campaignView, csrf string, activatable bool) {
 		}
 		</h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
 	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
-		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the active campaign graduates</p>
+		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", reservedCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the reserved vocabulary graduates</p>
 	}
 	if item.Campaign.CompletedAt != nil {
 		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
@@ -962,9 +962,9 @@ func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
-func activeCampaignCoveragePercent(coverage domain.AnalysisCoverage) float64 {
+func reservedCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 { return 0 }
-	return min(float64(coverage.KnownTokenCount+coverage.ActiveCampaignTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
+	return min(float64(coverage.KnownTokenCount+coverage.ReservedTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
 func concentrationPercent(projection domain.CoverageProjection) float64 {

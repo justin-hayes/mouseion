@@ -563,8 +563,9 @@ func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.Learnin
 }
 
 // ListActiveLearningCampaignVocabulary and ListLegacyGeneratedVocabulary keep
-// the fixture's migration categories on the same optional read seams used by
-// the production coverage service.
+// the fixture's campaign migration categories on the same optional read seams
+// used by cardexport and the historical campaign tests. Coverage reads the
+// book-anchored reservation through ListReservedVocabulary instead.
 func (s *Store) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -579,17 +580,36 @@ func (s *Store) ListActiveLearningCampaignVocabulary(_ context.Context, owner, l
 			}
 		}
 	}
+	for _, item := range s.reservedDeckVocabularyLocked(owner, language) {
+		result = append(result, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, GeneratedAt: item.GeneratedAt})
+	}
+	return result, nil
+}
+
+// reservedDeckVocabularyLocked returns the vocabulary of the owner's studying,
+// not-yet-graduated decks, scoped to one language. Callers hold s.mu.
+func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.DeckPreparationVocabulary {
+	var result []domain.DeckPreparationVocabulary
 	for _, preparation := range s.preps {
 		if preparation.OwnerID != owner || preparation.StudyingAt == nil || preparation.GraduatedAt != nil {
 			continue
 		}
 		for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
 			if item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}) {
-				result = append(result, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, GeneratedAt: item.GeneratedAt})
+				result = append(result, item)
 			}
 		}
 	}
-	return result, nil
+	return result
+}
+
+// ListReservedVocabulary returns the vocabulary currently reserved by the
+// owner's book-anchored study: studying decks that have not yet graduated,
+// scoped to one language. It is the read seam used by the coverage service.
+func (s *Store) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.reservedDeckVocabularyLocked(owner, language), nil
 }
 
 func (s *Store) CountDeckPreparationVocabularyToGraduate(_ context.Context, owner, preparationID string) (int, error) {
@@ -1684,7 +1704,7 @@ func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCovera
 		projections = append(projections, domain.CoverageProjection{TopLemmaCount: i * 3, SelectedLemmaCount: i * 3, OccurrenceCount: i * 2400, EligibleTokenCount: 80000, ProjectedTokenCount: 50000 + i*7000})
 	}
 	thresholds := []domain.CoverageThreshold{{TargetPercent: 90, LemmaCount: 120, OccurrenceCount: 90000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 95, LemmaCount: 240, OccurrenceCount: 95000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 97, LemmaCount: 390, OccurrenceCount: 97000, EligibleTokenCount: 100000, Reachable: true}, {TargetPercent: 99, LemmaCount: 999, OccurrenceCount: 0, EligibleTokenCount: 100000, Reachable: false}}
-	return domain.AnalysisCoverage{SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ActiveCampaignTokenCount: 12000, ActiveCampaignLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
+	return domain.AnalysisCoverage{SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, KnownTokenCount: 45678, KnownLemmaCount: 12000, ReservedTokenCount: 12000, ReservedLemmaCount: 1500, UnknownTokenCount: 77778, UnknownLemmaCount: 33678, TopUnknownLemmas: lemmas, UnknownConcentration: domain.CoverageProjection{TopLemmaCount: 10, OccurrenceCount: 1000, EligibleTokenCount: 5000}, Projections: projections, Thresholds: thresholds, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}, nil
 }
 
 type KnownVocab struct{}

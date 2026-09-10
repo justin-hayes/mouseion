@@ -90,9 +90,9 @@ func (s *Service) JourneyProjection(ctx context.Context, owner, language string)
 					return domain.JourneyProjectionResult{}, coverageErr
 				}
 				book.Coverage, book.Comparable = &current, true
-				reservations, reservationErr := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, book.Language)
+				reservations, reservationErr := s.store.ListReservedVocabulary(ctx, owner, book.Language)
 				if reservationErr != nil {
-					return domain.JourneyProjectionResult{}, fmt.Errorf("list active campaign vocabulary for %s: %w", book.Language, reservationErr)
+					return domain.JourneyProjectionResult{}, fmt.Errorf("list reserved vocabulary for %s: %w", book.Language, reservationErr)
 				}
 				if len(reservations) > 0 {
 					conditionalAvailable = true
