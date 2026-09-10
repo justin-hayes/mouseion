@@ -21,7 +21,6 @@ type MyBooksBrowseState struct {
 	Language           string
 	LanguageLabel      string
 	NeedsLanguage      bool
-	LanguageCorpus     *languageCorpusPanelView
 	NeedsLanguageCount int
 	AllCount           int
 	ScopeTotal         int
@@ -91,10 +90,7 @@ func myBooksResultCount(total int) string {
 	return fmt.Sprintf("%d books in this result", total)
 }
 
-func myBooksResultAnnouncementAttributes(panel *languageCorpusPanelView) templ.Attributes {
-	if panel != nil {
-		return nil
-	}
+func myBooksResultAnnouncementAttributes() templ.Attributes {
 	return templ.Attributes{"role": "status", "aria-live": "polite", "aria-atomic": "true"}
 }
 

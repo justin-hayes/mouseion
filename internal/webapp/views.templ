@@ -245,7 +245,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
 		if browse.Total == 0 {
-			<p { myBooksResultAnnouncementAttributes(browse.LanguageCorpus)... }>
+			<p { myBooksResultAnnouncementAttributes()... }>
 				if browse.TextNoMatch && browse.NeedsLanguage {
 					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksURL("", 1, true)) } hx-get={ myBooksURL("", 1, true) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.TextNoMatch {
@@ -257,7 +257,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 				}
 			</p>
 		} else {
-			<p { myBooksResultAnnouncementAttributes(browse.LanguageCorpus)... }>{ myBooksResultCount(browse.Total) }</p>
+			<p { myBooksResultAnnouncementAttributes()... }>{ myBooksResultCount(browse.Total) }</p>
 		}
 		if len(books) > 0 {
 			<div class="library-list">
@@ -280,9 +280,6 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 					@MyBooksBrowseLink(browse, browse.Page+1, "Next", false, true)
 				}
 			</nav>
-		}
-		if browse.LanguageCorpus != nil {
-			@LanguageCorpusPanel(browse, *browse.LanguageCorpus)
 		}
 	</section>
 }
@@ -362,74 +359,6 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 	}
 }
 
-templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelView) {
-	<section id="language-view-panel" class="language-view-panel" data-state={ panel.State } aria-labelledby="language-view-panel-heading">
-		<h2 id="language-view-panel-heading">{ fmt.Sprintf("Coverage across %s", panel.LanguageLabel) }</h2>
-		<p class="language-view-announcement" role="status" aria-live="polite" aria-atomic="true">{ languageCorpusLiveSummary(panel) }</p>
-		if panel.PanelUnavailable {
-			<p>Current analyzed evidence could not be loaded. The book collection is unchanged; try again later.</p>
-		} else if panel.AnalyzedBookCount == 0 {
-			<section aria-labelledby="language-view-analyzed-heading">
-				<h3 id="language-view-analyzed-heading">Analyzed books</h3>
-				<p>No analyzed books in { panel.LanguageLabel } yet. Coverage appears for books with a current completed analysis.</p>
-			</section>
-		} else {
-			<p>These figures use current known vocabulary and current completed analyses in { panel.LanguageLabel }. Coverage is evidence, not a recommendation or mastery claim.</p>
-			<div class="language-view-aggregates">
-				<section aria-labelledby="language-view-analyzed-heading">
-					<h3 id="language-view-analyzed-heading">Analyzed books</h3>
-					<dl><div><dt>Books with current evidence</dt><dd class="numeric">{ panel.AnalyzedBookCount }</dd></div></dl>
-					<p>Books contributing to the analyzed set in { panel.LanguageLabel }.</p>
-				</section>
-				<section aria-labelledby="language-view-coverage-heading">
-					<h3 id="language-view-coverage-heading">Current known coverage</h3>
-					<dl><div><dt>Current, token-weighted coverage</dt><dd><strong class="numeric">{ panel.CoveragePercent }</strong> <span>({ panel.KnownTokenCount } of { panel.AnalyzableTokenCount } tokens)</span></dd></div></dl>
-					<p>Current known vocabulary across the analyzed set in { panel.LanguageLabel }.</p>
-				</section>
-				<section aria-labelledby="language-view-unknown-heading">
-					<h3 id="language-view-unknown-heading">Highest-impact unknown vocabulary</h3>
-					<p>Ordered by occurrence contribution across the analyzed set; this order does not recommend study or imply mastery.</p>
-					if len(panel.TopUnknownLemmas) == 0 {
-						<p>No unknown vocabulary contribution is reported.</p>
-					} else {
-						<ol class="language-view-unknown-list">
-							for _, lemma := range panel.TopUnknownLemmas {
-								<li><span><strong>{ lemma.Lemma }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
-							}
-						</ol>
-					}
-				</section>
-				<section aria-labelledby="language-view-books-heading">
-					<h3 id="language-view-books-heading">Per-book spread</h3>
-					<p>Open a book to inspect its own evidence. Excluded books are not assigned zero coverage and do not affect the aggregate.</p>
-					if len(panel.PerBook) == 0 {
-						<p>No book evidence is reported.</p>
-					} else {
-						<ul class="language-view-book-list">
-							for _, book := range panel.PerBook {
-								<li class="language-view-book-row">
-									<h4>
-									if book.JourneyEntryURL != "" {
-										<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
-										} else {
-											{ book.Title }
-										}
-									</h4>
-									if book.Included {
-										<dl><div><dt>Current known coverage</dt><dd>{ book.CoveragePercent } ({ book.KnownTokenCount } of { book.AnalyzableTokenCount } tokens)</dd></div><div><dt>Evidence</dt><dd>{ book.EvidenceLabel }</dd></div></dl>
-									} else {
-										<p><strong>Excluded:</strong> { book.ExclusionReason }</p>
-										<p><strong>Evidence:</strong> { book.EvidenceLabel }</p>
-									}
-								</li>
-							}
-						</ul>
-					}
-				</section>
-			</div>
-		}
-	</section>
-}
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
 	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
 		@PageHeader(journeyPageTitle(journey), "Keep one current Primary Goal anchored first, followed by the provisional order you chose.", nil) {
