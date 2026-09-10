@@ -35,7 +35,8 @@ search surface.
 - Books without a chosen language belong to no language partition and appear
   only through an out-of-band **needs language** strip (display-only: fix the
   language in the catalogue, then re-sync; no per-book actions), never as a
-  filter or browse state on `/library`.
+  filter or browse state in the active-language collection; the distinct
+  out-of-band state is `/library?needs-language`.
 - The active language is context, not a finding aid: it is carried by the page
   heading and the switcher, not repeated per row.
 

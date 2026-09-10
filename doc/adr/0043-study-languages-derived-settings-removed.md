@@ -82,8 +82,8 @@ and removes the Settings destination.
 - `supported_languages` gains a new write path on capability fetch.
 - The three-destination shell changes; `information-architecture.md`,
   `product.md`, `screen-inventory.md`, and the catalogue-sync and language-support
-  feature docs must be reconciled, and the proposed language panel must be
-  retired via the documented architecture checkpoint
+  feature docs must be reconciled, and ADR 0042's "three principal destinations"
+  reference updated, via the documented architecture checkpoint
   (`information-architecture.md#contract-changes-requiring-planneradr-work`).
 - `fixtureserver` derives languages from fixture books instead of profile stubs;
   Playwright smoke tests and broad webapp/cataloguesync test fallout follow.
@@ -103,8 +103,9 @@ and removes the Settings destination.
 
 - [ADR 0038: Schema-change governance](0038-schema-change-governance.md)
 - [ADR 0041: Catalogue sync is metadata-first and non-destructive](0041-catalog-sync-metadata-first.md)
-- [ADR 0057: Retire the Language view panel](0057-retire-language-view-panel.md)
+- [ADR 0042: Derive a per-language corpus view without a persisted corpus object](0042-derived-language-corpus-view.md)
 - [Information architecture](../design/information-architecture.md)
 - [Screen inventory](../design/screen-inventory.md)
 - [Feature: Catalogue Sync](../features/catalog-sync.md)
 - [Feature: Language Support](../features/language-support.md)
+- [Feature: Language Corpus View](../features/language-corpus-view.md)
