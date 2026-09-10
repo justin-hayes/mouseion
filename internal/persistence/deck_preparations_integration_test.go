@@ -258,6 +258,65 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	}
 }
 
+func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "current-deck-owner", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Reanalyzed Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "current-deck-book", Title: book.Title, MediaType: "application/epub+zip", Content: []byte("eins"), FullText: "eins"}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit-1"), Order: 0, SpineIndex: 0, ManifestID: "unit-1", Text: "eins", StartOffset: 0, EndOffset: 4}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID).Scan(&source.ContentSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	var firstRun, secondRun string
+	for i, runID := range []*string{&firstRun, &secondRun} {
+		if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, owner.ID, source.ID, source.ContentRevisionID, source.ContentSnapshotID, string(rune('a'+i))).Scan(runID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: firstRun, Filename: "one.apkg", DeckName: "One", ContentHash: source.ContentHash})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: secondRun, Filename: "two.apkg", DeckName: "Two", ContentHash: source.ContentHash})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err = store.GetDeckPreparation(ctx, owner.ID, first.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID == second.ID || second.RetiredAt != nil || first.RetiredAt == nil {
+		t.Fatalf("current deck transition first=%+v second=%+v", first, second)
+	}
+	var current, history int
+	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE retired_at IS NULL), count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&current, &history); err != nil {
+		t.Fatal(err)
+	}
+	if current != 1 || history != 2 {
+		t.Fatalf("current=%d history=%d, want one current and two historical rows", current, history)
+	}
+	retry, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: secondRun, Filename: "changed.apkg", DeckName: "Changed", ContentHash: "changed"})
+	if err != nil || retry.ID != second.ID {
+		t.Fatalf("analysis retry=%+v err=%v", retry, err)
+	}
+}
+
 func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner, source, hash string) domain.DeckPreparation {
 	t.Helper()
 	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source, Filename: hash + ".apkg", DeckName: hash, ContentHash: hash})

@@ -57,7 +57,7 @@ type DeckPreparation struct {
 	BatchInputTokens, BatchOutputTokens                                                  int64
 	CreatedAt, UpdatedAt                                                                 time.Time
 	StartedAt, CompletedAt                                                               *time.Time
-	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt                                      *time.Time
+	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
 }
 
 type VocabularyStudyStatus string

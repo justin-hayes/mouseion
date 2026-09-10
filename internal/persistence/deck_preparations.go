@@ -14,7 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at`
+const deckPreparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at,retired_at`
 
 type rowScanner interface {
 	Scan(...any) error
@@ -158,7 +158,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 
 func scanDeckPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt)
 	return p, missing(err)
 }
 
@@ -351,13 +351,79 @@ func isConstraint(err error, name string) bool {
 	return errors.As(err, &pgErr) && pgErr.ConstraintName == name
 }
 
-// CreateDeckPreparation creates at most one legacy or analysis-bound identity
-// for an owner and source. Repeated submissions return the same row.
+// CreateDeckPreparation creates the current preparation for a Book. A new
+// analysis retires the prior current row, while retries of the same analysis
+// return its existing row. Unlinked legacy sources retain their old identity.
 func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.DeckPreparation) (domain.DeckPreparation, error) {
-	if p.AnalysisRunID != "" {
-		return scanDeckPreparation(s.pool.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,analysis_run_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (owner_id,source_material_id,analysis_run_id) WHERE analysis_run_id IS NOT NULL DO UPDATE SET owner_id=excluded.owner_id RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, p.AnalysisRunID, p.Filename, p.DeckName, p.ContentHash))
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.DeckPreparation{}, err
 	}
-	return scanDeckPreparation(s.pool.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4,$5) ON CONFLICT (owner_id,source_material_id,content_hash) WHERE analysis_run_id IS NULL DO UPDATE SET owner_id=excluded.owner_id RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, p.Filename, p.DeckName, p.ContentHash))
+	defer tx.Rollback(ctx)
+	created, _, err := CreateDeckPreparationTx(ctx, tx, p)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return created, nil
+}
+
+// CreateDeckPreparationTx is the transactional form used by the River
+// submission path so retirement, preparation creation, and job insertion share
+// one commit boundary.
+func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation) (domain.DeckPreparation, bool, error) {
+	var bookID *string
+	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2 FOR UPDATE`, p.OwnerID, p.SourceMaterialID).Scan(&bookID); err != nil {
+		return domain.DeckPreparation{}, false, missing(err)
+	}
+	if bookID != nil {
+		if err := tx.QueryRow(ctx, `SELECT id FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, p.OwnerID, *bookID).Scan(new(string)); err != nil {
+			return domain.DeckPreparation{}, false, missing(err)
+		}
+		var existing domain.DeckPreparation
+		var err error
+		if p.AnalysisRunID != "" {
+			existing, err = scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND retired_at IS NULL`, p.OwnerID, p.SourceMaterialID, p.AnalysisRunID))
+		} else {
+			existing, err = scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND content_hash=$3 AND retired_at IS NULL`, p.OwnerID, p.SourceMaterialID, p.ContentHash))
+		}
+		if err == nil {
+			return existing, false, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return domain.DeckPreparation{}, false, err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND book_id=$2 AND retired_at IS NULL`, p.OwnerID, *bookID); err != nil {
+			return domain.DeckPreparation{}, false, err
+		}
+		created, err := scanDeckPreparation(tx.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,book_id,analysis_run_id,filename,deck_name,content_hash) VALUES($1,$2,$3,$4::uuid,$5,$6,$7) RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, *bookID, nullableUUID(p.AnalysisRunID), p.Filename, p.DeckName, p.ContentHash))
+		return created, true, err
+	}
+
+	var existing domain.DeckPreparation
+	var err error
+	if p.AnalysisRunID != "" {
+		existing, err = scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid`, p.OwnerID, p.SourceMaterialID, p.AnalysisRunID))
+	} else {
+		existing, err = scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND content_hash=$3 AND analysis_run_id IS NULL`, p.OwnerID, p.SourceMaterialID, p.ContentHash))
+	}
+	if err == nil {
+		return existing, false, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return domain.DeckPreparation{}, false, err
+	}
+	created, err := scanDeckPreparation(tx.QueryRow(ctx, `INSERT INTO deck_preparations(owner_id,source_material_id,analysis_run_id,filename,deck_name,content_hash) VALUES($1,$2,$3::uuid,$4,$5,$6) RETURNING `+deckPreparationColumns, p.OwnerID, p.SourceMaterialID, nullableUUID(p.AnalysisRunID), p.Filename, p.DeckName, p.ContentHash))
+	return created, true, err
+}
+
+func nullableUUID(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 // ClaimDeckPreparation atomically grants one worker the queued preparation.
@@ -465,7 +531,7 @@ func (s *PostgresStore) GetDeckPreparation(ctx context.Context, owner, id string
 // makes this lookup safe for result pages and prevents a mutable latest-deck
 // lookup from selecting the wrong analysis.
 func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
-	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid`, owner, sourceMaterialID, analysisRunID))
+	return scanDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND (book_id IS NULL OR retired_at IS NULL)`, owner, sourceMaterialID, analysisRunID))
 }
 
 func (s *PostgresStore) GetActiveDeckVocabularyStudy(ctx context.Context, owner, sourceMaterialID string) (domain.DeckPreparation, error) {
