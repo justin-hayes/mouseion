@@ -3,7 +3,6 @@ package webapp
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -109,22 +108,6 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	goalBookID := ""
 	if goal.IsActive() {
 		goalBookID = goal.BookID
-	}
-	if browse.Enabled && browse.Language != "" && !browse.NeedsLanguage {
-		if provider, ok := h.services.AnalysisInsights.(languageCorpusProvider); ok {
-			var supported []domain.SupportedLanguage
-			if reader, supportedOK := h.services.Store.(supportedLanguageReader); supportedOK {
-				supported, _ = reader.ListSupportedLanguages(r.Context())
-			}
-			panel, panelErr := buildLanguageCorpusPanel(r.Context(), provider, supported, u.ID, browse.Language)
-			if panelErr != nil {
-				log.Printf("mouseion: language view unavailable for owner %s: %v", u.ID, panelErr)
-				panel = unavailableLanguageCorpusPanel(browse.Language, supported)
-			} else if annotateErr := h.annotateLanguageCorpusPanel(r.Context(), u.ID, &panel); annotateErr != nil {
-				log.Printf("mouseion: language view links unavailable for owner %s: %v", u.ID, annotateErr)
-			}
-			browse.LanguageCorpus = &panel
-		}
 	}
 	if isHTMX(r) && browse.Enabled {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, goalBookID, browse))
