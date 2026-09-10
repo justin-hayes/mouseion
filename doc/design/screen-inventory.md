@@ -12,10 +12,11 @@ app's organizing mode per
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
 study language scopes My Books, Reading Journey, and Vocabulary, and Journeys
 and Goals are one per language. Catalogue-sync,
-collection-browsing, and language-lens surfaces are owned by
-[ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and
-[ADR 0042](../adr/0042-derived-language-corpus-view.md) and are marked planned
-below. It is not a wireframe,
+collection-browsing surfaces are owned by
+[ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and the related feature
+contracts below. The proposed language-lens panel is retired by
+[ADR 0057](../adr/0057-retire-language-view-panel.md) and has no current screen
+contract. It is not a wireframe,
 implementation plan, or persistence contract. Feature documents and ADRs
 continue to own product behavior and historical decision details.
 
@@ -66,7 +67,6 @@ queue, campaign, or plan is exposed.
 |---|---|---|---|---|
 | My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Add books, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
 | My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Journey entry or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
-| Per-language lens panel | Planned (Proposed) within `GET /library` for the active language | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for the active language. | Current Journey entry | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
 | Journey entry and analysis insights | Current `GET /journey/{bookID}` only for a Journey member with a current completed analysis; metadata refresh is a My Books row action | Understand one analyzed Book's current analysis evidence, Journey/Goal relationship, and preparation decisions. Unassessed, stale, queued, running, failed, and cancelled Books have no detail page. | Analysis status, deck preparation, Journey/Goal action, prepared artifact, or My Books | Current completed analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Journey entry when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Journey entry | Empty history, mixed states, historical/legacy records |

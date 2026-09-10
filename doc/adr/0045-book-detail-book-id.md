@@ -12,9 +12,9 @@ page; otherwise it scans the owner's source materials and treats the id as a
 
 Two producers emit links that break under this regime:
 
-- the **language view** per-book rows link `/books/{BookID}` for analyzed books
-  (ADR 0042's per-book spread), but those books are acquired, so the route
-  falls into the source-ID scan and returns 404;
+- the former per-language panel's per-book rows linked `/books/{BookID}` for
+  analyzed books (ADR 0042's per-book spread), but those books were acquired, so
+  the route fell into the source-ID scan and returned 404;
 - the **acquisition return path** redirects to `/books/{BookID}` after the
   acquired book stops being metadata-only, so the post-acquisition page 404s.
   The integration test asserts the `Location` header but never follows it.
@@ -45,8 +45,8 @@ source-material-ID links continue to land on the Book.
   identity decision disappears from the handler.
 - `IsMetadataOnlyMyBook`, `loadBook`, and `loadBookID` are deleted. The webapp
   `Store` interface narrows; Book-detail reads go through one module.
-- Learner-facing surfaces (My Book rows, language view, journey,
-  analysis-result redirect) emit canonical Book ID. Operational surfaces (jobs,
+- Learner-facing surfaces (My Book rows, Journey, analysis-result redirect) emit
+  canonical Book ID. Operational surfaces (jobs,
   job detail, prepared-deck breadcrumbs and status) keep their
   source-material-keyed links, which resolve in place.
 - The fixtureserver models distinct Book and source identities so the browser
@@ -83,4 +83,4 @@ source-material-ID links continue to land on the Book.
 
 - [ADR 0035: Separate My Books membership from acquired source provenance](0035-my-books-membership-and-source-provenance.md)
 - [ADR 0040: One current analysis per book](0040-one-current-analysis-per-book.md)
-- [ADR 0042: Derive a per-language corpus view without a persisted corpus object](0042-derived-language-corpus-view.md)
+- [ADR 0057: Retire the Language view panel](0057-retire-language-view-panel.md)

@@ -1,6 +1,11 @@
 # Language Corpus View
 
-Status: Proposed · Date: 2026-09-02
+Status: Historical / retired · Date: 2026-09-02 · Superseded by ADR 0057
+
+This document records the proposed Language view panel and is retained as
+historical context. The panel and its read model were retired by
+[ADR 0057](../adr/0057-retire-language-view-panel.md); the requirements below
+are not current product behavior.
 
 ## Motivation
 

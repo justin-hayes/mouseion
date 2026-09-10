@@ -15,11 +15,11 @@ code implements it differently at different depths:
   domain, and `Book.Validate` checks only non-emptiness.
 - SQL re-implements the rule inconsistently: study-language derivation does
   `lower(replace(trim(language_tag),'_','-'))`, but My Books pill counts and the
-  language-corpus filter only lowercase. The same learner's German can appear as
+  former language-corpus filter only lowercase. The same learner's German can appear as
   `de`, `de-de`, and `de_DE` across surfaces, and known-vocabulary reads carry
   yet another spelling.
 - Display-name logic is split: study languages and vocabulary resolve names
-  through `supported_languages`, while the language-corpus panel hard-codes
+  through `supported_languages`, while the former language-corpus panel hard-coded
   `de`, `it`, and `en`.
 
 Because sync writes `de` (the capability tag) while `sameLanguage` already
@@ -52,13 +52,14 @@ The canonical form is enforced at the domain:
 
 Once ingress guarantees canonical storage and the migration converges, the SQL
 sites that re-implement normalization (study-language derivation, My Books
-counts and browse filter, language-corpus filter, and the known-vocabulary
-reads) are simplified to exact canonical comparison. This contract step lands
+counts and browse filter, former language-corpus filter, and the known-vocabulary
+reads) are simplified to exact canonical comparison. The retired language-corpus
+filter no longer needs reconciliation. This contract step lands
 only after the migration so no legacy row breaks.
 
 Display names route through `supported_languages` everywhere, with the canonical
-tag as fallback during NLP outages; the language-corpus panel's hard-coded
-`de`/`it`/`en` switch is removed.
+tag as fallback during NLP outages; the former language-corpus panel's hard-coded
+`de`/`it`/`en` switch was removed before the panel was retired.
 
 The fixtureserver stores and matches the canonical base form so the two adapters
 (PostgreSQL, fixtureserver) agree on language identity and the browser smoke
