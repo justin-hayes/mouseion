@@ -68,7 +68,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Explicitly recorded' }).first()).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Graduated from completed campaign' }).first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Graduated from reviewed deck' }).first()).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
     await expect(page.getByText(/Viewing German/)).toBeVisible();
     await expectPostFormsCarryCSRF(page);

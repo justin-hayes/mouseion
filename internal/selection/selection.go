@@ -20,7 +20,7 @@ var ErrInvalidConfig = errors.New("selection: invalid configuration")
 type Store interface {
 	GetVocabularyStateByIdentity(context.Context, string, string, string, string) (domain.VocabularyState, error)
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
-	IsLearningCampaignVocabularyReserved(context.Context, string, string, string, string) (bool, error)
+	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
 	PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error)
 }
 type Identity struct{ Language, CanonicalLemma, UPOS string }
@@ -153,9 +153,9 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		if known {
 			continue
 		}
-		reserved, err := s.store.IsLearningCampaignVocabularyReserved(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
+		reserved, err := s.store.IsReservedVocabulary(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
 		if err != nil {
-			return nil, fmt.Errorf("get active campaign reservation: %w", err)
+			return nil, fmt.Errorf("get reserved vocabulary: %w", err)
 		}
 		if reserved {
 			continue

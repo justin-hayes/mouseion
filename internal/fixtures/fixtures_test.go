@@ -320,34 +320,6 @@ func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	}
 }
 
-func TestStorePrimaryGoalFinishFixturesCoverReadingOnlyResidualAndReviewed(t *testing.T) {
-	ctx := context.Background()
-	readingOnly := NewStore()
-	readingOnly.campaigns = nil
-	result, err := readingOnly.FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
-	if err != nil || result.Campaign != nil || result.ResidualVocabularyCount != 0 || result.Goal.ReadingFinishedAt == nil {
-		t.Fatalf("reading-only result=%+v err=%v", result, err)
-	}
-
-	residual, err := NewStore().FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
-	if err != nil || residual.Campaign == nil || residual.Campaign.Status != domain.CampaignActive || residual.ResidualVocabularyCount != 2 || len(residual.Graduated) != 0 {
-		t.Fatalf("residual result=%+v err=%v", residual, err)
-	}
-
-	reviewed := NewStore()
-	campaign, err := reviewed.GetLearningCampaign(ctx, OwnerID, CampaignID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = reviewed.UpdateLearningCampaignProgress(ctx, OwnerID, CampaignID, persistence.LearningCampaignExpectedState{}, domain.BookReading, domain.DeckReviewed); err != nil {
-		t.Fatal(err)
-	}
-	result, err = reviewed.FinishReadingPrimaryGoal(ctx, OwnerID, "de", BookID)
-	if err != nil || result.Campaign == nil || result.Campaign.Status != domain.CampaignComplete || len(result.Graduated) != 2 || result.ResidualVocabularyCount != 0 {
-		t.Fatalf("reviewed-before-finish result=%+v campaign-before=%+v err=%v", result, campaign, err)
-	}
-}
-
 func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyThatLanguage(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
@@ -428,21 +400,7 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 
-	campaigns, err := store.ListLearningCampaigns(ctx, OwnerID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	statuses := map[domain.CampaignStatus]bool{}
-	for _, campaign := range campaigns {
-		statuses[campaign.Status] = true
-	}
-	for _, status := range []domain.CampaignStatus{domain.CampaignQueued, domain.CampaignActive, domain.CampaignComplete, domain.CampaignAbandoned} {
-		if !statuses[status] {
-			t.Fatalf("migration fixture missing campaign status %q: %+v", status, campaigns)
-		}
-	}
-
-	legacy, err := store.ListLegacyGeneratedVocabulary(ctx, OwnerID, "de")
+	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, OwnerID, "de")
 	if err != nil || len(legacy) != 1 || legacy[0].CanonicalLemma != LegacyGeneratedLemma || legacy[0].FirstSourceMaterialID != nil {
 		t.Fatalf("legacy generated fixture=%+v err=%v", legacy, err)
 	}
@@ -454,12 +412,8 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	for _, item := range known {
 		provenance[item.CanonicalLemma] = item.Provenance
 	}
-	if provenance[IndependentKnownLemma] != "Explicitly recorded" || provenance[GraduatedKnownLemma] != "Graduated from completed campaign" {
+	if provenance[IndependentKnownLemma] != "Explicitly recorded" || provenance[GraduatedKnownLemma] != "Graduated from reviewed deck" {
 		t.Fatalf("known vocabulary provenance=%v", provenance)
-	}
-	active, err := store.ListActiveLearningCampaignVocabulary(ctx, OwnerID, "de")
-	if err != nil || len(active) != 2 {
-		t.Fatalf("active reservation fixture=%+v err=%v", active, err)
 	}
 	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
 	if err != nil {

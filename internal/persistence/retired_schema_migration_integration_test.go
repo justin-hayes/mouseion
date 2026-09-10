@@ -30,6 +30,12 @@ func TestRemoveRetiredAnalysisSchemaIsIdempotent(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text,book_id) VALUES($1,'de','plain','Plain','text/plain','retired-plain',decode('70','hex'),'plain',$2) RETURNING id`, ownerID, bookID).Scan(&sourceID); err != nil {
 		t.Fatal(err)
 	}
+	// Migration 000051 predates the campaign-table removal in 000061. Recreate
+	// only the historical table it cleans so its retry behavior remains covered.
+	if _, err := pool.Exec(ctx, `CREATE TABLE learning_campaigns (source_material_id uuid NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = pool.Exec(ctx, `DROP TABLE IF EXISTS learning_campaigns`) }()
 
 	sql, err := migrations.FS.ReadFile("000051_remove_retired_analysis_schema.up.sql")
 	if err != nil {

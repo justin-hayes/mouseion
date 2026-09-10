@@ -65,9 +65,6 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	if err != nil || len(journey.Entries) != len(initialJourney.Entries) || journey.Revision != initialJourney.Revision {
 		t.Fatalf("choosing Goal changed Journey: before=%+v after=%+v err=%v", initialJourney, journey, err)
 	}
-	if campaigns, listErr := store.ListLearningCampaigns(ctx, alice.ID); listErr != nil || len(campaigns) != 0 {
-		t.Fatalf("choosing Goal created campaign rows=%d err=%v", len(campaigns), listErr)
-	}
 	if jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID); listErr != nil || len(jobs) != 0 {
 		t.Fatalf("choosing Goal created analysis jobs=%d err=%v", len(jobs), listErr)
 	}

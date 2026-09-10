@@ -24,7 +24,7 @@ type memoryStore struct {
 	candidates   []domain.SelectionCandidate
 	known        []domain.KnownVocabulary
 	history      []domain.GeneratedVocabulary
-	active       []domain.CampaignVocabulary
+	reserved     []domain.DeckPreparationVocabulary
 	generated    []Note
 	bookID       string
 	historyCalls map[string]int
@@ -269,13 +269,13 @@ func (m *memoryStore) ListGeneratedVocabulary(_ context.Context, owner, language
 	return out, nil
 }
 
-func (m *memoryStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+func (m *memoryStore) ListUnattachedGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	return m.ListGeneratedVocabulary(ctx, owner, language)
 }
 
-func (m *memoryStore) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
-	var result []domain.CampaignVocabulary
-	for _, word := range m.active {
+func (m *memoryStore) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	var result []domain.DeckPreparationVocabulary
+	for _, word := range m.reserved {
 		if word.OwnerID == owner && word.Language == language {
 			result = append(result, word)
 		}
@@ -1111,8 +1111,8 @@ func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
 	}
 }
 
-func TestCoverageCandidatesReservesOnlyActiveCampaignVocabulary(t *testing.T) {
-	store := &memoryStore{active: []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "VERB"}}}
+func TestCoverageCandidatesReservesOnlyCurrentlyStudiedVocabulary(t *testing.T) {
+	store := &memoryStore{reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "VERB"}}}
 	candidates := []domain.SelectionCandidate{
 		{Language: "de", CanonicalLemma: "reserved", UPOS: "VERB", OccurrenceCount: 10},
 		{Language: "de", CanonicalLemma: "released", UPOS: "ADJ", OccurrenceCount: 10},
@@ -1122,9 +1122,9 @@ func TestCoverageCandidatesReservesOnlyActiveCampaignVocabulary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0].CanonicalLemma != "released" {
-		t.Fatalf("active reservation candidates = %+v", got)
+		t.Fatalf("reserved vocabulary candidates = %+v", got)
 	}
-	store.active = nil
+	store.reserved = nil
 	got, err = NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
 	if err != nil || len(got) != 2 {
 		t.Fatalf("released reservation candidates = %+v, %v", got, err)

@@ -202,7 +202,7 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	if err != nil || started.StudyingAt == nil || started.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
 		t.Fatalf("start: %+v, %v", started, err)
 	}
-	reserved, err := store.IsLearningCampaignVocabularyReserved(ctx, owner.ID, "de", "lernen", "VERB")
+	reserved, err := store.IsReservedVocabulary(ctx, owner.ID, "de", "lernen", "VERB")
 	if err != nil || !reserved {
 		t.Fatalf("reservation=%v err=%v", reserved, err)
 	}
@@ -224,7 +224,7 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	if err != nil || released.StudyingAt != nil || released.ReleasedAt == nil {
 		t.Fatalf("release: %+v, %v", released, err)
 	}
-	eligible, err := store.IsLearningCampaignVocabularyReserved(ctx, owner.ID, "de", "lernen", "VERB")
+	eligible, err := store.IsReservedVocabulary(ctx, owner.ID, "de", "lernen", "VERB")
 	if err != nil || eligible {
 		t.Fatalf("released reservation=%v err=%v", eligible, err)
 	}

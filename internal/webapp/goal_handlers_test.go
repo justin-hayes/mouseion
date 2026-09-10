@@ -338,14 +338,6 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	campaignBefore, err := store.GetLearningCampaign(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	vocabularyBefore, err := store.CountCampaignVocabularyToGraduate(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
@@ -373,18 +365,6 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de"); err != nil || goal.BookID != fixtures.BookID {
 		t.Fatalf("finished Goal history=%+v err=%v", goal, err)
 	}
-	campaignAfter, err := store.GetLearningCampaign(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	vocabularyAfter, err := store.CountCampaignVocabularyToGraduate(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if campaignAfter.BookProgress != campaignBefore.BookProgress || campaignAfter.DeckProgress != campaignBefore.DeckProgress || campaignAfter.Status != campaignBefore.Status || vocabularyAfter != vocabularyBefore {
-		t.Fatalf("reading finish changed legacy campaign: before=%+v/%d after=%+v/%d", campaignBefore, vocabularyBefore, campaignAfter, vocabularyAfter)
-	}
-
 	repeated := goalRequest(t, h, "/goal/finish", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
@@ -411,35 +391,9 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	}
 }
 
-func TestPrimaryGoalFinishOutcomeDistinguishesGraduationAndConditionalEvidence(t *testing.T) {
-	count := 2
-	graduated := primaryGoalFinishView{
-		BookTitle:           "Finished book",
-		VocabularyGraduated: true,
-		Graduated:           []domain.CampaignVocabulary{{CanonicalLemma: "gehen", UPOS: "VERB"}},
-		Evidence: []finishEvidenceView{{
-			Book:            testJourneyBook("next", "Next book", "analyzed"),
-			Changed:         true,
-			BeforeLabel:     "Current evidence",
-			BeforeCurrent:   "40.0%",
-			BeforeProjected: "60.0%",
-			AfterLabel:      "Current evidence",
-			AfterCurrent:    "50.0%",
-			AfterProjected:  "70.0%",
-		}},
-	}
+func TestPrimaryGoalFinishOutcomeShowsConditionalVocabularyEvidence(t *testing.T) {
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: 2}
 	var output bytes.Buffer
-	if err := PrimaryGoalFinish(graduated, "csrf").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"exactly 1 eligible vocabulary identities", "gehen (VERB)", "Before:", "Now — Current evidence", "Where next?"} {
-		if !strings.Contains(output.String(), want) {
-			t.Errorf("graduation outcome missing %q: %s", want, output.String())
-		}
-	}
-
-	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: count}
-	output.Reset()
 	if err := PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}

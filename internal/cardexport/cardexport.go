@@ -108,8 +108,8 @@ type Store interface {
 	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	ListGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
-	ListActiveLearningCampaignVocabulary(context.Context, string, string) ([]domain.CampaignVocabulary, error)
-	ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
+	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
+	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
 	RecordGeneratedForBook(context.Context, string, string, string, Entry, Note) error
 }
@@ -1079,7 +1079,7 @@ func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, 
 		}
 		generated, ok := generatedByLanguage[candidate.Language]
 		if !ok {
-			words, err := s.store.ListLegacyGeneratedVocabulary(ctx, owner, candidate.Language)
+			words, err := s.store.ListUnattachedGeneratedVocabulary(ctx, owner, candidate.Language)
 			if err != nil {
 				return nil, fmt.Errorf("list generated vocabulary for %s: %w", candidate.Language, err)
 			}
@@ -1091,11 +1091,11 @@ func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, 
 					generated[word.CanonicalLemma+"\x00"+word.UPOS] = true
 				}
 			}
-			activeWords, err := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, candidate.Language)
+			reservedWords, err := s.store.ListReservedVocabulary(ctx, owner, candidate.Language)
 			if err != nil {
-				return nil, fmt.Errorf("list active campaign vocabulary for %s: %w", candidate.Language, err)
+				return nil, fmt.Errorf("list reserved vocabulary for %s: %w", candidate.Language, err)
 			}
-			for _, word := range activeWords {
+			for _, word := range reservedWords {
 				generated[word.CanonicalLemma+"\x00"+word.UPOS] = true
 			}
 			generatedByLanguage[candidate.Language] = generated
