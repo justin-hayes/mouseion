@@ -64,7 +64,7 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 | **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
 | **Analysis trigger** | Adding a Book to Reading Journey submits asynchronous analysis or re-analysis as needed. | Start analysis, continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
-| **Analysis result** | The Book's single current learner-facing analysis, shown on the Book page and, for Journey members, in the Journey entry. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Book page |
+| **Analysis result** | The Book's single current learner-facing analysis, shown in the Journey entry for a member. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Journey entry |
 | **Analysis insights** | Current known coverage, vocabulary investment, highest-impact unknown vocabulary, and warning-only quality information for the current analysis. | Dashboard metrics, difficulty score, text profile on the learner surface |
 | **View analysis result** | Leave operational status and open the current analysis context, directly or through the run-specific compatibility redirect. | View job, view exact result |
 

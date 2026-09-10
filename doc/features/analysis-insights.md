@@ -50,7 +50,7 @@ graduates nothing.
 
 The underlying calculation retains distinct lemma counts and occurrence counts
 because lemma coverage and token coverage answer different questions. The
-learner-facing book page presents only current known coverage from this
+learner-facing Journey entry presents only current known coverage from this
 coverage-stat family. Percentages use the integer occurrence counts;
 presentation may round the resulting ratio, but selection never uses a rounded
 percentage.
@@ -101,7 +101,7 @@ The calculation and operational evidence distinguish:
 - vocabulary eligible for a new deck.
 
 Generated or active-campaign vocabulary is not silently reported as known. The
-book page leads only with current known coverage; vocabulary investment and top
+Journey entry leads only with current known coverage; vocabulary investment and top
 unknowns apply the distinct categories internally. Books later in Reading
 Journey may show current-known coverage and future-book coverage after the
 active campaign graduates. Both values are calculated on demand, so completing
@@ -110,8 +110,8 @@ coverage or mastery snapshot.
 
 ## Initial presentation
 
-The book page at `/books/{id}` shows one current analysis; Journey members can
-also inspect that same current analysis from their Journey entry. Its
+The Journey entry at `/journey/{bookID}` shows one current analysis for a
+Journey member. Its
 presentation keeps:
 
 - **Current known coverage** as the headline and premier metric, with a
@@ -187,7 +187,7 @@ thresholds, and top unknowns use the resulting corpus; the one-line coverage
 qualifier states that the headline applies to the analyzed book without
 exposing a separate scope-detail section.
 
-Deck preparation starts on the book page but remains bound internally to the
+Deck preparation starts on the Journey entry but remains bound internally to the
 exact immutable completed analysis that owns the corpus. It is not available
 for queued, running, failed, cancelled, or legacy-only analysis state.
 

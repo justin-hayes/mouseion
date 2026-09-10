@@ -22,7 +22,7 @@ func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) 
 	h.createDeckPreparationForAnalysis(w, r, r.PathValue("id"), "")
 }
 
-func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
@@ -36,7 +36,15 @@ func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	book := *detail.Acquired
-	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || book.CorpusID == "" {
+	if !bookHasCompletedAnalysis(book) {
+		http.NotFound(w, r)
+		return
+	}
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
+		fail(w, err)
+		return
+	}
+	if !detail.JourneyMember {
 		http.NotFound(w, r)
 		return
 	}
@@ -55,39 +63,6 @@ func (h *Handler) createBookDeckPreparation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if result.OwnerID != u.ID || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.Corpus.ID != book.CorpusID {
-		http.NotFound(w, r)
-		return
-	}
-	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
-}
-
-func (h *Handler) createAnalysisDeckPreparation(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
-	if !ok || detail.Acquired == nil {
-		if ok {
-			http.NotFound(w, r)
-		}
-		return
-	}
-	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, detail.Acquired.Source.ID, r.PathValue("runID"))
-	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != detail.Acquired.Source.ID || result.RunID != r.PathValue("runID") {
 		http.NotFound(w, r)
 		return
 	}

@@ -10,7 +10,7 @@ async function signIn(page: Page) {
 
 const representativePages: Array<[string, RegExp]> = [
   ['/library', /My Books/],
-  ['/books/fixture-book', /Der lange Weg nach Hause/],
+  ['/journey/fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
@@ -71,7 +71,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('dense analysis, campaign history, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book');
+    await page.goto('/journey/fixture-book');
     await expect(page.locator('.stat-group__value').filter({ hasText: '37.0%' })).toBeVisible();
     await expect(page.getByText('Randlemma-18')).toBeVisible();
     await expect(page.locator('.top-unknown li')).toHaveCount(18);
@@ -106,7 +106,7 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
-    await page.goto('/books/fixture-book');
+    await page.goto('/journey/fixture-book');
     const resultActions = await page.locator('[aria-labelledby="deck-preparation-heading"] button, [aria-labelledby="deck-preparation-heading"] a[role="button"]').evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim()));
     expect(resultActions[0]).toMatch(/Prepare deck|Download deck/);
   });

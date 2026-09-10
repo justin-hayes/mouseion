@@ -47,7 +47,7 @@ func TestAnalysisInsightsFormatsOnlyGermanNouns(t *testing.T) {
 			coverage := domain.AnalysisCoverage{TopUnknownLemmas: []domain.LemmaOccurrence{tt.lemma}}
 			book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{Language: tt.language}}
 			var output bytes.Buffer
-			if err := BookPage(domain.User{}, "csrf", book, &coverage, false, "").Render(context.Background(), &output); err != nil {
+			if err := BookPageWithOptions(domain.User{}, "csrf", book, &coverage, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 				t.Fatal(err)
 			}
 			if got := output.String(); !strings.Contains(got, "<strong>"+tt.want+"</strong>") {

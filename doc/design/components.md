@@ -37,8 +37,8 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Book detail, Campaign history, Jobs, Vocabulary |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Book detail, Reading Journey |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Journey entry, Campaign history, Jobs, Vocabulary |
+| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Journey entry, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Book/Job workflow      | Book and analysis status                                      |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, Campaign surfaces                   |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, current Campaign, Jobs, Vocabulary       |
@@ -66,7 +66,7 @@ one-pattern/one-Templ-component implementation.
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
 | `BibliographicBookItem` | Keep title, author, and edition identity primary while pairing intent, evidence state, and one contextual action. | Primary Goal, in Journey, outside Journey, reading finished, unassessed, stale/questionable, cannot assess, long/missing metadata | My Books, Reading Journey, Where next? |
-| `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. | No evidence, analysis active/failed/complete, reading active/finished, vocabulary work active/complete | Reading Journey, book detail, outcome transition |
+| `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. | No evidence, analysis active/failed/complete, reading active/finished, vocabulary work active/complete | Reading Journey, Journey entry, outcome transition |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, incomparable book, compact viewport | Reading Journey, Where next? |
 | `RouteComparison` | Compare **Your order** with one optional vocabulary-efficient alternative while keeping learner order canonical. | No/partial comparable evidence, alternative available, manual preview, adopted or dismissed | Reading Journey |
 | `EvidenceDelta` | State a current, prior, or conditional value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, stale/unavailable evidence | Journey books, route comparison, Goal outcome |

@@ -211,13 +211,13 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligi
 					@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
 				}
 				if book.EvidenceState() == domain.BookNotAcquired && refreshEligible {
-					<form method="post" action={ templ.SafeURL("/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
+					<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit" class="outline">Refresh metadata</button>
 					</form>
 				}
 				{{ action := myBookLifecycleActionFor(book) }}
-				if action.Label != "" && action.URL != "" && !strings.HasPrefix(action.URL, "/books/") {
+				if action.Label != "" && action.URL != "" {
 					@LifecycleActionControl(action, csrf)
 				}
 				@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
@@ -410,7 +410,7 @@ templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelVi
 								<li class="language-view-book-row">
 									<h4>
 									if book.JourneyEntryURL != "" {
-											<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
+										<a href={ templ.SafeURL(book.JourneyEntryURL) }>{ book.Title }</a>
 										} else {
 											{ book.Title }
 										}
@@ -790,16 +790,11 @@ templ CampaignCompletionDetails(item campaignView) {
 		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage evidence will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
 		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
 }
-templ BookPage(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string) {
-	@BookPageWithOptions(user, csrf, book, coverage, statisticsUnavailable, message, currentBookPageOptions(book), nil, emptyDeckJourneyAction())
-}
-
 templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string, page bookPageOptions, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
 	@ShellLayout(canonicalBookTitle(book), &user, csrf, page.Navigation) {
 	@Breadcrumb(page.BreadcrumbURL, page.BreadcrumbLabel)
 	{{ action := bookLifecycleActionFor(book) }}
 	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(action.Status, action.Tone)) {
-		@LifecycleActionControl(action, csrf)
 	}
 	if message != "" {
 		@Feedback(FeedbackSuccess, "", message)
@@ -928,7 +923,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 }
 
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
-func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/books/" + url.PathEscape(book.Source.ID) + "/deck/preparations" }
+func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/journey/books/" + url.PathEscape(journeyMembershipBookID(book)) + "/deck/preparations" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {

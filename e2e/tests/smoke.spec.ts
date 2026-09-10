@@ -82,16 +82,16 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#journey-book-fixture-italian-goal')).toHaveCount(0);
     await expect(page.locator('#journey-book-fixture-empty')).toHaveCount(0);
 
-    await page.goto('/books/fixture-book');
+    await page.goto('/journey/fixture-book');
     await page.getByLabel('Study language').selectOption('it');
-    await expect(page).toHaveURL('/books/fixture-book');
+    await expect(page).toHaveURL('/journey/fixture-book');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await page.getByLabel('Study language').selectOption('de');
   });
 
-  test('acquired books resolve from their canonical Book ID', async ({ page }) => {
-    await page.goto('/books/fixture-book');
-    await expect(page).toHaveURL('/books/fixture-book');
+  test('Journey entries resolve from their canonical Book ID', async ({ page }) => {
+    await page.goto('/journey/fixture-book');
+    await expect(page).toHaveURL('/journey/fixture-book');
     await expect(page.getByRole('heading', { name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
     await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
   });

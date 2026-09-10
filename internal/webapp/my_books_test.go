@@ -23,7 +23,7 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "Not acquired / metadata only", "Refresh metadata", `hx-post="/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", "Not acquired / metadata only", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
 		}
@@ -251,17 +251,25 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
-	request := httptest.NewRequest(http.MethodGet, "/books/fixture-empty", nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("unassessed book detail status=%d body=%s", response.Code, response.Body.String())
+	for _, path := range []string{"/books/fixture-empty", "/books/fixture-book", "/books/fixture-failed"} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		for _, cookie := range cookies {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		h.ServeHTTP(response, request)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("GET %s status=%d body=%s", path, response.Code, response.Body.String())
+		}
 	}
 	if response := goalRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
 		t.Fatalf("standalone analysis status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
+		t.Fatalf("retired refresh route status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response := goalRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
+		t.Fatalf("retired deck route status=%d body=%s", response.Code, response.Body.String())
 	}
 }
 
@@ -275,6 +283,15 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	h.ServeHTTP(response, request)
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey/fixture-book" {
 		t.Fatalf("analysis compatibility route status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+	request = httptest.NewRequest(http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response = httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("historical analysis compatibility status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
 }
 
@@ -292,7 +309,7 @@ func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 		CorpusID:       "italian-corpus",
 	}
 	var output bytes.Buffer
-	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -311,7 +328,7 @@ func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
 		CorpusID:       "canonical-corpus",
 	}
 	var output bytes.Buffer
-	if err := BookPage(domain.User{Username: "learner"}, "csrf", book, nil, false, "").Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
@@ -373,11 +390,11 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
 	h.(*Handler).services.CatalogueSync = stub
-	missingCSRF := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{}, cookies)
+	missingCSRF := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
 	if missingCSRF.Code != http.StatusForbidden || stub.calls != 0 {
 		t.Fatalf("missing CSRF status=%d calls=%d", missingCSRF.Code, stub.calls)
 	}
-	native := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
+	native := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
 	if native.Code != http.StatusSeeOther || !strings.Contains(native.Header().Get("Location"), "Metadata+refreshed") || stub.owner != "fixture-learner" {
 		t.Fatalf("native refresh status=%d location=%q owner=%q", native.Code, native.Header().Get("Location"), stub.owner)
 	}
@@ -385,7 +402,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
 	h.(*Handler).services.CatalogueSync = stub
-	request := httptest.NewRequest(http.MethodPost, "/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	for _, cookie := range cookies {
@@ -400,7 +417,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
 	h.(*Handler).services.CatalogueSync = stub
-	request = httptest.NewRequest(http.MethodPost, "/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request = httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	request.Header.Set("HX-Target", "book-row-fixture-metadata-only")
@@ -417,7 +434,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	h.(*Handler).services.CatalogueSync = nil
-	request := httptest.NewRequest(http.MethodPost, "/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	request.Header.Set("HX-Target", "book-row-fixture-metadata-only")

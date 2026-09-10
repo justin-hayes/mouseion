@@ -151,9 +151,9 @@ These objects remain important, but they do not define principal navigation:
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
 - **Current analysis** — the one completed analysis whose evidence is presented
-  on the book page. Its immutable corpus and provenance remain backend facts.
+  on the Journey entry. Its immutable corpus and provenance remain backend facts.
 - **Prepared deck** — immutable APKG artifact from the exact analysis that
-  supplied its corpus, even though preparation begins on the book page.
+  supplied its corpus, even though preparation begins on the Journey entry.
 - **Learning campaign** — current accepted domain object for one book/deck
   workflow and its vocabulary reservation/graduation semantics. It remains an
   internal or secondary history/operations concept, not a learner-facing plan.
@@ -241,8 +241,8 @@ Reading Journey (active study language)
 
 Catalogue maintenance
     connection setup and sync status
-Book detail
-    current completed analysis compatibility view
+Journey entry
+    current completed analysis view for a Journey member
 
 Vocabulary
     known vocabulary and import
@@ -273,8 +273,8 @@ run-specific analysis route is a compatibility redirect rather than a separate
 surface:
 
 ```text
-/books/{id}
-/books/{id}/analyses/{analysis-run-id}
+/journey/{bookID}
+/books/{id}/analyses/{analysis-run-id} (compatibility redirect)
 /jobs/{id}
 /deck-preparations/{id}/status
 /deck-preparations/{id}/download
@@ -302,13 +302,12 @@ Journey/Goal relationship precede concise evidence state. Search is scoped to
 the active language; filtering and sorting support finding books but do not turn
 readiness into the default ranking.
 
-Book detail remains the place for full lifecycle state and the one current
-analysis when a Journey context is not being used; Journey entries present the
-same current analysis for members. Exact analysis history and provenance are
-operational facts available through `/jobs`, not sections on the learner-facing
-book page.
-My Books should be moderately dense and should not place every book in a large
-card.
+Journey entries remain the place for full lifecycle state and the one current
+analysis for members. Books without a reachable Journey entry remain in My
+Books with their available row actions. Exact analysis history and provenance
+are operational facts available through `/jobs`, not sections on the learner-facing
+Journey entry. My Books should be moderately dense and should not place every
+book in a large card.
 
 ## Reading Journey information hierarchy
 
@@ -370,13 +369,13 @@ completed plan.
 
 ## Analysis continuity
 
-The book page at `/books/{id}` and a member's Journey entry share the canonical
-presentation for the book's one current analysis. The run-specific route
+The Journey entry at `/journey/{bookID}` is the canonical presentation for a
+member's one current analysis. The run-specific route
 `/books/{book-id}/analyses/{analysis-run-id}` remains only as a compatibility
-redirect to the applicable current context, preserving deep links and
-exact-analysis references without rendering a second insight surface.
+redirect to the Journey entry for reachable members and returns 404 otherwise,
+preserving valid deep links without rendering a second insight surface.
 
-The book page answers completed-analysis questions in this order:
+The Journey entry answers completed-analysis questions in this order:
 
 1. What is my **Current known coverage** of the analyzed units?
 2. What additional vocabulary would reach the documented coverage targets?
@@ -394,12 +393,12 @@ contains a concrete warning; clean analysis renders no quality region.
 The learner surface does not show analyzed-scope details, text profile,
 projected token coverage, the broader coverage-stat list, analysis history, or
 run identity/provenance sections. Deck preparation follows the retained
-evidence on the book page. It does not automatically add a book to Reading
+evidence on the Journey entry. It does not automatically add a book to Reading
 Journey, choose a Primary Goal, or mark vocabulary known.
 
 The operational job page remains responsible for queued/running progress,
 cancellation, retry, attempts, and failure recovery. When work completes, its
-primary action is **View analysis result**, which opens the book page directly
+primary action is **View analysis result**, which opens the Journey entry directly
 or through the compatibility redirect. `GET /jobs` remains the operational
 history surface for current and prior runs.
 
@@ -418,7 +417,7 @@ deterministically (the sole study language, else the language of the most
 recently activated chosen-language Book) and resets lazily when the selection
 leaves the set. A shell-level switcher carries it on every authenticated screen;
 changing it navigates to the same screen in the new language on language-scoped
-screens. Book detail is not mode-scoped: it renders a Book's own language and
+screens. Journey entries are not mode-scoped: they render a Book's own language and
 never auto-switches the mode. A newly arrived study language appears passively
 in the switcher (marked "new") without changing the mode.
 
@@ -474,9 +473,9 @@ needed.
    and `/campaigns` remain compatibility
    routes with their documented redirects.
 8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
-  Book detail remains the current completed-analysis surface, Journey entries
-  are the canonical member context, prior runs remain operational audit records,
-  and run-specific result URLs redirect to the applicable current context.
+   Journey entries are the current completed-analysis surface for members, prior
+   runs remain operational audit records, and run-specific result URLs redirect
+   to the applicable current context.
 9. **Catalogue sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):

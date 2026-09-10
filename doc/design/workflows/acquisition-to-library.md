@@ -121,6 +121,6 @@ background watcher. The learner expresses intent again to refresh evidence.
 - On narrow screens, row metadata precedes the acquisition and refresh actions,
   which remain reachable without horizontal page scrolling.
 - HTMX enhances real links and forms. A failed or unavailable enhancement must
-  not turn the Book detail page into an unusable raw fragment response.
+  not turn the My Books row into an unusable raw fragment response.
 - Dynamic acquisition updates use scoped live regions and do not move focus on
   every update.

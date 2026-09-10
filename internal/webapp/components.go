@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
@@ -160,19 +159,6 @@ type bookPageOptions struct {
 	Journey            bookPageJourneyState
 }
 
-func currentBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
-	return bookPageOptions{
-		BreadcrumbURL:   "/library",
-		BreadcrumbLabel: "My Books",
-		Navigation:      NavigationLibrary,
-		Journey: bookPageJourneyState{
-			Member:   book.JourneyMember,
-			Goal:     book.JourneyGoal,
-			Revision: book.JourneyRevision,
-		},
-	}
-}
-
 func journeyBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
 	return bookPageOptions{
 		BreadcrumbURL:      "/journey",
@@ -311,10 +297,14 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 	if state == domain.BookStale {
 		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze it from its Reading Journey entry.", Tone: StatusWarning}
 	}
-	action := bookLifecycleActionFor(*book.Acquired)
-	if strings.HasPrefix(action.URL, "/books/") {
-		action.URL = "/books/" + url.PathEscape(book.Book.ID) + strings.TrimPrefix(action.URL, "/books/"+url.PathEscape(book.Acquired.Source.ID))
+	if state == domain.BookAnalyzed && !book.JourneyMember && bookHasCompletedAnalysis(*book.Acquired) {
+		return bookLifecycleAction{
+			Status:      myBookEvidenceLabel(state),
+			Description: "Add this book to Reading Journey to inspect its current analysis evidence.",
+			Tone:        StatusSuccess,
+		}
 	}
+	action := bookLifecycleActionFor(*book.Acquired)
 	return action
 }
 
@@ -355,9 +345,6 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 	if book.AnalysisJobID > 0 {
 		jobURL = fmt.Sprintf("/jobs/%d", book.AnalysisJobID)
 	}
-	if jobURL == "" {
-		jobURL = "/books/" + book.Source.ID
-	}
 	bookID := book.BookID
 	if bookID == "" {
 		bookID = book.Source.ID
@@ -375,7 +362,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View analysis result", "/books/" + url.PathEscape(book.Source.ID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View Journey entry", journeyEntryURL(bookID), StatusSuccess, false}
 		}
 		state = ""
 	}
@@ -517,14 +504,6 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 
 func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
 	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0
-}
-
-func analysisResultURL(result analysis.CompletedAnalysis) string {
-	return "/books/" + url.PathEscape(result.Source.ID)
-}
-
-func analysisDeckPreparationURL(result analysis.CompletedAnalysis) string {
-	return "/books/" + url.PathEscape(result.Source.ID) + "/deck/preparations"
 }
 
 func jobStatusAttributes(id int64, running bool) templ.Attributes {

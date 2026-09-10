@@ -17,7 +17,7 @@ browser is retired. `/` redirects to My Books, and the
 compatibility route `GET /campaigns` redirects to Reading Journey. Vocabulary
 study is a book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
 a Book's prepared-deck actions, reading/preparation facts, and vocabulary
-provenance live on Book detail, not on a second learner-facing plan.
+provenance live on the Journey entry, not on a second learner-facing plan.
 
 Catalogue synchronization status is an operational part of the learner-owned
 connection surface at `/connections`, with detailed work under `/jobs`; it does
@@ -124,7 +124,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 42. [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — proposes a private evidence-only language lens over current analyses and known vocabulary.
 43. [ADR 0043: Study languages are derived from the library and Settings is removed](adr/0043-study-languages-derived-settings-removed.md) — flips catalogue-sync scope to the library and removes the Settings destination.
 44. [ADR 0044: Catalogue-entry alias identity retains the catalogue connection](adr/0044-catalogue-entry-connection-scoped-identity.md) — scopes the catalogue-entry alias to owner plus connection plus entry, threads the connection through sync/refresh/acquisition, and defers multi-connection conflict rules under a soft single-catalogue posture.
-45. [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — makes the owner-scoped Book ID the stable web identity for `/books/{id}`, resolves current acquired evidence underneath it, and keeps source-material-ID links working in place.
+45. [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — historical Book identity decision; its learner-facing route portions are superseded by ADR 0055.
 46. [ADR 0046: Book language has one canonical base form enforced at the domain](adr/0046-book-language-canonical-base-form.md) — collapses a chosen Book language to its base tag (`de_DE`/`de-de`/`de` all canonicalize to `de`), enforces the form at the domain, converges legacy rows, and simplifies the tolerant SQL.
 47. [ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived](adr/0047-acquisition-folded-into-analysis.md) — folds EPUB acquisition into the analysis action server-side, makes the catalogue the sole source of Book metadata (manual books and fix-language removed), drops plain-text analysis, and always analyzes the complete extracted scope, deferring destructive schema removal.
 48. [ADR 0048: Frequency-floor deck selection](adr/0048-frequency-floor-deck-selection.md) — replaces the 97% coverage-prefix deck selection with a minimum-occurrence frequency floor (default three), dropping the deck's coverage guarantee.
@@ -133,7 +133,8 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 52. [ADR 0052: The domain owns evidence classification](adr/0052-domain-owns-evidence-classification.md) — makes the evidence state a single derivation on the domain types read by My Books, the Reading Journey, and corpus/route insights, removes the SQL-assigned `EvidenceState` and its webapp fallback, and keeps goal-eligibility a read-only projection with enforcement at the persistence layer.
 53. [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — dissolves the learning campaign as a separate reservation/plan object and anchors vocabulary-study state onto the Book, making the Book the single unit of the learner loop with independent reading and vocabulary facts; the campaign's dead-end tail (deck study → graduation) becomes a reachable, book-scoped action.
-54. [ADR 0054: Retire the standalone analysis action](adr/0054-retire-standalone-analysis-action.md) — removes the learner-facing analysis trigger and metadata-only Book detail page, making Add to Reading Journey the sole initial acquisition-and-analysis intent while preserving current completed-analysis pages and compatibility redirects.
+54. [ADR 0054: Retire the standalone analysis action](adr/0054-retire-standalone-analysis-action.md) — removes the learner-facing analysis trigger and metadata-only Book detail page, making Add to Reading Journey the sole initial acquisition-and-analysis intent; its completed-page route portions are superseded by ADR 0055.
+55. [ADR 0055: Retire the standalone Book detail route](adr/0055-retire-book-detail-route.md) — makes the Journey entry the sole analyzed-Book destination, retires `GET /books/{id}`, constrains exact-analysis compatibility redirects to reachable Journey members, and moves learner-facing refresh/deck mutations to their owning surfaces.
 
 ## Deployment and operations
 
