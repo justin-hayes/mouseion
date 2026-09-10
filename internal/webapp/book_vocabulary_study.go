@@ -90,6 +90,14 @@ func (h *Handler) bookVocabularyStudyPreparation(w http.ResponseWriter, r *http.
 	preparation, err := reader.GetDeckPreparationForAnalysis(r.Context(), u.ID, detail.Acquired.Source.ID, detail.Acquired.AnalysisRunID)
 	if errors.Is(err, persistence.ErrNotFound) && allowActive {
 		preparation, err = reader.GetActiveDeckVocabularyStudy(r.Context(), u.ID, detail.Acquired.Source.ID)
+	} else if err == nil && allowActive && preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted {
+		active, activeErr := reader.GetActiveDeckVocabularyStudy(r.Context(), u.ID, detail.Acquired.Source.ID)
+		if activeErr == nil {
+			preparation = active
+		} else if !errors.Is(activeErr, persistence.ErrNotFound) {
+			fail(w, activeErr)
+			return domain.DeckPreparation{}, false
+		}
 	}
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.Error(w, "this Book has no current prepared deck", http.StatusConflict)
