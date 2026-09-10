@@ -595,7 +595,7 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 			continue
 		}
 		for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
-			if item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}) {
+			if item.Language == language && item.GraduatedAt == nil {
 				result = append(result, item)
 			}
 		}
