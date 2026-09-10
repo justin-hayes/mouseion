@@ -92,6 +92,13 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID); err != nil {
 		t.Fatal(err)
 	}
+	reservedCoverage, err := service.Coverage(ctx, alice.ID, corpus.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reservedCoverage.KnownTokenCount != 70 || reservedCoverage.ReservedTokenCount != 20 || reservedCoverage.ReservedLemmaCount != 1 {
+		t.Fatalf("coverage while deck is reserved=%+v", reservedCoverage)
+	}
 	if _, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID); err != nil {
 		t.Fatal(err)
 	}

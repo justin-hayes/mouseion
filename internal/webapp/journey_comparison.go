@@ -87,7 +87,7 @@ func routeConditionalCoverageLabel(coverage *domain.AnalysisCoverage) string {
 	if coverage == nil {
 		return "—"
 	}
-	return fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(*coverage))
+	return fmt.Sprintf("%.1f%%", reservedCoveragePercent(*coverage))
 }
 
 func routeThresholdLabel(coverage *domain.AnalysisCoverage) string {

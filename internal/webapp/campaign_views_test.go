@@ -262,16 +262,16 @@ func TestJourneyPageUsesBookIDForCompletedEntryLink(t *testing.T) {
 func TestJourneyProjectedCoverageLabelsUnfinishedVocabularyConditionally(t *testing.T) {
 	item := testJourneyBook("conditional", "Conditional book", "analyzed")
 	item.Coverage = &domain.AnalysisCoverage{
-		AnalyzableTokenCount:     100,
-		KnownTokenCount:          50,
-		ActiveCampaignTokenCount: 30,
-		Projections:              []domain.CoverageProjection{{TopLemmaCount: 2, ProjectedTokenCount: 75}},
+		AnalyzableTokenCount: 100,
+		KnownTokenCount:      50,
+		ReservedTokenCount:   30,
+		Projections:          []domain.CoverageProjection{{TopLemmaCount: 2, ProjectedTokenCount: 75}},
 	}
 
 	if got := journeyCurrentCoverage(item); got != "50.0%" {
 		t.Fatalf("current coverage = %q, want 50.0%%", got)
 	}
-	if got := journeyProjectedCoverage(item); got != "80.0% if active-campaign vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas" {
+	if got := journeyProjectedCoverage(item); got != "80.0% if reserved vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas" {
 		t.Fatalf("conditional projection = %q", got)
 	}
 }

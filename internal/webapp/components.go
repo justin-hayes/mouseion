@@ -633,7 +633,7 @@ func textProfileStatItems(profile domain.TextProfile) []StatItem {
 func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
 	return []StatItem{
 		{Label: "current-known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage))},
-		{Label: "active-campaign projected coverage", Value: fmt.Sprintf("%.1f%%", activeCampaignCoveragePercent(coverage))},
+		{Label: "reserved projected coverage", Value: fmt.Sprintf("%.1f%%", reservedCoveragePercent(coverage))},
 		{Label: "analyzable tokens", Value: fmt.Sprintf("%d", coverage.AnalyzableTokenCount)},
 		{Label: "distinct lemmas", Value: fmt.Sprintf("%d", coverage.DistinctLemmaCount)},
 	}

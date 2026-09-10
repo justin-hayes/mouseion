@@ -520,6 +520,35 @@ func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
 	}
 }
 
+func TestFixtureReservedVocabularyFollowsDeckStudyLifecycle(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	if reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de"); err != nil || len(reserved) != 0 {
+		t.Fatalf("reserved before study=%+v err=%v", reserved, err)
+	}
+	if _, err := store.StartDeckVocabularyStudy(ctx, OwnerID, PrepID); err != nil {
+		t.Fatal(err)
+	}
+	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
+	if err != nil || len(reserved) != 2 {
+		t.Fatalf("reserved during study=%+v err=%v", reserved, err)
+	}
+	got := map[string]bool{}
+	for _, item := range reserved {
+		got[item.CanonicalLemma] = true
+	}
+	if !got["gehen"] || !got["Weg"] {
+		t.Fatalf("reserved identities=%v", got)
+	}
+	if _, err := store.ConfirmDeckVocabularyReview(ctx, OwnerID, PrepID); err != nil {
+		t.Fatal(err)
+	}
+	if released, err := store.ListReservedVocabulary(ctx, OwnerID, "de"); err != nil || len(released) != 0 {
+		t.Fatalf("reserved after review=%+v err=%v", released, err)
+	}
+}
+
 func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

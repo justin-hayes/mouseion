@@ -24,7 +24,7 @@ const (
 type Store interface {
 	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	ListActiveLearningCampaignVocabulary(context.Context, string, string) ([]domain.CampaignVocabulary, error)
+	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
 	ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 }
 
@@ -64,7 +64,7 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 	return s.coverage(ctx, owner, input, false)
 }
 
-func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, activeIsKnown bool) (domain.AnalysisCoverage, error) {
+func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, error) {
 	vocabularies := make(map[string]vocabulary)
 	for _, lemma := range input.Lemmas {
 		if !lexical.IsLemma(lemma.CanonicalLemma) {
@@ -79,13 +79,13 @@ func (s *Service) coverage(ctx context.Context, owner string, input domain.Analy
 		}
 		vocabularies[lemma.Language] = loaded
 	}
-	result, _, err := coverageWithVocabulary(input, vocabularies, activeIsKnown)
+	result, _, err := coverageWithVocabulary(input, vocabularies, reservedIsKnown)
 	return result, err
 }
 
 type vocabulary struct {
 	known     map[string]bool
-	active    map[string]bool
+	reserved  map[string]bool
 	generated []domain.GeneratedVocabulary
 }
 
@@ -103,15 +103,15 @@ func (s *Service) loadVocabulary(ctx context.Context, owner, language string) (v
 	if err != nil {
 		return vocabulary{}, fmt.Errorf("list generated vocabulary for %s: %w", language, err)
 	}
-	activeWords, err := s.store.ListActiveLearningCampaignVocabulary(ctx, owner, language)
+	reservedWords, err := s.store.ListReservedVocabulary(ctx, owner, language)
 	if err != nil {
-		return vocabulary{}, fmt.Errorf("list active campaign vocabulary for %s: %w", language, err)
+		return vocabulary{}, fmt.Errorf("list reserved vocabulary for %s: %w", language, err)
 	}
-	active := make(map[string]bool, len(activeWords))
-	for _, word := range activeWords {
-		active[identity(word.CanonicalLemma, word.UPOS)] = true
+	reserved := make(map[string]bool, len(reservedWords))
+	for _, word := range reservedWords {
+		reserved[identity(word.CanonicalLemma, word.UPOS)] = true
 	}
-	return vocabulary{known: known, active: active, generated: generated}, nil
+	return vocabulary{known: known, reserved: reserved, generated: generated}, nil
 }
 
 func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
@@ -129,7 +129,7 @@ func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
 // coverageWithVocabulary is the shared arithmetic path for single-book and
 // language-level views. eligible contains the complete eligible identity list;
 // the public per-book result retains its existing top-five presentation cap.
-func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, activeIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
+func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
 		AnalysisRunID:        input.AnalysisRunID,
@@ -147,18 +147,18 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 		vocab := vocabularies[lemma.Language]
 
 		key := identity(lemma.CanonicalLemma, lemma.UPOS)
-		activeMatch := vocab.active[key] || vocab.active[identity(lemma.CanonicalLemma, "")]
-		if vocab.known[key] || vocab.known[identity(lemma.CanonicalLemma, "")] || (activeIsKnown && activeMatch) {
+		reservedMatch := vocab.reserved[key] || vocab.reserved[identity(lemma.CanonicalLemma, "")]
+		if vocab.known[key] || vocab.known[identity(lemma.CanonicalLemma, "")] || (reservedIsKnown && reservedMatch) {
 			result.KnownTokenCount += lemma.OccurrenceCount
 			result.KnownLemmaCount++
 			continue
 		}
 		result.UnknownLemmaCount++
-		if activeMatch {
-			result.ActiveCampaignTokenCount += lemma.OccurrenceCount
-			result.ActiveCampaignLemmaCount++
+		if reservedMatch {
+			result.ReservedTokenCount += lemma.OccurrenceCount
+			result.ReservedLemmaCount++
 		}
-		if !vocab.generatedFor(input.SourceMaterialID, key) && !activeMatch {
+		if !vocab.generatedFor(input.SourceMaterialID, key) && !reservedMatch {
 			eligible = append(eligible, lemma)
 		}
 	}

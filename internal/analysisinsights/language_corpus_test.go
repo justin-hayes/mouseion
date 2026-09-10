@@ -10,10 +10,10 @@ import (
 
 type languageCorpusStore struct {
 	*memoryStore
-	evidence    []domain.LanguageCorpusBookEvidence
-	knownCalls  int
-	activeCalls int
-	genCalls    int
+	evidence      []domain.LanguageCorpusBookEvidence
+	knownCalls    int
+	reservedCalls int
+	genCalls      int
 }
 
 func (s *languageCorpusStore) ListLanguageCorpusEvidence(_ context.Context, owner, language string) ([]domain.LanguageCorpusBookEvidence, error) {
@@ -31,9 +31,9 @@ func (s *languageCorpusStore) ListKnownVocabulary(ctx context.Context, owner, la
 	return s.memoryStore.ListKnownVocabulary(ctx, owner, language)
 }
 
-func (s *languageCorpusStore) ListActiveLearningCampaignVocabulary(ctx context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
-	s.activeCalls++
-	return s.memoryStore.ListActiveLearningCampaignVocabulary(ctx, owner, language)
+func (s *languageCorpusStore) ListReservedVocabulary(ctx context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
+	s.reservedCalls++
+	return s.memoryStore.ListReservedVocabulary(ctx, owner, language)
 }
 
 func (s *languageCorpusStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
@@ -89,8 +89,8 @@ func TestLanguageCorpusAggregatesDeterministicallyAndBatchesVocabulary(t *testin
 	if !reflect.DeepEqual(got.TopUnknownLemmas, wantTop) {
 		t.Fatalf("top unknown = %+v, want %+v", got.TopUnknownLemmas, wantTop)
 	}
-	if store.knownCalls != 1 || store.activeCalls != 1 || store.genCalls != 1 {
-		t.Fatalf("vocabulary calls = known %d active %d generated %d, want one each", store.knownCalls, store.activeCalls, store.genCalls)
+	if store.knownCalls != 1 || store.reservedCalls != 1 || store.genCalls != 1 {
+		t.Fatalf("vocabulary calls = known %d reserved %d generated %d, want one each", store.knownCalls, store.reservedCalls, store.genCalls)
 	}
 }
 
@@ -108,7 +108,7 @@ func TestLanguageCorpusUsesVocabularyCategoriesAndRecomputes(t *testing.T) {
 				{OwnerID: "alice", Language: "de", CanonicalLemma: "current-generated", UPOS: "NOUN", FirstSourceMaterialID: &currentSource},
 				{OwnerID: "alice", Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN"},
 			},
-			active: []domain.CampaignVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "NOUN"}},
+			reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "NOUN"}},
 		},
 		evidence: []domain.LanguageCorpusBookEvidence{corpusBook("alice", "categories", "Categories", "de", currentSource, "corpus", "run", 100, []domain.LemmaOccurrence{
 			{Language: "de", CanonicalLemma: "exact", UPOS: "NOUN", OccurrenceCount: 10},
