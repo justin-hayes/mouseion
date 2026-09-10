@@ -42,12 +42,6 @@ type BookEvidenceStore interface {
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 }
 
-// LanguageCorpusStore is separate from Store so single-book insight stores do
-// not need to load a collection read model.
-type LanguageCorpusStore interface {
-	ListLanguageCorpusEvidence(context.Context, string, string) ([]domain.LanguageCorpusBookEvidence, error)
-}
-
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -126,8 +120,8 @@ func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
 	return false
 }
 
-// coverageWithVocabulary is the shared arithmetic path for single-book and
-// language-level views. eligible contains the complete eligible identity list;
+// coverageWithVocabulary is the shared arithmetic path for coverage results.
+// eligible contains the complete eligible identity list;
 // the public per-book result retains its existing top-five presentation cap.
 func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence, error) {
 	result := domain.AnalysisCoverage{

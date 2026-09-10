@@ -1489,57 +1489,6 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 	}, nil
 }
 
-// LanguageCorpus returns deterministic evidence for the language-view browser
-// fixture. The values are deliberately independent of fixture store ordering
-// and owner state so browser assertions remain stable.
-func (Insights) LanguageCorpus(_ context.Context, owner, language string) (domain.LanguageCorpusView, error) {
-	language = strings.ToLower(strings.TrimSpace(language))
-	result := domain.LanguageCorpusView{OwnerID: owner, Language: language}
-	if language != "de" {
-		return result, nil
-	}
-	result.AnalyzedBookCount = 3
-	result.KnownTokenCount = 45678
-	result.AnalyzableTokenCount = 123456
-	result.TopUnknownLemmas = []domain.LemmaOccurrence{
-		{Language: "de", CanonicalLemma: "beispiel", UPOS: "NOUN", OccurrenceCount: 240},
-		{Language: "de", CanonicalLemma: "lernen", UPOS: "VERB", OccurrenceCount: 180},
-		{Language: "de", CanonicalLemma: "wichtig", UPOS: "ADJ", OccurrenceCount: 120},
-	}
-	languageCorpusSpread := func(evidence domain.LanguageCorpusBookEvidence, known, analyzable int64, included bool, reason string) domain.LanguageCorpusBookSpread {
-		return domain.LanguageCorpusBookSpread{
-			BookID: evidence.Book.ID, Title: evidence.Book.Title, SourceMaterialID: evidence.SourceMaterialID,
-			CorpusID: evidence.CorpusID, AnalysisRunID: evidence.AnalysisRunID,
-			KnownTokenCount: known, AnalyzableTokenCount: analyzable,
-			EvidenceState: evidence.EvidenceState(), Included: included, ExclusionReason: reason,
-		}
-	}
-	result.PerBook = []domain.LanguageCorpusBookSpread{
-		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
-			Book: domain.Book{ID: BookID, Title: "Der lange Weg nach Hause"}, SourceMaterialID: SourceID,
-			CurrentContentRevisionID: "fixture-revision", CurrentSnapshotID: "fixture-snapshot",
-			CurrentSourceMaterialID: SourceID, CurrentAnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisRunID: ResultRunID,
-		}, 20000, 60000, true, ""),
-		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
-			Book: domain.Book{ID: routeMatchBookID, Title: "Route match: familiar German"}, SourceMaterialID: routeMatchBookID,
-			CurrentContentRevisionID: "fixture-route-match-revision", CurrentSnapshotID: "fixture-route-match-snapshot",
-			CurrentSourceMaterialID: routeMatchBookID, CurrentAnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus", AnalysisRunID: "fixture-route-match-run",
-		}, 15000, 40000, true, ""),
-		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
-			Book: domain.Book{ID: routeDiffersBookID, Title: "Route differs: new German"}, SourceMaterialID: routeDiffersBookID,
-			CurrentContentRevisionID: "fixture-route-differs-revision", CurrentSnapshotID: "fixture-route-differs-snapshot",
-			CurrentSourceMaterialID: routeDiffersBookID, CurrentAnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus", AnalysisRunID: "fixture-route-differs-run",
-		}, 10678, 23456, true, ""),
-		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
-			Book: domain.Book{ID: "fixture-failed", Title: "Fehlgeschlagene Analyse"}, SourceMaterialID: "fixture-failed",
-		}, 0, 0, false, "analysis failed or incomplete"),
-		languageCorpusSpread(domain.LanguageCorpusBookEvidence{
-			Book: domain.Book{ID: "fixture-metadata-only", Title: "Metadata-only migration book"},
-		}, 0, 0, false, "no current acquired source"),
-	}
-	return result, nil
-}
-
 func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
 	lemmas := make([]domain.LemmaOccurrence, 0, 18)
 	for i := 1; i <= 18; i++ {
