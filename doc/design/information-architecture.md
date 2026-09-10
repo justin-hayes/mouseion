@@ -484,9 +484,9 @@ needed.
    non-English language whose NLP pipeline is ready, without downloading
    content, deleting local state, or invalidating scope or analysis.
 10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
-     the panel proposed by ADR 0042 has no current route or screen contract.
-     Per-Book evidence remains on My Books rows and current analysis evidence
-     remains on Journey entries; no replacement aggregate is implied.
+    the panel proposed by ADR 0042 has no current route or screen contract.
+    Per-Book evidence remains on My Books rows and current analysis evidence
+    remains on Journey entries; no replacement aggregate is implied.
 11. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns
