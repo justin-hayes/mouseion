@@ -1484,8 +1484,15 @@ func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, err
 func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
 	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
 }
-func (Analysis) GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error) {
-	return analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}, nil
+func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterialID, runID string) (analysis.CompletedAnalysis, error) {
+	result := analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}
+	if sourceMaterialID == routeMatchBookID && runID == "fixture-route-match-run" {
+		result.RunID = runID
+		result.SourceMaterialID = sourceMaterialID
+		result.Source = domain.SourceMaterial{ID: sourceMaterialID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German"}
+		result.Corpus = domain.Corpus{ID: "fixture-route-match-corpus", OwnerID: OwnerID, SourceMaterialID: sourceMaterialID, AnalysisRunID: runID, Statistics: result.Corpus.Statistics}
+	}
+	return result, nil
 }
 
 type Insights struct {
@@ -1703,8 +1710,12 @@ func (Enrichment) Cancel(context.Context, string, int64) (enrichmentjob.Status, 
 
 type PreparedDeck struct{ Store *Store }
 
-func (PreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
-	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
+func (PreparedDeck) Submit(_ context.Context, owner, analysisID string, _ bool) (prepareddeck.Handle, error) {
+	sourceMaterialID := SourceID
+	if analysisID == "fixture-route-match-run" {
+		sourceMaterialID = routeMatchBookID
+	}
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 func fixturePreparationFor(owner, id string) domain.DeckPreparation {
 	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
