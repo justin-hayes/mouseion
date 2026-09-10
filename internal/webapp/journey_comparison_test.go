@@ -105,7 +105,7 @@ func TestRouteComparisonRenderingKeepsOrderAndExplainsEvidence(t *testing.T) {
 		AdvisoryOrder:   []domain.JourneyRouteBook{books[0], books[2], books[3], books[1], books[4]},
 		ComparableCount: 4, IncomparableCount: 1,
 	}, map[string]string{"match": "Match", "differs": "Differs", "tie-a": "Tie A", "tie-b": "Tie B", "unavailable": "Unavailable"})
-	html := renderJourney(t, journeyPageView{RouteComparison: view}, "", "", "")
+	html := renderJourney(t, journeyPageView{RouteComparison: view}, "", "")
 	for _, want := range []string{"canonical", "current known-token coverage", "not ranked", "Match", "Differs", "Tie A", "Tie B", "unassessed"} {
 		if !strings.Contains(strings.ToLower(html), strings.ToLower(want)) {
 			t.Errorf("comparison rendering missing %q: %s", want, html)

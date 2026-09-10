@@ -34,7 +34,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await page.goto('/journey');
     await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
     await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
-    await expect(page.locator('#campaign-operations-heading')).toContainText('Campaign history & operations');
+    await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
     // The advisory comparison is inside a collapsed disclosure; open it before
     // asserting its current and conditional projected evidence.
@@ -42,15 +42,14 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.getByText(/current known-token coverage/i).first()).toBeVisible();
     await expect(page.getByText(/separate conditional projected variant/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
-    await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
-    await expect(page.locator('#campaign-fixture-abandoned-campaign')).toBeVisible();
-
     const tableRegion = page.locator('.table-region[aria-label="Current advisory order table"]');
     await expect(tableRegion).toBeVisible();
     await tableRegion.focus();
     await expect(tableRegion).toBeFocused();
     await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
     await expectPostFormsCarryCSRF(page);
+    await page.goto('/journey/fixture-book');
+    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
   });
 
   test('separates reading achievement from graduation and preserves provenance labels', async ({ page }) => {

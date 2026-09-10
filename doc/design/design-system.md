@@ -214,9 +214,9 @@ scrollable data table must label and contain its own overflow.
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence
   dashboard.
-- Campaign completion and abandonment retain distinct consequential confirmations
-  in the secondary history/operations section; Primary Goal behavior is defined
-  by ADR 0036.
+- Vocabulary-study start, review confirmation, and release retain distinct
+  consequential confirmations on the Journey entry; Primary Goal behavior is
+  defined by ADR 0036.
 - Vocabulary is canonical for known vocabulary; study languages are derived from
   chosen-language Books rather than maintained on a Settings route.
 - Loading, empty, error, disabled, success, degraded, historical, and
@@ -237,13 +237,13 @@ asynchronous progress, responsive tables, and consequential confirmation.
 
 The first rollout is complete and preserved as history in
 [`roadmap.md`](roadmap.md): it shipped the component layer across the existing
-book/result/deck journey and extended it to acquisition, current Campaign,
-Settings, operational recovery, and quality gates. The roadmap does not plan the
+  book/result/deck journey and extended it to acquisition, vocabulary study,
+  Settings, operational recovery, and quality gates. The roadmap does not plan the
 frozen My Books / Reading Journey / Primary Goal architecture.
 
 Current implementation adoption covers My Books (`/library`), Journey entry and
-scope review, Reading Journey (`/journey`), secondary Campaign history and
-operations, analysis jobs, and known-vocabulary management. The shipped
+scope review, Reading Journey (`/journey`), per-Book vocabulary-study history,
+analysis jobs, and known-vocabulary management. The shipped
 patterns preserve bibliographic book identity, the one Primary Goal, a fluid
 Journey order, route comparison, explicit evidence deltas, and the Where next?
 outcome. Do not disguise those contracts as mere component renames.

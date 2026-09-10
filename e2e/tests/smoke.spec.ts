@@ -178,14 +178,14 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
     const retiredBookResponse = await page.goto('/books/fixture-metadata-only');
     expect(retiredBookResponse?.status()).toBe(404);
-    await page.goto('/campaigns?message=legacy-bookmark');
-    await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
-    await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
+    const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
+    expect(retiredCampaignResponse?.status()).toBe(404);
     await page.goto('/journey');
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
     await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
     await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
-    await expect(page.locator('#campaign-operations-heading')).toHaveText(/Campaign history & operations/);
+    await expect(page.locator('#campaign-operations-heading')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Start learning' })).toHaveCount(0);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await expect(page.getByText('Provisional — your order').first()).toBeVisible();
     await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
@@ -197,7 +197,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
-    await expect(page.locator('#campaign-fixture-completed-campaign')).toBeVisible();
+    await page.goto('/journey/fixture-book');
+    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
     await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);

@@ -13,7 +13,7 @@ import (
 )
 
 type primaryGoalFinisher interface {
-	FinishReadingPrimaryGoal(context.Context, string, string, string) (persistence.PrimaryGoalFinishResult, error)
+	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string) (persistence.ReadingFinishResult, error)
 }
 
 type finishEvidenceView struct {
@@ -28,13 +28,13 @@ type finishEvidenceView struct {
 }
 
 type primaryGoalFinishView struct {
-	BookTitle          string
-	Campaign           *domain.LearningCampaign
-	Graduated          []domain.CampaignVocabulary
-	ResidualVocabulary int
-	Evidence           []finishEvidenceView
-	Journey            journeyPageView
-	Error              string
+	BookTitle           string
+	Graduated           []domain.CampaignVocabulary
+	VocabularyGraduated bool
+	ResidualVocabulary  int
+	Evidence            []finishEvidenceView
+	Journey             journeyPageView
+	Error               string
 }
 
 func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	result, err := finisher.FinishReadingPrimaryGoal(r.Context(), owner, language, expectedBookID)
+	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return
@@ -80,9 +80,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
 		BookTitle:          finishBookTitle(before, result.Goal.BookID),
-		Campaign:           result.Campaign,
-		Graduated:          result.Graduated,
-		ResidualVocabulary: result.ResidualVocabularyCount,
+		ResidualVocabulary: h.activeVocabularyStudyCount(r.Context(), owner, before),
 		Journey:            after,
 	}
 	if afterErr != nil {
@@ -97,6 +95,17 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, PrimaryGoalFinishPage(user(r), h.csrf(w, r), outcome))
+}
+
+func (h *Handler) activeVocabularyStudyCount(ctx context.Context, owner string, journey journeyPageView) int {
+	if journey.Goal == nil {
+		return 0
+	}
+	preparation, err := h.currentVocabularyStudyPreparation(ctx, owner, journey.Goal.Book, false)
+	if err != nil || preparation == nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		return 0
+	}
+	return preparation.VocabularyCount
 }
 
 func finishBookTitle(before journeyPageView, bookID string) string {
@@ -137,10 +146,10 @@ func finishEvidence(before, after journeyPageView) []finishEvidenceView {
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {
-	if outcome.Campaign != nil && outcome.Campaign.VocabularyGraduatedAt != nil {
+	if outcome.VocabularyGraduated {
 		return fmt.Sprintf("The associated prepared-deck vocabulary work completed, and exactly %d eligible vocabulary identities were added to known vocabulary.", len(outcome.Graduated))
 	}
-	if outcome.Campaign != nil && outcome.ResidualVocabulary > 0 {
+	if outcome.ResidualVocabulary > 0 {
 		return fmt.Sprintf("No vocabulary was added to known vocabulary. Vocabulary work remains: %d ungraduated identities remain reserved, pending confirmed deck review; any future effect is conditional.", outcome.ResidualVocabulary)
 	}
 	return "No vocabulary was added to known vocabulary. Reading finished is a reading record, not evidence of vocabulary knowledge."

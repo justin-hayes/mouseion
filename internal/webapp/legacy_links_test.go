@@ -56,24 +56,6 @@ func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 		t.Fatalf("jobs rendered legacy or dead result link: %s", jobsHTML.String())
 	}
 
-	campaign := testCampaign("legacy-link", domain.BookReading, domain.DeckStudying)
-	campaign.JourneyEntryURL = urls[fixtures.SourceID]
-	var campaignHTML bytes.Buffer
-	if err := JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{Campaigns: []campaignView{campaign}}, "", "", "").Render(context.Background(), &campaignHTML); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(campaignHTML.String(), `href="/journey/fixture-book"`) || strings.Contains(campaignHTML.String(), `href="/books/book-legacy-link"`) {
-		t.Fatalf("campaign rendered legacy or dead result link: %s", campaignHTML.String())
-	}
-
-	campaign.JourneyEntryURL = ""
-	var unavailableCampaignHTML bytes.Buffer
-	if err := JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{Campaigns: []campaignView{campaign}}, "", "", "").Render(context.Background(), &unavailableCampaignHTML); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(unavailableCampaignHTML.String(), `href="/books/book-legacy-link"`) {
-		t.Fatalf("campaign rendered a dead legacy result link: %s", unavailableCampaignHTML.String())
-	}
 }
 
 func TestJobStatusPreservesLegacyDeckPreparationWithoutBookIdentity(t *testing.T) {

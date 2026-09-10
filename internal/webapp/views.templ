@@ -430,7 +430,7 @@ templ LanguageCorpusPanel(browse MyBooksBrowseState, panel languageCorpusPanelVi
 		}
 	</section>
 }
-templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string, activeCampaignID string) {
+templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
 	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
 		@PageHeader(journeyPageTitle(journey), "Keep one current Primary Goal anchored first, followed by the provisional order you chose.", nil) {
 			<a role="button" class="outline" href="/library">Prepare another deck</a>
@@ -440,11 +440,8 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
-			if activeCampaignID != "" {
-				<p><a href={ templ.SafeURL("#"+campaignAnchorID(activeCampaignID)) }>Return to the active campaign</a></p>
-			}
 		}
-		@GoalSection(journey.Goal, journey.Residual, csrf, "", "", "")
+		@GoalSection(journey.Goal, csrf, "", "", "")
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Provisional Journey</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
@@ -502,30 +499,6 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 				}
 			</section>
 		}
-		<section aria-labelledby="campaign-operations-heading" class="journey-secondary"><h2 id="campaign-operations-heading">Campaign history &amp; operations</h2>
-			<p>Campaign records and prepared decks are supporting history and operations. They are separate from Reading Journey membership.</p>
-			if len(journey.Prepared) > 0 {
-				<h3>Prepared books and decks</h3><div class="campaign-list">
-				for _, item := range journey.Prepared {
-					<article class="resource-card"><div><h4>{ canonicalBookTitle(item.Book) }</h4><p>@StatusBadge(deckPreparationTitle(item.Deck), deckPreparationStatusTone(item.Deck))</p>
-					if deckPreparationEmpty(item.Deck) {
-						<p>This book has no recurring vocabulary to study, so no cards were created.</p>
-					} else {
-						<p><code>{ item.Deck.DeckName }</code></p><p>{ fmt.Sprintf("%d cards", item.Deck.TotalCards) } · <a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download deck</a></p>
-					}
-					</div></article>
-				}
-				</div>
-			}
-			if len(journey.Campaigns) == 0 && len(journey.Prepared) == 0 {
-				<p>No campaign history or operations are available.</p>
-			}
-			for _, item := range journey.Campaigns {
-				if item.Campaign.Status == domain.CampaignComplete || item.Campaign.Status == domain.CampaignAbandoned || item.Campaign.Status == domain.CampaignActive || item.Campaign.Status == domain.CampaignQueued {
-					@CampaignCard(item, csrf, item.Campaign.Status == domain.CampaignQueued)
-				}
-			}
-		</section>
 	}
 }
 
@@ -545,7 +518,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 		<ol class="finish-outcome" aria-label="Reading finish outcome">
 			<li>
 				<h2>Reading finished</h2>
-				<p>{ outcome.BookTitle } is recorded as finished reading. This does not complete the Reading Journey or establish vocabulary knowledge.</p>
+				<p>{ outcome.BookTitle } is recorded as finished reading. Reading completion and vocabulary graduation are independent facts: reading this Book does not graduate its vocabulary; only confirmed review of its prepared deck can do that.</p>
 			</li>
 			<li>
 				<h2>Vocabulary transition</h2>
@@ -557,9 +530,6 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 							<li>{ finishGraduatedIdentity(item) }</li>
 						}
 					</ul>
-				}
-				if outcome.Campaign != nil && outcome.ResidualVocabulary > 0 {
-					<p>Continue or abandon this residual campaign from Campaign history &amp; operations. Its prepared deck and reservation remain part of history.</p>
 				}
 			</li>
 			<li>
@@ -615,7 +585,7 @@ templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusM
 		</div>
 	</div>
 }
-templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string, message, sectionError, focusBookID string) {
+templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, focusBookID string) {
 	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-heading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }><h2 id="primary-goal-heading">Primary Goal</h2>
 		if message != "" {
 			<p id="goal-section-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
@@ -626,7 +596,7 @@ templ GoalSection(goal *journeyBookView, residual *goalResidualView, csrf string
 		if goal == nil {
 			@EmptyState("No Primary Goal yet", "Choose an analyzed member as your current commitment from your Reading Journey.")
 		} else {
-			@JourneyBookCard(goalCardView(goal, residual), true, csrf, 0, "")
+			@JourneyBookCard(*goal, true, csrf, 0, "")
 		}
 	</section>
 }
@@ -650,14 +620,6 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		} else {
 			<p>Analysis evidence exists, but no deck has been prepared. Reading directly is the current path; a deck never prepares automatically.</p>
 		}
-	}
-	if primary && item.GoalResidual != nil {
-		@StatusBadge("Vocabulary work remains", StatusWarning)
-		<p>Changing or clearing this Goal keeps the active campaign and its reserved vocabulary unchanged. Resolve it by graduating or abandoning it from Campaign history &amp; operations.
-			if item.GoalResidual.ReservedCount != nil {
-				{ fmt.Sprintf(" %d ungraduated vocabulary identities remain reserved.", *item.GoalResidual.ReservedCount) }
-			}
-		</p>
 	}
 	@JourneyEvidence(item, csrf)
 	</div>
@@ -683,13 +645,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			@Confirmation("Mark reading finished", "Record the reading achievement. Vocabulary is changed only when the associated prepared deck has been reviewed.", StatusNeutral) {
 				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit">Mark reading finished</button></form>
 			}
-			if item.GoalResidual != nil {
-				@Confirmation("Clear Primary Goal", "The active campaign and its reserved vocabulary stay unchanged. Graduate or abandon the residual work from Campaign history & operations.", StatusWarning) {
-					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
-				}
-			} else {
-				<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
-			}
+		<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
 			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
 			<p>To choose a different Goal, use Choose as Primary Goal on another eligible book in your provisional order.</p>
 		</div>
@@ -716,79 +672,6 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 
 func journeyEntryAvailable(item journeyBookView) bool {
 	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
-}
-templ CampaignCard(item campaignView, csrf string, activatable bool) {
-	<article id={ campaignAnchorID(item.Campaign.ID) } class={ campaignCardClass(item.Campaign.Status) }><div><h3>
-		if item.JourneyEntryURL != "" {
-			<a href={ templ.SafeURL(item.JourneyEntryURL) }>{ canonicalBookTitle(item.Book) }</a>
-		} else {
-			{ canonicalBookTitle(item.Book) }
-		}
-		</h3><p>@StatusBadge(campaignStatusLabel(item.Campaign.Status), statusTone(string(item.Campaign.Status))) <span aria-hidden="true">·</span> <span>Prepared deck: <code>{ item.Deck.DeckName }</code></span></p><dl class="metadata-list campaign-progress"><div><dt>Book</dt><dd>{ campaignBookLabel(item.Campaign.BookProgress) }{ campaignProgressTime(item.Campaign.BookFinishedAt) }</dd></div><div><dt>Deck</dt><dd>{ campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignProgressTime(item.Campaign.DeckReviewedAt) }</dd></div></dl>
-	if item.Campaign.Status == domain.CampaignQueued && item.Coverage != nil {
-		<p><strong>{ fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage)) }</strong> current-known coverage · <strong>{ fmt.Sprintf("%.1f%%", reservedCoveragePercent(*item.Coverage)) }</strong> future-book coverage after the reserved vocabulary graduates</p>
-	}
-	if item.Campaign.CompletedAt != nil {
-		<p>Completed { item.Campaign.CompletedAt.UTC().Format("2006-01-02 15:04 UTC") }</p>
-	}
-	if item.Campaign.Status == domain.CampaignQueued {
-		<p>This prepared campaign is separate from Reading Journey membership. Starting reserves its assigned vocabulary for learning; it is not counted as known.</p>
-	}
-	if item.Campaign.Status == domain.CampaignComplete {
-		<p>Assigned vocabulary was graduated to known vocabulary. Generated provenance and this prepared deck remain available.</p>
-	}
-	if item.Campaign.Status == domain.CampaignAbandoned {
-		<p>This campaign remains in history with its book and prepared deck. Ungraduated vocabulary is eligible again unless independently known.</p>
-	}
-	<p><a href={ templ.SafeURL("/deck-preparations/"+item.Deck.ID+"/download") }>Download prepared deck</a></p></div>
-	if activatable {
-		<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/activate") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Start learning</button></form>
-	}
-	if item.Campaign.Status == domain.CampaignActive || item.Campaign.Status == domain.CampaignQueued {
-		if item.Campaign.Status == domain.CampaignActive {
-		<section aria-labelledby={ campaignAnchorID("remaining-"+item.Campaign.ID) } class="campaign-remaining"><h4 id={ campaignAnchorID("remaining-"+item.Campaign.ID) }>Remaining before completion</h4><ul>
-			<li>Book: { campaignBookLabel(item.Campaign.BookProgress) }{ campaignRemainingBookText(item.Campaign.BookProgress) }</li>
-			<li>Deck: { campaignDeckLabel(item.Campaign.DeckProgress) }{ campaignRemainingDeckText(item.Campaign.DeckProgress) }</li>
-		</ul><p>When both conditions are finished, Mouseion adds the campaign's assigned vocabulary to known vocabulary while preserving generated provenance, recalculating coverage evidence, and making no claim about mastery or a spaced-repetition grade.</p></section>
-		}
-		@ActionGroup() {
-			if item.Campaign.Status == domain.CampaignActive {
-			if item.Campaign.BookProgress != domain.BookFinished {
-				if item.Campaign.DeckProgress == domain.DeckReviewed {
-					@Confirmation(campaignCompletionLabel(item), "Review this consequential transition before submitting.", StatusNeutral) {
-						@CampaignCompletionDetails(item)
-						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>{ campaignCompletionLabel(item) }</button></form>
-					}
-				} else {
-					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/book-finished") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Mark book finished — campaign remains active</button></form>
-				}
-			}
-			if item.Campaign.DeckProgress != domain.DeckReviewed {
-				if item.Campaign.BookProgress == domain.BookFinished {
-					@Confirmation(campaignCompletionLabel(item), "Review this consequential transition before submitting.", StatusNeutral) {
-						@CampaignCompletionDetails(item)
-						<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>{ campaignCompletionLabel(item) }</button></form>
-					}
-				} else {
-					<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/deck-reviewed") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button>Mark deck reviewed — campaign remains active</button></form>
-				}
-			}
-			}
-			@Confirmation("Abandon campaign", "This abandons the campaign without deleting it. The book, prepared deck, generated provenance, and campaign history remain available; any active reservation is released and its vocabulary can be eligible for future decks again unless independently known.", StatusDanger) {
-				<p>Book: { canonicalBookTitle(item.Book) } · Prepared deck: { item.Deck.DeckName }</p><p>Abandonment is not deletion, and there is no completion or mastery claim.</p>
-				<p>{ campaignAbandonmentOutcome(item.Campaign.Status) }</p>
-				<form method="post" action={ templ.SafeURL("/campaigns/"+item.Campaign.ID+"/abandon") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_campaign_status" value={ string(item.Campaign.Status) }/><input type="hidden" name="expected_book_progress" value={ string(item.Campaign.BookProgress) }/><input type="hidden" name="expected_deck_progress" value={ string(item.Campaign.DeckProgress) }/><button class="outline">Confirm abandonment</button></form>
-			}
-		}
-	}
-	</article>
-}
-
-templ CampaignCompletionDetails(item campaignView) {
-		<dl class="metadata-list"><div><dt>Book</dt><dd>{ canonicalBookTitle(item.Book) } — Finished</dd></div><div><dt>Prepared deck</dt><dd>{ item.Deck.DeckName } — Reviewed</dd></div></dl>
-		<p>{ campaignGraduationOutcome(item) }</p>
-		<p>Generated provenance remains attached to this campaign, book, and prepared deck. Coverage evidence will be recalculated after the transition. This is not a mastery claim or a spaced-repetition grade.</p>
-		<p>Completion cannot currently be undone in Mouseion; there is no inline undo.</p>
 }
 templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string, page bookPageOptions, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
 	@ShellLayout(canonicalBookTitle(book), &user, csrf, page.Navigation) {
@@ -853,7 +736,7 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	}
 	if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book) {
 		<section aria-labelledby="deck-preparation-heading"><h2 id="deck-preparation-heading">Deck preparation</h2>
-			<p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. It does not start a learning campaign.</p>
+			<p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. It does not start vocabulary study or mark anything as known.</p>
 			if preparation != nil {
 				@DeckPreparationStatus(csrf, *preparation, "", journeyAction)
 			} else {
@@ -871,6 +754,9 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	}
 	if preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
 		@BookVocabularyStudy(journeyMembershipBookID(book), csrf, *preparation)
+	}
+	if len(page.VocabularyStudyHistory) > 0 {
+		@BookVocabularyStudyHistory(page.VocabularyStudyHistory)
 	}
 }
 
@@ -899,6 +785,27 @@ templ BookVocabularyStudy(bookID string, csrf string, preparation domain.DeckPre
 		} else {
 			<p>Reviewed { completedAtLabel(preparation.ReviewedAt) }. Vocabulary graduated { completedAtLabel(preparation.GraduatedAt) }.</p>
 		}
+	</section>
+}
+
+templ BookVocabularyStudyHistory(preparations []domain.DeckPreparation) {
+	<section aria-labelledby="vocabulary-study-history-heading" class="book-vocabulary-study-history">
+		<h2 id="vocabulary-study-history-heading">This Book's vocabulary-study history</h2>
+		<p>Past vocabulary studies remain attached to the Book and their deck provenance is preserved.</p>
+		<ul>
+			for _, preparation := range preparations {
+				<li><strong>{ preparation.DeckName }</strong> · @StatusBadge(vocabularyStudyLabel(preparation), vocabularyStudyTone(preparation))
+					if preparation.ReviewedAt != nil {
+						<span> Reviewed { preparation.ReviewedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					} else if preparation.ReleasedAt != nil {
+						<span> Released { preparation.ReleasedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					}
+					if preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(preparation) {
+						<a download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+					}
+				</li>
+			}
+		</ul>
 	</section>
 }
 

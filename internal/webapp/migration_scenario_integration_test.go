@@ -196,7 +196,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookFinished || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
+	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookReading || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
 		t.Fatalf("reading finish changed vocabulary state=%+v", afterReading)
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
@@ -208,18 +208,16 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		t.Fatalf("reading finish changed known vocabulary=%+v err=%v", knownAfterReading, err)
 	}
 
-	review := perform(t, h, http.MethodPost, "/campaigns/"+campaign.ID+"/deck-reviewed", url.Values{
-		"csrf_token": {csrf}, "expected_campaign_status": {string(afterReading.Status)}, "expected_book_progress": {string(afterReading.BookProgress)}, "expected_deck_progress": {string(afterReading.DeckProgress)},
-	}, aliceCookies)
-	if review.Code != http.StatusSeeOther || !strings.Contains(review.Header().Get("Location"), "Campaign+complete") {
-		t.Fatalf("review transition=%d location=%q", review.Code, review.Header().Get("Location"))
-	}
 	// Graduation is book-anchored: the studying deck's review is confirmed so
 	// its reservation is released and coverage stops counting it as reserved.
 	if _, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID); err != nil {
 		t.Fatal(err)
 	}
-	completed, err := store.GetLearningCampaign(ctx, alice.ID, campaign.ID)
+	completed, err := store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(afterReading), domain.BookFinished, domain.DeckReviewed)
+	if err != nil {
+		t.Fatalf("legacy campaign review transition=%v", err)
+	}
+	completed, err = store.GetLearningCampaign(ctx, alice.ID, campaign.ID)
 	if err != nil || completed.Status != domain.CampaignComplete || completed.VocabularyGraduatedAt == nil {
 		t.Fatalf("graduation campaign=%+v err=%v", completed, err)
 	}

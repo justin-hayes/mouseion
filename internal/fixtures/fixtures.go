@@ -768,6 +768,20 @@ func (s *Store) GetActiveDeckVocabularyStudy(_ context.Context, owner, sourceMat
 	}
 	return domain.DeckPreparation{}, errNotFound
 }
+
+func (s *Store) ListDeckPreparationsForSourceMaterial(_ context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.DeckPreparation
+	for _, preparation := range s.preps {
+		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID {
+			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
+			result = append(result, preparation)
+		}
+	}
+	return result, nil
+}
+
 func (s *Store) CreateLearningCampaign(_ context.Context, o, b, d string) (domain.LearningCampaign, error) {
 	c := domain.LearningCampaign{ID: "fixture-new-campaign", OwnerID: o, SourceMaterialID: b, DeckPreparationID: d, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued}
 	s.campaigns = append(s.campaigns, c)
@@ -1306,6 +1320,29 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, language, exp
 		break
 	}
 	return result, nil
+}
+
+// RecordReadingFinishedPrimaryGoal records only the reading fact used by the
+// webapp. FinishReadingPrimaryGoal remains available for legacy backend tests.
+func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.ReadingFinishResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	language = normalizeFixtureLanguage(language)
+	key := fixtureGoalKey(owner, language)
+	goal, ok := s.primaryGoals[key]
+	if !ok {
+		return persistence.ReadingFinishResult{}, persistence.ErrNotFound
+	}
+	if goal.BookID != expectedBookID {
+		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
+	}
+	if goal.ReadingFinishedAt == nil {
+		now := time.Now()
+		goal.ReadingFinishedAt = &now
+		goal.UpdatedAt = now
+		s.primaryGoals[key] = goal
+	}
+	return persistence.ReadingFinishResult{Goal: goal}, nil
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {

@@ -152,11 +152,12 @@ type bookPageJourneyState struct {
 }
 
 type bookPageOptions struct {
-	BreadcrumbURL      string
-	BreadcrumbLabel    string
-	Navigation         NavigationContext
-	ShowJourneyRemoval bool
-	Journey            bookPageJourneyState
+	BreadcrumbURL          string
+	BreadcrumbLabel        string
+	Navigation             NavigationContext
+	ShowJourneyRemoval     bool
+	Journey                bookPageJourneyState
+	VocabularyStudyHistory []domain.DeckPreparation
 }
 
 func journeyBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
