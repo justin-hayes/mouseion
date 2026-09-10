@@ -215,7 +215,7 @@ func TestBookPageRendersVocabularyStudyHistoryAlongsideCurrentStudy(t *testing.T
 	now := time.Date(2026, time.September, 10, 9, 0, 0, 0, time.UTC)
 	page := journeyBookPageOptions(book)
 	page.VocabularyStudyHistory = []domain.DeckPreparation{{
-		ID: "old-study", DeckName: "Mouseion::de::Old deck", ReleasedAt: &now,
+		ID: "old-study", DeckName: "Mouseion::de::Old deck", State: domain.DeckPreparationReady, TotalCards: 2, ReleasedAt: &now,
 	}}
 	current := domain.DeckPreparation{ID: "current-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: &now}
 	var output bytes.Buffer
@@ -223,7 +223,7 @@ func TestBookPageRendersVocabularyStudyHistoryAlongsideCurrentStudy(t *testing.T
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"This Book's vocabulary study", "Studying", "This Book's vocabulary-study history", "Mouseion::de::Old deck", "Released", "2026-09-10 09:00 UTC"} {
+	for _, want := range []string{"This Book's vocabulary study", "Studying", "This Book's vocabulary-study history", "Mouseion::de::Old deck", "Released", "2026-09-10 09:00 UTC", `href="/deck-preparations/old-study/download"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("Book page missing %q: %s", want, html)
 		}

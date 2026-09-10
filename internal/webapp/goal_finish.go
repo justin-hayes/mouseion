@@ -13,7 +13,7 @@ import (
 )
 
 type primaryGoalFinisher interface {
-	FinishReadingPrimaryGoal(context.Context, string, string, string) (persistence.PrimaryGoalFinishResult, error)
+	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string) (persistence.ReadingFinishResult, error)
 }
 
 type finishEvidenceView struct {
@@ -63,7 +63,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	result, err := finisher.FinishReadingPrimaryGoal(r.Context(), owner, language, expectedBookID)
+	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return
@@ -79,11 +79,9 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:           finishBookTitle(before, result.Goal.BookID),
-		Graduated:           result.Graduated,
-		VocabularyGraduated: result.Campaign != nil && result.Campaign.VocabularyGraduatedAt != nil,
-		ResidualVocabulary:  result.ResidualVocabularyCount,
-		Journey:             after,
+		BookTitle:          finishBookTitle(before, result.Goal.BookID),
+		ResidualVocabulary: h.activeVocabularyStudyCount(r.Context(), owner, before),
+		Journey:            after,
 	}
 	if afterErr != nil {
 		outcome.Error = "Reading finished was saved, but the recalculated Journey evidence is temporarily unavailable. Return to Reading Journey and try again."
@@ -97,6 +95,17 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, PrimaryGoalFinishPage(user(r), h.csrf(w, r), outcome))
+}
+
+func (h *Handler) activeVocabularyStudyCount(ctx context.Context, owner string, journey journeyPageView) int {
+	if journey.Goal == nil {
+		return 0
+	}
+	preparation, err := h.currentVocabularyStudyPreparation(ctx, owner, journey.Goal.Book, false)
+	if err != nil || preparation == nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
+		return 0
+	}
+	return preparation.VocabularyCount
 }
 
 func finishBookTitle(before journeyPageView, bookID string) string {

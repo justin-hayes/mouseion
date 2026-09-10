@@ -196,7 +196,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookFinished || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
+	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookReading || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
 		t.Fatalf("reading finish changed vocabulary state=%+v", afterReading)
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")

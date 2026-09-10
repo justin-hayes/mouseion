@@ -800,6 +800,9 @@ templ BookVocabularyStudyHistory(preparations []domain.DeckPreparation) {
 					} else if preparation.ReleasedAt != nil {
 						<span> Released { preparation.ReleasedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
 					}
+					if preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(preparation) {
+						<a download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+					}
 				</li>
 			}
 		</ul>

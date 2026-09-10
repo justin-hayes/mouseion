@@ -338,6 +338,14 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
+	campaignBefore, err := store.GetLearningCampaign(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vocabularyBefore, err := store.CountCampaignVocabularyToGraduate(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
@@ -348,8 +356,6 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		"Reading finished",
 		"Vocabulary transition",
 		"No vocabulary was added to known vocabulary",
-		"Vocabulary work remains",
-		"2 ungraduated identities remain reserved",
 		"Reading Journey recalculated",
 		"Where next?",
 		"No new Primary Goal has been selected",
@@ -366,6 +372,17 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	}
 	if goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de"); err != nil || goal.BookID != fixtures.BookID {
 		t.Fatalf("finished Goal history=%+v err=%v", goal, err)
+	}
+	campaignAfter, err := store.GetLearningCampaign(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vocabularyAfter, err := store.CountCampaignVocabularyToGraduate(context.Background(), fixtures.OwnerID, fixtures.CampaignID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if campaignAfter.BookProgress != campaignBefore.BookProgress || campaignAfter.DeckProgress != campaignBefore.DeckProgress || campaignAfter.Status != campaignBefore.Status || vocabularyAfter != vocabularyBefore {
+		t.Fatalf("reading finish changed legacy campaign: before=%+v/%d after=%+v/%d", campaignBefore, vocabularyBefore, campaignAfter, vocabularyAfter)
 	}
 
 	repeated := goalRequest(t, h, "/goal/finish", url.Values{

@@ -1322,6 +1322,29 @@ func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, language, exp
 	return result, nil
 }
 
+// RecordReadingFinishedPrimaryGoal records only the reading fact used by the
+// webapp. FinishReadingPrimaryGoal remains available for legacy backend tests.
+func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.ReadingFinishResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	language = normalizeFixtureLanguage(language)
+	key := fixtureGoalKey(owner, language)
+	goal, ok := s.primaryGoals[key]
+	if !ok {
+		return persistence.ReadingFinishResult{}, persistence.ErrNotFound
+	}
+	if goal.BookID != expectedBookID {
+		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
+	}
+	if goal.ReadingFinishedAt == nil {
+		now := time.Now()
+		goal.ReadingFinishedAt = &now
+		goal.UpdatedAt = now
+		s.primaryGoals[key] = goal
+	}
+	return persistence.ReadingFinishResult{Goal: goal}, nil
+}
+
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
 	return s.fixtureBookID(owner, bookID) != ""
 }

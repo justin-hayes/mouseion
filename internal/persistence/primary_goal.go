@@ -25,6 +25,12 @@ type PrimaryGoalFinishResult struct {
 	ResidualVocabularyCount int
 }
 
+// ReadingFinishResult is the webapp-facing result of recording reading
+// completion. It deliberately has no campaign transition or graduation data.
+type ReadingFinishResult struct {
+	Goal domain.PrimaryGoal
+}
+
 // GetPrimaryGoal returns the owner's current Goal in one study language. No
 // row is the ordinary absent Goal state.
 func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language string) (domain.PrimaryGoal, error) {
@@ -152,6 +158,36 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 		return domain.PrimaryGoal{}, err
 	}
 	return goal, nil
+}
+
+// RecordReadingFinishedPrimaryGoal records only the reading-finished fact for
+// the current Goal. Legacy campaign progress and vocabulary graduation are not
+// part of this webapp transition.
+func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (ReadingFinishResult, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return ReadingFinishResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `SELECT owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language))
+	if err != nil {
+		return ReadingFinishResult{}, err
+	}
+	if goal.BookID != expectedBookID {
+		return ReadingFinishResult{}, ErrGoalStale
+	}
+	if goal.ReadingFinishedAt == nil {
+		goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET reading_finished_at=now(),updated_at=now() WHERE owner_id=$1 AND language=$2 RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language))
+		if err != nil {
+			return ReadingFinishResult{}, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ReadingFinishResult{}, err
+	}
+	return ReadingFinishResult{Goal: goal}, nil
 }
 
 // FinishReadingPrimaryGoal accepts the reading-finished fact for the current
