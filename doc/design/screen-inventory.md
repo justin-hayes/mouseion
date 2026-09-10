@@ -11,9 +11,8 @@ app's organizing mode per
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
 study language scopes My Books, Reading Journey, and Vocabulary, and Journeys
-and Goals are one per language. Catalogue-sync,
-collection-browsing surfaces are owned by
-[ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and the related feature
+and Goals are one per language. Catalogue-sync and collection-browsing surfaces
+follow [ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and the related feature
 contracts below. The proposed language-lens panel is retired by
 [ADR 0057](../adr/0057-retire-language-view-panel.md) and has no current screen
 contract. It is not a wireframe,

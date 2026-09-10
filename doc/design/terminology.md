@@ -127,6 +127,7 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
 | **Cannot currently assess** | Mouseion lacks a supported source, language capability, or other prerequisite and should state which. | Unsupported with no explanation |
+
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.

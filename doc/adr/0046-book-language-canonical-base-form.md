@@ -2,6 +2,9 @@
 
 Status: **Accepted** · Date: 2026-09-05 · Author: Justin + opencode
 
+References below to the language-corpus panel describe historical implementation
+context. The panel was retired by [ADR 0057](0057-retire-language-view-panel.md).
+
 ## Context
 
 ADR 0035 requires a chosen Book language to carry a normalized tag, and ADR 0043

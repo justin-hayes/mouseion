@@ -1,6 +1,6 @@
 # ADR 0042: Derive a per-language corpus view without a persisted corpus object
 
-Status: **Superseded by ADR 0057** · Date: 2026-09-02 · Author: Justin + Codex
+Status: **Superseded by [ADR 0057](0057-retire-language-view-panel.md)** · Date: 2026-09-02 · Author: Justin + Codex
 
 This decision is retained as historical context for the retired Language view
 panel. The panel and its derived read model are no longer current product
