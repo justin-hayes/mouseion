@@ -1,21 +1,18 @@
 # Acquisition to My Books workflow
 
 Status: **Canonical shipped learner-facing workflow.** Catalogue sync creates
-metadata-only My Books Books. From Book detail, **Start analysis** acquires and
-analyzes the current EPUB in one explicit action; adding the Book to Reading
-Journey expresses reading intent and performs the same acquisition plus
-ensure-once analysis. The historical **Add to library** label may remain in
-compatibility artifacts.
+metadata-only My Books Books. Adding a Book to Reading Journey expresses reading
+intent and acquires and analyzes the current EPUB with ensure-once semantics.
+The historical **Add to library** label may remain in compatibility artifacts.
 
 The [catalogue sync workflow](catalog-sync.md) creates metadata-first My Books
-entries. This document defines the per-book content-acquisition step from Book
-detail; sync never downloads content.
+entries. This document defines the per-book content-acquisition step from My
+Books through Reading Journey; sync never downloads content.
 
 ## Goal
 
 Help a learner move a metadata-only My Books Book to trustworthy current
-evidence, either by explicitly starting analysis or by expressing reading intent
-through Reading Journey membership.
+evidence by expressing reading intent through Reading Journey membership.
 
 The product behavior is defined primarily by:
 
@@ -24,6 +21,7 @@ The product behavior is defined primarily by:
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
 - [ADR 0035: My Books membership and source provenance](../../adr/0035-my-books-membership-and-source-provenance.md)
 - [ADR 0049: Reading intent triggers analysis](../../adr/0049-reading-intent-triggers-analysis.md)
+- [ADR 0054: Retire the standalone analysis action](../../adr/0054-retire-standalone-analysis-action.md)
 
 ## Entry and destination decision
 
@@ -48,8 +46,7 @@ My Books empty state
     -> Add or choose catalogue connection
     -> Sync catalogue metadata for offered ready languages
     -> Browse My Books locally
-    -> Open metadata-only Book
-    -> Start analysis (explicit) or Add to Reading Journey (reading intent)
+    -> Add Book to Reading Journey
     -> Acquire current EPUB and ensure whole-book analysis
     -> Inspect Book or Journey evidence
 ```
@@ -81,21 +78,14 @@ NLP service?
 
 My Books owns the active-language-scoped browse, search, and paging; there is no
 "All languages" default ([ADR 0050](../../adr/0050-active-study-language.md)).
-Opening a metadata-only
-Book shows its bibliographic identity and the two learner-facing paths: **Start
-analysis** explicitly acquires and analyzes the EPUB, while **Add to Reading
-Journey** expresses reading intent and triggers the same acquisition plus
-ensure-once analysis. No upstream browser is exposed.
+Metadata-only Books remain fully operable from their My Books rows: **Refresh
+metadata**, **Add to Reading Journey**, and removal. **Add to Reading Journey**
+expresses reading intent and triggers acquisition plus ensure-once analysis. No
+metadata-only detail page or upstream browser is exposed.
 
-### 3. Express reading intent or start analysis
+### 3. Express reading intent
 
-**Learner question:** Am I ready to spend analysis resources on this Book, or do
-I want it in my provisional Journey?
-
-**Start analysis** is always explicit. It downloads and validates the EPUB when
-needed, stores immutable source content and extracted-unit identity, then starts
-or reuses whole-book analysis for the current content revision. It does not add
-Journey membership or choose a Primary Goal.
+**Learner question:** Am I ready to add this Book to my provisional Journey?
 
 **Add to Reading Journey** first records reversible membership, then performs the
 same acquisition and ensure-once analysis. Re-adding a removed Book reuses
@@ -106,8 +96,7 @@ Book stays in its learner-chosen position with unavailable/incomparable evidence
 and an actionable recovery path; it is not treated as a failed membership.
 
 Changed EPUB content creates a new current revision, but does not trigger a
-background watcher. The learner must use **Start analysis** or express intent
-again to refresh evidence.
+background watcher. The learner expresses intent again to refresh evidence.
 
 ## State model
 
@@ -119,7 +108,7 @@ again to refresh evidence.
 | Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
 | Acquiring or analyzing | Disable duplicate submission and announce durable acquisition/analysis progress. | View status |
 | Analysis complete | Show current evidence and the optional deck action. | Inspect analysis or prepare deck |
-| Stale current content | Explain that existing evidence is for an older revision. | Start analysis |
+| Stale current content | Explain that existing evidence is for an older revision. | Re-analyze from the Journey card |
 | Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable/incomparable. | Retry or check catalogue connection |
 
 ## Navigation and responsive rules
@@ -129,8 +118,8 @@ again to refresh evidence.
   workflow from My Books and direct routes).
 - The current acquisition context is the selected Book and owner-scoped
   connection, not an upstream feed path.
-- On narrow screens, entry metadata precedes the acquisition action and actions
-  remain reachable without horizontal page scrolling.
+- On narrow screens, row metadata precedes the acquisition and refresh actions,
+  which remain reachable without horizontal page scrolling.
 - HTMX enhances real links and forms. A failed or unavailable enhancement must
   not turn the Book detail page into an unusable raw fragment response.
 - Dynamic acquisition updates use scoped live regions and do not move focus on

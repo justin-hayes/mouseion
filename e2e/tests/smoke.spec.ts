@@ -109,31 +109,30 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Remove from Reading Journey', { exact: true })).toBeVisible();
   });
 
-  test('book detail keeps its own language without changing the active mode', async ({ page }) => {
+  test('Journey entry keeps its own language without changing the active mode', async ({ page }) => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await page.goto('/books/fixture-empty');
+    await page.goto('/journey/fixture-italian-goal');
 
-    await expect(page.getByRole('heading', { name: 'Empty chapter', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Una meta italiana', exact: true })).toBeVisible();
     await expect(page.getByText('it · application/epub+zip')).toBeVisible();
     await expect(page.getByLabel('Study language')).toHaveValue('de');
     await expect(page.locator('main select[name="language"]')).toHaveCount(0);
   });
 
-  test('metadata-only books show catalogue-driven actions', async ({ page }) => {
-    await page.goto('/books/fixture-metadata-only');
-    await page.getByRole('button', { name: 'Refresh metadata' }).click();
-    await expect(page.getByRole('status')).toContainText('Metadata is already up to date.');
+  test('metadata-only book detail URLs are retired', async ({ page }) => {
+    const response = await page.goto('/books/fixture-metadata-only');
+    expect(response?.status()).toBe(404);
 
     await page.goto('/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
     await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) })).toHaveCount(0);
   });
 
-  test('exact analysis result redirects to the book page', async ({ page }) => {
-    await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page).toHaveURL(/\/books\/fixture-book/);
+    test('exact analysis result redirects to the Journey entry', async ({ page }) => {
+      await page.goto('/books/fixture-book/analyses/fixture-run');
+      await expect(page).toHaveURL('/journey/fixture-book');
     await expect(page.getByRole('heading', { name: /Der lange Weg nach Hause/i })).toBeVisible();
     await page.goto('/deck-preparations/fixture-preparation/status');
     await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
@@ -177,9 +176,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Fixture catalog')).toBeVisible();
     await page.goto('/library');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
-    await page.goto('/books/fixture-metadata-only');
-    await expect(page.getByRole('button', { name: 'Start analysis' })).toBeVisible();
-    await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
+    const retiredBookResponse = await page.goto('/books/fixture-metadata-only');
+    expect(retiredBookResponse?.status()).toBe(404);
     await page.goto('/campaigns?message=legacy-bookmark');
     await expect(page).toHaveURL(/\/journey\?message=legacy-bookmark/);
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();

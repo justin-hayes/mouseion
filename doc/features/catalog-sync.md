@@ -8,9 +8,9 @@ A learner may already curate a large collection in Calibre and expose it through
 Calibre-Web OPDS. Adding those books one at a time makes My Books incomplete and
 turns catalogue maintenance into repetitive work. Mouseion should recognize the
 studyable part of that collection while keeping sync metadata-only. Acquisition
-and analysis happen only through explicit **Start analysis** or learner intent
-expressed by Reading Journey membership, as defined by [ADR
-0049](../adr/0049-reading-intent-triggers-analysis.md).
+and analysis happen only when learner intent is expressed by adding the Book to
+Reading Journey, as defined by [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md)
+and the later standalone-action retirement in [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 
 ## Goal
 
@@ -24,8 +24,8 @@ the learner's study-language set.
 
 This feature covers automated per-connection metadata sync, explicit **Sync
 now**, per-book metadata refresh, connection-level status, and the transition
-from a metadata-only Book to explicit per-book content acquisition. My Books is the sole
-browse surface for the synced collection; acquisition starts from Book detail.
+from a metadata-only Book to per-book content acquisition through Reading
+Journey intent. My Books is the sole browse surface for the synced collection.
 Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
 
 ## Requirements
@@ -86,10 +86,9 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 ### Lazy content acquisition and per-book refresh
 
 - Sync never downloads or re-downloads EPUB content.
-- When the learner opens a metadata-only Book, Book detail offers **Start
-  analysis**. That explicit action acquires, validates, and analyzes the EPUB in
-  one flow; **Add to Reading Journey** is the other learner-facing path and
-  performs the same work as an ensure-once consequence of reading intent.
+- Metadata-only Books have no detail page. **Add to Reading Journey** acquires,
+  validates, and analyzes the EPUB in one ensure-once flow; the My Books row
+  remains the place to refresh metadata or remove the Book.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
 - Each catalogue-backed Book offers a metadata refresh for that entry. Refresh
@@ -106,10 +105,10 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
 | Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
-| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Start analysis or add to Reading Journey |
+| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Add to Reading Journey |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
-| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Start analysis |
-| Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to book |
+| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Re-analyze from Reading Journey |
+| Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to My Books |
 
 ## Non-goals
 

@@ -172,25 +172,19 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
-			Description: "No current EPUB content is available for this Journey entry. Open the book or retry acquisition from My Books when the catalogue can provide it.",
+			Description: "No current EPUB content is available for this Journey entry. Retry acquisition when the catalogue can provide it.",
+			Label:       "Retry acquisition",
+			URL:         journeyReanalyzeURL(bookID),
+			Submit:      true,
 			Tone:        StatusWarning,
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	switch {
-	case item.Book.EvidenceState() == domain.BookStale:
-		action.Label = "Re-analyze"
+	if action.Status == "Analysis not started" {
+		action.Label = "Retry analysis"
 		action.URL = journeyReanalyzeURL(bookID)
 		action.Submit = true
-	case action.Status == "Ready to analyze":
-		// Adding a member is the analysis trigger. A card reports missing
-		// evidence without exposing the retired standalone action.
-		action.Status = "Analysis not started"
-		action.Description = "Analysis evidence is not available for this Journey entry yet."
-		action.Label = ""
-		action.URL = ""
-		action.Submit = false
-	case action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book):
+	} else if action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book) {
 		action.URL = journeyEntryURL(bookID)
 		action.Label = "View Journey entry"
 	}
@@ -391,9 +385,9 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 	}
 	target := cataloguesync.AcquisitionTarget{}
 	acquisitionAttempted := false
-	if detail.Acquired == nil {
+	if detail.Acquired == nil || detail.Acquired.EvidenceState() == domain.BookUnavailable {
 		acquisitionAttempted = true
-		target, err = h.acquireBookForAnalysisContext(ctx, owner, bookID)
+		target, err = h.acquireBookForJourneyContext(ctx, owner, bookID)
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
@@ -411,12 +405,12 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 
 func journeyAnalysisError(ctx context.Context, store Store, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
-		return "Book added to Reading Journey, but " + analysisAcquisitionError(ctx, store, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
+		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, store, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
 	}
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
 		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey entry is retained; assessment is unavailable."
 	}
-	return "Book added to Reading Journey, but analysis could not start. The Journey entry is retained; retry from the analysis status when ready."
+	return "Book added to Reading Journey, but analysis could not start. The Journey entry is retained; retry analysis from the Journey entry when ready."
 }
 
 func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
@@ -527,7 +521,7 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookStale {
+	if !detail.JourneyMember || (detail.Acquired != nil && detail.Acquired.EvidenceState() != domain.BookStale && detail.Acquired.EvidenceState() != domain.BookUnavailable && detail.Acquired.EvidenceState() != domain.BookAcquiredUnassessed) {
 		http.NotFound(w, r)
 		return
 	}

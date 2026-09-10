@@ -4,7 +4,9 @@ Status: **Canonical shipped learner-facing screen inventory.** It includes the
 one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
-[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Language is the
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
+standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
+Language is the
 app's organizing mode per
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
@@ -29,8 +31,8 @@ Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 out**. My Books, Reading Journey, and Vocabulary are the only destinations; there
 is no acquisition action in the top navigation. Catalogue setup and sync
 maintenance are reached from My Books empty states and actions and via
-`/connections`. My Books is the sole browse surface; Book detail owns explicit
-analysis and acquires the EPUB when needed.
+`/connections`. My Books is the sole browse surface; its rows own acquisition
+and analysis intent.
 
 Primary Goal is embedded in Reading Journey and is not a fourth destination.
 The shell identifies the current destination, supports skip navigation and
@@ -62,14 +64,14 @@ facing queue or plan is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Book detail, Add books, or Add to Reading Journey | Empty collection with no connections and primary `/connections` action, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, ready to analyze, analysis queued/running/failed/complete, reading finished, long/missing metadata |
-| My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Book detail or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
-| Per-language lens panel | Planned (Proposed) within `GET /library` for the active language | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for the active language. | `/books/{id}` zoom | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
-| Book detail and analysis insights | Current `GET /books/{id}`; metadata refresh is a supporting action | Understand one Book, its lifecycle, current analysis evidence, Journey/Goal relationship, and available decisions on the sole learner-facing analysis surface. | Start analysis, analysis status, deck preparation, Journey/Goal action, prepared artifact, or metadata refresh | Source unavailable, metadata-only target state, lazy acquisition/analysis recovery, ready to analyze, analysis pending/failed/completed, stale or no current analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts, metadata refreshed, upstream entry missing/no-op |
-| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Book detail when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
+| My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Add books, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
+| My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Journey entry or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
+| Per-language lens panel | Planned (Proposed) within `GET /library` for the active language | Understand analyzed count, aggregate current known coverage, highest-impact unknown vocabulary, and per-book spread for the active language. | Current analyzed Book view | No analyzed Books, current evidence, mixed included/excluded Books, stale/incomplete evidence, known-vocabulary change, long lists; evidence-only with no lifecycle action and no learner-facing **Corpus** label |
+| Book detail and analysis insights | Current `GET /books/{id}` only for a current completed analysis; metadata refresh is a My Books row action | Understand one analyzed Book's current analysis evidence, Journey/Goal relationship, and preparation decisions. Unassessed, stale, queued, running, failed, and cancelled Books have no detail page. | Analysis status, deck preparation, Journey/Goal action, prepared artifact, or My Books | Current completed analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
+| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Journey entry when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or book detail | Empty history, mixed states, historical/legacy records |
-| Exact-analysis compatibility route | Target `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the book's single current analysis surface. | Book detail | Valid owned book/run redirect, historical deep link, missing or unauthorized reference |
-| Deck preparation | Target action on book detail; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to Goal/book context | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
+| Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the current result context. | Journey entry for members, Book detail otherwise | Valid owned member/run redirect, valid owned non-member redirect, missing or unauthorized reference |
+| Deck preparation | Target action on Journey entry; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to Journey context | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
 My Books is the canonical home and a moderately dense bibliographic catalogue.
 Title, author, and relevant edition information lead. Journey/Goal relationship
@@ -77,17 +79,18 @@ and evidence state follow. Large cards and metric-first sorting are not the
 default.
 
 The My Books model includes metadata-only and currently unassessable works.
-Catalogue sync creates metadata-only membership; Start analysis and Reading
-Journey intent acquire and validate EPUB content when needed.
+Catalogue sync creates metadata-only membership; adding a Book to Reading
+Journey acquires and validates EPUB content when needed. Metadata-only rows retain
+refresh, Journey, and removal actions without opening a detail page.
 
 ### Analysis continuity
 
 | Surface | Canonical responsibility | Primary exit |
 |---|---|---|
-| Book detail | Show Book-centered lifecycle and relationship state plus the one current analysis: headline **Current known coverage** with a one-line analyzed-units qualifier, **Vocabulary investment**, **Highest-impact unknown vocabulary**, warning-only quality note, and deck preparation. It does not show analyzed-scope detail, text profile, projected token coverage, the broader coverage-stat list, or learner-facing analysis history. | Start analysis, analysis status, deck preparation, or Journey/Goal decision |
-| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining book context. | **View analysis result** opens book detail when complete |
-| Exact-analysis compatibility route | Redirect a valid historical result URL to book detail; do not render a distinct insight, identity, provenance, or history surface. | Book detail |
-| Deck preparation | Provide a coherent server-rendered status baseline before enhancement. | Download deck or return to book/Goal context |
+| Journey entry | Show the one current completed analysis: headline **Current known coverage** with a one-line analyzed-units qualifier, **Vocabulary investment**, **Highest-impact unknown vocabulary**, warning-only quality note, and deck preparation. It does not show analyzed-scope detail, text profile, projected token coverage, the broader coverage-stat list, or learner-facing analysis history. | Analysis status, deck preparation, or Journey/Goal decision |
+| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining Journey context. | **View analysis result** opens the Journey entry when complete |
+| Exact-analysis compatibility route | Redirect a valid current member result URL to the Journey entry; do not render a distinct insight, identity, provenance, or history surface. | Journey entry |
+| Deck preparation | Provide a coherent server-rendered status baseline before enhancement. | Download deck or return to Journey/Goal context |
 
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock current
 deck preparation. The older `POST /jobs/{id}/deck/preparations` path is retained
@@ -99,14 +102,13 @@ recommendation metadata is not a current learner-facing surface.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Catalogue connections | Current `GET/POST /connections` and mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
-| Book-detail analysis/acquisition | Current `POST /books/{id}/analyze`, launched from Book detail | Explicitly acquire and analyze one My Books Book, or refresh stale evidence. | Analysis status or Book detail | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
-| Per-book catalogue metadata refresh | Planned (Proposed) action on `GET /books/{id}` with a supporting mutation/status endpoint | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | Book detail | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
+| Book acquisition through reading intent | Current `POST /journey/books/{id}/add`, launched from My Books or deck status | Express intent, acquire one My Books Book when needed, and ensure current analysis once. | Journey or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
+| Per-book catalogue metadata refresh | Current row action on `GET /library` with `POST /books/{id}/refresh` | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | My Books row | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
-The canonical Book-detail action is **Start analysis**: it acquires content when
-needed and analyzes the complete current EPUB without adding Journey membership
-or selecting a Primary Goal. **Add to Reading Journey** is the separate
-learner-intent action that performs the same acquisition and ensure-once analysis.
-Catalogue sync never performs either action.
+Adding a Book to Reading Journey is the sole learner-facing acquisition and
+analysis trigger. It acquires content when needed and ensures analysis without
+selecting a Primary Goal. Catalogue sync remains metadata-only, and My Books row
+metadata refresh never invalidates or re-triggers analysis.
 
 ## Reading Journey and Primary Goal
 

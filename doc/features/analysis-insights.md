@@ -110,8 +110,9 @@ coverage or mastery snapshot.
 
 ## Initial presentation
 
-The book page at `/books/{id}` is the sole learner-facing analysis surface and
-shows one current analysis. Its presentation keeps:
+The book page at `/books/{id}` shows one current analysis; Journey members can
+also inspect that same current analysis from their Journey entry. Its
+presentation keeps:
 
 - **Current known coverage** as the headline and premier metric, with a
   one-line qualifier such as “of the analyzed units”;
