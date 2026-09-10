@@ -127,7 +127,6 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
 | **Cannot currently assess** | Mouseion lacks a supported source, language capability, or other prerequisite and should state which. | Unsupported with no explanation |
-| **Language view** | A derived, evidence-only same-language panel over current analyses and known vocabulary. Suitable specific headings include **Analyzed books** and **Coverage across German**. | Corpus, aggregate analysis, language dashboard |
 
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
@@ -135,10 +134,12 @@ a literary judgment or claim that the learner can or cannot read a book.
 Prepared decks select recurring vocabulary and make no coverage claim; coverage
 thresholds remain whole-book planning markers.
 
-The internal feature name **language corpus view** is acceptable in technical
-documents, but the learner-facing surface is never called **Corpus**. `CorpusID`
-and `normalized_corpus_artifacts` already refer to an internal analysis artifact,
-not the learner's My Books collection or language lens.
+**Language view** and **language corpus view** were the names used for the panel
+proposed by [ADR 0042](../adr/0042-derived-language-corpus-view.md). That panel is
+retired by [ADR 0057](../adr/0057-retire-language-view-panel.md), so neither term
+names a current learner-facing surface. **Corpus** remains an internal analysis
+artifact term: `CorpusID` and `normalized_corpus_artifacts` do not refer to the
+learner's My Books collection.
 
 ## Status and feedback
 

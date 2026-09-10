@@ -171,10 +171,10 @@ These objects remain important, but they do not define principal navigation:
 - **Active study language** — the one study language the learner is currently
   working in; a stored selection pointing into the derived set that scopes every
   language-dependent surface ([ADR 0050](../adr/0050-active-study-language.md)).
-- **Language lens** — a derived, evidence-only per-language aggregate over
-  current analyses and known vocabulary. It owns no Book, scope, analysis, or
-  action; [ADR 0042](../adr/0042-derived-language-corpus-view.md) proposes its
-  target contract.
+- **Language lens** — historical terminology for the retired panel proposed by
+  [ADR 0042](../adr/0042-derived-language-corpus-view.md). It is not a current
+  object or learner-facing surface; [ADR 0057](../adr/0057-retire-language-view-panel.md)
+  records the retirement.
 
 A relationship graph, not a strict containment hierarchy, connects these
 objects. A book can exist without a Journey or Primary Goal. A Journey entry
@@ -483,11 +483,10 @@ needed.
    each learner-owned connection periodically reconciles metadata for every
    non-English language whose NLP pipeline is ready, without downloading
    content, deleting local state, or invalidating scope or analysis.
-10. **Derived language corpus lens** is the target contract proposed by
-    [ADR 0042](../adr/0042-derived-language-corpus-view.md): an evidence-only
-    per-language panel starts within My Books and derives aggregates from current
-    analyses and known vocabulary. It may become a destination only after future
-    explicit reconciliation at this checkpoint.
+10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
+    the panel proposed by ADR 0042 has no current route or screen contract.
+    Per-Book evidence remains on My Books rows and current analysis evidence
+    remains on Journey entries; no replacement aggregate is implied.
 11. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns

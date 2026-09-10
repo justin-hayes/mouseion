@@ -11,8 +11,8 @@ answer *which one they are working in right now*, and every surface answered
 that question differently: My Books carried per-request `?language=` pills
 (including an "All languages" default nobody wanted), Vocabulary carried the
 app's only `<select>`, and Reading Journey mixed languages with no language
-control at all. Downstream artifacts — known vocabulary, decks, analysis,
-campaigns, the ADR 0042 corpus view — were already language-keyed, so the
+control at all. Downstream artifacts — known vocabulary, decks, analysis, and
+campaigns — were already language-keyed, so the
 organizing surfaces were the odd ones out.
 
 The learner's mental model is "I am reading German now." This ADR makes that a
@@ -72,7 +72,8 @@ defines it.
 - `?language=` URLs for `/library` and `/vocabulary` change; the "All languages"
   pill and per-row/card redundant language tags are removed (the switcher and
   section headings carry the context).
-- The ADR 0042 corpus panel renders for the active language automatically.
+- Per-Book evidence remains on My Books rows and current analysis insights remain
+  on Journey entries; the Language view panel proposed by ADR 0042 is retired.
 - Requires a learner-scoped storage location (nullable, validated against the
   derived set at read time) — additive, low-risk.
 - ADR 0051 makes the Reading Journey and Primary Goal per language; the two
@@ -81,6 +82,6 @@ defines it.
 ## Related
 
 - [ADR 0043: Study languages are derived from the library and Settings is removed](0043-study-languages-derived-settings-removed.md)
-- [ADR 0042: Derive a per-language corpus view without a persisted corpus object](0042-derived-language-corpus-view.md)
+- [ADR 0057: Retire the Language view panel](0057-retire-language-view-panel.md)
 - [ADR 0051: Reading journeys and primary goals are one per language](0051-reading-journeys-and-goals-per-language.md)
 - [Feature: Language Mode](../features/language-mode.md)

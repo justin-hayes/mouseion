@@ -7,8 +7,8 @@ Status: Proposed · Date: 2026-09-07
 The learner thinks "I am reading German now," but the app does not: My Books
 defaults to an "All languages" browse nobody wants, Vocabulary re-selects a
 language per visit, and Reading Journey mixes languages silently. Downstream
-artifacts are already per-language (known vocabulary, decks, analysis,
-campaigns, the corpus view), so the organizing surfaces are the odd ones out.
+artifacts are already per-language (known vocabulary, decks, analysis, and
+campaigns), so the organizing surfaces are the odd ones out.
 Treating language as the app's organizing mode — one **active study language**
 scoping every surface — aligns the surfaces with the artifacts.
 
@@ -52,7 +52,8 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse, paging, and search are scoped to the active language. The "All
   languages" pill and per-row language tags are removed; a section heading names
   the language.
-- The ADR 0042 corpus panel renders for the active language.
+- Per-Book evidence remains visible in My Books; current analysis insights remain
+  on the Journey entry. The retired Language view panel does not render.
 - When any Book lacks a language, an out-of-band "N books need a language" strip
   appears (display-only: fix the language in the catalogue, then re-sync; no
   per-book actions). Its browse state is `/library?needs-language`.
