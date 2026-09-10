@@ -7,9 +7,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 )
@@ -22,15 +20,6 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	// Start this scenario from the legacy one-row shape so it exercises both
-	// halves of the split migration rather than the already-migrated schema.
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000054_reading_journey_language_backfill.down.sql")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000053_reading_journey_language.down.sql")); err != nil {
-		t.Fatal(err)
-	}
-
 	alice, err := store.CreateUser(ctx, "journey-alice", false)
 	if err != nil {
 		t.Fatal(err)
@@ -40,88 +29,52 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	queuedEarly, queuedEarlySource, queuedEarlyPrep := createJourneyFixture(t, ctx, store, alice.ID, "queued-early")
-	shared, sharedFirstSource, sharedFirstPrep := createJourneyFixture(t, ctx, store, alice.ID, "queued-shared-first")
-	_, sharedSecondSource, sharedSecondPrep := createJourneySourceAndPreparation(t, ctx, store, alice.ID, shared, "queued-shared-second")
-	active, activeSource, activePrep := createJourneyFixture(t, ctx, store, alice.ID, "active")
-	_, completeSource, completePrep := createJourneyFixture(t, ctx, store, alice.ID, "complete")
-	_, abandonedSource, abandonedPrep := createJourneyFixture(t, ctx, store, alice.ID, "abandoned")
-	italian, italianSource, italianPrep := createJourneyFixtureInLanguage(t, ctx, store, alice.ID, "it", "queued-italian")
-	bobQueued, bobSource, bobPrep := createJourneyFixture(t, ctx, store, bob.ID, "bob-queued")
+	queuedEarly, _, _ := createJourneyFixture(t, ctx, store, alice.ID, "queued-early")
+	shared, _, _ := createJourneyFixture(t, ctx, store, alice.ID, "queued-shared-first")
+	_, _, _ = createJourneySourceAndPreparation(t, ctx, store, alice.ID, shared, "queued-shared-second")
+	active, _, _ := createJourneyFixture(t, ctx, store, alice.ID, "active")
+	italian, _, _ := createJourneyFixtureInLanguage(t, ctx, store, alice.ID, "it", "queued-italian")
+	bobQueued, _, _ := createJourneyFixture(t, ctx, store, bob.ID, "bob-queued")
+	_, _, _ = createJourneyFixture(t, ctx, store, alice.ID, "complete")
+	_, _, _ = createJourneyFixture(t, ctx, store, alice.ID, "abandoned")
 
-	base := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
-	insertJourneyCampaign(t, ctx, pool, alice.ID, queuedEarlySource.ID, queuedEarlyPrep.ID, "queued", "queued", base)
-	insertJourneyCampaign(t, ctx, pool, alice.ID, sharedFirstSource.ID, sharedFirstPrep.ID, "queued", "queued", base.Add(24*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, alice.ID, sharedSecondSource.ID, sharedSecondPrep.ID, "queued", "queued", base.Add(48*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, alice.ID, activeSource.ID, activePrep.ID, "reading", "studying", base.Add(72*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, alice.ID, completeSource.ID, completePrep.ID, "finished", "reviewed", base.Add(96*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, alice.ID, abandonedSource.ID, abandonedPrep.ID, "abandoned", "queued", base.Add(120*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, alice.ID, italianSource.ID, italianPrep.ID, "queued", "queued", base.Add(144*time.Hour))
-	insertJourneyCampaign(t, ctx, pool, bob.ID, bobSource.ID, bobPrep.ID, "queued", "queued", base.Add(24*time.Hour))
-
-	var beforeCampaigns, beforeVocabulary int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaigns`).Scan(&beforeCampaigns); err != nil {
-		t.Fatal(err)
-	}
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary`).Scan(&beforeVocabulary); err != nil {
-		t.Fatal(err)
-	}
-
-	legacyBackfill := migrationSQL(t, "000039_reading_journey_backfill.up.sql")
-	if _, err = pool.Exec(ctx, legacyBackfill); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, migrationSQL(t, "000053_reading_journey_language.up.sql")); err != nil {
-		t.Fatal(err)
-	}
-	backfill := migrationSQL(t, "000054_reading_journey_language_backfill.up.sql")
-	if _, err = pool.Exec(ctx, backfill); err != nil {
-		t.Fatal(err)
+	for _, item := range []struct {
+		owner, language, bookID string
+		position                int
+	}{
+		{alice.ID, "de", queuedEarly.ID, 1}, {alice.ID, "de", shared.ID, 2},
+		{alice.ID, "it", italian.ID, 1}, {bob.ID, "de", bobQueued.ID, 1},
+	} {
+		if _, err = pool.Exec(ctx, `INSERT INTO reading_journeys(owner_id,language) VALUES($1,$2) ON CONFLICT DO NOTHING`, item.owner, item.language); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id,language,book_id,position) VALUES($1,$2,$3,$4)`, item.owner, item.language, item.bookID, item.position); err != nil {
+			t.Fatal(err)
+		}
 	}
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertJourneyEntries(t, journey, alice.ID, []string{queuedEarly.ID, shared.ID})
 	italianJourney, err := store.GetReadingJourney(ctx, alice.ID, "it")
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertJourneyEntries(t, italianJourney, alice.ID, []string{italian.ID})
 	bobJourney, err := store.GetReadingJourney(ctx, bob.ID, "de")
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertJourneyEntries(t, journey, alice.ID, []string{queuedEarly.ID, shared.ID})
+	italianJourney, err = store.GetReadingJourney(ctx, alice.ID, "it")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJourneyEntries(t, italianJourney, alice.ID, []string{italian.ID})
+	bobJourney, err = store.GetReadingJourney(ctx, bob.ID, "de")
+	if err != nil {
+		t.Fatal(err)
+	}
 	assertJourneyEntries(t, bobJourney, bob.ID, []string{bobQueued.ID})
-
-	if _, err = pool.Exec(ctx, backfill); err != nil {
-		t.Fatal(err)
-	}
-	repeatedAlice, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertJourneyEntries(t, repeatedAlice, alice.ID, []string{queuedEarly.ID, shared.ID})
-	repeatedBob, err := store.GetReadingJourney(ctx, bob.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertJourneyEntries(t, repeatedBob, bob.ID, []string{bobQueued.ID})
-	repeatedItalian, err := store.GetReadingJourney(ctx, alice.ID, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertJourneyEntries(t, repeatedItalian, alice.ID, []string{italian.ID})
-	var afterCampaigns, afterVocabulary int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaigns`).Scan(&afterCampaigns); err != nil {
-		t.Fatal(err)
-	}
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary`).Scan(&afterVocabulary); err != nil {
-		t.Fatal(err)
-	}
-	if afterCampaigns != beforeCampaigns || afterVocabulary != beforeVocabulary {
-		t.Fatalf("backfill changed campaign data: campaigns %d -> %d, vocabulary %d -> %d", beforeCampaigns, afterCampaigns, beforeVocabulary, afterVocabulary)
-	}
 
 	store.Close()
 	store, err = Open(ctx, url)
@@ -511,22 +464,6 @@ func makeJourneyMemberAnalyzed(t *testing.T, ctx context.Context, store *Postgre
 	if _, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, book.OwnerID, book.ID, source.ID, runID); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func insertJourneyCampaign(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, sourceID, preparationID, bookStatus, deckStatus string, createdAt time.Time) string {
-	t.Helper()
-	var id string
-	err := pool.QueryRow(ctx, `INSERT INTO learning_campaigns(owner_id,source_material_id,deck_preparation_id,book_status,deck_status,created_at,book_finished_at,deck_reviewed_at,completed_at,abandoned_at)
-	VALUES($1,$2,$3,$4,$5,$6::timestamptz,
-	 CASE WHEN $4='finished' THEN $6::timestamptz ELSE NULL END,
-	 CASE WHEN $5='reviewed' THEN $6::timestamptz ELSE NULL END,
-	 CASE WHEN $4='finished' AND $5='reviewed' THEN $6::timestamptz ELSE NULL END,
-	 CASE WHEN $4='abandoned' OR $5='abandoned' THEN $6::timestamptz ELSE NULL END)
-	RETURNING id::text`, owner, sourceID, preparationID, bookStatus, deckStatus, createdAt).Scan(&id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return id
 }
 
 func assertJourneyEntries(t *testing.T, journey domain.ReadingJourney, owner string, bookIDs []string) {

@@ -116,18 +116,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if _, err = store.Pool().Exec(ctx, `UPDATE generated_vocabulary SET upos='VERB' WHERE owner_id=$1 AND canonical_lemma='graduated'`, alice.ID); err != nil {
 		t.Fatal(err)
 	}
-	campaign, err := store.CreateLearningCampaign(ctx, alice.ID, source.ID, preparation.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(campaign), domain.BookReading, domain.DeckStudying)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The migration backfill maps an active campaign's reservation onto the
-	// book-anchored study path (migration 000059). Mirror that here so coverage
-	// and the Journey projection read the reservation from the studying deck,
-	// which is now the only source of reserved vocabulary.
+	// Vocabulary study is book-anchored on the prepared deck.
 	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -165,9 +154,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if _, err = store.ChangePrimaryGoal(ctx, alice.ID, "de", secondBook.ID, "stale-book"); !errors.Is(err, persistence.ErrGoalStale) {
 		t.Fatalf("stale Goal write=%v", err)
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(campaign), domain.BookReading, domain.DeckQueued); !errors.Is(err, persistence.ErrInvalidTransition) {
-		t.Fatalf("invalid Campaign transition=%v", err)
-	}
 	if missingCSRF := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"expected_goal_book_id": {book.ID}}, aliceCookies); missingCSRF.Code != http.StatusForbidden {
 		t.Fatalf("finish without CSRF=%d", missingCSRF.Code)
 	}
@@ -192,13 +178,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 			t.Errorf("finish receipt missing %q: %s", want, finished.Body.String())
 		}
 	}
-	afterReading, err := store.GetLearningCampaign(ctx, alice.ID, campaign.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if afterReading.Status != domain.CampaignActive || afterReading.BookProgress != domain.BookReading || afterReading.DeckProgress != domain.DeckStudying || afterReading.VocabularyGraduatedAt != nil {
-		t.Fatalf("reading finish changed vocabulary state=%+v", afterReading)
-	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
 	if err != nil || len(reserved) != 2 {
 		t.Fatalf("residual reservation after reading=%+v err=%v", reserved, err)
@@ -213,15 +192,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	if _, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID); err != nil {
 		t.Fatal(err)
 	}
-	completed, err := store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(afterReading), domain.BookFinished, domain.DeckReviewed)
-	if err != nil {
-		t.Fatalf("legacy campaign review transition=%v", err)
-	}
-	completed, err = store.GetLearningCampaign(ctx, alice.ID, campaign.ID)
-	if err != nil || completed.Status != domain.CampaignComplete || completed.VocabularyGraduatedAt == nil {
-		t.Fatalf("graduation campaign=%+v err=%v", completed, err)
-	}
-	graduatedAt := *completed.VocabularyGraduatedAt
 	known, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	if err != nil || len(known) != 3 {
 		t.Fatalf("graduated known vocabulary=%+v err=%v", known, err)
@@ -230,26 +200,16 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	for _, item := range known {
 		provenance[item.CanonicalLemma] = item.Provenance
 	}
-	if provenance["Haus"] != "Explicitly recorded" || provenance["residual"] != "Graduated from completed campaign" || provenance["graduated"] != "Graduated from completed campaign" || provenance["legacy"] != "" {
+	if provenance["Haus"] != "Explicitly recorded" || provenance["residual"] != "Graduated from reviewed deck" || provenance["graduated"] != "Graduated from reviewed deck" || provenance["legacy"] != "" {
 		t.Fatalf("graduation provenance=%v", provenance)
 	}
-	legacy, err := store.ListLegacyGeneratedVocabulary(ctx, alice.ID, "de")
-	if err != nil || len(legacy) != 1 || legacy[0].CanonicalLemma != "legacy" {
+	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, alice.ID, "de")
+	legacyFound := false
+	for _, item := range legacy {
+		legacyFound = legacyFound || item.CanonicalLemma == "legacy" && item.FirstSourceMaterialID == nil
+	}
+	if err != nil || !legacyFound {
 		t.Fatalf("legacy generated state after graduation=%+v err=%v", legacy, err)
-	}
-	graduatedRows, err := store.ListLearningCampaignVocabulary(ctx, alice.ID, campaign.ID)
-	if err != nil || len(graduatedRows) != 2 {
-		t.Fatalf("campaign snapshot=%+v err=%v", graduatedRows, err)
-	}
-	for _, row := range graduatedRows {
-		if row.GraduatedAt == nil || row.CampaignID != campaign.ID {
-			t.Fatalf("unlinked graduation row=%+v", row)
-		}
-	}
-
-	completedAgain, err := store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, migrationCampaignExpectedState(completed), domain.BookFinished, domain.DeckReviewed)
-	if err != nil || completedAgain.VocabularyGraduatedAt == nil || !completedAgain.VocabularyGraduatedAt.Equal(graduatedAt) {
-		t.Fatalf("idempotent graduation=%+v err=%v", completedAgain, err)
 	}
 	knownAgain, _ := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	if len(knownAgain) != len(known) {
@@ -379,8 +339,4 @@ func migrationMyBook(t *testing.T, ctx context.Context, store *persistence.Postg
 	}
 	t.Fatalf("book %q absent from My Books: %+v", bookID, books)
 	return domain.MyBook{}
-}
-
-func migrationCampaignExpectedState(campaign domain.LearningCampaign) persistence.LearningCampaignExpectedState {
-	return persistence.LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}
 }

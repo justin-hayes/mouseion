@@ -29,7 +29,7 @@ func (m *memoryStore) ListKnownVocabulary(_ context.Context, owner, language str
 	}
 	return result, nil
 }
-func (m *memoryStore) ListLegacyGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+func (m *memoryStore) ListUnattachedGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	var result []domain.GeneratedVocabulary
 	for _, word := range m.generated {
 		if word.OwnerID == owner && word.Language == language {

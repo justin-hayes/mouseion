@@ -25,7 +25,7 @@ type Store interface {
 	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
-	ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
+	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 }
 
 // JourneyStore, PrimaryGoalStore, and BookEvidenceStore are intentionally
@@ -99,7 +99,7 @@ func (s *Service) loadVocabulary(ctx context.Context, owner, language string) (v
 		known[identity(word.CanonicalLemma, word.UPOS)] = true
 	}
 
-	generated, err := s.store.ListLegacyGeneratedVocabulary(ctx, owner, language)
+	generated, err := s.store.ListUnattachedGeneratedVocabulary(ctx, owner, language)
 	if err != nil {
 		return vocabulary{}, fmt.Errorf("list generated vocabulary for %s: %w", language, err)
 	}

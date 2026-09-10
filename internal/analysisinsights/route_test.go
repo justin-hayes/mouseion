@@ -48,7 +48,7 @@ func (s *routeStore) ListReservedVocabulary(_ context.Context, owner, language s
 	}
 	return out, nil
 }
-func (s *routeStore) ListLegacyGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error) {
+func (s *routeStore) ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error) {
 	return nil, nil
 }
 

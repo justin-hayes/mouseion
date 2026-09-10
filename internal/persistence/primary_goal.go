@@ -15,18 +15,7 @@ func scanPrimaryGoal(row pgx.Row) (goal domain.PrimaryGoal, err error) {
 	return goal, missing(err)
 }
 
-// PrimaryGoalFinishResult is the persisted result of accepting a reading
-// finish. Graduated contains only identities that changed known vocabulary in
-// this transition; reserved or generated identities are never reported here.
-type PrimaryGoalFinishResult struct {
-	Goal                    domain.PrimaryGoal
-	Campaign                *domain.LearningCampaign
-	Graduated               []domain.CampaignVocabulary
-	ResidualVocabularyCount int
-}
-
 // ReadingFinishResult is the webapp-facing result of recording reading
-// completion. It deliberately has no campaign transition or graduation data.
 type ReadingFinishResult struct {
 	Goal domain.PrimaryGoal
 }
@@ -161,8 +150,8 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 }
 
 // RecordReadingFinishedPrimaryGoal records only the reading-finished fact for
-// the current Goal. Legacy campaign progress and vocabulary graduation are not
-// part of this webapp transition.
+// the current Goal. Vocabulary graduation is not part of this reading
+// transition.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (ReadingFinishResult, error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
@@ -188,101 +177,6 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		return ReadingFinishResult{}, err
 	}
 	return ReadingFinishResult{Goal: goal}, nil
-}
-
-// FinishReadingPrimaryGoal accepts the reading-finished fact for the current
-// Goal. The Goal row and any matching active campaign are changed in one
-// transaction, guarded by expectedBookID. A repeated request is idempotent.
-func (s *PostgresStore) FinishReadingPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (PrimaryGoalFinishResult, error) {
-	language = canonicalization.NormalizeLanguage(language)
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return PrimaryGoalFinishResult{}, err
-	}
-	defer tx.Rollback(ctx)
-
-	goal, err := scanPrimaryGoal(tx.QueryRow(ctx, `SELECT owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at FROM primary_goals WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language))
-	if err != nil {
-		return PrimaryGoalFinishResult{}, err
-	}
-	if goal.BookID != expectedBookID {
-		return PrimaryGoalFinishResult{}, ErrGoalStale
-	}
-	result := PrimaryGoalFinishResult{Goal: goal}
-	if goal.ReadingFinishedAt == nil {
-		result.Goal, err = scanPrimaryGoal(tx.QueryRow(ctx, `UPDATE primary_goals SET reading_finished_at=now(),updated_at=now() WHERE owner_id=$1 AND language=$2 RETURNING owner_id::text,language,book_id::text,created_at,updated_at,reading_finished_at`, owner, language))
-		if err != nil {
-			return PrimaryGoalFinishResult{}, err
-		}
-
-		var campaign domain.LearningCampaign
-		campaign, err = scanLearningCampaign(tx.QueryRow(ctx, `SELECT `+learningCampaignColumnsC+` FROM learning_campaigns c JOIN source_materials s ON s.owner_id=c.owner_id AND s.id=c.source_material_id WHERE c.owner_id=$1 AND s.book_id=$2 AND c.status='active' ORDER BY c.created_at DESC,c.id DESC LIMIT 1 FOR UPDATE`, owner, goal.BookID))
-		if errors.Is(err, ErrNotFound) {
-			err = nil
-		} else if err != nil {
-			return PrimaryGoalFinishResult{}, err
-		} else {
-			result.Campaign = &campaign
-			if campaign.BookProgress != domain.BookFinished {
-				if !campaign.BookProgress.CanTransitionTo(domain.BookFinished) {
-					return PrimaryGoalFinishResult{}, ErrInvalidTransition
-				}
-				nextStatus := domain.DeriveCampaignStatus(domain.BookFinished, campaign.DeckProgress)
-				updated, updateErr := scanLearningCampaign(tx.QueryRow(ctx, `UPDATE learning_campaigns SET book_status='finished',updated_at=now(),activated_at=COALESCE(activated_at,now()),book_finished_at=COALESCE(book_finished_at,now()),deck_reviewed_at=CASE WHEN deck_status='reviewed' THEN COALESCE(deck_reviewed_at,now()) ELSE deck_reviewed_at END,completed_at=CASE WHEN $3='complete' THEN COALESCE(completed_at,now()) ELSE completed_at END WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, campaign.ID, nextStatus))
-				if updateErr != nil {
-					return PrimaryGoalFinishResult{}, campaignConstraintError(updateErr)
-				}
-				campaign = updated
-			}
-			if campaign.Status == domain.CampaignComplete && campaign.VocabularyGraduatedAt == nil {
-				result.Graduated, err = campaignVocabularyToGraduate(ctx, tx, owner, campaign.ID)
-				if err != nil {
-					return PrimaryGoalFinishResult{}, err
-				}
-				if err = graduateCampaignVocabulary(ctx, tx, owner, campaign.ID); err != nil {
-					return PrimaryGoalFinishResult{}, err
-				}
-				campaign, err = scanLearningCampaign(tx.QueryRow(ctx, `UPDATE learning_campaigns SET vocabulary_graduated_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+learningCampaignColumns, owner, campaign.ID))
-				if err != nil {
-					return PrimaryGoalFinishResult{}, err
-				}
-			}
-			result.Campaign = &campaign
-			if campaign.Status == domain.CampaignActive {
-				result.ResidualVocabularyCount, err = countCampaignVocabularyToGraduateTx(ctx, tx, owner, campaign.ID)
-				if err != nil {
-					return PrimaryGoalFinishResult{}, err
-				}
-			}
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return PrimaryGoalFinishResult{}, err
-	}
-	return result, nil
-}
-
-func campaignVocabularyToGraduate(ctx context.Context, tx pgx.Tx, owner, campaignID string) ([]domain.CampaignVocabulary, error) {
-	rows, err := tx.Query(ctx, `SELECT owner_id::text,campaign_id::text,language,canonical_lemma,upos,generated_at,graduated_at FROM learning_campaign_vocabulary cv WHERE cv.owner_id=$1 AND cv.campaign_id=$2 AND cv.graduated_at IS NULL AND NOT EXISTS (SELECT 1 FROM known_vocabulary kv WHERE kv.owner_id=cv.owner_id AND kv.language=cv.language AND kv.canonical_lemma=cv.canonical_lemma AND (kv.upos=cv.upos OR kv.upos='')) ORDER BY cv.canonical_lemma,cv.upos`, owner, campaignID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.CampaignVocabulary
-	for rows.Next() {
-		var item domain.CampaignVocabulary
-		if err = rows.Scan(&item.OwnerID, &item.CampaignID, &item.Language, &item.CanonicalLemma, &item.UPOS, &item.GeneratedAt, &item.GraduatedAt); err != nil {
-			return nil, err
-		}
-		result = append(result, item)
-	}
-	return result, rows.Err()
-}
-
-func countCampaignVocabularyToGraduateTx(ctx context.Context, tx pgx.Tx, owner, campaignID string) (int, error) {
-	var count int
-	err := tx.QueryRow(ctx, `SELECT count(*) FROM learning_campaign_vocabulary cv WHERE cv.owner_id=$1 AND cv.campaign_id=$2 AND cv.graduated_at IS NULL AND NOT EXISTS (SELECT 1 FROM known_vocabulary kv WHERE kv.owner_id=cv.owner_id AND kv.language=cv.language AND kv.canonical_lemma=cv.canonical_lemma AND (kv.upos=cv.upos OR kv.upos=''))`, owner, campaignID).Scan(&count)
-	return count, err
 }
 
 // ClearPrimaryGoal removes the language's Goal only when expectedBookID still

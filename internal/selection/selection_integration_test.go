@@ -38,7 +38,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if prep, err = store.ClaimDeckPreparation(ctx, alice.ID, prep.ID); err != nil {
 		t.Fatal(err)
 	}
-	if prep, err = store.CompleteDeckPreparation(ctx, alice.ID, prep.ID, domain.DeckPreparation{Artifact: []byte("apkg"), Filename: prep.Filename, DeckName: prep.DeckName}); err != nil {
+	if prep, err = store.CompleteDeckPreparation(ctx, alice.ID, prep.ID, domain.DeckPreparation{Artifact: []byte("apkg"), Filename: prep.Filename, DeckName: prep.DeckName, TotalCards: 1}); err != nil {
 		t.Fatal(err)
 	}
 	deck, err := store.PutDeck(ctx, alice.ID, "de", "Reserved")
@@ -48,11 +48,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "reserviert", UPOS: "ADJ", FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID}); err != nil {
 		t.Fatal(err)
 	}
-	campaign, err := store.CreateLearningCampaign(ctx, alice.ID, source.ID, prep.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if campaign, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, campaign.ID, persistence.LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}, domain.BookReading, domain.DeckStudying); err != nil {
+	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, prep.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.PutVocabularyState(ctx, alice.ID, "de", "alt", "ADJ", "ignored"); err != nil {
@@ -93,7 +89,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	if err != nil || state.State != "candidate" {
 		t.Fatalf("state=%+v err=%v", state, err)
 	}
-	if _, err = store.AbandonLearningCampaign(ctx, alice.ID, campaign.ID, persistence.LearningCampaignExpectedState{Status: campaign.Status, BookProgress: campaign.BookProgress, DeckProgress: campaign.DeckProgress}); err != nil {
+	if _, err = store.ReleaseDeckVocabularyStudy(ctx, alice.ID, prep.ID); err != nil {
 		t.Fatal(err)
 	}
 	got, err = svc.Select(ctx, alice.ID, fixture(tok("reserviert", "reserviert", "ADJ", false)), DefaultConfig("book-after-abandonment"))

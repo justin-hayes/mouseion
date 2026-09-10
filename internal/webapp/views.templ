@@ -523,14 +523,6 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 			<li>
 				<h2>Vocabulary transition</h2>
 				<p>{ finishGraduationText(outcome) }</p>
-				if len(outcome.Graduated) > 0 {
-					<p>Identities added to known vocabulary:</p>
-					<ul>
-						for _, item := range outcome.Graduated {
-							<li>{ finishGraduatedIdentity(item) }</li>
-						}
-					</ul>
-				}
 			</li>
 			<li>
 				<h2>Reading Journey recalculated</h2>

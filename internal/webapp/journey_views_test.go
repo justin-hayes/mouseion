@@ -3,37 +3,11 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
-
-func TestRetiredCampaignRoutesAreNotRegistered(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "campaign-route-test-secret-0123456789")
-	h, err := NewWithError(Services{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, request := range []struct {
-		method string
-		path   string
-	}{
-		{http.MethodGet, "/campaigns"},
-		{http.MethodPost, "/campaigns/example/activate"},
-		{http.MethodPost, "/campaigns/example/book-finished"},
-		{http.MethodPost, "/campaigns/example/deck-reviewed"},
-		{http.MethodPost, "/campaigns/example/abandon"},
-	} {
-		recorder := httptest.NewRecorder()
-		h.ServeHTTP(recorder, httptest.NewRequest(request.method, request.path, nil))
-		if recorder.Code != http.StatusNotFound {
-			t.Errorf("%s %s returned %d, want 404", request.method, request.path, recorder.Code)
-		}
-	}
-}
 
 func renderJourney(t *testing.T, view journeyPageView, message, pageError string) string {
 	t.Helper()
@@ -46,25 +20,6 @@ func renderJourney(t *testing.T, view journeyPageView, message, pageError string
 
 func testJourneyBook(id, title, status string) journeyBookView {
 	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
-}
-
-func TestJourneyPageDoesNotRenderRetiredCampaignSurface(t *testing.T) {
-	goal := testJourneyBook("goal", "Goal book", "analyzed")
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	for _, forbidden := range []string{
-		"Campaign history &amp; operations",
-		"campaign-operations-heading",
-		"Start learning",
-		"Mark book finished",
-		"Mark deck reviewed",
-		"Abandon campaign",
-		"/campaigns/",
-		"Queue position",
-	} {
-		if strings.Contains(html, forbidden) {
-			t.Errorf("Journey rendered retired campaign surface %q: %s", forbidden, html)
-		}
-	}
 }
 
 func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {

@@ -36,9 +36,9 @@ func (s *languageCorpusStore) ListReservedVocabulary(ctx context.Context, owner,
 	return s.memoryStore.ListReservedVocabulary(ctx, owner, language)
 }
 
-func (s *languageCorpusStore) ListLegacyGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+func (s *languageCorpusStore) ListUnattachedGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	s.genCalls++
-	return s.memoryStore.ListLegacyGeneratedVocabulary(ctx, owner, language)
+	return s.memoryStore.ListUnattachedGeneratedVocabulary(ctx, owner, language)
 }
 
 func corpusBook(owner, id, title, language, source, corpus, run string, stats int64, lemmas []domain.LemmaOccurrence) domain.LanguageCorpusBookEvidence {

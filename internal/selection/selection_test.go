@@ -31,7 +31,7 @@ func (m *memoryStore) GetVocabularyStateByIdentity(_ context.Context, o, l, x, p
 func (m *memoryStore) IsKnownVocabularyIdentity(_ context.Context, o, l, x, p string) (bool, error) {
 	return m.known[m.key(o, l, x, p)], nil
 }
-func (m *memoryStore) IsLearningCampaignVocabularyReserved(_ context.Context, o, l, x, p string) (bool, error) {
+func (m *memoryStore) IsReservedVocabulary(_ context.Context, o, l, x, p string) (bool, error) {
 	return m.reserved[m.key(o, l, x, p)], nil
 }
 func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.SelectionCandidate) (bool, error) {
@@ -189,7 +189,7 @@ func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
 	}
 }
 
-func TestActiveCampaignReservationIsOwnerScoped(t *testing.T) {
+func TestReservedVocabularyIsOwnerScoped(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
 	store.reserved[store.key("alice", "de", "Haus", "NOUN")] = true
 	corpus := fixture(tok("Haus", "Haus", "NOUN", false))

@@ -82,7 +82,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if _, err = store.ClaimDeckPreparation(ctx, alice.ID, reservationPreparation.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, reservationPreparation.ID, domain.DeckPreparation{Artifact: []byte("reservation-artifact"), Filename: reservationPreparation.Filename, DeckName: reservationPreparation.DeckName}); err != nil {
+	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, reservationPreparation.ID, domain.DeckPreparation{Artifact: []byte("reservation-artifact"), Filename: reservationPreparation.Filename, DeckName: reservationPreparation.DeckName, TotalCards: 1}); err != nil {
 		t.Fatal(err)
 	}
 	reservationDeck, err := store.PutDeck(ctx, alice.ID, "de", "Reservation")
@@ -92,16 +92,12 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "Himmel", UPOS: "NOUN", FirstDeckID: reservationDeck.ID, FirstSourceMaterialID: &aliceBookB}); err != nil {
 		t.Fatal(err)
 	}
-	reservationCampaign, err := store.CreateLearningCampaign(ctx, alice.ID, aliceBookB, reservationPreparation.ID)
-	if err != nil {
+	if _, err = store.StartDeckVocabularyStudy(ctx, alice.ID, reservationPreparation.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.UpdateLearningCampaignProgress(ctx, alice.ID, reservationCampaign.ID, persistence.LearningCampaignExpectedState{Status: reservationCampaign.Status, BookProgress: reservationCampaign.BookProgress, DeckProgress: reservationCampaign.DeckProgress}, domain.BookReading, domain.DeckStudying); err != nil {
-		t.Fatal(err)
-	}
-	activeVocabulary, err := store.ListActiveLearningCampaignVocabulary(ctx, alice.ID, "de")
-	if err != nil || len(activeVocabulary) != 1 || activeVocabulary[0].CanonicalLemma != "Himmel" {
-		t.Fatalf("active reservation vocabulary=%+v err=%v", activeVocabulary, err)
+	reservedVocabulary, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
+	if err != nil || len(reservedVocabulary) != 1 || reservedVocabulary[0].CanonicalLemma != "Himmel" {
+		t.Fatalf("reserved vocabulary=%+v err=%v", reservedVocabulary, err)
 	}
 	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs neues Haus steht nah am Fluss.", 1, 10})
 	if _, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN"); err != nil {

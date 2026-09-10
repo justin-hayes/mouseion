@@ -34,8 +34,6 @@ const (
 	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
 	DeckID                 = "fixture-deck"
-	CampaignID             = "fixture-campaign"
-	QueuedCampaignID       = "fixture-queued-campaign"
 	PrepID                 = "fixture-preparation"
 	QueuedPrepID           = "fixture-queued-preparation"
 	JourneyPrepID          = "fixture-journey-preparation"
@@ -79,14 +77,12 @@ type Store struct {
 	mu                   sync.Mutex
 	books                []domain.SourceMaterialSummary
 	jobs                 []domain.AnalysisJob
-	campaigns            []domain.LearningCampaign
 	supported            []domain.SupportedLanguage
 	connections          []domain.OpdsConnection
 	aliases              []domain.BookAlias
 	preps                []domain.DeckPreparation
 	deckVocabulary       []domain.DeckPreparationVocabulary
 	known                []domain.KnownVocabulary
-	campaignVocab        []domain.CampaignVocabulary
 	legacyGenerated      []domain.GeneratedVocabulary
 	myBooks              []domain.MyBook
 	readingJourneys      map[string]domain.ReadingJourney
@@ -113,7 +109,6 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", Language: "it", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 		},
 		jobs:      fixtureJobs(),
-		campaigns: fixtureCampaigns(),
 		supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}},
 		connections: []domain.OpdsConnection{
 			{ID: "fixture-connection", OwnerID: OwnerID, Name: "Fixture catalog", URL: "https://fixture.invalid/opds"},
@@ -143,9 +138,8 @@ func NewStore() *Store {
 			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
 			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
 			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", Provenance: "Graduated from completed campaign", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
+			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", Provenance: "Graduated from reviewed deck", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
 		},
-		campaignVocab:   fixtureCampaignVocabulary(),
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
@@ -558,33 +552,6 @@ func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) (
 	}
 	return result, nil
 }
-func (s *Store) ListLearningCampaigns(context.Context, string) ([]domain.LearningCampaign, error) {
-	return append([]domain.LearningCampaign(nil), s.campaigns...), nil
-}
-
-// ListActiveLearningCampaignVocabulary and ListLegacyGeneratedVocabulary keep
-// the fixture's campaign migration categories on the same optional read seams
-// used by cardexport and the historical campaign tests. Coverage reads the
-// book-anchored reservation through ListReservedVocabulary instead.
-func (s *Store) ListActiveLearningCampaignVocabulary(_ context.Context, owner, language string) ([]domain.CampaignVocabulary, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var result []domain.CampaignVocabulary
-	for _, campaign := range s.campaigns {
-		if campaign.OwnerID != owner || campaign.Status != domain.CampaignActive {
-			continue
-		}
-		for _, item := range s.campaignVocab {
-			if item.CampaignID == campaign.ID && item.Language == language && item.GraduatedAt == nil && !fixtureKnown(s.known, item) {
-				result = append(result, item)
-			}
-		}
-	}
-	for _, item := range s.reservedDeckVocabularyLocked(owner, language) {
-		result = append(result, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, GeneratedAt: item.GeneratedAt})
-	}
-	return result, nil
-}
 
 // reservedDeckVocabularyLocked returns the vocabulary of the owner's studying,
 // not-yet-graduated decks, scoped to one language. Callers hold s.mu.
@@ -617,7 +584,7 @@ func (s *Store) CountDeckPreparationVocabularyToGraduate(_ context.Context, owne
 	defer s.mu.Unlock()
 	count := 0
 	for _, item := range s.deckVocabulary {
-		if item.OwnerID == owner && item.DeckPreparationID == preparationID && item.GraduatedAt == nil && !fixtureKnown(s.known, domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}) {
+		if item.OwnerID == owner && item.DeckPreparationID == preparationID && item.GraduatedAt == nil && !fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
 			count++
 		}
 	}
@@ -672,8 +639,7 @@ func (s *Store) ConfirmDeckVocabularyReview(_ context.Context, owner, preparatio
 				continue
 			}
 			item.GraduatedAt = &now
-			vocabulary := domain.CampaignVocabulary{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}
-			if !fixtureKnown(s.known, vocabulary) {
+			if !fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
 				s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-study-known-" + item.CanonicalLemma, OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, Provenance: "Graduated from reviewed deck", CreatedAt: now})
 			}
 		}
@@ -713,19 +679,7 @@ func (s *Store) deckVocabularyFor(owner, preparationID string) []domain.DeckPrep
 	return result
 }
 
-func (s *Store) CountCampaignVocabularyToGraduate(_ context.Context, owner, campaignID string) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	count := 0
-	for _, item := range s.campaignVocab {
-		if item.OwnerID == owner && item.CampaignID == campaignID && item.GraduatedAt == nil && !fixtureKnown(s.known, item) {
-			count++
-		}
-	}
-	return count, nil
-}
-
-func (s *Store) ListLegacyGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+func (s *Store) ListUnattachedGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var result []domain.GeneratedVocabulary
@@ -736,15 +690,6 @@ func (s *Store) ListLegacyGeneratedVocabulary(_ context.Context, owner, language
 	}
 	return result, nil
 }
-func (s *Store) GetLearningCampaign(_ context.Context, o, id string) (domain.LearningCampaign, error) {
-	for _, c := range s.campaigns {
-		if c.ID == id && c.OwnerID == o {
-			return c, nil
-		}
-	}
-	return domain.LearningCampaign{}, errNotFound
-}
-
 func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -782,57 +727,6 @@ func (s *Store) ListDeckPreparationsForSourceMaterial(_ context.Context, owner, 
 	return result, nil
 }
 
-func (s *Store) CreateLearningCampaign(_ context.Context, o, b, d string) (domain.LearningCampaign, error) {
-	c := domain.LearningCampaign{ID: "fixture-new-campaign", OwnerID: o, SourceMaterialID: b, DeckPreparationID: d, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued}
-	s.campaigns = append(s.campaigns, c)
-	return c, nil
-}
-func (s *Store) UpdateLearningCampaignProgress(_ context.Context, o, id string, _ persistence.LearningCampaignExpectedState, b domain.BookProgress, d domain.DeckProgress) (domain.LearningCampaign, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var c domain.LearningCampaign
-	found := false
-	for i := range s.campaigns {
-		if s.campaigns[i].ID == id && s.campaigns[i].OwnerID == o {
-			c = s.campaigns[i]
-			c.BookProgress = b
-			c.DeckProgress = d
-			c.Status = domain.DeriveCampaignStatus(b, d)
-			now := time.Now()
-			if b == domain.BookFinished && c.BookFinishedAt == nil {
-				c.BookFinishedAt = &now
-			}
-			if d == domain.DeckReviewed && c.DeckReviewedAt == nil {
-				c.DeckReviewedAt = &now
-			}
-			if c.Status == domain.CampaignComplete && c.VocabularyGraduatedAt == nil {
-				c.CompletedAt = &now
-				c.VocabularyGraduatedAt = &now
-				for i := range s.campaignVocab {
-					if s.campaignVocab[i].CampaignID == c.ID && s.campaignVocab[i].GraduatedAt == nil {
-						s.campaignVocab[i].GraduatedAt = &now
-						if !fixtureKnown(s.known, s.campaignVocab[i]) {
-							s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-known-" + s.campaignVocab[i].CanonicalLemma, OwnerID: o, Language: s.campaignVocab[i].Language, CanonicalLemma: s.campaignVocab[i].CanonicalLemma, UPOS: s.campaignVocab[i].UPOS, Provenance: "Graduated from completed campaign", CreatedAt: now})
-						}
-					}
-				}
-			}
-			s.campaigns[i] = c
-			found = true
-			break
-		}
-	}
-	if !found {
-		return c, errNotFound
-	}
-	return c, nil
-}
-func (s *Store) AbandonLearningCampaign(_ context.Context, o, id string, _ persistence.LearningCampaignExpectedState) (domain.LearningCampaign, error) {
-	return s.UpdateLearningCampaignProgress(context.Background(), o, id, persistence.LearningCampaignExpectedState{}, domain.BookAbandoned, domain.DeckAbandoned)
-}
-func (s *Store) ListUnassignedReadyDeckPreparations(context.Context, string) ([]domain.DeckPreparation, error) {
-	return nil, nil
-}
 func (s *Store) GetSourceMaterial(_ context.Context, o, id string) (domain.SourceMaterial, error) {
 	for _, b := range s.books {
 		if b.Source.ID == id && b.Source.OwnerID == o {
@@ -1262,68 +1156,8 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBoo
 	return nil
 }
 
-// FinishReadingPrimaryGoal mirrors the production guard and keeps the browser
-// fixture useful for the finish receipt without pretending fixture data is a
-// source of vocabulary knowledge.
-func (s *Store) FinishReadingPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.PrimaryGoalFinishResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	key := fixtureGoalKey(owner, language)
-	goal, ok := s.primaryGoals[key]
-	if !ok {
-		return persistence.PrimaryGoalFinishResult{}, persistence.ErrNotFound
-	}
-	if goal.BookID != expectedBookID {
-		return persistence.PrimaryGoalFinishResult{}, persistence.ErrGoalStale
-	}
-	result := persistence.PrimaryGoalFinishResult{Goal: goal}
-	if goal.ReadingFinishedAt != nil {
-		return result, nil
-	}
-	now := time.Now()
-	goal.ReadingFinishedAt = &now
-	goal.UpdatedAt = now
-	s.primaryGoals[key] = goal
-	result.Goal = goal
-	expectedSourceID := s.fixtureSourceID(owner, expectedBookID)
-	for i := range s.campaigns {
-		campaign := &s.campaigns[i]
-		if campaign.OwnerID != owner || campaign.SourceMaterialID != expectedSourceID || campaign.Status != domain.CampaignActive {
-			continue
-		}
-		campaign.BookProgress = domain.BookFinished
-		campaign.Status = domain.DeriveCampaignStatus(campaign.BookProgress, campaign.DeckProgress)
-		campaign.BookFinishedAt = &now
-		campaign.UpdatedAt = now
-		if campaign.Status == domain.CampaignComplete {
-			campaign.CompletedAt = &now
-			campaign.VocabularyGraduatedAt = &now
-			for i := range s.campaignVocab {
-				if s.campaignVocab[i].CampaignID == campaign.ID && s.campaignVocab[i].GraduatedAt == nil {
-					s.campaignVocab[i].GraduatedAt = &now
-					if !fixtureKnown(s.known, s.campaignVocab[i]) {
-						result.Graduated = append(result.Graduated, s.campaignVocab[i])
-						s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-known-" + s.campaignVocab[i].CanonicalLemma, OwnerID: owner, Language: s.campaignVocab[i].Language, CanonicalLemma: s.campaignVocab[i].CanonicalLemma, UPOS: s.campaignVocab[i].UPOS, Provenance: "Graduated from completed campaign", CreatedAt: now})
-					}
-				}
-			}
-		}
-		if campaign.Status == domain.CampaignActive {
-			for _, vocabulary := range s.campaignVocab {
-				if vocabulary.CampaignID == campaign.ID && vocabulary.GraduatedAt == nil && !fixtureKnown(s.known, vocabulary) {
-					result.ResidualVocabularyCount++
-				}
-			}
-		}
-		result.Campaign = campaign
-		break
-	}
-	return result, nil
-}
-
 // RecordReadingFinishedPrimaryGoal records only the reading fact used by the
-// webapp. FinishReadingPrimaryGoal remains available for legacy backend tests.
+// webapp.
 func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.ReadingFinishResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1454,34 +1288,9 @@ func fixtureJobs() []domain.AnalysisJob {
 	return jobs
 }
 
-func fixtureCampaigns() []domain.LearningCampaign {
-	completedAt := fixtureJourneyTime.Add(2 * time.Hour)
-	abandonedAt := fixtureJourneyTime.Add(3 * time.Hour)
-	campaigns := []domain.LearningCampaign{
-		{ID: CampaignID, OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: PrepID, BookProgress: domain.BookReading, DeckProgress: domain.DeckStudying, Status: domain.CampaignActive},
-		{ID: QueuedCampaignID, OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued},
-		{ID: "fixture-completed-campaign", OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: PrepID, BookProgress: domain.BookFinished, DeckProgress: domain.DeckReviewed, Status: domain.CampaignComplete, CompletedAt: &completedAt, VocabularyGraduatedAt: &completedAt},
-		{ID: "fixture-abandoned-campaign", OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: QueuedPrepID, BookProgress: domain.BookAbandoned, DeckProgress: domain.DeckAbandoned, Status: domain.CampaignAbandoned, AbandonedAt: &abandonedAt},
-	}
-	for i := 1; i <= 6; i++ {
-		campaigns = append(campaigns, domain.LearningCampaign{ID: fmt.Sprintf("fixture-queued-campaign-%d", i), OwnerID: OwnerID, SourceMaterialID: SourceID, DeckPreparationID: fmt.Sprintf("fixture-queued-preparation-%d", i), BookProgress: domain.BookQueued, DeckProgress: domain.DeckQueued, Status: domain.CampaignQueued})
-	}
-	return campaigns
-}
-
-func fixtureCampaignVocabulary() []domain.CampaignVocabulary {
-	graduatedAt := fixtureJourneyTime.Add(2 * time.Hour)
-	return []domain.CampaignVocabulary{
-		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-		{OwnerID: OwnerID, CampaignID: CampaignID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-		{OwnerID: OwnerID, CampaignID: "fixture-completed-campaign", Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", GeneratedAt: fixtureJourneyTime, GraduatedAt: &graduatedAt},
-	}
-}
-
-func fixtureKnown(known []domain.KnownVocabulary, vocabulary domain.CampaignVocabulary) bool {
+func fixtureKnown(known []domain.KnownVocabulary, language, lemma, upos string) bool {
 	for _, item := range known {
-		if item.Language == vocabulary.Language && item.CanonicalLemma == vocabulary.CanonicalLemma && (item.UPOS == vocabulary.UPOS || item.UPOS == "") {
+		if item.Language == language && item.CanonicalLemma == lemma && (item.UPOS == upos || item.UPOS == "") {
 			return true
 		}
 	}

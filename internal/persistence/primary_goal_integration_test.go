@@ -41,24 +41,14 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	aliceBook, aliceSource, alicePrep := createJourneyFixture(t, ctx, store, alice.ID, "goal-active")
-	bobBook, bobSource, bobPrep := createJourneyFixture(t, ctx, store, bob.ID, "goal-queued")
-	_, daveSource, davePrep := createJourneyFixture(t, ctx, store, dave.ID, "goal-complete")
-	_, erinSource, erinPrep := createJourneyFixture(t, ctx, store, erin.ID, "goal-abandoned")
-
-	insertJourneyCampaign(t, ctx, pool, alice.ID, aliceSource.ID, alicePrep.ID, "reading", "studying", aliceBook.CreatedAt)
-	insertJourneyCampaign(t, ctx, pool, bob.ID, bobSource.ID, bobPrep.ID, "queued", "queued", bobBook.CreatedAt)
-	insertJourneyCampaign(t, ctx, pool, dave.ID, daveSource.ID, davePrep.ID, "finished", "reviewed", daveSource.CreatedAt)
-	insertJourneyCampaign(t, ctx, pool, erin.ID, erinSource.ID, erinPrep.ID, "abandoned", "queued", erinSource.CreatedAt)
+	aliceBook, _, _ := createJourneyFixture(t, ctx, store, alice.ID, "goal-active")
+	bobBook, _, _ := createJourneyFixture(t, ctx, store, bob.ID, "goal-queued")
+	_, _, _ = createJourneyFixture(t, ctx, store, dave.ID, "goal-complete")
+	_, _, _ = createJourneyFixture(t, ctx, store, erin.ID, "goal-abandoned")
 
 	if goal, err := store.GetPrimaryGoal(ctx, carol.ID, "de"); err != nil || goal != (domain.PrimaryGoal{}) {
-		t.Fatalf("legacy owner without active campaign goal=%+v err=%v", goal, err)
+		t.Fatalf("owner without a Goal=%+v err=%v", goal, err)
 	}
-	var beforeSource, beforePreparation string
-	if err = pool.QueryRow(ctx, `SELECT source_material_id::text,deck_preparation_id::text FROM learning_campaigns WHERE owner_id=$1`, alice.ID).Scan(&beforeSource, &beforePreparation); err != nil {
-		t.Fatal(err)
-	}
-
 	if _, err = pool.Exec(ctx, migrationSQL(t, "000057_primary_goals_language_constraint.down.sql")); err != nil {
 		t.Fatal(err)
 	}
@@ -110,13 +100,6 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	}
 	if germanGoal, getErr := store.GetPrimaryGoal(ctx, alice.ID, "de"); getErr != nil || germanGoal.BookID != aliceBook.ID {
 		t.Fatalf("German goal after Italian clear=%+v err=%v", germanGoal, getErr)
-	}
-	var afterSource, afterPreparation string
-	if err = pool.QueryRow(ctx, `SELECT source_material_id::text,deck_preparation_id::text FROM learning_campaigns WHERE owner_id=$1`, alice.ID).Scan(&afterSource, &afterPreparation); err != nil {
-		t.Fatal(err)
-	}
-	if beforeSource != afterSource || beforePreparation != afterPreparation {
-		t.Fatalf("migration changed campaign links: source %q -> %q, preparation %q -> %q", beforeSource, afterSource, beforePreparation, afterPreparation)
 	}
 	for _, owner := range []string{bob.ID, carol.ID, dave.ID, erin.ID} {
 		if goal, err := store.GetPrimaryGoal(ctx, owner, "de"); err != nil || goal != (domain.PrimaryGoal{}) {
@@ -198,8 +181,8 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	result, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", book.ID)
-	if err != nil || result.Goal.ReadingFinishedAt == nil || result.Campaign != nil || len(result.Graduated) != 0 {
+	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	if err != nil || result.Goal.ReadingFinishedAt == nil {
 		t.Fatalf("reading-only finish=%+v err=%v", result, err)
 	}
 	finishedAt := *result.Goal.ReadingFinishedAt
@@ -208,11 +191,11 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 		t.Fatalf("persisted finish=%+v err=%v", persisted, err)
 	}
 
-	repeated, err := store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	if err != nil || repeated.Goal.ReadingFinishedAt == nil || !repeated.Goal.ReadingFinishedAt.Equal(finishedAt) {
 		t.Fatalf("idempotent finish=%+v err=%v", repeated, err)
 	}
-	if _, err = store.FinishReadingPrimaryGoal(ctx, owner.ID, "de", "stale-book"); !errors.Is(err, ErrGoalStale) {
+	if _, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", "stale-book"); !errors.Is(err, ErrGoalStale) {
 		t.Fatalf("stale finish error=%v", err)
 	}
 

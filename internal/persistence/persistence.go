@@ -32,11 +32,16 @@ var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
-var ErrActiveCampaign = errors.New("persistence: owner already has an active learning campaign")
-var ErrStaleCampaignState = errors.New("persistence: learning campaign state is stale")
 var ErrActiveVocabularyStudy = errors.New("persistence: owner already has a vocabulary study in progress")
 var ErrJourneyStale = errors.New("persistence: reading journey state is stale")
 var ErrGoalExists = errors.New("persistence: primary goal already exists")
+
+const reservedVocabularyExistsQuery = `SELECT EXISTS(
+	SELECT 1 FROM deck_preparation_vocabulary dv
+	JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
+	WHERE dv.owner_id=$1 AND dv.language=$2 AND dv.canonical_lemma=$3 AND dv.upos=$4 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
+)`
+
 var ErrGoalStale = errors.New("persistence: primary goal state is stale")
 var ErrGoalIneligible = errors.New("persistence: primary goal requires an analyzed Journey member")
 var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before adding to Reading Journey")
@@ -128,15 +133,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		return false, nil
 	}
 	var reserved bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM learning_campaign_vocabulary cv
-		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
-		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
-		UNION ALL
-		SELECT 1 FROM deck_preparation_vocabulary dv
-		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
-		WHERE dv.owner_id=$1 AND dv.language=$2 AND dv.canonical_lemma=$3 AND dv.upos=$4 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
-	)`, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&reserved); err != nil {
+	if err = tx.QueryRow(ctx, reservedVocabularyExistsQuery, candidate.OwnerID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS).Scan(&reserved); err != nil {
 		return false, err
 	}
 	if reserved {
@@ -158,21 +155,37 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 	return true, nil
 }
 
-// IsLearningCampaignVocabularyReserved reports whether an identity is assigned
-// to the owner's active campaign. Queued and abandoned campaigns do not reserve
-// vocabulary for future selection.
-func (s *PostgresStore) IsLearningCampaignVocabularyReserved(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
+// IsReservedVocabulary reports whether an identity belongs to the owner's
+// currently studied, not-yet-graduated deck.
+func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
 	var reserved bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM learning_campaign_vocabulary cv
-		JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
-		WHERE cv.owner_id=$1 AND cv.language=$2 AND cv.canonical_lemma=$3 AND cv.upos=$4 AND c.status='active'
-		UNION ALL
-		SELECT 1 FROM deck_preparation_vocabulary dv
-		JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
-		WHERE dv.owner_id=$1 AND dv.language=$2 AND dv.canonical_lemma=$3 AND dv.upos=$4 AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
-	)`, owner, language, lemma, upos).Scan(&reserved)
+	err := s.pool.QueryRow(ctx, reservedVocabularyExistsQuery, owner, language, lemma, upos).Scan(&reserved)
 	return reserved, err
+}
+
+// ListUnattachedGeneratedVocabulary returns generated history that has not
+// been attached to a prepared deck snapshot. It never infers knowledge.
+func (s *PostgresStore) ListUnattachedGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,language,canonical_lemma,upos,COALESCE(first_deck_id::text,''),first_source_material_id::text,first_generated_at
+		FROM generated_vocabulary gv
+		WHERE gv.owner_id=$1 AND gv.language=$2 AND NOT EXISTS (
+			SELECT 1 FROM deck_preparation_vocabulary dv
+			WHERE dv.owner_id=gv.owner_id AND dv.language=gv.language
+				AND dv.canonical_lemma=gv.canonical_lemma AND dv.upos=gv.upos)
+		ORDER BY gv.canonical_lemma,gv.upos`, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.GeneratedVocabulary
+	for rows.Next() {
+		var item domain.GeneratedVocabulary
+		if err = rows.Scan(&item.OwnerID, &item.Language, &item.CanonicalLemma, &item.UPOS, &item.FirstDeckID, &item.FirstSourceMaterialID, &item.FirstGeneratedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
 }
 
 func missing(err error) error {
@@ -703,12 +716,6 @@ func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lem
 func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
 	err = s.pool.QueryRow(ctx, `SELECT kv.id,kv.owner_id,kv.language,kv.canonical_lemma,kv.upos,
 		CASE WHEN EXISTS (
-			SELECT 1 FROM learning_campaign_vocabulary cv
-			JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
-			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
-				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
-				AND cv.graduated_at IS NOT NULL AND c.status='complete'
-		) THEN 'Graduated from completed campaign' WHEN EXISTS (
 			SELECT 1 FROM deck_preparation_vocabulary dv
 			JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
 			WHERE dv.owner_id=kv.owner_id AND dv.language=kv.language
@@ -724,12 +731,6 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	lang = canonicalization.NormalizeLanguage(lang)
 	rows, err := s.pool.Query(ctx, `SELECT kv.id,kv.owner_id,kv.language,kv.canonical_lemma,kv.upos,
 		CASE WHEN EXISTS (
-			SELECT 1 FROM learning_campaign_vocabulary cv
-			JOIN learning_campaigns c ON c.owner_id=cv.owner_id AND c.id=cv.campaign_id
-			WHERE cv.owner_id=kv.owner_id AND cv.language=kv.language
-				AND cv.canonical_lemma=kv.canonical_lemma AND cv.upos=kv.upos
-				AND cv.graduated_at IS NOT NULL AND c.status='complete'
-		) THEN 'Graduated from completed campaign' WHEN EXISTS (
 			SELECT 1 FROM deck_preparation_vocabulary dv
 			JOIN deck_preparations p ON p.owner_id=dv.owner_id AND p.id=dv.deck_preparation_id
 			WHERE dv.owner_id=kv.owner_id AND dv.language=kv.language
