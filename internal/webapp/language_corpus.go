@@ -39,6 +39,7 @@ type languageCorpusLemmaView struct {
 
 type languageCorpusBookView struct {
 	BookID               string
+	SourceMaterialID     string
 	Title                string
 	KnownTokenCount      int64
 	AnalyzableTokenCount int64
@@ -46,6 +47,7 @@ type languageCorpusBookView struct {
 	EvidenceLabel        string
 	Included             bool
 	ExclusionReason      string
+	JourneyEntryURL      string
 }
 
 func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvider, supported []domain.SupportedLanguage, owner, language string) (languageCorpusPanelView, error) {
@@ -76,6 +78,7 @@ func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvid
 	for _, book := range result.PerBook {
 		view.PerBook = append(view.PerBook, languageCorpusBookView{
 			BookID:               book.BookID,
+			SourceMaterialID:     book.SourceMaterialID,
 			Title:                book.Title,
 			KnownTokenCount:      book.KnownTokenCount,
 			AnalyzableTokenCount: book.AnalyzableTokenCount,
@@ -86,6 +89,21 @@ func buildLanguageCorpusPanel(ctx context.Context, provider languageCorpusProvid
 		})
 	}
 	return view, nil
+}
+
+func (h *Handler) annotateLanguageCorpusPanel(ctx context.Context, owner string, panel *languageCorpusPanelView) error {
+	for i := range panel.PerBook {
+		id := panel.PerBook[i].SourceMaterialID
+		if id == "" {
+			id = panel.PerBook[i].BookID
+		}
+		url, err := h.journeyEntryURLForSource(ctx, owner, id)
+		if err != nil {
+			return err
+		}
+		panel.PerBook[i].JourneyEntryURL = url
+	}
+	return nil
 }
 
 func unavailableLanguageCorpusPanel(language string, supported []domain.SupportedLanguage) languageCorpusPanelView {

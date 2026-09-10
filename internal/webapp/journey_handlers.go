@@ -757,6 +757,10 @@ func (h *Handler) campaignOperations(ctx context.Context, owner string, bookByID
 			book = bookView.Book
 		}
 		view := campaignView{Campaign: campaign, Book: book, Deck: deck}
+		view.JourneyEntryURL, err = h.journeyEntryURLForSource(ctx, owner, campaign.SourceMaterialID)
+		if err != nil {
+			return nil, nil, err
+		}
 		if campaign.Status == domain.CampaignActive {
 			if counter, ok := h.services.Store.(campaignVocabularyCounter); ok {
 				if count, countErr := counter.CountCampaignVocabularyToGraduate(ctx, owner, campaign.ID); countErr == nil {

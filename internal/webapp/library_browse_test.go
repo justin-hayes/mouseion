@@ -229,6 +229,9 @@ func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := (&Handler{services: Services{Store: fixtures.NewStore()}}).annotateLanguageCorpusPanel(context.Background(), fixtures.OwnerID, &panel); err != nil {
+		t.Fatal(err)
+	}
 	state := MyBooksBrowseState{
 		Enabled:        true,
 		Language:       "de",
@@ -244,6 +247,9 @@ func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T)
 		t.Fatal(err)
 	}
 	html := output.String()
+	if !strings.Contains(html, `href="/journey/fixture-book"`) || strings.Contains(html, `href="/books/fixture-book"`) {
+		t.Fatalf("language view rendered a legacy or missing Journey link: %s", html)
+	}
 	for _, want := range []string{
 		"Coverage across German",
 		`id="language-view-analyzed-heading"`,
@@ -254,7 +260,7 @@ func TestMyBooksLanguageViewRendersFourEvidenceRegionsAndBookLinks(t *testing.T)
 		"45678 of 123456 tokens",
 		"Highest-impact unknown vocabulary",
 		"analysis failed or incomplete",
-		`href="/books/fixture-book"`,
+		`href="/journey/fixture-book"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("language view markup missing %q: %s", want, html)
