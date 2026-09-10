@@ -157,7 +157,7 @@ The interface must answer:
   recovery without treating membership as failed.
 - A completed preparation with no recurring vocabulary shows an explicit empty
   state explaining that there are no cards to study; it does not offer an empty
-  artifact download or a learning-campaign action. A zero-card preparation with
+  artifact download or a vocabulary-study action. A zero-card preparation with
   quality omissions remains a completeness result and keeps its artifact action.
 - Metadata-only edits preserve current evidence; changed EPUB bytes create a
   stale current-analysis state until the learner re-analyzes from Reading Journey.

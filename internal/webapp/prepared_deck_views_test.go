@@ -174,7 +174,7 @@ func TestBookVocabularyStudyRendersReachableTransitions(t *testing.T) {
 		{
 			name:        "ready",
 			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2},
-			want:        []string{"Ready to study", "Study this Book's vocabulary", `action="/journey/books/book-1/vocabulary-study"`},
+			want:        []string{"Ready to study", "Start vocabulary study", "vocabulary for review", "Study this Book's vocabulary", `action="/journey/books/book-1/vocabulary-study"`},
 			unwanted:    []string{"Confirm deck review", "Release study"},
 		},
 		{

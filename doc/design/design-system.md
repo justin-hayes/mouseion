@@ -144,8 +144,7 @@ Use when peer content and actions no longer fit comfortably side by side.
 - book identity remains before relationship, evidence, and action;
 - Journey move controls remain adjacent to their book, and side-by-side route
   alternatives become two complete stacked lists;
-- current Campaign form actions become full width while that compatibility
-  surface remains;
+- vocabulary-study form actions become full width;
 - floated secondary actions return to document flow;
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.

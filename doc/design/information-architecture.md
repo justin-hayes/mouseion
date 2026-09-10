@@ -154,9 +154,9 @@ These objects remain important, but they do not define principal navigation:
   on the Journey entry. Its immutable corpus and provenance remain backend facts.
 - **Prepared deck** — immutable APKG artifact from the exact analysis that
   supplied its corpus, even though preparation begins on the Journey entry.
-- **Learning campaign** — current accepted domain object for one book/deck
-  workflow and its vocabulary reservation/graduation semantics. It remains an
-  internal or secondary history/operations concept, not a learner-facing plan.
+- **Book vocabulary study** — owner-scoped reservation and graduation state
+  attached to a prepared deck for one Book. It is reached from the Journey entry,
+  not represented as a separate plan or campaign object.
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
   graduated through an accepted transition.
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
@@ -425,10 +425,10 @@ Vocabulary owns known vocabulary and its additive import workflow, scoped to the
 active language; import is always eligible there. Import eligibility remains
 limited to the derived study-language set, and known-vocabulary-only languages
 stay selectable in the switcher as read-only "no books" entries. Catalogue
-metadata changes do not delete known-vocabulary rows, books, analyses, decks,
-or internal Campaign history. Journey and Goal relationships remain independent
-of vocabulary import; their shipped consequences are defined by ADR 0034,
-ADR 0036, ADR 0050, and ADR 0051.
+metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
+vocabulary-study history. Journey and Goal relationships remain independent of
+vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0036,
+ADR 0050, ADR 0051, and ADR 0056.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 
@@ -460,10 +460,10 @@ needed.
 4. **Residual vocabulary work and a new Goal** follow ADR 0036: a new Goal is
    explicit, residual reservations require an explicit graduate-or-abandon
    resolution before new reserved work, and overlap remains deterministic.
-5. **Campaign queue replacement and history** follow ADR 0034: the Journey is
-   the only learner-facing plan. Historical Campaign records remain available
-   internally for migration and provenance while Book vocabulary-study history
-   is shown on the Journey entry.
+5. **Campaign queue retirement and vocabulary study** follow [ADR 0056](../adr/0056-retire-campaign-learner-surface.md)
+   and [ADR 0053](../adr/0053-book-anchored-vocabulary-consolidation.md): the
+   Journey is the only learner-facing plan, and Book vocabulary-study history is
+   shown on the Journey entry.
 6. **Cross-book projection and route comparison** follow [ADR 0037: Cross-book
    vocabulary projection and advisory Journey ordering](../adr/0037-cross-book-projection-advisory-ordering.md):
    the alternative is advisory evidence only and never overrides learner order

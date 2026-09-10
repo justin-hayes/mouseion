@@ -208,7 +208,13 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page).toHaveURL(/\/library$/);
     await page.goto('/journey/fixture-book');
     const study = page.locator('.book-vocabulary-study');
-    const start = study.getByRole('button', { name: 'Study this Book\'s vocabulary' });
+    const startConfirmation = study.locator('details').filter({ hasText: 'Start vocabulary study' }).first();
+    const startSummary = startConfirmation.locator('summary');
+    await startSummary.focus();
+    await expect(startSummary).toBeFocused();
+    await startSummary.press('Enter');
+    await expect(startConfirmation).toHaveAttribute('open', '');
+    const start = startConfirmation.getByRole('button', { name: 'Study this Book\'s vocabulary' });
     await start.focus();
     await expect(start).toBeFocused();
     await start.press('Enter');

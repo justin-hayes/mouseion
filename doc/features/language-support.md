@@ -35,10 +35,10 @@ contract where a live model or database is unavailable:
    punctuation, determiners, adpositions, pronouns, conjunctions, and proper
    names under the same rules used for German;
 5. coverage and 95/97/99 threshold insights use Italian lemma occurrences and
-   the learner's owner-scoped known and active-campaign vocabulary;
+   the learner's owner-scoped known and reserved vocabulary;
 6. the prepared-deck path emits an APKG containing cards tagged `lang::it` in
-   the hierarchy `Mouseion::it::<book title>`, suitable for secondary Campaign
-   history and operations.
+   the hierarchy `Mouseion::it::<book title>`, suitable for the Book's
+   vocabulary-study history.
 
 German remains covered by its existing analysis, selection, coverage, display,
 and export regressions. Language columns and identities are general text values;

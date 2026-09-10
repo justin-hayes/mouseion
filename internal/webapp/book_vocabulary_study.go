@@ -128,7 +128,8 @@ func (h *Handler) startBookVocabularyStudy(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	updated, err := store.StartDeckVocabularyStudy(r.Context(), user(r).ID, preparation.ID)
+	alreadyStudying := preparation.VocabularyStudyStatus() == domain.VocabularyStudyStudying
+	_, err := store.StartDeckVocabularyStudy(r.Context(), user(r).ID, preparation.ID)
 	if errors.Is(err, persistence.ErrActiveVocabularyStudy) {
 		redirectBookVocabularyStudyError(w, r, "Finish or release the other Book's vocabulary study before starting this one.")
 		return
@@ -146,7 +147,7 @@ func (h *Handler) startBookVocabularyStudy(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	message := "Study this Book's vocabulary started. Its reserved vocabulary is not counted as known."
-	if updated.ID == "" {
+	if alreadyStudying {
 		message = "This Book's vocabulary study is already in progress."
 	}
 	redirectBookVocabularyStudy(w, r, message)

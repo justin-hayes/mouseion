@@ -531,7 +531,7 @@ external cache results.
 ## Artifact publication and determinism
 
 - The manifest is the only final render input; finalization does not query
-  mutable selection, known-vocabulary, active-campaign, sentence-choice, or
+  mutable selection, known-vocabulary, reserved-vocabulary, sentence-choice, or
   provider configuration state.
 - Candidate order is the stored ordinal. Concurrent completion order is never
   used.

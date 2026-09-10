@@ -52,7 +52,8 @@ and surface a material conflict rather than silently choosing one.
   Reading Journey's ensure-once analysis trigger.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
   learner-facing Reading Journey and Primary Goal workflow, with explicit
-  boundaries around the current internal Campaign contract.
+  boundaries around the retired Campaign contract and current Book vocabulary
+  study.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
   — study-language ownership, capability degradation, and vocabulary import.
 

@@ -39,12 +39,12 @@ An analyzable token occurrence is an occurrence retained by the existing NLP and
 selection filters: punctuation, proper names, and stop words are outside the
 metric. The denominator is the sum of retained occurrence counts before learner
 vocabulary state is applied. Explicitly known occurrences and vocabulary
-graduated by completed campaigns contribute to the numerator. Active-campaign
-vocabulary remains a separate projection and is not counted as known.
-Abandoned campaign vocabulary is unknown and eligible again.
+graduated by confirmed deck review contribute to the numerator. Reserved
+vocabulary remains a separate projection and is not counted as known. Released
+study vocabulary is unknown and eligible again.
 Graduation follows the single justified transition in
 [ADR 0036](../adr/0036-primary-goal-justified-graduation.md): only
-`learning_campaign_vocabulary` identities atomically linked to generated
+`deck_preparation_vocabulary` identities atomically linked to generated
 provenance and confirmed by deck review graduate; reading-finished alone
 graduates nothing.
 
@@ -79,10 +79,10 @@ An explicit known-vocabulary entry with no UPOS is a lemma wildcard and covers
 every UPOS for that language. An entry with a UPOS covers only the matching
 lemma+UPOS identity. Previously generated identities may be annotated as
 already assigned, but they remain part of the learner's unknown-to-learn pool.
-The separate deck-generation calculation continues to exclude active or
-reserved vocabulary according to the learning-campaign lifecycle in
-[ADR 0027](../adr/0027-learning-campaigns.md), as governed by
-[ADR 0036](../adr/0036-primary-goal-justified-graduation.md).
+The separate deck-generation calculation continues to exclude reserved
+vocabulary according to the Book-anchored study lifecycle in
+[ADR 0053](../adr/0053-book-anchored-vocabulary-consolidation.md), as governed
+by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md).
 
 Initial targets:
 
@@ -94,19 +94,19 @@ Initial targets:
 
 The calculation and operational evidence distinguish:
 
-- current known vocabulary, including completed-campaign graduates;
-- potential coverage after the active campaign graduates;
+- current known vocabulary, including confirmed deck-review graduates;
+- potential coverage after the reserved study graduates;
 - unknown vocabulary;
 - unattached legacy generated vocabulary during the compatibility transition;
 - vocabulary eligible for a new deck.
 
-Generated or active-campaign vocabulary is not silently reported as known. The
+Generated or reserved vocabulary is not silently reported as known. The
 Journey entry leads only with current known coverage; vocabulary investment and top
 unknowns apply the distinct categories internally. Books later in Reading
 Journey may show current-known coverage and future-book coverage after the
-active campaign graduates. Both values are calculated on demand, so completing
-or abandoning the active campaign changes Journey evidence without a persisted
-coverage or mastery snapshot.
+reserved study graduates. Both values are calculated on demand, so confirming
+or releasing the study changes Journey evidence without a persisted coverage or
+mastery snapshot.
 
 ## Initial presentation
 
