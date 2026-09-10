@@ -53,7 +53,7 @@ Catalogue sync
     -> Download deck or return to the Journey / Primary Goal
 ```
 
-Adding a Book to Reading Journey from My Books or Book detail is the
+Adding a Book to Reading Journey from My Books is the
 learner-initiated reading-intent path. It retains Journey membership first,
 acquires the current EPUB when needed, and submits whole-book analysis.
 Re-adding a member reuses current completed or in-flight work; reordering never
@@ -101,11 +101,11 @@ they must not replace book identity and next-step guidance.
 **Learner decision:** What does this book's current analysis say about my known
 coverage and vocabulary investment, and do I want to prepare a deck?
 
-The current completed analysis is presented on the Book page at `/books/{id}`
-and, for Journey members, in the Journey entry. A newly completed reanalysis
+The current completed analysis is presented in the Journey entry at
+`/journey/{bookID}`. A newly completed reanalysis
 replaces the current analysis; earlier runs remain operational audit records in
 `/jobs`. The compatibility route `/books/{book-id}/analyses/{analysis-run-id}`
-redirects to the Journey entry for members or the Book page otherwise, rather
+redirects to the Journey entry for members and returns 404 otherwise, rather
 than presenting a separate exact-result experience.
 
 Information hierarchy answers, in order:
@@ -127,7 +127,7 @@ Do not render analyzed-scope details, text profile, projected token coverage,
 the rest of the former coverage-stat list, analysis history, identity/trust, or
 provenance/history sections on the learner surface. Mouseion does not claim
 CEFR level, general reading level, or a composite difficulty score. Deck
-preparation follows the retained evidence on the book page and may be repeated
+preparation follows the retained evidence on the Journey entry and may be repeated
 as the closing action.
 
 ### 5. Prepare and download a deck
@@ -174,11 +174,11 @@ The interface must answer:
 
 - keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
   failure recovery;
-- completed analysis jobs expose **View analysis result**, opening `/books/{id}`
+- completed analysis jobs expose **View analysis result**, opening `/journey/{bookID}`
   directly or through the run-specific compatibility redirect;
-- deck preparation is submitted from the Book page or Journey entry after its
+- deck preparation is submitted from the Journey entry after its
   warning-only note and retained insights;
-- do not list analysis history on the book page; `GET /jobs` remains the
+- do not list analysis history on the Journey entry; `GET /jobs` remains the
   operational history surface; and
 - a newly completed rerun replaces the book's current learner-facing analysis
   while prior immutable analyses remain operational audit records.
@@ -187,7 +187,7 @@ The direct `POST /jobs/{id}/deck/preparations` action is retained only for
 legacy compatibility and is not a canonical path for new analyses.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
-book page and preparation status retain a coherent server-rendered baseline;
+Journey entry and preparation status retain a coherent server-rendered baseline;
 status JSON is not itself a learner-facing page.
 
 ## Accessibility and responsive contract

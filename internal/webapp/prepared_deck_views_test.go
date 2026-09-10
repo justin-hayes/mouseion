@@ -16,13 +16,13 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		Source:         domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
 		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-372", CorpusID: "corpus-372",
 	}
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", currentBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
 	for _, want := range []string{
 		`id="deck-preparation-heading"`,
-		`action="/books/book-372/deck/preparations"`,
+		`action="/journey/books/book-372/deck/preparations"`,
 		`name="external_translation_consent"`,
 		"outside Mouseion",
 		"configured translation provider",

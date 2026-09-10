@@ -14,27 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func (h *Handler) book(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
-	if !ok {
-		return
-	}
-	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
-		http.NotFound(w, r)
-		return
-	}
-	if err := h.annotateBookWithJourney(r.Context(), u.ID, &detail); err != nil {
-		fail(w, err)
-		return
-	}
-	summary := *detail.Acquired
-	summary.BookTitle = detail.Book.Title
-	if !h.renderBookPage(w, r, u, summary, currentBookPageOptions(summary), r.URL.Query().Get("message")) {
-		return
-	}
-}
-
 func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("bookID"))
@@ -251,34 +230,19 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	runID := r.PathValue("runID")
-	redirectBookID := detail.Book.ID
 	if book.AnalysisRunID != runID {
-		jobs, err := h.services.Store.ListAnalysisJobs(r.Context(), u.ID)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		found := false
-		for _, job := range jobs {
-			if job.SourceMaterialID == book.Source.ID && job.AnalysisRunID == runID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			http.NotFound(w, r)
-			return
-		}
+		http.NotFound(w, r)
+		return
 	}
 	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
 		fail(w, err)
 		return
 	}
-	if detail.JourneyMember {
-		http.Redirect(w, r, journeyEntryURL(redirectBookID), http.StatusSeeOther)
+	if !detail.JourneyMember {
+		http.NotFound(w, r)
 		return
 	}
-	http.Redirect(w, r, "/books/"+url.PathEscape(redirectBookID), http.StatusSeeOther)
+	http.Redirect(w, r, journeyEntryURL(detail.Book.ID), http.StatusSeeOther)
 }
 
 func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary) (*domain.DeckPreparation, deckJourneyActionView, bool) {

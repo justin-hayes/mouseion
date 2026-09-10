@@ -153,6 +153,19 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 	if err != nil {
 		return "/"
 	}
+	legacyJourneyURL := ""
+	if strings.HasPrefix(u.Path, "/books/") {
+		bookID := strings.TrimPrefix(u.Path, "/books/")
+		if bookID != "" && !strings.Contains(bookID, "/") {
+			legacyJourneyURL = journeyEntryURL(bookID)
+		}
+	}
+	if legacyJourneyURL != "" {
+		if u.RawQuery != "" {
+			return legacyJourneyURL + "?" + u.RawQuery
+		}
+		return legacyJourneyURL
+	}
 	if u.Path == "/library" || u.Path == "/journey" || u.Path == "/vocabulary" {
 		query := u.Query()
 		if u.Path == "/library" {

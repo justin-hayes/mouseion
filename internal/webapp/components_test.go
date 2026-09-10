@@ -85,8 +85,11 @@ func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing
 	if got := activeStudyLanguageReturnPath("/library?language=de&q=title", "it"); got != "/library?q=title" {
 		t.Fatalf("library return path=%q", got)
 	}
-	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/books/book-1" {
+	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/journey/book-1" {
 		t.Fatalf("book return path=%q", got)
+	}
+	if got := activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"); got != "/journey/book-1?message=updated" {
+		t.Fatalf("book return query=%q", got)
 	}
 	if got := activeStudyLanguageReturnPath("/vocabulary?language=de", "it"); got != "/vocabulary" {
 		t.Fatalf("vocabulary return path=%q", got)

@@ -206,9 +206,9 @@ scrollable data table must label and contain its own overflow.
   recalculation, not warning or correction.
 - Current knowledge, conditional projection, reading completion, preparation,
   and vocabulary transition remain visibly distinct.
-- Operational analysis status and the book page's single current analysis are
+- Operational analysis status and the Journey entry's single current analysis are
   separate surfaces. Run-specific result URLs redirect to the Journey entry for
-  members or the book page otherwise; deck preparation follows its retained
+  members or return 404 otherwise; deck preparation follows its retained
   insights and any concrete quality warning.
 - Scope review is a calm native checklist: reliable top-level TOC choices or a
   flat readable-unit fallback, all checked initially, with explicit bulk
@@ -241,7 +241,7 @@ book/result/deck journey and extended it to acquisition, current Campaign,
 Settings, operational recovery, and quality gates. The roadmap does not plan the
 frozen My Books / Reading Journey / Primary Goal architecture.
 
-Current implementation adoption covers My Books (`/library`), book detail and
+Current implementation adoption covers My Books (`/library`), Journey entry and
 scope review, Reading Journey (`/journey`), secondary Campaign history and
 operations, analysis jobs, and known-vocabulary management. The shipped
 patterns preserve bibliographic book identity, the one Primary Goal, a fluid

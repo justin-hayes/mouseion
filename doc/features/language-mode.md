@@ -23,7 +23,7 @@ out-of-band "needs language" surface.
 ## Scope
 
 This feature defines the learner-facing behaviour of language-as-mode across the
-shell, My Books, Reading Journey, Vocabulary, and Book detail. It implements
+shell, My Books, Reading Journey, Vocabulary, and Journey entry. It implements
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). Learner-facing
 labels use **Language** and the language's own name, never **Mode** or
@@ -75,7 +75,7 @@ labels use **Language** and the language's own name, never **Mode** or
 - Known-vocabulary-only languages are reachable through the switcher
   (read-only, import disabled).
 
-### Book detail (`/books/{id}`)
+### Journey entry (`/journey/{bookID}`)
 
 - Not mode-scoped: a Book renders its own language; a stale cross-language link
   never auto-switches the mode. Language remains on the page header.

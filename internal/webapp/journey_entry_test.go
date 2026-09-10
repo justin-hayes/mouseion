@@ -190,6 +190,33 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalysisCompatibilityRouteRequiresJourneyMembership(t *testing.T) {
+	h, cookies, _, fixtureStore := goalFixtureSession(t)
+	bookID := "completed-outside-journey"
+	store := &journeyEntryStore{
+		Store: fixtureStore,
+		detail: domain.MyBook{
+			Book: domain.Book{ID: bookID, OwnerID: fixtures.OwnerID, Title: "Completed outside Journey", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+			Acquired: &domain.SourceMaterialSummary{
+				BookID:         bookID,
+				Source:         domain.SourceMaterial{ID: "source-" + bookID, OwnerID: fixtures.OwnerID, Language: "de", MediaType: "application/epub+zip"},
+				AnalysisStatus: "analyzed",
+				AnalysisState:  "completed",
+				AnalysisRunID:  "run-" + bookID,
+				CorpusID:       "corpus-" + bookID,
+			},
+		},
+		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de"},
+	}
+	h.(*Handler).services.Store = store
+
+	response := journeyEntryRequest(t, h, "/books/"+bookID+"/analyses/run-"+bookID, cookies)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("non-member analysis compatibility status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+}
+
 func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 	h, cookies, csrf, fixtureStore := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}

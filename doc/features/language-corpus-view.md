@@ -65,7 +65,8 @@ status may remain visible so the lens does not hide collection membership.
   the active study language ([ADR 0050](../adr/0050-active-study-language.md)).
 - The panel remains subordinate to the searchable bibliographic collection; it
   is not a dashboard hero or a new navigation destination.
-- Each per-book row links to `/books/{id}` for details and any permitted action.
+- Each analyzed Journey-member row links to `/journey/{bookID}`; Books without a
+  reachable Journey entry remain evidence-only rows without a dead link.
 - Promotion to a separate destination requires a future explicit information-
   architecture reconciliation.
 
@@ -85,16 +86,16 @@ status may remain visible so the lens does not hide collection membership.
 | State | Required presentation | Primary exit |
 |---|---|---|
 | No analyzed books in language | Explain that no current comparable evidence is available without turning the panel into an analysis prompt. | Browse the language's Books |
-| Some analyzed, some unavailable | Show aggregates only for included Books and list exclusions/reasons separately. | Open a Book |
-| Current evidence available | Show the four starting quantities with their owner/language/current-state basis. | Open a Book |
-| Evidence stale or incomplete | Remove the affected Book from aggregate arithmetic and identify why. | Open the affected Book |
+| Some analyzed, some unavailable | Show aggregates only for included Books and list exclusions/reasons separately. | Open a Journey entry |
+| Current evidence available | Show the four starting quantities with their owner/language/current-state basis. | Open a Journey entry |
+| Evidence stale or incomplete | Remove the affected Book from aggregate arithmetic and identify why. | Review the affected Journey card |
 | Known vocabulary changed | Recompute from current state; do not display a persisted prior value as current. | Continue browsing |
-| Long vocabulary or book list | Page or truncate with an accessible explicit expansion while retaining deterministic order. | Open detail or a Book |
+| Long vocabulary or book list | Page or truncate with an accessible explicit expansion while retaining deterministic order. | Open a Journey entry or continue browsing |
 
 ## Non-goals
 
-- Actions in the lens; all lifecycle and preparation actions remain on the Book
-  page.
+- Actions in the lens; all lifecycle and preparation actions remain on the
+  Journey entry or My Books row as appropriate.
 - Aggregate decks, cross-book scopes, merged analyses, or a persisted corpus
   object.
 - Cross-learner data or shared learner evidence.
@@ -113,7 +114,8 @@ status may remain visible so the lens does not hide collection membership.
 - Missing or stale evidence is excluded and explained, never treated as zero.
 - The My Books language panel uses learner-facing wording other than **Corpus**
   and contains no consequential action.
-- Every included Book can be opened at `/books/{id}`, where its actions remain.
+- Every included analyzed Journey member can be opened at `/journey/{bookID}`;
+  other Books remain evidence-only.
 - No persisted corpus object, combined scope, aggregate deck, or cross-learner
   query is introduced.
 - The panel is usable with keyboard and server-rendered navigation before any

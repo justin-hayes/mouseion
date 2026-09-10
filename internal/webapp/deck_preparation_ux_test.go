@@ -20,7 +20,7 @@ func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string 
 	if preparation != nil && preparation.State == domain.DeckPreparationReady {
 		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
 	}
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", currentBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output); err != nil {
+	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", journeyBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	return output.String()
@@ -29,7 +29,7 @@ func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string 
 func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
 	html := renderDeckResult(t, nil)
 	for _, want := range []string{
-		`method="post" action="/books/book-deck-372/deck/preparations"`,
+		`method="post" action="/journey/books/book-deck-372/deck/preparations"`,
 		`name="external_translation_consent"`,
 		"English translation is optional",
 		"sends each selected lemma and its example sentence",
@@ -95,7 +95,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 					t.Errorf("status unexpectedly contains %q: %s", unwanted, statusHTML)
 				}
 			}
-			if test.name == "ready" && strings.Contains(html, `method="post" action="/books/book-deck-372/deck/preparations"`) {
+			if test.name == "ready" && strings.Contains(html, `method="post" action="/journey/books/book-deck-372/deck/preparations"`) {
 				t.Error("ready preparation unexpectedly retained the submission form")
 			}
 		})
