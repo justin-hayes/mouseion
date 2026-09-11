@@ -317,14 +317,14 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
 	provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider)
 	if !ok {
-		return cataloguesync.AcquisitionTarget{}, errors.New("catalog acquisition is unavailable")
+		return cataloguesync.AcquisitionTarget{}, errors.New("catalogue acquisition is unavailable")
 	}
 	target, err := provider.FindAcquisitionTarget(ctx, owner, bookID)
 	if err != nil {
 		return target, err
 	}
 	if h.services.OPDS == nil {
-		return target, errors.New("catalog acquisition cannot promote this book")
+		return target, errors.New("catalogue acquisition cannot promote this book")
 	}
 	_, err = h.services.OPDS.AcquireForBook(ctx, owner, target.ConnectionID, target.Language, bookID, target.Entry)
 	return target, err

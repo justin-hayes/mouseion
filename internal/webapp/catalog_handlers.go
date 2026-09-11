@@ -82,7 +82,7 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/catalogs?error="+url.QueryEscape("The catalog sync could not be started. Try again."))
 		return
 	}
-		redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalog sync submitted."))
+	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalog sync submitted."))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
