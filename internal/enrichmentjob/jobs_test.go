@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type fakeProvider struct {
@@ -50,36 +51,27 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, cache)
 	args := JobArgs{OwnerID: "owner-private", Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "noun", TargetWord: "‹Haus›", ExampleSentence: "Das Haus ist groß."}, {CanonicalLemma: "baum", UPOS: "NOUN"}}}
 	encoded, err := json.Marshal(args)
-	if err != nil || args.Kind() != "enrich_external_translation" {
-		t.Fatalf("kind/json: %q %v", args.Kind(), err)
-	}
-	if string(encoded) == "" {
-		t.Fatal("empty args JSON")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "enrich_external_translation", args.Kind())
+	assert.NotEmpty(t, string(encoded), "empty args JSON")
 	var progress [][2]int
 	worker := &Worker{Enrichment: service, Progress: func(_ context.Context, id int64, completed, total int) error {
-		if id != 42 {
-			t.Fatalf("job id = %d", id)
-		}
+		assert.Equal(t, int64(42), id, "job id")
 		progress = append(progress, [2]int{completed, total})
 		return nil
 	}}
 	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 42}, Args: args}
-	if err := worker.Work(context.Background(), job); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(progress, [][2]int{{1, 2}, {2, 2}}) {
-		t.Fatalf("progress = %v", progress)
-	}
+	require.NoError(t, worker.Work(context.Background(), job))
+	assert.Equal(t, [][2]int{{1, 2}, {2, 2}}, progress)
 	want := enrichment.TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
-	if len(provider.requests) != 3 || provider.requests[0] != want || provider.requests[1] != want {
-		t.Fatalf("requests = %+v", provider.requests)
-	}
+	require.Len(t, provider.requests, 3)
+	assert.Equal(t, want, provider.requests[0])
+	assert.Equal(t, want, provider.requests[1])
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	entry := cache.values[key]
-	if entry.Translation != "house" || entry.Gloss != "building" || entry.CachedAt.IsZero() {
-		t.Fatalf("cache/provenance = %+v", entry)
-	}
+	assert.Equal(t, "house", entry.Translation)
+	assert.Equal(t, "building", entry.Gloss)
+	assert.False(t, entry.CachedAt.IsZero(), "cache/provenance = %+v", entry)
 }
 
 func TestSubmitNoOpWithoutExternalConfigurationOrConsent(t *testing.T) {
@@ -94,9 +86,8 @@ func TestSubmitNoOpWithoutExternalConfigurationOrConsent(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			service := NewService(nil, nil, enrichment.NewService(tc.config, nil, nil, nil, tc.provider, nil))
 			handle, err := service.SubmitEnrichment(context.Background(), "owner", []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus"}, ExampleSentence: "Das Haus ist heute sehr ruhig."}})
-			if err != nil || handle.ID != 0 {
-				t.Fatalf("handle=%+v err=%v", handle, err)
-			}
+			require.NoError(t, err)
+			assert.Zero(t, handle.ID)
 		})
 	}
 }
@@ -104,9 +95,8 @@ func TestSubmitNoOpWithoutExternalConfigurationOrConsent(t *testing.T) {
 func TestSubmitNoOpWhenSentencesAreEmpty(t *testing.T) {
 	service := NewService(nil, nil, enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, &fakeProvider{}, nil))
 	handle, err := service.SubmitEnrichment(context.Background(), "owner", []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus"}, ExampleSentence: "  "}})
-	if err != nil || handle.ID != 0 {
-		t.Fatalf("handle=%+v err=%v", handle, err)
-	}
+	require.NoError(t, err)
+	assert.Zero(t, handle.ID)
 }
 
 func TestSubmitRejectsMixedLanguagesBeforeDatabaseWork(t *testing.T) {
@@ -115,9 +105,7 @@ func TestSubmitRejectsMixedLanguagesBeforeDatabaseWork(t *testing.T) {
 		{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus"}},
 		{Identity: enrichment.Identity{Language: "nl", CanonicalLemma: "huis"}},
 	})
-	if !errors.Is(err, ErrMixedLanguages) {
-		t.Fatalf("err = %v", err)
-	}
+	assert.ErrorIs(t, err, ErrMixedLanguages)
 }
 
 func TestWorkerReturnsProviderFailureForRiverRetry(t *testing.T) {
@@ -125,9 +113,8 @@ func TestWorkerReturnsProviderFailureForRiverRetry(t *testing.T) {
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, &fakeCache{values: make(map[enrichment.CacheKey]enrichment.CacheEntry)})
 	worker := &Worker{Enrichment: service, Progress: func(context.Context, int64, int, int) error { return nil }}
 	err := worker.Work(context.Background(), &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1}, Args: JobArgs{Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "NOUN"}}}})
-	if err == nil || len(provider.requests) != 1 {
-		t.Fatalf("err=%v calls=%d", err, len(provider.requests))
-	}
+	require.Error(t, err)
+	assert.Len(t, provider.requests, 1)
 }
 
 func TestWorkerResumesAfterRecordedProgress(t *testing.T) {
@@ -135,10 +122,7 @@ func TestWorkerResumesAfterRecordedProgress(t *testing.T) {
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, &fakeCache{values: make(map[enrichment.CacheKey]enrichment.CacheEntry)})
 	worker := &Worker{Enrichment: service, Progress: func(context.Context, int64, int, int) error { return nil }}
 	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 1, Metadata: []byte(`{"completed":1,"total":2}`)}, Args: JobArgs{Language: "de", Items: []Item{{CanonicalLemma: "haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist heute sehr ruhig."}, {CanonicalLemma: "baum", UPOS: "NOUN", ExampleSentence: "Der Baum ist heute besonders schön gewachsen."}}}}
-	if err := worker.Work(context.Background(), job); err != nil {
-		t.Fatal(err)
-	}
-	if len(provider.requests) != 1 || provider.requests[0].CanonicalLemma != "baum" {
-		t.Fatalf("requests = %+v", provider.requests)
-	}
+	require.NoError(t, worker.Work(context.Background(), job))
+	require.Len(t, provider.requests, 1)
+	assert.Equal(t, "baum", provider.requests[0].CanonicalLemma)
 }

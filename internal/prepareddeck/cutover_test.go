@@ -8,6 +8,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type cutoverBuilder struct{ manifest cardexport.Manifest }
@@ -32,51 +34,43 @@ func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			plan, err := NewBatchPlanner(builder, nil, test.enabled, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, test.consent)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if plan.Config.ExternalTranslationConfigured || plan.Config.Provider != test.wantProvider || len(plan.Chunks) != 0 {
-				t.Fatalf("provider work was planned: config=%+v chunks=%+v", plan.Config, plan.Chunks)
-			}
-			if plan.Manifest.Items[0].CacheKey != nil {
-				t.Fatal("disabled/no-consent manifest has a cache identity")
-			}
+			require.NoError(t, err)
+			assert.False(t, plan.Config.ExternalTranslationConfigured)
+			assert.Equal(t, test.wantProvider, plan.Config.Provider)
+			assert.Len(t, plan.Chunks, 0)
+			assert.Nil(t, plan.Manifest.Items[0].CacheKey, "disabled/no-consent manifest has a cache identity")
 		})
 	}
 }
 
 func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
 	plan, err := NewBatchPlanner(builder, codec, true, BatchConfig{MaxRequests: 1}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !plan.Config.ExternalTranslationConfigured || plan.Config.Endpoint != enrichment.OpenAIChatCompletionsEndpoint || plan.Config.Model != codec.Model() || plan.Config.Provider != codec.ProviderName() || plan.Config.ProviderVersion != codec.ProviderVersion() {
-		t.Fatalf("config=%+v", plan.Config)
-	}
-	if len(plan.Chunks) != 1 || len(plan.Chunks[0].Ordinals) != 1 || plan.Chunks[0].Generation != 1 || plan.Chunks[0].SplitReason != "run" {
-		t.Fatalf("chunks=%+v manifest=%+v", plan.Chunks, plan.Manifest.Items)
-	}
-	if plan.Manifest.Items[0].CacheKey == nil || plan.Manifest.Items[0].CacheKey.SentenceHash != enrichment.SentenceHash("Das alte Haus ist überraschend groß.") {
-		t.Fatalf("manifest=%+v", plan.Manifest.Items[0])
-	}
-	if plan.RunID == "" || plan.Config.BatchMaxRequests != 1 || plan.Config.BatchMaxBytes != persistence.DefaultBatchMaxBytes {
-		t.Fatalf("plan=%+v", plan)
-	}
+	require.NoError(t, err)
+	assert.True(t, plan.Config.ExternalTranslationConfigured)
+	assert.Equal(t, enrichment.OpenAIChatCompletionsEndpoint, plan.Config.Endpoint)
+	assert.Equal(t, codec.Model(), plan.Config.Model)
+	assert.Equal(t, codec.ProviderName(), plan.Config.Provider)
+	assert.Equal(t, codec.ProviderVersion(), plan.Config.ProviderVersion)
+	require.Len(t, plan.Chunks, 1)
+	require.Len(t, plan.Chunks[0].Ordinals, 1)
+	assert.Equal(t, 1, plan.Chunks[0].Generation)
+	assert.Equal(t, "run", plan.Chunks[0].SplitReason)
+	require.NotNil(t, plan.Manifest.Items[0].CacheKey)
+	assert.Equal(t, enrichment.SentenceHash("Das alte Haus ist überraschend groß."), plan.Manifest.Items[0].CacheKey.SentenceHash)
+	assert.NotEmpty(t, plan.RunID)
+	assert.Equal(t, 1, plan.Config.BatchMaxRequests)
+	assert.Equal(t, persistence.DefaultBatchMaxBytes, plan.Config.BatchMaxBytes)
 }
 
 func TestPreparedDeckPlannerDefaultsToStandardWithoutBatchChunks(t *testing.T) {
 	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
 	planner := NewPreparedDeckPlanner(builder, nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: DefaultTranslationMode})
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plan.Config.ExecutionMode != string(domain.PreparedDeckExecutionStandard) || len(plan.Chunks) != 0 || plan.Config.ExternalTranslationConfigured {
-		t.Fatalf("plan=%+v", plan)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), plan.Config.ExecutionMode)
+	assert.Len(t, plan.Chunks, 0)
+	assert.False(t, plan.Config.ExternalTranslationConfigured)
 }

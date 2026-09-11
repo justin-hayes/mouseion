@@ -4,24 +4,20 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHasRequiredTranslationFields(t *testing.T) {
 	complete := CacheEntry{Translation: "house", Gloss: "dwelling", SentenceTranslation: "The house."}
-	if !HasRequiredTranslationFields(complete, "Das Haus.") {
-		t.Fatal("complete cache entry was rejected")
-	}
+	assert.True(t, HasRequiredTranslationFields(complete, "Das Haus."), "complete cache entry was rejected")
 	for _, entry := range []CacheEntry{{Gloss: "dwelling", SentenceTranslation: "The house."}, {Translation: "house", SentenceTranslation: "The house."}, {Translation: "house", Gloss: "dwelling"}} {
-		if HasRequiredTranslationFields(entry, "Das Haus.") {
-			t.Fatalf("incomplete cache entry accepted: %+v", entry)
-		}
+		assert.False(t, HasRequiredTranslationFields(entry, "Das Haus."), "incomplete cache entry accepted: %+v", entry)
 	}
-	if !HasRequiredTranslationFields(CacheEntry{Translation: "house", Gloss: "dwelling"}, "") {
-		t.Fatal("lemma-only cache entry was rejected")
-	}
+	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house", Gloss: "dwelling"}, ""), "lemma-only cache entry was rejected")
 }
 
 type memoryCache struct {
@@ -70,21 +66,20 @@ func (frequencyStub) Frequency(context.Context, Identity) (float64, bool, error)
 func TestServiceLocalPipelineNeedsNoExternalProvider(t *testing.T) {
 	c := Candidate{Identity: Identity{"de", "haus", "NOUN"}, Morphology: map[string]string{"Number": "Sing"}}
 	r := NewService(Config{}, frequencyStub{}, NewStanzaMorphology("1.8"), GermanIPA{}, nil, nil).Enrich(context.Background(), []Candidate{c})[0]
-	if !r.Frequency.Available || !r.Morphology.Available || !r.Pronunciation.Available || r.Translation.Available || len(r.Warnings) != 0 {
-		t.Fatalf("result=%+v", r)
-	}
-	if r.Frequency.Provenance.Provider != "DWDS" || r.Frequency.Provenance.External {
-		t.Fatalf("provenance=%+v", r.Frequency.Provenance)
-	}
+	assert.True(t, r.Frequency.Available)
+	assert.True(t, r.Morphology.Available)
+	assert.True(t, r.Pronunciation.Available)
+	assert.False(t, r.Translation.Available)
+	assert.Len(t, r.Warnings, 0)
+	assert.Equal(t, "DWDS", r.Frequency.Provenance.Provider)
+	assert.False(t, r.Frequency.Provenance.External)
 }
 
 func TestExternalRequiresAdminAndUserConsent(t *testing.T) {
 	for _, cfg := range []Config{{ExternalEnabled: true}, {UserOptIn: true}, {}} {
 		provider := &translationStub{name: "llm", version: "1"}
 		NewService(cfg, nil, nil, nil, provider, nil).Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}}})
-		if len(provider.requests) != 0 {
-			t.Fatalf("external request with config %+v", cfg)
-		}
+		assert.Empty(t, provider.requests, "external request with config %+v", cfg)
 	}
 }
 
@@ -99,12 +94,13 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	// accepted by either Candidate identity or TranslationRequest.
 	second := s.Enrich(context.Background(), []Candidate{c})[0]
 	want := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
-	if len(provider.requests) != 1 || provider.requests[0] != want {
-		t.Fatalf("requests=%+v", provider.requests)
-	}
-	if cache.puts != 1 || !second.Translation.Available || !second.SentenceTranslation.Available || !second.SentenceTranslationTarget.Available || first.Translation.Provenance.CachedAt.IsZero() {
-		t.Fatalf("first=%+v second=%+v cache=%+v", first, second, cache)
-	}
+	require.Len(t, provider.requests, 1)
+	assert.Equal(t, want, provider.requests[0])
+	assert.Equal(t, 1, cache.puts)
+	assert.True(t, second.Translation.Available)
+	assert.True(t, second.SentenceTranslation.Available)
+	assert.True(t, second.SentenceTranslationTarget.Available)
+	assert.False(t, first.Translation.Provenance.CachedAt.IsZero(), "first=%+v second=%+v cache=%+v", first, second, cache)
 }
 
 func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testing.T) {
@@ -114,24 +110,32 @@ func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testin
 	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}
 
 	result, metrics, err := service.EnrichExternalObserved(context.Background(), candidate)
-	if err != nil || !result.SentenceTranslation.Available {
-		t.Fatalf("first result=%+v metrics=%+v err=%v", result, metrics, err)
-	}
-	if metrics.CacheMisses != 1 || metrics.CacheHits != 0 || metrics.ProviderCalls != 1 || metrics.Attempts != 1 || metrics.Retries != 0 || metrics.CacheLatency < 0 || metrics.ProviderLatency < 0 {
-		t.Fatalf("first metrics=%+v", metrics)
-	}
+	require.NoError(t, err)
+	assert.True(t, result.SentenceTranslation.Available)
+	assert.Equal(t, 1, metrics.CacheMisses)
+	assert.Zero(t, metrics.CacheHits)
+	assert.Equal(t, 1, metrics.ProviderCalls)
+	assert.Equal(t, 1, metrics.Attempts)
+	assert.Zero(t, metrics.Retries)
+	assert.GreaterOrEqual(t, metrics.CacheLatency, time.Duration(0))
+	assert.GreaterOrEqual(t, metrics.ProviderLatency, time.Duration(0))
 
 	_, metrics, err = service.EnrichExternalObserved(context.Background(), candidate)
-	if err != nil || metrics.CacheHits != 1 || metrics.CacheMisses != 0 || metrics.ProviderCalls != 0 || metrics.Attempts != 0 {
-		t.Fatalf("cached metrics=%+v err=%v", metrics, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, metrics.CacheHits)
+	assert.Zero(t, metrics.CacheMisses)
+	assert.Zero(t, metrics.ProviderCalls)
+	assert.Zero(t, metrics.Attempts)
 
 	failing := &classifiedProvider{err: &LLMHTTPError{StatusCode: http.StatusTooManyRequests, Message: "private provider response"}}
 	service = NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 2, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, failing, &memoryCache{values: map[CacheKey]CacheEntry{}})
 	_, metrics, err = service.EnrichExternalObserved(context.Background(), candidate)
-	if err == nil || metrics.ProviderCalls != 1 || metrics.Attempts != 2 || metrics.Retries != 1 || metrics.RateLimitErrors != 1 || metrics.OtherErrors != 0 {
-		t.Fatalf("failure metrics=%+v err=%v", metrics, err)
-	}
+	require.Error(t, err)
+	assert.Equal(t, 1, metrics.ProviderCalls)
+	assert.Equal(t, 2, metrics.Attempts)
+	assert.Equal(t, 1, metrics.Retries)
+	assert.Equal(t, 1, metrics.RateLimitErrors)
+	assert.Zero(t, metrics.OtherErrors)
 }
 
 type classifiedProvider struct{ err error }
@@ -157,25 +161,18 @@ func TestExternalErrorClassification(t *testing.T) {
 		{errors.New("opaque provider failure"), ExternalErrorOther},
 	}
 	for _, test := range tests {
-		if got := ClassifyExternalError(test.err); got != test.want {
-			t.Errorf("ClassifyExternalError(%T)=%q want %q", test.err, got, test.want)
-		}
+		assert.Equal(t, test.want, ClassifyExternalError(test.err), "ClassifyExternalError(%T)", test.err)
 	}
 }
 
 func TestSentenceHashConservativeNormalizationAndSeparation(t *testing.T) {
 	first := SentenceHash("  Das Haus ist groß.\r\n")
-	if first == "" || len(first) != 64 || first != SentenceHash("Das Haus ist groß.\n") {
-		t.Fatalf("unexpected deterministic hash %q", first)
-	}
+	require.Len(t, first, 64)
+	assert.Equal(t, first, SentenceHash("Das Haus ist groß.\n"), "unexpected deterministic hash %q", first)
 	for _, sentence := range []string{"Das Haus ist groß!", "Das  Haus ist groß.", "das Haus ist groß."} {
-		if got := SentenceHash(sentence); got == first {
-			t.Fatalf("meaningful difference collided for %q", sentence)
-		}
+		assert.NotEqual(t, first, SentenceHash(sentence), "meaningful difference collided for %q", sentence)
 	}
-	if SentenceHash(" \r\n ") != "" {
-		t.Fatal("blank sentence should use legacy lemma-only identity")
-	}
+	assert.Empty(t, SentenceHash(" \r\n "), "blank sentence should use legacy lemma-only identity")
 }
 
 func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
@@ -184,13 +181,11 @@ func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
 	for _, sentence := range []string{"Das Haus ist groß.", "Das Haus ist alt.", "Das Haus ist groß."} {
 		result := service.Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: sentence}})[0]
-		if !result.SentenceTranslation.Available {
-			t.Fatalf("sentence translation unavailable for %q", sentence)
-		}
+		assert.True(t, result.SentenceTranslation.Available, "sentence translation unavailable for %q", sentence)
 	}
-	if len(provider.requests) != 2 || len(cache.values) != 2 || cache.puts != 2 {
-		t.Fatalf("requests=%d entries=%d puts=%d", len(provider.requests), len(cache.values), cache.puts)
-	}
+	assert.Len(t, provider.requests, 2)
+	assert.Len(t, cache.values, 2)
+	assert.Equal(t, 2, cache.puts)
 }
 
 func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) {
@@ -199,38 +194,35 @@ func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) 
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
 	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "‹Haus›", ExampleSentence: "Das Haus ist groß."}
 	first := service.Enrich(context.Background(), []Candidate{candidate})[0]
-	if !first.SentenceTranslationTarget.Available || first.SentenceTranslationTarget.Value != "house" || len(provider.requests) != 1 {
-		t.Fatalf("result=%+v requests=%d", first, len(provider.requests))
-	}
-	if len(cache.values) != 1 || cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget != "house" {
-		t.Fatalf("cache=%+v", cache.values)
-	}
+	assert.True(t, first.SentenceTranslationTarget.Available)
+	assert.Equal(t, "house", first.SentenceTranslationTarget.Value)
+	assert.Len(t, provider.requests, 1)
+	assert.Len(t, cache.values, 1)
+	assert.Equal(t, "house", cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget)
 }
 
 func TestProviderWithoutSentenceTranslationRemainsCompatible(t *testing.T) {
 	provider, err := NewDictionaryProvider("dict", "1", func(context.Context, TranslationRequest) (TranslationResponse, error) {
 		return TranslationResponse{Translation: "house", Gloss: "building"}, nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	result := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil).
 		Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: "Das Haus."}})[0]
-	if !result.Translation.Available || !result.Gloss.Available || result.SentenceTranslation.Available || len(result.Warnings) != 0 {
-		t.Fatalf("result=%+v", result)
-	}
+	assert.True(t, result.Translation.Available)
+	assert.True(t, result.Gloss.Available)
+	assert.False(t, result.SentenceTranslation.Available)
+	assert.Len(t, result.Warnings, 0)
 }
 
 func TestLemmaOnlyRetriesAndGracefulFailure(t *testing.T) {
 	provider := &translationStub{name: "dictionary", version: "1", failures: 2}
 	r := NewService(Config{ExternalEnabled: true, UserOptIn: true, ContextMode: LemmaOnly, MaxAttempts: 2}, nil, nil, nil, provider, nil).Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: "private context"}})[0]
-	if r.Translation.Available || len(r.Warnings) != 1 || len(provider.requests) != 2 {
-		t.Fatalf("result=%+v calls=%d", r, len(provider.requests))
-	}
+	assert.False(t, r.Translation.Available)
+	require.Len(t, r.Warnings, 1)
+	assert.Len(t, provider.requests, 2)
 	for _, req := range provider.requests {
-		if req.ExampleSentence != "" || req.TargetWord != "" {
-			t.Fatalf("lemma-only leaked sentence-derived context: %+v", req)
-		}
+		assert.Empty(t, req.ExampleSentence, "lemma-only leaked sentence-derived context: %+v", req)
+		assert.Empty(t, req.TargetWord, "lemma-only leaked sentence-derived context: %+v", req)
 	}
 }
 
@@ -241,9 +233,9 @@ func TestProviderVersionInvalidatesCache(t *testing.T) {
 	NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, p1, cache).Enrich(context.Background(), []Candidate{c})
 	p2 := &translationStub{name: "llm", version: "2"}
 	NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, p2, cache).Enrich(context.Background(), []Candidate{c})
-	if len(p1.requests) != 1 || len(p2.requests) != 1 || len(cache.values) != 2 {
-		t.Fatalf("calls=%d/%d entries=%d", len(p1.requests), len(p2.requests), len(cache.values))
-	}
+	assert.Len(t, p1.requests, 1)
+	assert.Len(t, p2.requests, 1)
+	assert.Len(t, cache.values, 2)
 }
 
 func TestDeterministicLocalProviders(t *testing.T) {
@@ -251,26 +243,22 @@ func TestDeterministicLocalProviders(t *testing.T) {
 	ip := GermanIPA{}
 	a, ok, _ := ip.Pronunciation(context.Background(), c.Identity)
 	b, _, _ := ip.Pronunciation(context.Background(), c.Identity)
-	if !ok || a != b || a != "/ʃtrase/" {
-		t.Fatalf("IPA=%q/%q", a, b)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, a, b)
+	assert.Equal(t, "/ʃtrase/", a)
 	m := NewStanzaMorphology("1")
 	got, ok, _ := m.Morphology(context.Background(), c)
 	got["Case"] = "Acc"
-	if !ok || reflect.DeepEqual(got, c.Morphology) {
-		t.Fatalf("morphology was not copied")
-	}
+	assert.True(t, ok)
+	assert.NotEqual(t, c.Morphology, got, "morphology was not copied")
 }
 
 func TestDictionaryAdapter(t *testing.T) {
 	p, err := NewDictionaryProvider("dict", "2026", func(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
 		return TranslationResponse{Translation: r.CanonicalLemma}, nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	got, err := p.Translate(context.Background(), TranslationRequest{CanonicalLemma: "Haus"})
-	if err != nil || got.Translation != "Haus" {
-		t.Fatalf("got=%+v err=%v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Haus", got.Translation)
 }

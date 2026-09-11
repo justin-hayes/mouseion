@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestClassifyStandardProviderError(t *testing.T) {
@@ -26,9 +27,8 @@ func TestClassifyStandardProviderError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, code, retryable := classifyStandardProviderError(tt.err, context.Background())
-			if retryable != tt.retryable || code != tt.code {
-				t.Fatalf("got retryable=%v code=%q, want %v %q", retryable, code, tt.retryable, tt.code)
-			}
+			assert.Equal(t, tt.retryable, retryable)
+			assert.Equal(t, tt.code, code)
 		})
 	}
 }
@@ -42,10 +42,6 @@ func TestStandardRetryDelayIsBoundedAndJitterInjectable(t *testing.T) {
 	// The production retry path persists the computed timestamp. This test
 	// locks the pure backoff boundary through the same policy values without a
 	// database or provider call.
-	if got := standardRetryDelay(w.Config, 1); got != time.Second {
-		t.Fatalf("first retry delay=%s", got)
-	}
-	if got := standardRetryDelay(w.Config, 4); got != 3*time.Second {
-		t.Fatalf("capped retry delay=%s", got)
-	}
+	assert.Equal(t, time.Second, standardRetryDelay(w.Config, 1), "first retry delay")
+	assert.Equal(t, 3*time.Second, standardRetryDelay(w.Config, 4), "capped retry delay")
 }

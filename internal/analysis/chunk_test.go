@@ -3,22 +3,22 @@ package analysis
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChunkTextSingleChunkWhenSmall(t *testing.T) {
 	text := "Ein Satz. Noch ein Satz."
 	chunks := chunkText(text, DefaultMaxChunkChars)
-	if len(chunks) != 1 || chunks[0] != text {
-		t.Fatalf("expected single chunk, got %d: %v", len(chunks), chunks)
-	}
+	require.Len(t, chunks, 1, "expected single chunk")
+	assert.Equal(t, text, chunks[0])
 }
 
 func TestChunkTextSplitsAtSentences(t *testing.T) {
 	text := "Eins. Zwei! Drei? Vier."
 	want := []string{"Eins. Zwei!", " Drei?", " Vier."}
-	if got := chunkText(text, 11); !equalStrings(got, want) {
-		t.Fatalf("chunks = %#v, want %#v", got, want)
-	}
+	assert.Equal(t, want, chunkText(text, 11))
 }
 
 func TestChunkTextHardCutsOverlongSentence(t *testing.T) {
@@ -26,37 +26,17 @@ func TestChunkTextHardCutsOverlongSentence(t *testing.T) {
 	long := strings.Repeat("ä", 250)
 	text := long + "."
 	chunks := chunkText(text, 100)
-	if len(chunks) < 2 {
-		t.Fatalf("expected hard cut into multiple chunks, got %d", len(chunks))
-	}
+	require.GreaterOrEqual(t, len(chunks), 2, "expected hard cut into multiple chunks")
 	for i, c := range chunks {
-		if len([]rune(c)) > 100 {
-			t.Fatalf("chunk %d length %d exceeds max", i, len([]rune(c)))
-		}
+		assert.LessOrEqual(t, len([]rune(c)), 100, "chunk %d length %d exceeds max", i, len([]rune(c)))
 	}
-	if got := strings.Join(chunks, ""); got != text {
-		t.Fatalf("chunks do not reconstruct original")
-	}
+	assert.Equal(t, text, strings.Join(chunks, ""), "chunks do not reconstruct original")
 }
 
 func TestChunkTextUsesDefaultForInvalidLimit(t *testing.T) {
 	text := strings.Repeat("x", DefaultMaxChunkChars+1)
 	chunks := chunkText(text, 0)
-	if len(chunks) != 2 {
-		t.Fatalf("expected two chunks, got %d", len(chunks))
-	}
-}
-
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	assert.Len(t, chunks, 2)
 }
 
 func TestChunkTextReconstructsWithPunctuation(t *testing.T) {
@@ -64,11 +44,6 @@ func TestChunkTextReconstructsWithPunctuation(t *testing.T) {
 	text := strings.Join(sentences, " ")
 	// force multiple chunks
 	chunks := chunkText(text, 10)
-	if len(chunks) < 2 {
-		t.Fatalf("expected multiple chunks, got %d", len(chunks))
-	}
-	got := strings.Join(chunks, "")
-	if got != strings.Join(sentences, " ") {
-		t.Fatalf("reconstruction mismatch: %q", got)
-	}
+	require.GreaterOrEqual(t, len(chunks), 2, "expected multiple chunks")
+	assert.Equal(t, strings.Join(sentences, " "), strings.Join(chunks, ""), "reconstruction mismatch: %q", strings.Join(chunks, ""))
 }

@@ -4,7 +4,6 @@ package knownvocab
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -15,6 +14,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
@@ -22,92 +23,68 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	defer cancel()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
-	if err = analysis.MigrateRiver(ctx, store.Pool()); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
 	alice, err := store.CreateUser(ctx, "known-job-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "known-job-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
 	workers := river.NewWorkers()
 	AddWorker(workers, store.Pool())
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = client.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
 	defer client.Stop(context.Background())
 	service := NewJobService(store.Pool(), client)
 	handle, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\nbad\tNOPE\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = service.Get(ctx, bob.ID, handle.ID); !errors.Is(err, ErrJobNotFound) {
-		t.Fatalf("cross-owner status = %v", err)
-	}
+	require.NoError(t, err)
+	_, err = service.Get(ctx, bob.ID, handle.ID)
+	assert.ErrorIs(t, err, ErrJobNotFound, "cross-owner status")
 	status := waitKnownVocabJob(t, ctx, service, alice.ID, handle.ID)
-	if status.State != rivertype.JobStateCompleted || status.Imported != 2 || status.AlreadyKnown != 0 || len(status.Rejected) != 1 || status.Processed != 3 || status.Total != 3 {
-		t.Fatalf("first status = %+v", status)
-	}
+	assert.Equal(t, rivertype.JobStateCompleted, status.State)
+	assert.Equal(t, 2, status.Imported)
+	assert.Zero(t, status.AlreadyKnown)
+	require.Len(t, status.Rejected, 1)
+	assert.Equal(t, 3, status.Processed)
+	assert.Equal(t, 3, status.Total)
 	duplicate, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\n")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	status = waitKnownVocabJob(t, ctx, service, alice.ID, duplicate.ID)
-	if status.Imported != 0 || status.AlreadyKnown != 2 {
-		t.Fatalf("duplicate status = %+v", status)
-	}
+	assert.Zero(t, status.Imported)
+	assert.Equal(t, 2, status.AlreadyKnown)
 	var knownRows int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 2 {
-		t.Fatalf("known rows=%d err=%v", knownRows, err)
-	}
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
+	assert.Equal(t, 2, knownRows)
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
+	require.NoError(t, err)
 	italian, err := service.Submit(ctx, alice.ID, "it", "casa\n")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	status = waitKnownVocabJob(t, ctx, service, alice.ID, italian.ID)
-	if status.State != rivertype.JobStateCompleted || status.Imported != 1 || len(status.Rejected) != 0 {
-		t.Fatalf("library-language status = %+v", status)
-	}
+	assert.Equal(t, rivertype.JobStateCompleted, status.State)
+	assert.Equal(t, 1, status.Imported)
+	assert.Len(t, status.Rejected, 0)
 	// A forged retry without its owner-scoped history handle is rejected before writes.
 	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", FileContents: "neu"}}
-	if err = (&Worker{Pool: store.Pool()}).Work(ctx, forged); !errors.Is(err, ErrJobNotFound) {
-		t.Fatalf("forged work = %v", err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows); err != nil || knownRows != 3 {
-		t.Fatalf("rows after rejected retry=%d err=%v", knownRows, err)
-	}
+	err = (&Worker{Pool: store.Pool()}).Work(ctx, forged)
+	assert.ErrorIs(t, err, ErrJobNotFound, "forged work")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
+	assert.Equal(t, 3, knownRows)
 }
 
 func waitKnownVocabJob(t *testing.T, ctx context.Context, service *JobService, owner string, id int64) Status {
 	t.Helper()
 	for {
 		status, err := service.Get(ctx, owner, id)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		if status.State == rivertype.JobStateCompleted || status.State == rivertype.JobStateDiscarded {
 			return status
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatal(ctx.Err())
+			require.Fail(t, ctx.Err().Error())
 		case <-time.After(20 * time.Millisecond):
 		}
 	}

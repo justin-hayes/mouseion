@@ -13,6 +13,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type batchListProviderStub struct {
@@ -42,85 +44,63 @@ func (p *batchListProviderStub) ListBatches(context.Context, enrichment.ListBatc
 
 func TestPlanBatchChunksUsesFrozenOrderAndExactIdentity(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	items := []enrichment.BatchTranslationItem{
 		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}},
 		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}},
 		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", TargetWord: "casa", ExampleSentence: "La casa è grande."}},
 	}
 	plans, err := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 2, MaxPromptTokens: 100000})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(plans) != 2 || plans[0].SplitReason != "run" || plans[1].SplitReason != "request_limit" {
-		t.Fatalf("plans=%+v", plans)
-	}
-	if got, want := plans[0].Ordinals, []int{0, 1}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("first ordinals=%v", got)
-	}
+	require.NoError(t, err)
+	require.Len(t, plans, 2)
+	assert.Equal(t, "run", plans[0].SplitReason)
+	assert.Equal(t, "request_limit", plans[1].SplitReason)
+	assert.Equal(t, []int{0, 1}, plans[0].Ordinals)
 	var encoded bytes.Buffer
-	if _, err = codec.WriteBatchJSONL(&encoded, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:2]); err != nil {
-		t.Fatal(err)
-	}
+	_, err = codec.WriteBatchJSONL(&encoded, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:2])
+	require.NoError(t, err)
 	sum := sha256.Sum256(encoded.Bytes())
-	if plans[0].InputBytes != int64(encoded.Len()) || plans[0].InputDigest != hex.EncodeToString(sum[:]) {
-		t.Fatalf("identity bytes=%d/%d digest=%q/%x", plans[0].InputBytes, encoded.Len(), plans[0].InputDigest, sum)
-	}
+	assert.Equal(t, int64(encoded.Len()), plans[0].InputBytes)
+	assert.Equal(t, hex.EncodeToString(sum[:]), plans[0].InputDigest)
 }
 
 func TestPlanBatchChunksSplitsBeforeBytesAndTokens(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	items := []enrichment.BatchTranslationItem{
 		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "a", UPOS: "NOUN", ExampleSentence: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
 		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", ExampleSentence: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}},
 		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "c", UPOS: "NOUN", ExampleSentence: "cccccccccccccccccccccccccccccccc"}},
 	}
 	var first bytes.Buffer
-	if _, err = codec.WriteBatchJSONL(&first, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:1]); err != nil {
-		t.Fatal(err)
-	}
+	_, err = codec.WriteBatchJSONL(&first, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:1])
+	require.NoError(t, err)
 	plans, err := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 50, MaxBytes: int64(first.Len()) + 1, MaxPromptTokens: 100000})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(plans) != 3 || plans[1].SplitReason != "byte_limit" || plans[2].SplitReason != "byte_limit" {
-		t.Fatalf("byte plans=%+v", plans)
-	}
+	require.NoError(t, err)
+	require.Len(t, plans, 3)
+	assert.Equal(t, "byte_limit", plans[1].SplitReason)
+	assert.Equal(t, "byte_limit", plans[2].SplitReason)
 	plans, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 50, MaxBytes: 100000, MaxPromptTokens: 300})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(plans) != 3 || plans[1].SplitReason != "token_limit" || plans[2].SplitReason != "token_limit" {
-		t.Fatalf("token plans=%+v", plans)
-	}
+	require.NoError(t, err)
+	require.Len(t, plans, 3)
+	assert.Equal(t, "token_limit", plans[1].SplitReason)
+	assert.Equal(t, "token_limit", plans[2].SplitReason)
 }
 
 func TestPlanBatchChunksRejectsReorderedItems(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	_, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []enrichment.BatchTranslationItem{{Ordinal: 1}, {Ordinal: 0}}, BatchChunkLimits{})
-	if err == nil {
-		t.Fatal("reordered items were accepted")
-	}
+	assert.Error(t, err, "reordered items were accepted")
 }
 
 func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing.T) {
 	metadata := batchMetadata("018f64b6-5f2f-7e12-a7a7-832a50f68b7c", "118f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1)
-	if metadataMatches(map[string]string{"mouseion_run": metadata["mouseion_run"], "mouseion_chunk": metadata["mouseion_chunk"], "mouseion_generation": "1", "provider_extra": "ignored"}, metadata) || !metadataMatches(metadata, metadata) {
-		t.Fatal("opaque metadata did not round-trip")
-	}
+	assert.False(t, metadataMatches(map[string]string{"mouseion_run": metadata["mouseion_run"], "mouseion_chunk": metadata["mouseion_chunk"], "mouseion_generation": "1", "provider_extra": "ignored"}, metadata), "opaque metadata did not round-trip")
+	assert.True(t, metadataMatches(metadata, metadata), "opaque metadata did not round-trip")
 	for _, value := range metadata {
 		for _, forbidden := range []string{"owner", "lemma", "title", "prompt", "sentence"} {
-			if bytes.Contains([]byte(value), []byte(forbidden)) {
-				t.Fatalf("metadata value %q contains forbidden marker %q", value, forbidden)
-			}
+			assert.False(t, bytes.Contains([]byte(value), []byte(forbidden)), "metadata value %q contains forbidden marker %q", value, forbidden)
 		}
 	}
 	snapshot := cardexport.ManifestSnapshot{SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner", DeckName: "deck", Filename: cardexport.DownloadFilename("deck"), Items: []cardexport.ManifestItem{
@@ -131,9 +111,10 @@ func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing
 		0: {Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted},
 		1: {Ordinal: 1, State: domain.PreparedDeckOutcomePending},
 	})
-	if err != nil || len(items) != 2 || items[0].Ordinal != 0 || items[1].Ordinal != 1 {
-		t.Fatalf("submission items=%+v err=%v", items, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, items, 2)
+	assert.Equal(t, 0, items[0].Ordinal)
+	assert.Equal(t, 1, items[1].Ordinal)
 }
 
 func TestBatchSubmissionRecoveryRequiresOneRecentExactMatch(t *testing.T) {
@@ -145,20 +126,18 @@ func TestBatchSubmissionRecoveryRequiresOneRecentExactMatch(t *testing.T) {
 	}}
 	worker := &BatchSubmitWorker{Provider: provider, Now: func() time.Time { return now }}
 	found, err := worker.findExistingBatch(context.Background(), metadata, "file")
-	if err != nil || found == nil || found.ID != "found" {
-		t.Fatalf("found=%+v err=%v", found, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, "found", found.ID)
 	provider.pages = []enrichment.BatchList{{Data: []enrichment.Batch{
 		{ID: "one", InputFileID: "file", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Unix(), Metadata: metadata},
 		{ID: "two", InputFileID: "file", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CreatedAt: now.Unix(), Metadata: metadata},
 	}}}
-	if _, err = worker.findExistingBatch(context.Background(), metadata, "file"); err == nil {
-		t.Fatal("multiple matching Batches were accepted")
-	}
+	_, err = worker.findExistingBatch(context.Background(), metadata, "file")
+	assert.Error(t, err, "multiple matching Batches were accepted")
 	provider.err = errors.New("list unavailable")
-	if _, err = worker.findExistingBatch(context.Background(), metadata, "file"); err == nil {
-		t.Fatal("provider listing failure was not surfaced")
-	}
+	_, err = worker.findExistingBatch(context.Background(), metadata, "file")
+	assert.Error(t, err, "provider listing failure was not surfaced")
 }
 
 func TestValidCreatedBatchAcceptsInitialProviderCounts(t *testing.T) {
@@ -173,20 +152,14 @@ func TestValidCreatedBatchAcceptsInitialProviderCounts(t *testing.T) {
 		Metadata:         metadata,
 	}
 
-	if !validCreatedBatch(created, "file_input", metadata) {
-		t.Fatal("accepted validating Batch with initially empty request counts was rejected")
-	}
+	assert.True(t, validCreatedBatch(created, "file_input", metadata), "accepted validating Batch with initially empty request counts was rejected")
 }
 
 func TestBoundedProviderCodePreservesOnlyApprovedDiagnostics(t *testing.T) {
 	for _, code := range []string{"batch_identity", "contradictory_counts", "contradictory_result", "missing_provider_file", "provider_5xx", "create_response_lost"} {
-		if got := boundedProviderCode(code); got != code {
-			t.Errorf("boundedProviderCode(%q)=%q", code, got)
-		}
+		assert.Equal(t, code, boundedProviderCode(code), "boundedProviderCode(%q)", code)
 	}
 	for _, untrusted := range []string{"private provider message", "req-secret-123", "batch_identity/private"} {
-		if got := boundedProviderCode(untrusted); got != "provider_error" {
-			t.Errorf("untrusted code %q was retained as %q", untrusted, got)
-		}
+		assert.Equal(t, "provider_error", boundedProviderCode(untrusted), "untrusted code %q was retained as %q", untrusted, boundedProviderCode(untrusted))
 	}
 }

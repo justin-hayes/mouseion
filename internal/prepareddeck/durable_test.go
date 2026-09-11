@@ -8,6 +8,8 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type finalizerStoreStub struct {
@@ -64,27 +66,28 @@ func TestDurableFinalizerUsesGenerationAndOneFencedPublication(t *testing.T) {
 	renderer := &finalizerRendererStub{artifact: cardexport.Artifact{APKG: []byte("apkg")}}
 	finalizer := &DurableFinalizer{Store: store, Renderer: renderer, Now: func() time.Time { return now }, LeaseDuration: 2 * time.Minute}
 	ready, err := finalizer.Finalize(context.Background(), "owner", "preparation", "run", 7)
-	if err != nil || ready.State != domain.DeckPreparationReady {
-		t.Fatalf("ready=%+v err=%v", ready, err)
-	}
-	if store.claimedGeneration != 7 || store.claimedToken == "" || store.claimLeaseExpiresAt != now.Add(2*time.Minute) {
-		t.Fatalf("claim generation=%d token=%q lease=%s", store.claimedGeneration, store.claimedToken, store.claimLeaseExpiresAt)
-	}
-	if store.loadCalls != 1 || renderer.calls != 1 || store.completeCalls != 1 || store.completedToken != store.claimedToken || store.getCalls != 0 {
-		t.Fatalf("calls load=%d render=%d complete=%d get=%d tokens=%q/%q", store.loadCalls, renderer.calls, store.completeCalls, store.getCalls, store.claimedToken, store.completedToken)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, ready.State)
+	assert.Equal(t, 7, store.claimedGeneration)
+	assert.NotEmpty(t, store.claimedToken)
+	assert.Equal(t, now.Add(2*time.Minute), store.claimLeaseExpiresAt)
+	assert.Equal(t, 1, store.loadCalls)
+	assert.Equal(t, 1, renderer.calls)
+	assert.Equal(t, 1, store.completeCalls)
+	assert.Equal(t, store.claimedToken, store.completedToken)
+	assert.Zero(t, store.getCalls)
 }
 
 func TestDurableFinalizerTreatsCompletedRunAsIdempotentSuccess(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted}, preparation: domain.DeckPreparation{State: domain.DeckPreparationReady}}
 	renderer := &finalizerRendererStub{}
 	ready, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	if err != nil || ready.State != domain.DeckPreparationReady {
-		t.Fatalf("ready=%+v err=%v", ready, err)
-	}
-	if store.getCalls != 1 || store.loadCalls != 0 || store.completeCalls != 0 || renderer.calls != 0 {
-		t.Fatalf("calls get=%d load=%d complete=%d render=%d", store.getCalls, store.loadCalls, store.completeCalls, renderer.calls)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, ready.State)
+	assert.Equal(t, 1, store.getCalls)
+	assert.Zero(t, store.loadCalls)
+	assert.Zero(t, store.completeCalls)
+	assert.Zero(t, renderer.calls)
 }
 
 func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
@@ -92,7 +95,6 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
 	renderer := &finalizerRendererStub{err: renderErr}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	if !errors.Is(err, renderErr) || store.completeCalls != 0 {
-		t.Fatalf("err=%v complete calls=%d", err, store.completeCalls)
-	}
+	assert.ErrorIs(t, err, renderErr)
+	assert.Zero(t, store.completeCalls)
 }

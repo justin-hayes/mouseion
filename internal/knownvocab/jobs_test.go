@@ -3,19 +3,17 @@ package knownvocab
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJobArgsRoundTripKeepsOwnerAndFileContents(t *testing.T) {
 	want := JobArgs{OwnerID: "owner-1", Language: "de", FileContents: "Haus\ngehen\n"}
 	encoded, err := json.Marshal(want)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var got JobArgs
-	if err = json.Unmarshal(encoded, &got); err != nil {
-		t.Fatal(err)
-	}
-	if got != want || got.Kind() != "import_known_vocabulary" {
-		t.Fatalf("args = %+v", got)
-	}
+	require.NoError(t, json.Unmarshal(encoded, &got))
+	assert.Equal(t, want, got)
+	assert.Equal(t, "import_known_vocabulary", got.Kind())
 }

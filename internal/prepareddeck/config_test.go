@@ -4,6 +4,9 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBatchConfigFromEnv(t *testing.T) {
@@ -11,18 +14,16 @@ func TestBatchConfigFromEnv(t *testing.T) {
 		unsetenv(t, BatchMaxRequestsEnv)
 		unsetenv(t, BatchPollIntervalEnv)
 		got, err := BatchConfigFromEnv()
-		if err != nil || got != (BatchConfig{MaxRequests: 5000, PollInterval: 30 * time.Second}) {
-			t.Fatalf("BatchConfigFromEnv() = %+v, %v", got, err)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, BatchConfig{MaxRequests: 5000, PollInterval: 30 * time.Second}, got)
 	})
 
 	t.Run("custom", func(t *testing.T) {
 		t.Setenv(BatchMaxRequestsEnv, "1234")
 		t.Setenv(BatchPollIntervalEnv, "45s")
 		got, err := BatchConfigFromEnv()
-		if err != nil || got != (BatchConfig{MaxRequests: 1234, PollInterval: 45 * time.Second}) {
-			t.Fatalf("BatchConfigFromEnv() = %+v, %v", got, err)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, BatchConfig{MaxRequests: 1234, PollInterval: 45 * time.Second}, got)
 	})
 
 	for _, test := range []struct {
@@ -42,9 +43,8 @@ func TestBatchConfigFromEnv(t *testing.T) {
 			unsetenv(t, BatchMaxRequestsEnv)
 			unsetenv(t, BatchPollIntervalEnv)
 			t.Setenv(test.env, test.value)
-			if _, err := BatchConfigFromEnv(); err == nil {
-				t.Fatalf("BatchConfigFromEnv() with %s=%q returned nil error", test.env, test.value)
-			}
+			_, err := BatchConfigFromEnv()
+			assert.Error(t, err, "BatchConfigFromEnv() with %s=%q", test.env, test.value)
 		})
 	}
 }
@@ -54,22 +54,21 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 		unsetenv(t, name)
 	}
 	got, err := PreparedDeckConfigFromEnv()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	want := PreparedDeckConfig{TranslationMode: "standard", StandardMaxConcurrency: 4, StandardMaxAttempts: 3, StandardRetryBaseDelay: time.Second, StandardRetryMaxDelay: 30 * time.Second}
-	if got != want {
-		t.Fatalf("defaults=%+v want=%+v", got, want)
-	}
+	assert.Equal(t, want, got)
 	t.Setenv(TranslationModeEnv, "batch")
 	t.Setenv(StandardMaxConcurrencyEnv, "8")
 	t.Setenv(StandardMaxAttemptsEnv, "7")
 	t.Setenv(StandardRetryBaseDelayEnv, "2s")
 	t.Setenv(StandardRetryMaxDelayEnv, "1m")
 	got, err = PreparedDeckConfigFromEnv()
-	if err != nil || got.TranslationMode != "batch" || got.StandardMaxConcurrency != 8 || got.StandardMaxAttempts != 7 || got.StandardRetryBaseDelay != 2*time.Second || got.StandardRetryMaxDelay != time.Minute {
-		t.Fatalf("custom=%+v err=%v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "batch", got.TranslationMode)
+	assert.Equal(t, 8, got.StandardMaxConcurrency)
+	assert.Equal(t, 7, got.StandardMaxAttempts)
+	assert.Equal(t, 2*time.Second, got.StandardRetryBaseDelay)
+	assert.Equal(t, time.Minute, got.StandardRetryMaxDelay)
 	for _, test := range []struct{ env, value string }{
 		{TranslationModeEnv, "other"}, {StandardMaxConcurrencyEnv, "0"}, {StandardMaxConcurrencyEnv, "65"},
 		{StandardMaxAttemptsEnv, "0"}, {StandardMaxAttemptsEnv, "21"}, {StandardRetryBaseDelayEnv, "0s"},
@@ -77,9 +76,8 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 	} {
 		t.Run(test.env+"="+test.value, func(t *testing.T) {
 			t.Setenv(test.env, test.value)
-			if _, err := PreparedDeckConfigFromEnv(); err == nil {
-				t.Fatalf("accepted invalid %s=%q", test.env, test.value)
-			}
+			_, err := PreparedDeckConfigFromEnv()
+			assert.Error(t, err, "accepted invalid %s=%q", test.env, test.value)
 		})
 	}
 }
@@ -87,9 +85,7 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 func unsetenv(t *testing.T, name string) {
 	t.Helper()
 	previous, existed := os.LookupEnv(name)
-	if err := os.Unsetenv(name); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Unsetenv(name))
 	t.Cleanup(func() {
 		if existed {
 			_ = os.Setenv(name, previous)

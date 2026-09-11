@@ -2,36 +2,37 @@ package knownvocab
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseReportsMalformedRows(t *testing.T) {
 	input := strings.NewReader("Haus\ngehen\tverb\n\nzu\tviele\tSpalten\n  Straße  \n")
 	got, err := Parse(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Entries) != 2 || got.Entries[0].RawLemma != "Haus" || got.Entries[0].UPOS != "" || got.Entries[1].RawLemma != "Straße" || got.Entries[1].UPOS != "" {
-		t.Fatalf("entries = %+v", got.Entries)
-	}
-	if len(got.Rejected) != 2 || got.Rejected[0].Row != 2 || got.Rejected[1].Row != 4 || !strings.Contains(got.Rejected[0].Error, "no tab-separated columns") {
-		t.Fatalf("rejections = %+v", got.Rejected)
-	}
+	require.NoError(t, err)
+	require.Len(t, got.Entries, 2)
+	assert.Equal(t, "Haus", got.Entries[0].RawLemma)
+	assert.Empty(t, got.Entries[0].UPOS)
+	assert.Equal(t, "Straße", got.Entries[1].RawLemma)
+	assert.Empty(t, got.Entries[1].UPOS)
+	require.Len(t, got.Rejected, 2)
+	assert.Equal(t, 2, got.Rejected[0].Row)
+	assert.Equal(t, 4, got.Rejected[1].Row)
+	assert.Contains(t, got.Rejected[0].Error, "no tab-separated columns")
 }
 
 func TestParseRejectsInvalidUTF8(t *testing.T) {
 	got, err := Parse(strings.NewReader("Haus\n" + string([]byte{0xff, '\n'}) + "gehen\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Entries) != 2 || len(got.Rejected) != 1 || got.Rejected[0].Row != 2 || got.Rejected[0].Error != "invalid UTF-8" {
-		t.Fatalf("result = %+v", got)
-	}
+	require.NoError(t, err)
+	require.Len(t, got.Entries, 2)
+	require.Len(t, got.Rejected, 1)
+	assert.Equal(t, 2, got.Rejected[0].Row)
+	assert.Equal(t, "invalid UTF-8", got.Rejected[0].Error)
 }
 
 type memoryStore struct {
@@ -86,26 +87,25 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	input := " Daß \nHaus\ninvalid\tNOPE\n"
 
 	first, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.Imported != 2 || first.AlreadyKnown != 0 || len(first.Rejected) != 1 {
-		t.Fatalf("first = %+v", first)
-	}
-	if got := first.Entries[0]; got.Original != " Daß " || got.RawLemma != "Daß" || got.CanonicalLemma != "dass" || got.UPOS != "" || got.ProfileName == "" || got.ProfileVersion == "" {
-		t.Fatalf("normalized entry = %+v", got)
-	}
-	if store.state[importKey("alice", "de", "dass", "")].State != "known" || store.state[importKey("alice", "de", "haus", "")].State != "known" {
-		t.Fatalf("states = %+v", store.state)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, first.Imported)
+	assert.Zero(t, first.AlreadyKnown)
+	require.Len(t, first.Rejected, 1)
+	require.Len(t, first.Entries, 2)
+	assert.Equal(t, " Daß ", first.Entries[0].Original)
+	assert.Equal(t, "Daß", first.Entries[0].RawLemma)
+	assert.Equal(t, "dass", first.Entries[0].CanonicalLemma)
+	assert.Empty(t, first.Entries[0].UPOS)
+	assert.NotEmpty(t, first.Entries[0].ProfileName)
+	assert.NotEmpty(t, first.Entries[0].ProfileVersion)
+	assert.Equal(t, "known", store.state[importKey("alice", "de", "dass", "")].State)
+	assert.Equal(t, "known", store.state[importKey("alice", "de", "haus", "")].State)
 
 	second, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if second.Imported != 0 || second.AlreadyKnown != 2 || len(store.known) != 2 {
-		t.Fatalf("second = %+v, known = %+v", second, store.known)
-	}
+	require.NoError(t, err)
+	assert.Zero(t, second.Imported)
+	assert.Equal(t, 2, second.AlreadyKnown)
+	assert.Len(t, store.known, 2)
 }
 
 func TestImportPreservesModernGermanSharpS(t *testing.T) {
@@ -113,44 +113,36 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	result, err := NewService(store).Import(
 		context.Background(), "alice", "de", strings.NewReader("Straße\nDaß\ngeleiten|leiten\n"),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Entries) != 3 || result.Entries[0].CanonicalLemma != "straße" ||
-		result.Entries[1].CanonicalLemma != "dass" ||
-		result.Entries[2].RawLemma != "geleiten|leiten" ||
-		result.Entries[2].CanonicalLemma != "geleiten" ||
-		result.Entries[0].ProfileName != "german-standard-post-1996" ||
-		result.Entries[0].ProfileVersion != "4" {
-		t.Fatalf("entries = %+v", result.Entries)
-	}
+	require.NoError(t, err)
+	require.Len(t, result.Entries, 3)
+	assert.Equal(t, "straße", result.Entries[0].CanonicalLemma)
+	assert.Equal(t, "dass", result.Entries[1].CanonicalLemma)
+	assert.Equal(t, "geleiten|leiten", result.Entries[2].RawLemma)
+	assert.Equal(t, "geleiten", result.Entries[2].CanonicalLemma)
+	assert.Equal(t, "german-standard-post-1996", result.Entries[0].ProfileName)
+	assert.Equal(t, "4", result.Entries[0].ProfileVersion)
 }
 
 func TestImportRejectsNonLexicalLemmasAndPreservesUnicodeWords(t *testing.T) {
 	store := newMemoryStore()
 	got, err := NewService(store).Import(context.Background(), "alice", "de", strings.NewReader("5\n—\nl'acqua\nStraße\nB2\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Imported != 3 || len(got.Rejected) != 2 || len(store.known) != 3 {
-		t.Fatalf("result=%+v known=%+v", got, store.known)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 3, got.Imported)
+	require.Len(t, got.Rejected, 2)
+	assert.Len(t, store.known, 3)
 	for _, rejection := range got.Rejected {
-		if !strings.Contains(rejection.Error, "at least one letter") {
-			t.Fatalf("rejection = %+v", rejection)
-		}
+		assert.Contains(t, rejection.Error, "at least one letter", "rejection = %+v", rejection)
 	}
 }
 
 func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
 	service := NewService(newMemoryStore())
 	for _, tc := range []struct{ owner, language string }{{"", "de"}, {"alice", ""}} {
-		if _, err := service.Import(context.Background(), tc.owner, tc.language, strings.NewReader("Haus\n")); !errors.Is(err, ErrInvalidInput) {
-			t.Fatalf("Import(%q, %q) error = %v", tc.owner, tc.language, err)
-		}
+		_, err := service.Import(context.Background(), tc.owner, tc.language, strings.NewReader("Haus\n"))
+		assert.ErrorIs(t, err, ErrInvalidInput, "Import(%q, %q)", tc.owner, tc.language)
 	}
 	got, err := service.Import(context.Background(), "alice", "zz", strings.NewReader("word\n"))
-	if err != nil || len(got.Rejected) != 1 || !strings.Contains(got.Rejected[0].Error, "unsupported language") {
-		t.Fatalf("unsupported profile result=%+v err=%v", got, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, got.Rejected, 1)
+	assert.Contains(t, got.Rejected[0].Error, "unsupported language")
 }
