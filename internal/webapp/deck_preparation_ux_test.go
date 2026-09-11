@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string {
@@ -20,9 +22,7 @@ func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string 
 	if preparation != nil && preparation.State == domain.DeckPreparationReady {
 		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
 	}
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", journeyBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", journeyBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output))
 	return output.String()
 }
 
@@ -36,13 +36,9 @@ func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
 		"does not start vocabulary study",
 		"data-deck-preparation",
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("exact result missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "exact result missing %q: %s", want, html)
 	}
-	if strings.Contains(html, `action="/jobs/`) || strings.Contains(html, "Generate vocabulary deck") {
-		t.Fatalf("result preparation is not bound to the exact result: %s", html)
-	}
+	assert.False(t, strings.Contains(html, `action="/jobs/`) || strings.Contains(html, "Generate vocabulary deck"), "result preparation is not bound to the exact result: %s", html)
 }
 
 func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
@@ -81,32 +77,20 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			html := renderDeckResult(t, &test.prep)
 			statusStart := strings.Index(html, `<section data-deck-preparation`)
-			if statusStart < 0 {
-				t.Fatal("rendered result has no deck preparation status")
-			}
+			require.True(t, statusStart >= 0, "rendered result has no deck preparation status")
 			statusHTML := html[statusStart:]
 			for _, want := range test.want {
-				if !strings.Contains(statusHTML, want) {
-					t.Errorf("status missing %q: %s", want, statusHTML)
-				}
+				assert.True(t, strings.Contains(statusHTML, want), "status missing %q: %s", want, statusHTML)
 			}
 			for _, unwanted := range test.omit {
-				if strings.Contains(statusHTML, unwanted) {
-					t.Errorf("status unexpectedly contains %q: %s", unwanted, statusHTML)
-				}
+				assert.False(t, strings.Contains(statusHTML, unwanted), "status unexpectedly contains %q: %s", unwanted, statusHTML)
 			}
-			if test.name == "ready" && strings.Contains(html, `method="post" action="/journey/books/book-deck-372/deck/preparations"`) {
-				t.Error("ready preparation unexpectedly retained the submission form")
-			}
+			assert.False(t, test.name == "ready" && strings.Contains(html, `method="post" action="/journey/books/book-deck-372/deck/preparations"`), "ready preparation unexpectedly retained the submission form")
 		})
 	}
 }
 
 func TestPreparationProgressUsesDurableTranslationCounts(t *testing.T) {
-	if got := preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationPreparing, TranslationEligible: 4, TranslationDone: 2, TranslationFailed: 1}); got != 75 {
-		t.Fatalf("progress=%d, want 75", got)
-	}
-	if got := preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationReady}); got != 100 {
-		t.Fatalf("ready progress=%d, want 100", got)
-	}
+	assert.Equal(t, 75, preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationPreparing, TranslationEligible: 4, TranslationDone: 2, TranslationFailed: 1}))
+	assert.Equal(t, 100, preparationProgress(domain.DeckPreparation{State: domain.DeckPreparationReady}))
 }

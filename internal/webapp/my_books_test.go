@@ -11,26 +11,22 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{RefreshableBookIDs: map[string]bool{"metadata-book": true}}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{RefreshableBookIDs: map[string]bool{"metadata-book": true}}).Render(context.Background(), &output))
 	html := output.String()
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
 	for _, want := range []string{"A book without an EPUB", "Not acquired / metadata only", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
-		if !strings.Contains(html, want) {
-			t.Errorf("metadata-only My Books row missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "metadata-only My Books row missing %q: %s", want, html)
 	}
-	if strings.Contains(html, `href="/books/metadata-book"`) {
-		t.Fatalf("metadata-only My Books row linked to the retired Book detail page: %s", html)
-	}
+	assert.False(t, strings.Contains(html, `href="/books/metadata-book"`), "metadata-only My Books row linked to the retired Book detail page: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
 		row = row[start:]
@@ -39,21 +35,15 @@ func TestMyBooksMetadataOnlyRowExposesOnlySupportedActions(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{"Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage"} {
-		if strings.Contains(row, forbidden) {
-			t.Errorf("metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
-		}
+		assert.False(t, strings.Contains(row, forbidden), "metadata-only My Books row exposed unsupported action %q: %s", forbidden, row)
 	}
 }
 
 func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB"}}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(output.String(), "Refresh metadata") {
-		t.Fatalf("ineligible metadata-only My Books row exposed refresh: %s", output.String())
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
+	assert.False(t, strings.Contains(output.String(), "Refresh metadata"), "ineligible metadata-only My Books row exposed refresh: %s", output.String())
 }
 
 func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
@@ -63,16 +53,10 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 		JourneyRevision: 7,
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	if strings.Contains(html, `action="/journey/books/journey-book/add"`) || strings.Contains(html, "Add to Reading Journey") {
-		t.Fatalf("existing Journey member still exposed add action: %s", html)
-	}
-	if !strings.Contains(html, `href="/journey#journey-book-journey-book"`) {
-		t.Fatalf("existing Journey member omitted Journey link: %s", html)
-	}
+	assert.False(t, strings.Contains(html, `action="/journey/books/journey-book/add"`) || strings.Contains(html, "Add to Reading Journey"), "existing Journey member still exposed add action: %s", html)
+	assert.True(t, strings.Contains(html, `href="/journey#journey-book-journey-book"`), "existing Journey member omitted Journey link: %s", html)
 }
 
 func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
@@ -81,16 +65,10 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 		JourneyGoal: true,
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	if strings.Contains(html, `action="/journey/books/goal-book/add"`) || strings.Contains(html, "Add to Reading Journey") {
-		t.Fatalf("Primary Goal still exposed add action: %s", html)
-	}
-	if !strings.Contains(html, "Primary Goal") || !strings.Contains(html, `href="/journey#journey-book-goal-book"`) {
-		t.Fatalf("Primary Goal omitted Journey link: %s", html)
-	}
+	assert.False(t, strings.Contains(html, `action="/journey/books/goal-book/add"`) || strings.Contains(html, "Add to Reading Journey"), "Primary Goal still exposed add action: %s", html)
+	assert.True(t, strings.Contains(html, "Primary Goal") && strings.Contains(html, `href="/journey#journey-book-goal-book"`), "Primary Goal omitted Journey link: %s", html)
 }
 
 func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
@@ -106,13 +84,9 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 		},
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	if !strings.Contains(html, `href="/journey/analyzed-book"`) || strings.Contains(html, `href="/books/analyzed-book"`) || strings.Contains(html, "View analysis result") || strings.Contains(html, `action="/books/analyzed-book/analyze"`) {
-		t.Fatalf("analyzed Journey member exposed an invalid My Books action or link: %s", html)
-	}
+	assert.True(t, strings.Contains(html, `href="/journey/analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
 }
 
 func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
@@ -127,13 +101,9 @@ func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 		},
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	if !strings.Contains(html, "Analyzed") || strings.Contains(html, `href="/journey/analyzed-outside-journey"`) || strings.Contains(html, `href="/books/`) || strings.Contains(html, "View analysis result") {
-		t.Fatalf("analyzed non-member My Books row exposed an invalid link: %s", html)
-	}
+	assert.True(t, strings.Contains(html, "Analyzed") && !strings.Contains(html, `href="/journey/analyzed-outside-journey"`) && !strings.Contains(html, `href="/books/`) && !strings.Contains(html, "View analysis result"), "analyzed non-member My Books row exposed an invalid link: %s", html)
 }
 
 func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
@@ -144,16 +114,10 @@ func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
 		},
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	if !strings.Contains(html, "Refreshed catalogue title") {
-		t.Fatalf("My Books omitted canonical Book title: %s", html)
-	}
-	if strings.Contains(html, "Acquisition-internal title") {
-		t.Fatalf("My Books rendered acquisition-internal title: %s", html)
-	}
+	assert.True(t, strings.Contains(html, "Refreshed catalogue title"), "My Books omitted canonical Book title: %s", html)
+	assert.False(t, strings.Contains(html, "Acquisition-internal title"), "My Books rendered acquisition-internal title: %s", html)
 }
 
 func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
@@ -184,48 +148,28 @@ func TestMyBooksEvidenceStatesRemainDistinct(t *testing.T) {
 		books = append(books, book)
 	}
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	for label, count := range map[string]int{"Unavailable": 1, "Not acquired": 2, "Ready to analyze": 1, "Analysis not started": 2, "Analyzed": 1, "Stale analysis": 1} {
-		if strings.Count(html, label) != count {
-			t.Errorf("evidence label %q count=%d", label, strings.Count(html, label))
-		}
+		assert.Equal(t, count, strings.Count(html, label), label)
 	}
-	if strings.Contains(html, `href="/books/`) {
-		t.Fatalf("learner My Books linked to the retired Book detail page: %s", html)
-	}
-	if strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`) {
-		t.Fatalf("My Books rows exposed an explicit analysis action: %s", html)
-	}
+	assert.False(t, strings.Contains(html, `href="/books/`), "learner My Books linked to the retired Book detail page: %s", html)
+	assert.False(t, strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`), "My Books rows exposed an explicit analysis action: %s", html)
 }
 
 func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	var output bytes.Buffer
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account", `href="/catalogs">Set up a catalog</a>`} {
-		if !strings.Contains(html, want) {
-			t.Errorf("empty My Books onboarding missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "empty My Books onboarding missing %q: %s", want, html)
 	}
-	if strings.Contains(html, "Add books") || strings.Contains(html, "Add a book") {
-		t.Fatalf("empty My Books onboarding exposed retired acquisition wording: %s", html)
-	}
+	assert.False(t, strings.Contains(html, "Add books") || strings.Contains(html, "Add a book"), "empty My Books onboarding exposed retired acquisition wording: %s", html)
 
 	output.Reset()
-	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output.String(), `href="/catalogs">Sync catalog</a>`) {
-		t.Fatalf("connected empty state omitted sync guidance: %s", output.String())
-	}
-	if strings.Contains(output.String(), "Add books") || strings.Contains(output.String(), "Add a book") {
-		t.Fatalf("connected empty state exposed manual book creation: %s", output.String())
-	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output))
+	assert.True(t, strings.Contains(output.String(), `href="/catalogs">Sync catalog</a>`), "connected empty state omitted sync guidance: %s", output.String())
+	assert.False(t, strings.Contains(output.String(), "Add books") || strings.Contains(output.String(), "Add a book"), "connected empty state exposed manual book creation: %s", output.String())
 }
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
@@ -237,9 +181,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 		}
 		response := httptest.NewRecorder()
 		h.ServeHTTP(response, r)
-		if response.Code != http.StatusNotFound {
-			t.Errorf("GET %s status=%d, want 404", route, response.Code)
-		}
+		assert.Equal(t, http.StatusNotFound, response.Code, route)
 	}
 	request := httptest.NewRequest(http.MethodPost, "/library/books/book-id", nil)
 	for _, cookie := range cookies {
@@ -247,9 +189,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusNotFound {
-		t.Errorf("POST /library/books/book-id status=%d, want 404", response.Code)
-	}
+	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
@@ -261,19 +201,11 @@ func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T)
 		}
 		response := httptest.NewRecorder()
 		h.ServeHTTP(response, request)
-		if response.Code != http.StatusNotFound {
-			t.Fatalf("GET %s status=%d body=%s", path, response.Code, response.Body.String())
-		}
+		assert.Equal(t, http.StatusNotFound, response.Code, path)
 	}
-	if response := goalRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
-		t.Fatalf("standalone analysis status=%d body=%s", response.Code, response.Body.String())
-	}
-	if response := goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
-		t.Fatalf("retired refresh route status=%d body=%s", response.Code, response.Body.String())
-	}
-	if response := goalRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies); response.Code != http.StatusNotFound {
-		t.Fatalf("retired deck route status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies).Code)
 }
 
 func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T) {
@@ -284,18 +216,15 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey/fixture-book" {
-		t.Fatalf("analysis compatibility route status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey/fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequest(http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
 	response = httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("historical analysis compatibility status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
 func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
@@ -312,13 +241,9 @@ func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
 		CorpusID:       "italian-corpus",
 	}
 	var output bytes.Buffer
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
-	if !strings.Contains(html, "<h1>Una storia italiana</h1>") || !strings.Contains(html, "it · application/epub+zip") {
-		t.Fatalf("book detail omitted its own language: %s", html)
-	}
+	assert.True(t, strings.Contains(html, "<h1>Una storia italiana</h1>") && strings.Contains(html, "it · application/epub+zip"), "book detail omitted its own language: %s", html)
 }
 
 func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
@@ -331,16 +256,10 @@ func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
 		CorpusID:       "canonical-corpus",
 	}
 	var output bytes.Buffer
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
-	if !strings.Contains(html, "<h1>Refreshed catalogue title</h1>") {
-		t.Fatalf("analyzed page omitted canonical Book title: %s", html)
-	}
-	if strings.Contains(html, "Acquisition-internal title") {
-		t.Fatalf("analyzed page rendered acquisition-internal title: %s", html)
-	}
+	assert.True(t, strings.Contains(html, "<h1>Refreshed catalogue title</h1>"), "analyzed page omitted canonical Book title: %s", html)
+	assert.False(t, strings.Contains(html, "Acquisition-internal title"), "analyzed page rendered acquisition-internal title: %s", html)
 }
 
 func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
@@ -355,9 +274,7 @@ func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
 		Journey:         bookPageJourneyState{Member: true, Revision: 3},
 	}
 	var output bytes.Buffer
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		`data-navigation-context="reading-journey"`,
@@ -366,13 +283,9 @@ func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
 		"In Reading Journey.",
 		`action="/journey/books/journey-book/remove"`,
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("parameterized Journey page missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "parameterized Journey page missing %q: %s", want, html)
 	}
-	if strings.Contains(html, "← My Books") || strings.Contains(html, `data-navigation-context="library"`) {
-		t.Fatalf("parameterized Journey page retained My Books context: %s", html)
-	}
+	assert.False(t, strings.Contains(html, "← My Books") || strings.Contains(html, `data-navigation-context="library"`), "parameterized Journey page retained My Books context: %s", html)
 }
 
 type bookRefreshStub struct {
@@ -394,13 +307,12 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
 	h.(*Handler).services.CatalogueSync = stub
 	missingCSRF := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
-	if missingCSRF.Code != http.StatusForbidden || stub.calls != 0 {
-		t.Fatalf("missing CSRF status=%d calls=%d", missingCSRF.Code, stub.calls)
-	}
+	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
+	assert.Equal(t, 0, stub.calls)
 	native := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
-	if native.Code != http.StatusSeeOther || !strings.Contains(native.Header().Get("Location"), "Metadata+refreshed") || stub.owner != "fixture-learner" {
-		t.Fatalf("native refresh status=%d location=%q owner=%q", native.Code, native.Header().Get("Location"), stub.owner)
-	}
+	assert.Equal(t, http.StatusSeeOther, native.Code)
+	assert.True(t, strings.Contains(native.Header().Get("Location"), "Metadata+refreshed"), "native refresh location=%q", native.Header().Get("Location"))
+	assert.Equal(t, "fixture-learner", stub.owner)
 
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
@@ -413,9 +325,9 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "catalog entry is no longer available") {
-		t.Fatalf("HTMX refresh status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.True(t, strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`), "HTMX refresh body=%s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "catalog entry is no longer available"), "HTMX refresh body=%s", response.Body.String())
 
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
@@ -429,9 +341,10 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	}
 	response = httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "Updated row title") || !strings.Contains(response.Body.String(), "Metadata refreshed.") {
-		t.Fatalf("HTMX row refresh status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.True(t, strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`), "HTMX row refresh body=%s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "Updated row title"), "HTMX row refresh body=%s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "Metadata refreshed."), "HTMX row refresh body=%s", response.Body.String())
 }
 
 func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
@@ -446,7 +359,8 @@ func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "Metadata could not be refreshed") || strings.Contains(response.Body.String(), `id="book-metadata-region"`) {
-		t.Fatalf("unavailable refresher row response status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.True(t, strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`), "unavailable refresher row response body=%s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "Metadata could not be refreshed"), "unavailable refresher row response body=%s", response.Body.String())
+	assert.False(t, strings.Contains(response.Body.String(), `id="book-metadata-region"`), "unavailable refresher row response body=%s", response.Body.String())
 }

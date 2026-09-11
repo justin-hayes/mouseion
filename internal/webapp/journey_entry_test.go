@@ -11,6 +11,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type journeyEntryStore struct {
@@ -44,17 +46,13 @@ func journeyEntryRequest(t *testing.T, h http.Handler, path string, cookies []*h
 
 func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	handler := h.(*Handler)
 	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
 
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
 
-	if response.Code != http.StatusOK {
-		t.Fatalf("GET Journey entry status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
 	for _, want := range []string{
 		"<h1>Route match: familiar German</h1>",
@@ -66,84 +64,66 @@ func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 		"In Reading Journey.",
 		`action="/journey/books/fixture-route-match/remove"`,
 	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("Journey entry missing %q: %s", want, body)
-		}
+		assert.True(t, strings.Contains(body, want), "Journey entry missing %q: %s", want, body)
 	}
 
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`) || !strings.Contains(response.Body.String(), "This Book's vocabulary study") || !strings.Contains(response.Body.String(), "Study this Book's vocabulary") {
-		t.Fatalf("Primary Goal Journey entry omitted removal action: status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.True(t, strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "This Book's vocabulary study"), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "Study this Book's vocabulary"), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
 }
 
 func TestJourneyEntryBookVocabularyStudyReachesGraduation(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	start := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study", url.Values{"csrf_token": {csrf}}, cookies)
-	if start.Code != http.StatusSeeOther || !strings.Contains(start.Header().Get("Location"), "/journey/fixture-book?message=") {
-		t.Fatalf("start study status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, start.Code)
+	assert.True(t, strings.Contains(start.Header().Get("Location"), "/journey/fixture-book?message="), "start study location=%q", start.Header().Get("Location"))
 	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("started preparation=%+v err=%v", preparation, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
 	confirm := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
-	if confirm.Code != http.StatusSeeOther || !strings.Contains(confirm.Header().Get("Location"), "graduated+to+known") {
-		t.Fatalf("confirm study status=%d location=%q body=%s", confirm.Code, confirm.Header().Get("Location"), confirm.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, confirm.Code)
+	assert.True(t, strings.Contains(confirm.Header().Get("Location"), "graduated+to+known"), "confirm study location=%q", confirm.Header().Get("Location"))
 	preparation, err = store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyReviewed || preparation.GraduatedAt == nil {
-		t.Fatalf("reviewed preparation=%+v err=%v", preparation, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.VocabularyStudyReviewed, preparation.VocabularyStudyStatus())
+	assert.NotNil(t, preparation.GraduatedAt, "reviewed preparation=%+v", preparation)
 	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, item := range known {
 		if item.CanonicalLemma == "gehen" && item.Provenance == "Graduated from reviewed deck" {
 			return
 		}
 	}
-	t.Fatalf("graduated fixture vocabulary missing: %+v", known)
+	require.FailNow(t, "graduated fixture vocabulary missing: %+v", known)
 }
 
 func TestJourneyEntryBookVocabularyStudyStartIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	path := "/journey/books/fixture-book/vocabulary-study"
 	start := goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
-	if start.Code != http.StatusSeeOther {
-		t.Fatalf("first start status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, start.Code)
 	start = goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
-	if start.Code != http.StatusSeeOther || !strings.Contains(start.Header().Get("Location"), "already+in+progress") {
-		t.Fatalf("repeat start status=%d location=%q body=%s", start.Code, start.Header().Get("Location"), start.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, start.Code)
+	assert.True(t, strings.Contains(start.Header().Get("Location"), "already+in+progress"), "repeat start location=%q", start.Header().Get("Location"))
 	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("repeated start changed study=%+v err=%v", preparation, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	response := goalRequest(t, h, "/journey/books/fixture-route-match/remove", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {"1"},
 	}, cookies)
-	if response.Code != http.StatusSeeOther {
-		t.Fatalf("remove Journey entry status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
 	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, entry := range journey.Entries {
-		if entry.BookID == "fixture-route-match" {
-			t.Fatalf("German Journey still contains removed entry: %+v", journey.Entries)
-		}
+		assert.NotEqual(t, "fixture-route-match", entry.BookID, "German Journey still contains removed entry: %+v", journey.Entries)
 	}
 }
 
@@ -190,9 +170,7 @@ func TestJourneyEntryRequiresCurrentCompletedMemberAnalysis(t *testing.T) {
 			handler.services.Store = store
 
 			response := journeyEntryRequest(t, h, "/journey/"+bookID, cookies)
-			if response.Code != http.StatusNotFound {
-				t.Fatalf("GET Journey entry status=%d body=%s", response.Code, response.Body.String())
-			}
+			assert.Equal(t, http.StatusNotFound, response.Code)
 		})
 	}
 }
@@ -231,9 +209,7 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 			h.(*Handler).services.Store = store
 
 			response := journeyEntryRequest(t, h, "/journey/"+test.bookID, cookies)
-			if response.Code != http.StatusNotFound {
-				t.Fatalf("GET Journey entry status=%d body=%s", response.Code, response.Body.String())
-			}
+			assert.Equal(t, http.StatusNotFound, response.Code)
 		})
 	}
 }
@@ -259,9 +235,7 @@ func TestAnalysisCompatibilityRouteRequiresJourneyMembership(t *testing.T) {
 	h.(*Handler).services.Store = store
 
 	response := journeyEntryRequest(t, h, "/books/"+bookID+"/analyses/run-"+bookID, cookies)
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("non-member analysis compatibility status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
 func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
@@ -287,10 +261,7 @@ func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 	handler.services.Analysis = analysisService
 
 	response := goalRequest(t, h, "/journey/books/stale-book/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey?message=Analysis+job+%231+submitted." {
-		t.Fatalf("re-analyze response status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
-	if analysisService.calls != 1 {
-		t.Fatalf("re-analyze submitted %d analysis jobs, want one", analysisService.calls)
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey?message=Analysis+job+%231+submitted.", response.Header().Get("Location"))
+	assert.Equal(t, 1, analysisService.calls)
 }

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testJourneyProjectionProvider struct {
@@ -36,9 +38,7 @@ func TestRouteEvidenceLabelsDistinguishEvidenceStates(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := routeEvidenceLabel(test.book); got != test.label {
-				t.Fatalf("routeEvidenceLabel() = %q, want %q", got, test.label)
-			}
+			assert.Equal(t, test.label, routeEvidenceLabel(test.book), test.name)
 		})
 	}
 }
@@ -46,46 +46,39 @@ func TestRouteEvidenceLabelsDistinguishEvidenceStates(t *testing.T) {
 func TestBuildRouteComparisonViewHasConditionalOnlyWhenOrderExists(t *testing.T) {
 	book := domain.JourneyRouteBook{BookID: "book-1", Comparable: true}
 	without := buildRouteComparisonView(domain.JourneyProjectionResult{LearnerOrder: []domain.JourneyRouteBook{book}, AdvisoryOrder: []domain.JourneyRouteBook{book}}, map[string]string{"book-1": "A book"})
-	if without.HasConditional || without.ComparisonUnavailable {
-		t.Fatalf("empty conditional comparison view = %#v", without)
-	}
+	assert.False(t, without.HasConditional)
+	assert.False(t, without.ComparisonUnavailable)
 	with := buildRouteComparisonView(domain.JourneyProjectionResult{
 		LearnerOrder:             []domain.JourneyRouteBook{book},
 		AdvisoryOrder:            []domain.JourneyRouteBook{book},
 		ConditionalAdvisoryOrder: []domain.JourneyRouteBook{book},
 	}, map[string]string{"book-1": "A book"})
-	if !with.HasConditional || with.LearnerOrder[0].Title != "A book" {
-		t.Fatalf("conditional comparison view = %#v", with)
-	}
+	assert.True(t, with.HasConditional)
+	assert.Equal(t, "A book", with.LearnerOrder[0].Title)
 }
 
 func TestBuildRouteComparisonViewMarksEmptyProjectionUnavailable(t *testing.T) {
 	view := buildRouteComparisonView(domain.JourneyProjectionResult{}, nil)
-	if !view.ComparisonUnavailable {
-		t.Fatal("empty projection was not marked unavailable")
-	}
+	assert.True(t, view.ComparisonUnavailable, "empty projection was not marked unavailable")
 }
 
 func TestJourneyRouteComparisonSoftensProviderFailureAndEmptyResult(t *testing.T) {
 	failed, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{err: errors.New("projection failed")}, "owner-1", "de", nil)
-	if err == nil || failed != nil {
-		t.Fatalf("provider failure view=%#v err=%v", failed, err)
-	}
+	assert.Error(t, err)
+	assert.Nil(t, failed)
 	empty, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{}, "owner-1", "de", nil)
-	if err != nil || empty == nil || !empty.ComparisonUnavailable {
-		t.Fatalf("empty provider result view=%#v err=%v", empty, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, empty)
+	assert.True(t, empty.ComparisonUnavailable)
 	requestedLanguage := ""
 	available, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{result: domain.JourneyProjectionResult{
 		LearnerOrder:  []domain.JourneyRouteBook{{BookID: "book-1"}},
 		AdvisoryOrder: []domain.JourneyRouteBook{{BookID: "book-1"}},
 	}, language: &requestedLanguage}, "owner-1", "de", nil)
-	if err != nil || available == nil || available.ComparisonUnavailable {
-		t.Fatalf("available provider result view=%#v err=%v", available, err)
-	}
-	if requestedLanguage != "de" {
-		t.Fatalf("projection language = %q, want de", requestedLanguage)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, available)
+	assert.False(t, available.ComparisonUnavailable)
+	assert.Equal(t, "de", requestedLanguage)
 }
 
 func TestRouteComparisonRenderingKeepsOrderAndExplainsEvidence(t *testing.T) {
@@ -107,19 +100,11 @@ func TestRouteComparisonRenderingKeepsOrderAndExplainsEvidence(t *testing.T) {
 	}, map[string]string{"match": "Match", "differs": "Differs", "tie-a": "Tie A", "tie-b": "Tie B", "unavailable": "Unavailable"})
 	html := renderJourney(t, journeyPageView{RouteComparison: view}, "", "")
 	for _, want := range []string{"canonical", "current known-token coverage", "not ranked", "Match", "Differs", "Tie A", "Tie B", "unassessed"} {
-		if !strings.Contains(strings.ToLower(html), strings.ToLower(want)) {
-			t.Errorf("comparison rendering missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(strings.ToLower(html), strings.ToLower(want)), "comparison rendering missing %q: %s", want, html)
 	}
-	if strings.Contains(strings.ToLower(html), "optimal") || strings.Contains(strings.ToLower(html), "best next book") {
-		t.Fatalf("comparison used prohibited recommendation language: %s", html)
-	}
-	if strings.Contains(strings.ToLower(html), "different study language") {
-		t.Fatalf("comparison exposed removed language mismatch reason: %s", html)
-	}
+	assert.False(t, strings.Contains(strings.ToLower(html), "optimal") || strings.Contains(strings.ToLower(html), "best next book"), "comparison used prohibited recommendation language: %s", html)
+	assert.False(t, strings.Contains(strings.ToLower(html), "different study language"), "comparison exposed removed language mismatch reason: %s", html)
 	learnerStart := strings.Index(html, "Match")
 	differsStart := strings.Index(html, "Differs")
-	if learnerStart < 0 || differsStart < 0 || learnerStart > differsStart {
-		t.Fatalf("learner order was not preserved in rendered comparison: %s", html)
-	}
+	assert.True(t, learnerStart >= 0 && differsStart >= 0 && learnerStart <= differsStart, "learner order was not preserved in rendered comparison: %s", html)
 }

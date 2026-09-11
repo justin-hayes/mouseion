@@ -9,6 +9,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testing.T) {
@@ -27,12 +29,8 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := h.journeyEntryURLForSource(context.Background(), test.owner, test.sourceID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got != test.expected {
-				t.Fatalf("Journey entry URL=%q, want %q", got, test.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, got, test.name)
 		})
 	}
 }
@@ -40,31 +38,21 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 	h := &Handler{services: Services{Store: fixtures.NewStore()}}
 	urls, err := h.journeyEntryURLs(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	jobs := []domain.AnalysisJob{
 		{ID: 1, DisplayNumber: 1, SourceMaterialID: fixtures.SourceID, AnalysisState: "completed", AnalysisRunID: "run", CorpusID: "corpus"},
 		{ID: 2, DisplayNumber: 2, SourceMaterialID: "fixture-failed", AnalysisState: "completed", AnalysisRunID: "run", CorpusID: "corpus"},
 	}
 	var jobsHTML bytes.Buffer
-	if err := JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", urls).Render(context.Background(), &jobsHTML); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(jobsHTML.String(), `href="/journey/fixture-book"`) || strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`) {
-		t.Fatalf("jobs rendered legacy or dead result link: %s", jobsHTML.String())
-	}
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", urls).Render(context.Background(), &jobsHTML))
+	assert.True(t, strings.Contains(jobsHTML.String(), `href="/journey/fixture-book"`) && !strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`), "jobs rendered legacy or dead result link: %s", jobsHTML.String())
 
 }
 
 func TestJobStatusPreservesLegacyDeckPreparationWithoutBookIdentity(t *testing.T) {
 	status := analysis.Status{ID: 7, CorpusID: "legacy-corpus", LogicalState: "completed"}
 	var output bytes.Buffer
-	if err := JobStatus("csrf", status, "").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output.String(), `action="/jobs/7/deck/preparations"`) || !strings.Contains(output.String(), "Prepare a deck") {
-		t.Fatalf("legacy completed result lost deck preparation action: %s", output.String())
-	}
+	require.NoError(t, JobStatus("csrf", status, "").Render(context.Background(), &output))
+	assert.True(t, strings.Contains(output.String(), `action="/jobs/7/deck/preparations"`) && strings.Contains(output.String(), "Prepare a deck"), "legacy completed result lost deck preparation action: %s", output.String())
 }

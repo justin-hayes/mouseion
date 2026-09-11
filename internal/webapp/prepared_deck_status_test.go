@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing.T) {
@@ -19,18 +21,15 @@ func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing
 		BatchChunkCount: 2, BatchPollingChunks: 1, BatchRequestCount: 4, BatchCompletedRequests: 2, BatchFailedRequests: 1, BatchExpiredRequests: 1,
 	})
 	encoded, err := json.Marshal(response)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	text := strings.ToLower(string(encoded))
 	for _, prohibited := range []string{"batch_id", "input_file_id", "output_file_id", "error_file_id", "raw", "prompt", "response"} {
-		if strings.Contains(text, prohibited) {
-			t.Fatalf("status contains prohibited data %q: %s", prohibited, encoded)
-		}
+		assert.False(t, strings.Contains(text, prohibited), "status contains prohibited data %q: %s", prohibited, encoded)
 	}
-	if response.Phase != "waiting" || response.Batch.AgeSeconds != 7200 || response.Translation.Retrying != 1 || response.Batch.Expired != 1 {
-		t.Fatalf("status=%+v", response)
-	}
+	assert.Equal(t, "waiting", response.Phase)
+	assert.Equal(t, int64(7200), response.Batch.AgeSeconds)
+	assert.Equal(t, 1, response.Translation.Retrying)
+	assert.Equal(t, 1, response.Batch.Expired)
 }
 
 func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
@@ -40,28 +39,21 @@ func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
 		"provider":             "temporarily unavailable",
 		"unknown":              "could not be completed",
 	} {
-		if got := preparationFailureMessage(class); !strings.Contains(got, want) {
-			t.Errorf("class=%q message=%q want %q", class, got, want)
-		}
+		got := preparationFailureMessage(class)
+		assert.True(t, strings.Contains(got, want), "class=%q message=%q want %q", class, got, want)
 	}
 	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationFailed, Error: "raw provider response file-secret", FailureClass: "provider"})
-	if strings.Contains(strings.ToLower(response.Error), "raw provider response") || strings.Contains(response.Error, "file-secret") {
-		t.Fatalf("failure response leaked raw error: %q", response.Error)
-	}
+	assert.False(t, strings.Contains(strings.ToLower(response.Error), "raw provider response") || strings.Contains(response.Error, "file-secret"), "failure response leaked raw error: %q", response.Error)
 }
 
 func TestEmptyReadyPreparationDoesNotExposeDownload(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{ID: "empty", State: domain.DeckPreparationReady})
-	if response.DownloadURL != "" {
-		t.Fatalf("empty preparation download URL = %q", response.DownloadURL)
-	}
+	assert.Equal(t, "", response.DownloadURL)
 }
 
 func TestQualityOmittedZeroCardPreparationExposesDownload(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{ID: "omitted", State: domain.DeckPreparationReady, QualityOmissions: 1})
-	if response.DownloadURL == "" {
-		t.Fatal("quality-omitted zero-card preparation has no download URL")
-	}
+	assert.NotEmpty(t, response.DownloadURL, "quality-omitted zero-card preparation has no download URL")
 }
 
 func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
@@ -76,9 +68,7 @@ func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := preparationReturnURL(test.action); got != test.want {
-				t.Fatalf("return URL=%q, want %q", got, test.want)
-			}
+			assert.Equal(t, test.want, preparationReturnURL(test.action), test.name)
 		})
 	}
 }
@@ -91,13 +81,11 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 	h := &Handler{services: Services{Store: store}}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
-	if err != nil || got != "/journey/book-1" {
-		t.Fatalf("reachable URL=%q err=%v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/journey/book-1", got)
 
 	store.detail.Acquired.AnalysisState = "failed"
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
-	if err != nil || got != "" {
-		t.Fatalf("incomplete analysis URL=%q err=%v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
 }

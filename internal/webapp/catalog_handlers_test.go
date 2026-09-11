@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
@@ -17,9 +20,7 @@ func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 
-	if response.Code != http.StatusOK {
-		t.Fatalf("GET /catalogs status=%d body=%s", response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
 	for _, want := range []string{
 		"<title>Catalogs · Mouseion</title>",
 		"<h1>Catalogs</h1>",
@@ -28,9 +29,7 @@ func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 		`class="feedback feedback--error"`,
 		"Sync failed",
 	} {
-		if !strings.Contains(response.Body.String(), want) {
-			t.Errorf("GET /catalogs missing %q: %s", want, response.Body.String())
-		}
+		assert.True(t, strings.Contains(response.Body.String(), want), "GET /catalogs missing %q: %s", want, response.Body.String())
 	}
 }
 
@@ -43,17 +42,13 @@ func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t 
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 
-	if response.Code != http.StatusMovedPermanently {
-		t.Fatalf("GET /connections status=%d, want %d", response.Code, http.StatusMovedPermanently)
-	}
+	assert.Equal(t, http.StatusMovedPermanently, response.Code)
 	location, err := url.Parse(response.Header().Get("Location"))
-	if err != nil {
-		t.Fatalf("parse redirect location: %v", err)
-	}
-	if location.Path != "/catalogs" {
-		t.Fatalf("redirect path=%q, want /catalogs", location.Path)
-	}
-	if got := location.Query(); got.Get("book_id") != "book/1" || got.Get("message") != "Catalog added" || got.Get("error") != "Try again" || got.Has("ignored") {
-		t.Fatalf("redirect query=%v, want supported parameters only", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "/catalogs", location.Path)
+	got := location.Query()
+	assert.Equal(t, "book/1", got.Get("book_id"))
+	assert.Equal(t, "Catalog added", got.Get("message"))
+	assert.Equal(t, "Try again", got.Get("error"))
+	assert.False(t, got.Has("ignored"))
 }

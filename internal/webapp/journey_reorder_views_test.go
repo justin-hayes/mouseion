@@ -3,6 +3,8 @@ package webapp
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
@@ -25,20 +27,12 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 		`aria-label="Move First provisional book earlier"`,
 		`aria-label="Move Second provisional book later"`,
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("journey reorder markup missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "journey reorder markup missing %q: %s", want, html)
 	}
-	if strings.Count(html, `name="expected_revision" value="7"`) != 4 {
-		t.Fatalf("expected revision was not included in each move form: %s", html)
-	}
+	assert.Equal(t, 4, strings.Count(html, `name="expected_revision" value="7"`), "expected revision was not included in each move form: %s", html)
 	firstCard := html[strings.Index(html, `id="journey-book-first"`):strings.Index(html, `id="journey-book-second"`)]
 	secondCard := html[strings.Index(html, `id="journey-book-second"`):]
-	if !strings.Contains(firstCard, "disabled") || !strings.Contains(secondCard, "disabled") {
-		t.Fatalf("first/last boundary controls were not disabled: first=%s second=%s", firstCard, secondCard)
-	}
+	assert.True(t, strings.Contains(firstCard, "disabled") && strings.Contains(secondCard, "disabled"), "first/last boundary controls were not disabled: first=%s second=%s", firstCard, secondCard)
 	goalCard := html[strings.Index(html, `id="journey-book-goal"`):strings.Index(html, `id="provisional-journey-heading"`)]
-	if strings.Contains(goalCard, "Move earlier") || strings.Contains(goalCard, "Move later") {
-		t.Fatalf("Primary Goal rendered reorder controls: %s", goalCard)
-	}
+	assert.False(t, strings.Contains(goalCard, "Move earlier") || strings.Contains(goalCard, "Move later"), "Primary Goal rendered reorder controls: %s", goalCard)
 }

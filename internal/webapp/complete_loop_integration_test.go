@@ -31,6 +31,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type completeLoopTranslationProvider struct{}
@@ -54,13 +56,9 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
-	if err = analysis.MigrateRiver(ctx, pool); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	bookEPUB := testEPUBVariant(t, "complete-loop-book", "Complete Loop Book", "Heute liest Anna das alte Haus. Heute liest Anna das alte Haus. Heute liest Anna das alte Haus.")
 
 	catalogue := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,9 +85,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		ContextMode:     enrichment.SentenceContext,
 	}, nil, nil, nil, translator, store)
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "complete-loop-model", BaseURL: "http://example.invalid/v1"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	preparedConfig := prepareddeck.PreparedDeckConfig{
 		TranslationMode:        prepareddeck.DefaultTranslationMode,
 		StandardMaxConcurrency: 1,
@@ -107,9 +103,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
 	selectionService := selection.NewService(store)
 	analysisClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), &analyzertest.Fake{AnalyzeFunc: completeLoopAnalysis}, selectionService, 1, workers)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	catalogueSyncService := cataloguesync.NewService(store, analysisClient, opdsService, capabilities)
 	preparedExport := cardexport.NewService(store)
 	metrics := prepareddeck.NewMetricsCollector()
@@ -120,15 +114,9 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: preparedExport, Metrics: metrics})
 	prepareddeck.AddBatchCleanupWorker(workers, &prepareddeck.BatchCleanupWorker{Store: store, Metrics: metrics})
 	prepareddeck.AddRecoveryWorkerWithMetrics(workers, store, analysisClient, batchConfig.PollInterval, metrics)
-	if err = prepareddeck.EnsureRecoveryJob(ctx, store, analysisClient); err != nil {
-		t.Fatal(err)
-	}
-	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err = analysisClient.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, prepareddeck.EnsureRecoveryJob(ctx, store, analysisClient))
+	require.NoError(t, catalogueSyncService.RegisterAll(ctx))
+	require.NoError(t, analysisClient.Start(ctx))
 	defer analysisClient.Stop(context.Background())
 
 	authService := auth.New(store, time.Hour)
@@ -154,34 +142,26 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		"username":   {"loop-learner"},
 		"password":   {"loop-password"},
 	}, []*http.Cookie{cookieNamed(t, loginPage.Result().Cookies(), csrfCookie)})
-	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/" {
-		t.Fatalf("onboarding=%d location=%q body=%s", created.Code, created.Header().Get("Location"), created.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, created.Code)
+	assert.Equal(t, "/", created.Header().Get("Location"))
 	cookies := []*http.Cookie{cookieNamed(t, created.Result().Cookies(), csrfCookie), cookieNamed(t, created.Result().Cookies(), webauth.CookieName)}
 	csrf = cookies[0].Value
 	owner, _, err := store.GetUserByUsername(ctx, "loop-learner")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	connectionResponse := perform(t, h, http.MethodPost, "/connections", url.Values{
 		"csrf_token": {csrf},
 		"name":       {"Loop catalogue"},
 		"url":        {catalogue.URL + "/opds"},
 	}, cookies)
-	if connectionResponse.Code != http.StatusSeeOther {
-		t.Fatalf("create connection=%d location=%q body=%s", connectionResponse.Code, connectionResponse.Header().Get("Location"), connectionResponse.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, connectionResponse.Code)
 	connections, err := store.ListOpdsConnections(ctx, owner.ID)
-	if err != nil || len(connections) != 1 {
-		t.Fatalf("connections=%+v err=%v", connections, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 1, len(connections))
 	connection := connections[0]
 
 	syncResponse := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/sync", url.Values{"csrf_token": {csrf}}, cookies)
-	if syncResponse.Code != http.StatusSeeOther {
-		t.Fatalf("sync=%d location=%q body=%s", syncResponse.Code, syncResponse.Header().Get("Location"), syncResponse.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, syncResponse.Code)
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
 		books, listErr := store.ListMyBooks(ctx, owner.ID)
 		if listErr != nil {
@@ -197,26 +177,21 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		return true, ""
 	})
 	books, err := store.ListMyBooks(ctx, owner.ID)
-	if err != nil || len(books) != 1 || books[0].Title != "Complete Loop Book" {
-		t.Fatalf("synced My Books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 1, len(books))
+	assert.Equal(t, "Complete Loop Book", books[0].Title)
 	bookID := books[0].ID
 	metadataOnly, err := store.GetBookDetail(ctx, owner.ID, bookID)
-	if err != nil || metadataOnly.Acquired != nil {
-		t.Fatalf("synced catalogue book was acquired before Journey action: detail=%+v err=%v", metadataOnly, err)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, metadataOnly.Acquired, "synced catalogue book was acquired before Journey action")
 
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	added := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/add", url.Values{
 		"csrf_token":        {csrf},
 		"expected_revision": {fmt.Sprintf("%d", journey.Revision)},
 	}, cookies)
-	if added.Code != http.StatusSeeOther {
-		t.Fatalf("add to Journey=%d location=%q body=%s", added.Code, added.Header().Get("Location"), added.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, added.Code)
 
 	var detail domain.MyBook
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
@@ -230,25 +205,21 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		}
 		return true, ""
 	})
-	if detail.Acquired == nil || detail.Acquired.AnalysisRunID == "" || detail.Acquired.CorpusID == "" {
-		t.Fatalf("completed current analysis=%+v", detail.Acquired)
-	}
+	require.NotNil(t, detail.Acquired, "completed current analysis=%+v", detail.Acquired)
+	require.NotEmpty(t, detail.Acquired.AnalysisRunID, "completed current analysis=%+v", detail.Acquired)
+	require.NotEmpty(t, detail.Acquired.CorpusID, "completed current analysis=%+v", detail.Acquired)
 
 	journeyPage := perform(t, h, http.MethodGet, "/journey/"+bookID, nil, cookies)
-	if journeyPage.Code != http.StatusOK || !strings.Contains(journeyPage.Body.String(), "Prepare deck") {
-		t.Fatalf("completed Journey entry=%d body=%s", journeyPage.Code, journeyPage.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, journeyPage.Code)
+	assert.True(t, strings.Contains(journeyPage.Body.String(), "Prepare deck"), "completed Journey entry body=%s", journeyPage.Body.String())
 	prepared := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/deck/preparations", url.Values{
 		"csrf_token":                   {csrf},
 		"external_translation_consent": {"on"},
 	}, cookies)
-	if prepared.Code != http.StatusSeeOther {
-		t.Fatalf("prepare deck=%d location=%q body=%s", prepared.Code, prepared.Header().Get("Location"), prepared.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, prepared.Code)
 	preparationID := strings.TrimSuffix(strings.TrimPrefix(prepared.Header().Get("Location"), "/deck-preparations/"), "/status")
-	if preparationID == "" || preparationID == prepared.Header().Get("Location") {
-		t.Fatalf("unexpected preparation location=%q", prepared.Header().Get("Location"))
-	}
+	require.NotEmpty(t, preparationID, "unexpected preparation location=%q", prepared.Header().Get("Location"))
+	require.NotEqual(t, prepared.Header().Get("Location"), preparationID, "unexpected preparation location=%q", prepared.Header().Get("Location"))
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
 		var getErr error
@@ -263,7 +234,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	})
 	if preparation.TotalCards != 1 || preparation.CurrentRunID == "" {
 		candidates, candidateErr := store.ListSelectionCandidatesForCorpus(ctx, owner.ID, detail.Acquired.CorpusID)
-		t.Fatalf("ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q candidates=%+v candidate_err=%v", preparation.State, preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error, candidates, candidateErr)
+		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q candidates=%+v candidate_err=%v", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error, candidates, candidateErr)
 	}
 
 	// Repeating the same request must reuse the current Book deck rather than
@@ -272,47 +243,45 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		"csrf_token":                   {csrf},
 		"external_translation_consent": {"on"},
 	}, cookies)
-	if repeated.Code != http.StatusSeeOther || repeated.Header().Get("Location") != prepared.Header().Get("Location") {
-		t.Fatalf("repeated prepare=%d location=%q want %q", repeated.Code, repeated.Header().Get("Location"), prepared.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, repeated.Code)
+	assert.Equal(t, prepared.Header().Get("Location"), repeated.Header().Get("Location"))
 	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, preparation.SourceMaterialID)
-	if err != nil || len(preparations) != 1 {
-		t.Fatalf("current deck preparations=%+v err=%v", preparations, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(preparations))
 
 	started := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/vocabulary-study", url.Values{"csrf_token": {csrf}}, cookies)
-	if started.Code != http.StatusSeeOther {
-		t.Fatalf("start vocabulary study=%d location=%q body=%s", started.Code, started.Header().Get("Location"), started.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, started.Code)
 	preparation, err = store.GetDeckPreparation(ctx, owner.ID, preparationID)
-	if err != nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("studying preparation=%+v err=%v", preparation, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
-	if err != nil || reservedCoverage.KnownTokenCount != 0 || reservedCoverage.ReservedTokenCount != 3 {
-		t.Fatalf("pre-confirmation coverage=%+v err=%v", reservedCoverage, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), reservedCoverage.KnownTokenCount)
+	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount)
 	confirmed := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
-	if confirmed.Code != http.StatusSeeOther || !strings.Contains(confirmed.Header().Get("Location"), "graduated+to+known") {
-		t.Fatalf("confirm vocabulary study=%d location=%q body=%s", confirmed.Code, confirmed.Header().Get("Location"), confirmed.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, confirmed.Code)
+	assert.True(t, strings.Contains(confirmed.Header().Get("Location"), "graduated+to+known"), "confirm vocabulary study location=%q body=%s", confirmed.Header().Get("Location"), confirmed.Body.String())
 
 	preparation, err = store.GetDeckPreparation(ctx, owner.ID, preparationID)
-	if err != nil || preparation.GraduatedAt == nil || preparation.ReviewedAt == nil {
-		t.Fatalf("graduated preparation=%+v err=%v", preparation, err)
-	}
+	require.NoError(t, err)
+	assert.NotNil(t, preparation.GraduatedAt)
+	assert.NotNil(t, preparation.ReviewedAt)
 	snapshot, err := store.ListDeckPreparationVocabulary(ctx, owner.ID, preparationID)
-	if err != nil || len(snapshot) != 1 || snapshot[0].Language != "de" || snapshot[0].CanonicalLemma != "haus" || snapshot[0].UPOS != "NOUN" || snapshot[0].GraduatedAt == nil {
-		t.Fatalf("graduated snapshot=%+v err=%v", snapshot, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 1, len(snapshot))
+	assert.Equal(t, "de", snapshot[0].Language)
+	assert.Equal(t, "haus", snapshot[0].CanonicalLemma)
+	assert.Equal(t, "NOUN", snapshot[0].UPOS)
+	assert.NotNil(t, snapshot[0].GraduatedAt)
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	if err != nil || len(known) != 1 || known[0].CanonicalLemma != "haus" || known[0].UPOS != "NOUN" {
-		t.Fatalf("known vocabulary=%+v err=%v", known, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 1, len(known))
+	assert.Equal(t, "haus", known[0].CanonicalLemma)
+	assert.Equal(t, "NOUN", known[0].UPOS)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
-	if err != nil || coverage.KnownTokenCount != 3 || coverage.ReservedTokenCount != 0 {
-		t.Fatalf("post-graduation coverage=%+v err=%v", coverage, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), coverage.KnownTokenCount)
+	assert.Equal(t, int64(0), coverage.ReservedTokenCount)
 }
 
 func completeLoopAnalysis(ctx context.Context, request analyzer.AnalyzeRequest) (analyzer.Result, error) {
@@ -356,7 +325,7 @@ func waitForCompleteLoop(t *testing.T, ctx context.Context, condition func() (bo
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatalf("complete learner loop timed out: %s: %v", last, ctx.Err())
+			require.Failf(t, "complete learner loop timed out", "complete learner loop timed out: %s: %v", last, ctx.Err())
 		case <-ticker.C:
 		}
 	}
