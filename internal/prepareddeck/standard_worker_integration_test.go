@@ -17,6 +17,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type barrierTranslationProvider struct {
@@ -111,22 +113,14 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	t.Helper()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	owner, err := store.CreateUser(ctx, "standard-worker-"+uuid.NewString(), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Integration", MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	prep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename("Integration"), DeckName: "Integration", ContentHash: source.ContentHash})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	keys := make([]enrichment.CacheKey, itemCount)
 	items := make([]cardexport.ManifestItem, itemCount)
 	for i := range items {
@@ -138,9 +132,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	provider := &barrierTranslationProvider{}
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 2}}, Workers: workers})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	AddStandardTranslationWorkerWithDependencies(workers, store, client, provider, PreparedDeckConfig{StandardRetryBaseDelay: time.Millisecond, StandardRetryMaxDelay: time.Millisecond}, time.Second)
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	config := persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ExecutionMode: string(domain.PreparedDeckExecutionStandard), TargetLanguage: "en", ContextMode: string(enrichment.SentenceContext), Provider: "integration-provider", ProviderVersion: "1", MaxProviderAttempts: maxAttempts}
@@ -149,9 +141,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Manifest: manifest, Config: config}}
 	coordinator := NewDurableCoordinator(store, client, planner)
 	result, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID, ExternalTranslationConsent: true})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return standardIntegrationRun{store: store, owner: owner.ID, prep: prep, run: result.Run, keys: keys}, client, provider
 }
 
@@ -159,9 +149,7 @@ func waitStandardOutcomes(t *testing.T, ctx context.Context, run standardIntegra
 	t.Helper()
 	for {
 		outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		terminal := 0
 		for _, outcome := range outcomes {
 			if outcome.State == domain.PreparedDeckOutcomeCompleted || outcome.State == domain.PreparedDeckOutcomeFailed {
@@ -173,7 +161,7 @@ func waitStandardOutcomes(t *testing.T, ctx context.Context, run standardIntegra
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatal(ctx.Err())
+			require.Fail(t, ctx.Err().Error())
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
@@ -185,23 +173,19 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 	run, client, provider := newStandardIntegrationRun(t, ctx, 6, 1)
 	provider.barrier = 2
 	provider.released = make(chan struct{})
-	if err := client.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, client.Start(ctx))
 	defer client.Stop(context.Background())
 	outcomes := waitStandardOutcomes(t, ctx, run, len(run.keys))
 	calls, max := provider.stats()
-	if calls != len(run.keys) || max > 2 {
-		t.Fatalf("provider calls=%d max_in_flight=%d, want calls=%d and max <= 2", calls, max, len(run.keys))
-	}
+	assert.Equal(t, len(run.keys), calls, "provider calls=%d max_in_flight=%d", calls, max)
+	assert.LessOrEqual(t, max, 2, "provider max_in_flight")
 	for i, outcome := range outcomes {
-		if outcome.State != domain.PreparedDeckOutcomeCompleted || outcome.ProviderCallCount != 1 {
-			t.Fatalf("outcome %d=%+v", i, outcome)
-		}
+		assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcome.State)
+		assert.Equal(t, 1, outcome.ProviderCallCount)
 		entry, found, err := run.store.Get(ctx, run.keys[i])
-		if err != nil || !found || entry.Translation == "" {
-			t.Fatalf("cache %d found=%v entry=%+v err=%v", i, found, entry, err)
-		}
+		require.NoError(t, err)
+		assert.True(t, found, "cache %d", i)
+		assert.NotEmpty(t, entry.Translation, "cache %d", i)
 	}
 }
 
@@ -224,71 +208,48 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	}
 	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, Config: PreparedDeckConfig{StandardRetryBaseDelay: time.Millisecond, StandardRetryMaxDelay: time.Millisecond}, AttemptTimeout: time.Second, Jitter: func(delay time.Duration) time.Duration { return delay }}
 	for i := range run.keys {
-		if err := worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: i, Generation: 0}); err != nil {
-			t.Fatalf("initial ordinal %d: %v", i, err)
-		}
+		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: i, Generation: 0}), "initial ordinal %d", i)
 	}
-	if err := worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 1}); err != nil {
-		t.Fatalf("retry ordinal: %v", err)
-	}
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 1}), "retry ordinal")
 	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if outcomes[0].State != domain.PreparedDeckOutcomeCompleted || outcomes[0].DispatchGeneration != 1 || outcomes[0].ProviderAttemptCount != 2 {
-		t.Fatalf("retry outcome=%+v", outcomes[0])
-	}
-	if outcomes[1].State != domain.PreparedDeckOutcomeFailed || outcomes[1].ErrorCode != "invalid_response" {
-		t.Fatalf("malformed outcome=%+v", outcomes[1])
-	}
-	if outcomes[2].State != domain.PreparedDeckOutcomeFailed || outcomes[2].ErrorCode != "http_401" || outcomes[2].ProviderAttemptCount != 1 {
-		t.Fatalf("terminal outcome=%+v", outcomes[2])
-	}
-	if _, found, err := run.store.Get(ctx, run.keys[1]); err != nil || found {
-		t.Fatalf("malformed response cache found=%v err=%v", found, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	assert.Equal(t, 1, outcomes[0].DispatchGeneration)
+	assert.Equal(t, 2, outcomes[0].ProviderAttemptCount)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[1].State)
+	assert.Equal(t, "invalid_response", outcomes[1].ErrorCode)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[2].State)
+	assert.Equal(t, "http_401", outcomes[2].ErrorCode)
+	assert.Equal(t, 1, outcomes[2].ProviderAttemptCount)
+	_, found, err := run.store.Get(ctx, run.keys[1])
+	require.NoError(t, err)
+	assert.False(t, found, "malformed response cache")
 	calls, _ := provider.stats()
-	if calls != 4 {
-		t.Fatalf("provider calls=%d, want one retry plus two terminal calls", calls)
-	}
+	assert.Equal(t, 4, calls, "provider calls, want one retry plus two terminal calls")
 }
 
 func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
-	if err := client.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, client.Start(ctx))
 	waitStandardOutcomes(t, ctx, run, 1)
 	client.Stop(context.Background())
 	callsBefore, _ := provider.stats()
 
 	workers := river.NewWorkers()
 	restarted, err := river.NewClient(riverpgxv5.New(run.store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	AddStandardTranslationWorkerWithDependencies(workers, run.store, restarted, provider, PreparedDeckConfig{}, time.Second)
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	tx, err := run.store.Pool().Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	_, err = restarted.InsertTx(ctx, tx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}, &river.InsertOpts{Queue: TranslationQueue})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err = restarted.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit(ctx))
+	require.NoError(t, restarted.Start(ctx))
 	defer restarted.Stop(context.Background())
 	time.Sleep(300 * time.Millisecond)
 	callsAfter, _ := provider.stats()
-	if callsAfter != callsBefore {
-		t.Fatalf("completed outcome caused provider call after restart: before=%d after=%d", callsBefore, callsAfter)
-	}
+	assert.Equal(t, callsBefore, callsAfter, "completed outcome caused provider call after restart: before=%d after=%d", callsBefore, callsAfter)
 }

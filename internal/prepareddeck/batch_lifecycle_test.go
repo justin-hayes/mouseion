@@ -1,9 +1,7 @@
 package prepareddeck
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,6 +11,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/riverqueue/river"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBatchProviderStatusesMapToPollingOrTerminalReconciliation(t *testing.T) {
@@ -31,25 +31,20 @@ func TestBatchProviderStatusesMapToPollingOrTerminalReconciliation(t *testing.T)
 	} {
 		t.Run(string(test.status), func(t *testing.T) {
 			terminal := terminalBatchStatus(test.status)
-			if terminal != test.terminal {
-				t.Fatalf("terminalBatchStatus(%q)=%t want %t", test.status, terminal, test.terminal)
-			}
+			assert.Equal(t, test.terminal, terminal, "terminalBatchStatus(%q)", test.status)
 			state := domain.PreparedDeckBatchPolling
 			if terminal {
 				state = domain.PreparedDeckBatchCompleted
 			}
 			update := batchReconciliationUpdate(enrichment.Batch{Status: test.status}, state, terminalChunkErrorClass(test.status), terminalChunkErrorCode(test.status), 0)
-			if update.ProviderStatus != string(test.status) || update.State != state {
-				t.Fatalf("update=%+v", update)
-			}
+			assert.Equal(t, string(test.status), update.ProviderStatus)
+			assert.Equal(t, state, update.State)
 		})
 	}
 }
 
 func TestUnknownBatchStatusIsNotMappedToPolling(t *testing.T) {
-	if knownBatchStatus(enrichment.BatchStatus("future_status")) {
-		t.Fatal("unknown provider status accepted")
-	}
+	assert.False(t, knownBatchStatus(enrichment.BatchStatus("future_status")), "unknown provider status accepted")
 }
 
 func TestPolledBatchAcceptsUnavailableCountsUntilResultReconciliation(t *testing.T) {
@@ -74,30 +69,22 @@ func TestPolledBatchAcceptsUnavailableCountsUntilResultReconciliation(t *testing
 		t.Run(string(status), func(t *testing.T) {
 			batch := base
 			batch.Status = status
-			if err := validatePolledBatch(chunk, batch); err != nil {
-				t.Fatalf("normal %s Batch with unavailable counts was rejected: %v", status, err)
-			}
+			assert.NoError(t, validatePolledBatch(chunk, batch), "normal %s Batch with unavailable counts was rejected", status)
 		})
 	}
 	for _, status := range []enrichment.BatchStatus{enrichment.BatchStatusCompleted, enrichment.BatchStatusExpired} {
 		t.Run(string(status), func(t *testing.T) {
 			batch := base
 			batch.Status = status
-			if err := validatePolledBatch(chunk, batch); err == nil {
-				t.Fatalf("terminal result-bearing %s Batch with missing counts was accepted", status)
-			}
+			assert.Error(t, validatePolledBatch(chunk, batch), "terminal result-bearing %s Batch with missing counts was accepted", status)
 		})
 	}
 	completed := base
 	completed.Status = enrichment.BatchStatusCompleted
 	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount, Completed: chunk.RequestCount}
-	if err := validatePolledBatch(chunk, completed); err != nil {
-		t.Fatalf("completed Batch with exact counts was rejected: %v", err)
-	}
+	assert.NoError(t, validatePolledBatch(chunk, completed), "completed Batch with exact counts was rejected")
 	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount + 1, Completed: chunk.RequestCount + 1}
-	if err := validatePolledBatch(chunk, completed); err == nil {
-		t.Fatal("contradictory completed Batch count was accepted")
-	}
+	assert.Error(t, validatePolledBatch(chunk, completed), "contradictory completed Batch count was accepted")
 }
 
 func TestBatchFailureClassesChooseBoundedRetryAndTerminalOutcomes(t *testing.T) {
@@ -117,12 +104,8 @@ func TestBatchFailureClassesChooseBoundedRetryAndTerminalOutcomes(t *testing.T) 
 		{enrichment.ProviderErrorRequestFailed, false, "provider"},
 	} {
 		t.Run(string(test.class), func(t *testing.T) {
-			if got := retryableBatchFailure(test.class); got != test.retryable {
-				t.Fatalf("retryable=%t want %t", got, test.retryable)
-			}
-			if got := outcomeErrorClass(test.class); got != test.itemClass {
-				t.Fatalf("outcome class=%q want %q", got, test.itemClass)
-			}
+			assert.Equal(t, test.retryable, retryableBatchFailure(test.class), "retryable=%t want %t", retryableBatchFailure(test.class), test.retryable)
+			assert.Equal(t, test.itemClass, outcomeErrorClass(test.class), "outcome class=%q want %q", outcomeErrorClass(test.class), test.itemClass)
 		})
 	}
 }
@@ -132,54 +115,39 @@ func TestRetryableFailedBatchUsesBoundedItemReconciliation(t *testing.T) {
 		Status: enrichment.BatchStatusFailed,
 		Errors: []enrichment.BatchIssue{{Class: enrichment.ProviderErrorRateLimit, Code: "token_limit_exceeded"}},
 	}
-	if terminalBatchFailsRun(batch) {
-		t.Fatal("retryable provider Batch validation failure would fail the whole run")
-	}
-	if got := terminalBatchErrorCode(batch); got != "token_limit_exceeded" {
-		t.Fatalf("durable diagnostic=%q", got)
-	}
+	assert.False(t, terminalBatchFailsRun(batch), "retryable provider Batch validation failure would fail the whole run")
+	assert.Equal(t, "token_limit_exceeded", terminalBatchErrorCode(batch), "durable diagnostic")
 	batch.Errors[0] = enrichment.BatchIssue{Class: enrichment.ProviderErrorInvalidRequest, Code: "invalid_request"}
-	if !terminalBatchFailsRun(batch) {
-		t.Fatal("permanent Batch validation failure was made retryable")
-	}
+	assert.True(t, terminalBatchFailsRun(batch), "permanent Batch validation failure was made retryable")
 }
 
 func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	runID := "123e4567-e89b-12d3-a456-426614174000"
 	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}}
 	customID, err := enrichment.BatchCustomID(runID, item.Ordinal, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":%q}}]}},"error":null}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":"house","gloss":"building","sentence_translation":"","sentence_translation_target":""}`, customID))
 	outcomes, missing, err := codec.DecodeBatchResultsPartial(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(output), nil)
-	if err != nil || len(missing) != 0 || outcomes[item.Ordinal].StatusCode != 200 || outcomes[item.Ordinal].ErrorClass != enrichment.ProviderErrorInvalidResponse {
-		t.Fatalf("outcomes=%+v missing=%v err=%v", outcomes, missing, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, missing, 0)
+	assert.Equal(t, 200, outcomes[item.Ordinal].StatusCode)
+	assert.Equal(t, enrichment.ProviderErrorInvalidResponse, outcomes[item.Ordinal].ErrorClass)
 	completed, failed := batchProviderResultCounts(outcomes)
-	if completed != 1 || failed != 0 {
-		t.Fatalf("provider counts=%d completed, %d failed; want 1 completed, 0 failed", completed, failed)
-	}
+	assert.Equal(t, 1, completed)
+	assert.Zero(t, failed)
 }
 
 func TestBatchPollingUsesConfiguredBoundedJitter(t *testing.T) {
 	worker := &BatchPollWorker{PollInterval: 40 * time.Second, Jitter: func(interval time.Duration) time.Duration { return interval + interval/10 }}
-	if got := worker.pollDelay(); got != 44*time.Second {
-		t.Fatalf("poll delay=%s", got)
-	}
+	assert.Equal(t, 44*time.Second, worker.pollDelay(), "poll delay")
 	worker.Jitter = func(time.Duration) time.Duration { return time.Hour }
-	if got := worker.pollDelay(); got != 40*time.Second {
-		t.Fatalf("out-of-bounds jitter delay=%s", got)
-	}
+	assert.Equal(t, 40*time.Second, worker.pollDelay(), "out-of-bounds jitter delay")
 	err := river.JobSnooze(worker.pollDelay())
 	var snooze *river.JobSnoozeError
-	if !errors.As(err, &snooze) || snooze.Duration != 40*time.Second {
-		t.Fatalf("snooze=%v", err)
-	}
+	require.ErrorAs(t, err, &snooze)
+	assert.Equal(t, 40*time.Second, snooze.Duration)
 }
 
 func TestBatchResultFailureClassIsPrivacySafeAndConstrained(t *testing.T) {
@@ -190,9 +158,7 @@ func TestBatchResultFailureClassIsPrivacySafeAndConstrained(t *testing.T) {
 		enrichment.BatchResultContradictory: "malformed_result",
 		enrichment.BatchResultMissing:       "missing_result",
 	} {
-		if got := batchResultFailureClass(kind); got != want {
-			t.Fatalf("kind=%q got=%q want=%q", kind, got, want)
-		}
+		assert.Equal(t, want, batchResultFailureClass(kind), "kind=%q got=%q want=%q", kind, batchResultFailureClass(kind), want)
 	}
 }
 
@@ -219,13 +185,9 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		}}
 	}
 	bound, err := manifest.BindCacheKeys(keys)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	items := []enrichment.BatchTranslationItem{{Ordinal: 0, Request: enrichment.TranslationRequest{Language: candidates[0].Language, CanonicalLemma: candidates[0].CanonicalLemma, UPOS: candidates[0].UPOS, TargetWord: candidates[0].TargetWord, ExampleSentence: candidates[0].ExampleSentence}}, {Ordinal: 1, Request: enrichment.TranslationRequest{Language: candidates[1].Language, CanonicalLemma: candidates[1].CanonicalLemma, UPOS: candidates[1].UPOS, TargetWord: candidates[1].TargetWord, ExampleSentence: candidates[1].ExampleSentence}}}
 	var output strings.Builder
 	for _, ordinal := range []int{1, 0} {
@@ -233,9 +195,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].Gloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	batchExact := make([]cardexport.ExactEnrichment, len(items))
 	for i, item := range items {
 		response := decoded[item.Ordinal].Response
@@ -248,14 +208,10 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	}
 	renderer := &cardexport.Service{}
 	serialArtifact, err := renderer.RenderManifest(context.Background(), bound, serial)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	batchArtifact, err := renderer.RenderManifest(context.Background(), bound, batchExact)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(serialArtifact.APKG, batchArtifact.APKG) || serialArtifact.TSV != batchArtifact.TSV || serialArtifact.Completeness != batchArtifact.Completeness {
-		t.Fatalf("serial and Batch artifacts differ\nserial=%+v\nbatch=%+v", serialArtifact, batchArtifact)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, serialArtifact.APKG, batchArtifact.APKG)
+	assert.Equal(t, serialArtifact.TSV, batchArtifact.TSV)
+	assert.Equal(t, serialArtifact.Completeness, batchArtifact.Completeness)
 }

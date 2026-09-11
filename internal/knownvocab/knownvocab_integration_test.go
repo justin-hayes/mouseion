@@ -4,58 +4,47 @@ package knownvocab
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	alice, err := store.CreateUser(ctx, "known-import-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "known-import-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	service := NewService(store)
 	first, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\nHaus\n"))
-	if err != nil || first.Imported != 2 {
-		t.Fatalf("first import = %+v, %v", first, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, first.Imported)
 	second, err := service.Import(ctx, alice.ID, "de", strings.NewReader("Daß\nHaus\n"))
-	if err != nil || second.AlreadyKnown != 2 || second.Imported != 0 {
-		t.Fatalf("second import = %+v, %v", second, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, second.AlreadyKnown)
+	assert.Zero(t, second.Imported)
 	known, err := store.IsKnownVocabularyIdentity(ctx, alice.ID, "de", "haus", "NOUN")
-	if err != nil || !known {
-		t.Fatalf("alice wildcard known = %t, %v", known, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, known, "alice wildcard known = %t, %v", known, err)
 	for _, check := range []struct{ owner, language string }{{bob.ID, "de"}, {alice.ID, "fr"}} {
 		known, checkErr := store.IsKnownVocabularyIdentity(ctx, check.owner, check.language, "haus", "NOUN")
-		if checkErr != nil || known {
-			t.Fatalf("unexpected known for owner=%s language=%s: %t, %v", check.owner, check.language, known, checkErr)
-		}
+		require.NoError(t, checkErr)
+		assert.False(t, known, "unexpected known for owner=%s language=%s", check.owner, check.language)
 	}
 	state, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "dass", "")
-	if err != nil || state.State != "known" {
-		t.Fatalf("exact state = %+v, %v", state, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "known", state.State, "exact state")
 	wildcardState, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "haus", "")
-	if err != nil || wildcardState.State != "known" {
-		t.Fatalf("wildcard state = %+v, %v", wildcardState, err)
-	}
-	if _, err = store.GetVocabularyStateByIdentity(ctx, bob.ID, "de", "dass", ""); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("bob state error = %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "known", wildcardState.State, "wildcard state")
+	_, err = store.GetVocabularyStateByIdentity(ctx, bob.ID, "de", "dass", "")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "bob state")
 }
