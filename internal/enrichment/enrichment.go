@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
@@ -348,42 +349,33 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		req.TargetWord = target
 	}
 	req.ExampleSentence = sentence
-	var response TranslationResponse
-	var err error
 	metrics.ProviderCalls++
-	for attempt := 0; attempt < s.config.MaxAttempts; attempt++ {
+	response, err := backoff.RetryWithData(func() (TranslationResponse, error) {
 		metrics.Attempts++
-		if attempt > 0 {
+		if metrics.Attempts > 1 {
 			metrics.Retries++
 		}
 		started := time.Now()
-		response, err = s.translation.Translate(ctx, req)
+		response, err := s.translation.Translate(ctx, req)
 		metrics.ProviderLatency += time.Since(started)
 		if err == nil {
-			break
+			return response, nil
 		}
 		if ctx.Err() != nil {
-			class := ClassifyExternalError(ctx.Err())
-			metrics.addError(class)
-			return r, metrics, ctx.Err()
+			return response, ctx.Err()
 		}
 		var retryable interface{ Temporary() bool }
 		if errors.As(err, &retryable) && !retryable.Temporary() {
-			break
+			return response, backoff.Permanent(err)
 		}
-		if attempt+1 < s.config.MaxAttempts {
-			delay := s.config.RetryBaseDelay << attempt
-			timer := time.NewTimer(delay)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				class := ClassifyExternalError(ctx.Err())
-				metrics.addError(class)
-				return r, metrics, ctx.Err()
-			case <-timer.C:
-			}
-		}
-	}
+		return response, err
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(s.config.RetryBaseDelay),
+		backoff.WithMultiplier(2),
+		backoff.WithRandomizationFactor(0),
+		backoff.WithMaxInterval(time.Duration(1<<63-1)),
+		backoff.WithMaxElapsedTime(0),
+	), uint64(s.config.MaxAttempts-1)), ctx))
 	if err != nil {
 		metrics.addError(ClassifyExternalError(err))
 		return r, metrics, err
