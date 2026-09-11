@@ -15,6 +15,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *testing.T) {
@@ -23,9 +25,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	defer cancel()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	authService := auth.New(store, time.Hour)
@@ -34,9 +34,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	newBook := func(owner domain.User, title string) domain.Book {
 		t.Helper()
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-		if createErr != nil {
-			t.Fatal(createErr)
-		}
+		require.NoError(t, createErr)
 		return book
 	}
 	readingOnly := newBook(alice, "Reading-only integration book")
@@ -47,75 +45,60 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 
 	initialJourney, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	chosen := perform(t, h, http.MethodPost, "/goal/books/"+readingOnly.ID, url.Values{
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {""},
 	}, aliceCookies)
-	if chosen.Code != http.StatusSeeOther || !strings.Contains(chosen.Header().Get("Location"), "active+Reading+Journey+member") {
-		t.Fatalf("reading-only Goal response=%d location=%q body=%s", chosen.Code, chosen.Header().Get("Location"), chosen.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, chosen.Code)
+	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "active+Reading+Journey+member"), "location=%q body=%s", chosen.Header().Get("Location"), chosen.Body.String())
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
-	if err != nil || goal.BookID != "" {
-		t.Fatalf("Goal=%+v err=%v", goal, err)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, goal.BookID)
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil || len(journey.Entries) != len(initialJourney.Entries) || journey.Revision != initialJourney.Revision {
-		t.Fatalf("choosing Goal changed Journey: before=%+v after=%+v err=%v", initialJourney, journey, err)
-	}
-	if jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID); listErr != nil || len(jobs) != 0 {
-		t.Fatalf("choosing Goal created analysis jobs=%d err=%v", len(jobs), listErr)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "de", readingOnly.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, journey.Entries, len(initialJourney.Entries))
+	assert.Equal(t, initialJourney.Revision, journey.Revision)
+	jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID)
+	require.NoError(t, listErr)
+	assert.Empty(t, jobs)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "de", readingOnly.ID)
+	require.NoError(t, err)
 
 	stale := perform(t, h, http.MethodPost, "/goal/books/"+replacement.ID, url.Values{
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {"stale-goal"},
 	}, aliceCookies)
-	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed") {
-		t.Fatalf("stale Goal response=%d location=%q", stale.Code, stale.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, stale.Code)
+	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed"), "location=%q", stale.Header().Get("Location"))
 	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
-	if goal.BookID != readingOnly.ID {
-		t.Fatalf("stale request changed Goal=%+v", goal)
-	}
+	assert.Equal(t, readingOnly.ID, goal.BookID)
 
 	csrfFailure := perform(t, h, http.MethodPost, "/goal/books/"+replacement.ID, url.Values{"expected_goal_book_id": {readingOnly.ID}}, aliceCookies)
-	if csrfFailure.Code != http.StatusForbidden {
-		t.Fatalf("missing CSRF status=%d body=%s", csrfFailure.Code, csrfFailure.Body.String())
-	}
+	assert.Equal(t, http.StatusForbidden, csrfFailure.Code)
 	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
-	if goal.BookID != readingOnly.ID {
-		t.Fatalf("CSRF failure changed Goal=%+v", goal)
-	}
+	assert.Equal(t, readingOnly.ID, goal.BookID)
 
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+readingOnly.ID, url.Values{
 		"csrf_token":            {bobCSRF},
 		"expected_goal_book_id": {""},
 	}, bobCookies)
-	if foreign.Code != http.StatusSeeOther || !strings.Contains(foreign.Header().Get("Location"), "not+available+in+My+Books") {
-		t.Fatalf("cross-owner Goal response=%d location=%q", foreign.Code, foreign.Header().Get("Location"))
-	}
-	if bobGoal, getErr := store.GetPrimaryGoal(ctx, bob.ID, "de"); getErr != nil || bobGoal.BookID != "" {
-		t.Fatalf("cross-owner request changed Bob's Goal=%+v err=%v", bobGoal, getErr)
-	}
+	assert.Equal(t, http.StatusSeeOther, foreign.Code)
+	assert.True(t, strings.Contains(foreign.Header().Get("Location"), "not+available+in+My+Books"), "location=%q", foreign.Header().Get("Location"))
+	bobGoal, getErr := store.GetPrimaryGoal(ctx, bob.ID, "de")
+	require.NoError(t, getErr)
+	assert.Empty(t, bobGoal.BookID)
 
 	cleared := perform(t, h, http.MethodPost, "/goal/clear", url.Values{
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {readingOnly.ID},
 	}, aliceCookies)
-	if cleared.Code != http.StatusSeeOther || !strings.Contains(cleared.Header().Get("Location"), "Primary+Goal+cleared") {
-		t.Fatalf("clear response=%d location=%q", cleared.Code, cleared.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, cleared.Code)
+	assert.True(t, strings.Contains(cleared.Header().Get("Location"), "Primary+Goal+cleared"), "location=%q", cleared.Header().Get("Location"))
 	clearedAgain := perform(t, h, http.MethodPost, "/goal/clear", url.Values{
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {""},
 	}, aliceCookies)
-	if clearedAgain.Code != http.StatusSeeOther || !strings.Contains(clearedAgain.Header().Get("Location"), "No+Primary+Goal+was+set") {
-		t.Fatalf("idempotent clear response=%d location=%q", clearedAgain.Code, clearedAgain.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
+	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+Primary+Goal+was+set"), "location=%q", clearedAgain.Header().Get("Location"))
 }

@@ -15,6 +15,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type deckJourneyActionStore struct {
@@ -103,18 +105,12 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 		t.Run(test.name, func(t *testing.T) {
 			h := &Handler{services: Services{Store: &test.store}}
 			action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "book-1", 4)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if action.State != test.wantState || action.Revision != test.wantRev || test.store.adds != test.wantAdds {
-				t.Fatalf("action=%+v adds=%d, want state=%s revision=%d adds=%d", action, test.store.adds, test.wantState, test.wantRev, test.wantAdds)
-			}
-			if !strings.Contains(action.Message+action.Error, test.wantText) {
-				t.Fatalf("action outcome=%+v missing %q", action, test.wantText)
-			}
-			if test.wantErr != (action.Error != "") {
-				t.Fatalf("action error=%q, want error=%t", action.Error, test.wantErr)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, test.wantState, action.State)
+			assert.Equal(t, test.wantRev, action.Revision)
+			assert.Equal(t, test.wantAdds, test.store.adds)
+			assert.True(t, strings.Contains(action.Message+action.Error, test.wantText), "action outcome=%+v missing %q", action, test.wantText)
+			assert.Equal(t, test.wantErr, action.Error != "", action.Error)
 		})
 	}
 }
@@ -131,13 +127,9 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 	r.SetPathValue("id", "book-1")
 	recorder := httptest.NewRecorder()
 	h.addDeckBookToJourney(recorder, r)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("route status=%d body=%s", recorder.Code, recorder.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, recorder.Code)
 	for _, want := range []string{"role=\"alert\"", "This Journey changed since this page was loaded", `name="expected_revision" value="9"`, "Add to Reading Journey"} {
-		if !strings.Contains(recorder.Body.String(), want) {
-			t.Errorf("conflict response missing %q: %s", want, recorder.Body.String())
-		}
+		assert.True(t, strings.Contains(recorder.Body.String(), want), "conflict response missing %q: %s", want, recorder.Body.String())
 	}
 }
 
@@ -145,12 +137,9 @@ func TestAddBookToReadingJourneyDoesNotMutatePrimaryGoal(t *testing.T) {
 	store := &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 2}, goal: domain.PrimaryGoal{BookID: "book-1"}}
 	h := &Handler{services: Services{Store: store}}
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "book-1", 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyGoal || store.adds != 0 {
-		t.Fatalf("goal action=%+v add calls=%d", action, store.adds)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyGoal, action.State)
+	assert.Equal(t, 0, store.adds)
 }
 
 func TestDeckJourneyActionResolvesSourceMaterialToBook(t *testing.T) {
@@ -160,12 +149,10 @@ func TestDeckJourneyActionResolvesSourceMaterialToBook(t *testing.T) {
 	}
 	h := &Handler{services: Services{Store: store}}
 	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyMember || action.BookID != "book-x" || action.Revision != 4 {
-		t.Fatalf("resolved member action=%+v", action)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, action.State)
+	assert.Equal(t, "book-x", action.BookID)
+	assert.Equal(t, int64(4), action.Revision)
 }
 
 func TestAddBookToReadingJourneyUsesResolvedBookIdentity(t *testing.T) {
@@ -175,15 +162,12 @@ func TestAddBookToReadingJourneyUsesResolvedBookIdentity(t *testing.T) {
 	}
 	h := &Handler{services: Services{Store: store}}
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "source-1", 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyMember || action.BookID != "book-1" || store.adds != 1 {
-		t.Fatalf("resolved add action=%+v add calls=%d", action, store.adds)
-	}
-	if len(store.journey.Entries) != 1 || store.journey.Entries[0].BookID != "book-1" {
-		t.Fatalf("resolved add journey entries=%+v", store.journey.Entries)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, action.State)
+	assert.Equal(t, "book-1", action.BookID)
+	assert.Equal(t, 1, store.adds)
+	require.Equal(t, 1, len(store.journey.Entries))
+	assert.Equal(t, "book-1", store.journey.Entries[0].BookID)
 }
 
 func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
@@ -193,19 +177,13 @@ func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
 	}
 	h := &Handler{services: Services{Store: store}}
 	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-orphan")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyUnknown || action.BookID != "" {
-		t.Fatalf("unresolvable action=%+v", action)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyUnknown, action.State)
+	assert.Equal(t, "", action.BookID)
 	action, err = h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "source-orphan", 4)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyUnknown || store.adds != 0 {
-		t.Fatalf("unresolvable add action=%+v add calls=%d", action, store.adds)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyUnknown, action.State)
+	assert.Equal(t, 0, store.adds)
 }
 
 type journeyIntentStore struct {
@@ -263,20 +241,15 @@ func TestAddingJourneyMemberEnsuresAcquisitionAndAnalysisOnce(t *testing.T) {
 	}}
 
 	first, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.State != deckJourneyMember || analysisService.calls != 1 {
-		t.Fatalf("first add=%+v analysis calls=%d", first, analysisService.calls)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, first.State)
+	assert.Equal(t, 1, analysisService.calls)
 
 	second, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if second.State != deckJourneyMember || analysisService.calls != 1 || !strings.Contains(second.Message, "already in your Reading Journey") {
-		t.Fatalf("re-add=%+v analysis calls=%d", second, analysisService.calls)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, second.State)
+	assert.Equal(t, 1, analysisService.calls)
+	assert.True(t, strings.Contains(second.Message, "already in your Reading Journey"))
 }
 
 func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailable(t *testing.T) {
@@ -291,12 +264,10 @@ func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailabl
 	}}
 
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyMember || !strings.Contains(action.Error, "Journey entry is retained") || len(store.journey.Entries) != 1 {
-		t.Fatalf("unavailable acquisition action=%+v journey=%+v", action, store.journey)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, action.State)
+	assert.True(t, strings.Contains(action.Error, "Journey entry is retained"))
+	assert.Equal(t, 1, len(store.journey.Entries))
 }
 
 func TestAddingMetadataOnlyBookAcquiresAndSubmitsAnalysis(t *testing.T) {
@@ -317,10 +288,9 @@ func TestAddingMetadataOnlyBookAcquiresAndSubmitsAnalysis(t *testing.T) {
 	}}
 
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if action.State != deckJourneyMember || !acquired || analysisService.calls != 1 || !strings.Contains(action.Message, "Analysis job #1") {
-		t.Fatalf("metadata add action=%+v acquired=%t analysis calls=%d", action, acquired, analysisService.calls)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, deckJourneyMember, action.State)
+	assert.True(t, acquired)
+	assert.Equal(t, 1, analysisService.calls)
+	assert.True(t, strings.Contains(action.Message, "Analysis job #1"))
 }

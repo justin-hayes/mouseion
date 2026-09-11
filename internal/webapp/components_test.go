@@ -12,6 +12,8 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func renderPattern(t *testing.T, component templ.Component, child string) string {
@@ -21,9 +23,7 @@ func renderPattern(t *testing.T, component templ.Component, child string) string
 		ctx = templ.WithChildren(ctx, templ.Raw(child))
 	}
 	var output bytes.Buffer
-	if err := component.Render(ctx, &output); err != nil {
-		t.Fatalf("render component: %v", err)
-	}
+	require.NoError(t, component.Render(ctx, &output), "render component")
 	return output.String()
 }
 
@@ -58,9 +58,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`<noscript><button type="submit">Switch language</button></noscript>`,
 		`action="/active-study-language"`,
 	)
-	if strings.Contains(html, `value="">Choose a study language`) {
-		t.Fatal("active language switcher exposes a selectable empty option")
-	}
+	assert.False(t, strings.Contains(html, `value="">Choose a study language`), "active language switcher exposes a selectable empty option")
 }
 
 func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
@@ -76,24 +74,14 @@ func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
-	if html != "" {
-		t.Fatalf("empty language switcher rendered markup: %s", html)
-	}
+	assert.Equal(t, "", html, "empty language switcher rendered markup")
 }
 
 func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {
-	if got := activeStudyLanguageReturnPath("/library?language=de&q=title", "it"); got != "/library?q=title" {
-		t.Fatalf("library return path=%q", got)
-	}
-	if got := activeStudyLanguageReturnPath("/books/book-1", "it"); got != "/journey/book-1" {
-		t.Fatalf("book return path=%q", got)
-	}
-	if got := activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"); got != "/journey/book-1?message=updated" {
-		t.Fatalf("book return query=%q", got)
-	}
-	if got := activeStudyLanguageReturnPath("/vocabulary?language=de", "it"); got != "/vocabulary" {
-		t.Fatalf("vocabulary return path=%q", got)
-	}
+	assert.Equal(t, "/library?q=title", activeStudyLanguageReturnPath("/library?language=de&q=title", "it"))
+	assert.Equal(t, "/journey/book-1", activeStudyLanguageReturnPath("/books/book-1", "it"))
+	assert.Equal(t, "/journey/book-1?message=updated", activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"))
+	assert.Equal(t, "/vocabulary", activeStudyLanguageReturnPath("/vocabulary?language=de", "it"))
 }
 
 func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
@@ -101,17 +89,13 @@ func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {
 	view := catalogueSyncConnectionViewFor(domain.OpdsConnection{ID: "catalog", Name: "Home"}, map[string]domain.CatalogueSyncStatus{
 		"catalog": {State: domain.CatalogueSyncSynced, LastSyncedAt: &now},
 	})
-	if strings.Contains(view.Message, "study language") || strings.Contains(view.Message, "German") {
-		t.Fatalf("sync view exposes a learner scope=%+v", view)
-	}
+	assert.False(t, strings.Contains(view.Message, "study language") || strings.Contains(view.Message, "German"), "sync view exposes a learner scope=%+v", view)
 }
 
 func requireMarkup(t *testing.T, html string, fragments ...string) {
 	t.Helper()
 	for _, fragment := range fragments {
-		if !strings.Contains(html, fragment) {
-			t.Errorf("markup missing %q\n%s", fragment, html)
-		}
+		assert.True(t, strings.Contains(html, fragment), "markup missing %q\n%s", fragment, html)
 	}
 }
 
@@ -227,21 +211,18 @@ func TestCoveragePercentagesUseWholeAnalyzableDenominator(t *testing.T) {
 		ReservedTokenCount:   5,
 	}
 	stats := coverageStatItems(coverage)
-	if stats[0].Value != "80.0%" || stats[1].Value != "85.0%" {
-		t.Fatalf("coverage stats = %+v, want 80%% and 85%% of all analyzable tokens", stats)
-	}
+	assert.Equal(t, "80.0%", stats[0].Value)
+	assert.Equal(t, "85.0%", stats[1].Value)
 
 	projection := projectionStatItems([]domain.CoverageProjection{{
 		TopLemmaCount: 3, EligibleTokenCount: 10, ProjectedTokenCount: 90,
 	}}, coverage.AnalyzableTokenCount)
-	if len(projection) != 1 || projection[0].Value != "90.0%" {
-		t.Fatalf("projected coverage = %+v, want 90%% of all analyzable tokens", projection)
-	}
+	require.Len(t, projection, 1)
+	assert.Equal(t, "90.0%", projection[0].Value)
 
 	thresholds := thresholdStatItems([]domain.CoverageThreshold{{TargetPercent: 97, LemmaCount: 2, Reachable: true}})
-	if len(thresholds) != 1 || thresholds[0].Label != "lemmas for 97% of analyzed text" {
-		t.Fatalf("threshold label = %+v, want whole-text basis", thresholds)
-	}
+	require.Len(t, thresholds, 1)
+	assert.Equal(t, "lemmas for 97% of analyzed text", thresholds[0].Label)
 }
 
 func TestAsyncStatusPattern(t *testing.T) {
@@ -263,9 +244,7 @@ func TestComponentStylesAvailable(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
 
 	css := response.Body.String()
 	for _, selector := range []string{
@@ -282,15 +261,9 @@ func TestComponentStylesAvailable(t *testing.T) {
 		".table-region",
 		".async-status",
 	} {
-		if !strings.Contains(css, selector) {
-			t.Errorf("application CSS missing component selector %q", selector)
-		}
+		assert.True(t, strings.Contains(css, selector), "application CSS missing component selector %q", selector)
 	}
 	compactActions := regexp.MustCompile(`(?s)@media \(max-width: 40rem\).*?\.action-group\s*\{[^}]*flex-direction:\s*column`)
-	if !compactActions.MatchString(css) {
-		t.Error("compact component styles must stack action groups")
-	}
-	if !strings.Contains(css, ".confirmation--danger summary") {
-		t.Error("danger confirmations need a distinct semantic treatment")
-	}
+	assert.True(t, compactActions.MatchString(css), "compact component styles must stack action groups")
+	assert.True(t, strings.Contains(css, ".confirmation--danger summary"), "danger confirmations need a distinct semantic treatment")
 }

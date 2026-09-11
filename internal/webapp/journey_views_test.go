@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func renderJourney(t *testing.T, view journeyPageView, message, pageError string) string {
 	t.Helper()
 	var output bytes.Buffer
-	if err := JourneyPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, message, pageError).Render(context.Background(), &output); err != nil {
-		t.Fatalf("render journey page: %v", err)
-	}
+	require.NoError(t, JourneyPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, message, pageError).Render(context.Background(), &output))
 	return output.String()
 }
 
@@ -33,18 +33,14 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 	provisionalIndex := strings.Index(html, "Provisional Journey")
 	firstIndex := strings.Index(html, "First provisional book")
 	secondIndex := strings.Index(html, "Second provisional book")
-	if goalIndex < 0 || provisionalIndex < 0 || firstIndex < 0 || secondIndex < 0 || goalIndex > provisionalIndex || firstIndex > secondIndex {
-		t.Fatalf("journey order was not goal-first and learner-ordered: goal=%d provisional=%d first=%d second=%d", goalIndex, provisionalIndex, firstIndex, secondIndex)
-	}
+	assert.True(t, goalIndex >= 0 && provisionalIndex >= 0 && firstIndex >= 0 && secondIndex >= 0 && goalIndex <= provisionalIndex && firstIndex <= secondIndex, "journey order was not goal-first and learner-ordered: goal=%d provisional=%d first=%d second=%d", goalIndex, provisionalIndex, firstIndex, secondIndex)
 }
 
 func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
 	book := testJourneyBook("canonical-book", "Acquisition title", "ready")
 	book.Book.BookTitle = "Catalogue title"
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "")
-	if !strings.Contains(html, "Catalogue title") || strings.Contains(html, "Acquisition title") {
-		t.Fatalf("Journey did not use canonical Book title: %s", html)
-	}
+	assert.True(t, strings.Contains(html, "Catalogue title") && !strings.Contains(html, "Acquisition title"), "Journey did not use canonical Book title: %s", html)
 }
 
 func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
@@ -56,17 +52,19 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	stale.Book.AnalysisRunID = "old-run"
 	stale.Book.CorpusID = "old-corpus"
 	action := journeyAnalysisAction(stale)
-	if action.Status != "Stale analysis" || action.Label != "Re-analyze" || action.URL != "/journey/books/stale/reanalyze" || !action.Submit {
-		t.Fatalf("stale Journey action=%+v", action)
-	}
+	assert.Equal(t, "Stale analysis", action.Status)
+	assert.Equal(t, "Re-analyze", action.Label)
+	assert.Equal(t, "/journey/books/stale/reanalyze", action.URL)
+	assert.True(t, action.Submit)
 	unassessed := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
 	unassessed.Book.Source.MediaType = "application/epub+zip"
 	unassessed.Book.Source.ContentRevisionID = "revision"
 	unassessed.Book.Source.ContentSnapshotID = "snapshot"
 	action = journeyAnalysisAction(unassessed)
-	if action.Status != "Analysis not started" || action.Label != "Retry analysis" || action.URL != "/journey/books/unassessed/reanalyze" || !action.Submit {
-		t.Fatalf("unassessed Journey action=%+v", action)
-	}
+	assert.Equal(t, "Analysis not started", action.Status)
+	assert.Equal(t, "Retry analysis", action.Label)
+	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
+	assert.True(t, action.Submit)
 }
 
 func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
@@ -79,9 +77,7 @@ func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
 	book.Book.AnalysisRunID = "run"
 	book.Book.CorpusID = "corpus"
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "")
-	if !strings.Contains(html, `href="/journey/canonical-book"`) || strings.Contains(html, `href="/books/source-book"`) {
-		t.Fatalf("Journey card used a non-canonical entry link: %s", html)
-	}
+	assert.True(t, strings.Contains(html, `href="/journey/canonical-book"`) && !strings.Contains(html, `href="/books/source-book"`), "Journey card used a non-canonical entry link: %s", html)
 }
 
 func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
@@ -92,10 +88,6 @@ func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
 		ReservedTokenCount:   30,
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 2, ProjectedTokenCount: 75}},
 	}
-	if got := journeyCurrentCoverage(item); got != "50.0%" {
-		t.Fatalf("current coverage=%q", got)
-	}
-	if got := journeyProjectedCoverage(item); got != "80.0% if reserved vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas" {
-		t.Fatalf("conditional projection=%q", got)
-	}
+	assert.Equal(t, "50.0%", journeyCurrentCoverage(item))
+	assert.Equal(t, "80.0% if reserved vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas", journeyProjectedCoverage(item))
 }

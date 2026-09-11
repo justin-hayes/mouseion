@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestReconciliation_NoRawHexInTemplates guards against designers inlining raw
@@ -15,17 +18,14 @@ import (
 // tokens. All color decisions belong in the bundled stylesheet tokens.
 func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 	matches, err := filepath.Glob("*.templ")
-	if err != nil || len(matches) == 0 {
-		t.Fatalf("no templ files found: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, matches, "no templ files found: %v", err)
 	hexColor := regexp.MustCompile(`#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b`)
 	for _, path := range matches {
 		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
+		require.NoError(t, err, "read %s", path)
 		for _, loc := range hexColor.FindAllIndex(data, -1) {
-			t.Errorf("%s contains raw hex color %q; use documented CSS tokens", path, data[loc[0]:loc[1]])
+			assert.Fail(t, "%s contains raw hex color %q; use documented CSS tokens", path, data[loc[0]:loc[1]])
 		}
 	}
 }
@@ -36,13 +36,9 @@ func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 // handler-level redirects rather than rendered pages.
 func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 	data, err := os.ReadFile("views_templ.go")
-	if err != nil {
-		t.Fatalf("read views_templ.go: %v", err)
-	}
+	require.NoError(t, err, "read views_templ.go: %v", err)
 	for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
-		if strings.Contains(string(data), dead) {
-			t.Errorf("generated views_templ.go still contains removed template %q", dead)
-		}
+		assert.False(t, strings.Contains(string(data), dead), "generated views_templ.go still contains removed template %q", dead)
 	}
 }
 
@@ -50,12 +46,8 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	h := &Handler{}
 	rec := httptest.NewRecorder()
 	h.dashboard(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("GET / status=%d want %d", rec.Code, http.StatusSeeOther)
-	}
-	if got := rec.Header().Get("Location"); got != "/library" {
-		t.Fatalf("GET / Location=%q want /library", got)
-	}
+	assert.Equal(t, http.StatusSeeOther, rec.Code)
+	assert.Equal(t, "/library", rec.Header().Get("Location"))
 }
 
 func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
@@ -64,12 +56,8 @@ func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			h.knownVocabPage(rec, httptest.NewRequest(http.MethodGet, path, nil))
-			if rec.Code != http.StatusSeeOther {
-				t.Fatalf("GET %s status=%d want %d", path, rec.Code, http.StatusSeeOther)
-			}
-			if got := rec.Header().Get("Location"); got != "/vocabulary" {
-				t.Fatalf("GET %s Location=%q want /vocabulary", path, got)
-			}
+			assert.Equal(t, http.StatusSeeOther, rec.Code)
+			assert.Equal(t, "/vocabulary", rec.Header().Get("Location"))
 		})
 	}
 }
@@ -78,17 +66,14 @@ func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
 // reintroduced into the shipped templates as residual design debt.
 func TestReconciliation_NoTODOInTemplates(t *testing.T) {
 	matches, err := filepath.Glob("*.templ")
-	if err != nil || len(matches) == 0 {
-		t.Fatalf("no templ files found: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, matches, "no templ files found: %v", err)
 	todo := regexp.MustCompile(`(?i)\b(todo|fixme|xxx)\b`)
 	for _, path := range matches {
 		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
+		require.NoError(t, err, "read %s", path)
 		for _, loc := range todo.FindAllIndex(data, -1) {
-			t.Errorf("%s contains placeholder marker %q", path, data[loc[0]:loc[1]])
+			assert.Fail(t, "%s contains placeholder marker %q", path, data[loc[0]:loc[1]])
 		}
 	}
 }

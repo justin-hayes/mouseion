@@ -32,6 +32,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type recordingAnalysis struct {
@@ -82,13 +84,9 @@ func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, stri
 func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string, legacyAdmin bool) domain.User {
 	t.Helper()
 	hash, err := auth.HashPassword(password)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	u, err := store.CreateUserWithPassword(ctx, username, hash, legacyAdmin)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return u
 }
 
@@ -219,59 +217,49 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 
 	page := perform(t, h, "GET", "/login", nil, nil)
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "Create your account") || strings.Contains(page.Body.String(), `action="/login"`) {
-		t.Fatalf("fresh login page=%d %s", page.Code, page.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, page.Code)
+	assert.True(t, strings.Contains(page.Body.String(), "Create your account"), "body=%s", page.Body.String())
+	assert.False(t, strings.Contains(page.Body.String(), `action="/login"`), "body=%s", page.Body.String())
 	csrf := hiddenToken(t, page.Body.String())
 	csrfCookieValue := cookieNamed(t, page.Result().Cookies(), csrfCookie)
-	if got := perform(t, h, "POST", "/onboarding", url.Values{"username": {"alice"}, "password": {"alice-password"}}, nil); got.Code != http.StatusForbidden {
-		t.Fatalf("onboarding without csrf=%d", got.Code)
-	}
+	got := perform(t, h, "POST", "/onboarding", url.Values{"username": {"alice"}, "password": {"alice-password"}}, nil)
+	assert.Equal(t, http.StatusForbidden, got.Code)
 	created := perform(t, h, "POST", "/onboarding", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
-	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/" || cookieNamed(t, created.Result().Cookies(), webauth.CookieName).Value == "" {
-		t.Fatalf("onboarding=%d location=%q cookies=%v body=%s", created.Code, created.Header().Get("Location"), created.Result().Cookies(), created.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, created.Code)
+	assert.Equal(t, "/", created.Header().Get("Location"))
+	assert.NotEmpty(t, cookieNamed(t, created.Result().Cookies(), webauth.CookieName).Value)
 
 	page = perform(t, h, "GET", "/login", nil, nil)
-	if page.Code != http.StatusOK || strings.Contains(page.Body.String(), "Create your account") || !strings.Contains(page.Body.String(), `action="/login"`) {
-		t.Fatalf("existing login page=%d %s", page.Code, page.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, page.Code)
+	assert.False(t, strings.Contains(page.Body.String(), "Create your account"), "body=%s", page.Body.String())
+	assert.True(t, strings.Contains(page.Body.String(), `action="/login"`), "body=%s", page.Body.String())
 	navigationRequest := httptest.NewRequest("GET", "/library?sort=title", nil)
 	navigationRequest.Header.Set("Accept", "text/html")
 	navigationRequest.Header.Set("Sec-Fetch-Mode", "navigate")
 	navigation := httptest.NewRecorder()
 	h.ServeHTTP(navigation, navigationRequest)
-	if navigation.Code != http.StatusSeeOther || navigation.Header().Get("Location") != "/login?next=%2Flibrary%3Fsort%3Dtitle" {
-		t.Fatalf("unauthenticated navigation=%d location=%q body=%s", navigation.Code, navigation.Header().Get("Location"), navigation.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, navigation.Code)
+	assert.Equal(t, "/login?next=%2Flibrary%3Fsort%3Dtitle", navigation.Header().Get("Location"))
 	returnPage := perform(t, h, "GET", navigation.Header().Get("Location"), nil, nil)
-	if !strings.Contains(returnPage.Body.String(), `name="next" value="/library?sort=title"`) {
-		t.Fatalf("login return path missing: %s", returnPage.Body.String())
-	}
+	assert.True(t, strings.Contains(returnPage.Body.String(), `name="next" value="/library?sort=title"`), "body=%s", returnPage.Body.String())
 	returnCSRF := hiddenToken(t, returnPage.Body.String())
 	returnCSRFCookie := cookieNamed(t, returnPage.Result().Cookies(), csrfCookie)
 	returnedLogin := perform(t, h, "POST", "/login", url.Values{"csrf_token": {returnCSRF}, "next": {"/library?sort=title"}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{returnCSRFCookie})
-	if returnedLogin.Code != http.StatusSeeOther || returnedLogin.Header().Get("Location") != "/library?sort=title" {
-		t.Fatalf("returned login=%d location=%q body=%s", returnedLogin.Code, returnedLogin.Header().Get("Location"), returnedLogin.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, returnedLogin.Code)
+	assert.Equal(t, "/library?sort=title", returnedLogin.Header().Get("Location"))
 	csrf = hiddenToken(t, page.Body.String())
 	csrfCookieValue = cookieNamed(t, page.Result().Cookies(), csrfCookie)
 	blocked := perform(t, h, "POST", "/onboarding", url.Values{"csrf_token": {csrf}, "username": {"bob"}, "password": {"bob-password"}}, []*http.Cookie{csrfCookieValue})
-	if blocked.Code != http.StatusNotFound {
-		t.Fatalf("second onboarding=%d %s", blocked.Code, blocked.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, blocked.Code)
 	login := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
-	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
-		t.Fatalf("existing login=%d location=%q body=%s", login.Code, login.Header().Get("Location"), login.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, login.Code)
+	assert.Equal(t, "/", login.Header().Get("Location"))
 }
 
 func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
@@ -279,26 +267,21 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
-	if _, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"}); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
 	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, KnownVocab: known, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
 	imported := multipartUpload(t, h, "/vocabulary/import?language=it", cookies, map[string]string{"csrf_token": csrf, "language": "it"}, "Haus\n")
-	if imported.Code != http.StatusSeeOther || imported.Header().Get("Location") != "/vocabulary/imports/77/status" {
-		t.Fatalf("derived-language import=%d location=%q body=%s", imported.Code, imported.Header().Get("Location"), imported.Body.String())
-	}
-	if known.owner != alice.ID || known.status.Language != "de" {
-		t.Fatalf("import was not submitted for derived language: owner=%q status=%+v", known.owner, known.status)
-	}
+	assert.Equal(t, http.StatusSeeOther, imported.Code)
+	assert.Equal(t, "/vocabulary/imports/77/status", imported.Header().Get("Location"))
+	assert.Equal(t, alice.ID, known.owner)
+	assert.Equal(t, "de", known.status.Language)
 }
 
 func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
@@ -306,9 +289,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password", false)
@@ -324,13 +305,9 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	}))
 	defer catalog.Close()
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "metadata-entry", "Metadata-only synced book", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	target := cataloguesync.AcquisitionTarget{
 		ConnectionID: connection.ID,
 		Language:     "de",
@@ -345,49 +322,43 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
-	if bookPage.Code != http.StatusNotFound {
-		t.Fatalf("metadata-only book page=%d %s", bookPage.Code, bookPage.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, bookPage.Code)
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	added := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
-	if added.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
-		t.Fatalf("Journey metadata add=%d downloads=%d analysis calls=%d location=%q body=%s", added.Code, downloads, recorder.calls, added.Header().Get("Location"), added.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, added.Code)
+	assert.Equal(t, 1, downloads)
+	assert.Equal(t, 1, recorder.calls)
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	if err != nil || len(journey.Entries) != 1 || journey.Entries[0].BookID != bookResult.Book.ID {
-		t.Fatalf("Journey membership after metadata add=%+v err=%v", journey.Entries, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, journey.Entries, 1)
+	assert.Equal(t, bookResult.Book.ID, journey.Entries[0].BookID)
 	readded := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
-	if readded.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 1 {
-		t.Fatalf("Journey re-add=%d downloads=%d analysis calls=%d location=%q body=%s", readded.Code, downloads, recorder.calls, readded.Header().Get("Location"), readded.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, readded.Code)
+	assert.Equal(t, 1, downloads)
+	assert.Equal(t, 1, recorder.calls)
 	removed := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/remove", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
-	if removed.Code != http.StatusSeeOther || !strings.Contains(removed.Header().Get("Location"), "removed+from+Reading+Journey") || recorder.calls != 1 {
-		t.Fatalf("Journey removal=%d location=%q analysis calls=%d body=%s", removed.Code, removed.Header().Get("Location"), recorder.calls, removed.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, removed.Code)
+	assert.True(t, strings.Contains(removed.Header().Get("Location"), "removed+from+Reading+Journey"), "location=%q body=%s", removed.Header().Get("Location"), removed.Body.String())
+	assert.Equal(t, 1, recorder.calls)
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	if err != nil || len(journey.Entries) != 0 {
-		t.Fatalf("Journey membership after removal=%+v err=%v", journey.Entries, err)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, journey.Entries)
 	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
-	if alreadyAcquired.Code != http.StatusSeeOther || downloads != 1 || recorder.calls != 2 {
-		t.Fatalf("Journey acquired add=%d downloads=%d analysis calls=%d location=%q body=%s", alreadyAcquired.Code, downloads, recorder.calls, alreadyAcquired.Header().Get("Location"), alreadyAcquired.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, alreadyAcquired.Code)
+	assert.Equal(t, 1, downloads)
+	assert.Equal(t, 2, recorder.calls)
 	sources, err := store.ListSourceMaterials(ctx, owner.ID)
-	if err != nil || len(sources) != 1 || sources[0].BookID != bookResult.Book.ID {
-		t.Fatalf("promoted sources=%+v err=%v", sources, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, sources, 1)
+	assert.Equal(t, bookResult.Book.ID, sources[0].BookID)
 	legacyPage := perform(t, h, "GET", "/books/"+sources[0].Source.ID, nil, cookies)
-	if legacyPage.Code != http.StatusNotFound {
-		t.Fatalf("legacy unassessed book page=%d body=%s", legacyPage.Code, legacyPage.Body.String())
-	}
+	assert.Equal(t, http.StatusNotFound, legacyPage.Code)
 	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
-	if err != nil || len(books) != 1 || books[0].Book.ID != bookResult.Book.ID || books[0].Acquired == nil {
-		t.Fatalf("promoted My Books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 1)
+	assert.Equal(t, bookResult.Book.ID, books[0].Book.ID)
+	assert.NotNil(t, books[0].Acquired)
 }
 
 func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
@@ -395,9 +366,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	createAccount(t, ctx, store, "alice", "alice-password", false)
@@ -407,47 +376,39 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 
-	if got := perform(t, h, "POST", "/jobs/42/deck/preparations", nil, aliceCookies); got.Code != http.StatusForbidden {
-		t.Fatalf("create without csrf=%d", got.Code)
-	}
+	got := perform(t, h, "POST", "/jobs/42/deck/preparations", nil, aliceCookies)
+	assert.Equal(t, http.StatusForbidden, got.Code)
 	created := perform(t, h, "POST", "/jobs/42/deck/preparations", url.Values{"csrf_token": {aliceCSRF}, "external_translation_consent": {"on"}}, aliceCookies)
-	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/deck-preparations/prep-1/status" || !decks.consent {
-		t.Fatalf("create=%d location=%q consent=%v", created.Code, created.Header().Get("Location"), decks.consent)
-	}
+	assert.Equal(t, http.StatusSeeOther, created.Code)
+	assert.Equal(t, "/deck-preparations/prep-1/status", created.Header().Get("Location"))
+	assert.True(t, decks.consent)
 	statusPage := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
-	if statusPage.Code != http.StatusOK || !strings.Contains(statusPage.Body.String(), "Deck preparation queued") || !strings.Contains(statusPage.Body.String(), "Cancel preparation") {
-		t.Fatalf("server-rendered status=%d %s", statusPage.Code, statusPage.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, statusPage.Code)
+	assert.True(t, strings.Contains(statusPage.Body.String(), "Deck preparation queued"), "body=%s", statusPage.Body.String())
+	assert.True(t, strings.Contains(statusPage.Body.String(), "Cancel preparation"), "body=%s", statusPage.Body.String())
 	status := perform(t, h, "GET", created.Header().Get("Location")+"?format=json", nil, aliceCookies)
-	if status.Code != http.StatusOK || status.Header().Get("Content-Type") != "application/json; charset=utf-8" || !strings.Contains(status.Body.String(), `"state":"queued"`) || !strings.Contains(status.Body.String(), `"progress":0`) {
-		t.Fatalf("status=%d headers=%v body=%s", status.Code, status.Header(), status.Body.String())
-	}
-	if got := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner status=%d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/deck-preparations/missing/status", nil, aliceCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("missing status=%d", got.Code)
-	}
-	if got := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies); got.Code != http.StatusConflict {
-		t.Fatalf("non-ready download=%d", got.Code)
-	}
-	if got := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", nil, aliceCookies); got.Code != http.StatusForbidden {
-		t.Fatalf("cancel without csrf=%d", got.Code)
-	}
+	assert.Equal(t, http.StatusOK, status.Code)
+	assert.Equal(t, "application/json; charset=utf-8", status.Header().Get("Content-Type"))
+	assert.True(t, strings.Contains(status.Body.String(), `"state":"queued"`), "body=%s", status.Body.String())
+	assert.True(t, strings.Contains(status.Body.String(), `"progress":0`), "body=%s", status.Body.String())
+	got = perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies)
+	assert.Equal(t, http.StatusNotFound, got.Code)
+	got = perform(t, h, "GET", "/deck-preparations/missing/status", nil, aliceCookies)
+	assert.Equal(t, http.StatusNotFound, got.Code)
+	got = perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
+	assert.Equal(t, http.StatusConflict, got.Code)
+	got = perform(t, h, "POST", "/deck-preparations/prep-1/cancel", nil, aliceCookies)
+	assert.Equal(t, http.StatusForbidden, got.Code)
 	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), `"state":"cancelled"`) {
-		t.Fatalf("cancel=%d %s", cancelled.Code, cancelled.Body.String())
-	}
-	if got := perform(t, h, "POST", "/deck-preparations/prep-1/retry", nil, aliceCookies); got.Code != http.StatusForbidden {
-		t.Fatalf("retry without csrf=%d", got.Code)
-	}
+	assert.Equal(t, http.StatusOK, cancelled.Code)
+	assert.True(t, strings.Contains(cancelled.Body.String(), `"state":"cancelled"`), "body=%s", cancelled.Body.String())
+	got = perform(t, h, "POST", "/deck-preparations/prep-1/retry", nil, aliceCookies)
+	assert.Equal(t, http.StatusForbidden, got.Code)
 	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	if retried.Code != http.StatusOK || !strings.Contains(retried.Body.String(), `"state":"queued"`) {
-		t.Fatalf("retry=%d %s", retried.Code, retried.Body.String())
-	}
-	if got := perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {bobCSRF}}, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner cancel=%d", got.Code)
-	}
+	assert.Equal(t, http.StatusOK, retried.Code)
+	assert.True(t, strings.Contains(retried.Body.String(), `"state":"queued"`), "body=%s", retried.Body.String())
+	got = perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {bobCSRF}}, bobCookies)
+	assert.Equal(t, http.StatusNotFound, got.Code)
 
 	ready := decks.preparations["prep-1"]
 	ready.State, ready.Artifact = domain.DeckPreparationReady, []byte("immutable-apkg")
@@ -455,16 +416,20 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	decks.preparations[ready.ID] = ready
 	for i := 0; i < 2; i++ {
 		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
-		if download.Code != http.StatusOK || download.Body.String() != "immutable-apkg" || download.Header().Get("Content-Type") != "application/vnd.anki" || !strings.Contains(download.Header().Get("Content-Disposition"), `filename="Stored Book.apkg"`) || download.Header().Get("X-Mouseion-Deck-Name") != "Mouseion::de::Stored Book" || download.Header().Get("X-Mouseion-Cards-Total") != "7" || download.Header().Get("X-Mouseion-Cards-With-English") != "6" || download.Header().Get("X-Mouseion-Cards-With-English-Sentence") != "5" || download.Header().Get("X-Mouseion-Cards-Quality-Omitted") != "2" {
-			t.Fatalf("download %d=%d headers=%v body=%q", i, download.Code, download.Header(), download.Body.String())
-		}
+		assert.Equal(t, http.StatusOK, download.Code, "download %d", i)
+		assert.Equal(t, "immutable-apkg", download.Body.String(), "download %d", i)
+		assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"), "download %d", i)
+		assert.True(t, strings.Contains(download.Header().Get("Content-Disposition"), `filename="Stored Book.apkg"`), "download %d content-disposition=%q", i, download.Header().Get("Content-Disposition"))
+		assert.Equal(t, "Mouseion::de::Stored Book", download.Header().Get("X-Mouseion-Deck-Name"), "download %d", i)
+		assert.Equal(t, "7", download.Header().Get("X-Mouseion-Cards-Total"), "download %d", i)
+		assert.Equal(t, "6", download.Header().Get("X-Mouseion-Cards-With-English"), "download %d", i)
+		assert.Equal(t, "5", download.Header().Get("X-Mouseion-Cards-With-English-Sentence"), "download %d", i)
+		assert.Equal(t, "2", download.Header().Get("X-Mouseion-Cards-Quality-Omitted"), "download %d", i)
 	}
-	if decks.downloads != 2 || decks.preparations["prep-1"].State != domain.DeckPreparationReady {
-		t.Fatalf("downloads=%d state=%s", decks.downloads, decks.preparations["prep-1"].State)
-	}
-	if got := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, bobCookies); got.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner download=%d", got.Code)
-	}
+	assert.Equal(t, 2, decks.downloads)
+	assert.Equal(t, domain.DeckPreparationReady, decks.preparations["prep-1"].State)
+	got = perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, bobCookies)
+	assert.Equal(t, http.StatusNotFound, got.Code)
 }
 
 func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
@@ -472,24 +437,18 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "journey-web-alice", "alice-password", false)
 	bob := createAccount(t, ctx, store, "journey-web-bob", "bob-password", false)
 	newBook := func(owner domain.User, title string) domain.Book {
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-		if createErr != nil {
-			t.Fatal(createErr)
-		}
+		require.NoError(t, createErr)
 		return book
 	}
 	goal, goalSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reorder-goal", "Anchored Goal", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "goal", UPOS: "NOUN", OccurrenceCount: 1}})
-	if err = store.LinkSourceToBook(ctx, alice.ID, goal.ID, goalSource.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.LinkSourceToBook(ctx, alice.ID, goal.ID, goalSource.ID))
 	first := newBook(alice, "First provisional")
 	second := newBook(alice, "Second provisional")
 	third := newBook(alice, "Third provisional")
@@ -498,60 +457,53 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	journeyRevision := int64(0)
 	for _, book := range []domain.Book{goal, first, second, third} {
 		journeyRevision, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journeyRevision)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
-	if _, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", goal.ID); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", goal.ID)
+	require.NoError(t, err)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
 	aliceCookies, csrf := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, _ := loginCookies(t, h, bob.Username, "bob-password")
 	page := perform(t, h, "GET", "/journey", nil, aliceCookies)
-	if page.Code != http.StatusOK {
-		t.Fatalf("journey page=%d %s", page.Code, page.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, page.Code)
 	expected := hiddenInputValue(t, page.Body.String(), "expected_revision")
 	moveForm := func(token, revision string) url.Values {
 		return url.Values{"csrf_token": {token}, "expected_revision": {revision}}
 	}
-	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-earlier", moveForm(csrf, expected), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
-		t.Fatalf("move earlier=%d location=%q body=%s", moved.Code, moved.Header().Get("Location"), moved.Body.String())
-	}
+	moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-earlier", moveForm(csrf, expected), aliceCookies)
+	assert.Equal(t, http.StatusSeeOther, moved.Code)
+	assert.True(t, strings.HasPrefix(moved.Header().Get("Location"), "/journey?message="), "location=%q body=%s", moved.Header().Get("Location"), moved.Body.String())
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil || journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != second.ID || journey.Entries[2].BookID != first.ID {
-		t.Fatalf("after move earlier journey=%+v err=%v", journey.Entries, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, goal.ID, journey.Entries[0].BookID)
+	assert.Equal(t, second.ID, journey.Entries[1].BookID)
+	assert.Equal(t, first.ID, journey.Entries[2].BookID)
 	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
-	if moved := perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-later", moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision")), aliceCookies); moved.Code != http.StatusSeeOther || !strings.HasPrefix(moved.Header().Get("Location"), "/journey?message=") {
-		t.Fatalf("move later=%d location=%q", moved.Code, moved.Header().Get("Location"))
-	}
+	moved = perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-later", moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision")), aliceCookies)
+	assert.Equal(t, http.StatusSeeOther, moved.Code)
+	assert.True(t, strings.HasPrefix(moved.Header().Get("Location"), "/journey?message="), "location=%q", moved.Header().Get("Location"))
 	journey, _ = store.GetReadingJourney(ctx, alice.ID, "de")
-	if journey.Entries[0].BookID != goal.ID || journey.Entries[1].BookID != first.ID || journey.Entries[2].BookID != second.ID {
-		t.Fatalf("after move later journey=%+v", journey.Entries)
-	}
+	assert.Equal(t, goal.ID, journey.Entries[0].BookID)
+	assert.Equal(t, first.ID, journey.Entries[1].BookID)
+	assert.Equal(t, second.ID, journey.Entries[2].BookID)
 	staleRevision := hiddenInputValue(t, page.Body.String(), "expected_revision")
 	stale := perform(t, h, "POST", "/journey/entries/"+third.ID+"/move-earlier", moveForm(csrf, staleRevision), aliceCookies)
-	if stale.Code != http.StatusSeeOther || !strings.Contains(stale.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
-		t.Fatalf("stale=%d location=%q", stale.Code, stale.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, stale.Code)
+	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded"), "location=%q", stale.Header().Get("Location"))
 	journeyAfterStale, _ := store.GetReadingJourney(ctx, alice.ID, "de")
-	if len(journeyAfterStale.Entries) != len(journey.Entries) || journeyAfterStale.Entries[0].BookID != journey.Entries[0].BookID || journeyAfterStale.Entries[1].BookID != journey.Entries[1].BookID || journeyAfterStale.Entries[2].BookID != journey.Entries[2].BookID {
-		t.Fatalf("stale request changed journey=%+v before=%+v", journeyAfterStale.Entries, journey.Entries)
-	}
-	if foreignResponse := perform(t, h, "POST", "/journey/entries/"+foreign.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies); foreignResponse.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner move=%d", foreignResponse.Code)
-	}
-	if absent := perform(t, h, "POST", "/journey/entries/"+notMember.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies); absent.Code != http.StatusSeeOther || !strings.Contains(absent.Header().Get("Location"), "no+longer+in+your+Reading+Journey") {
-		t.Fatalf("non-member move=%d location=%q", absent.Code, absent.Header().Get("Location"))
-	}
-	if missingCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", url.Values{"expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, aliceCookies); missingCSRF.Code != http.StatusForbidden {
-		t.Fatalf("missing csrf=%d", missingCSRF.Code)
-	}
-	if invalidCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", moveForm("invalid", fmt.Sprintf("%d", journey.Revision)), aliceCookies); invalidCSRF.Code != http.StatusForbidden {
-		t.Fatalf("invalid csrf=%d", invalidCSRF.Code)
-	}
+	assert.Len(t, journeyAfterStale.Entries, len(journey.Entries))
+	assert.Equal(t, journey.Entries[0].BookID, journeyAfterStale.Entries[0].BookID)
+	assert.Equal(t, journey.Entries[1].BookID, journeyAfterStale.Entries[1].BookID)
+	assert.Equal(t, journey.Entries[2].BookID, journeyAfterStale.Entries[2].BookID)
+	foreignResponse := perform(t, h, "POST", "/journey/entries/"+foreign.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	assert.Equal(t, http.StatusNotFound, foreignResponse.Code)
+	absent := perform(t, h, "POST", "/journey/entries/"+notMember.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	assert.Equal(t, http.StatusSeeOther, absent.Code)
+	assert.True(t, strings.Contains(absent.Header().Get("Location"), "no+longer+in+your+Reading+Journey"), "location=%q", absent.Header().Get("Location"))
+	missingCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", url.Values{"expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, aliceCookies)
+	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
+	invalidCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", moveForm("invalid", fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	assert.Equal(t, http.StatusForbidden, invalidCSRF.Code)
 	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
 	form := moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision"))
 	request := httptest.NewRequest(http.MethodPost, "/journey/entries/"+third.ID+"/move-earlier", strings.NewReader(form.Encode()))
@@ -562,9 +514,10 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	}
 	htmxRecorder := httptest.NewRecorder()
 	h.ServeHTTP(htmxRecorder, request)
-	if htmxRecorder.Code != http.StatusOK || !strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-list"`) || !strings.Contains(htmxRecorder.Body.String(), `aria-live="polite"`) || strings.Contains(htmxRecorder.Body.String(), "<!doctype html>") {
-		t.Fatalf("htmx reorder=%d body=%s", htmxRecorder.Code, htmxRecorder.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, htmxRecorder.Code)
+	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-list"`), "body=%s", htmxRecorder.Body.String())
+	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `aria-live="polite"`), "body=%s", htmxRecorder.Body.String())
+	assert.False(t, strings.Contains(htmxRecorder.Body.String(), "<!doctype html>"), "body=%s", htmxRecorder.Body.String())
 
 	journeyPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
 	journeyPageRevision := hiddenInputValue(t, journeyPage.Body.String(), "expected_revision")
@@ -572,45 +525,35 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 		return url.Values{"csrf_token": {csrf}, "expected_revision": {revision}, "deck_preparation_id": {"deck-for-" + notMember.ID}}
 	}
 	added := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(journeyPageRevision), aliceCookies)
-	if added.Code != http.StatusSeeOther || !strings.HasPrefix(added.Header().Get("Location"), "/journey?message=") {
-		t.Fatalf("add to Journey=%d location=%q body=%s", added.Code, added.Header().Get("Location"), added.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, added.Code)
+	assert.True(t, strings.HasPrefix(added.Header().Get("Location"), "/journey?message="), "location=%q body=%s", added.Header().Get("Location"), added.Body.String())
 	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil || len(journey.Entries) != 5 {
-		t.Fatalf("added Journey=%+v err=%v", journey.Entries, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, journey.Entries, 5)
 	repeated := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(fmt.Sprintf("%d", journey.Revision)), aliceCookies)
-	if repeated.Code != http.StatusSeeOther || !strings.Contains(repeated.Header().Get("Location"), "already+in+your+Reading+Journey") {
-		t.Fatalf("idempotent add=%d location=%q", repeated.Code, repeated.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, repeated.Code)
+	assert.True(t, strings.Contains(repeated.Header().Get("Location"), "already+in+your+Reading+Journey"), "location=%q", repeated.Header().Get("Location"))
 	staleAdd := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(journeyPageRevision), aliceCookies)
-	if staleAdd.Code != http.StatusSeeOther || !strings.Contains(staleAdd.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded") {
-		t.Fatalf("stale add=%d location=%q", staleAdd.Code, staleAdd.Header().Get("Location"))
-	}
+	assert.Equal(t, http.StatusSeeOther, staleAdd.Code)
+	assert.True(t, strings.Contains(staleAdd.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded"), "location=%q", staleAdd.Header().Get("Location"))
 
 	// The ready-deck surfaces post the source-material id, which differs from
 	// the books.id that Journey membership stores (issue #506). The add must
 	// resolve the source material to its linked book and persist that identity.
 	deckBook := newBook(alice, "Deck-prepared provisional")
 	var sourceID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,'application/epub+zip',$5,$6,$7) RETURNING id::text`, alice.ID, "de", "issue-506-identifier", "Deck-prepared provisional", "issue-506", "issue-506", "issue-506").Scan(&sourceID); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.LinkSourceToBook(ctx, alice.ID, deckBook.ID, sourceID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: sourceID, Filename: "issue-506.apkg", DeckName: "Issue 506 deck", ContentHash: "issue-506"}); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,'application/epub+zip',$5,$6,$7) RETURNING id::text`, alice.ID, "de", "issue-506-identifier", "Deck-prepared provisional", "issue-506", "issue-506", "issue-506").Scan(&sourceID)
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, alice.ID, deckBook.ID, sourceID))
+	_, err = store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: sourceID, Filename: "issue-506.apkg", DeckName: "Issue 506 deck", ContentHash: "issue-506"})
+	require.NoError(t, err)
 	sourceJourneyPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
 	addedFromSource := perform(t, h, "POST", "/journey/books/"+sourceID+"/add", addForm(hiddenInputValue(t, sourceJourneyPage.Body.String(), "expected_revision")), aliceCookies)
-	if addedFromSource.Code != http.StatusSeeOther || !strings.HasPrefix(addedFromSource.Header().Get("Location"), "/journey?message=") {
-		t.Fatalf("source-material add=%d location=%q body=%s", addedFromSource.Code, addedFromSource.Header().Get("Location"), addedFromSource.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, addedFromSource.Code)
+	assert.True(t, strings.HasPrefix(addedFromSource.Header().Get("Location"), "/journey?message="), "location=%q body=%s", addedFromSource.Header().Get("Location"), addedFromSource.Body.String())
 	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil || len(journey.Entries) != 6 {
-		t.Fatalf("source-material add Journey=%+v err=%v", journey.Entries, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, journey.Entries, 6)
 	containsDeckBook := false
 	for _, entry := range journey.Entries {
 		if entry.BookID == deckBook.ID {
@@ -618,15 +561,13 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 			break
 		}
 	}
-	if !containsDeckBook {
-		t.Fatalf("source-material add did not persist book %s: %+v", deckBook.ID, journey.Entries)
-	}
+	assert.True(t, containsDeckBook, "source-material add did not persist book %s: %+v", deckBook.ID, journey.Entries)
 
 	// Keep Bob's authenticated session in this test to exercise the owner
 	// boundary through the same route.
-	if bobPage := perform(t, h, "GET", "/journey", nil, bobCookies); bobPage.Code != http.StatusOK || strings.Contains(bobPage.Body.String(), "Anchored Goal") {
-		t.Fatalf("bob journey=%d %s", bobPage.Code, bobPage.Body.String())
-	}
+	bobPage := perform(t, h, "GET", "/journey", nil, bobCookies)
+	assert.Equal(t, http.StatusOK, bobPage.Code)
+	assert.False(t, strings.Contains(bobPage.Body.String(), "Anchored Goal"), "body=%s", bobPage.Body.String())
 }
 
 func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
@@ -634,9 +575,7 @@ func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*h
 	token := hiddenToken(t, page.Body.String())
 	csrfCookieValue := cookieNamed(t, page.Result().Cookies(), csrfCookie)
 	response := perform(t, h, "POST", "/login", url.Values{"csrf_token": {token}, "username": {username}, "password": {password}}, []*http.Cookie{csrfCookieValue})
-	if response.Code != http.StatusSeeOther {
-		t.Fatalf("login %s=%d %s", username, response.Code, response.Body.String())
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code, "login %s=%d %s", username, response.Code, response.Body.String())
 	csrfCookieValue = cookieNamed(t, response.Result().Cookies(), csrfCookie)
 	return []*http.Cookie{csrfCookieValue, cookieNamed(t, response.Result().Cookies(), webauth.CookieName)}, csrfCookieValue.Value
 }
@@ -645,24 +584,17 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	for key, value := range fields {
-		if err := writer.WriteField(key, value); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, writer.WriteField(key, value))
 	}
 	field, filename := "dataset", "frequency.csv"
 	if strings.HasPrefix(path, "/vocabulary/import") {
 		field, filename = "vocabulary_file", "known.txt"
 	}
 	part, err := writer.CreateFormFile(field, filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = io.WriteString(part, content); err != nil {
-		t.Fatal(err)
-	}
-	if err = writer.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = io.WriteString(part, content)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
 	r := httptest.NewRequest("POST", path, &body)
 	r.Header.Set("Content-Type", writer.FormDataContentType())
 	for _, c := range cookies {
@@ -693,16 +625,12 @@ func perform(t *testing.T, h http.Handler, method, path string, form url.Values,
 func hiddenToken(t *testing.T, body string) string {
 	t.Helper()
 	match := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(body)
-	if len(match) != 2 {
-		t.Fatalf("csrf token absent: %s", body)
-	}
+	require.Len(t, match, 2, "csrf token absent: %s", body)
 	return match[1]
 }
 func hiddenInputValue(t *testing.T, body, name string) string {
 	values := hiddenInputValues(t, body, name)
-	if len(values) == 0 {
-		t.Fatalf("hidden input %s absent: %s", name, body)
-	}
+	require.NotEmpty(t, values, "hidden input %s absent: %s", name, body)
 	return values[0]
 }
 func hiddenInputValues(t *testing.T, body, name string) []string {
@@ -724,7 +652,7 @@ func cookieNamed(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie
 			return c
 		}
 	}
-	t.Fatalf("cookie %s absent", name)
+	require.Failf(t, "cookie absent", "cookie %s absent", name)
 	return nil
 }
 func testEPUB(t *testing.T) []byte {
@@ -737,15 +665,10 @@ func testEPUBVariant(t *testing.T, identifier, title, text string) []byte {
 	files := map[string]string{"mimetype": "application/epub+zip", "META-INF/container.xml": `<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`, `OEBPS/content.opf`: fmt.Sprintf(`<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">%s</dc:identifier><dc:title>%s</dc:title></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>`, identifier, title), `OEBPS/chapter.xhtml`: fmt.Sprintf(`<html xmlns="http://www.w3.org/1999/xhtml"><body><p>%s</p></body></html>`, text)}
 	for name, content := range files {
 		w, err := z.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = w.Write([]byte(content)); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+		_, err = w.Write([]byte(content))
+		require.NoError(t, err)
 	}
-	if err := z.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, z.Close())
 	return b.Bytes()
 }

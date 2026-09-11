@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKnownVocabularyFormatsOnlyGermanNouns(t *testing.T) {
@@ -16,18 +18,12 @@ func TestKnownVocabularyFormatsOnlyGermanNouns(t *testing.T) {
 		{Language: "en", CanonicalLemma: "house", UPOS: "NOUN"},
 	}
 	var output bytes.Buffer
-	if err := KnownVocabResult("de", nil, known, "").Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, KnownVocabResult("de", nil, known, "").Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"<td>Haus</td>", "<td>gehen</td>", "<td>house</td>"} {
-		if !strings.Contains(html, want) {
-			t.Errorf("known vocabulary table missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "known vocabulary table missing %q: %s", want, html)
 	}
-	if strings.Contains(html, "<td>haus</td>") {
-		t.Errorf("German noun remained lowercase: %s", html)
-	}
+	assert.False(t, strings.Contains(html, "<td>haus</td>"), "German noun remained lowercase: %s", html)
 }
 
 func TestAnalysisInsightsFormatsOnlyGermanNouns(t *testing.T) {
@@ -47,12 +43,8 @@ func TestAnalysisInsightsFormatsOnlyGermanNouns(t *testing.T) {
 			coverage := domain.AnalysisCoverage{TopUnknownLemmas: []domain.LemmaOccurrence{tt.lemma}}
 			book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{Language: tt.language}}
 			var output bytes.Buffer
-			if err := BookPageWithOptions(domain.User{}, "csrf", book, &coverage, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-				t.Fatal(err)
-			}
-			if got := output.String(); !strings.Contains(got, "<strong>"+tt.want+"</strong>") {
-				t.Errorf("analysis insights missing formatted lemma %q: %s", tt.want, got)
-			}
+			require.NoError(t, BookPageWithOptions(domain.User{}, "csrf", book, &coverage, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
+			assert.True(t, strings.Contains(output.String(), "<strong>"+tt.want+"</strong>"), "analysis insights missing formatted lemma %q: %s", tt.want, output.String())
 		})
 	}
 }

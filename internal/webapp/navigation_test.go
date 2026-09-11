@@ -9,27 +9,23 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func renderShell(t *testing.T, navContext NavigationContext) string {
 	t.Helper()
 	var output bytes.Buffer
-	if err := ShellLayout("Shell test", &domain.User{Username: "learner"}, "csrf", navContext).Render(context.Background(), &output); err != nil {
-		t.Fatalf("render shell: %v", err)
-	}
+	require.NoError(t, ShellLayout("Shell test", &domain.User{Username: "learner"}, "csrf", navContext).Render(context.Background(), &output))
 	return output.String()
 }
 
 func renderedPrimaryNavigation(t *testing.T, html string) string {
 	t.Helper()
 	start := strings.Index(html, `<nav class="site-header__nav"`)
-	if start < 0 {
-		t.Fatalf("primary navigation missing: %s", html)
-	}
+	require.True(t, start >= 0, "primary navigation missing: %s", html)
 	end := strings.Index(html[start:], `</nav>`)
-	if end < 0 {
-		t.Fatalf("primary navigation missing: %s", html)
-	}
+	require.True(t, end >= 0, "primary navigation missing: %s", html)
 	return html[start : start+end]
 }
 
@@ -48,15 +44,9 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			html := renderShell(t, test.context)
 			navigation := renderedPrimaryNavigation(t, html)
-			if got := strings.Count(navigation, `aria-current="page"`); got != 1 {
-				t.Fatalf("aria-current count = %d, want 1: %s", got, html)
-			}
-			if !strings.Contains(navigation, test.currentLink+` aria-current="page"`) || !strings.Contains(navigation, test.currentCSS) {
-				t.Fatalf("current destination missing semantic current class: %s", html)
-			}
-			if !strings.Contains(html, `data-navigation-context="`+string(test.context)+`"`) {
-				t.Fatalf("shell context missing: %s", html)
-			}
+			assert.Equal(t, 1, strings.Count(navigation, `aria-current="page"`), "aria-current count: %s", html)
+			assert.True(t, strings.Contains(navigation, test.currentLink+` aria-current="page"`) && strings.Contains(navigation, test.currentCSS), "current destination missing semantic current class: %s", html)
+			assert.True(t, strings.Contains(html, `data-navigation-context="`+string(test.context)+`"`), "shell context missing: %s", html)
 		})
 	}
 }
@@ -76,27 +66,17 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	previous := -1
 	for _, fragment := range ordered {
 		position := strings.Index(navigation, fragment)
-		if position < 0 {
-			t.Fatalf("shell missing %q: %s", fragment, navigation)
-		}
-		if position <= previous {
-			t.Fatalf("shell order moved %q before prior control", fragment)
-		}
+		require.True(t, position >= 0, "shell missing %q: %s", fragment, navigation)
+		require.True(t, position > previous, "shell order moved %q before prior control", fragment)
 		previous = position
 	}
-	if !strings.Contains(html, `aria-label="Primary navigation"`) {
-		t.Error("primary navigation name changed")
-	}
-	if strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`) {
-		t.Error("skip link or main content moved out of keyboard/document order")
-	}
+	assert.True(t, strings.Contains(html, `aria-label="Primary navigation"`), "primary navigation name changed")
+	assert.False(t, strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`), "skip link or main content moved out of keyboard/document order")
 }
 
 func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	html := renderShell(t, NavigationLibrary)
-	if !strings.Contains(html, `class="site-header__nav"`) || !strings.Contains(html, `class="site-header__navigation"`) {
-		t.Fatalf("shell compact layout hooks missing: %s", html)
-	}
+	assert.True(t, strings.Contains(html, `class="site-header__nav"`) && strings.Contains(html, `class="site-header__navigation"`), "shell compact layout hooks missing: %s", html)
 
 	request := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
@@ -110,9 +90,7 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 		".site-nav__link--current",
 		"text-decoration: underline",
 	} {
-		if !strings.Contains(css, want) {
-			t.Errorf("compact/current class contract missing %q", want)
-		}
+		assert.True(t, strings.Contains(css, want), "compact/current class contract missing %q", want)
 	}
 }
 
@@ -120,10 +98,7 @@ func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 	(&Handler{}).dashboard(response, request)
-	if response.Code != http.StatusSeeOther {
-		t.Fatalf("root status = %d, want %d", response.Code, http.StatusSeeOther)
-	}
-	if location := response.Header().Get("Location"); location != "/library" {
-		t.Fatalf("root location = %q, want /library", location)
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	location := response.Header().Get("Location")
+	assert.Equal(t, "/library", location)
 }

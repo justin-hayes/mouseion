@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
@@ -17,9 +19,7 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		Source:         domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
 		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-372", CorpusID: "corpus-372",
 	}
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		`id="deck-preparation-heading"`,
@@ -30,13 +30,9 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		"Without consent",
 		"does not start vocabulary study",
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("exact result missing deck contract %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "exact result missing deck contract %q: %s", want, html)
 	}
-	if strings.Contains(html, `action="/jobs/`) {
-		t.Error("exact result must not submit deck preparation through an operational job route")
-	}
+	assert.False(t, strings.Contains(html, `action="/jobs/`), "exact result must not submit deck preparation through an operational job route")
 }
 
 func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
@@ -87,26 +83,16 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, QualityOmissions: 1}
-			if err := DeckPreparationStatus("csrf", preparation, "/journey/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/journey/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
 			html := output.String()
-			if !strings.Contains(html, "Return to book") && test.name == "queued" {
-				t.Errorf("status missing return-to-book link: %s", html)
-			}
+			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
 			for _, want := range test.want {
-				if !strings.Contains(html, want) {
-					t.Errorf("status missing %q: %s", want, html)
-				}
+				assert.True(t, strings.Contains(html, want), "status missing %q: %s", want, html)
 			}
 			for _, unwanted := range test.unwanted {
-				if strings.Contains(html, unwanted) {
-					t.Errorf("status contains %q: %s", unwanted, html)
-				}
+				assert.False(t, strings.Contains(html, unwanted), "status contains %q: %s", unwanted, html)
 			}
-			if !strings.Contains(html, `value="`+strconv.Itoa(test.progress)+`"`) {
-				t.Errorf("status progress does not include %d: %s", test.progress, html)
-			}
+			assert.True(t, strings.Contains(html, `value="`+strconv.Itoa(test.progress)+`"`), "status progress does not include %d: %s", test.progress, html)
 		})
 	}
 }
@@ -115,28 +101,18 @@ func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T)
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
 	var output bytes.Buffer
-	if err := DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey/book-1", action).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey/book-1", action).Render(context.Background(), &output))
 	html := output.String()
-	if strings.Count(html, `href="/journey/book-1"`) != 2 {
-		t.Fatalf("Journey entry link count=%d: %s", strings.Count(html, `href="/journey/book-1"`), html)
-	}
-	if strings.Contains(html, "/books/source-1") {
-		t.Fatalf("status page contains retired book link: %s", html)
-	}
+	assert.Equal(t, 2, strings.Count(html, `href="/journey/book-1"`), "Journey entry link count=%d: %s", strings.Count(html, `href="/journey/book-1"`), html)
+	assert.False(t, strings.Contains(html, "/books/source-1"), "status page contains retired book link: %s", html)
 }
 
 func TestDeckPreparationStatusPageOmitsBackLinksWithoutJourneyEntry(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationFailed}
 	var output bytes.Buffer
-	if err := DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
-	if strings.Contains(html, "Return to book") || strings.Contains(html, `href="/books/source-1"`) {
-		t.Fatalf("unreachable deck status page contains back link: %s", html)
-	}
+	assert.False(t, strings.Contains(html, "Return to book") || strings.Contains(html, `href="/books/source-1"`), "unreachable deck status page contains back link: %s", html)
 }
 
 func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
@@ -145,22 +121,16 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg",
 	}
 	var output bytes.Buffer
-	if err := DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		"No recurring vocabulary",
 		"This book has no recurring vocabulary to study",
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("empty deck state missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "empty deck state missing %q: %s", want, html)
 	}
 	for _, unwanted := range []string{"Completeness", "Download deck", "0 cards"} {
-		if strings.Contains(html, unwanted) {
-			t.Errorf("empty deck state contains %q: %s", unwanted, html)
-		}
+		assert.False(t, strings.Contains(html, unwanted), "empty deck state contains %q: %s", unwanted, html)
 	}
 }
 
@@ -192,19 +162,13 @@ func TestBookVocabularyStudyRendersReachableTransitions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			if err := BookVocabularyStudy("book-1", "csrf", test.preparation).Render(context.Background(), &output); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, BookVocabularyStudy("book-1", "csrf", test.preparation).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {
-				if !strings.Contains(html, want) {
-					t.Errorf("study view missing %q: %s", want, html)
-				}
+				assert.True(t, strings.Contains(html, want), "study view missing %q: %s", want, html)
 			}
 			for _, unwanted := range test.unwanted {
-				if strings.Contains(html, unwanted) {
-					t.Errorf("study view contains %q: %s", unwanted, html)
-				}
+				assert.False(t, strings.Contains(html, unwanted), "study view contains %q: %s", unwanted, html)
 			}
 		})
 	}
@@ -219,14 +183,10 @@ func TestBookPageRendersVocabularyStudyHistoryAlongsideCurrentStudy(t *testing.T
 	}}
 	current := domain.DeckPreparation{ID: "current-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: &now}
 	var output bytes.Buffer
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, &current, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, &current, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"This Book's vocabulary study", "Studying", "This Book's vocabulary-study history", "Mouseion::de::Old deck", "Released", "2026-09-10 09:00 UTC", `href="/deck-preparations/old-study/download"`} {
-		if !strings.Contains(html, want) {
-			t.Errorf("Book page missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "Book page missing %q: %s", want, html)
 	}
 }
 
@@ -234,12 +194,8 @@ func TestEmptyReadyDeckDoesNotOfferVocabularyStudy(t *testing.T) {
 	var output bytes.Buffer
 	preparation := domain.DeckPreparation{ID: "prep-empty", State: domain.DeckPreparationReady}
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-empty", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-empty", CorpusID: "corpus-empty"}
-	if err := BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), &preparation, emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(output.String(), "Study this Book's vocabulary") {
-		t.Fatalf("empty deck offered a study action: %s", output.String())
-	}
+	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), &preparation, emptyDeckJourneyAction()).Render(context.Background(), &output))
+	assert.False(t, strings.Contains(output.String(), "Study this Book's vocabulary"), "empty deck offered a study action: %s", output.String())
 }
 
 func studyTimePtr() *time.Time {
@@ -253,17 +209,11 @@ func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
 		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", QualityOmissions: 1,
 	}
 	var output bytes.Buffer
-	if err := DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
-	if strings.Contains(html, "No recurring vocabulary") {
-		t.Fatalf("quality omissions were presented as missing vocabulary: %s", html)
-	}
+	assert.False(t, strings.Contains(html, "No recurring vocabulary"), "quality omissions were presented as missing vocabulary: %s", html)
 	for _, want := range []string{"Completeness", "0 cards", "Download deck"} {
-		if !strings.Contains(html, want) {
-			t.Errorf("quality omission state missing %q: %s", want, html)
-		}
+		assert.True(t, strings.Contains(html, want), "quality omission state missing %q: %s", want, html)
 	}
 }
 
@@ -283,23 +233,15 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 9, State: test.state}
-			if err := DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {
-				if !strings.Contains(html, want) {
-					t.Errorf("state missing %q: %s", want, html)
-				}
+				assert.True(t, strings.Contains(html, want), "state missing %q: %s", want, html)
 			}
 			for _, omit := range test.omit {
-				if strings.Contains(html, omit) {
-					t.Errorf("state contains %q: %s", omit, html)
-				}
+				assert.False(t, strings.Contains(html, omit), "state contains %q: %s", omit, html)
 			}
-			if strings.Contains(html, "campaign operations") {
-				t.Errorf("ready state exposed Campaign queue copy: %s", html)
-			}
+			assert.False(t, strings.Contains(html, "campaign operations"), "ready state exposed Campaign queue copy: %s", html)
 		})
 	}
 }

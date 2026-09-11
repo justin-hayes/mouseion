@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	if err := store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
 	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
 	for _, cookie := range cookies {
@@ -23,15 +23,11 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("GET /journey status=%d body=%s", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `<option value="it" selected`) {
-		t.Fatalf("shell did not render the most recently activated language: %s", response.Body.String())
-	}
-	if stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID); err != nil || stored != "" {
-		t.Fatalf("lazy default wrote stored language=%q err=%v", stored, err)
-	}
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.True(t, strings.Contains(response.Body.String(), `<option value="it" selected`), "shell did not render the most recently activated language: %s", response.Body.String())
+	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
+	require.NoError(t, err)
+	assert.Equal(t, "", stored)
 }
 
 func TestActiveStudyLanguageEmptySubmissionIsNoOp(t *testing.T) {
@@ -39,10 +35,9 @@ func TestActiveStudyLanguageEmptySubmissionIsNoOp(t *testing.T) {
 	response := goalRequest(t, h, "/active-study-language", url.Values{
 		"csrf_token": {csrf}, "language": {""}, "return_to": {"/journey"},
 	}, cookies)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/journey" {
-		t.Fatalf("empty language submission status=%d location=%q body=%s", response.Code, response.Header().Get("Location"), response.Body.String())
-	}
-	if stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID); err != nil || stored != "de" {
-		t.Fatalf("empty language submission changed stored language=%q err=%v", stored, err)
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey", response.Header().Get("Location"))
+	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
+	require.NoError(t, err)
+	assert.Equal(t, "de", stored)
 }
