@@ -1,0 +1,1 @@
+DROP VIEW IF EXISTS source_material_evidence;

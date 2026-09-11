@@ -3,48 +3,18 @@ package persistence
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 const bookColumns = `id::text,owner_id::text,title,metadata_provenance,language_state,COALESCE(language_tag,''),created_at,updated_at`
 const qualifiedBookColumns = `b.id::text,b.owner_id::text,b.title,b.metadata_provenance,b.language_state,COALESCE(b.language_tag,''),b.created_at,b.updated_at`
-
-const myBooksEvidenceSelect = `SELECT ` + qualifiedBookColumns + `,
-       COALESCE(s.id::text,''),COALESCE(s.owner_id::text,''),COALESCE(s.language,''),COALESCE(s.source_identifier,''),COALESCE(s.title,''),COALESCE(s.media_type,''),
-       COALESCE(CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,''),COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),COALESCE(r.digest_version,0),s.created_at,
-       s.id IS NOT NULL,
-       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
-            WHEN ar.state = 'failed' THEN 'analysis failed'
-            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
-            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-		     WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
-            ELSE 'not analyzed' END,
-       CASE WHEN ar.state IS NOT NULL THEN ar.state
-            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
-            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
-            WHEN j.river_job_id IS NOT NULL THEN 'queued'
-            ELSE '' END,
-	       COALESCE(ca.analysis_run_id::text,''),COALESCE(ca.corpus_id::text,''),COALESCE(j.river_job_id,0)`
-
-const myBooksEvidenceFrom = `
-FROM books b
-JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-LEFT JOIN book_current_analyses p ON p.owner_id=b.owner_id AND p.book_id=b.id
-LEFT JOIN current_analysis ca ON ca.owner_id=b.owner_id AND ca.book_id=b.id
-LEFT JOIN LATERAL (SELECT s.* FROM source_materials s WHERE s.owner_id=b.owner_id AND s.book_id=b.id ORDER BY CASE WHEN p.source_material_id IS NOT NULL AND s.id=p.source_material_id THEN 0 ELSE 1 END,s.created_at DESC,s.id DESC LIMIT 1) s ON true
-LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
-LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs j WHERE j.owner_id=s.owner_id AND j.source_material_id=s.id ORDER BY j.created_at DESC,j.river_job_id DESC LIMIT 1) j ON true
-LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-	`
 
 // LanguageCount is one owner-scoped language pill count. Tag is "unknown"
 // for books whose language state is unknown.
@@ -68,20 +38,24 @@ func scanBook(row pgx.Row) (domain.Book, error) {
 }
 
 func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain.Book, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+qualifiedBookColumns+` FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id WHERE b.owner_id=$1 AND m.state='active' ORDER BY b.title,b.id`, owner)
+	rows, err := s.queries().ListActiveBooks(ctx, uuidArg(owner))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var books []domain.Book
-	for rows.Next() {
-		var b domain.Book
-		if err := rows.Scan(&b.ID, &b.OwnerID, &b.Title, &b.MetadataProvenance, &b.LanguageState, &b.LanguageTag, &b.CreatedAt, &b.UpdatedAt); err != nil {
-			return nil, err
-		}
-		books = append(books, b)
+	for _, row := range rows {
+		books = append(books, domain.Book{
+			ID:                 row.BID,
+			OwnerID:            row.BOwnerID,
+			Title:              row.Title,
+			MetadataProvenance: row.MetadataProvenance,
+			LanguageState:      row.LanguageState,
+			LanguageTag:        row.LanguageTag,
+			CreatedAt:          pgTime(row.CreatedAt),
+			UpdatedAt:          pgTime(row.UpdatedAt),
+		})
 	}
-	return books, rows.Err()
+	return books, nil
 }
 
 // ListStudyLanguages derives the learner's study languages from active Books
@@ -117,14 +91,15 @@ func (s *PostgresStore) ListStudyLanguages(ctx context.Context, owner string) ([
 // is the driving table, so metadata-only Books remain visible; the current
 // acquired source and analysis projection are optional evidence on each row.
 func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner string) ([]domain.MyBook, error) {
-	rows, err := s.pool.Query(ctx, currentAnalysisCTE+myBooksEvidenceSelect+myBooksEvidenceFrom+`
-	WHERE b.owner_id=$1
-	ORDER BY b.title,b.id`, owner)
+	rows, err := s.queries().ListMyBooksEvidence(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return scanMyBookRows(rows)
+	var books []domain.MyBook
+	for _, row := range rows {
+		books = append(books, myBookFromEvidence(row))
+	}
+	return books, nil
 }
 
 // ListMyBooksBrowse returns one owner-scoped page of the active My Books
@@ -147,51 +122,43 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if limit < 0 {
 		limit = 0
 	}
+	escapedQuery := escapeLikePattern(query)
 
-	where, args := myBooksBrowseWhere(owner, query, language)
-	pageArgs := append(append([]any(nil), args...), limit, offset)
-	pageSQL := currentAnalysisCTE + myBooksEvidenceSelect + myBooksEvidenceFrom + `
-	WHERE ` + where + fmt.Sprintf(`
-	ORDER BY lower(b.title),b.title,b.id
-	LIMIT $%d OFFSET $%d`, len(args)+1, len(args)+2)
-	rows, err := s.pool.Query(ctx, pageSQL, pageArgs...)
-	if err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	items, err := scanMyBookRows(rows)
+	q := s.queries()
+	rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
+		Owner: owner, Query: escapedQuery, Language: language,
+		Offset: int32(offset), Limit: int32(limit),
+	})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 
 	var result MyBooksBrowseResult
-	result.Items = items
-	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE `+where, args...).Scan(&result.Total); err != nil {
-		return MyBooksBrowseResult{}, err
+	for _, row := range rows {
+		result.Items = append(result.Items, myBookFromEvidence(row))
 	}
-	scopeWhere, scopeArgs := myBooksBrowseWhere(owner, "", language)
-	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE `+scopeWhere, scopeArgs...).Scan(&result.ScopeTotal); err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1`, owner).Scan(&result.AllCount); err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	counts, err := s.pool.Query(ctx, `SELECT CASE WHEN b.language_state='unknown' THEN 'unknown' ELSE b.language_tag END, count(*) FROM books b JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active' WHERE b.owner_id=$1 AND b.language_state IN ('chosen','unknown') GROUP BY 1`, owner)
+	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	for counts.Next() {
-		var item LanguageCount
-		if err = counts.Scan(&item.Tag, &item.Count); err != nil {
-			counts.Close()
-			return MyBooksBrowseResult{}, err
-		}
-		result.Counts = append(result.Counts, item)
-	}
-	if err = counts.Err(); err != nil {
-		counts.Close()
+	result.Total = int(total)
+	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language})
+	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	counts.Close()
+	result.ScopeTotal = int(scopeTotal)
+	allCount, err := q.CountMyBooksAll(ctx, owner)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	result.AllCount = int(allCount)
+	counts, err := q.CountMyBooksByLanguage(ctx, owner)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	for _, count := range counts {
+		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: int(count.BookCount)})
+	}
 	sort.Slice(result.Counts, func(i, j int) bool {
 		if result.Counts[i].Tag == "unknown" {
 			return false
@@ -204,84 +171,18 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	return result, nil
 }
 
-func myBooksBrowseWhere(owner, query, language string) (string, []any) {
-	conditions := []string{"b.owner_id=$1", "m.state='active'"}
-	args := []any{owner}
-	if query != "" {
-		args = append(args, escapeLikePattern(query))
-		conditions = append(conditions, fmt.Sprintf(`lower(b.title) LIKE '%%' || $%d || '%%' ESCAPE '\'`, len(args)))
-	}
-	if language != "" {
-		if language == domain.LanguageUnknown {
-			conditions = append(conditions, "b.language_state='unknown'")
-		} else {
-			args = append(args, language)
-			conditions = append(conditions, fmt.Sprintf("b.language_state='chosen' AND b.language_tag=$%d", len(args)))
-		}
-	}
-	return strings.Join(conditions, " AND "), args
-}
-
 func escapeLikePattern(value string) string {
 	return strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(value)
-}
-
-func scanMyBookRows(rows pgx.Rows) ([]domain.MyBook, error) {
-	defer rows.Close()
-	var out []domain.MyBook
-	for rows.Next() {
-		item, err := scanMyBookRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, rows.Err()
-}
-
-type myBookRowScanner interface {
-	Scan(...any) error
-}
-
-func scanMyBookRow(row myBookRowScanner) (domain.MyBook, error) {
-	var item domain.MyBook
-	var sourceID, sourceOwner, sourceLanguage, sourceIdentifier, sourceTitle, sourceMediaType string
-	var sourceContentHash, sourceDigest, sourceRevisionID, sourceSnapshotID string
-	var sourceCreatedAt *time.Time
-	var sourceExists bool
-	var analysisStatus, analysisState, analysisRunID, corpusID string
-	var analysisJobID int64
-	var digestVersion int
-	if err := row.Scan(&item.Book.ID, &item.Book.OwnerID, &item.Book.Title, &item.Book.MetadataProvenance, &item.Book.LanguageState, &item.Book.LanguageTag, &item.Book.CreatedAt, &item.Book.UpdatedAt,
-		&sourceID, &sourceOwner, &sourceLanguage, &sourceIdentifier, &sourceTitle, &sourceMediaType, &sourceContentHash, &sourceDigest, &sourceRevisionID, &sourceSnapshotID, &digestVersion, &sourceCreatedAt, &sourceExists,
-		&analysisStatus, &analysisState, &analysisRunID, &corpusID, &analysisJobID); err != nil {
-		return domain.MyBook{}, missing(err)
-	}
-	if sourceExists {
-		createdAt := time.Time{}
-		if sourceCreatedAt != nil {
-			createdAt = *sourceCreatedAt
-		}
-		item.Acquired = &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ID: sourceID, OwnerID: sourceOwner, Language: sourceLanguage, SourceIdentifier: sourceIdentifier, Title: sourceTitle, MediaType: sourceMediaType, ContentHash: sourceContentHash, ContentDigest: sourceDigest, ContentRevisionID: sourceRevisionID, ContentSnapshotID: sourceSnapshotID, ContentDigestVersion: digestVersion, CreatedAt: createdAt},
-			BookTitle:      item.Book.Title,
-			BookID:         item.Book.ID,
-			AnalysisStatus: analysisStatus, AnalysisState: analysisState, AnalysisRunID: analysisRunID, CorpusID: corpusID, AnalysisJobID: analysisJobID,
-		}
-	}
-	return item, nil
 }
 
 // GetBookDetail resolves either the canonical Book ID or a historical source
 // material ID within the owner's active My Books membership.
 func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (domain.MyBook, error) {
-	return scanMyBookRow(s.pool.QueryRow(ctx, currentAnalysisCTE+myBooksEvidenceSelect+myBooksEvidenceFrom+`
-	WHERE b.owner_id=$1 AND (b.id::text=$2 OR EXISTS (
-		SELECT 1 FROM source_materials requested_source
-		WHERE requested_source.owner_id=b.owner_id AND requested_source.book_id=b.id AND requested_source.id::text=$2
-	))
-	ORDER BY CASE WHEN b.id::text=$2 THEN 0 ELSE 1 END
-	LIMIT 1`, owner, id))
+	row, err := s.queries().GetMyBookDetail(ctx, sqlcgen.GetMyBookDetailParams{Owner: owner, ID: id})
+	if err != nil {
+		return domain.MyBook{}, missing(err)
+	}
+	return myBookFromEvidence(row), nil
 }
 
 func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (domain.Book, error) {

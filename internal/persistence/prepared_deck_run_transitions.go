@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -32,24 +35,27 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 	if !validClaim(token, leaseExpiresAt) {
 		return domain.PreparedDeckTranslationOutcome{}, ErrInvalidTransition
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, err
-	}
-	defer tx.Rollback(ctx)
-	outcome, err := scanPreparedDeckOutcome(tx.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes o SET state='running',dispatch_count=dispatch_count+1,claim_token=$6,claimed_at=now(),lease_expires_at=$7,error_class='',error_code='',updated_at=now()
-		FROM deck_preparation_runs r WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=$4 AND o.dispatch_generation=$5 AND o.state='pending' AND o.next_attempt_at<=now()
-		AND r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id AND r.state='translating' AND r.translation_state IN ('pending','running') RETURNING `+qualifiedColumns("o", preparedDeckOutcomeColumns), owner, preparationID, runID, ordinal, generation, token, leaseExpiresAt))
-	if err != nil {
-		return outcome, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, err)
-	}
-	if _, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET translation_state='running',updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND translation_state='pending'`, owner, preparationID, runID); err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, err
-	}
-	return outcome, nil
+	var outcome domain.PreparedDeckTranslationOutcome
+	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		model, err := sqlcgen.New(tx).ClaimPreparedDeckTranslationOutcome(ctx, sqlcgen.ClaimPreparedDeckTranslationOutcomeParams{
+			OwnerID:            uuidArg(owner),
+			PreparationID:      uuidArg(preparationID),
+			RunID:              uuidArg(runID),
+			Ordinal:            int32(ordinal),
+			DispatchGeneration: int32(generation),
+			ClaimToken:         uuidArg(token),
+			LeaseExpiresAt:     pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+		})
+		if err != nil {
+			return s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
+		}
+		outcome = preparedDeckOutcomeFromModel(model)
+		if _, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET translation_state='running',updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND translation_state='pending'`, owner, preparationID, runID); err != nil {
+			return err
+		}
+		return nil
+	})
+	return outcome, err
 }
 
 // RetryPreparedDeckTranslationOutcome persists one failed provider attempt and
@@ -58,13 +64,21 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, err
 	}
-	outcome, err := scanPreparedDeckOutcome(s.pool.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes o SET state='pending',provider_attempt_count=provider_attempt_count+1,next_attempt_at=$7,dispatch_generation=dispatch_generation+1,river_job_id=NULL,claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,error_class=$8,error_code=$9,updated_at=now()
-		FROM deck_preparation_runs r WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=$4 AND o.dispatch_generation=$5 AND o.claim_token=$6 AND o.state='running' AND o.provider_attempt_count<o.max_provider_attempts
-		AND r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id AND r.state='translating' AND r.translation_state IN ('pending','running') RETURNING `+qualifiedColumns("o", preparedDeckOutcomeColumns), owner, preparationID, runID, ordinal, generation, token, nextAttemptAt, errorClass, errorCode))
+	model, err := s.queries().RetryPreparedDeckTranslationOutcome(ctx, sqlcgen.RetryPreparedDeckTranslationOutcomeParams{
+		OwnerID:            uuidArg(owner),
+		PreparationID:      uuidArg(preparationID),
+		RunID:              uuidArg(runID),
+		Ordinal:            int32(ordinal),
+		DispatchGeneration: int32(generation),
+		ClaimToken:         uuidArg(token),
+		NextAttemptAt:      pgtype.Timestamptz{Time: nextAttemptAt, Valid: true},
+		ErrorClass:         errorClass,
+		ErrorCode:          errorCode,
+	})
 	if err != nil {
-		return outcome, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, err)
+		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
 	}
-	return outcome, nil
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 type PreparedDeckOutcomeTerminalUpdate struct {
@@ -179,13 +193,17 @@ func boolInt(value bool) int {
 // RedispatchPreparedDeckTranslationOutcome reclaims only expired work and
 // increments the generation that stale workers must match.
 func (s *PostgresStore) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal, expectedGeneration int) (domain.PreparedDeckTranslationOutcome, error) {
-	outcome, err := scanPreparedDeckOutcome(s.pool.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes o SET state='pending',dispatch_generation=dispatch_generation+1,river_job_id=NULL,claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,next_attempt_at=now(),error_class='orchestration',error_code='expired_lease',updated_at=now()
-		FROM deck_preparation_runs r WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=$4 AND o.dispatch_generation=$5 AND o.state='running' AND o.lease_expires_at<=now()
-		AND r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id AND r.state='translating' RETURNING `+qualifiedColumns("o", preparedDeckOutcomeColumns), owner, preparationID, runID, ordinal, expectedGeneration))
+	model, err := s.queries().RedispatchPreparedDeckTranslationOutcome(ctx, sqlcgen.RedispatchPreparedDeckTranslationOutcomeParams{
+		OwnerID:            uuidArg(owner),
+		PreparationID:      uuidArg(preparationID),
+		RunID:              uuidArg(runID),
+		Ordinal:            int32(ordinal),
+		DispatchGeneration: int32(expectedGeneration),
+	})
 	if err != nil {
-		return outcome, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, err)
+		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
 	}
-	return outcome, nil
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 // ClaimPreparedDeckFinalization grants a leased, generation-fenced finalizer
@@ -194,35 +212,48 @@ func (s *PostgresStore) ClaimPreparedDeckFinalization(ctx context.Context, owner
 	if !validClaim(token, leaseExpiresAt) {
 		return domain.PreparedDeckRun{}, ErrInvalidTransition
 	}
-	run, err := scanPreparedDeckRun(s.pool.QueryRow(ctx, `UPDATE deck_preparation_runs r SET finalization_claim_token=$5,finalization_claimed_at=now(),finalization_lease_expires_at=$6,finalization_dispatch_count=finalization_dispatch_count+1,updated_at=now()
-		FROM deck_preparations p WHERE r.owner_id=$1 AND r.preparation_id=$2 AND r.id=$3 AND r.finalization_dispatch_generation=$4 AND r.state='finalizing' AND r.translation_state='completed'
-		AND (r.finalization_claim_token IS NULL OR r.finalization_lease_expires_at<=now()) AND p.owner_id=r.owner_id AND p.id=r.preparation_id AND p.current_run_id=r.id AND p.state='preparing' RETURNING `+qualifiedColumns("r", preparedDeckRunColumns), owner, preparationID, runID, generation, token, leaseExpiresAt))
+	row, err := s.queries().ClaimPreparedDeckFinalization(ctx, sqlcgen.ClaimPreparedDeckFinalizationParams{
+		OwnerID:                        uuidArg(owner),
+		PreparationID:                  uuidArg(preparationID),
+		ID:                             uuidArg(runID),
+		FinalizationDispatchGeneration: int32(generation),
+		FinalizationClaimToken:         uuidArg(token),
+		FinalizationLeaseExpiresAt:     pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+	})
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			existing, getErr := s.GetPreparedDeckRun(ctx, owner, preparationID, runID)
 			if getErr != nil {
-				return run, getErr
+				return domain.PreparedDeckRun{}, getErr
 			}
 			if existing.State == domain.PreparedDeckRunCompleted {
 				return existing, nil
 			}
-			return run, ErrPreparedDeckClaimLost
+			return domain.PreparedDeckRun{}, ErrPreparedDeckClaimLost
 		}
+		return domain.PreparedDeckRun{}, err
 	}
-	return run, err
+	return preparedDeckRunFromFields(row.ID, row.OwnerID, row.PreparationID, row.RunNumber, row.State, row.TranslationState, row.ExecutionMode, row.TargetLanguage, row.ExternalTranslationConsent, row.ExternalTranslationConfigured, row.ContextMode, row.Provider, row.ProviderVersion, row.Endpoint, row.Model, row.ManifestSchemaVersion, row.RetryPolicyVersion, row.MaxProviderAttempts, row.MaxBatchGenerations, row.BatchMaxRequests, row.BatchMaxBytes, row.CandidateCount, row.CompletedCount, row.FailedCount, row.FinalizationDispatchGeneration, row.FinalizationDispatchCount, row.FinalizationJobID, row.FinalizationClaimToken, row.ErrorClass, row.ErrorCode, row.CreatedAt, row.UpdatedAt, row.FinalizationClaimedAt, row.FinalizationLeaseExpiresAt, row.TranslationCompletedAt, row.CompletedAt), nil
 }
 
 func (s *PostgresStore) AssignPreparedDeckFinalizationJob(ctx context.Context, owner, preparationID, runID string, expectedGeneration int, jobID int64) (domain.PreparedDeckRun, error) {
 	if jobID < 1 {
 		return domain.PreparedDeckRun{}, ErrInvalidTransition
 	}
-	run, err := scanPreparedDeckRun(s.pool.QueryRow(ctx, `UPDATE deck_preparation_runs SET finalization_dispatch_generation=finalization_dispatch_generation+1,finalization_job_id=$5,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND finalization_dispatch_generation=$4 AND state='finalizing' AND translation_state='completed' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, expectedGeneration, jobID))
+	row, err := s.queries().AssignPreparedDeckFinalizationJob(ctx, sqlcgen.AssignPreparedDeckFinalizationJobParams{
+		OwnerID:                        uuidArg(owner),
+		PreparationID:                  uuidArg(preparationID),
+		ID:                             uuidArg(runID),
+		FinalizationDispatchGeneration: int32(expectedGeneration),
+		FinalizationJobID:              pgtype.Int8{Int64: jobID, Valid: true},
+	})
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return run, ErrInvalidTransition
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PreparedDeckRun{}, ErrInvalidTransition
 		}
+		return domain.PreparedDeckRun{}, err
 	}
-	return run, err
+	return preparedDeckRunFromFields(row.ID, row.OwnerID, row.PreparationID, row.RunNumber, row.State, row.TranslationState, row.ExecutionMode, row.TargetLanguage, row.ExternalTranslationConsent, row.ExternalTranslationConfigured, row.ContextMode, row.Provider, row.ProviderVersion, row.Endpoint, row.Model, row.ManifestSchemaVersion, row.RetryPolicyVersion, row.MaxProviderAttempts, row.MaxBatchGenerations, row.BatchMaxRequests, row.BatchMaxBytes, row.CandidateCount, row.CompletedCount, row.FailedCount, row.FinalizationDispatchGeneration, row.FinalizationDispatchCount, row.FinalizationJobID, row.FinalizationClaimToken, row.ErrorClass, row.ErrorCode, row.CreatedAt, row.UpdatedAt, row.FinalizationClaimedAt, row.FinalizationLeaseExpiresAt, row.TranslationCompletedAt, row.CompletedAt), nil
 }
 
 func (s *PostgresStore) AssignPreparedDeckBatchSubmissionJob(ctx context.Context, owner, preparationID, runID, chunkID string, expectedGeneration int, jobID int64) (domain.PreparedDeckBatchChunk, error) {
@@ -366,12 +397,14 @@ func (s *PostgresStore) RetryPreparedDeckBatchSubmission(ctx context.Context, ow
 // the external boundary. Cancellation or supersession that wins first makes
 // the provider call ineligible.
 func (s *PostgresStore) VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) error {
-	var exists bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM deck_preparation_batch_chunks c
-		JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
-		WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.state='translating'
-	)`, owner, preparationID, runID, chunkID, generation, token).Scan(&exists)
+	exists, err := s.queries().VerifyPreparedDeckBatchSubmissionClaim(ctx, sqlcgen.VerifyPreparedDeckBatchSubmissionClaimParams{
+		OwnerID:              uuidArg(owner),
+		PreparationID:        uuidArg(preparationID),
+		RunID:                uuidArg(runID),
+		ID:                   uuidArg(chunkID),
+		Generation:           int32(generation),
+		SubmissionClaimToken: uuidArg(token),
+	})
 	if err != nil {
 		return err
 	}
