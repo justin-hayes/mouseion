@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/sync/singleflight"
 )
 
 // CapabilityProvider reports the analysis languages currently exposed by the
@@ -44,6 +45,7 @@ type CachedCapabilityProvider struct {
 	provider CapabilityProvider
 	ttl      time.Duration
 	now      func() time.Time
+	lookup   singleflight.Group
 
 	mu      sync.Mutex
 	value   Capabilities
@@ -56,24 +58,63 @@ func NewCachedCapabilityProvider(provider CapabilityProvider, ttl time.Duration)
 
 func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabilities, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	now := c.now()
-	if !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl {
-		return cloneCapabilities(c.value), nil
-	}
-	value, err := c.provider.GetCapabilities(ctx)
-	if err == nil {
-		value.Degraded = false
-		c.value = cloneCapabilities(value)
-		c.fetched = now
-		return cloneCapabilities(value), nil
-	}
-	if !c.fetched.IsZero() {
-		value = cloneCapabilities(c.value)
-		value.Degraded = true
+	if c.cacheFresh(now) {
+		value := cloneCapabilities(c.value)
+		c.mu.Unlock()
 		return value, nil
 	}
-	return Capabilities{}, err
+	c.mu.Unlock()
+
+	resultCh := c.lookup.DoChan("capabilities", func() (any, error) {
+		c.mu.Lock()
+		now := c.now()
+		if c.cacheFresh(now) {
+			value := cloneCapabilities(c.value)
+			c.mu.Unlock()
+			return value, nil
+		}
+		c.mu.Unlock()
+
+		// Keep a shared refresh alive for other waiters, but retain the elected caller's deadline.
+		lookupContext := context.WithoutCancel(ctx)
+		if deadline, ok := ctx.Deadline(); ok {
+			var cancel context.CancelFunc
+			lookupContext, cancel = context.WithDeadline(lookupContext, deadline)
+			defer cancel()
+		}
+		value, err := c.provider.GetCapabilities(lookupContext)
+		if err == nil {
+			value.Degraded = false
+			c.mu.Lock()
+			c.value = cloneCapabilities(value)
+			c.fetched = now
+			result := cloneCapabilities(value)
+			c.mu.Unlock()
+			return result, nil
+		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if !c.fetched.IsZero() {
+			value = cloneCapabilities(c.value)
+			value.Degraded = true
+			return value, nil
+		}
+		return Capabilities{}, err
+	})
+	select {
+	case result := <-resultCh:
+		if result.Err != nil {
+			return Capabilities{}, result.Err
+		}
+		return cloneCapabilities(result.Val.(Capabilities)), nil
+	case <-ctx.Done():
+		return Capabilities{}, ctx.Err()
+	}
+}
+
+func (c *CachedCapabilityProvider) cacheFresh(now time.Time) bool {
+	return !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl
 }
 
 func cloneCapabilities(value Capabilities) Capabilities {
