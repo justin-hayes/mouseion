@@ -4,11 +4,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 	h := (&Handler{}).RequireUser(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Fatal("protected handler called")
+		require.FailNow(t, "protected handler called")
 	}))
 	tests := []struct {
 		name, method, accept, fetchMode string
@@ -28,9 +31,8 @@ func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 			r.Header.Set("Sec-Fetch-Mode", tt.fetchMode)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, r)
-			if w.Code != tt.wantStatus || w.Header().Get("Location") != tt.wantLocation {
-				t.Fatalf("status=%d location=%q body=%q", w.Code, w.Header().Get("Location"), w.Body.String())
-			}
+			assert.Equal(t, tt.wantStatus, w.Code, "status=%d location=%q body=%q", w.Code, w.Header().Get("Location"), w.Body.String())
+			assert.Equal(t, tt.wantLocation, w.Header().Get("Location"), "status=%d location=%q body=%q", w.Code, w.Header().Get("Location"), w.Body.String())
 		})
 	}
 }
@@ -44,8 +46,6 @@ func TestSafeReturnPath(t *testing.T) {
 		"library":               "/",
 		"":                      "/",
 	} {
-		if got := SafeReturnPath(raw); got != want {
-			t.Errorf("SafeReturnPath(%q)=%q want %q", raw, got, want)
-		}
+		assert.Equal(t, want, SafeReturnPath(raw), "SafeReturnPath(%q)", raw)
 	}
 }

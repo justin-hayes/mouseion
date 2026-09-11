@@ -5,6 +5,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/riverqueue/river"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
@@ -23,9 +24,8 @@ func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 		{name: "standard translation", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.StandardTranslationWorker{}) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if err := test.add(); err == nil {
-				t.Fatal("worker kind was not registered")
-			}
+			err := test.add()
+			assert.Error(t, err, "worker kind was not registered")
 		})
 	}
 }

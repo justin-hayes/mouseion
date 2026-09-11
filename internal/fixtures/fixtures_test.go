@@ -3,36 +3,35 @@ package fixtures
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	revision, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)
-	if err != nil || revision != journey.Revision+1 {
-		t.Fatalf("move revision=%d err=%v", revision, err)
-	}
-	journey, _ = store.GetReadingJourney(ctx, OwnerID, "it")
-	if journey.Entries[0].BookID != edgeBookID || journey.Entries[0].Position != 1 || journey.Entries[1].Position != 2 {
-		t.Fatalf("reordered journey=%+v", journey.Entries)
-	}
-	if _, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "it", "fixture-empty", 1, revision-1); !errors.Is(err, persistence.ErrJourneyStale) {
-		t.Fatalf("stale move error=%v", err)
-	}
-	if unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 0, revision); err != nil || unchanged != revision {
-		t.Fatalf("clamped move revision=%d err=%v", unchanged, err)
-	}
+	require.NoError(t, err, "move revision=%d err=%v", revision, err)
+	assert.Equal(t, journey.Revision+1, revision, "move revision=%d err=%v", revision, err)
+	journey, err = store.GetReadingJourney(ctx, OwnerID, "it")
+	require.NoError(t, err)
+	require.Len(t, journey.Entries, 3, "reordered journey=%+v", journey.Entries)
+	assert.Equal(t, edgeBookID, journey.Entries[0].BookID, "reordered journey=%+v", journey.Entries)
+	assert.Equal(t, 1, journey.Entries[0].Position, "reordered journey=%+v", journey.Entries)
+	assert.Equal(t, 2, journey.Entries[1].Position, "reordered journey=%+v", journey.Entries)
+	_, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "it", "fixture-empty", 1, revision-1)
+	assert.ErrorIs(t, err, persistence.ErrJourneyStale, "stale move error=%v", err)
+	unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 0, revision)
+	require.NoError(t, err, "clamped move revision=%d err=%v", unchanged, err)
+	assert.Equal(t, revision, unchanged, "clamped move revision=%d err=%v", unchanged, err)
 }
 
 func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
@@ -46,99 +45,72 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 
 	for _, id := range []string{BookID, SourceID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {
 		detail, err := store.GetBookDetail(ctx, OwnerID, id)
-		if err != nil {
-			t.Fatalf("GetBookDetail(%q): %v", id, err)
-		}
+		require.NoError(t, err, "GetBookDetail(%q): %v", id, err)
 		if id == SourceID || id == "fixture-detail-source" {
 			wantBookID := BookID
 			if id == "fixture-detail-source" {
 				wantBookID = "fixture-detail-book"
 			}
-			if detail.Book.ID != wantBookID || detail.Acquired == nil {
-				t.Fatalf("source resolution=%+v", detail)
-			}
-		} else if detail.Book.ID != id {
-			t.Fatalf("GetBookDetail(%q) book=%q", id, detail.Book.ID)
+			assert.Equal(t, wantBookID, detail.Book.ID, "source resolution=%+v", detail)
+			require.NotNil(t, detail.Acquired, "source resolution=%+v", detail)
+		} else {
+			assert.Equal(t, id, detail.Book.ID, "GetBookDetail(%q) book=%q", id, detail.Book.ID)
 		}
 	}
 
 	detail, err := store.GetBookDetail(ctx, OwnerID, BookID)
-	if err != nil || detail.Acquired == nil || detail.EvidenceState() != domain.BookAnalyzed {
-		t.Fatalf("acquired detail=%+v err=%v", detail, err)
-	}
-	if _, err = store.GetBookDetail(ctx, "other-owner", BookID); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("cross-owner detail error=%v", err)
-	}
-	if _, err = store.GetBookDetail(ctx, OwnerID, "unknown"); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("unknown detail error=%v", err)
-	}
+	require.NoError(t, err, "acquired detail=%+v err=%v", detail, err)
+	require.NotNil(t, detail.Acquired, "acquired detail=%+v err=%v", detail, err)
+	assert.Equal(t, domain.BookAnalyzed, detail.EvidenceState(), "acquired detail=%+v err=%v", detail, err)
+	_, err = store.GetBookDetail(ctx, "other-owner", BookID)
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner detail error=%v", err)
+	_, err = store.GetBookDetail(ctx, OwnerID, "unknown")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "unknown detail error=%v", err)
 }
 
 func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *testing.T) {
 	store := NewStore()
 	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantLearner := []string{BookID, "fixture-failed", routeMatchBookID, routeDiffersBookID, routeTieABookID, routeTieBBookID, routeUnavailableBookID}
 	wantAdvisory := []string{BookID, "fixture-failed", routeMatchBookID, routeTieABookID, routeTieBBookID, routeDiffersBookID, routeUnavailableBookID}
+	require.Len(t, result.LearnerOrder, len(wantLearner))
 	for i, want := range wantLearner {
-		if result.LearnerOrder[i].BookID != want {
-			t.Fatalf("learner order[%d]=%q, want %q", i, result.LearnerOrder[i].BookID, want)
-		}
+		assert.Equal(t, want, result.LearnerOrder[i].BookID, "learner order[%d]=%q, want %q", i, result.LearnerOrder[i].BookID, want)
 	}
+	require.Len(t, result.AdvisoryOrder, len(wantAdvisory))
 	for i, want := range wantAdvisory {
-		if result.AdvisoryOrder[i].BookID != want {
-			t.Fatalf("advisory order[%d]=%q, want %q", i, result.AdvisoryOrder[i].BookID, want)
-		}
+		assert.Equal(t, want, result.AdvisoryOrder[i].BookID, "advisory order[%d]=%q, want %q", i, result.AdvisoryOrder[i].BookID, want)
 	}
-	if result.ComparableCount != 4 || result.IncomparableCount != 3 {
-		t.Fatalf("comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
-	}
-	if result.AdvisoryOrder[0].Rank != nil || result.AdvisoryOrder[6].Rank != nil {
-		t.Fatalf("incomparable ranks=%+v", result.AdvisoryOrder)
-	}
-	if result.AdvisoryOrder[3].Coverage.KnownTokenCount != result.AdvisoryOrder[4].Coverage.KnownTokenCount {
-		t.Fatalf("tie coverage=%+v", result.AdvisoryOrder)
-	}
-	if len(result.ConditionalAdvisoryOrder) != len(result.AdvisoryOrder) {
-		t.Fatalf("conditional order=%+v", result.ConditionalAdvisoryOrder)
-	}
-	if result.ConditionalAdvisoryOrder[2].BookID != routeDiffersBookID {
-		t.Fatalf("conditional order did not differ=%+v", result.ConditionalAdvisoryOrder)
-	}
+	assert.Equal(t, 4, result.ComparableCount, "comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
+	assert.Equal(t, 3, result.IncomparableCount, "comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
+	require.Len(t, result.AdvisoryOrder, 7)
+	assert.Nil(t, result.AdvisoryOrder[0].Rank, "incomparable ranks=%+v", result.AdvisoryOrder)
+	assert.Nil(t, result.AdvisoryOrder[6].Rank, "incomparable ranks=%+v", result.AdvisoryOrder)
+	require.NotNil(t, result.AdvisoryOrder[3].Coverage)
+	require.NotNil(t, result.AdvisoryOrder[4].Coverage)
+	assert.Equal(t, result.AdvisoryOrder[3].Coverage.KnownTokenCount, result.AdvisoryOrder[4].Coverage.KnownTokenCount, "tie coverage=%+v", result.AdvisoryOrder)
+	require.Len(t, result.ConditionalAdvisoryOrder, len(result.AdvisoryOrder), "conditional order=%+v", result.ConditionalAdvisoryOrder)
+	assert.Equal(t, routeDiffersBookID, result.ConditionalAdvisoryOrder[2].BookID, "conditional order did not differ=%+v", result.ConditionalAdvisoryOrder)
 
 	journey, err := store.GetReadingJourney(context.Background(), OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, "de", routeDiffersBookID, 1, journey.Revision); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, "de", routeDiffersBookID, 1, journey.Revision)
+	require.NoError(t, err)
 	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
-	if err != nil || result.LearnerOrder[1].BookID != routeDiffersBookID {
-		t.Fatalf("projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
-	}
+	require.NoError(t, err, "projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
+	require.Len(t, result.LearnerOrder, len(wantLearner))
+	assert.Equal(t, routeDiffersBookID, result.LearnerOrder[1].BookID, "projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
 }
 
 func TestFixtureItalianJourneyProjectionUsesItalianEvidenceIdentity(t *testing.T) {
 	result, err := (Insights{JourneyStore: NewStore()}).JourneyProjection(context.Background(), OwnerID, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Language != "it" {
-		t.Fatalf("Italian projection language=%q", result.Language)
-	}
-	if len(result.LearnerOrder) != 3 {
-		t.Fatalf("Italian projection order=%+v", result.LearnerOrder)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "it", result.Language, "Italian projection language=%q", result.Language)
+	require.Len(t, result.LearnerOrder, 3, "Italian projection order=%+v", result.LearnerOrder)
 	for _, book := range result.LearnerOrder {
-		if book.Language != "it" {
-			t.Fatalf("Italian projection book=%+v", book)
-		}
-		if strings.Contains(book.IncomparableReason, "different study language") {
-			t.Fatalf("Italian projection retained cross-language reason=%q", book.IncomparableReason)
-		}
+		assert.Equal(t, "it", book.Language, "Italian projection book=%+v", book)
+		assert.NotContains(t, book.IncomparableReason, "different study language", "Italian projection retained cross-language reason=%q", book.IncomparableReason)
 	}
 }
 
@@ -157,42 +129,34 @@ func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 	}
 
 	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	want := []domain.StudyLanguage{
 		{Language: "de", DisplayName: "German"},
 		{Language: "it", DisplayName: "it"},
 		{Language: "pt", DisplayName: "pt"},
 	}
-	if len(languages) != len(want) {
-		t.Fatalf("study languages=%+v, want %+v", languages, want)
-	}
+	require.Len(t, languages, len(want), "study languages=%+v, want %+v", languages, want)
 	for i := range want {
-		if languages[i] != want[i] {
-			t.Fatalf("study language[%d]=%+v, want %+v", i, languages[i], want[i])
-		}
+		assert.Equal(t, want[i], languages[i], "study language[%d]=%+v, want %+v", i, languages[i], want[i])
 	}
 }
 
 func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
-		t.Fatalf("initial active language=%q err=%v", got, err)
-	}
-	if err := store.SetActiveStudyLanguage(ctx, OwnerID, "IT_it"); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "it" {
-		t.Fatalf("stored active language=%q err=%v", got, err)
-	}
-	if err := store.SetActiveStudyLanguage(ctx, OwnerID, ""); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "" {
-		t.Fatalf("cleared active language=%q err=%v", got, err)
-	}
+	got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "initial active language=%q err=%v", got, err)
+	assert.Equal(t, "de", got, "initial active language=%q err=%v", got, err)
+	err = store.SetActiveStudyLanguage(ctx, OwnerID, "IT_it")
+	require.NoError(t, err)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "stored active language=%q err=%v", got, err)
+	assert.Equal(t, "it", got, "stored active language=%q err=%v", got, err)
+	err = store.SetActiveStudyLanguage(ctx, OwnerID, "")
+	require.NoError(t, err)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "cleared active language=%q err=%v", got, err)
+	assert.Empty(t, got, "cleared active language=%q err=%v", got, err)
 }
 
 func TestFixtureCatalogueSyncAddsPassiveStudyLanguageArrival(t *testing.T) {
@@ -200,21 +164,18 @@ func TestFixtureCatalogueSyncAddsPassiveStudyLanguageArrival(t *testing.T) {
 	store := NewStore()
 	sync := NewCatalogueSync(store)
 
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
-		t.Fatalf("initial active language=%q err=%v", got, err)
-	}
-	if recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID); err != nil || recent != "it" {
-		t.Fatalf("initial recent language=%q err=%v", recent, err)
-	}
+	got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "initial active language=%q err=%v", got, err)
+	assert.Equal(t, "de", got, "initial active language=%q err=%v", got, err)
+	recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "initial recent language=%q err=%v", recent, err)
+	assert.Equal(t, "it", recent, "initial recent language=%q err=%v", recent, err)
 
-	if _, err := sync.Enqueue(ctx, OwnerID, "fixture-connection"); err != nil {
-		t.Fatal(err)
-	}
+	_, err = sync.Enqueue(ctx, OwnerID, "fixture-connection")
+	require.NoError(t, err)
 
 	languages, err := store.ListStudyLanguages(ctx, OwnerID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var foundSpanish bool
 	for _, language := range languages {
 		if language.Language == "es" {
@@ -222,29 +183,26 @@ func TestFixtureCatalogueSyncAddsPassiveStudyLanguageArrival(t *testing.T) {
 			break
 		}
 	}
-	if !foundSpanish {
-		t.Fatalf("study languages after sync=%+v, want Spanish arrival", languages)
-	}
-	if recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID); err != nil || recent != "es" {
-		t.Fatalf("recent language after sync=%q err=%v", recent, err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID); err != nil || got != "de" {
-		t.Fatalf("active language changed after sync=%q err=%v", got, err)
-	}
+	assert.True(t, foundSpanish, "study languages after sync=%+v, want Spanish arrival", languages)
+	recent, err = store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "recent language after sync=%q err=%v", recent, err)
+	assert.Equal(t, "es", recent, "recent language after sync=%q err=%v", recent, err)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, OwnerID)
+	require.NoError(t, err, "active language changed after sync=%q err=%v", got, err)
+	assert.Equal(t, "de", got, "active language changed after sync=%q err=%v", got, err)
 }
 
 func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
 	store := NewStore()
-	if err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr"); err != nil {
-		t.Fatal(err)
-	}
+	err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr")
+	require.NoError(t, err)
 	known, err := store.ListKnownVocabulary(context.Background(), OwnerID, "fr")
-	if err != nil || len(known) != 1 || known[0].CanonicalLemma != "bonjour" {
-		t.Fatalf("known-only vocabulary=%+v err=%v", known, err)
-	}
-	if languages, err := store.ListStudyLanguages(context.Background(), OwnerID); err != nil || len(languages) != 2 {
-		t.Fatalf("study languages=%+v err=%v", languages, err)
-	}
+	require.NoError(t, err, "known-only vocabulary=%+v err=%v", known, err)
+	require.Len(t, known, 1, "known-only vocabulary=%+v err=%v", known, err)
+	assert.Equal(t, "bonjour", known[0].CanonicalLemma, "known-only vocabulary=%+v err=%v", known, err)
+	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
+	require.NoError(t, err, "study languages=%+v err=%v", languages, err)
+	assert.Len(t, languages, 2, "study languages=%+v err=%v", languages, err)
 }
 
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
@@ -254,21 +212,18 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 		{Book: domain.Book{ID: "regional", OwnerID: OwnerID, Title: "Regional", LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"}},
 	}
 	result, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "DE_de", 0, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Total != 1 || len(result.Items) != 1 || result.Counts[0].Tag != "de" {
-		t.Fatalf("canonical browse result=%+v", result)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Total, "canonical browse result=%+v", result)
+	require.Len(t, result.Items, 1, "canonical browse result=%+v", result)
+	require.Len(t, result.Counts, 1, "canonical browse result=%+v", result)
+	assert.Equal(t, "de", result.Counts[0].Tag, "canonical browse result=%+v", result)
 }
 
 func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var wait sync.WaitGroup
 	results := make(chan error, 2)
 	wait.Add(2)
@@ -289,12 +244,11 @@ func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 		case errors.Is(moveErr, persistence.ErrJourneyStale):
 			stale++
 		default:
-			t.Fatalf("concurrent move error=%v", moveErr)
+			require.Failf(t, "concurrent move produced an unexpected error", "concurrent move error=%v", moveErr)
 		}
 	}
-	if successes != 1 || stale != 1 {
-		t.Fatalf("concurrent move results successes=%d stale=%d", successes, stale)
-	}
+	assert.Equal(t, 1, successes, "concurrent move results successes=%d stale=%d", successes, stale)
+	assert.Equal(t, 1, stale, "concurrent move results successes=%d stale=%d", successes, stale)
 }
 
 func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyThatLanguage(t *testing.T) {
@@ -302,54 +256,46 @@ func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyTha
 	store := NewStore()
 
 	deGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "de")
-	if err != nil || deGoal.BookID != BookID {
-		t.Fatalf("German Goal=%+v err=%v", deGoal, err)
-	}
+	require.NoError(t, err, "German Goal=%+v err=%v", deGoal, err)
+	assert.Equal(t, BookID, deGoal.BookID, "German Goal=%+v err=%v", deGoal, err)
 	itGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "it")
-	if err != nil || itGoal.BookID != ItalianGoalBookID {
-		t.Fatalf("Italian Goal=%+v err=%v", itGoal, err)
-	}
+	require.NoError(t, err, "Italian Goal=%+v err=%v", itGoal, err)
+	assert.Equal(t, ItalianGoalBookID, itGoal.BookID, "Italian Goal=%+v err=%v", itGoal, err)
 
-	if err = store.ClearPrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID); err != nil {
-		t.Fatalf("clear Italian Goal: %v", err)
-	}
-	if deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || deGoal.BookID != BookID {
-		t.Fatalf("German Goal after Italian clear=%+v err=%v", deGoal, err)
-	}
-	if itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || itGoal.BookID != "" {
-		t.Fatalf("Italian Goal after clear=%+v err=%v", itGoal, err)
-	}
+	err = store.ClearPrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID)
+	require.NoError(t, err, "clear Italian Goal: %v", err)
+	deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de")
+	require.NoError(t, err, "German Goal after Italian clear=%+v err=%v", deGoal, err)
+	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian clear=%+v err=%v", deGoal, err)
+	itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it")
+	require.NoError(t, err, "Italian Goal after clear=%+v err=%v", itGoal, err)
+	assert.Empty(t, itGoal.BookID, "Italian Goal after clear=%+v err=%v", itGoal, err)
 
-	if _, err = store.CreatePrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID); err != nil {
-		t.Fatalf("recreate Italian Goal: %v", err)
-	}
+	_, err = store.CreatePrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID)
+	require.NoError(t, err, "recreate Italian Goal: %v", err)
 	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.RemoveFromReadingJourney(ctx, OwnerID, "it", ItalianGoalBookID, journey.Revision); err != nil {
-		t.Fatalf("remove Italian Goal member: %v", err)
-	}
-	if itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || itGoal.BookID != "" {
-		t.Fatalf("Italian Goal after Journey removal=%+v err=%v", itGoal, err)
-	}
-	if deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || deGoal.BookID != BookID {
-		t.Fatalf("German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
-	}
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(ctx, OwnerID, "it", ItalianGoalBookID, journey.Revision)
+	require.NoError(t, err, "remove Italian Goal member: %v", err)
+	itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it")
+	require.NoError(t, err, "Italian Goal after Journey removal=%+v err=%v", itGoal, err)
+	assert.Empty(t, itGoal.BookID, "Italian Goal after Journey removal=%+v err=%v", itGoal, err)
+	deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de")
+	require.NoError(t, err, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
+	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
 }
 
 func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
-	if _, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", domain.LanguageUnknown, ""); err != nil {
-		t.Fatalf("retag Italian Goal book: %v", err)
-	}
-	if goal, err := store.GetPrimaryGoal(ctx, OwnerID, "it"); err != nil || goal.BookID != "" {
-		t.Fatalf("Italian Goal after retag=%+v err=%v", goal, err)
-	}
-	if goal, err := store.GetPrimaryGoal(ctx, OwnerID, "de"); err != nil || goal.BookID != BookID {
-		t.Fatalf("German Goal after Italian retag=%+v err=%v", goal, err)
-	}
+	_, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", domain.LanguageUnknown, "")
+	require.NoError(t, err, "retag Italian Goal book: %v", err)
+	goal, err := store.GetPrimaryGoal(ctx, OwnerID, "it")
+	require.NoError(t, err, "Italian Goal after retag=%+v err=%v", goal, err)
+	assert.Empty(t, goal.BookID, "Italian Goal after retag=%+v err=%v", goal, err)
+	goal, err = store.GetPrimaryGoal(ctx, OwnerID, "de")
+	require.NoError(t, err, "German Goal after Italian retag=%+v err=%v", goal, err)
+	assert.Equal(t, BookID, goal.BookID, "German Goal after Italian retag=%+v err=%v", goal, err)
 }
 
 func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *testing.T) {
@@ -358,19 +304,18 @@ func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *test
 	store.books[0].BookTitle = "Refreshed catalogue title"
 
 	books, err := store.ListMyBooksWithEvidence(context.Background(), OwnerID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, book := range books {
 		if book.Book.ID != BookID {
 			continue
 		}
-		if book.Book.Title != "Refreshed catalogue title" || book.Acquired == nil || book.Acquired.BookTitle != "Refreshed catalogue title" || book.Acquired.Source.Title != "Acquisition-internal title" {
-			t.Fatalf("fixture read model=%+v", book)
-		}
+		assert.Equal(t, "Refreshed catalogue title", book.Book.Title, "fixture read model=%+v", book)
+		require.NotNil(t, book.Acquired, "fixture read model=%+v", book)
+		assert.Equal(t, "Refreshed catalogue title", book.Acquired.BookTitle, "fixture read model=%+v", book)
+		assert.Equal(t, "Acquisition-internal title", book.Acquired.Source.Title, "fixture read model=%+v", book)
 		return
 	}
-	t.Fatalf("fixture book %q not found", BookID)
+	require.Failf(t, "fixture book not found", "fixture book %q not found", BookID)
 }
 
 func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
@@ -378,28 +323,26 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	ctx := context.Background()
 
 	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, OwnerID, "de")
-	if err != nil || len(legacy) != 1 || legacy[0].CanonicalLemma != LegacyGeneratedLemma || legacy[0].FirstSourceMaterialID != nil {
-		t.Fatalf("legacy generated fixture=%+v err=%v", legacy, err)
-	}
+	require.NoError(t, err, "legacy generated fixture=%+v err=%v", legacy, err)
+	require.Len(t, legacy, 1, "legacy generated fixture=%+v err=%v", legacy, err)
+	assert.Equal(t, LegacyGeneratedLemma, legacy[0].CanonicalLemma, "legacy generated fixture=%+v err=%v", legacy, err)
+	assert.Nil(t, legacy[0].FirstSourceMaterialID, "legacy generated fixture=%+v err=%v", legacy, err)
 	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	provenance := map[string]string{}
 	for _, item := range known {
 		provenance[item.CanonicalLemma] = item.Provenance
 	}
-	if provenance[IndependentKnownLemma] != "Explicitly recorded" || provenance[GraduatedKnownLemma] != "Graduated from reviewed deck" {
-		t.Fatalf("known vocabulary provenance=%v", provenance)
-	}
+	assert.Equal(t, "Explicitly recorded", provenance[IndependentKnownLemma], "known vocabulary provenance=%v", provenance)
+	assert.Equal(t, "Graduated from reviewed deck", provenance[GraduatedKnownLemma], "known vocabulary provenance=%v", provenance)
 	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, book := range books {
-		if book.Book.ID == "fixture-metadata-only" && (book.Acquired != nil || book.EvidenceState() != domain.BookNotAcquired) {
-			t.Fatalf("metadata-only fixture acquired evidence=%+v", book)
+		if book.Book.ID != "fixture-metadata-only" {
+			continue
 		}
+		assert.Nil(t, book.Acquired, "metadata-only fixture acquired evidence=%+v", book)
+		assert.Equal(t, domain.BookNotAcquired, book.EvidenceState(), "metadata-only fixture acquired evidence=%+v", book)
 	}
 }
 
@@ -409,75 +352,63 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 	sync := NewCatalogueSync(store)
 
 	alias, err := store.GetBookCatalogEntryAlias(ctx, OwnerID, "fixture-metadata-only")
-	if err != nil || alias.ConnectionID != "fixture-connection" || alias.Value != "fixture-entry" {
-		t.Fatalf("catalogue alias=%+v err=%v", alias, err)
-	}
+	require.NoError(t, err, "catalogue alias=%+v err=%v", alias, err)
+	assert.Equal(t, "fixture-connection", alias.ConnectionID, "catalogue alias=%+v err=%v", alias, err)
+	assert.Equal(t, "fixture-entry", alias.Value, "catalogue alias=%+v err=%v", alias, err)
 	target, err := sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if target.ConnectionID != alias.ConnectionID || target.Entry.ID != alias.Value {
-		t.Fatalf("acquisition target=%+v alias=%+v", target, alias)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, alias.ConnectionID, target.ConnectionID, "acquisition target=%+v alias=%+v", target, alias)
+	assert.Equal(t, alias.Value, target.Entry.ID, "acquisition target=%+v alias=%+v", target, alias)
 	store.myBooks[0].Book.Title = "Stale metadata"
 	result, err := sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
-	if err != nil || !result.Updated || result.Book.Title != "Metadata-only migration book" {
-		t.Fatalf("refresh result=%+v err=%v", result, err)
-	}
+	require.NoError(t, err, "refresh result=%+v err=%v", result, err)
+	assert.True(t, result.Updated, "refresh result=%+v err=%v", result, err)
+	assert.Equal(t, "Metadata-only migration book", result.Book.Title, "refresh result=%+v err=%v", result, err)
 
 	store.aliases[0].ConnectionID = "fixture-failed-connection"
-	if _, err = sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only"); !errors.Is(err, cataloguesync.ErrNotFound) {
-		t.Fatalf("wrong connection acquisition error=%v", err)
-	}
+	_, err = sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
+	assert.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err)
 	result, err = sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
-	if err != nil || !result.Missing || result.Failed {
-		t.Fatalf("wrong connection refresh=%+v err=%v", result, err)
-	}
+	require.NoError(t, err, "wrong connection refresh=%+v err=%v", result, err)
+	assert.True(t, result.Missing, "wrong connection refresh=%+v err=%v", result, err)
+	assert.False(t, result.Failed, "wrong connection refresh=%+v err=%v", result, err)
 }
 
 func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.AddToReadingJourney(ctx, OwnerID, "de", "fixture-metadata-only", journey.Revision); !errors.Is(err, persistence.ErrBookLanguageRequired) {
-		t.Fatalf("unknown-language Journey add error=%v", err)
-	}
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, OwnerID, "de", "fixture-metadata-only", journey.Revision)
+	assert.ErrorIs(t, err, persistence.ErrBookLanguageRequired, "unknown-language Journey add error=%v", err)
 	unchanged, err := store.GetReadingJourney(ctx, OwnerID, "de")
-	if err != nil || unchanged.Revision != journey.Revision {
-		t.Fatalf("unknown-language add changed Journey=%+v err=%v", unchanged, err)
-	}
+	require.NoError(t, err, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
+	assert.Equal(t, journey.Revision, unchanged.Revision, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
 }
 
 func TestFixtureReservedVocabularyFollowsDeckStudyLifecycle(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	if reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de"); err != nil || len(reserved) != 0 {
-		t.Fatalf("reserved before study=%+v err=%v", reserved, err)
-	}
-	if _, err := store.StartDeckVocabularyStudy(ctx, OwnerID, PrepID); err != nil {
-		t.Fatal(err)
-	}
 	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	if err != nil || len(reserved) != 2 {
-		t.Fatalf("reserved during study=%+v err=%v", reserved, err)
-	}
+	require.NoError(t, err, "reserved before study=%+v err=%v", reserved, err)
+	assert.Empty(t, reserved, "reserved before study=%+v err=%v", reserved, err)
+	_, err = store.StartDeckVocabularyStudy(ctx, OwnerID, PrepID)
+	require.NoError(t, err)
+	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
+	require.NoError(t, err, "reserved during study=%+v err=%v", reserved, err)
+	require.Len(t, reserved, 2, "reserved during study=%+v err=%v", reserved, err)
 	got := map[string]bool{}
 	for _, item := range reserved {
 		got[item.CanonicalLemma] = true
 	}
-	if !got["gehen"] || !got["Weg"] {
-		t.Fatalf("reserved identities=%v", got)
-	}
-	if _, err := store.ConfirmDeckVocabularyReview(ctx, OwnerID, PrepID); err != nil {
-		t.Fatal(err)
-	}
-	if released, err := store.ListReservedVocabulary(ctx, OwnerID, "de"); err != nil || len(released) != 0 {
-		t.Fatalf("reserved after review=%+v err=%v", released, err)
-	}
+	assert.True(t, got["gehen"], "reserved identities=%v", got)
+	assert.True(t, got["Weg"], "reserved identities=%v", got)
+	_, err = store.ConfirmDeckVocabularyReview(ctx, OwnerID, PrepID)
+	require.NoError(t, err)
+	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
+	require.NoError(t, err, "reserved after review=%+v err=%v", released, err)
+	assert.Empty(t, released, "reserved after review=%+v err=%v", released, err)
 }
 
 func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
@@ -485,20 +416,16 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	store := NewStore()
 	sync := NewCatalogueSync(store)
 	before, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
-	if err != nil || before.Total < 1 {
-		t.Fatalf("initial needs-language browse=%+v err=%v", before, err)
-	}
-	if _, err = sync.Enqueue(ctx, OwnerID, "fixture-browser-sync-connection"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "initial needs-language browse=%+v err=%v", before, err)
+	assert.GreaterOrEqual(t, before.Total, 1, "initial needs-language browse=%+v err=%v", before, err)
+	_, err = sync.Enqueue(ctx, OwnerID, "fixture-browser-sync-connection")
+	require.NoError(t, err)
 	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
-	if err != nil || afterUnknown.Total != before.Total-1 {
-		t.Fatalf("needs-language book remained after sync=%+v err=%v", afterUnknown, err)
-	}
+	require.NoError(t, err, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
+	assert.Equal(t, before.Total-1, afterUnknown.Total, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
 	afterGerman, err := store.ListMyBooksBrowse(ctx, OwnerID, "", "de", 0, 25)
-	if err != nil || afterGerman.Total == 0 {
-		t.Fatalf("re-synced book missing from German browse=%+v err=%v", afterGerman, err)
-	}
+	require.NoError(t, err, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
+	assert.NotZero(t, afterGerman.Total, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
 	found := false
 	for _, book := range afterGerman.Items {
 		if book.Book.ID == BrowserSyncBookID {
@@ -506,7 +433,5 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatalf("re-synced metadata book missing from German page=%+v", afterGerman.Items)
-	}
+	assert.True(t, found, "re-synced metadata book missing from German page=%+v", afterGerman.Items)
 }

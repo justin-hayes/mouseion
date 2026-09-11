@@ -2,11 +2,11 @@ package analysisinsights
 
 import (
 	"context"
-	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
@@ -76,37 +76,31 @@ func TestCoverageUsesPersistedDenominatorAndVocabularyCategories(t *testing.T) {
 	}
 
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.AnalyzableTokenCount != 200 || got.DistinctLemmaCount != 8 || got.KnownTokenCount != 110 || got.KnownLemmaCount != 3 || got.UnknownTokenCount != 90 || got.UnknownLemmaCount != 5 {
-		t.Fatalf("coverage = %+v", got)
-	}
-	if got.TextProfile != profile {
-		t.Fatalf("text profile = %+v, want persisted profile", got.TextProfile)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(200), got.AnalyzableTokenCount)
+	assert.Equal(t, int64(8), got.DistinctLemmaCount)
+	assert.Equal(t, int64(110), got.KnownTokenCount)
+	assert.Equal(t, int64(3), got.KnownLemmaCount)
+	assert.Equal(t, int64(90), got.UnknownTokenCount)
+	assert.Equal(t, int64(5), got.UnknownLemmaCount)
+	assert.Same(t, profile, got.TextProfile, "text profile = %+v, want persisted profile", got.TextProfile)
 	want := []domain.CoverageThreshold{
 		{TargetPercent: 95, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
 		{TargetPercent: 97, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
 		{TargetPercent: 99, LemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, Reachable: false},
 	}
-	if !reflect.DeepEqual(got.Thresholds, want) {
-		t.Fatalf("thresholds = %+v, want %+v", got.Thresholds, want)
-	}
+	assert.Equal(t, want, got.Thresholds, "thresholds = %+v, want %+v", got.Thresholds, want)
 	wantTop := []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "repeat", UPOS: "NOUN", OccurrenceCount: 20},
 		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 5},
 		{Language: "de", CanonicalLemma: "beta", UPOS: "NOUN", OccurrenceCount: 5},
 	}
-	if !reflect.DeepEqual(got.TopUnknownLemmas, wantTop) {
-		t.Fatalf("top unknown = %+v, want %+v", got.TopUnknownLemmas, wantTop)
-	}
-	if got.UnknownConcentration != (domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, ProjectedTokenCount: 140}) {
-		t.Fatalf("concentration = %+v", got.UnknownConcentration)
-	}
-	if len(got.Projections) != 3 || got.Projections[0].ProjectedTokenCount != 140 || got.Projections[1].TopLemmaCount != 25 || got.Projections[2].TopLemmaCount != 50 {
-		t.Fatalf("projections = %+v", got.Projections)
-	}
+	assert.Equal(t, wantTop, got.TopUnknownLemmas, "top unknown = %+v, want %+v", got.TopUnknownLemmas, wantTop)
+	assert.Equal(t, domain.CoverageProjection{TopLemmaCount: 10, SelectedLemmaCount: 3, OccurrenceCount: 30, EligibleTokenCount: 30, ProjectedTokenCount: 140}, got.UnknownConcentration, "concentration = %+v", got.UnknownConcentration)
+	require.Len(t, got.Projections, 3)
+	assert.Equal(t, int64(140), got.Projections[0].ProjectedTokenCount)
+	assert.Equal(t, int64(25), got.Projections[1].TopLemmaCount)
+	assert.Equal(t, int64(50), got.Projections[2].TopLemmaCount)
 }
 
 func TestCoverageUsesResultingCorpus(t *testing.T) {
@@ -116,12 +110,9 @@ func TestCoverageUsesResultingCorpus(t *testing.T) {
 		Lemmas:     []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "bekannt", UPOS: "NOUN", OccurrenceCount: 50}, {Language: "de", CanonicalLemma: "anhang", UPOS: "NOUN", OccurrenceCount: 50}},
 	}}
 	fullCoverage, err := NewService(full).Coverage(context.Background(), "alice", "full")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fullCoverage.KnownTokenCount != 50 || fullCoverage.AnalyzableTokenCount != 100 {
-		t.Fatalf("full=%+v", fullCoverage)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), fullCoverage.KnownTokenCount)
+	assert.Equal(t, int64(100), fullCoverage.AnalyzableTokenCount)
 }
 
 func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
@@ -135,21 +126,19 @@ func TestCoverageThresholdsUseExactMathAndDeterministicTies(t *testing.T) {
 		{Language: "de", CanonicalLemma: "gamma", UPOS: "NOUN", OccurrenceCount: 1},
 	}}}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantCounts := []int64{2, 3, 5}
 	wantOccurrences := []int64{96, 97, 99}
-	for i := range got.Thresholds {
-		if got.Thresholds[i].LemmaCount != wantCounts[i] || got.Thresholds[i].OccurrenceCount != wantOccurrences[i] || !got.Thresholds[i].Reachable {
-			t.Fatalf("threshold %d = %+v", i, got.Thresholds[i])
-		}
+	require.Len(t, got.Thresholds, len(wantCounts))
+	for i := range wantCounts {
+		assert.Equal(t, wantCounts[i], got.Thresholds[i].LemmaCount, "threshold %d = %+v", i, got.Thresholds[i])
+		assert.Equal(t, wantOccurrences[i], got.Thresholds[i].OccurrenceCount, "threshold %d = %+v", i, got.Thresholds[i])
+		assert.True(t, got.Thresholds[i].Reachable, "threshold %d = %+v", i, got.Thresholds[i])
 	}
 	wantOrder := []string{"eins", "zwei", "alpha", "beta", "drei"}
+	require.Len(t, got.TopUnknownLemmas, len(wantOrder))
 	for i, want := range wantOrder {
-		if got.TopUnknownLemmas[i].CanonicalLemma != want {
-			t.Fatalf("top unknown order = %+v", got.TopUnknownLemmas)
-		}
+		assert.Equal(t, want, got.TopUnknownLemmas[i].CanonicalLemma, "top unknown order = %+v", got.TopUnknownLemmas)
 	}
 }
 
@@ -165,15 +154,15 @@ func TestItalianCoverageUsesAggregatedLemmaOccurrences(t *testing.T) {
 		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "it", CanonicalLemma: "uomo", UPOS: "NOUN"}},
 	}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus-it")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.KnownTokenCount != 2 || got.UnknownTokenCount != 4 || got.KnownLemmaCount != 1 || got.UnknownLemmaCount != 3 {
-		t.Fatalf("Italian coverage = %+v", got)
-	}
-	if !got.Thresholds[1].Reachable || got.Thresholds[1].OccurrenceCount != 4 || got.Thresholds[1].LemmaCount != 3 {
-		t.Fatalf("Italian 97%% threshold = %+v", got.Thresholds[1])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), got.KnownTokenCount)
+	assert.Equal(t, int64(4), got.UnknownTokenCount)
+	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(3), got.UnknownLemmaCount)
+	require.Len(t, got.Thresholds, 3)
+	assert.True(t, got.Thresholds[1].Reachable)
+	assert.Equal(t, int64(4), got.Thresholds[1].OccurrenceCount)
+	assert.Equal(t, int64(3), got.Thresholds[1].LemmaCount)
 }
 
 func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T) {
@@ -188,26 +177,23 @@ func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T)
 		reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "reserved", UPOS: "VERB"}},
 	}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.KnownTokenCount != 50 || got.KnownLemmaCount != 1 || got.ReservedTokenCount != 30 || got.ReservedLemmaCount != 1 || got.UnknownTokenCount != 50 || got.UnknownLemmaCount != 2 {
-		t.Fatalf("reserved coverage = %+v", got)
-	}
-	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma == "reserved" {
-		t.Fatalf("unfinished reserved vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
-	}
-	if len(got.TopUnknownLemmas) != 1 || got.TopUnknownLemmas[0].CanonicalLemma != "released" {
-		t.Fatalf("deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), got.KnownTokenCount)
+	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(30), got.ReservedTokenCount)
+	assert.Equal(t, int64(1), got.ReservedLemmaCount)
+	assert.Equal(t, int64(50), got.UnknownTokenCount)
+	assert.Equal(t, int64(2), got.UnknownLemmaCount)
+	require.Len(t, got.TopUnknownLemmas, 1)
+	assert.NotEqual(t, "reserved", got.TopUnknownLemmas[0].CanonicalLemma, "unfinished reserved vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
+	require.Len(t, got.TopUnknownLemmas, 1)
+	assert.Equal(t, "released", got.TopUnknownLemmas[0].CanonicalLemma, "deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
 	store.reserved = nil // release releases the reservation without persisting mastery
 	got, err = NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.ReservedTokenCount != 0 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "reserved" {
-		t.Fatalf("coverage after release = %+v", got)
-	}
+	require.NoError(t, err)
+	assert.Zero(t, got.ReservedTokenCount)
+	require.Len(t, got.TopUnknownLemmas, 2)
+	assert.Equal(t, "reserved", got.TopUnknownLemmas[0].CanonicalLemma, "coverage after release = %+v", got)
 }
 
 func TestCoverageThresholdUsesWholeBookDenominatorRatherThanDeckPool(t *testing.T) {
@@ -223,9 +209,7 @@ func TestCoverageThresholdUsesWholeBookDenominatorRatherThanDeckPool(t *testing.
 	}
 
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantThresholds := []struct {
 		lemmaCount      int64
 		occurrenceCount int64
@@ -234,11 +218,12 @@ func TestCoverageThresholdUsesWholeBookDenominatorRatherThanDeckPool(t *testing.
 		{lemmaCount: 2, occurrenceCount: 8},
 		{lemmaCount: 3, occurrenceCount: 10},
 	}
+	require.Len(t, got.Thresholds, len(wantThresholds))
 	for i, want := range wantThresholds {
 		threshold := got.Thresholds[i]
-		if !threshold.Reachable || threshold.LemmaCount != want.lemmaCount || threshold.OccurrenceCount != want.occurrenceCount {
-			t.Fatalf("%d%% whole-book threshold = %+v, want %d lemmas and %d occurrences", threshold.TargetPercent, threshold, want.lemmaCount, want.occurrenceCount)
-		}
+		assert.True(t, threshold.Reachable, "%d%% whole-book threshold = %+v, want %d lemmas and %d occurrences", threshold.TargetPercent, threshold, want.lemmaCount, want.occurrenceCount)
+		assert.Equal(t, want.lemmaCount, threshold.LemmaCount, "%d%% whole-book threshold = %+v, want %d lemmas and %d occurrences", threshold.TargetPercent, threshold, want.lemmaCount, want.occurrenceCount)
+		assert.Equal(t, want.occurrenceCount, threshold.OccurrenceCount, "%d%% whole-book threshold = %+v, want %d lemmas and %d occurrences", threshold.TargetPercent, threshold, want.lemmaCount, want.occurrenceCount)
 	}
 }
 
@@ -253,25 +238,17 @@ func TestCoverageClampsKnownOverflowAndProjectedCoverage(t *testing.T) {
 	}
 
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.KnownTokenCount != 10 || got.UnknownTokenCount != 0 {
-		t.Fatalf("coverage counts = known %d unknown %d", got.KnownTokenCount, got.UnknownTokenCount)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), got.KnownTokenCount, "coverage counts = known %d unknown %d", got.KnownTokenCount, got.UnknownTokenCount)
+	assert.Zero(t, got.UnknownTokenCount, "coverage counts = known %d unknown %d", got.KnownTokenCount, got.UnknownTokenCount)
 	for _, projection := range got.Projections {
-		if projection.ProjectedTokenCount <= got.AnalyzableTokenCount {
-			continue
-		}
-		t.Fatalf("projection exceeds denominator: %+v", projection)
+		assert.LessOrEqual(t, projection.ProjectedTokenCount, got.AnalyzableTokenCount, "projection exceeds denominator: %+v", projection)
 	}
 }
 
 func TestCoverageRequiresPersistedStatistics(t *testing.T) {
 	_, err := NewService(&memoryStore{}).Coverage(context.Background(), "alice", "legacy")
-	if !errors.Is(err, ErrStatisticsUnavailable) {
-		t.Fatalf("error = %v", err)
-	}
+	assert.ErrorIs(t, err, ErrStatisticsUnavailable, "error = %v", err)
 }
 
 func TestCoverageExcludesStaleNonLexicalLemmaRows(t *testing.T) {
@@ -282,10 +259,10 @@ func TestCoverageExcludesStaleNonLexicalLemmaRows(t *testing.T) {
 		{Language: "de", CanonicalLemma: "B2", UPOS: "NOUN", OccurrenceCount: 1},
 	}}}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.AnalyzableTokenCount != 4 || got.DistinctLemmaCount != 2 || got.UnknownTokenCount != 4 || len(got.TopUnknownLemmas) != 2 || got.TopUnknownLemmas[0].CanonicalLemma != "Straße" {
-		t.Fatalf("coverage = %+v", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), got.AnalyzableTokenCount)
+	assert.Equal(t, int64(2), got.DistinctLemmaCount)
+	assert.Equal(t, int64(4), got.UnknownTokenCount)
+	require.Len(t, got.TopUnknownLemmas, 2)
+	assert.Equal(t, "Straße", got.TopUnknownLemmas[0].CanonicalLemma, "coverage = %+v", got)
 }
