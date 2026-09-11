@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
@@ -72,72 +74,53 @@ func (m *memoryStore) DeleteUserSessions(_ context.Context, id string) error {
 
 func TestPasswordHashAndVerify(t *testing.T) {
 	h, err := HashPassword("correct horse battery staple")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := VerifyPassword(h, "correct horse battery staple"); err != nil || !ok {
-		t.Fatalf("verify=%v err=%v", ok, err)
-	}
-	if ok, err := VerifyPassword(h, "wrong"); err != nil || ok {
-		t.Fatalf("wrong password verify=%v err=%v", ok, err)
-	}
-	if _, err = VerifyPassword("broken", "password"); !errors.Is(err, ErrInvalidPasswordHash) {
-		t.Fatalf("malformed hash: %v", err)
-	}
+	require.NoError(t, err)
+	ok, err := VerifyPassword(h, "correct horse battery staple")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	ok, err = VerifyPassword(h, "wrong")
+	require.NoError(t, err)
+	assert.False(t, ok)
+	_, err = VerifyPassword("broken", "password")
+	assert.ErrorIs(t, err, ErrInvalidPasswordHash)
 }
 func TestServiceLifecycle(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryStore()
 	service := New(store, time.Hour)
 	hash, err := HashPassword("password")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	alice, err := store.createUser("alice", hash)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	token, err := service.Login(ctx, "alice", "password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := service.Authenticate(ctx, token); err != nil || got.ID != alice.ID {
-		t.Fatalf("authenticate: %+v %v", got, err)
-	}
-	if err = service.LogoutEverywhere(ctx, alice.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = service.Authenticate(ctx, token); !errors.Is(err, ErrUnauthenticated) {
-		t.Fatalf("session remains: %v", err)
-	}
+	require.NoError(t, err)
+	got, err := service.Authenticate(ctx, token)
+	require.NoError(t, err)
+	assert.Equal(t, alice.ID, got.ID)
+	require.NoError(t, service.LogoutEverywhere(ctx, alice.ID))
+	_, err = service.Authenticate(ctx, token)
+	assert.ErrorIs(t, err, ErrUnauthenticated)
 }
 func TestCreateFirstAccountValidatesAndEstablishesSession(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryStore()
 	service := New(store, time.Hour)
-	if _, _, err := service.CreateFirstAccount(ctx, " ", "password"); !errors.Is(err, ErrInvalidUsername) {
-		t.Fatalf("blank username: %v", err)
-	}
-	if _, _, err := service.CreateFirstAccount(ctx, "alice", "short"); !errors.Is(err, ErrInvalidPassword) {
-		t.Fatalf("short password: %v", err)
-	}
+	_, _, err := service.CreateFirstAccount(ctx, " ", "password")
+	assert.ErrorIs(t, err, ErrInvalidUsername)
+	_, _, err = service.CreateFirstAccount(ctx, "alice", "short")
+	assert.ErrorIs(t, err, ErrInvalidPassword)
 	u, token, err := service.CreateFirstAccount(ctx, " alice ", "password")
-	if err != nil || u.Username != "alice" || token == "" {
-		t.Fatalf("first account: %+v token=%q err=%v", u, token, err)
-	}
-	if got, err := service.Authenticate(ctx, token); err != nil || got.ID != u.ID {
-		t.Fatalf("initial session: %+v %v", got, err)
-	}
-	if _, _, err = service.CreateFirstAccount(ctx, "bob", "password"); !errors.Is(err, ErrFirstAccountExists) {
-		t.Fatalf("second account: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "alice", u.Username)
+	assert.NotEmpty(t, token)
+	got, err := service.Authenticate(ctx, token)
+	require.NoError(t, err)
+	assert.Equal(t, u.ID, got.ID)
+	_, _, err = service.CreateFirstAccount(ctx, "bob", "password")
+	assert.ErrorIs(t, err, ErrFirstAccountExists)
 }
 func TestAuthorizeOwner(t *testing.T) {
 	u := domain.User{ID: "alice"}
-	if err := AuthorizeOwner(u, "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if err := AuthorizeOwner(u, "bob"); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("cross-user access: %v", err)
-	}
+	require.NoError(t, AuthorizeOwner(u, "alice"))
+	assert.ErrorIs(t, AuthorizeOwner(u, "bob"), ErrForbidden)
 }

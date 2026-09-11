@@ -1,8 +1,10 @@
 package canonicalization
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testProfile struct{ version, suffix string }
@@ -13,17 +15,13 @@ func (p testProfile) Language() string              { return "de" }
 func (p testProfile) Canonical(lemma string) string { return Lemma(lemma) + p.suffix }
 
 func TestLemma(t *testing.T) {
-	if got := Lemma("  Haus "); got != "haus" {
-		t.Fatalf("Lemma() = %q, want %q", got, "haus")
-	}
+	assert.Equal(t, "haus", Lemma("  Haus "))
 }
 
 func TestNormalizeLanguageUsesCanonicalBaseForm(t *testing.T) {
 	tests := map[string]string{"de_DE": "de", "de-de": "de", "de": "de", "  PT  ": "pt"}
 	for raw, want := range tests {
-		if got := NormalizeLanguage(raw); got != want {
-			t.Errorf("NormalizeLanguage(%q) = %q, want %q", raw, got, want)
-		}
+		assert.Equal(t, want, NormalizeLanguage(raw), raw)
 	}
 }
 
@@ -39,9 +37,7 @@ func TestGermanPost1996Fixtures(t *testing.T) {
 	profile := GermanPost1996()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := profile.Canonical(tt.raw); got != tt.want {
-				t.Fatalf("Canonical(%q) = %q, want %q", tt.raw, got, tt.want)
-			}
+			assert.Equal(t, tt.want, profile.Canonical(tt.raw), tt.raw)
 		})
 	}
 }
@@ -50,97 +46,69 @@ func TestGermanPost1996DoesNotCollapseDistinctLexemes(t *testing.T) {
 	profile := GermanPost1996()
 	for _, pair := range [][2]string{{"Maße", "Masse"}, {"Bus", "Buß"}, {"weisen", "weißen"}} {
 		left, right := profile.Canonical(pair[0]), profile.Canonical(pair[1])
-		if left == right {
-			t.Fatalf("distinct lemmas %q and %q both canonicalized to %q", pair[0], pair[1], left)
-		}
+		assert.NotEqual(t, left, right, "distinct lemmas %q and %q", pair[0], pair[1])
 	}
 }
 
 func TestRegistryActiveAndVersionedLookup(t *testing.T) {
 	registry := NewRegistry()
-	if err := registry.Register(GermanPost1996(), true); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, registry.Register(GermanPost1996(), true))
 	got, err := registry.For("de-DE")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Name() != "german-standard-post-1996" || got.Version() != "4" || got.Language() != "de" {
-		t.Fatalf("unexpected profile: %s version %s (%s)", got.Name(), got.Version(), got.Language())
-	}
-	if versioned, err := registry.Lookup("de_DE", "4"); err != nil || versioned != got {
-		t.Fatalf("Lookup() = (%v, %v), want active profile", versioned, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "german-standard-post-1996", got.Name())
+	assert.Equal(t, "4", got.Version())
+	assert.Equal(t, "de", got.Language())
+	versioned, err := registry.Lookup("de_DE", "4")
+	require.NoError(t, err)
+	assert.Equal(t, got, versioned)
 }
 
 func TestNormalizePreservesRawLemmaAndRecordsProfile(t *testing.T) {
 	got, err := Normalize("de", "  Daß  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.RawLemma != "  Daß  " || got.CanonicalLemma != "dass" ||
-		got.ProfileName != "german-standard-post-1996" || got.ProfileVersion != "4" {
-		t.Fatalf("Normalize() = %#v", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "  Daß  ", got.RawLemma)
+	assert.Equal(t, "dass", got.CanonicalLemma)
+	assert.Equal(t, "german-standard-post-1996", got.ProfileName)
+	assert.Equal(t, "4", got.ProfileVersion)
 }
 
 func TestGermanV4SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T) {
 	got, err := Normalize("de", "  | geleiten | leiten ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.RawLemma != "  | geleiten | leiten " || got.CanonicalLemma != "geleiten" || got.ProfileVersion != "4" {
-		t.Fatalf("Normalize() = %#v", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "  | geleiten | leiten ", got.RawLemma)
+	assert.Equal(t, "geleiten", got.CanonicalLemma)
+	assert.Equal(t, "4", got.ProfileVersion)
 	historical, err := Lookup("de", "2")
-	if err != nil || historical.Canonical("geleiten|leiten") != "geleiten|leiten" {
-		t.Fatalf("historical profile=%v err=%v", historical, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "geleiten|leiten", historical.Canonical("geleiten|leiten"))
 	historical, err = Lookup("de", "3")
-	if err != nil || historical.Canonical("geleiten|leiten") != "geleiten" {
-		t.Fatalf("version 3 profile=%v err=%v", historical, err)
-	}
-	if historical.Canonical("Souveränität›") != "souveränität›" {
-		t.Fatalf("version 3 changed lemma-edge behavior")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "geleiten", historical.Canonical("geleiten|leiten"))
+	assert.Equal(t, "souveränität›", historical.Canonical("Souveränität›"))
 }
 
 func TestActivatingNewVersionDoesNotMutatePriorResult(t *testing.T) {
 	registry := NewRegistry()
 	v1 := testProfile{version: "1", suffix: "-v1"}
 	v2 := testProfile{version: "2", suffix: "-v2"}
-	if err := registry.Register(v1, true); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, registry.Register(v1, true))
 	persisted := NormalizeWith(v1, "Haus")
-	if err := registry.Register(v2, true); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, registry.Register(v2, true))
 	active, err := registry.For("de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	newItem := NormalizeWith(active, "Haus")
-	if persisted.CanonicalLemma != "haus-v1" || persisted.ProfileVersion != "1" {
-		t.Fatalf("prior result changed: %#v", persisted)
-	}
-	if newItem.CanonicalLemma != "haus-v2" || newItem.ProfileVersion != "2" {
-		t.Fatalf("new result did not use active version: %#v", newItem)
-	}
+	assert.Equal(t, "haus-v1", persisted.CanonicalLemma)
+	assert.Equal(t, "1", persisted.ProfileVersion)
+	assert.Equal(t, "haus-v2", newItem.CanonicalLemma)
+	assert.Equal(t, "2", newItem.ProfileVersion)
 }
 
 func TestRegistryErrors(t *testing.T) {
 	registry := NewRegistry()
-	if _, err := registry.For("it"); !errors.Is(err, ErrUnsupportedLanguage) {
-		t.Fatalf("For() error = %v, want ErrUnsupportedLanguage", err)
-	}
-	if _, err := registry.Lookup("de", "99"); !errors.Is(err, ErrProfileNotFound) {
-		t.Fatalf("Lookup() error = %v, want ErrProfileNotFound", err)
-	}
-	if err := registry.Register(GermanPost1996(), true); err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.Register(GermanPost1996(), false); !errors.Is(err, ErrDuplicateProfile) {
-		t.Fatalf("duplicate Register() error = %v, want ErrDuplicateProfile", err)
-	}
+	_, err := registry.For("it")
+	assert.ErrorIs(t, err, ErrUnsupportedLanguage)
+	_, err = registry.Lookup("de", "99")
+	assert.ErrorIs(t, err, ErrProfileNotFound)
+	require.NoError(t, registry.Register(GermanPost1996(), true))
+	assert.ErrorIs(t, registry.Register(GermanPost1996(), false), ErrDuplicateProfile)
 }
