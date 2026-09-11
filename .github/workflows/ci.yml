@@ -57,6 +57,9 @@ jobs:
 
             generated:
               - 'proto/**'
+              - 'sqlc/**'
+              - 'gen/sqlc/**'
+              - 'migrations/**'
               - 'go.mod'
               - 'go.sum'
               - 'pyproject.toml'
