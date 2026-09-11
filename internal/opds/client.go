@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -211,13 +212,13 @@ func FindEPUBs(entry Entry) []Link {
 // FilterEPUBEntries removes catalog entries that do not offer an EPUB.
 // Calibre-Web's language endpoint filters by language but not by file format.
 func FilterEPUBEntries(feed Feed) Feed {
-	entries := make([]Entry, 0, len(feed.Entries))
-	for _, entry := range feed.Entries {
-		if len(FindEPUBs(entry)) > 0 {
-			entries = append(entries, entry)
-		}
+	entries := slices.Clone(feed.Entries)
+	if entries == nil {
+		entries = []Entry{}
 	}
-	feed.Entries = entries
+	feed.Entries = slices.DeleteFunc(entries, func(entry Entry) bool {
+		return len(FindEPUBs(entry)) == 0
+	})
 	return feed
 }
 
@@ -521,10 +522,8 @@ func resolveURL(base *url.URL, href string) string {
 }
 func findLink(links []Link, rel string) *Link {
 	for i := range links {
-		for _, value := range strings.Fields(links[i].Rel) {
-			if value == rel {
-				return &links[i]
-			}
+		if slices.Contains(strings.Fields(links[i].Rel), rel) {
+			return &links[i]
 		}
 	}
 	return nil

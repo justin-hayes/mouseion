@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"html"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -588,13 +589,11 @@ func prefixedTag(prefix, value string) string {
 }
 
 func uniqueTags(values ...string) []string {
-	seen := map[string]bool{}
 	var tags []string
 	for _, value := range values {
 		value = strings.Join(strings.Fields(value), "_")
 		value = strings.NewReplacer("\\", "_", "/", "_", "#", "_", "^", "_", "\x00", "_").Replace(value)
-		if value != "" && !seen[value] {
-			seen[value] = true
+		if value != "" && !slices.Contains(tags, value) {
 			tags = append(tags, value)
 		}
 	}
@@ -1051,13 +1050,13 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 const defaultDeckMinOccurrences = 3
 
 func selectRecurringCandidates(candidates []domain.SelectionCandidate, minOccurrences int) []domain.SelectionCandidate {
-	selected := make([]domain.SelectionCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		if candidate.OccurrenceCount >= minOccurrences {
-			selected = append(selected, candidate)
-		}
+	selected := slices.Clone(candidates)
+	if selected == nil {
+		selected = []domain.SelectionCandidate{}
 	}
-	return selected
+	return slices.DeleteFunc(selected, func(candidate domain.SelectionCandidate) bool {
+		return candidate.OccurrenceCount < minOccurrences
+	})
 }
 
 func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {

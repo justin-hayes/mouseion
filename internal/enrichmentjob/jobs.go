@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -72,7 +73,6 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 	}
 	var language string
 	items := make([]Item, 0, len(candidates))
-	seen := make(map[string]struct{}, len(candidates))
 	for _, candidate := range candidates {
 		if language == "" {
 			language = candidate.Language
@@ -84,11 +84,9 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 			continue
 		}
 		item := Item{CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS), TargetWord: textmatch.CleanLexicalSurface(candidate.TargetWord), ExampleSentence: strings.TrimSpace(candidate.ExampleSentence)}
-		key := item.CanonicalLemma + "\x00" + item.UPOS + "\x00" + item.TargetWord + "\x00" + item.ExampleSentence
-		if _, ok := seen[key]; ok {
+		if slices.Contains(items, item) {
 			continue
 		}
-		seen[key] = struct{}{}
 		items = append(items, item)
 	}
 	if len(items) == 0 {

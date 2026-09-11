@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -414,12 +415,7 @@ func livePreparationJobID(ctx context.Context, q queryRower, owner, preparationI
 }
 
 func isLivePreparationJobState(state rivertype.JobState) bool {
-	for _, live := range livePreparationJobStates {
-		if state == live {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(livePreparationJobStates, state)
 }
 
 func markPreparationFailedTx(ctx context.Context, tx pgx.Tx, owner, id, message string) (domain.DeckPreparation, error) {

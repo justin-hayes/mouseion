@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -121,12 +122,7 @@ var liveJobStates = []rivertype.JobState{
 }
 
 func isLiveJobState(state rivertype.JobState) bool {
-	for _, live := range liveJobStates {
-		if state == live {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(liveJobStates, state)
 }
 
 func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, runID string, failOrphaned bool) (int64, error) {
