@@ -93,7 +93,7 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 	assert.Equal(t, ProviderErrorInvalidRequest, got.Errors[0].Class)
 	list, err := client.ListBatches(context.Background(), ListBatchesRequest{After: "batch-before", Limit: 2})
 	require.NoError(t, err)
-	assert.Len(t, list.Data, 1)
+	require.Len(t, list.Data, 1)
 	assert.Equal(t, "batch-listed", list.Data[0].ID)
 	assert.False(t, list.HasMore)
 	cancelled, err := client.CancelBatch(context.Background(), "batch-created")

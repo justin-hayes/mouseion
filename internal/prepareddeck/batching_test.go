@@ -112,7 +112,7 @@ func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing
 		1: {Ordinal: 1, State: domain.PreparedDeckOutcomePending},
 	})
 	require.NoError(t, err)
-	assert.Len(t, items, 2)
+	require.Len(t, items, 2)
 	assert.Equal(t, 0, items[0].Ordinal)
 	assert.Equal(t, 1, items[1].Ordinal)
 }
