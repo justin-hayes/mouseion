@@ -76,7 +76,14 @@ func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabil
 		}
 		c.mu.Unlock()
 
-		value, err := c.provider.GetCapabilities(context.WithoutCancel(ctx))
+		// Keep a shared refresh alive for other waiters, but retain the elected caller's deadline.
+		lookupContext := context.WithoutCancel(ctx)
+		if deadline, ok := ctx.Deadline(); ok {
+			var cancel context.CancelFunc
+			lookupContext, cancel = context.WithDeadline(lookupContext, deadline)
+			defer cancel()
+		}
+		value, err := c.provider.GetCapabilities(lookupContext)
 		if err == nil {
 			value.Degraded = false
 			c.mu.Lock()
