@@ -314,8 +314,8 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
-			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
-				<a role="button" href="/catalogs">Connect a catalogue</a>
+			@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
+				<a role="button" href="/catalogs">Set up a catalog</a>
 				if hasCatalogueConnections {
 					<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
 				}
@@ -325,8 +325,8 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			} else if browse.AllCount == 0 {
-				@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
-				<a role="button" href="/catalogs">Connect a catalogue</a>
+				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
+				<a role="button" href="/catalogs">Set up a catalog</a>
 					if hasCatalogueConnections {
 						<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
 					}

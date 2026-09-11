@@ -218,7 +218,7 @@ func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, "Build My Books from your catalogue") || !strings.Contains(html, `href="/catalogs"`) {
+	if !strings.Contains(html, "Set up a catalog connection") || !strings.Contains(html, `href="/catalogs">Set up a catalog</a>`) {
 		t.Fatalf("empty unscoped My Books state lost catalogue setup: %s", html)
 	}
 }
