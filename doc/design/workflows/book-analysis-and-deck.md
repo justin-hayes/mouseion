@@ -9,7 +9,7 @@ with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-s
 
 ## Goal
 
-Help a learner move a Book from catalogue discovery to trustworthy current
+Help a learner move a Book from catalog discovery to trustworthy current
 analysis and an optional prepared Anki deck while keeping reading intent,
 analysis refresh, insights, and deck preparation distinct.
 
@@ -43,7 +43,7 @@ Vocabulary graduation follows the single justified transition defined by ADR
 ## Primary path
 
 ```text
-Catalogue sync
+Catalog sync
     -> My Books
     -> Add to Reading Journey
     -> Acquire current EPUB and ensure whole-book analysis
@@ -63,7 +63,7 @@ performs either side effect.
 
 **Learner decision:** Which Book do I want to inspect or consider reading?
 
-Catalogue sync creates or updates the metadata-only My Books entry. It does not
+Catalog sync creates or updates the metadata-only My Books entry. It does not
 download content, trigger analysis, add the Book to Reading Journey, choose a
 Primary Goal, prepare a deck, or mark vocabulary known.
 

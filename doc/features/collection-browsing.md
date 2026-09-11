@@ -1,14 +1,14 @@
 # My Books Collection Browsing
 
-Status: Proposed · Date: 2026-09-02 · Updated: 2026-09-07
+Status: Proposed · Date: 2026-09-02 · Updated: 2026-09-11
 
 ## Motivation
 
 My Books is the learner's broad bibliographic collection, not a queue or a
-readiness ranking. As metadata-first catalogue sync increases its size, a single
+readiness ranking. As metadata-first catalog sync increases its size, a single
 unpaged list is no longer sufficient for finding a title, author, edition, or
 language. The canonical information architecture already promises a searchable
-bibliographic catalogue; this feature makes that promise concrete.
+bibliographic catalog; this feature makes that promise concrete.
 
 ## Goal
 
@@ -22,7 +22,7 @@ cross-language "All languages" default ([ADR 0050](../adr/0050-active-study-lang
 
 This feature applies to My Books at `/library`. It defines collection controls,
 row hierarchy, progressive enhancement, and accessibility. My Books is the sole
-browse surface for synced catalogue metadata; there is no live OPDS browse or
+browse surface for synced catalog metadata; there is no live OPDS browse or
 search surface.
 
 ## Requirements
@@ -34,7 +34,7 @@ search surface.
   scope instead of a per-page control.
 - Books without a chosen language belong to no language partition and appear
   only through an out-of-band **needs language** strip (display-only: fix the
-  language in the catalogue, then re-sync; no per-book actions), never as a
+  language in the catalog, then re-sync; no per-book actions), never as a
   filter in the active-language collection. The distinct out-of-band browse
   state is `/library?needs-language`.
 - The active language is context, not a finding aid: it is carried by the page
@@ -50,7 +50,7 @@ search surface.
   real links and forms.
 - Empty-collection, search-empty, and no-language-results states remain distinct
   and offer an appropriate way to clear a filter, revise a query, or start
-  catalogue setup through `/connections` and the Add books workflow.
+  catalog setup in the Catalogs destination.
 
 ### Row hierarchy and book selection
 
@@ -64,7 +64,7 @@ search surface.
   metadata.
 - Choosing an analyzed Journey member opens `/journey/{bookID}`. Metadata-only
   and otherwise incomplete Books remain operable from their rows through
-  Journey membership and catalogue actions; they have no detail page.
+  Journey membership and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
 
 ### Progressive enhancement and accessibility
@@ -87,16 +87,16 @@ search surface.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and the Add books path to catalogue setup. | Add a catalogue connection |
+| Empty collection | Explain My Books and the path to catalog setup in Catalogs. | Set up a catalog |
 | Collection available | Show scoped search, deterministic rows for the active language, and paging. | Open a book |
-| Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalogue metadata and re-sync |
+| Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
 | Enhancement failed | Keep or restore the ordinary server-rendered form/link path. | Submit normally |
 
 ## Non-goals
 
-- Live OPDS search, catalogue discovery, or upstream pagination.
+- Live OPDS search, catalog discovery, or upstream pagination.
 - Cross-language browse or search; an "All languages" default.
 - Batch selection or batch analysis.
 - A default readiness ranking, recommendation, or “best next book.”

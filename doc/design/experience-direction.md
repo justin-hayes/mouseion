@@ -19,7 +19,7 @@ should feel:
 Bibliographic identity and learner intention lead the hierarchy. Analysis is
 preparation evidence around a book, not the visual subject of the product.
 
-**My Books** should feel like a contemporary personal scholarly catalogue,
+**My Books** should feel like a contemporary personal scholarly catalog,
 capable of holding desired, distant, unassessed, stale, and currently active
 works without making each one look like a task.
 
@@ -42,7 +42,7 @@ decoration.
 
 On wide viewports, the single primary navigation occupies a quiet scholarly
 margin beside the working leaf. Annotation blue identifies current context,
-links, and focus; it is not a decorative wash. Catalogue entries, Journey books,
+links, and focus; it is not a decorative wash. Catalog entries, Journey books,
 evidence, and operations should read as distinct kinds of ruled records rather
 than interchangeable cards. On compact viewports the margin folds into a top
 index without changing document order.

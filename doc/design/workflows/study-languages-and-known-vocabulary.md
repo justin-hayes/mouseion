@@ -52,10 +52,10 @@ Derived study languages define which languages may be viewed or imported. The
 active study language selects which one Vocabulary shows, instead of a per-page
 picker; a known-vocabulary-only language (no current chosen-language Book)
 remains selectable in the shell switcher as a read-only "no books" entry, where
-import stays disabled. A catalogue-synced Book's language comes from its
-catalogue entry; connection re-sync is the only way that language changes.
+import stays disabled. A catalog-synced Book's language comes from its
+catalog entry; connection re-sync is the only way that language changes.
 Metadata changes do not delete known vocabulary or the Book's derived history.
-Capability discovery still controls which catalogue feeds can be synchronized,
+Capability discovery still controls which catalog feeds can be synchronized,
 but it does not directly create or remove known-vocabulary data.
 
 ## Known-vocabulary import
@@ -121,7 +121,7 @@ learner tasks.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No study languages | Explain that chosen-language books define available vocabulary languages. | Connect a catalogue |
+| No study languages | Explain that chosen-language books define available vocabulary languages. | Connect a catalog |
 | Active study language available | Show that language's known vocabulary; the shell switcher carries the context. | Import lemma file |
 | Known-vocabulary-only language | Show read-only entries marked "no books"; import disabled. | Switch back to a study language |
 | No known vocabulary | Explain current coverage implications without implying no language ability. | Import lemma file |

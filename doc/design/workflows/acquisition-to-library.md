@@ -1,11 +1,11 @@
 # Acquisition to My Books workflow
 
-Status: **Canonical shipped learner-facing workflow.** Catalogue sync creates
+Status: **Canonical shipped learner-facing workflow.** Catalog sync creates
 metadata-only My Books Books. Adding a Book to Reading Journey expresses reading
 intent and acquires and analyzes the current EPUB with ensure-once semantics.
 The historical **Add to library** label may remain in compatibility artifacts.
 
-The [catalogue sync workflow](catalog-sync.md) creates metadata-first My Books
+The [catalog sync workflow](catalog-sync.md) creates metadata-first My Books
 entries. This document defines the per-book content-acquisition step from My
 Books through Reading Journey; sync never downloads content.
 
@@ -25,11 +25,12 @@ The product behavior is defined primarily by:
 
 ## Entry and destination decision
 
-**Add books** names catalogue setup and sync maintenance on `/connections`. It
-is not a peer destination beside My Books, Reading Journey, and Vocabulary and
-does not appear in the top navigation. My Books is the sole browse surface.
+**Catalogs** is the catalog maintenance destination at `/catalogs` (the legacy
+`/connections` route redirects there). It is a peer destination beside My Books,
+Reading Journey, and Vocabulary and appears in the top navigation. My Books
+remains the sole browse surface.
 
-The action enters connection maintenance at `/connections`:
+The destination presents connection maintenance at `/catalogs`:
 
 - with no connections, the primary task is to add one;
 - with connections, the primary task is to sync eligible metadata into My Books;
@@ -43,8 +44,8 @@ owner-scoped connection identity without changing ownership or credentials.
 
 ```text
 My Books empty state
-    -> Add or choose catalogue connection
-    -> Sync catalogue metadata for offered ready languages
+    -> Add or choose catalog connection
+    -> Sync catalog metadata for offered ready languages
     -> Browse My Books locally
     -> Add Book to Reading Journey
     -> Acquire current EPUB and ensure whole-book analysis
@@ -102,20 +103,20 @@ background watcher. The learner expresses intent again to refresh evidence.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No catalogue connections | Explain why a connection is needed. | Add catalogue connection |
-| Connections available | Show recognizable connection names, sync status, and maintenance separately. | Sync catalogue |
-| No ready catalogue language | Explain that no offered non-English language currently has a ready NLP pipeline. | Retry sync or add a different catalogue |
-| Catalogue/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
+| No catalog connections | Explain why a connection is needed. | Add catalog connection |
+| Connections available | Show recognizable connection names, sync status, and maintenance separately. | Sync catalog |
+| No ready catalog language | Explain that no offered non-English language currently has a ready NLP pipeline. | Retry sync or add a different catalog |
+| Catalog/authentication failure | Name the affected connection and give a recovery path. | Edit connection or retry |
 | Acquiring or analyzing | Disable duplicate submission and announce durable acquisition/analysis progress. | View status |
 | Analysis complete | Show current evidence and the optional deck action. | Inspect analysis or prepare deck |
 | Stale current content | Explain that existing evidence is for an older revision. | Re-analyze from the Journey card |
-| Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable/incomparable. | Retry or check catalogue connection |
+| Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable/incomparable. | Retry or check catalog connection |
 
 ## Navigation and responsive rules
 
-- Destination navigation is exactly My Books, Reading Journey, and Vocabulary;
-  Add books does not appear in the top navigation (reached via the `/connections`
-  workflow from My Books and direct routes).
+- Destination navigation is My Books, Reading Journey, Vocabulary, and Catalogs.
+  Catalog maintenance is reached from the Catalogs destination and from My Books
+  empty states and actions.
 - The current acquisition context is the selected Book and owner-scoped
   connection, not an upstream feed path.
 - On narrow screens, row metadata precedes the acquisition and refresh actions,

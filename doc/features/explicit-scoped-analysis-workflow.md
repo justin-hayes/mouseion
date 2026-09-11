@@ -13,7 +13,7 @@ historical context for the analysis contract and compatibility behavior.
 
 Shipped collection language is **My Books**. Historical **My Library** / **Add to
 My Books** / **Add to library** copy is retained only as a compatibility note;
-each catalogue entry maps to an owner-scoped Book with active My Books
+each catalog entry maps to an owner-scoped Book with active My Books
 membership under
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md). That
 compatibility mapping does not mean every My Books Book has an EPUB. Historically,
@@ -29,8 +29,8 @@ distinct, durable, reproducible steps.
 
 ## Learner journey
 
-1. Connect a learner-owned catalogue from the My Books empty state, choose a
-   ready catalogue language, and synchronize metadata.
+1. Connect a learner-owned catalog from the My Books empty state, choose a
+   ready catalog language, and synchronize metadata.
 2. Browse the local My Books collection and open a metadata-only Book.
 3. From Book detail, either explicitly **Start analysis** or add the Book to
    Reading Journey.
@@ -51,7 +51,7 @@ The identity and state contracts for these resources are normative in
 
 ## My Books and content acquisition
 
-- Catalogue sync creates metadata-only My Books entries; it does not download
+- Catalog sync creates metadata-only My Books entries; it does not download
   content or start analysis. Book detail's **Start analysis** action acquires and
   analyzes in one explicit flow. **Add to Reading Journey** is the separate
   reading-intent action that performs the same work ensure-once.
@@ -81,7 +81,7 @@ The identity and state contracts for these resources are normative in
   evidence because they do not replace content.
 - When actual EPUB bytes change, the existing result becomes stale. The learner
   must explicitly **Start analysis** again or express Reading Journey intent;
-  catalogue synchronization never starts a background re-analysis.
+  catalog synchronization never starts a background re-analysis.
 
 ## Explicit asynchronous analysis
 
@@ -118,7 +118,7 @@ The identity and state contracts for these resources are normative in
   run-specific learner result route redirects to the book page.
 - Legacy/full-text analysis does not unlock a new preparation under this
   workflow; the learner must have a current completed analysis first.
-- Catalogue sync remains metadata-only; the UI advertises the learner-initiated
+- Catalog sync remains metadata-only; the UI advertises the learner-initiated
   Reading Journey Add action and its status model before that action ensures
   analysis.
 - In-flight records are classified deterministically as resumable, completed,
@@ -129,10 +129,10 @@ Rollout is sequenced as follows:
 
 1. Deploy the analysis-status, retry, reconciliation, insights, and
    preparation-prerequisite paths while existing history remains readable.
-2. Verify that catalogue sync remains metadata-only. Book-detail Start analysis
+2. Verify that catalog sync remains metadata-only. Book-detail Start analysis
    and the separate learner-initiated Reading Journey Add action acquire when
    needed and submit whole-book analysis.
-3. Keep catalogue synchronization free of analysis side effects. Existing
+3. Keep catalog synchronization free of analysis side effects. Existing
    queued work with a live River job is resumable; queued work without one is
    re-enqueued, running work without one becomes failed/actionable, completed
    work remains completed, and legacy records remain historical. Journey intent
@@ -143,9 +143,9 @@ Rollout is sequenced as follows:
 ## Acceptance criteria
 
 - A learner adds several books from one OPDS feed without navigation and no
-  analysis jobs are created by catalogue sync; explicitly adding a book to
+  analysis jobs are created by catalog sync; explicitly adding a book to
   Reading Journey is the learner-initiated exception that submits analysis.
-- Catalogue sync creates no analysis job; explicit Start analysis and Journey
+- Catalog sync creates no analysis job; explicit Start analysis and Journey
   intent are the two learner-facing submission paths.
 - Explicit analysis is owner-scoped, asynchronous, idempotent, observable, and
   retryable without orphaned waiting records.
@@ -160,7 +160,7 @@ Rollout is sequenced as follows:
 
 ## Non-goals
 
-- Automatic analysis from catalogue sync, background watching, or deck
+- Automatic analysis from catalog sync, background watching, or deck
   preparation.
 - In-place EPUB content editing.
 - Cross-book scopes or aggregate decks.

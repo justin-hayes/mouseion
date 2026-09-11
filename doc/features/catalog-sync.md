@@ -1,12 +1,12 @@
-# Catalogue Sync
+# Catalog Sync
 
-Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-07
+Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-11
 
 ## Motivation
 
 A learner may already curate a large collection in Calibre and expose it through
 Calibre-Web OPDS. Adding those books one at a time makes My Books incomplete and
-turns catalogue maintenance into repetitive work. Mouseion should recognize the
+turns catalog maintenance into repetitive work. Mouseion should recognize the
 studyable part of that collection while keeping sync metadata-only. Acquisition
 and analysis happen only when learner intent is expressed by adding the Book to
 Reading Journey, as defined by [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md)
@@ -14,8 +14,8 @@ and the later standalone-action retirement in [ADR 0054](../adr/0054-retire-stan
 
 ## Goal
 
-Keep bibliographic metadata from each learner-owned catalogue connection
-reconciled into My Books for every non-English language the catalogue offers
+Keep bibliographic metadata from each learner-owned catalog connection
+reconciled into My Books for every non-English language the catalog offers
 whose NLP pipeline is ready, without downloading EPUBs or deleting
 learner-owned state. The chosen-language Books produced by this process derive
 the learner's study-language set.
@@ -32,20 +32,21 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 ### Fresh-account entry
 
-- When My Books is empty and the learner has no catalogue connections, explain
-  that Mouseion needs a learner-owned catalogue connection to synchronize the
+- When My Books is empty and the learner has no catalog connections, explain
+  that Mouseion needs a learner-owned catalog connection to synchronize the
   ready-language collection.
-- The primary empty-state action adds a catalogue connection at `/connections`.
-  It enters the existing **Add books** workflow; it does not add a destination
-  or silently create a connection.
-- Books enter My Books through catalogue synchronization; there is no manual
+- The primary empty-state action opens the Catalogs destination, where the
+  learner adds a catalog connection. It does not silently create a connection.
+- Books enter My Books through catalog synchronization; there is no manual
   metadata-entry path.
 
 ### Connection configuration and status
 
-- `/connections` remains the learner-owned configuration and maintenance
-  surface for name, URL, username, encrypted credential, sync, edit, and
-  delete behavior.
+- `/catalogs` (with the legacy `/connections` redirect) is the learner-owned
+  configuration and maintenance destination for name, URL, username, encrypted
+  credential, sync, edit, and delete behavior. Catalog maintenance is a
+  principal destination per
+  [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
 - Each connection distinguishes **Never synced**, **Syncing**, **Last synced**,
   and **Sync failed**. Last-synced information belongs to the connection, not a
   global dashboard.
@@ -58,11 +59,11 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 ### Language scope
 
-- A run walks every non-English language the catalogue offers whose NLP pipeline
+- A run walks every non-English language the catalog offers whose NLP pipeline
   is currently advertised as ready by the service.
 - English is always excluded under the current product assumption that it is
   every learner's native language.
-- A catalogue language that is not offered or not ready is not synchronized.
+- A catalog language that is not offered or not ready is not synchronized.
 - Study languages are derived from active Books whose language is chosen; there
   is no saved study-language preference gating the run. The learner's active
   study language ([ADR 0050](../adr/0050-active-study-language.md)) is a stored
@@ -74,7 +75,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 - Sync walks the applicable Calibre-Web language feeds using the connection's
   existing origin-scoped OPDS client and bounded pagination.
-- It upserts title, language, and catalogue identity through the owner-scoped
+- It upserts title, language, and catalog identity through the owner-scoped
   Book alias and duplicate rules in ADR 0035.
 - A new match becomes an active metadata-only My Books entry. No placeholder
   source, empty content record, scope, analysis, or deck is created.
@@ -91,7 +92,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
   remains the place to refresh metadata or remove the Book.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
-- Each catalogue-backed Book offers a metadata refresh for that entry. Refresh
+- Each catalog-backed Book offers a metadata refresh for that entry. Refresh
   is an idempotent metadata-only upsert and has no scope or analysis effect.
 - If the individual upstream entry is no longer present, refresh is a calm
   no-op that preserves the Book and its current metadata.
@@ -100,7 +101,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalogue connection |
+| No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalog connection |
 | Never synced | Identify the connection and explain that every offered non-English language with a ready NLP pipeline is eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
 | Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
@@ -116,19 +117,21 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - Detecting changed EPUB bytes or invalidating current analysis from sync.
 - Destructively reconciling upstream removals.
 - Synchronizing English, languages whose NLP pipeline is not ready, or languages
-  the connected catalogue does not expose.
-- Adding a fourth destination, a global sync dashboard, or an upstream catalog
-  browser.
+  the connected catalog does not expose.
+- A global sync dashboard or an upstream catalog browser. Catalog maintenance is
+  a principal destination per
+  [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md); a global
+  sync dashboard is not.
 - Batch-selecting Books for analysis; whether a future batch contract exists is
   an open product question.
-- Reintroducing an administrator role or administrator-managed catalogues.
+- Reintroducing an administrator role or administrator-managed catalogs.
 - Resolving the default cadence, per-connection cadence configuration,
   last-synced storage shape, or exact lazy-acquisition trigger in this document.
 
 ## Acceptance criteria
 
 - A fresh learner with no connection sees a clear My Books explanation and a
-  primary action to `/connections` through Add books.
+  primary action to the Catalogs destination.
 - A connection can be never synced, syncing, last synced, or failed, and every
   state has a usable server-rendered path and recovery where applicable.
 - **Sync now** and periodic execution invoke the same owner-scoped,

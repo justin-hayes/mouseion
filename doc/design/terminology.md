@@ -36,11 +36,11 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Add books** | The catalogue setup and sync-maintenance experience on `/connections`; it is not a navigation destination. | Import books, ingest books |
+| **Catalogs** | The learner-owned catalog maintenance destination at `/catalogs`: connection create, read, edit, and delete, per-connection sync status, and **Sync now**. It is not a second browse surface; My Books remains the sole browse surface for synced metadata. | Add books, catalog browser, admin catalog |
 | **Add to Reading Journey** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
-| **Catalogue sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
-| **Metadata-only catalogue entry** | A Book and active My Books membership recorded from catalogue metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
+| **Catalog sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
+| **Metadata-only catalog entry** | A Book and active My Books membership recorded from catalog metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
 | **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Adding a Book to Reading Journey is the intent that triggers acquisition and analysis. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
@@ -154,7 +154,7 @@ Use complete, factual labels where space permits:
 - analysis stale or unavailable;
 - ready to analyze;
 - analysis queued, running, failed, cancelled, or result ready;
-- catalogue never synced, syncing, last synced, or sync failed;
+- catalog never synced, syncing, last synced, or sync failed;
 - deck preparing or deck ready;
 - evidence needs review;
 - not assessed;
