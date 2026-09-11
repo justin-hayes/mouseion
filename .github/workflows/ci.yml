@@ -235,6 +235,9 @@ jobs:
               - 'go.sum'
               - 'proto/**'
               - 'gen/go/**'
+              - 'gen/sqlc/**'
+              - 'sqlc/**'
+              - 'migrations/**'
               - 'Makefile'
               - '.github/workflows/ci.yml'
 

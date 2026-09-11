@@ -1,6 +1,8 @@
 -- Book identity and My Books evidence queries. The read models select from
--- the my_books_evidence view (migration 000066) so the composed projection is
--- one SQL artifact instead of Go string stitching.
+-- the my_books_evidence view (migration 000066, rebuilt over the shared
+-- source_material_evidence view in 000068) so the composed projection and its
+-- analysis status/state classification are one SQL artifact instead of Go
+-- string stitching.
 
 -- name: ListActiveBooks :many
 SELECT b.id::text,

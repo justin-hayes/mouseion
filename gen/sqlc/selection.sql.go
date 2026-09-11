@@ -248,7 +248,7 @@ WHERE sc.owner_id = $1
   AND sc.language = $2
   AND sc.canonical_lemma = $3
   AND sc.upos = $4
-  AND ($5::text = '' OR c.source_material_id::text = $5)
+   AND ($5::text = '' OR c.source_material_id::text = $5::text)
 ORDER BY sc.selected_at DESC, sc.corpus_id DESC
 LIMIT 1
 `

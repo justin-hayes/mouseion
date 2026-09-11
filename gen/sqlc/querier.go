@@ -19,30 +19,107 @@ type Querier interface {
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING
 	// composition and run inside the caller's transaction via WithTx.
 	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
+	CreateFirstUserAndSession(ctx context.Context, arg CreateFirstUserAndSessionParams) (CreateFirstUserAndSessionRow, error)
+	// OPDS connection queries. Credential decryption stays in Go; these queries
+	// own the row iteration and RETURNING composition.
+	CreateOpdsConnection(ctx context.Context, arg CreateOpdsConnectionParams) (CreateOpdsConnectionRow, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
+	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
+	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
+	DeleteSession(ctx context.Context, tokenHash string) error
+	DeleteUserSessions(ctx context.Context, userID pgtype.UUID) error
+	DeleteVocabularyState(ctx context.Context, arg DeleteVocabularyStateParams) (int64, error)
+	FindSourceMaterialForAcquisition(ctx context.Context, arg FindSourceMaterialForAcquisitionParams) (FindSourceMaterialForAcquisitionRow, error)
+	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
+	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
+	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
+	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
+	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
+	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
+	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
+	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
+	GetStoredActiveStudyLanguage(ctx context.Context, id pgtype.UUID) (pgtype.Text, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
+	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
+	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
+	GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error)
+	GetVocabularyStateForUpdate(ctx context.Context, arg GetVocabularyStateForUpdateParams) (string, error)
+	// Core persistence queries: users, sessions, supported languages, analysis
+	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
+	// states, known vocabulary, generated vocabulary, example/curated sentences,
+	// decks, cards, and processing history.
+	HasUsers(ctx context.Context) (bool, error)
+	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
+	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
+	InsertSelectedSentence(ctx context.Context, arg InsertSelectedSentenceParams) error
+	InsertSession(ctx context.Context, arg InsertSessionParams) error
+	InsertVocabularyStateCandidate(ctx context.Context, arg InsertVocabularyStateCandidateParams) error
+	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
+	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
+	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
 	// Book identity and My Books evidence queries. The read models select from
-	// the my_books_evidence view (migration 000066) so the composed projection is
-	// one SQL artifact instead of Go string stitching.
+	// the my_books_evidence view (migration 000066, rebuilt over the shared
+	// source_material_evidence view in 000068) so the composed projection and its
+	// analysis status/state classification are one SQL artifact instead of Go
+	// string stitching.
 	ListActiveBooks(ctx context.Context, owner pgtype.UUID) ([]ListActiveBooksRow, error)
+	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
+	ListAnalysisJobs(ctx context.Context, ownerID pgtype.UUID) ([]ListAnalysisJobsRow, error)
+	ListCatalogueSyncStatuses(ctx context.Context, ownerID pgtype.UUID) ([]ListCatalogueSyncStatusesRow, error)
+	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
+	ListKnownVocabularyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListKnownVocabularyLanguagesRow, error)
 	ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBooksEvidence, error)
+	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
 	ListSelectedSentences(ctx context.Context, arg ListSelectedSentencesParams) ([]ListSelectedSentencesRow, error)
-	// Source-material library queries. The current-analysis identity is read from
-	// the current_analysis_identity view (migration 000065) instead of the
-	// hand-written CTE.
-	ListSourceMaterials(ctx context.Context, owner pgtype.UUID) ([]ListSourceMaterialsRow, error)
+	ListSharedLemmas(ctx context.Context, contentHash string) ([]ListSharedLemmasRow, error)
+	// Source-material library queries. The current-analysis identity and the
+	// analysis status/state classification live in the source_material_evidence
+	// view (migration 000067); this query only selects from it, so the status
+	// logic is not duplicated here.
+	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
+	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
+	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID pgtype.UUID) (pgtype.Text, error)
+	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)
+	PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error)
+	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)
+	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
+	PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error)
+	PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error)
+	PutNormalizedCorpusArtifact(ctx context.Context, arg PutNormalizedCorpusArtifactParams) error
+	PutProcessingHistory(ctx context.Context, arg PutProcessingHistoryParams) (PutProcessingHistoryRow, error)
+	PutSelectionCandidate(ctx context.Context, arg PutSelectionCandidateParams) error
+	PutSharedLemma(ctx context.Context, arg PutSharedLemmaParams) error
+	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
+	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
+	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
+	PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	// Sentence selection and review queries. SelectAcquisitionCandidate is the
 	// static replacement for the runtime string-concatenated acquisition query:
 	// an unconditional predicate of the form ($book = '' OR source = $book) keeps
 	// the statement statically analyzable.
 	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
+	SetActiveStudyLanguage(ctx context.Context, arg SetActiveStudyLanguageParams) (int64, error)
+	SetCatalogueSyncStatus(ctx context.Context, arg SetCatalogueSyncStatusParams) error
+	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
+	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error
+	UpdateExampleSentenceText(ctx context.Context, arg UpdateExampleSentenceTextParams) error
+	UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error)
+	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
+	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
 }

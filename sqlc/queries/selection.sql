@@ -11,7 +11,7 @@ WHERE sc.owner_id = sqlc.arg('owner')
   AND sc.language = sqlc.arg('language')
   AND sc.canonical_lemma = sqlc.arg('canonical_lemma')
   AND sc.upos = sqlc.arg('upos')
-  AND (sqlc.arg('book')::text = '' OR c.source_material_id::text = sqlc.arg('book'))
+   AND (sqlc.arg('book')::text = '' OR c.source_material_id::text = sqlc.arg('book')::text)
 ORDER BY sc.selected_at DESC, sc.corpus_id DESC
 LIMIT 1;
 

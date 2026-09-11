@@ -38,11 +38,28 @@ func uuidArg(value string) pgtype.UUID {
 	return id
 }
 
+// nullableUUIDArg converts a UUID string into the pgtype form for nullable
+// uuid columns; the empty string is written as NULL.
+func nullableUUIDArg(value string) pgtype.UUID {
+	if value == "" {
+		return pgtype.UUID{}
+	}
+	return uuidArg(value)
+}
+
 func uuidString(value pgtype.UUID) string {
 	if !value.Valid {
 		return ""
 	}
 	return uuid.UUID(value.Bytes).String()
+}
+
+func uuidStringPtr(value pgtype.UUID) *string {
+	if !value.Valid {
+		return nil
+	}
+	s := uuid.UUID(value.Bytes).String()
+	return &s
 }
 
 func pgText(value pgtype.Text) string {
@@ -78,6 +95,123 @@ func pgInt8(value pgtype.Int8) int64 {
 // columns that are guaranteed non-null by the caller's domain rules.
 func textArg(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: true}
+}
+
+// nullableTextArg converts a string into a nullable pgtype.Text: the empty
+// string is written as NULL, matching the domain's nullable-text conventions.
+func nullableTextArg(value string) pgtype.Text {
+	return pgtype.Text{String: value, Valid: value != ""}
+}
+
+// intArg converts an int into the pgtype form sqlc binds for nullable integer
+// columns that are guaranteed non-null by the caller's domain rules.
+func intArg(value int) pgtype.Int4 {
+	return pgtype.Int4{Int32: int32(value), Valid: true}
+}
+
+func pgTimeArgPtr(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *value, Valid: true}
+}
+
+func sourceMaterialFromFields(id, ownerID, language, sourceIdentifier, title, mediaType, contentHash, contentDigest, contentRevisionID string, content []byte, fullText string, digestVersion int32, createdAt pgtype.Timestamptz) domain.SourceMaterial {
+	return domain.SourceMaterial{
+		ID: id, OwnerID: ownerID, Language: language, SourceIdentifier: sourceIdentifier,
+		Title: title, MediaType: mediaType, ContentHash: contentHash, ContentDigest: contentDigest,
+		ContentRevisionID: contentRevisionID, Content: content, FullText: fullText,
+		ContentDigestVersion: int(digestVersion), CreatedAt: pgTime(createdAt),
+	}
+}
+
+func corpusFromRow(row sqlcgen.GetCorpusRow) domain.Corpus {
+	v := domain.Corpus{
+		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,
+		ArtifactHash: row.ArtifactHash, AnalysisRunID: row.AnalysisRunID, Status: row.Status,
+		CreatedAt: pgTime(row.CreatedAt),
+	}
+	if row.AnalyzableTokenCount.Valid && row.DistinctLemmaCount.Valid {
+		v.Statistics = &domain.AnalysisStatistics{
+			AnalyzableTokenCount: row.AnalyzableTokenCount.Int64,
+			DistinctLemmaCount:   row.DistinctLemmaCount.Int64,
+		}
+		if row.SentenceCount.Valid && row.NormalizedTokenCount.Valid && row.EmptySentenceCount.Valid && row.MedianSentenceTokenCount.Valid && row.P90SentenceTokenCount.Valid && row.LongSentenceCount.Valid {
+			v.Statistics.TextProfile = &domain.TextProfile{
+				SentenceCount:            row.SentenceCount.Int64,
+				NormalizedTokenCount:     row.NormalizedTokenCount.Int64,
+				EmptySentenceCount:       row.EmptySentenceCount.Int64,
+				MedianSentenceTokenCount: row.MedianSentenceTokenCount.Float64,
+				P90SentenceTokenCount:    row.P90SentenceTokenCount.Int64,
+				LongSentenceCount:        row.LongSentenceCount.Int64,
+			}
+		}
+	}
+	return v
+}
+
+func analysisJobFromRow(row sqlcgen.ListAnalysisJobsRow) domain.AnalysisJob {
+	return domain.AnalysisJob{
+		ID: row.RiverJobID, DisplayNumber: row.DisplayNumber, OwnerID: row.JOwnerID,
+		SourceMaterialID: row.JSourceMaterialID, ContentHash: row.ContentHash,
+		CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID, AnalysisState: row.AnalysisState,
+		Progress: int(row.Progress), Error: row.Error,
+		CreatedAt: pgTime(row.CreatedAt), UpdatedAt: pgTime(row.UpdatedAt),
+	}
+}
+
+func catalogueSyncStatusFromRow(ownerID, connectionID, state string, lastSyncedAt pgtype.Timestamptz, lastUpsertedCount int32, lastError string, updatedAt pgtype.Timestamptz) domain.CatalogueSyncStatus {
+	status := domain.CatalogueSyncStatus{
+		OwnerID: ownerID, ConnectionID: connectionID, State: domain.CatalogueSyncState(state),
+		LastUpsertedCount: int(lastUpsertedCount), LastError: lastError,
+		LastSyncedAt: pgTimePtr(lastSyncedAt), UpdatedAt: pgTime(updatedAt),
+	}
+	return status
+}
+
+func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos string, createdAt pgtype.Timestamptz) domain.KnownVocabulary {
+	return domain.KnownVocabulary{
+		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
+		UPOS: upos, CreatedAt: pgTime(createdAt),
+	}
+}
+
+func vocabularyStateFromFields(id, ownerID, language, canonicalLemma, upos, state string, updatedAt pgtype.Timestamptz) domain.VocabularyState {
+	return domain.VocabularyState{
+		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
+		UPOS: upos, State: state, UpdatedAt: pgTime(updatedAt),
+	}
+}
+
+func curatedSentenceFromFields(id, ownerID, exampleSentenceID, language, canonicalLemma, upos, notes string, createdAt pgtype.Timestamptz) domain.CuratedSentence {
+	return domain.CuratedSentence{
+		ID: id, OwnerID: ownerID, ExampleSentenceID: exampleSentenceID, Language: language,
+		CanonicalLemma: canonicalLemma, UPOS: upos, Notes: notes, CreatedAt: pgTime(createdAt),
+	}
+}
+
+func deckFromFields(id, ownerID, language, name string, createdAt pgtype.Timestamptz) domain.Deck {
+	return domain.Deck{ID: id, OwnerID: ownerID, Language: language, Name: name, CreatedAt: pgTime(createdAt)}
+}
+
+func cardFromFields(id, ownerID, deckID, dedupKey, canonicalLemma, upos, front, back string, createdAt pgtype.Timestamptz) domain.Card {
+	return domain.Card{
+		ID: id, OwnerID: ownerID, DeckID: deckID, DedupKey: dedupKey,
+		CanonicalLemma: canonicalLemma, UPOS: upos, Front: front, Back: back, CreatedAt: pgTime(createdAt),
+	}
+}
+
+// opdsFromFields decrypts the stored credential. The language column is a
+// legacy artifact not exposed by the domain type.
+func opdsFromFields(id, ownerID, name, url, username string, encrypted []byte, language string, createdAt, updatedAt pgtype.Timestamptz) (domain.OpdsConnection, error) {
+	password, err := decryptCredential(encrypted)
+	if err != nil {
+		return domain.OpdsConnection{}, err
+	}
+	return domain.OpdsConnection{
+		ID: id, OwnerID: ownerID, Name: name, URL: url, Username: username, Password: password,
+		CreatedAt: pgTime(createdAt), UpdatedAt: pgTime(updatedAt),
+	}, nil
 }
 
 func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
@@ -124,18 +258,18 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 func sourceMaterialSummaryFromRow(row sqlcgen.ListSourceMaterialsRow) domain.SourceMaterialSummary {
 	return domain.SourceMaterialSummary{
 		Source: domain.SourceMaterial{
-			ID:                   row.SID,
-			OwnerID:              row.SOwnerID,
-			Language:             row.Language,
+			ID:                   row.SourceID,
+			OwnerID:              row.SourceOwnerID,
+			Language:             row.SourceLanguage,
 			SourceIdentifier:     row.SourceIdentifier,
-			Title:                row.Title,
-			MediaType:            row.MediaType,
+			Title:                row.SourceTitle,
+			MediaType:            row.SourceMediaType,
 			ContentHash:          row.ContentHash,
 			ContentDigest:        row.ContentDigest,
 			ContentRevisionID:    row.ContentRevisionID,
 			ContentSnapshotID:    row.ContentSnapshotID,
 			ContentDigestVersion: int(row.DigestVersion),
-			CreatedAt:            pgTime(row.CreatedAt),
+			CreatedAt:            pgTime(row.SourceCreatedAt),
 		},
 		BookID:         row.BookID,
 		BookTitle:      row.BookTitle,

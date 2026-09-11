@@ -609,6 +609,29 @@ type SourceMaterial struct {
 	BookID                   pgtype.UUID
 }
 
+type SourceMaterialEvidence struct {
+	SourceID          string
+	SourceOwnerID     string
+	SourceLanguage    string
+	SourceIdentifier  string
+	SourceTitle       string
+	SourceMediaType   string
+	BookID            string
+	BookTitle         string
+	ContentHash       string
+	ContentDigest     string
+	ContentRevisionID string
+	ContentSnapshotID string
+	DigestVersion     int32
+	SourceCreatedAt   pgtype.Timestamptz
+	AnalysisStatus    string
+	AnalysisState     string
+	AnalysisRunID     string
+	CorpusID          string
+	AnalysisJobID     int64
+	IsCurrentAnalysis bool
+}
+
 type SourceMaterialUnit struct {
 	OwnerID          pgtype.UUID
 	SourceMaterialID pgtype.UUID
