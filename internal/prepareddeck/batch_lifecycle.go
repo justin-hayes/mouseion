@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	"math/rand/v2"
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -576,11 +576,18 @@ func (w *BatchPollWorker) pollDelay() time.Duration {
 		}
 		return interval
 	}
-	spread := interval / 10
-	if spread <= 0 {
+	policy := backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(interval),
+		backoff.WithMultiplier(1),
+		backoff.WithRandomizationFactor(0.1),
+		backoff.WithMaxInterval(interval),
+		backoff.WithMaxElapsedTime(0),
+	)
+	delay := policy.NextBackOff()
+	if delay < interval-interval/10 || delay > interval+interval/10 {
 		return interval
 	}
-	return interval - spread + time.Duration(rand.Int64N(int64(2*spread)+1))
+	return delay
 }
 
 type FinalizeWorker struct {
