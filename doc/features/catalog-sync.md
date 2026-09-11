@@ -35,18 +35,17 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - When My Books is empty and the learner has no catalog connections, explain
   that Mouseion needs a learner-owned catalog connection to synchronize the
   ready-language collection.
-- The primary empty-state action opens the Catalogs destination, where the
-  learner adds a catalog connection. It does not silently create a connection.
-- Books enter My Books through catalog synchronization; there is no manual
+- The primary empty-state action enters the Catalogs destination at `/catalogs`.
+  It does not silently create a connection.
+- Books enter My Books through catalogue synchronization; there is no manual
   metadata-entry path.
 
 ### Connection configuration and status
 
-- `/catalogs` (with the legacy `/connections` redirect) is the learner-owned
-  configuration and maintenance destination for name, URL, username, encrypted
-  credential, sync, edit, and delete behavior. Catalog maintenance is a
-  principal destination per
-  [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
+- `/catalogs` is the learner-owned configuration and maintenance surface for
+  name, URL, username, encrypted credential, sync, edit, and delete behavior.
+  `GET /connections` permanently redirects there while preserving supported
+  deep-link parameters.
 - Each connection distinguishes **Never synced**, **Syncing**, **Last synced**,
   and **Sync failed**. Last-synced information belongs to the connection, not a
   global dashboard.
@@ -117,11 +116,9 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 - Detecting changed EPUB bytes or invalidating current analysis from sync.
 - Destructively reconciling upstream removals.
 - Synchronizing English, languages whose NLP pipeline is not ready, or languages
-  the connected catalog does not expose.
-- A global sync dashboard or an upstream catalog browser. Catalog maintenance is
-  a principal destination per
-  [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md); a global
-  sync dashboard is not.
+  the connected catalogue does not expose.
+- Adding a global sync dashboard or an upstream catalog browser. Catalogs is a
+  primary destination for connection setup and sync maintenance.
 - Batch-selecting Books for analysis; whether a future batch contract exists is
   an open product question.
 - Reintroducing an administrator role or administrator-managed catalogs.
@@ -131,7 +128,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 ## Acceptance criteria
 
 - A fresh learner with no connection sees a clear My Books explanation and a
-  primary action to the Catalogs destination.
+  primary action to `/catalogs`.
 - A connection can be never synced, syncing, last synced, or failed, and every
   state has a usable server-rendered path and recovery where applicable.
 - **Sync now** and periodic execution invoke the same owner-scoped,

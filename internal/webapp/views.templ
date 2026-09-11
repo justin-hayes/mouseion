@@ -133,7 +133,7 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
 		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
@@ -292,7 +292,7 @@ templ NeedsLanguageStrip(count int) {
 		} else {
 			<p>{ fmt.Sprintf("%d books are outside the active language collections because the catalogue has not assigned a language.", count) }</p>
 		}
-		<p>Fix the language in the catalogue, then re-sync from <a href="/connections">Connections</a>.</p>
+		<p>Fix the language in the catalogue, then re-sync from <a href="/catalogs">Catalogs</a>.</p>
 		<p><a href="/library?needs-language">Review books awaiting a language</a></p>
 	</section>
 }
@@ -315,9 +315,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
 			@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
-				<a role="button" href="/connections">Connect a catalogue</a>
+				<a role="button" href="/catalogs">Connect a catalogue</a>
 				if hasCatalogueConnections {
-					<a role="button" class="outline" href="/connections">Sync catalogue</a>
+					<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
 				}
 			}
 		}
@@ -326,9 +326,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			} else if browse.AllCount == 0 {
 				@EmptyState("Build My Books from your catalogue", "Connect a catalogue, then sync it. Ready-language metadata will appear here.") {
-					<a role="button" href="/connections">Connect a catalogue</a>
+				<a role="button" href="/catalogs">Connect a catalogue</a>
 					if hasCatalogueConnections {
-						<a role="button" class="outline" href="/connections">Sync catalogue</a>
+						<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
 					}
 				}
 			} else {
@@ -855,14 +855,17 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 	</article> }
 }
 templ ConnectionsPage(user domain.User, csrf string, connections []domain.OpdsConnection, message string, statuses map[string]domain.CatalogueSyncStatus) {
-	@ConnectionsPageForBook(user, csrf, connections, message, "", statuses)
+	@ConnectionsPageForBook(user, csrf, connections, message, "", "", statuses)
 }
 
-templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, bookID string, statuses map[string]domain.CatalogueSyncStatus) {
-	@ShellLayout("Add books", &user, csrf, NavigationAcquisition) {
-		@PageHeader("Add books", "Connect a catalog and add EPUB books to My Books.", nil)
+templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage, bookID string, statuses map[string]domain.CatalogueSyncStatus) {
+	@ShellLayout("Catalogs", &user, csrf, NavigationCatalogs) {
+		@PageHeader("Catalogs", "Connect a catalog and add EPUB books to My Books.", nil)
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
+		}
+		if errorMessage != "" {
+			@Feedback(FeedbackError, "", errorMessage)
 		}
 		if len(connections) == 0 {
 			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into My Books. Your credentials stay private and are never shown again.") {
@@ -958,7 +961,7 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 		if language == "" {
 			if len(languages) == 0 {
 				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
-					<a href="/connections">Connect a catalogue</a>
+					<a href="/catalogs">Connect a catalogue</a>
 				}
 			} else {
 				<p>Choose a study language in the shell to view known vocabulary or import a lemma file.</p>

@@ -31,11 +31,9 @@ rather than as independent destinations.
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 **Reading Journey**, **Vocabulary**, **Catalogs**, account identity, and **Log
-out**. My Books, Reading Journey, Vocabulary, and Catalogs are the destinations;
-there is no acquisition action in the top navigation. Catalogs is the persistent
-home for connection and sync maintenance, also reached from My Books empty states
-and actions; the legacy `/connections` route redirects there. My Books is the
-sole browse surface; its rows own acquisition and analysis intent.
+out**. My Books, Reading Journey, Vocabulary, and Catalogs are the destinations.
+Catalogs owns catalogue setup and sync maintenance at `/catalogs`. My Books is
+the sole browse surface; its rows own acquisition and analysis intent.
 
 Primary Goal is embedded in Reading Journey and is not a fifth destination.
 The shell identifies the current destination, supports skip navigation and
@@ -67,7 +65,7 @@ queue, campaign, or plan is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalog onboarding and sync are reached through the Catalogs destination | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Catalogs, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
+| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Catalogs, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
 | My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Journey entry or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
 | Journey entry and analysis insights | Current `GET /journey/{bookID}` only for a Journey member with a current completed analysis; metadata refresh is a My Books row action | Understand one analyzed Book's current analysis evidence, Journey/Goal relationship, and preparation decisions. Unassessed, stale, queued, running, failed, and cancelled Books have no detail page. | Analysis status, deck preparation, Journey/Goal action, prepared artifact, or My Books | Current completed analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Journey entry when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
@@ -103,7 +101,7 @@ recommendation metadata is not a current learner-facing surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Catalogs | Shipped `GET /catalogs` (legacy `/connections` redirects) with connection mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
+| Catalogs | Current `GET /catalogs`; legacy `GET /connections` permanently redirects while POST connection mutation routes remain | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
 | Book acquisition through reading intent | Current `POST /journey/books/{id}/add`, launched from My Books or deck status | Express intent, acquire one My Books Book when needed, and ensure current analysis once. | Journey or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
 | Per-book catalog metadata refresh | Current row action on `GET /library` with `POST /library/books/{id}/refresh` | Refresh one catalog-backed Book's metadata without downloading content or changing evidence. | My Books row | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
@@ -169,9 +167,9 @@ learner-facing screen.
 
 - `Dashboard` is an inactive template and not a canonical destination.
 - Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** /
-  **Catalogs** with no acquisition action in the top navigation; historical
-  **My Library**, **Learning**, queue, and learner-facing Campaign labels remain
-  only as compatibility fallbacks/redirects and are not the accepted target IA.
+  **Catalogs**; historical **My Library**, **Learning**, queue, and learner-facing
+  Campaign labels remain only as compatibility fallbacks/redirects and are not
+  the accepted target IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must

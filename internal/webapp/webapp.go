@@ -194,7 +194,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/library")
 	})))
-	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.connections)))
+	h.mux.Handle("GET /catalogs", h.user(http.HandlerFunc(h.connections)))
+	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))
 	h.mux.Handle("POST /connections", h.user(http.HandlerFunc(h.createConnection)))
 	h.mux.Handle("POST /connections/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /connections/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))

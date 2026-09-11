@@ -50,7 +50,7 @@ search surface.
   real links and forms.
 - Empty-collection, search-empty, and no-language-results states remain distinct
   and offer an appropriate way to clear a filter, revise a query, or start
-  catalog setup in the Catalogs destination.
+  catalogue setup through the `/catalogs` destination.
 
 ### Row hierarchy and book selection
 
@@ -87,7 +87,7 @@ search surface.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and the path to catalog setup in Catalogs. | Set up a catalog |
+| Empty collection | Explain My Books and the Catalogs path to catalogue setup. | Add a catalogue connection |
 | Collection available | Show scoped search, deterministic rows for the active language, and paging. | Open a book |
 | Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |

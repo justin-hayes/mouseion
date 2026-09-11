@@ -214,13 +214,13 @@ func TestVocabularyPageKeepsHistoricalVocabularyDisplayable(t *testing.T) {
 	}
 }
 
-func TestVocabularyPageEmptyLibraryPointsToConnectionsAndHidesImport(t *testing.T) {
+func TestVocabularyPageEmptyLibraryPointsToCatalogsAndHidesImport(t *testing.T) {
 	var output bytes.Buffer
 	if err := VocabularyPageWithResult(domain.User{}, "csrf", nil, nil, "", nil, nil, "").Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, "No study languages yet") || !strings.Contains(html, `href="/connections"`) {
+	if !strings.Contains(html, "No study languages yet") || !strings.Contains(html, `href="/catalogs"`) {
 		t.Fatalf("empty Vocabulary state missing catalogue guidance: %s", html)
 	}
 	if strings.Contains(html, `enctype="multipart/form-data"`) || strings.Contains(html, `name="language"`) {

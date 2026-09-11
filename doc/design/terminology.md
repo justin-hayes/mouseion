@@ -36,7 +36,7 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Catalogs** | The learner-owned catalog maintenance destination at `/catalogs`: connection create, read, edit, and delete, per-connection sync status, and **Sync now**. It is not a second browse surface; My Books remains the sole browse surface for synced metadata. | Add books, catalog browser, admin catalog |
+| **Catalogs** | The authenticated catalogue setup and sync-maintenance destination at `/catalogs`. | Import books, ingest books |
 | **Add to Reading Journey** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalog sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |

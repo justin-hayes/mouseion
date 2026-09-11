@@ -44,7 +44,7 @@ My Books empty state
 
 The fresh My Books state explains that a catalog connection lets Mouseion add
 ready-language bibliographic entries before content is needed. Its primary
-action opens the Catalogs destination, where the learner adds a connection.
+action enters `/catalogs` through the **Catalogs** destination.
 
 The connection remains learner-owned. The form identifies its name, URL,
 username, and optional password; the saved secret is encrypted at rest and is
@@ -122,12 +122,13 @@ analysis, prepares a deck, or invalidates existing evidence.
 
 ## Navigation rules
 
-- The authenticated shell exposes My Books, Reading Journey, Vocabulary, and
-  Catalogs with no acquisition action in the top navigation; Catalogs is reached
-  from the shell and from My Books, while My Books is the sole browse surface.
-- `/catalogs` owns configuration and concise sync status. `/jobs` owns attempts,
-  progress, cancellation, retry, and detailed failures. `/jobs` is not a
-  destination; the legacy `/connections` route redirects to `/catalogs`.
+- The authenticated shell remains exactly My Books, Reading Journey, Vocabulary,
+  and Catalogs; My Books is the sole browse surface.
+- `/catalogs` owns configuration and concise sync status. `GET /connections` is a
+  permanent compatibility redirect that preserves `book_id`, `message`, and
+  `error`; `/jobs` owns
+  attempts, progress, cancellation, retry, and detailed failures. Neither is a
+  new destination.
 - My Books owns active-language-scoped browse, search, paging, browsing of
   synced metadata, and the per-book acquisition intent action.
 - My Books rows own metadata refresh and acquisition intent. Reading Journey owns

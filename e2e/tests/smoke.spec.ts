@@ -48,9 +48,9 @@ test.describe('authenticated learner smoke', () => {
     await expect(switcher.locator('option[value="fr"]')).not.toBeDisabled();
     await expect(switcher.locator('option[value="fr"]')).toContainText('(no books)');
 
-    await page.goto('/connections');
+    await page.goto('/catalogs');
     await page.locator('#connection-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
-    await expect(page).toHaveURL(/\/connections\?message=/);
+    await expect(page).toHaveURL(/\/catalogs\?message=/);
     await page.goto('/library');
     const arrivedNewLanguageOption = page.getByLabel('Study language').locator('option').filter({ hasText: '(new)' });
     await expect(arrivedNewLanguageOption).toHaveCount(1);
@@ -172,7 +172,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
-    await page.goto('/connections');
+    await page.goto('/catalogs');
     await expect(page.getByText('Fixture catalog')).toBeVisible();
     await page.goto('/library');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');

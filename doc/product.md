@@ -6,23 +6,20 @@ Mouseion is a self-hosted web application for advanced foreign-language reading 
 
 ## Current learner-facing organization
 
-The authenticated shell has four primary destinations: **My Books** at
-`/library`, **Reading Journey** at `/journey`, **Vocabulary** at `/vocabulary`,
-and **Catalogs** at `/catalogs`. Catalogs is the learner-owned catalog
-maintenance destination — connection create, read, edit, and delete,
-per-connection sync status, and **Sync now** (see
-[ADR 0058](adr/0058-catalog-maintenance-principal-destination.md)). The legacy
-`/connections` route permanently redirects there. My Books is the sole browse
-surface for the synced collection, and EPUB content is acquired when a Book is
-added to Reading Journey. The upstream catalog browser is retired. `/` redirects
-to My Books. Vocabulary study is a book-anchored facet (see
-[ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)): a Book's
-prepared-deck actions, vocabulary-study state and history, and vocabulary
-provenance live on the Journey entry, not on a second learner-facing plan.
+The authenticated shell has exactly four primary destinations: **My Books** at
+`/library`, **Reading Journey** at `/journey`, **Vocabulary** at `/vocabulary`, and
+**Catalogs** at `/catalogs`. Catalogs owns catalogue setup and sync maintenance;
+the legacy `GET /connections` route permanently redirects there while preserving
+`book_id`, `message`, and `error`. My Books is the sole browse surface for the synced collection,
+and EPUB content is acquired when a Book is added to Reading Journey. The upstream catalog
+browser is retired. `/` redirects to My Books. Vocabulary study is a
+book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
+a Book's prepared-deck actions, vocabulary-study state and history, and
+vocabulary provenance live on the Journey entry, not on a second learner-facing
+plan.
 
-Catalog synchronization status is an operational part of the learner-owned
-Catalogs destination, with detailed work under `/jobs`; it does not add an
-acquisition action to the top navigation.
+Catalogue synchronization status is part of the learner-owned Catalogs surface
+at `/catalogs`, with detailed work under `/jobs`.
 
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books; there is no study-language preference or

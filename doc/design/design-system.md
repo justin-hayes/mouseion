@@ -191,11 +191,10 @@ scrollable data table must label and contain its own overflow.
 
 ## Established and canonical interaction contracts
 
-- Canonical authenticated destinations are My Books, Reading Journey, Vocabulary,
-  and Catalogs; there is no acquisition action in the top navigation. Catalog
-  setup and sync maintenance happen in Catalogs, also reached from My Books. My
-  Books is the sole browse surface, and My Books rows own per-book acquisition
-  intent. Primary Goal is embedded in Reading Journey.
+- Canonical authenticated destinations are exactly My Books, Reading Journey,
+  Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync maintenance on
+  `/catalogs`. My Books is the sole browse surface, and My Books rows own per-book
+  acquisition intent. Primary Goal is embedded in Reading Journey.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading Journey has one learner-controlled order, later books are provisional,

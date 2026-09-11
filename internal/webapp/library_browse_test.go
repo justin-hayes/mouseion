@@ -211,14 +211,14 @@ func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 	}
 }
 
-func TestMyBooksWithoutActiveLanguageKeepsCatalogueSetupAction(t *testing.T) {
+func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 	var output bytes.Buffer
 	state := MyBooksBrowseState{Enabled: true}
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	if !strings.Contains(html, "Build My Books from your catalogue") || !strings.Contains(html, `href="/connections"`) {
+	if !strings.Contains(html, "Build My Books from your catalogue") || !strings.Contains(html, `href="/catalogs"`) {
 		t.Fatalf("empty unscoped My Books state lost catalogue setup: %s", html)
 	}
 }

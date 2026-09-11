@@ -131,9 +131,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	return view
 }
 
-// NavigationContext identifies the authenticated shell context. Acquisition
-// remains a page context for catalog and connections workflows, but is not a
-// primary shell destination.
+// NavigationContext identifies the authenticated shell context.
 type NavigationContext string
 
 const (
@@ -141,8 +139,8 @@ const (
 	NavigationLibrary        NavigationContext = "library"
 	NavigationReadingJourney NavigationContext = "reading-journey"
 	NavigationLearning       NavigationContext = NavigationReadingJourney
-	NavigationAcquisition    NavigationContext = "acquisition"
 	NavigationVocabulary     NavigationContext = "vocabulary"
+	NavigationCatalogs       NavigationContext = "catalogs"
 )
 
 type bookPageJourneyState struct {
@@ -182,8 +180,8 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationReadingJourney
 	case title == "Vocabulary", title == "Known vocabulary":
 		return NavigationVocabulary
-	case title == "Add books":
-		return NavigationAcquisition
+	case title == "Catalogs":
+		return NavigationCatalogs
 	default:
 		return NavigationNone
 	}
