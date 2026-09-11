@@ -112,3 +112,51 @@ func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {
 		}
 	}
 }
+
+func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
+	var calls atomic.Int32
+	lookupStarted := make(chan struct{})
+	releaseLookup := make(chan struct{})
+	provider := NewCachedCapabilityProvider(capabilityProviderFunc(func(ctx context.Context) (Capabilities, error) {
+		if ctx.Err() != nil {
+			return Capabilities{}, ctx.Err()
+		}
+		if calls.Add(1) == 1 {
+			close(lookupStarted)
+			<-releaseLookup
+		}
+		return Capabilities{Languages: []LanguageCapability{{Language: "de", Ready: true}}}, nil
+	}), time.Minute)
+
+	leaderContext, cancelLeader := context.WithCancel(context.Background())
+	leaderResult := make(chan error, 1)
+	go func() {
+		_, err := provider.GetCapabilities(leaderContext)
+		leaderResult <- err
+	}()
+	<-lookupStarted
+	cancelLeader()
+	if err := <-leaderResult; !errors.Is(err, context.Canceled) {
+		t.Fatalf("leader error = %v, want context canceled", err)
+	}
+
+	waiterResult := make(chan Capabilities, 1)
+	waiterError := make(chan error, 1)
+	go func() {
+		value, err := provider.GetCapabilities(context.Background())
+		waiterResult <- value
+		waiterError <- err
+	}()
+	close(releaseLookup)
+
+	if err := <-waiterError; err != nil {
+		t.Fatalf("waiter error = %v", err)
+	}
+	value := <-waiterResult
+	if len(value.Languages) != 1 || value.Languages[0].Language != "de" || value.Degraded {
+		t.Fatalf("waiter capability lookup = %+v", value)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("capability RPC calls = %d, want 1", got)
+	}
+}

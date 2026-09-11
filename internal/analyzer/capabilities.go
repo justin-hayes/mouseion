@@ -59,24 +59,24 @@ func NewCachedCapabilityProvider(provider CapabilityProvider, ttl time.Duration)
 func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabilities, error) {
 	c.mu.Lock()
 	now := c.now()
-	if !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl {
+	if c.cacheFresh(now) {
 		value := cloneCapabilities(c.value)
 		c.mu.Unlock()
 		return value, nil
 	}
 	c.mu.Unlock()
 
-	result, err, _ := c.lookup.Do("capabilities", func() (any, error) {
+	resultCh := c.lookup.DoChan("capabilities", func() (any, error) {
 		c.mu.Lock()
 		now := c.now()
-		if !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl {
+		if c.cacheFresh(now) {
 			value := cloneCapabilities(c.value)
 			c.mu.Unlock()
 			return value, nil
 		}
 		c.mu.Unlock()
 
-		value, err := c.provider.GetCapabilities(ctx)
+		value, err := c.provider.GetCapabilities(context.WithoutCancel(ctx))
 		if err == nil {
 			value.Degraded = false
 			c.mu.Lock()
@@ -95,10 +95,19 @@ func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabil
 		}
 		return Capabilities{}, err
 	})
-	if err != nil {
-		return Capabilities{}, err
+	select {
+	case result := <-resultCh:
+		if result.Err != nil {
+			return Capabilities{}, result.Err
+		}
+		return cloneCapabilities(result.Val.(Capabilities)), nil
+	case <-ctx.Done():
+		return Capabilities{}, ctx.Err()
 	}
-	return cloneCapabilities(result.(Capabilities)), nil
+}
+
+func (c *CachedCapabilityProvider) cacheFresh(now time.Time) bool {
+	return !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl
 }
 
 func cloneCapabilities(value Capabilities) Capabilities {
