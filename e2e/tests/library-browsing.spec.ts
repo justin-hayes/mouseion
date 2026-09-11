@@ -55,9 +55,9 @@ test.describe('My Books collection browsing', () => {
     await expect(needsRow.locator('a')).toHaveCount(0);
     await expect(needsRow.locator('form')).toHaveCount(0);
 
-    await page.goto('/connections');
+    await page.goto('/catalogs');
     await page.locator('#connection-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' }).click();
-    await expect(page).toHaveURL(/\/connections\?/);
+    await expect(page).toHaveURL(/\/catalogs\?/);
     await page.goto('/library?needs-language');
     await expect(page.locator('.library-list').getByText('Browser sync metadata book')).toHaveCount(0);
     await page.goto('/library');

@@ -163,7 +163,7 @@ func TestFeedbackPatterns(t *testing.T) {
 }
 
 func TestEmptyStateAndResourceCardPatterns(t *testing.T) {
-	empty := renderPattern(t, EmptyState("Your library is empty", "Add a book to begin."), `<a href="/connections">Acquire an EPUB</a>`)
+	empty := renderPattern(t, EmptyState("Your library is empty", "Add a book to begin."), `<a href="/catalogs">Acquire an EPUB</a>`)
 	requireMarkup(t, empty,
 		`class="empty-state"`,
 		`<h2>Your library is empty</h2>`,

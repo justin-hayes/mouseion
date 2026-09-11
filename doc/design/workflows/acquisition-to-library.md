@@ -25,12 +25,11 @@ The product behavior is defined primarily by:
 
 ## Entry and destination decision
 
-**Catalogs** is the catalog maintenance destination at `/catalogs` (the legacy
-`/connections` route redirects there). It is a peer destination beside My Books,
-Reading Journey, and Vocabulary and appears in the top navigation. My Books
-remains the sole browse surface.
+**Catalogs** names catalogue setup and sync maintenance on `/catalogs`. It is a
+peer destination beside My Books, Reading Journey, and Vocabulary. My Books is
+the sole browse surface.
 
-The destination presents connection maintenance at `/catalogs`:
+The action enters connection maintenance at `/catalogs`:
 
 - with no connections, the primary task is to add one;
 - with connections, the primary task is to sync eligible metadata into My Books;
@@ -114,9 +113,9 @@ background watcher. The learner expresses intent again to refresh evidence.
 
 ## Navigation and responsive rules
 
-- Destination navigation is My Books, Reading Journey, Vocabulary, and Catalogs.
-  Catalog maintenance is reached from the Catalogs destination and from My Books
-  empty states and actions.
+- Destination navigation is exactly My Books, Reading Journey, Vocabulary, and
+  Catalogs. The legacy `GET /connections` route permanently redirects to
+  `/catalogs` while preserving supported deep-link parameters.
 - The current acquisition context is the selected Book and owner-scoped
   connection, not an upstream feed path.
 - On narrow screens, row metadata precedes the acquisition and refresh actions,

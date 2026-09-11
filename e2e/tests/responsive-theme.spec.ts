@@ -15,7 +15,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
-  ['/connections', /Add books/],
+  ['/catalogs', /Catalogs/],
   ['/journey', /Reading Journey/],
   ['/vocabulary', /Vocabulary/],
 ];

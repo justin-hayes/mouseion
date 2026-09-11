@@ -172,11 +172,10 @@ length.
 how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
-`Primary navigation`. The canonical authenticated destinations are My Books,
-Reading Journey, Vocabulary, and Catalogs; there is no acquisition action in the
-top navigation. Catalog setup and sync maintenance use Catalogs at `/catalogs`
-(the legacy `/connections` route redirects there); My Books is the sole browse
-surface and My Books rows own per-book acquisition.
+`Primary navigation`. The canonical authenticated destinations are exactly My Books,
+Reading Journey, Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync
+maintenance at `/catalogs`; My Books is the sole browse surface and its rows own
+per-book acquisition.
 Primary Goal belongs inside Reading Journey. The shipped shell marks the current
 context while compatibility routes redirect without exposing Learning as a peer
 destination.

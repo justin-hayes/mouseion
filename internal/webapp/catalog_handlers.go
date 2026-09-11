@@ -45,7 +45,21 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 			statuses[status.ConnectionID] = status
 		}
 	}
-	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("book_id"), statuses))
+	render(w, r, ConnectionsPageForBook(u, h.csrf(w, r), c, r.URL.Query().Get("message"), r.URL.Query().Get("error"), r.URL.Query().Get("book_id"), statuses))
+}
+
+func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {
+	query := url.Values{}
+	for _, key := range []string{"book_id", "message", "error"} {
+		if values, ok := r.URL.Query()[key]; ok {
+			query[key] = append([]string(nil), values...)
+		}
+	}
+	location := "/catalogs"
+	if encoded := query.Encode(); encoded != "" {
+		location += "?" + encoded
+	}
+	http.Redirect(w, r, location, http.StatusMovedPermanently)
 }
 
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
@@ -65,10 +79,10 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirect(w, r, "/connections?error="+url.QueryEscape("The catalogue sync could not be started. Try again."))
+		redirect(w, r, "/catalogs?error="+url.QueryEscape("The catalogue sync could not be started. Try again."))
 		return
 	}
-	redirect(w, r, "/connections?message="+url.QueryEscape("Catalogue sync submitted."))
+	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalogue sync submitted."))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -91,7 +105,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	location := "/connections?message=Catalog+added"
+	location := "/catalogs?message=Catalog+added"
 	if bookID := strings.TrimSpace(r.FormValue("book_id")); bookID != "" {
 		location += "&book_id=" + url.QueryEscape(bookID)
 	}
@@ -125,7 +139,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	redirect(w, r, "/connections?message=Catalog+updated")
+	redirect(w, r, "/catalogs?message=Catalog+updated")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -146,7 +160,7 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	redirect(w, r, "/connections?message=Catalog+deleted")
+	redirect(w, r, "/catalogs?message=Catalog+deleted")
 }
 func opdsErrorMessage(err error) string {
 	message := "The catalog request failed. Check the connection and try again."

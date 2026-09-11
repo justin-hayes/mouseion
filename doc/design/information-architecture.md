@@ -80,10 +80,8 @@ search are scoped to it, and no "All languages" default exists. Books without a
 chosen language belong to no language partition and are surfaced only through
 an out-of-band **needs language** strip (fix the language in the catalog, then
 re-sync; display-only, no per-book actions). For a fresh account, its empty
-state explains catalog setup and enters the Catalogs destination; catalog
-maintenance is its own destination per
-[ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md), and no
-acquisition action appears in the top navigation. Synced catalog metadata is
+state explains catalogue setup and enters `/catalogs`; catalogue setup and sync
+maintenance are owned by the Catalogs destination. Synced catalogue metadata is
 browsed only here.
 
 ### Reading Journey
@@ -196,17 +194,12 @@ The authenticated shell exposes four principal destinations:
   surface for synced catalog metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
-- **Vocabulary** — known vocabulary and its import workflow;
-- **Catalogs** — learner-owned catalog connection maintenance: connection create,
-  read, edit, and delete, per-connection sync status, and **Sync now**
-  ([ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md)).
+- **Vocabulary** — known vocabulary and its import workflow.
+- **Catalogs** — learner-owned catalogue connections and metadata sync.
 
-The top navigation has no acquisition action. Catalogs is the persistent home for
-connection and sync maintenance, reached both from the shell and from My Books
-empty states and actions; the legacy `/connections` route redirects there. My
-Books is the sole browse surface for synced metadata and its rows own the
-Reading Journey acquisition-and-analysis intent. The upstream catalog browser
-is retired.
+Catalogs is a configuration and sync destination, not a book-browse surface.
+My Books remains the sole browse surface and its rows own the Reading Journey
+acquisition-and-analysis intent. The upstream catalog browser is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
 preparation, and per-Book vocabulary-study history are supporting surfaces.
@@ -220,9 +213,9 @@ derived study languages plus any known-vocabulary-only language marked "no
 books", marks a newly arrived study language "new", and never auto-switches on
 navigation or sync.
 
-Catalogs is a maintenance destination, not a **Browse** sub-navigation. It is for
-connection and sync maintenance only and is not a second browse surface;
-`/library` is the canonical local browse surface.
+There is no separate **Catalogues / Browse** sub-navigation. `/catalogs` is for
+connection and sync maintenance; `/library` is the canonical local browse
+surface.
 
 ## Route and screen hierarchy
 
@@ -269,12 +262,11 @@ owns the Book's current vocabulary-study state and a secondary per-Book study
 history. The application does not present a duplicate queue, campaign, or plan.
 
 The authenticated shell therefore exposes exactly My Books, Reading Journey,
-Vocabulary, and Catalogs in the top navigation. `/jobs` is a supporting surface
-reached from Catalogs and other direct routes, not a navigation destination.
-Historical My Library, Learning, queue, and learner-facing Campaign labels are
-not active navigation concepts; compatibility aliases and operational
-terminology remain only where required by existing routes, records, or
-infrastructure.
+Vocabulary, and Catalogs in the top navigation. `/jobs` remains a supporting
+surface reached from direct routes, not a navigation destination. Historical My Library, Learning,
+queue, and learner-facing Campaign labels are not active navigation concepts;
+compatibility aliases and operational terminology remain only where required by
+existing routes, records, or infrastructure.
 
 Existing nested analysis and artifact routes remain supporting routes. The
 run-specific analysis route is a compatibility redirect rather than a separate
@@ -478,8 +470,8 @@ needed.
    the alternative is advisory evidence only and never overrides learner order
    or invents a composite score.
 7. **Routes and terminology** are reconciled in the shipped shell and supporting
-   surfaces: My Books, Reading Journey, and Vocabulary are the active navigation
-   destinations, with no acquisition action in the top navigation; `/known-vocab`
+    surfaces: My Books, Reading Journey, Vocabulary, and Catalogs are the active
+    navigation destinations; `/known-vocab`
    remains a compatibility route with its documented redirect. Campaign routes
    are not learner-facing webapp routes.
 8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
