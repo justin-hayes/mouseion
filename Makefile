@@ -4,11 +4,13 @@ VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
+SQLC := $(shell go env GOPATH)/bin/sqlc
+SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke
+.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke sqlc
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -60,6 +62,13 @@ lint: go-tmp
 
 templ:
 	templ generate
+
+# Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
+# the migrations history. sqlc is pinned; CI installs the same version and
+# asserts `git diff --exit-code` after regeneration.
+sqlc: go-tmp
+	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)" || go install github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION)
+	$(SQLC) generate
 
 gen:
 	mkdir -p gen/go gen/python $(GOTMPDIR)

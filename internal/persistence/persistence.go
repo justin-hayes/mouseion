@@ -20,6 +20,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/migrations"
@@ -585,44 +586,15 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 // owner/book-scoped current analysis. Operational jobs remain visible for
 // status, but never select a learner-facing result.
 func (s *PostgresStore) ListSourceMaterials(ctx context.Context, owner string) ([]domain.SourceMaterialSummary, error) {
-	rows, err := s.pool.Query(ctx, currentAnalysisCTE+`
-		SELECT s.id,s.owner_id,s.language,s.source_identifier,s.title,s.media_type,COALESCE(s.book_id::text,''),COALESCE(b.title,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,COALESCE(r.content_digest,''),COALESCE(r.revision_id::text,''),COALESCE(s.current_snapshot_id::text,''),COALESCE(r.digest_version,0),s.created_at,
-			       CASE WHEN ar.state IN ('queued','running') THEN 'analyzing'
-		            WHEN ar.state = 'failed' THEN 'analysis failed'
-		            WHEN ar.state = 'cancelled' THEN 'analysis cancelled'
-		            WHEN p.source_material_id IS NOT NULL AND ca.analysis_run_id IS NULL THEN 'stale'
-			            WHEN ca.analysis_run_id IS NOT NULL THEN 'analyzed'
-		            WHEN j.river_job_id IS NOT NULL AND j.error = '' THEN 'analyzing'
-		            ELSE 'not analyzed' END,
-		       CASE WHEN ar.state IS NOT NULL THEN ar.state
-		            WHEN ca.analysis_run_id IS NOT NULL THEN 'completed'
-		            WHEN j.river_job_id IS NOT NULL AND j.error <> '' THEN 'failed'
-		            WHEN j.river_job_id IS NOT NULL THEN 'queued'
-		            ELSE '' END,
-		       COALESCE(ca.analysis_run_id::text,''),
-			       COALESCE(ca.corpus_id::text,''),COALESCE(j.river_job_id,0)
-		FROM source_materials s
-		LEFT JOIN books b ON b.owner_id=s.owner_id AND b.id=s.book_id
-		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id
-		LEFT JOIN book_current_analyses p ON p.owner_id=s.owner_id AND p.source_material_id=s.id
-		LEFT JOIN current_analysis ca ON ca.owner_id=p.owner_id AND ca.source_material_id=p.source_material_id
-		LEFT JOIN LATERAL (SELECT river_job_id,error,analysis_run_id FROM analysis_jobs WHERE owner_id=s.owner_id AND source_material_id=s.id ORDER BY created_at DESC,river_job_id DESC LIMIT 1) j ON true
-		LEFT JOIN analysis_runs ar ON ar.owner_id=s.owner_id AND ar.id=j.analysis_run_id
-		WHERE s.owner_id=$1
-		ORDER BY s.created_at DESC,s.title,s.id`, owner)
+	rows, err := s.queries().ListSourceMaterials(ctx, uuidArg(owner))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []domain.SourceMaterialSummary
-	for rows.Next() {
-		var item domain.SourceMaterialSummary
-		if err := rows.Scan(&item.Source.ID, &item.Source.OwnerID, &item.Source.Language, &item.Source.SourceIdentifier, &item.Source.Title, &item.Source.MediaType, &item.BookID, &item.BookTitle, &item.Source.ContentHash, &item.Source.ContentDigest, &item.Source.ContentRevisionID, &item.Source.ContentSnapshotID, &item.Source.ContentDigestVersion, &item.Source.CreatedAt, &item.AnalysisStatus, &item.AnalysisState, &item.AnalysisRunID, &item.CorpusID, &item.AnalysisJobID); err != nil {
-			return nil, err
-		}
-		out = append(out, item)
+	for _, row := range rows {
+		out = append(out, sourceMaterialSummaryFromRow(row))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (s *PostgresStore) PutArtifact(ctx context.Context, a domain.NormalizedArtifact, lemmas []domain.SharedLemma) error {
@@ -842,20 +814,18 @@ func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, cor
 }
 
 func (s *PostgresStore) ListSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string) ([]domain.ExampleSentence, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at FROM example_sentences WHERE owner_id=$1 AND corpus_id=$2 AND language=$3 AND canonical_lemma=$4 AND upos=$5 ORDER BY selection_rank`, owner, corpus, language, lemma, upos)
+	rows, err := s.queries().ListSelectedSentences(ctx, sqlcgen.ListSelectedSentencesParams{
+		Owner: uuidArg(owner), Corpus: uuidArg(corpus),
+		Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []domain.ExampleSentence
-	for rows.Next() {
-		var example domain.ExampleSentence
-		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, example)
+	for _, row := range rows {
+		out = append(out, exampleSentenceFromFields(row.ID, row.OwnerID, row.CorpusID, row.SentenceKey, row.SentenceText, row.SourceLocation, row.Language, row.CanonicalLemma, row.Upos, row.SelectionRank, row.SelectionScore, row.SelectionReasons, row.IsChosen, row.CreatedAt))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, lang, lemma, upos, notes string) (v domain.CuratedSentence, err error) {
 	err = s.pool.QueryRow(ctx, `INSERT INTO curated_sentences(owner_id,example_sentence_id,language,canonical_lemma,upos,notes) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET example_sentence_id=excluded.example_sentence_id,notes=excluded.notes RETURNING id,owner_id,example_sentence_id,language,canonical_lemma,upos,notes,created_at`, owner, example, lang, lemma, upos, notes).Scan(&v.ID, &v.OwnerID, &v.ExampleSentenceID, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.Notes, &v.CreatedAt)
@@ -866,39 +836,34 @@ func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, 
 // vocabulary identity. The initially selected sentence is first, followed by
 // alternatives in deterministic rank order.
 func (s *PostgresStore) ListReviewSentences(ctx context.Context, owner, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
-	rows, err := s.pool.Query(ctx, `WITH latest AS (SELECT corpus_id FROM example_sentences WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 GROUP BY corpus_id ORDER BY max(created_at) DESC,corpus_id DESC LIMIT 1) SELECT id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at FROM example_sentences WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 AND corpus_id=(SELECT corpus_id FROM latest) ORDER BY is_chosen DESC,selection_rank,id`, owner, lang, lemma, upos)
+	rows, err := s.queries().ListReviewSentences(ctx, sqlcgen.ListReviewSentencesParams{
+		Owner: uuidArg(owner), Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []domain.ExampleSentence
-	for rows.Next() {
-		var example domain.ExampleSentence
-		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, example)
+	for _, row := range rows {
+		out = append(out, exampleSentenceFromFields(row.ID, row.OwnerID, row.CorpusID, row.SentenceKey, row.SentenceText, row.SourceLocation, row.Language, row.CanonicalLemma, row.Upos, row.SelectionRank, row.SelectionScore, row.SelectionReasons, row.IsChosen, row.CreatedAt))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // ListReviewSentencesForBook binds curation to the source material currently
 // being reviewed, even when the same vocabulary identity occurs in other books.
 func (s *PostgresStore) ListReviewSentencesForBook(ctx context.Context, owner, bookID, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
-	rows, err := s.pool.Query(ctx, `SELECT e.id,e.owner_id,e.corpus_id,e.sentence_key,e.sentence_text,e.source_location,e.language,e.canonical_lemma,e.upos,e.selection_rank,e.selection_score,e.selection_reasons,e.is_chosen,e.created_at FROM example_sentences e JOIN corpora c ON c.owner_id=e.owner_id AND c.id=e.corpus_id WHERE e.owner_id=$1 AND c.source_material_id=$2 AND e.language=$3 AND e.canonical_lemma=$4 AND e.upos=$5 ORDER BY e.is_chosen DESC,e.selection_rank,e.id`, owner, bookID, lang, lemma, upos)
+	rows, err := s.queries().ListReviewSentencesForBook(ctx, sqlcgen.ListReviewSentencesForBookParams{
+		Owner: uuidArg(owner), Book: uuidArg(bookID),
+		Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []domain.ExampleSentence
-	for rows.Next() {
-		var example domain.ExampleSentence
-		if err := rows.Scan(&example.ID, &example.OwnerID, &example.CorpusID, &example.SentenceKey, &example.Text, &example.SourceLocation, &example.Language, &example.CanonicalLemma, &example.UPOS, &example.SelectionRank, &example.SelectionScore, &example.SelectionReasons, &example.Chosen, &example.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, example)
+	for _, row := range rows {
+		out = append(out, exampleSentenceFromFields(row.ID, row.OwnerID, row.CorpusID, row.SentenceKey, row.SentenceText, row.SourceLocation, row.Language, row.CanonicalLemma, row.Upos, row.SelectionRank, row.SelectionScore, row.SelectionReasons, row.IsChosen, row.CreatedAt))
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // PersistReviewSentenceFromAnalysis materializes the first sentence retained by
@@ -909,16 +874,11 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		return v, err
 	}
 	defer tx.Rollback(ctx)
-	var corpusID string
-	var refs []byte
-	query := `SELECT sc.corpus_id,sc.eligible_sentence_refs FROM selection_candidates sc JOIN corpora c ON c.owner_id=sc.owner_id AND c.id::text=sc.corpus_id WHERE sc.owner_id=$1 AND sc.language=$2 AND sc.canonical_lemma=$3 AND sc.upos=$4`
-	args := []any{owner, lang, lemma, upos}
-	if strings.TrimSpace(bookID) != "" {
-		query += ` AND c.source_material_id=$5`
-		args = append(args, bookID)
-	}
-	query += ` ORDER BY sc.selected_at DESC,sc.corpus_id DESC LIMIT 1`
-	if err = tx.QueryRow(ctx, query, args...).Scan(&corpusID, &refs); err != nil {
+	q := sqlcgen.New(tx)
+	row, err := q.SelectAcquisitionCandidate(ctx, sqlcgen.SelectAcquisitionCandidateParams{
+		Owner: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos, Book: bookID,
+	})
+	if err != nil {
 		return v, missing(err)
 	}
 	var candidates []struct {
@@ -926,7 +886,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		Text          string          `json:"text"`
 		Location      json.RawMessage `json:"location"`
 	}
-	if err = json.Unmarshal(refs, &candidates); err != nil {
+	if err = json.Unmarshal(row.EligibleSentenceRefs, &candidates); err != nil {
 		return v, err
 	}
 	for _, candidate := range candidates {
@@ -938,14 +898,20 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 			location = json.RawMessage(`{}`)
 		}
 		sentenceKey := fmt.Sprintf("analysis:%d", candidate.SentenceIndex)
-		err = tx.QueryRow(ctx, `INSERT INTO example_sentences(owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,0,'[]',true) ON CONFLICT(owner_id,corpus_id,sentence_key) DO UPDATE SET sentence_text=excluded.sentence_text,source_location=excluded.source_location,language=excluded.language,canonical_lemma=excluded.canonical_lemma,upos=excluded.upos,selection_rank=excluded.selection_rank,selection_score=excluded.selection_score,selection_reasons=excluded.selection_reasons,is_chosen=true RETURNING id,owner_id,corpus_id,sentence_key,sentence_text,source_location,language,canonical_lemma,upos,selection_rank,selection_score,selection_reasons,is_chosen,created_at`, owner, corpusID, sentenceKey, candidate.Text, location, lang, lemma, upos).Scan(&v.ID, &v.OwnerID, &v.CorpusID, &v.SentenceKey, &v.Text, &v.SourceLocation, &v.Language, &v.CanonicalLemma, &v.UPOS, &v.SelectionRank, &v.SelectionScore, &v.SelectionReasons, &v.Chosen, &v.CreatedAt)
+		inserted, err := q.UpsertReviewSentenceFromAnalysis(ctx, sqlcgen.UpsertReviewSentenceFromAnalysisParams{
+			OwnerID: uuidArg(owner), CorpusID: uuidArg(row.CorpusID), SentenceKey: sentenceKey,
+			SentenceText: candidate.Text, SourceLocation: location,
+			Language:       textArg(lang),
+			CanonicalLemma: textArg(lemma),
+			Upos:           textArg(upos),
+		})
 		if err != nil {
 			return v, err
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return v, err
 		}
-		return v, nil
+		return exampleSentenceFromFields(inserted.ID, inserted.OwnerID, inserted.CorpusID, inserted.SentenceKey, inserted.SentenceText, inserted.SourceLocation, inserted.Language, inserted.CanonicalLemma, inserted.Upos, inserted.SelectionRank, inserted.SelectionScore, inserted.SelectionReasons, inserted.IsChosen, inserted.CreatedAt), nil
 	}
 	return v, ErrNotFound
 }

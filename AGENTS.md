@@ -45,7 +45,9 @@ Non-obvious setup:
 
 ## Generated artifacts
 
-Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ) and `gen/{go,python}` (protobuf) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`.
+Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ), `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`.
+
+sqlc reads the schema from the migrations history (`sqlc.yaml`, ADR 0038) and the annotated queries from `sqlc/queries/*.sql`; `make sqlc` regenerates `gen/sqlc`.
 
 ## Schema changes
 

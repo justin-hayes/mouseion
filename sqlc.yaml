@@ -1,0 +1,39 @@
+# sqlc generates the persistence query layer. The schema is the shipped
+# migration history itself (ADR 0038); hand-written annotated SQL lives in
+# sqlc/queries and generated Go is committed under gen/sqlc. Regenerate with
+# `make sqlc` and never hand-edit the generated files.
+#
+# sqlc is pinned to v1.31.1 in the Makefile; CI installs the same version and
+# asserts `git diff --exit-code` after regeneration.
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations/*.up.sql"
+    queries: "sqlc/queries"
+    gen:
+      go:
+        package: "sqlc"
+        out: "gen/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
+        overrides:
+          # my_books_evidence columns derived through a window-function source
+          # projection cannot be statically typed by sqlc; pin the concrete
+          # domain-facing Go types they always produce.
+          - column: "my_books_evidence.source_id"
+            go_type: "string"
+          - column: "my_books_evidence.source_owner_id"
+            go_type: "string"
+          - column: "my_books_evidence.source_content_hash"
+            go_type: "string"
+          - column: "my_books_evidence.source_content_revision_id"
+            go_type: "string"
+          - column: "my_books_evidence.source_content_snapshot_id"
+            go_type: "string"
+          - column: "my_books_evidence.acquired"
+            go_type: "bool"
+          - column: "my_books_evidence.analysis_run_id"
+            go_type: "string"
+          - column: "my_books_evidence.corpus_id"
+            go_type: "string"
