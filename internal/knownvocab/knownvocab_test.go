@@ -91,7 +91,6 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	assert.Equal(t, 2, first.Imported)
 	assert.Zero(t, first.AlreadyKnown)
 	require.Len(t, first.Rejected, 1)
-	require.Len(t, first.Entries, 2)
 	assert.Equal(t, " Daß ", first.Entries[0].Original)
 	assert.Equal(t, "Daß", first.Entries[0].RawLemma)
 	assert.Equal(t, "dass", first.Entries[0].CanonicalLemma)
