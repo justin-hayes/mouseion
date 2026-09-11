@@ -11,12 +11,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
@@ -60,26 +61,19 @@ func (s *scopedMemoryStore) GetCoverageEntryForCorpus(ctx context.Context, owner
 }
 
 func TestDownloadFilenameAndDeckName(t *testing.T) {
-	if got := DeckName("de", "Das archaische Griechenland"); got != "Mouseion::de::Das archaische Griechenland" {
-		t.Fatalf("deck name = %q", got)
-	}
-	if got := DownloadFilename(`  Über/../Buch:*?  `); got != "Über_.._Buch___.apkg" {
-		t.Fatalf("filename = %q", got)
-	}
-	if a, b := DownloadFilename("../"), DownloadFilename("../"); a != b || !strings.HasPrefix(a, "mouseion-deck-") || !strings.HasSuffix(a, ".apkg") {
-		t.Fatalf("unsafe fallback = %q, %q", a, b)
-	}
+	assert.Equal(t, "Mouseion::de::Das archaische Griechenland", DeckName("de", "Das archaische Griechenland"))
+	assert.Equal(t, "Über_.._Buch___.apkg", DownloadFilename(`  Über/../Buch:*?  `))
+	a, b := DownloadFilename("../"), DownloadFilename("../")
+	assert.Equal(t, b, a)
+	assert.True(t, strings.HasPrefix(a, "mouseion-deck-"))
+	assert.True(t, strings.HasSuffix(a, ".apkg"))
 }
 
 func TestBoldTargetEscapesHTMLAndClozeSyntax(t *testing.T) {
 	got, err := BoldTarget(`<b>Das {{falsche}} Haus & mehr.</b>`, "Haus")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	want := `&lt;b&gt;Das &#123;&#123;falsche&#125;&#125; <b>Haus</b> &amp; mehr.&lt;/b&gt;`
-	if got != want {
-		t.Fatalf("cloze = %q, want %q", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
@@ -94,128 +88,118 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	deckName := DeckName("de", note.BookTitle)
 	notes := []Note{note, missingSentenceTranslation}
 	a, err := renderAPKG(deckName, notes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	b, err := renderAPKG(deckName, notes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(a, b) {
-		t.Fatal("package bytes are not deterministic")
-	}
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(a, b), "package bytes are not deterministic")
 	zr, err := zip.NewReader(bytes.NewReader(a), int64(len(a)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	members := map[string]*zip.File{}
 	for _, f := range zr.File {
 		members[f.Name] = f
 	}
-	if members["collection.anki2"] == nil || members["media"] == nil || len(members) != 2 {
-		t.Fatalf("zip members = %#v", members)
-	}
+	assert.NotNil(t, members["collection.anki2"])
+	assert.NotNil(t, members["media"])
+	assert.Len(t, members, 2)
 	media, _ := members["media"].Open()
 	var mediaMap map[string]string
-	if err = json.NewDecoder(media).Decode(&mediaMap); err != nil || len(mediaMap) != 0 {
-		t.Fatalf("media manifest = %#v, %v", mediaMap, err)
-	}
+	err = json.NewDecoder(media).Decode(&mediaMap)
+	require.NoError(t, err)
+	assert.Empty(t, mediaMap)
 	dbReader, _ := members["collection.anki2"].Open()
 	dbBytes, _ := io.ReadAll(dbReader)
 	dbPath := t.TempDir() + "/collection.anki2"
-	if err = os.WriteFile(dbPath, dbBytes, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	err = os.WriteFile(dbPath, dbBytes, 0o600)
+	require.NoError(t, err)
 	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 	var modelsJSON, decksJSON, dconfJSON string
-	if err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(modelsJSON, `"name":"Mouseion Vocab Recognition"`) || !strings.Contains(modelsJSON, `"qfmt":"{{Text}}"`) || strings.Contains(modelsJSON, `{{Morph}}`) || strings.Contains(modelsJSON, `{{SourceSentence}}`) || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || !strings.Contains(decksJSON, deckName) {
-		t.Fatalf("models=%s decks=%s", modelsJSON, decksJSON)
-	}
+	err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON)
+	require.NoError(t, err)
+	assert.Contains(t, modelsJSON, `"name":"Mouseion Vocab Recognition"`)
+	assert.Contains(t, modelsJSON, `"qfmt":"{{Text}}"`)
+	assert.NotContains(t, modelsJSON, `{{Morph}}`)
+	assert.NotContains(t, modelsJSON, `{{SourceSentence}}`)
+	assert.NotContains(t, strings.ToLower(modelsJSON), "cloze")
+	assert.NotContains(t, modelsJSON, `"name":"Morph"`)
+	assert.Contains(t, decksJSON, deckName)
 	var models map[string]struct {
 		Fields []struct {
 			Name string `json:"name"`
 		} `json:"flds"`
 	}
-	if err = json.Unmarshal([]byte(modelsJSON), &models); err != nil {
-		t.Fatal(err)
-	}
+	err = json.Unmarshal([]byte(modelsJSON), &models)
+	require.NoError(t, err)
 	gotNames := make([]string, 0, len(fieldNames))
 	for _, model := range models {
 		for _, field := range model.Fields {
 			gotNames = append(gotNames, field.Name)
 		}
 	}
-	if strings.Join(gotNames, ",") != strings.Join(fieldNames, ",") {
-		t.Fatalf("field names = %v", gotNames)
-	}
+	assert.Equal(t, strings.Join(fieldNames, ","), strings.Join(gotNames, ","))
 	assertLegacyCollectionContract(t, modelsJSON, decksJSON, dconfJSON, deckName)
 	var noteID, cardCount, checksum int64
 	var fields, tags, sortField string
-	if err = db.QueryRow(`SELECT id,flds,tags,sfld,csum FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags, &sortField, &checksum); err != nil {
-		t.Fatal(err)
-	}
+	err = db.QueryRow(`SELECT id,flds,tags,sfld,csum FROM notes WHERE guid=?`, note.Key[:20]).Scan(&noteID, &fields, &tags, &sortField, &checksum)
+	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
-	if noteID != stableID("note|"+note.Key) || len(serializedFields) != 8 || serializedFields[0] != note.Identity || serializedFields[1] != note.Text || serializedFields[2] != note.Article || serializedFields[3] != note.Lemma || serializedFields[4] != note.POS || serializedFields[5] != note.English || serializedFields[6] != note.EnglishSentence || serializedFields[7] != note.BookTitle || sortField != note.Identity || checksum != fieldChecksum(note.Identity) || !strings.Contains(tags, " Mouseion ") || strings.Contains(strings.ToLower(tags), "leech") {
-		t.Fatalf("note id=%d fields=%q sfld=%q checksum=%d tags=%q", noteID, fields, sortField, checksum, tags)
-	}
-	if err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields); err != nil {
-		t.Fatal(err)
-	}
+	assert.Equal(t, stableID("note|"+note.Key), noteID)
+	assert.Len(t, serializedFields, 8)
+	assert.Equal(t, note.Identity, serializedFields[0])
+	assert.Equal(t, note.Text, serializedFields[1])
+	assert.Equal(t, note.Article, serializedFields[2])
+	assert.Equal(t, note.Lemma, serializedFields[3])
+	assert.Equal(t, note.POS, serializedFields[4])
+	assert.Equal(t, note.English, serializedFields[5])
+	assert.Equal(t, note.EnglishSentence, serializedFields[6])
+	assert.Equal(t, note.BookTitle, serializedFields[7])
+	assert.Equal(t, note.Identity, sortField)
+	assert.Equal(t, fieldChecksum(note.Identity), checksum)
+	assert.Contains(t, tags, " Mouseion ")
+	assert.NotContains(t, strings.ToLower(tags), "leech")
+	err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
+	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	if len(serializedFields) != 8 || serializedFields[6] != "" {
-		t.Fatalf("missing sentence translation fields=%q", fields)
-	}
+	assert.Len(t, serializedFields, 8)
+	assert.Equal(t, "", serializedFields[6])
 	var distinctSortFields int64
-	if err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields); err != nil || distinctSortFields != 2 {
-		t.Fatalf("distinct identity sort fields=%d err=%v", distinctSortFields, err)
-	}
-	if err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount); err != nil || cardCount != 2 {
-		t.Fatalf("cards=%d err=%v", cardCount, err)
-	}
+	err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), distinctSortFields)
+	err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), cardCount)
 }
 
 func assertLegacyCollectionContract(t *testing.T, modelsJSON, decksJSON, dconfJSON, deckName string) {
 	t.Helper()
 	fixture, err := os.ReadFile("testdata/legacy_collection_contract.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var contract map[string]map[string]string
-	if err = json.Unmarshal(fixture, &contract); err != nil {
-		t.Fatal(err)
-	}
+	err = json.Unmarshal(fixture, &contract)
+	require.NoError(t, err)
 
 	collections := map[string]string{"models": modelsJSON, "decks": decksJSON, "dconf": dconfJSON}
 	for collectionName, encoded := range collections {
 		decoder := json.NewDecoder(strings.NewReader(encoded))
 		decoder.UseNumber()
 		var entries map[string]map[string]any
-		if err = decoder.Decode(&entries); err != nil {
-			t.Fatalf("decode %s JSON: %v\n%s", collectionName, err, encoded)
-		}
-		if len(entries) != 1 {
-			t.Fatalf("%s entries = %#v", collectionName, entries)
-		}
+		err = decoder.Decode(&entries)
+		require.NoError(t, err, "decode %s JSON: %v\n%s", collectionName, err, encoded)
+		assert.Len(t, entries, 1)
 		for key, entry := range entries {
 			assertJSONShape(t, collectionName, entry, contract[collectionName])
 			if id, ok := entry["id"].(json.Number); ok {
 				value, numberErr := id.Int64()
-				if numberErr != nil || value > 1<<53-1 {
-					t.Fatalf("%s id %q is not JSON-safe: %v", collectionName, id, numberErr)
-				}
-				if collectionName != "dconf" && key != id.String() {
-					t.Fatalf("%s key %q does not match id %q", collectionName, key, id)
+				require.NoError(t, numberErr, "%s id %q is not JSON-safe: %v", collectionName, id, numberErr)
+				assert.LessOrEqual(t, value, int64(1<<53-1), "%s id %q is not JSON-safe", collectionName, id)
+				if collectionName != "dconf" {
+					assert.Equal(t, id.String(), key, "%s key %q does not match id %q", collectionName, key, id)
 				}
 			}
-			if collectionName == "decks" && entry["name"] != deckName {
-				t.Fatalf("deck name = %q, want %q", entry["name"], deckName)
+			if collectionName == "decks" {
+				assert.Equal(t, deckName, entry["name"], "deck name")
 			}
 		}
 	}
@@ -226,7 +210,7 @@ func assertJSONShape(t *testing.T, name string, value map[string]any, shape map[
 	for field, wantType := range shape {
 		got, ok := value[field]
 		if !ok {
-			t.Errorf("%s missing required field %q", name, field)
+			assert.Fail(t, "%s missing required field %q", name, field)
 			continue
 		}
 		valid := false
@@ -250,7 +234,7 @@ func assertJSONShape(t *testing.T, name string, value map[string]any, shape map[
 			}
 		}
 		if !valid {
-			t.Errorf("%s field %q = %#v, want %s", name, field, got, wantType)
+			assert.Fail(t, "%s field %q = %#v, want %s", name, field, got, wantType)
 		}
 	}
 }
@@ -320,13 +304,9 @@ func (m *memoryStore) RecordGeneratedForBook(_ context.Context, owner, bookID, _
 
 func TestDedupKeyStableAndOwnerScoped(t *testing.T) {
 	a := DedupKey("de", "Haus", "NOUN", "alice")
-	if a != DedupKey("de", "Haus", "NOUN", "alice") || len(a) != 64 {
-		t.Fatalf("unstable key %q", a)
-	}
+	assert.Len(t, a, 64)
 	for _, b := range []string{DedupKey("de", "Haus", "NOUN", "bob"), DedupKey("fr", "Haus", "NOUN", "alice"), DedupKey("de", "haus", "NOUN", "alice"), DedupKey("de", "Haus", "VERB", "alice")} {
-		if a == b {
-			t.Fatal("distinct identity produced same key")
-		}
+		assert.NotEqual(t, b, a, "distinct identity produced same key")
 	}
 }
 
@@ -335,9 +315,9 @@ func TestCardIdentityIsDeterministicCardSpecificAndOwnerScoped(t *testing.T) {
 	identity := CardIdentity("alice", entry)
 	cleanEntry := entry
 	cleanEntry.TargetWord = "die Besten"
-	if len(identity) != 64 || identity != CardIdentity("alice", entry) || identity != CardIdentity("alice", cleanEntry) {
-		t.Fatalf("identity is unstable across equivalent legacy target forms: %q", identity)
-	}
+	assert.Len(t, identity, 64)
+	assert.Equal(t, identity, CardIdentity("alice", entry), "identity is unstable across equivalent legacy target forms")
+	assert.Equal(t, identity, CardIdentity("alice", cleanEntry), "identity is unstable across equivalent legacy target forms")
 	variants := []struct {
 		owner string
 		entry Entry
@@ -353,9 +333,7 @@ func TestCardIdentityIsDeterministicCardSpecificAndOwnerScoped(t *testing.T) {
 		{owner: "alice", entry: func() Entry { value := entry; value.FirstEncounter++; return value }()},
 	}
 	for _, variant := range variants {
-		if got := CardIdentity(variant.owner, variant.entry); got == identity {
-			t.Fatalf("distinct card inputs collided: %+v", variant)
-		}
+		assert.NotEqual(t, identity, CardIdentity(variant.owner, variant.entry), "distinct card inputs collided: %+v", variant)
 	}
 }
 
@@ -370,9 +348,7 @@ func TestHighlightEnglishTargetSupportsSafeUniqueMultiwordMatches(t *testing.T) 
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := HighlightEnglishTarget(test.translation, test.target); got != test.want {
-				t.Fatalf("got=%q want=%q", got, test.want)
-			}
+			assert.Equal(t, test.want, HighlightEnglishTarget(test.translation, test.target))
 		})
 	}
 }
@@ -390,50 +366,38 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 		{sentence: "Oggi O'Neill-like arriva insieme agli amici.", target: "O'Neill-like", want: "Oggi <b>O&#39;Neill-like</b> arriva insieme agli amici."},
 	} {
 		got, err := BoldTarget(test.sentence, test.target)
-		if err != nil || got != test.want {
-			t.Fatalf("BoldTarget(%q, %q) = %q, %v; want %q", test.sentence, test.target, got, err, test.want)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, test.want, got)
 	}
 }
 
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
-	if !reflect.DeepEqual(fieldNames, []string{"Identity", "Text", "Article", "Lemma", "POS", "English", "EnglishSentence", "BookTitle"}) {
-		t.Fatalf("field names = %v", fieldNames)
-	}
+	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "POS", "English", "EnglishSentence", "BookTitle"}, fieldNames)
 	model := modelMetadata(1, 2)
 	modelFields := model["flds"].([]map[string]any)
 	modelNames := make([]string, len(modelFields))
 	for i, field := range modelFields {
 		modelNames[i] = field["name"].(string)
 	}
-	if !reflect.DeepEqual(modelNames, fieldNames) || containsString(modelNames, "Morph") || containsString(modelNames, "SourceSentence") {
-		t.Fatalf("model field names = %v", modelNames)
-	}
+	assert.Equal(t, fieldNames, modelNames)
+	assert.False(t, containsString(modelNames, "Morph"))
+	assert.False(t, containsString(modelNames, "SourceSentence"))
 	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
-	if !strings.Contains(template, "{{#Article}}{{Article}} {{/Article}}{{Lemma}}") || strings.Contains(template, "{{Morph}}") || strings.Contains(template, "{{SourceSentence}}") {
-		t.Fatalf("answer template = %q", template)
-	}
+	assert.Contains(t, template, "{{#Article}}{{Article}} {{/Article}}{{Lemma}}")
+	assert.NotContains(t, template, "{{Morph}}")
+	assert.NotContains(t, template, "{{SourceSentence}}")
 
 	german, err := makeNote("alice", Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Dieses Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if german.Article != "das" || !strings.HasPrefix(german.BackExtra, "das Haus\n") {
-		t.Fatalf("German noun article = %q, back = %q", german.Article, german.BackExtra)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "das", german.Article)
+	assert.True(t, strings.HasPrefix(german.BackExtra, "das Haus\n"), "German noun article = %q, back = %q", german.Article, german.BackExtra)
 	italian, err := makeNote("alice", Entry{Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Sentence: "Domani Lucia porterà il pane fresco alla famiglia.", TargetWord: "porterà", Morphology: `{"Mood":"Ind"}`})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if italian.Article != "" {
-		t.Fatalf("Italian verb article = %q", italian.Article)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "", italian.Article)
 
 	path := t.TempDir() + "/collection.anki2"
 	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 	first := german
 	first.Key = strings.Repeat("a", 64)
@@ -442,33 +406,26 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	second.Key = strings.Repeat("b", 64)
 	second.Identity = "identity-b"
 	second.Article = "der"
-	if err := writeCollection(db, "deck", []Note{first, second}); err != nil {
-		t.Fatal(err)
-	}
+	err = writeCollection(db, "deck", []Note{first, second})
+	require.NoError(t, err)
 	rows, err := db.Query(`SELECT flds,sfld,csum FROM notes`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer rows.Close()
 	seen := make(map[string]bool, 2)
 	for rows.Next() {
 		var fields, sortField string
 		var checksum int64
-		if err := rows.Scan(&fields, &sortField, &checksum); err != nil {
-			t.Fatal(err)
-		}
+		err := rows.Scan(&fields, &sortField, &checksum)
+		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		if len(serialized) != 8 || serialized[0] != sortField || checksum != fieldChecksum(sortField) || (sortField != first.Identity && sortField != second.Identity) {
-			t.Fatalf("fields=%q sfld=%q csum=%d", fields, sortField, checksum)
-		}
+		assert.Len(t, serialized, 8)
+		assert.Equal(t, sortField, serialized[0])
+		assert.Equal(t, fieldChecksum(sortField), checksum)
+		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
 		seen[sortField] = true
 	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	if len(seen) != 2 {
-		t.Fatalf("distinct identity sort fields = %v", seen)
-	}
+	require.NoError(t, rows.Err())
+	assert.Len(t, seen, 2, "distinct identity sort fields = %v", seen)
 }
 
 // TestAnkiNewCardOrderFollowsTextPosition pins the deck configuration so new
@@ -484,13 +441,9 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		{Key: DedupKey("de", "buch", "NOUN", "alice"), Identity: "i3", Text: "Drittes <b>Buch</b>.", Article: "das", Lemma: "Buch", POS: "NOUN", English: "book", EnglishSentence: "Third book.", BookTitle: "Buch"},
 	}
 	a, err := renderAPKG(DeckName("de", "Buch"), notes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	zr, err := zip.NewReader(bytes.NewReader(a), int64(len(a)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var db *sql.DB
 	for _, f := range zr.File {
 		if f.Name != "collection.anki2" {
@@ -500,57 +453,43 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		dbBytes, _ := io.ReadAll(rc)
 		rc.Close()
 		path := t.TempDir() + "/collection.anki2"
-		if err = os.WriteFile(path, dbBytes, 0o600); err != nil {
-			t.Fatal(err)
-		}
+		err = os.WriteFile(path, dbBytes, 0o600)
+		require.NoError(t, err)
 		db, err = sql.Open("sqlite", path)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		break
 	}
 	defer db.Close()
 	var dconfJSON string
-	if err = db.QueryRow(`SELECT dconf FROM col`).Scan(&dconfJSON); err != nil {
-		t.Fatal(err)
-	}
+	err = db.QueryRow(`SELECT dconf FROM col`).Scan(&dconfJSON)
+	require.NoError(t, err)
 	// dconf serializes a single keyed deck config named "1".
 	var configs map[string]struct {
 		New struct {
 			Order float64 `json:"order"`
 		} `json:"new"`
 	}
-	if err = json.Unmarshal([]byte(dconfJSON), &configs); err != nil {
-		t.Fatal(err)
-	}
+	err = json.Unmarshal([]byte(dconfJSON), &configs)
+	require.NoError(t, err)
 	var order float64
 	for _, cfg := range configs {
 		order = cfg.New.Order
 	}
-	if order != 0 {
-		t.Fatalf("new.card order = %v, want 0 (in order added), so text-position due is honored", order)
-	}
+	assert.Equal(t, float64(0), order, "new.card order = %v, want 0 (in order added), so text-position due is honored", order)
 	// Every card's position must ascend 1..N, bound to text order.
 	rows, err := db.Query(`SELECT due FROM cards ORDER BY due`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer rows.Close()
 	var dues []int64
 	for rows.Next() {
 		var due int64
-		if err = rows.Scan(&due); err != nil {
-			t.Fatal(err)
-		}
+		err = rows.Scan(&due)
+		require.NoError(t, err)
 		dues = append(dues, due)
 	}
-	if len(dues) != len(notes) {
-		t.Fatalf("card due positions = %v, want len %d", dues, len(notes))
-	}
+	assert.Len(t, dues, len(notes), "card due positions = %v, want len %d", dues, len(notes))
 	for i, due := range dues {
-		if due != int64(i+1) {
-			t.Fatalf("card due positions = %v, want 1..%d in text order", dues, len(notes))
-		}
+		assert.Equal(t, int64(i+1), due, "card due positions = %v, want 1..%d in text order", dues, len(notes))
 	}
 }
 
@@ -566,25 +505,21 @@ func containsString(values []string, want string) bool {
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", POS: "NOUN", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	r := csv.NewReader(strings.NewReader(got))
 	r.Comma = '\t'
 	rows, err := r.ReadAll()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 1 || len(rows[0]) != 9 || strings.Join(rows[0][:8], "\x1f") != strings.Join(noteFields(n), "\x1f") || rows[0][8] != "Mouseion lang::de source::My_Book" {
-		t.Fatalf("rows=%#v", rows)
-	}
+	require.NoError(t, err)
+	assert.Len(t, rows, 1)
+	assert.Len(t, rows[0], 9)
+	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:8], "\x1f"))
+	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][8])
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
 	got := escapeField("safe\x1finjected")
-	if strings.ContainsRune(got, '\x1f') || got != "safe&#31;injected" {
-		t.Fatalf("escaped field = %q", got)
-	}
+	assert.NotContains(t, got, "\x1f")
+	assert.Equal(t, "safe&#31;injected", got)
 }
 
 func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
@@ -593,15 +528,12 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 		Sentence: "Die Häuser sind alt.", TargetWord: "Häuser", Morphology: `{"Gender":"Neut","Number":"Plur"}`,
 	}
 	note, err := makeNote("alice", entry)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(note.Text, "<b>Häuser</b>") || note.Article != "das" || note.Lemma != "Haus" || !strings.HasPrefix(note.BackExtra, "das Haus\n") {
-		t.Fatalf("note = %#v", note)
-	}
-	if want := DedupKey("de", "haus", "NOUN", "alice"); note.Key != want {
-		t.Fatalf("note key = %q, want canonical identity key %q", note.Key, want)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, note.Text, "<b>Häuser</b>")
+	assert.Equal(t, "das", note.Article)
+	assert.Equal(t, "Haus", note.Lemma)
+	assert.True(t, strings.HasPrefix(note.BackExtra, "das Haus\n"))
+	assert.Equal(t, DedupKey("de", "haus", "NOUN", "alice"), note.Key, "note key = %q, want canonical identity key %q", note.Key, DedupKey("de", "haus", "NOUN", "alice"))
 }
 
 func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
@@ -626,12 +558,9 @@ func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
 				lemma = strings.ToLower(test.target)
 			}
 			note, err := makeNote("alice", Entry{Language: test.language, CanonicalLemma: lemma, UPOS: "NOUN", Sentence: test.sentence, TargetWord: test.target, Morphology: test.morphology})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if note.Article != test.wantArticle || note.Lemma != test.wantLemma {
-				t.Fatalf("article=%q lemma=%q, want article=%q lemma=%q", note.Article, note.Lemma, test.wantArticle, test.wantLemma)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, test.wantArticle, note.Article)
+			assert.Equal(t, test.wantLemma, note.Lemma)
 		})
 	}
 }
@@ -644,9 +573,8 @@ func TestBestSentenceEvidencePreservesCompleteSourceText(t *testing.T) {
 		SentenceReferences: []byte(`[{"text":"  Vor dem alten Haus spielen heute mehrere fröhliche Kinder.  ","location":{"start_offset":10}}]`),
 	}
 	evidence, ok := BestSentenceEvidence(candidate)
-	if !ok || evidence.Sentence != source {
-		t.Fatalf("evidence sentence = %q, ok=%v", evidence.Sentence, ok)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, source, evidence.Sentence)
 }
 
 func TestLongContextIsRejectedWithoutShorteningOrAlternativeFront(t *testing.T) {
@@ -663,15 +591,12 @@ func TestLongContextIsRejectedWithoutShorteningOrAlternativeFront(t *testing.T) 
 	}}, entries: []Entry{entry}}
 
 	artifact, err := NewService(store).BuildCoverage(context.Background(), "alice", "book")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 0 || artifact.Completeness.QualityOmitted != 1 || len(artifact.Omitted) != 1 || !contains(artifact.Omitted[0].Reasons, "too long") {
-		t.Fatalf("artifact=%+v", artifact)
-	}
-	if strings.Contains(artifact.TSV, longSentence) {
-		t.Fatalf("long source was rendered despite deterministic quality gate: TSV=%q", artifact.TSV)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 0, artifact.Count)
+	assert.Equal(t, 1, artifact.Completeness.QualityOmitted)
+	assert.Len(t, artifact.Omitted, 1)
+	assert.True(t, contains(artifact.Omitted[0].Reasons, "too long"))
+	assert.NotContains(t, artifact.TSV, longSentence, "long source was rendered despite deterministic quality gate")
 }
 
 func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T) {
@@ -708,90 +633,71 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 
 	service := NewService(store)
 	first, err := service.BuildCoverage(context.Background(), owner, bookID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	second, err := service.BuildCoverage(context.Background(), owner, bookID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(first.APKG, second.APKG) || first.TSV != second.TSV {
-		t.Fatal("prepared artifact is not deterministic")
-	}
-	if first.Count != len(fixtures)-1 || len(first.Generated) != len(fixtures)-1 || len(first.Omitted) != 1 || first.Completeness != (Completeness{TotalCards: len(fixtures) - 1, CardsWithEnglish: len(fixtures) - 1, CardsWithEnglishSentence: len(fixtures) - 1, QualityOmitted: 1}) {
-		t.Fatalf("artifact=%+v", first)
-	}
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(first.APKG, second.APKG), "prepared artifact is not deterministic")
+	assert.Equal(t, second.TSV, first.TSV, "prepared artifact is not deterministic")
+	assert.Equal(t, len(fixtures)-1, first.Count)
+	assert.Len(t, first.Generated, len(fixtures)-1)
+	assert.Len(t, first.Omitted, 1)
+	assert.Equal(t, Completeness{TotalCards: len(fixtures) - 1, CardsWithEnglish: len(fixtures) - 1, CardsWithEnglishSentence: len(fixtures) - 1, QualityOmitted: 1}, first.Completeness)
 
 	notesByLemma := make(map[string]Note, len(first.Generated))
 	for _, generated := range first.Generated {
 		notesByLemma[generated.Entry.CanonicalLemma] = generated.Note
 		for _, value := range []string{generated.Note.Identity, generated.Note.Text, generated.Note.Article, generated.Note.Lemma, generated.Note.POS, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.BackExtra} {
-			if strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`) {
-				t.Fatalf("legacy or raw analyzer content in note %q: %+v", value, generated.Note)
-			}
+			assert.False(t, strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`), "legacy or raw analyzer content in note %q: %+v", value, generated.Note)
 		}
 	}
-	if got := notesByLemma["die"].Text; !strings.Contains(got, "‹<b>die</b>") {
-		t.Fatalf("punctuation-bearing front=%q", got)
-	}
-	if got := notesByLemma["gut"].Text; !strings.Contains(got, "‹<b>die Besten</b>›") {
-		t.Fatalf("trailing punctuation front=%q", got)
-	}
-	if got := notesByLemma["souveränität"].Text; !strings.Contains(got, "<b>Souveränität</b>›") {
-		t.Fatalf("legacy sovereignty front=%q", got)
-	}
-	if notesByLemma["geleiten"].Lemma != "geleiten" {
-		t.Fatalf("pipe lemma leaked or was not normalized: %q", notesByLemma["geleiten"].Lemma)
-	}
-	if notesByLemma["buch"].Article != "das" || notesByLemma["buch"].Lemma != "Buch" || notesByLemma["buch"].Key != DedupKey("de", "buch", "NOUN", owner) {
-		t.Fatalf("article display changed identity: %+v", notesByLemma["buch"])
-	}
-	if note := notesByLemma["iteration"]; note.Article != "die" || note.Lemma != "Iteration" || !strings.HasPrefix(note.BackExtra, "die Iteration\n") {
-		t.Fatalf("declined context article leaked into card: %+v", note)
-	}
-	if note := notesByLemma["ruderblatt"]; note.Article != "das" || note.Lemma != "Ruderblatt" || !strings.HasPrefix(note.BackExtra, "das Ruderblatt\n") {
-		t.Fatalf("article without sentence determiner = %+v", note)
-	}
-	if notesByLemma["die"].Identity == notesByLemma["gut"].Identity {
-		t.Fatal("different targets in the same sentence share an Identity")
-	}
+	assert.Contains(t, notesByLemma["die"].Text, "‹<b>die</b>")
+	assert.Contains(t, notesByLemma["gut"].Text, "‹<b>die Besten</b>›")
+	assert.Contains(t, notesByLemma["souveränität"].Text, "<b>Souveränität</b>›")
+	assert.Equal(t, "geleiten", notesByLemma["geleiten"].Lemma, "pipe lemma leaked or was not normalized")
+	assert.Equal(t, "das", notesByLemma["buch"].Article)
+	assert.Equal(t, "Buch", notesByLemma["buch"].Lemma)
+	assert.Equal(t, DedupKey("de", "buch", "NOUN", owner), notesByLemma["buch"].Key)
+	assert.Equal(t, "die", notesByLemma["iteration"].Article)
+	assert.Equal(t, "Iteration", notesByLemma["iteration"].Lemma)
+	assert.True(t, strings.HasPrefix(notesByLemma["iteration"].BackExtra, "die Iteration\n"))
+	assert.Equal(t, "das", notesByLemma["ruderblatt"].Article)
+	assert.Equal(t, "Ruderblatt", notesByLemma["ruderblatt"].Lemma)
+	assert.True(t, strings.HasPrefix(notesByLemma["ruderblatt"].BackExtra, "das Ruderblatt\n"))
+	assert.NotEqual(t, notesByLemma["gut"].Identity, notesByLemma["die"].Identity, "different targets in the same sentence share an Identity")
 	for _, candidate := range first.EnrichmentCandidates {
-		if candidate.TargetWord == "‹die" || candidate.TargetWord == "die Besten›" {
-			t.Fatalf("legacy punctuation leaked into enrichment candidate: %+v", candidate)
-		}
+		assert.NotEqual(t, "‹die", candidate.TargetWord, "legacy punctuation leaked into enrichment candidate")
+		assert.NotEqual(t, "die Besten›", candidate.TargetWord, "legacy punctuation leaked into enrichment candidate")
 	}
-	if _, ok := notesByLemma["haus"]; ok {
-		t.Fatal("long source sentence was exported")
-	}
+	_, ok := notesByLemma["haus"]
+	assert.False(t, ok, "long source sentence was exported")
 
 	rows, err := readTSV(first.TSV)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != len(fixtures)-1 || len(rows[0]) != 9 || strings.Contains(first.TSV, longSentence) || !strings.Contains(first.TSV, "\tNOUN\t") || strings.Contains(first.TSV, "{{c1::") {
-		t.Fatalf("TSV rows=%#v TSV=%q", rows, first.TSV)
-	}
+	require.NoError(t, err)
+	assert.Len(t, rows, len(fixtures)-1)
+	assert.Len(t, rows[0], 9)
+	assert.NotContains(t, first.TSV, longSentence)
+	assert.Contains(t, first.TSV, "\tNOUN\t")
+	assert.NotContains(t, first.TSV, "{{c1::")
 	for i, generated := range first.Generated {
-		if strings.Join(rows[i][:8], "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
-			t.Fatalf("TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
-		}
+		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(rows[i][:8], "\x1f"), "TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
 	}
 	modelsJSON, apkgRows := readAPKGNotes(t, first.APKG)
-	if len(apkgRows) != len(fixtures)-1 || strings.Contains(strings.ToLower(modelsJSON), "cloze") || strings.Contains(modelsJSON, `"name":"Morph"`) || strings.Contains(modelsJSON, `{{Morph}}`) {
-		t.Fatalf("APKG model=%s rows=%#v", modelsJSON, apkgRows)
-	}
+	assert.Len(t, apkgRows, len(fixtures)-1)
+	assert.NotContains(t, strings.ToLower(modelsJSON), "cloze")
+	assert.NotContains(t, modelsJSON, `"name":"Morph"`)
+	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		if len(row) != 8 || strings.Contains(row[1], "{{c1::") || strings.Contains(row[3], "geleiten|leiten") || strings.Contains(row[3], `"Case"`) {
-			t.Fatalf("APKG row=%#v", row)
-		}
+		assert.Len(t, row, 8)
+		assert.NotContains(t, row[1], "{{c1::")
+		assert.NotContains(t, row[3], "geleiten|leiten")
+		assert.NotContains(t, row[3], `"Case"`)
 		apkgByLemma[row[3]] = row
 	}
 	for _, generated := range first.Generated {
 		row, ok := apkgByLemma[generated.Note.Lemma]
-		if !ok || strings.Join(row, "\x1f") != strings.Join(noteFields(generated.Note), "\x1f") {
-			t.Fatalf("APKG row=%#v note=%#v", row, generated.Note)
-		}
+		assert.True(t, ok, "APKG row=%#v note=%#v", row, generated.Note)
+		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(row, "\x1f"), "APKG row=%#v note=%#v", row, generated.Note)
 	}
 }
 
@@ -806,9 +712,7 @@ func TestManifestExactEnrichmentMatchesLegacyRenderAndIsDeterministic(t *testing
 	exactEntries[1].Translation, exactEntries[1].SentenceTranslation, exactEntries[1].SentenceTranslationTarget = "tree", "The old tree has many green leaves today.", "tree"
 	service := &Service{}
 	want, err := service.render(context.Background(), "alice", "Book", exactEntries)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	manifest := NewManifest("alice", "Book", entries)
 	candidates := manifest.EnrichmentCandidates()
@@ -825,32 +729,29 @@ func TestManifestExactEnrichmentMatchesLegacyRenderAndIsDeterministic(t *testing
 		}}
 	}
 	bound, err := manifest.BindCacheKeys(keys)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	first, err := service.RenderManifest(context.Background(), bound, outcomes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	second, err := service.RenderManifest(context.Background(), bound, outcomes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(first.APKG, want.APKG) || first.TSV != want.TSV || first.Completeness != want.Completeness || !reflect.DeepEqual(first.Generated, want.Generated) || !bytes.Equal(first.APKG, second.APKG) || first.TSV != second.TSV {
-		t.Fatalf("manifest=%+v\nwant=%+v\nsecond=%+v", first, want, second)
-	}
-	if first.Completeness != (Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 2, QualityOmitted: 1}) || len(first.Generated) != 2 {
-		t.Fatalf("completeness/provenance changed: %+v generated=%d", first.Completeness, len(first.Generated))
-	}
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(first.APKG, want.APKG))
+	assert.Equal(t, want.TSV, first.TSV)
+	assert.Equal(t, want.Completeness, first.Completeness)
+	assert.Equal(t, want.Generated, first.Generated)
+	assert.True(t, bytes.Equal(first.APKG, second.APKG))
+	assert.Equal(t, second.TSV, first.TSV)
+	assert.Equal(t, Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 2, QualityOmitted: 1}, first.Completeness)
+	assert.Len(t, first.Generated, 2)
 
 	// Returned candidates and caller-owned key slices cannot mutate the bound manifest.
 	candidates[0].CanonicalLemma = "mutated"
 	keys[0].ProviderVersion = "mutated"
 	first.Omitted[0].Reasons[0] = "mutated"
 	third, err := service.RenderManifest(context.Background(), bound, outcomes)
-	if err != nil || third.TSV != first.TSV || !bytes.Equal(third.APKG, first.APKG) || third.Omitted[0].Reasons[0] == "mutated" {
-		t.Fatalf("manifest was mutable: err=%v third=%+v", err, third)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, first.TSV, third.TSV, "manifest was mutable")
+	assert.True(t, bytes.Equal(first.APKG, third.APKG), "manifest was mutable")
+	assert.NotEqual(t, "mutated", third.Omitted[0].Reasons[0], "manifest was mutable")
 }
 
 func TestManifestRejectsProviderVersionAndSentenceIdentityMismatch(t *testing.T) {
@@ -859,21 +760,17 @@ func TestManifestRejectsProviderVersionAndSentenceIdentityMismatch(t *testing.T)
 	candidate := manifest.EnrichmentCandidates()[0]
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "2", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "2"}
 	result := enrichment.Result{Candidate: candidate, Translation: enrichment.Field[string]{Value: "house", Available: true, Provenance: provenance}}
 	wrongVersion := key
 	wrongVersion.ProviderVersion = "1"
-	if _, err = (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: wrongVersion, Result: result}}); !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("provider-version mismatch err=%v", err)
-	}
+	_, err = (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: wrongVersion, Result: result}})
+	assert.ErrorIs(t, err, ErrInvalidInput, "provider-version mismatch")
 	wrongSentence := key
 	wrongSentence.SentenceHash = enrichment.SentenceHash("Dieses andere Haus steht heute am Stadtrand.")
-	if _, err = manifest.BindCacheKeys([]enrichment.CacheKey{wrongSentence}); !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("sentence mismatch err=%v", err)
-	}
+	_, err = manifest.BindCacheKeys([]enrichment.CacheKey{wrongSentence})
+	assert.ErrorIs(t, err, ErrInvalidInput, "sentence mismatch")
 }
 
 func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(t *testing.T) {
@@ -897,23 +794,19 @@ func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(
 	}
 	service := NewService(store)
 	legacy, err := service.BuildCoverage(context.Background(), owner, bookID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	manifest, err := service.PrepareCoverage(context.Background(), owner, bookID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	prepared, err := service.RenderManifest(context.Background(), manifest, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(prepared.APKG, legacy.APKG) || prepared.TSV != legacy.TSV || prepared.Completeness != legacy.Completeness || !reflect.DeepEqual(prepared.Omitted, legacy.Omitted) || !reflect.DeepEqual(prepared.Generated, legacy.Generated) {
-		t.Fatalf("prepared=%+v\nlegacy=%+v", prepared, legacy)
-	}
-	if strings.Index(prepared.TSV, "Haus") > strings.Index(prepared.TSV, "Baum") || prepared.Completeness.QualityOmitted != 1 || len(prepared.Generated) != 2 {
-		t.Fatalf("order, omission, or provenance changed: %+v", prepared)
-	}
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(prepared.APKG, legacy.APKG))
+	assert.Equal(t, legacy.TSV, prepared.TSV)
+	assert.Equal(t, legacy.Completeness, prepared.Completeness)
+	assert.Equal(t, legacy.Omitted, prepared.Omitted)
+	assert.Equal(t, legacy.Generated, prepared.Generated)
+	assert.Less(t, strings.Index(prepared.TSV, "Haus"), strings.Index(prepared.TSV, "Baum"))
+	assert.Equal(t, 1, prepared.Completeness.QualityOmitted)
+	assert.Len(t, prepared.Generated, 2)
 }
 
 func readTSV(value string) ([][]string, error) {
@@ -925,53 +818,38 @@ func readTSV(value string) ([][]string, error) {
 func readAPKGNotes(t *testing.T, payload []byte) (string, [][]string) {
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var collection []byte
 	for _, member := range zr.File {
 		if member.Name != "collection.anki2" {
 			continue
 		}
 		reader, openErr := member.Open()
-		if openErr != nil {
-			t.Fatal(openErr)
-		}
+		require.NoError(t, openErr)
 		collection, err = io.ReadAll(reader)
 		_ = reader.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 	path := t.TempDir() + "/collection.anki2"
-	if err = os.WriteFile(path, collection, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	err = os.WriteFile(path, collection, 0o600)
+	require.NoError(t, err)
 	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 	var modelsJSON string
-	if err = db.QueryRow(`SELECT models FROM col`).Scan(&modelsJSON); err != nil {
-		t.Fatal(err)
-	}
+	err = db.QueryRow(`SELECT models FROM col`).Scan(&modelsJSON)
+	require.NoError(t, err)
 	rows, err := db.Query(`SELECT flds FROM notes`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer rows.Close()
 	var fields [][]string
 	for rows.Next() {
 		var serialized string
-		if err = rows.Scan(&serialized); err != nil {
-			t.Fatal(err)
-		}
+		err = rows.Scan(&serialized)
+		require.NoError(t, err)
 		fields = append(fields, strings.Split(serialized, "\x1f"))
 	}
-	if err = rows.Err(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, rows.Err())
 	return modelsJSON, fields
 }
 
@@ -990,16 +868,16 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Morphology: `{"Mood":"Ind","Tense":"Fut"}`, Translation: "to bring", SentenceTranslation: "Tomorrow Lucia will finally bring fresh bread to her family.", SourceDocument: "Il viaggio"}}
 
 	artifact, err := NewService(store).BuildCoverage(context.Background(), "alice", "libro")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 1 || artifact.DeckName != "Mouseion::it::Il viaggio" || artifact.Filename != "Il viaggio.apkg" || len(artifact.Generated) != 1 {
-		t.Fatalf("Italian prepared artifact = %+v", artifact)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, artifact.Count)
+	assert.Equal(t, "Mouseion::it::Il viaggio", artifact.DeckName)
+	assert.Equal(t, "Il viaggio.apkg", artifact.Filename)
+	assert.Len(t, artifact.Generated, 1)
 	note := artifact.Generated[0].Note
-	if !strings.Contains(note.Text, "<b>porterà</b>") || note.Article != "" || note.Lemma != "portare" || !strings.Contains(artifact.TSV, "lang::it") {
-		t.Fatalf("Italian prepared note = %+v\nTSV=%q", note, artifact.TSV)
-	}
+	assert.Contains(t, note.Text, "<b>porterà</b>")
+	assert.Equal(t, "", note.Article)
+	assert.Equal(t, "portare", note.Lemma)
+	assert.Contains(t, artifact.TSV, "lang::it")
 	assertAPKGDeckAndCard(t, artifact.APKG, "Mouseion::it::Il viaggio", "portare", "lang::it")
 }
 
@@ -1012,57 +890,42 @@ func TestBuildCoverageForAnalysisUsesOnlyItsCorpus(t *testing.T) {
 	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "portare", UPOS: "VERB", Translation: "to bring", SourceDocument: "Scoped Book"}}
 
 	artifact, err := NewService(store).BuildCoverageForAnalysis(context.Background(), "alice", "run-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 1 || len(artifact.Generated) != 1 || artifact.Generated[0].Entry.CanonicalLemma != "portare" {
-		t.Fatalf("scoped prepared artifact = %+v", artifact)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, artifact.Count)
+	assert.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "portare", artifact.Generated[0].Entry.CanonicalLemma)
 }
 
 func assertAPKGDeckAndCard(t *testing.T, payload []byte, deckName, lemma, tag string) {
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
-	if err != nil {
-		t.Fatalf("open APKG: %v", err)
-	}
+	require.NoError(t, err, "open APKG")
 	var collection []byte
 	for _, member := range zr.File {
 		if member.Name != "collection.anki2" {
 			continue
 		}
 		reader, openErr := member.Open()
-		if openErr != nil {
-			t.Fatalf("open APKG collection: %v", openErr)
-		}
+		require.NoError(t, openErr, "open APKG collection")
 		collection, err = io.ReadAll(reader)
 		_ = reader.Close()
-		if err != nil {
-			t.Fatalf("read APKG collection: %v", err)
-		}
+		require.NoError(t, err, "read APKG collection")
 	}
-	if len(collection) == 0 {
-		t.Fatal("APKG has no collection.anki2")
-	}
+	require.NotEmpty(t, collection, "APKG has no collection.anki2")
 	path := t.TempDir() + "/collection.anki2"
-	if err = os.WriteFile(path, collection, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	err = os.WriteFile(path, collection, 0o600)
+	require.NoError(t, err)
 	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 	var decks, fields, tags string
-	if err = db.QueryRow(`SELECT decks FROM col`).Scan(&decks); err != nil {
-		t.Fatal(err)
-	}
-	if err = db.QueryRow(`SELECT flds,tags FROM notes`).Scan(&fields, &tags); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(decks, `"name":"`+deckName+`"`) || !strings.Contains(fields, "\x1f"+lemma+"\x1f") || !strings.Contains(tags, " "+tag+" ") {
-		t.Fatalf("Italian APKG decks=%s fields=%q tags=%q", decks, fields, tags)
-	}
+	err = db.QueryRow(`SELECT decks FROM col`).Scan(&decks)
+	require.NoError(t, err)
+	err = db.QueryRow(`SELECT flds,tags FROM notes`).Scan(&fields, &tags)
+	require.NoError(t, err)
+	assert.Contains(t, decks, `"name":"`+deckName+`"`, "Italian APKG decks=%s fields=%q tags=%q", decks, fields, tags)
+	assert.Contains(t, fields, "\x1f"+lemma+"\x1f", "Italian APKG decks=%s fields=%q tags=%q", decks, fields, tags)
+	assert.Contains(t, tags, " "+tag+" ", "Italian APKG decks=%s fields=%q tags=%q", decks, fields, tags)
 }
 
 func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
@@ -1081,15 +944,10 @@ func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
 		{Language: "de", CanonicalLemma: "singleton-b", UPOS: "NOUN", OccurrenceCount: 2},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "current-book", candidates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 1 || got[0].CanonicalLemma != "one" {
-		t.Fatalf("coverage candidates = %#v", got)
-	}
-	if store.historyCalls["de"] != 1 {
-		t.Fatalf("generated vocabulary loaded %d times", store.historyCalls["de"])
-	}
+	require.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "one", got[0].CanonicalLemma)
+	assert.Equal(t, 1, store.historyCalls["de"], "generated vocabulary loaded %d times", store.historyCalls["de"])
 }
 
 func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
@@ -1103,12 +961,8 @@ func TestCoverageCandidatesAllowsSameBookAndIsolatesOwners(t *testing.T) {
 		{Language: "de", CanonicalLemma: "bob-word", UPOS: "NOUN", OccurrenceCount: 3},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", currentBook, candidates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("coverage candidates = %#v", got)
-	}
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
 }
 
 func TestCoverageCandidatesReservesOnlyCurrentlyStudiedVocabulary(t *testing.T) {
@@ -1118,17 +972,13 @@ func TestCoverageCandidatesReservesOnlyCurrentlyStudiedVocabulary(t *testing.T) 
 		{Language: "de", CanonicalLemma: "released", UPOS: "ADJ", OccurrenceCount: 10},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 1 || got[0].CanonicalLemma != "released" {
-		t.Fatalf("reserved vocabulary candidates = %+v", got)
-	}
+	require.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "released", got[0].CanonicalLemma)
 	store.reserved = nil
 	got, err = NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
-	if err != nil || len(got) != 2 {
-		t.Fatalf("released reservation candidates = %+v, %v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
 }
 
 func TestCoverageCandidatesKnownLemmaWildcardAndRareWordExclusions(t *testing.T) {
@@ -1138,18 +988,12 @@ func TestCoverageCandidatesKnownLemmaWildcardAndRareWordExclusions(t *testing.T)
 		{Language: "de", CanonicalLemma: "only", UPOS: "NOUN", OccurrenceCount: 1},
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "book", candidates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("coverage candidates = %#v", got)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, got)
 }
 
 func TestSelectRecurringCandidatesAppliesFrequencyFloor(t *testing.T) {
-	if defaultDeckMinOccurrences != 3 {
-		t.Fatalf("default deck minimum occurrences = %d, want 3", defaultDeckMinOccurrences)
-	}
+	assert.Equal(t, 3, defaultDeckMinOccurrences, "default deck minimum occurrences")
 	candidates := []domain.SelectionCandidate{
 		{Language: "de", CanonicalLemma: "common", UPOS: "NOUN", OccurrenceCount: 4},
 		{Language: "de", CanonicalLemma: "boundary", UPOS: "NOUN", OccurrenceCount: 3},
@@ -1158,13 +1002,9 @@ func TestSelectRecurringCandidatesAppliesFrequencyFloor(t *testing.T) {
 	}
 	got := selectRecurringCandidates(candidates, defaultDeckMinOccurrences)
 	want := []string{"common", "boundary"}
-	if len(got) != len(want) {
-		t.Fatalf("selected %d candidates, want %d: %+v", len(got), len(want), got)
-	}
+	assert.Len(t, got, len(want))
 	for i, candidate := range got {
-		if candidate.CanonicalLemma != want[i] {
-			t.Fatalf("candidate %d = %q, want %q", i, candidate.CanonicalLemma, want[i])
-		}
+		assert.Equal(t, want[i], candidate.CanonicalLemma, "candidate %d = %q, want %q", i, candidate.CanonicalLemma, want[i])
 	}
 }
 
@@ -1173,9 +1013,7 @@ func TestSelectRecurringCandidatesReturnsEmptyPoolWhenAllWordsAreRare(t *testing
 		{Language: "de", CanonicalLemma: "two", UPOS: "NOUN", OccurrenceCount: 2},
 		{Language: "de", CanonicalLemma: "one", UPOS: "NOUN", OccurrenceCount: 1},
 	}
-	if got := selectRecurringCandidates(candidates, defaultDeckMinOccurrences); len(got) != 0 {
-		t.Fatalf("selected = %+v, want empty pool", got)
-	}
+	assert.Empty(t, selectRecurringCandidates(candidates, defaultDeckMinOccurrences), "selected = %+v, want empty pool", selectRecurringCandidates(candidates, defaultDeckMinOccurrences))
 }
 
 func TestScoreSentenceQuality(t *testing.T) {
@@ -1201,9 +1039,8 @@ func TestScoreSentenceQuality(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ScoreSentenceQuality(tc.sentence, tc.target, tc.location)
-			if got.Accepted != tc.accepted || !contains(got.Reasons, tc.reason) {
-				t.Fatalf("quality=%+v", got)
-			}
+			assert.Equal(t, tc.accepted, got.Accepted)
+			assert.True(t, contains(got.Reasons, tc.reason), "quality=%+v", got)
 		})
 	}
 }
@@ -1218,9 +1055,11 @@ func TestBestSentenceEvidenceRanksAllReferences(t *testing.T) {
 		]`),
 	}
 	got, ok := BestSentenceEvidence(candidate)
-	if !ok || !got.Quality.Accepted || got.FirstEncounter != 80 || got.Target != "Haus" || !strings.HasPrefix(got.Sentence, "Vor dem") {
-		t.Fatalf("evidence=%+v ok=%v", got, ok)
-	}
+	assert.True(t, ok)
+	assert.True(t, got.Quality.Accepted)
+	assert.Equal(t, int64(80), got.FirstEncounter)
+	assert.Equal(t, "Haus", got.Target)
+	assert.True(t, strings.HasPrefix(got.Sentence, "Vor dem"))
 }
 
 func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
@@ -1235,9 +1074,15 @@ func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
 	}
 	first, ok := BestSentenceEvidence(candidate)
 	second, okAgain := BestSentenceEvidence(candidate)
-	if !ok || !okAgain || first.Sentence != "Dieses Haus steht seit vielen Jahren ruhig am See." || first.Sentence != second.Sentence || first.Target != second.Target || first.FirstEncounter != second.FirstEncounter || first.Quality.Accepted != second.Quality.Accepted || first.Quality.Score != second.Quality.Score || strings.Join(first.Quality.Reasons, "\x00") != strings.Join(second.Quality.Reasons, "\x00") {
-		t.Fatalf("first=%+v second=%+v", first, second)
-	}
+	assert.True(t, ok)
+	assert.True(t, okAgain)
+	assert.Equal(t, "Dieses Haus steht seit vielen Jahren ruhig am See.", first.Sentence)
+	assert.Equal(t, second.Sentence, first.Sentence)
+	assert.Equal(t, second.Target, first.Target)
+	assert.Equal(t, second.FirstEncounter, first.FirstEncounter)
+	assert.Equal(t, second.Quality.Accepted, first.Quality.Accepted)
+	assert.Equal(t, second.Quality.Score, first.Quality.Score)
+	assert.Equal(t, strings.Join(second.Quality.Reasons, "\x00"), strings.Join(first.Quality.Reasons, "\x00"))
 }
 
 func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T) {
@@ -1252,23 +1097,28 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 	}
 
 	artifact, err := NewService(store).ExportCoverage(context.Background(), "alice", "book")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 1 || artifact.Completeness != (Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1, QualityOmitted: 1}) || len(artifact.Omitted) != 1 || artifact.Omitted[0].CanonicalLemma != "Haus" || len(artifact.EnrichmentCandidates) != 1 || artifact.EnrichmentCandidates[0].CanonicalLemma != "Baum" || artifact.EnrichmentCandidates[0].ExampleSentence == "" || len(store.generated) != 1 || !strings.Contains(artifact.TSV, "Baum") || strings.Contains(artifact.TSV, "Haus") {
-		t.Fatalf("artifact=%+v generated=%+v", artifact, store.generated)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, artifact.Count)
+	assert.Equal(t, Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1, QualityOmitted: 1}, artifact.Completeness)
+	assert.Len(t, artifact.Omitted, 1)
+	assert.Equal(t, "Haus", artifact.Omitted[0].CanonicalLemma)
+	assert.Len(t, artifact.EnrichmentCandidates, 1)
+	assert.Equal(t, "Baum", artifact.EnrichmentCandidates[0].CanonicalLemma)
+	assert.NotEmpty(t, artifact.EnrichmentCandidates[0].ExampleSentence)
+	assert.Len(t, store.generated, 1)
+	assert.Contains(t, artifact.TSV, "Baum")
+	assert.NotContains(t, artifact.TSV, "Haus")
 
 	// Rejected evidence was not added to generated history, so improved evidence
 	// remains eligible on a later export.
 	store.entries[0].Sentence = "Vor dem alten Haus spielen heute mehrere fröhliche Kinder."
 	artifact, err = NewService(store).ExportCoverage(context.Background(), "alice", "book")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Count != 2 || artifact.Completeness != (Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}) || len(artifact.Omitted) != 0 || len(store.generated) != 3 || !strings.Contains(artifact.TSV, "Haus") {
-		t.Fatalf("later artifact=%+v generated=%+v", artifact, store.generated)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 2, artifact.Count)
+	assert.Equal(t, Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}, artifact.Completeness)
+	assert.Empty(t, artifact.Omitted)
+	assert.Len(t, store.generated, 3)
+	assert.Contains(t, artifact.TSV, "Haus")
 }
 
 func contains(values []string, want string) bool {

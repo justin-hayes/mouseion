@@ -13,13 +13,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	repo, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	python := filepath.Join(repo, ".venv", "bin", "python")
 	modelDir := filepath.Join(os.Getenv("HOME"), "stanza_resources", "de")
 	if _, err := os.Stat(python); err != nil {
@@ -34,40 +35,27 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	cmd.Dir = repo
 	cmd.Env = append(os.Environ(), "PYTHONPATH="+filepath.Join(repo, "nlp", "src")+":"+filepath.Join(repo, "gen", "python"), "MOUSEION_NLP_ADDR=127.0.0.1:0")
 	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cmd.Stderr = cmd.Stdout
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, cmd.Start())
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
 	line, err := bufio.NewReader(stdout).ReadString('\n')
 	if err != nil {
 		body, _ := io.ReadAll(stdout)
-		t.Fatalf("start Python server: %v: %s", err, body)
+		require.FailNow(t, fmt.Sprintf("start Python server: %v: %s", err, body))
 	}
 	const prefix = "mouseion NLP gRPC server listening on "
-	if !strings.HasPrefix(line, prefix) {
-		t.Fatalf("unexpected server output: %q", line)
-	}
+	require.True(t, strings.HasPrefix(line, prefix), "unexpected server output: %q", line)
 	analyzer, err := NewGRPCAnalyzer(strings.TrimSpace(strings.TrimPrefix(line, prefix)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = analyzer.Close() })
 	result, err := analyzer.Analyze(ctx, AnalyzeRequest{Language: "de", Document: SourceDocument{ID: "real-grpc", Text: "Das Haus ist groß."}})
-	if err != nil {
-		t.Fatal(fmt.Errorf("real gRPC analysis: %w", err))
-	}
-	if result.Language != "de" || len(result.Sentences) == 0 {
-		t.Fatalf("unexpected result: %+v", result)
-	}
+	require.NoError(t, err, "real gRPC analysis: %v", err)
+	assert.Equal(t, "de", result.Language)
+	assert.NotEmpty(t, result.Sentences)
 	capabilities, err := analyzer.GetCapabilities(ctx)
-	if err != nil {
-		t.Fatal(fmt.Errorf("real gRPC capabilities: %w", err))
-	}
-	if len(capabilities.Languages) != 1 || capabilities.Languages[0].Language != "de" || !capabilities.Languages[0].Ready {
-		t.Fatalf("unexpected capabilities: %+v", capabilities)
-	}
+	require.NoError(t, err, "real gRPC capabilities")
+	assert.Len(t, capabilities.Languages, 1)
+	assert.Equal(t, "de", capabilities.Languages[0].Language)
+	assert.True(t, capabilities.Languages[0].Ready)
 }

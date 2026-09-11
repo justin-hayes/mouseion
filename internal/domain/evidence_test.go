@@ -3,6 +3,8 @@ package domain
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSourceMaterialSummaryEvidenceState(t *testing.T) {
@@ -36,9 +38,7 @@ func TestSourceMaterialSummaryEvidenceState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.source.EvidenceState(); got != tt.want {
-				t.Fatalf("EvidenceState() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.source.EvidenceState())
 		})
 	}
 }
@@ -49,12 +49,8 @@ func TestMyBookEvidenceDerivationDelegatesToAcquiredSummary(t *testing.T) {
 		AnalysisStatus: "analyzed",
 	}}
 
-	if got := book.EvidenceState(); got != BookAnalyzed {
-		t.Fatalf("EvidenceState() = %q, want %q", got, BookAnalyzed)
-	}
-	if got := (MyBook{}).EvidenceState(); got != BookNotAcquired {
-		t.Fatalf("missing acquired EvidenceState() = %q, want %q", got, BookNotAcquired)
-	}
+	assert.Equal(t, BookAnalyzed, book.EvidenceState())
+	assert.Equal(t, BookNotAcquired, (MyBook{}).EvidenceState())
 }
 
 func TestPrimaryGoalIsActive(t *testing.T) {
@@ -65,9 +61,7 @@ func TestPrimaryGoalIsActive(t *testing.T) {
 		"finished": {BookID: "book", ReadingFinishedAt: &finished},
 	} {
 		want := name == "active"
-		if got := goal.IsActive(); got != want {
-			t.Errorf("%s IsActive() = %t, want %t", name, got, want)
-		}
+		assert.Equal(t, want, goal.IsActive(), "%s IsActive() = %t, want %t", name, goal.IsActive(), want)
 	}
 }
 
@@ -89,9 +83,7 @@ func TestSourceMaterialSummaryGoalEligibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.source.GoalEligibility(); got != tt.want {
-				t.Fatalf("GoalEligibility() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.source.GoalEligibility())
 		})
 	}
 }

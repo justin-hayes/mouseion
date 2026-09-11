@@ -1,11 +1,12 @@
 package analyzer_test
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -39,27 +40,18 @@ func TestProtoRoundTrip(t *testing.T) {
 
 	message := analyzer.ToProto(want)
 	bytes, err := proto.Marshal(message)
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-	if len(bytes) == 0 {
-		t.Fatal("Marshal() returned empty transport payload")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, bytes, "Marshal() returned empty transport payload")
 
 	got, err := analyzer.FromProto(message)
-	if err != nil {
-		t.Fatalf("FromProto() error = %v", err)
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("FromProto(ToProto()) = %#v, want %#v", got, want)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
 }
 
 func TestFromProtoRejectsInvalidAnalysisTime(t *testing.T) {
 	message := analyzer.ToProto(analyzer.Result{})
 	message.Analysis.AnalyzedAt = "not-a-time"
 
-	if _, err := analyzer.FromProto(message); err == nil {
-		t.Fatal("FromProto() error = nil, want invalid analysis time error")
-	}
+	_, err := analyzer.FromProto(message)
+	assert.Error(t, err, "FromProto() error = nil, want invalid analysis time error")
 }

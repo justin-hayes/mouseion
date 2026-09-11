@@ -1,12 +1,15 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestPrimaryGoalValidate(t *testing.T) {
 	valid := PrimaryGoal{OwnerID: "owner", Language: "de", BookID: "book"}
-	if err := valid.Validate(); err != nil {
-		t.Fatalf("valid primary goal rejected: %v", err)
-	}
+	require.NoError(t, valid.Validate(), "valid primary goal rejected")
 
 	for _, goal := range []PrimaryGoal{
 		{BookID: "book"},
@@ -15,8 +18,6 @@ func TestPrimaryGoalValidate(t *testing.T) {
 		{OwnerID: " ", Language: "de", BookID: "book"},
 		{OwnerID: "owner", Language: "de", BookID: "\t"},
 	} {
-		if err := goal.Validate(); err == nil {
-			t.Fatalf("invalid primary goal accepted: %+v", goal)
-		}
+		assert.Error(t, goal.Validate(), "invalid primary goal accepted: %+v", goal)
 	}
 }

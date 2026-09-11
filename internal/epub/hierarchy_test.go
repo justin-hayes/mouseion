@@ -3,8 +3,10 @@ package epub
 import (
 	"encoding/json"
 	"os"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildUnitGroupsNestedNavigationAndFlatFallback(t *testing.T) {
@@ -16,25 +18,19 @@ func TestBuildUnitGroupsNestedNavigationAndFlatFallback(t *testing.T) {
 	}
 	first := BuildUnitGroups(units)
 	second := BuildUnitGroups(units)
-	if len(first) < 4 || len(first) != len(second) {
-		t.Fatalf("groups = %#v", first)
-	}
+	assert.GreaterOrEqual(t, len(first), 4)
+	assert.Len(t, second, len(first))
 	for i := range first {
-		if first[i].ID != second[i].ID || first[i].First != second[i].First {
-			t.Fatalf("non-deterministic groups: %#v %#v", first, second)
-		}
+		assert.Equal(t, second[i].ID, first[i].ID, "non-deterministic groups")
+		assert.Equal(t, second[i].First, first[i].First, "non-deterministic groups")
 	}
 	flat := []ExtractedUnit{{ID: UnitID(0, "a"), Order: 0, ResolvedHref: "a.xhtml"}, {ID: UnitID(1, "b"), Order: 1, ResolvedHref: "b.xhtml"}}
-	if got := BuildUnitGroups(flat); len(got) != 0 {
-		t.Fatalf("flat fallback groups = %#v", got)
-	}
+	assert.Empty(t, BuildUnitGroups(flat), "flat fallback groups")
 }
 
 func TestBuildUnitGroupsRejectsContradictoryNavigation(t *testing.T) {
 	units := []ExtractedUnit{{ID: UnitID(0, "a"), Order: 0, NavigationLabels: []string{"Part"}}, {ID: UnitID(1, "b"), Order: 1}, {ID: UnitID(2, "c"), Order: 2, NavigationLabels: []string{"Part"}}}
-	if got := BuildUnitGroups(units); len(got) != 0 {
-		t.Fatalf("contradictory groups = %#v", got)
-	}
+	assert.Empty(t, BuildUnitGroups(units), "contradictory groups")
 }
 
 func TestBuildUnitGroupsFixtures(t *testing.T) {
@@ -45,28 +41,18 @@ func TestBuildUnitGroupsFixtures(t *testing.T) {
 	}{{"german", true, true}, {"italian", true, true}, {"nested", true, true}, {"flat", false, false}} {
 		t.Run(test.name, func(t *testing.T) {
 			data, err := os.ReadFile("testfixtures/hierarchy/" + test.name + ".json")
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			var units ExtractedUnits
-			if err = json.Unmarshal(data, &units); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, json.Unmarshal(data, &units))
 			groups := BuildUnitGroups(units.Units)
-			if repeated := BuildUnitGroups(units.Units); !reflect.DeepEqual(groups, repeated) {
-				t.Fatalf("group expansion is not deterministic:\nfirst=%#v\nsecond=%#v", groups, repeated)
-			}
-			if (len(groups) > 0) != test.wantGroup {
-				t.Fatalf("groups = %#v", groups)
-			}
+			assert.Equal(t, BuildUnitGroups(units.Units), groups, "group expansion is not deterministic")
+			assert.Equal(t, test.wantGroup, len(groups) > 0)
 			if test.wantNest {
 				nested := false
 				for _, group := range groups {
 					nested = nested || group.ParentID != ""
 				}
-				if !nested {
-					t.Fatalf("no parent relationship in %#v", groups)
-				}
+				assert.True(t, nested, "no parent relationship in %#v", groups)
 			}
 			for _, group := range groups {
 				var want []string
@@ -77,9 +63,7 @@ func TestBuildUnitGroupsFixtures(t *testing.T) {
 						}
 					}
 				}
-				if !reflect.DeepEqual(group.UnitIDs, want) {
-					t.Fatalf("group %q members are not the intended spine-ordered units: got=%v want=%v", group.ID, group.UnitIDs, want)
-				}
+				assert.Equal(t, want, group.UnitIDs, "group %q members are not the intended spine-ordered units", group.ID)
 			}
 		})
 	}

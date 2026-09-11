@@ -1,6 +1,10 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestResolveActiveStudyLanguage(t *testing.T) {
 	languages := []StudyLanguage{{Language: "de"}, {Language: "it"}}
@@ -12,12 +16,8 @@ func TestResolveActiveStudyLanguage(t *testing.T) {
 		{name: "invalid values resolve to none", stored: "fr", recent: "nl", want: ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ResolveActiveStudyLanguage(languages, test.stored, test.recent); got != test.want {
-				t.Fatalf("resolved language=%q, want %q", got, test.want)
-			}
+			assert.Equal(t, test.want, ResolveActiveStudyLanguage(languages, test.stored, test.recent))
 		})
 	}
-	if got := ResolveActiveStudyLanguage([]StudyLanguage{{Language: "de"}}, "it", "it"); got != "de" {
-		t.Fatalf("sole language resolution=%q, want de", got)
-	}
+	assert.Equal(t, "de", ResolveActiveStudyLanguage([]StudyLanguage{{Language: "de"}}, "it", "it"))
 }

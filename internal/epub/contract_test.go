@@ -2,37 +2,31 @@ package epub
 
 import (
 	"encoding/json"
-	"errors"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEPUBContentDigestHashesExactContainerBytes(t *testing.T) {
 	first := []byte("epub bytes")
 	second := append([]byte(nil), first...)
-	if got, want := domain.EPUBContentDigest(first), domain.EPUBContentDigest(second); got != want {
-		t.Fatalf("equal bytes produced different digests: %q != %q", got, want)
-	}
-	if domain.EPUBContentDigest(first) == domain.EPUBContentDigest([]byte("metadata-only")) {
-		t.Fatal("digest did not identify changed source bytes")
-	}
-	if got := domain.EPUBContentDigest(first); len(got) != len("sha256:")+64 || got[:7] != "sha256:" {
-		t.Fatalf("digest format = %q", got)
-	}
+	got, want := domain.EPUBContentDigest(first), domain.EPUBContentDigest(second)
+	assert.Equal(t, want, got, "equal bytes produced different digests")
+	assert.NotEqual(t, domain.EPUBContentDigest([]byte("metadata-only")), got, "digest did not identify changed source bytes")
+	assert.Len(t, got, len("sha256:")+64, "digest format")
+	assert.Equal(t, "sha256:", got[:7], "digest format")
 }
 
 func TestExtractedUnitIdentityIsSpineBased(t *testing.T) {
 	first := UnitID(2, "chapter")
 	duplicateTitle := UnitID(5, "chapter-copy")
 	repeatedResource := UnitID(8, "chapter")
-	if first != "epub-unit-v1:2:chapter" {
-		t.Fatalf("unit ID = %q", first)
-	}
-	if first == duplicateTitle || first == repeatedResource || duplicateTitle == repeatedResource {
-		t.Fatalf("distinct spine identities collided: %q, %q, %q", first, duplicateTitle, repeatedResource)
-	}
+	assert.Equal(t, "epub-unit-v1:2:chapter", first)
+	assert.NotEqual(t, duplicateTitle, first, "distinct spine identities collided")
+	assert.NotEqual(t, repeatedResource, first, "distinct spine identities collided")
+	assert.NotEqual(t, repeatedResource, duplicateTitle, "distinct spine identities collided")
 }
 
 func TestExtractedUnitsValidateUnicodeOffsetsAndSpineGaps(t *testing.T) {
@@ -41,14 +35,10 @@ func TestExtractedUnitsValidateUnicodeOffsetsAndSpineGaps(t *testing.T) {
 		{ID: UnitID(1, "nested-a"), Order: 0, SpineIndex: 1, ManifestID: "nested-a", Text: "Grüße 👋", StartOffset: 0, EndOffset: 7},
 		{ID: UnitID(4, "nested-b"), Order: 1, SpineIndex: 4, ManifestID: "nested-b", Text: "東京", StartOffset: 9, EndOffset: 11},
 	}}
-	if err := units.ValidateOffsets(fullText); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, units.ValidateOffsets(fullText))
 
 	units.Units[1].StartOffset = uint64(len([]byte("Grüße 👋\n\n")))
-	if err := units.ValidateOffsets(fullText); err == nil {
-		t.Fatal("UTF-8 byte offsets accepted as Unicode code-point offsets")
-	}
+	assert.Error(t, units.ValidateOffsets(fullText), "UTF-8 byte offsets accepted as Unicode code-point offsets")
 }
 
 func TestExtractedUnitsSerializationIsVersionedAndUsesEmptyMetadataArrays(t *testing.T) {
@@ -60,22 +50,16 @@ func TestExtractedUnitsSerializationIsVersionedAndUsesEmptyMetadataArrays(t *tes
 		NavigationLabels: []string{}, LandmarkTypes: []string{},
 	}}}
 	encoded, err := json.Marshal(document)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	got := string(encoded)
 	for _, required := range []string{`"schema_version":1`, `"units":[`, `"source_href":"Text/part/chapter.xhtml"`, `"properties":[]`, `"navigation_labels":[]`, `"landmark_types":[]`} {
-		if !strings.Contains(got, required) {
-			t.Fatalf("serialized contract %s does not contain %s", got, required)
-		}
+		assert.Contains(t, got, required, "serialized contract %s does not contain %s", got, required)
 	}
-	if err := document.ValidateOffsets("Text"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, document.ValidateOffsets("Text"))
 	document.SchemaVersion++
-	if err := document.ValidateOffsets("Text"); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("unsupported version error = %v", err)
-	}
+	err = document.ValidateOffsets("Text")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported")
 }
 
 func TestExtractedUnitsRejectIdentityOrderAndTextDrift(t *testing.T) {
@@ -90,9 +74,7 @@ func TestExtractedUnitsRejectIdentityOrderAndTextDrift(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			document := ExtractedUnits{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{tt.unit}}
-			if err := document.ValidateOffsets("é"); err == nil {
-				t.Fatal("invalid contract accepted")
-			}
+			assert.Error(t, document.ValidateOffsets("é"), "invalid contract accepted")
 		})
 	}
 }
@@ -102,8 +84,6 @@ func TestExtractedUnitsTreatMissingOrEmptyLegacyDataAsUnavailable(t *testing.T) 
 		{},
 		{SchemaVersion: ExtractedUnitsSchemaVersion, Units: []ExtractedUnit{}},
 	} {
-		if err := document.ValidateOffsets(""); !errors.Is(err, ErrExtractedUnitsUnavailable) {
-			t.Fatalf("legacy document error = %v", err)
-		}
+		assert.ErrorIs(t, document.ValidateOffsets(""), ErrExtractedUnitsUnavailable, "legacy document error")
 	}
 }

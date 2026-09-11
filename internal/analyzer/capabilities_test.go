@@ -7,6 +7,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type capabilityProviderFunc func(context.Context) (Capabilities, error)
@@ -28,17 +31,18 @@ func TestCachedCapabilityProviderCachesAndReturnsStaleDataOnFailure(t *testing.T
 	provider.now = func() time.Time { return now }
 
 	first, err := provider.GetCapabilities(context.Background())
-	if err != nil || first.Degraded || calls != 1 {
-		t.Fatalf("first = %+v, calls = %d, err = %v", first, calls, err)
-	}
-	if _, err = provider.GetCapabilities(context.Background()); err != nil || calls != 1 {
-		t.Fatalf("cached calls = %d, err = %v", calls, err)
-	}
+	require.NoError(t, err)
+	assert.False(t, first.Degraded)
+	assert.Equal(t, 1, calls)
+	_, err = provider.GetCapabilities(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, calls, "cached calls = %d", calls)
 	now = now.Add(2 * time.Minute)
 	stale, err := provider.GetCapabilities(context.Background())
-	if err != nil || !stale.Degraded || stale.Languages[0].Language != "de" || calls != 2 {
-		t.Fatalf("stale = %+v, calls = %d, err = %v", stale, calls, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, stale.Degraded)
+	assert.Equal(t, "de", stale.Languages[0].Language)
+	assert.Equal(t, 2, calls)
 }
 
 func TestCachedCapabilityProviderReturnsInitialFailure(t *testing.T) {
@@ -46,9 +50,8 @@ func TestCachedCapabilityProviderReturnsInitialFailure(t *testing.T) {
 	provider := NewCachedCapabilityProvider(capabilityProviderFunc(func(context.Context) (Capabilities, error) {
 		return Capabilities{}, want
 	}), time.Minute)
-	if _, err := provider.GetCapabilities(context.Background()); !errors.Is(err, want) {
-		t.Fatalf("error = %v", err)
-	}
+	_, err := provider.GetCapabilities(context.Background())
+	assert.ErrorIs(t, err, want)
 }
 
 func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {
@@ -94,22 +97,19 @@ func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {
 	select {
 	case <-lockAcquired:
 	case <-time.After(time.Second):
-		t.Fatal("cache mutex is held during capability RPC")
+		require.FailNow(t, "cache mutex is held during capability RPC")
 	}
 
 	close(releaseLookup)
 	lookups.Wait()
-	if got := calls.Load(); got != 1 {
-		t.Fatalf("capability RPC calls = %d, want 1", got)
-	}
+	assert.Equal(t, int32(1), calls.Load(), "capability RPC calls = %d, want 1", calls.Load())
 	for range callers {
-		if err := <-errors; err != nil {
-			t.Fatalf("capability lookup error = %v", err)
-		}
+		err := <-errors
+		require.NoError(t, err, "capability lookup error = %v", err)
 		value := <-results
-		if len(value.Languages) != 1 || value.Languages[0].Language != "de" || value.Degraded {
-			t.Fatalf("capability lookup = %+v", value)
-		}
+		assert.Len(t, value.Languages, 1)
+		assert.Equal(t, "de", value.Languages[0].Language)
+		assert.False(t, value.Degraded)
 	}
 }
 
@@ -136,9 +136,8 @@ func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
 	}()
 	<-lookupStarted
 	cancelLeader()
-	if err := <-leaderResult; !errors.Is(err, context.Canceled) {
-		t.Fatalf("leader error = %v, want context canceled", err)
-	}
+	leaderErr := <-leaderResult
+	assert.ErrorIs(t, leaderErr, context.Canceled, "leader error = %v, want context canceled", leaderErr)
 
 	waiterResult := make(chan Capabilities, 1)
 	waiterError := make(chan error, 1)
@@ -149,14 +148,11 @@ func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
 	}()
 	close(releaseLookup)
 
-	if err := <-waiterError; err != nil {
-		t.Fatalf("waiter error = %v", err)
-	}
+	waiterErr := <-waiterError
+	require.NoError(t, waiterErr, "waiter error = %v", waiterErr)
 	value := <-waiterResult
-	if len(value.Languages) != 1 || value.Languages[0].Language != "de" || value.Degraded {
-		t.Fatalf("waiter capability lookup = %+v", value)
-	}
-	if got := calls.Load(); got != 1 {
-		t.Fatalf("capability RPC calls = %d, want 1", got)
-	}
+	assert.Len(t, value.Languages, 1)
+	assert.Equal(t, "de", value.Languages[0].Language)
+	assert.False(t, value.Degraded)
+	assert.Equal(t, int32(1), calls.Load(), "capability RPC calls = %d, want 1", calls.Load())
 }
