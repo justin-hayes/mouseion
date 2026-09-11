@@ -2,27 +2,27 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalogue as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes the entire acquired EPUB as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, vocabulary study (per Book), and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes the entire acquired EPUB as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, vocabulary study (per Book), and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
-The authenticated shell has exactly three primary destinations: **My Books** at
-`/library`, **Reading Journey** at `/journey`, and **Vocabulary** at `/vocabulary`.
-There is no acquisition action in the top navigation. Catalogue setup and sync
-maintenance are reached from My Books empty states and actions and via the
-`/connections` route; Add books is not a destination and is not a persistent
-shell action. My Books is the sole browse surface for the synced collection,
-and EPUB content is acquired when a Book is added to Reading Journey. The upstream catalog
-browser is retired. `/` redirects to My Books. Vocabulary study is a
-book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
-a Book's prepared-deck actions, vocabulary-study state and history, and
-vocabulary provenance live on the Journey entry, not on a second learner-facing
-plan.
+The authenticated shell has four primary destinations: **My Books** at
+`/library`, **Reading Journey** at `/journey`, **Vocabulary** at `/vocabulary`,
+and **Catalogs** at `/catalogs`. Catalogs is the learner-owned catalog
+maintenance destination — connection create, read, edit, and delete,
+per-connection sync status, and **Sync now** (see
+[ADR 0058](adr/0058-catalog-maintenance-principal-destination.md)). The legacy
+`/connections` route permanently redirects there. My Books is the sole browse
+surface for the synced collection, and EPUB content is acquired when a Book is
+added to Reading Journey. The upstream catalog browser is retired. `/` redirects
+to My Books. Vocabulary study is a book-anchored facet (see
+[ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)): a Book's
+prepared-deck actions, vocabulary-study state and history, and vocabulary
+provenance live on the Journey entry, not on a second learner-facing plan.
 
-Catalogue synchronization status is an operational part of the learner-owned
-connection surface at `/connections`, with detailed work under `/jobs`; it does
-not change the three destinations and does not add an acquisition action to the
-top navigation.
+Catalog synchronization status is an operational part of the learner-owned
+Catalogs destination, with detailed work under `/jobs`; it does not add an
+acquisition action to the top navigation.
 
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books; there is no study-language preference or
@@ -49,7 +49,7 @@ language for import.
 - [Historical EPUB Scope Workflows — Phase 4](features/epub-analysis-scope-workflows.md) — records retired hierarchy, preset, reuse, and comparison behavior.
 - [Historical EPUB Recommendation Corrections — Phase 5](features/epub-analysis-recommendation-corrections.md) — records the retired recommendation-policy correction work.
 - [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
-- [Catalogue Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogues with lazy content acquisition.
+- [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
 - [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
 - [Historical Language Corpus View](features/language-corpus-view.md) — the retired proposal for a derived, evidence-only per-language lens over current analyses and known vocabulary; see ADR 0057.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
@@ -58,7 +58,7 @@ language for import.
 
 ## Current pipeline
 
-1. **Catalogue discovery and My Books** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, and browse the resulting local My Books collection. Sync creates or updates metadata-only Books and never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
+1. **Catalog discovery and My Books** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, and browse the resulting local My Books collection. Sync creates or updates metadata-only Books and never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
 2. **Reading intent** — add a Book to Reading Journey from a My Books row when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it retains Journey membership, acquires the current EPUB when needed, and ensures one whole-book analysis for the current content revision. Re-adding and reordering are idempotent and do not create redundant work.
 3. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Journey entry's current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
@@ -137,6 +137,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 55. [ADR 0055: Retire the standalone Book detail route](adr/0055-retire-book-detail-route.md) — makes the Journey entry the sole analyzed-Book destination, retires `GET /books/{id}`, constrains exact-analysis compatibility redirects to reachable Journey members, and moves learner-facing refresh/deck mutations to their owning surfaces.
 56. [ADR 0056: Retire the Campaign learner surface](adr/0056-retire-campaign-learner-surface.md) — removes the Campaign queue, history, and operations from the learner-facing application and makes Book vocabulary-study state and history the canonical surface.
 57. [ADR 0057: Retire the Language view panel](adr/0057-retire-language-view-panel.md) — retires the proposed My Books language panel and its read model; per-Book and Journey surfaces remain the evidence contracts.
+58. [ADR 0058: Catalog maintenance is a principal destination](adr/0058-catalog-maintenance-principal-destination.md) — promotes learner-owned catalog connection maintenance to a fourth shell destination at `/catalogs`, retires "Add books" as a term, and standardizes the learner-facing spelling on "catalog".
 
 ## Deployment and operations
 

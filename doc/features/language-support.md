@@ -6,7 +6,7 @@ Status: Implemented · Date: 2026-08-25 · Issues: #222, #223, #224, #225
 
 The NLP service is authoritative for language availability. It advertises only
 configured pipelines that warmed successfully, including their display names
-and supported features. Catalogue sync uses those capabilities to walk every
+and supported features. Catalog sync uses those capabilities to walk every
 offered non-English language that is ready; the resulting chosen-language Books
 derive each learner's study-language set. The web application does not maintain
 a learner-selected language allowlist; the learner's active study language
@@ -27,7 +27,7 @@ The deterministic Italian regression fixture validates the complete product
 contract where a live model or database is unavailable:
 
 1. capability discovery exposes ready Italian as **Italian**;
-2. the ready Italian capability is used by catalogue sync and Italian Books
+2. the ready Italian capability is used by catalog sync and Italian Books
    become the learner's derived study language;
 3. Go consumes the Python/Stanza fixture with Italian contractions, accents,
    morphology, clitics, and named entities intact;

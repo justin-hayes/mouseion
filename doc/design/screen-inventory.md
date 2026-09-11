@@ -11,7 +11,10 @@ app's organizing mode per
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
 study language scopes My Books, Reading Journey, and Vocabulary, and Journeys
-and Goals are one per language. Catalogue-sync and collection-browsing surfaces
+and Goals are one per language. Catalog maintenance is a fourth principal
+destination per
+[ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
+Catalog-sync and collection-browsing surfaces
 follow [ADR 0041](../adr/0041-catalog-sync-metadata-first.md) and the related feature
 contracts below. The proposed language-lens panel is retired by
 [ADR 0057](../adr/0057-retire-language-view-panel.md) and has no current screen
@@ -27,21 +30,21 @@ rather than as independent destinations.
 ## Global shell
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
-**Reading Journey**, **Vocabulary**, account identity, and **Log
-out**. My Books, Reading Journey, and Vocabulary are the only destinations; there
-is no acquisition action in the top navigation. Catalogue setup and sync
-maintenance are reached from My Books empty states and actions and via
-`/connections`. My Books is the sole browse surface; its rows own acquisition
-and analysis intent.
+**Reading Journey**, **Vocabulary**, **Catalogs**, account identity, and **Log
+out**. My Books, Reading Journey, Vocabulary, and Catalogs are the destinations;
+there is no acquisition action in the top navigation. Catalogs is the persistent
+home for connection and sync maintenance, also reached from My Books empty states
+and actions; the legacy `/connections` route redirects there. My Books is the
+sole browse surface; its rows own acquisition and analysis intent.
 
-Primary Goal is embedded in Reading Journey and is not a fourth destination.
+Primary Goal is embedded in Reading Journey and is not a fifth destination.
 The shell identifies the current destination, supports skip navigation and
 keyboard use, and preserves a clear path back to the parent book or Journey.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
 The shell also carries a native **active study language** control alongside the
-three destinations, on every authenticated screen. It lists the learner's study
+four destinations, on every authenticated screen. It lists the learner's study
 languages plus any known-vocabulary-only language marked "no books", marks a
 newly arrived study language "new", and is keyboard-accessible and
 server-rendered before enhancement. Changing it navigates to the same screen in
@@ -64,7 +67,7 @@ queue, campaign, or plan is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue onboarding and sync are reached through `/connections` | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Add books, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
+| My Books | Shipped `GET /library`; catalog onboarding and sync are reached through the Catalogs destination | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Journey entry, Catalogs, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
 | My Books collection browser | Planned (Proposed) within `GET /library` | Find a Book in the active language's collection by text and move through a large result set. | Journey entry or clear/revise controls | Scoped to the active study language (no "All languages"), needs-language strip for Books awaiting a language, scoped search, paging, combined filters, no match, later page removed, long content, enhancement unavailable |
 | Journey entry and analysis insights | Current `GET /journey/{bookID}` only for a Journey member with a current completed analysis; metadata refresh is a My Books row action | Understand one analyzed Book's current analysis evidence, Journey/Goal relationship, and preparation decisions. Unassessed, stale, queued, running, failed, and cancelled Books have no detail page. | Analysis status, deck preparation, Journey/Goal action, prepared artifact, or My Books | Current completed analysis, legacy/full-text state, warning-only analysis-quality note, prepared-deck state, reading/vocabulary facts |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Journey entry when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
@@ -72,13 +75,13 @@ queue, campaign, or plan is exposed.
 | Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the current result context. | Journey entry for members; 404 otherwise | Valid owned member/run redirect, non-member or incomplete result, missing or unauthorized reference |
 | Deck preparation | Target action on Journey entry; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to Journey context | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
-My Books is the canonical home and a moderately dense bibliographic catalogue.
+My Books is the canonical home and a moderately dense bibliographic catalog.
 Title, author, and relevant edition information lead. Journey/Goal relationship
 and evidence state follow. Large cards and metric-first sorting are not the
 default.
 
 The My Books model includes metadata-only and currently unassessable works.
-Catalogue sync creates metadata-only membership; adding a Book to Reading
+Catalog sync creates metadata-only membership; adding a Book to Reading
 Journey acquires and validates EPUB content when needed. Metadata-only rows retain
 refresh, Journey, and removal actions without opening a detail page.
 
@@ -100,13 +103,13 @@ recommendation metadata is not a current learner-facing surface.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Catalogue connections | Current `GET/POST /connections` and mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
+| Catalogs | Shipped `GET /catalogs` (legacy `/connections` redirects) with connection mutation routes; sync states and **Sync now** | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
 | Book acquisition through reading intent | Current `POST /journey/books/{id}/add`, launched from My Books or deck status | Express intent, acquire one My Books Book when needed, and ensure current analysis once. | Journey or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
-| Per-book catalogue metadata refresh | Current row action on `GET /library` with `POST /library/books/{id}/refresh` | Refresh one catalogue-backed Book's metadata without downloading content or changing evidence. | My Books row | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
+| Per-book catalog metadata refresh | Current row action on `GET /library` with `POST /library/books/{id}/refresh` | Refresh one catalog-backed Book's metadata without downloading content or changing evidence. | My Books row | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; no scope or analysis invalidation |
 
 Adding a Book to Reading Journey is the sole learner-facing acquisition and
 analysis trigger. It acquires content when needed and ensures analysis without
-selecting a Primary Goal. Catalogue sync remains metadata-only, and My Books row
+selecting a Primary Goal. Catalog sync remains metadata-only, and My Books row
 metadata refresh never invalidates or re-triggers analysis.
 
 ## Reading Journey and Primary Goal
@@ -165,8 +168,10 @@ learner-facing screen.
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** with no
-  acquisition action in the top navigation; historical **My Library**, **Learning**, queue, and learner-facing Campaign labels remain only as compatibility fallbacks/redirects and are not the accepted target IA.
+- Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** /
+  **Catalogs** with no acquisition action in the top navigation; historical
+  **My Library**, **Learning**, queue, and learner-facing Campaign labels remain
+  only as compatibility fallbacks/redirects and are not the accepted target IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must

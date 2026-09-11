@@ -35,7 +35,7 @@ labels use **Language** and the language's own name, never **Mode** or
 
 - When the learner has a language, the authenticated shell carries a native
   `<select>` for the active language on every screen, labelled for accessibility,
-  adjacent to the three destinations.
+  adjacent to the four destinations.
 - Options are the learner's study languages, plus any known-vocabulary-only
   language marked "no books". A newly arrived study language is marked "new".
 - The switcher is hidden until at least one such language exists. When no active
@@ -55,7 +55,7 @@ labels use **Language** and the language's own name, never **Mode** or
 - Per-Book evidence remains visible in My Books; current analysis insights remain
   on the Journey entry. The retired Language view panel does not render.
 - When any Book lacks a language, an out-of-band "N books need a language" strip
-  appears (display-only: fix the language in the catalogue, then re-sync; no
+  appears (display-only: fix the language in the catalog, then re-sync; no
   per-book actions). Its browse state is `/library?needs-language`.
 - Adding a Book to the Reading Journey targets that Book's language Journey —
   which equals the active language by construction.
@@ -85,19 +85,19 @@ labels use **Language** and the language's own name, never **Mode** or
 
 | State | Required presentation | Primary exit |
 |---|---|---|
-| No study languages yet | Empty My Books with catalogue CTA; switcher absent or empty | Connect a catalogue |
+| No study languages yet | Empty My Books with catalog CTA; switcher absent or empty | Connect a catalog |
 | One study language | Sole language active; no switcher ambiguity | Browse |
 | Multiple study languages | Switcher lists them; the active one scopes every surface | Switch language |
 | Active language leaves the set | Lazy reset to most-recently-activated remaining, else none | Switch |
 | New language arrives via resync | Appears in switcher marked "new"; mode unchanged | Switch |
 | Known-vocabulary-only language | Switcher entry marked "no books", read-only vocab | Switch back |
-| Legacy no-language Books exist | "Needs language" strip on My Books | Fix catalogue, re-sync |
+| Legacy no-language Books exist | "Needs language" strip on My Books | Fix catalog, re-sync |
 
 ## Non-goals
 
 - Configuring which languages are studied (still derived, ADR 0043).
 - Cross-language browse, search, or a global "All languages" default.
-- A remediation flow for no-language Books (fixing happens in the catalogue).
+- A remediation flow for no-language Books (fixing happens in the catalog).
 - Auto-switching the mode on navigation or sync.
 - Any persisted per-language inventory beyond the Journey/Goal and the active
   selection.

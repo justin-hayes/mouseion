@@ -1,7 +1,7 @@
 # Mouseion
 
 Mouseion is a self-hosted reading environment for learning foreign languages.
-A learner connects their own OPDS catalogue, syncs books into a personal
+A learner connects their own OPDS catalog, syncs books into a personal
 library, analyzes confirmed scopes, and prepares Anki recognition decks from
 unknown vocabulary.
 
@@ -27,8 +27,8 @@ transient result of defaulting (an ambiguous set with no history) or reset (the
 selection left the set with no remaining candidate).
 _Avoid_: current language, mode, active profile.
 
-**Catalogue sync scope**:
-The set of non-English languages that a connected catalogue offers and the NLP
+**Catalog sync scope**:
+The set of non-English languages that a connected catalog offers and the NLP
 service reports ready. The sync walks these feeds regardless of learner
 configuration and tags each book with the walked language.
 _Avoid_: study-language scope, synced languages.
@@ -115,10 +115,10 @@ with reason codes for missing current content, analysis in progress, failed or
 cancelled analysis, stale analysis, no completed analysis, and eligibility.
 _Avoid_: evidence status as a persisted source of truth.
 
-**Catalogue entry**:
-A book as offered by a learner-owned catalogue, identified by the catalogue
+**Catalog entry**:
+A book as offered by a learner-owned catalog, identified by the catalog
 connection plus that connection's stable entry identifier. A Book may carry one
-catalogue-entry alias per connection; two connections may each offer the same
+catalog-entry alias per connection; two connections may each offer the same
 entry identifier without being the same book.
 _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 
@@ -126,8 +126,8 @@ _Avoid_: source identifier on its own, OPDS entry (as a standalone identity).
 A learner's bibliographic identity for a work, owned per learner and stable
 across acquisition, analysis, and content revisions. A Book is addressed by its
 owner-scoped Book ID; its current acquired source and analysis evidence are
-resolved underneath that identity. Books are catalogue-derived: they enter the
-library only through a connected catalogue, never by manual entry. A Book is
+resolved underneath that identity. Books are catalog-derived: they enter the
+library only through a connected catalog, never by manual entry. A Book is
 always in My Books once discovered; analysis is Book-level evidence, not
 membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired

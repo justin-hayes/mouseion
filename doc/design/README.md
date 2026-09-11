@@ -45,7 +45,7 @@ and surface a material conflict rather than silently choosing one.
 ### Workflows
 
 - [`workflows/acquisition-to-library.md`](workflows/acquisition-to-library.md) —
-  catalogue setup, local My Books browsing, and intent-driven acquisition and
+  catalog setup, local My Books browsing, and intent-driven acquisition and
   analysis.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
   the core current-analysis-to-deck lifecycle, including explicit refresh and

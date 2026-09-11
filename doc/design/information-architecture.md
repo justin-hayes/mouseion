@@ -10,8 +10,10 @@ Language is the
 app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
 every language-dependent surface to one active study language, and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md) makes Reading
-Journey and Primary Goal one per language. ADRs continue to
-own persistence and historical decision details.
+Journey and Primary Goal one per language, and catalog maintenance is a fourth
+principal destination per
+[ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md). ADRs
+continue to own persistence and historical decision details.
 
 Mouseion is organized around literature the learner cares about, one current
 reading commitment, and the changed possibilities that follow from justified
@@ -29,7 +31,8 @@ The product supports these top-level goals:
 4. commit to finishing one Primary Goal per language, when desired;
 5. understand trustworthy current and conditional preparation evidence;
 6. review how actual vocabulary changes affect books ahead;
-7. understand derived study languages and maintain known vocabulary.
+7. understand derived study languages and maintain known vocabulary;
+8. maintain the learner-owned catalog connections that feed My Books.
 
 The recurring experience rhythm is:
 
@@ -44,7 +47,7 @@ My Books
     -> Where next?
 ```
 
-This rhythm does not imply a required pipeline for every Book. Catalogue sync,
+This rhythm does not imply a required pipeline for every Book. Catalog sync,
 analysis, deck preparation, Primary Goal choice, reading completion, and
 vocabulary graduation remain separate transitions. The learner-initiated **Add
 to Reading Journey** action is the analysis exception: it adds membership and
@@ -67,19 +70,21 @@ learner. It can include:
 - completed books;
 - books with stale, questionable, incomplete, or unavailable evidence.
 
-My Books is a searchable bibliographic catalogue, not a readiness ranking or a
+My Books is a searchable bibliographic catalog, not a readiness ranking or a
 list of obligations. Title, author, edition when relevant, and learner intent
 precede analysis status. Processing state appears only to explain available
 evidence or the next relevant action.
 
-The catalogue is browsed within the active study language: browse, paging, and
+The catalog is browsed within the active study language: browse, paging, and
 search are scoped to it, and no "All languages" default exists. Books without a
 chosen language belong to no language partition and are surfaced only through
-an out-of-band **needs language** strip (fix the language in the catalogue, then
+an out-of-band **needs language** strip (fix the language in the catalog, then
 re-sync; display-only, no per-book actions). For a fresh account, its empty
-state explains catalogue setup and enters `/connections`; catalogue setup and
-sync maintenance do not become a destination, and no acquisition action appears
-in the top navigation. Synced catalogue metadata is browsed only here.
+state explains catalog setup and enters the Catalogs destination; catalog
+maintenance is its own destination per
+[ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md), and no
+acquisition action appears in the top navigation. Synced catalog metadata is
+browsed only here.
 
 ### Reading Journey
 
@@ -160,7 +165,7 @@ These objects remain important, but they do not define principal navigation:
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
   graduated through an accepted transition.
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
-- **Catalogue sync** — periodic metadata reconciliation for one learner-owned
+- **Catalog sync** — periodic metadata reconciliation for one learner-owned
   connection. It is upsert-only and never destructive; content is trusted
   immutable for sync, so it never invalidates scope or analysis. The metadata
   contract is defined by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md)
@@ -185,36 +190,39 @@ learner result surfaces.
 
 ## Primary navigation
 
-The authenticated shell exposes three principal destinations:
+The authenticated shell exposes four principal destinations:
 
 - **My Books** — the canonical home, broad book collection, and sole browse
-  surface for synced catalogue metadata;
+  surface for synced catalog metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
-- **Vocabulary** — known vocabulary and its import workflow.
+- **Vocabulary** — known vocabulary and its import workflow;
+- **Catalogs** — learner-owned catalog connection maintenance: connection create,
+  read, edit, and delete, per-connection sync status, and **Sync now**
+  ([ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md)).
 
-The top navigation has no acquisition action. Catalogue setup and sync
-maintenance are supporting `/connections` routes reached from My Books empty
-states and actions; My Books is the sole browse surface and its rows own the
+The top navigation has no acquisition action. Catalogs is the persistent home for
+connection and sync maintenance, reached both from the shell and from My Books
+empty states and actions; the legacy `/connections` route redirects there. My
+Books is the sole browse surface for synced metadata and its rows own the
 Reading Journey acquisition-and-analysis intent. The upstream catalog browser
 is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
-preparation, catalog connections, and per-Book vocabulary-study history are
-supporting surfaces.
+preparation, and per-Book vocabulary-study history are supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
 The shell also carries a native **active study language** control alongside the
-three destinations. Changing it navigates to the same screen in the new language
+four destinations. Changing it navigates to the same screen in the new language
 on language-scoped screens and updates the stored mode elsewhere; it lists the
 derived study languages plus any known-vocabulary-only language marked "no
 books", marks a newly arrived study language "new", and never auto-switches on
 navigation or sync.
 
-There is no separate **Catalogues / Browse** sub-navigation. `/connections` is
-for connection and sync maintenance; `/library` is the canonical local browse
-surface.
+Catalogs is a maintenance destination, not a **Browse** sub-navigation. It is for
+connection and sync maintenance only and is not a second browse surface;
+`/library` is the canonical local browse surface.
 
 ## Route and screen hierarchy
 
@@ -240,7 +248,7 @@ Reading Journey (active study language)
     completion outcome
     Where next?
 
-Catalogue maintenance
+Catalogs
     connection setup and sync status
 Journey entry
     current completed analysis view for a Journey member
@@ -260,13 +268,13 @@ Journey. `/` redirects to `/library`. A Journey entry at `/journey/{bookID}`
 owns the Book's current vocabulary-study state and a secondary per-Book study
 history. The application does not present a duplicate queue, campaign, or plan.
 
-The authenticated shell therefore exposes exactly My Books, Reading Journey, and
-Vocabulary in the top navigation. `/connections` (catalogue maintenance and sync)
-and `/jobs` are supporting surfaces reached from My Books and direct routes, not
-navigation destinations. Historical My Library, Learning,
-queue, and learner-facing Campaign labels are not active navigation concepts;
-compatibility aliases and operational terminology remain only where required by
-existing routes, records, or infrastructure.
+The authenticated shell therefore exposes exactly My Books, Reading Journey,
+Vocabulary, and Catalogs in the top navigation. `/jobs` is a supporting surface
+reached from Catalogs and other direct routes, not a navigation destination.
+Historical My Library, Learning, queue, and learner-facing Campaign labels are
+not active navigation concepts; compatibility aliases and operational
+terminology remain only where required by existing routes, records, or
+infrastructure.
 
 Existing nested analysis and artifact routes remain supporting routes. The
 run-specific analysis route is a compatibility redirect rather than a separate
@@ -278,7 +286,8 @@ surface:
 /jobs/{id}
 /deck-preparations/{id}/status
 /deck-preparations/{id}/download
-/connections
+/catalogs
+/connections (compatibility redirect to `/catalogs`)
 /settings (compatibility redirect to `/library`)
 /vocabulary and known-vocabulary import support routes
 ```
@@ -405,8 +414,8 @@ history surface for current and prior runs.
 ## Active study language, study languages, and Vocabulary ownership
 
 Study languages are derived from the distinct normalized language tags of the
-learner's active chosen-language Books. For catalogue-synced Books, the
-catalogue entry is the source of truth and connection re-sync is the only way
+learner's active chosen-language Books. For catalog-synced Books, the
+catalog entry is the source of truth and connection re-sync is the only way
 the language changes; there is no separate Settings selection to maintain.
 
 The **active study language** is a stored selection pointing into that derived
@@ -424,7 +433,7 @@ in the switcher (marked "new") without changing the mode.
 Vocabulary owns known vocabulary and its additive import workflow, scoped to the
 active language; import is always eligible there. Import eligibility remains
 limited to the derived study-language set, and known-vocabulary-only languages
-stay selectable in the switcher as read-only "no books" entries. Catalogue
+stay selectable in the switcher as read-only "no books" entries. Catalog
 metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
 vocabulary-study history. Journey and Goal relationships remain independent of
 vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0036,
@@ -440,7 +449,7 @@ authoritative for persistence, historical records, and compatibility details.
 Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
-immutable acquired source evidence. Catalogue sync creates metadata-only
+immutable acquired source evidence. Catalog sync creates metadata-only
 membership; Reading Journey intent acquires validated source evidence when
 needed.
 
@@ -477,7 +486,7 @@ needed.
    Journey entries are the current completed-analysis surface for members, prior
    runs remain operational audit records, and run-specific result URLs redirect
    to the applicable current context.
-9. **Catalogue sync** follows the accepted contract in
+9. **Catalog sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
    each learner-owned connection periodically reconciles metadata for every

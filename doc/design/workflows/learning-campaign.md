@@ -62,7 +62,7 @@ My Books
 Acquisition, analysis, deck preparation, Goal choice, reading completion, and
 vocabulary graduation remain distinct transitions. Adding a Book to Reading
 Journey is the learner-initiated trigger that also acquires its current EPUB and
-ensures whole-book analysis; it does not silently trigger from catalogue sync,
+ensures whole-book analysis; it does not silently trigger from catalog sync,
 reordering, or any other transition. Goal choice remains a separate explicit
 promotion after current analysis is complete.
 
