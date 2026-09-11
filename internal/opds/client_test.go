@@ -32,9 +32,9 @@ func TestListRootPaginationAndAcquisition(t *testing.T) {
 	feed, err := NewClient(server.Client(), Auth{Username: "reader", Password: "secret"}).ListRoot(context.Background(), server.URL+"/catalog")
 	require.NoError(t, err)
 	assert.Equal(t, "Books", feed.Title)
-	assert.Len(t, feed.Entries, 2)
+	require.Len(t, feed.Entries, 2)
 	links := FindEPUBs(feed.Entries[0])
-	assert.Len(t, links, 1)
+	require.Len(t, links, 1)
 	assert.Equal(t, server.URL+"/one.epub", links[0].Href)
 	assert.Empty(t, FindEPUBs(feed.Entries[1]), "PDF treated as EPUB")
 }
@@ -56,7 +56,7 @@ func TestRelativePaginationPreservesCatalogQueryCredentials(t *testing.T) {
 	feed, err := NewClient(server.Client(), Auth{}).List(context.Background(), server.URL+"/catalog?access_token=catalog-secret")
 	require.NoError(t, err)
 	assert.Len(t, feed.Entries, 2)
-	assert.Len(t, requests, 2)
+	require.Len(t, requests, 2)
 	assert.Equal(t, "/catalog?access_token=catalog-secret&offset=1", requests[1])
 }
 
@@ -79,8 +79,9 @@ func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 	client := NewClient(server.Client(), Auth{})
 	feed, err := client.ListPage(context.Background(), server.URL+"/catalog?access_token=catalog-secret")
 	require.NoError(t, err)
+	require.Len(t, feed.Entries, 1)
 	links := FindEPUBs(feed.Entries[0])
-	assert.Len(t, links, 1)
+	require.Len(t, links, 1)
 	assert.Equal(t, server.URL+"/books/one.epub?access_token=catalog-secret", links[0].Href)
 	data, err := client.Download(context.Background(), links[0].Href)
 	require.NoError(t, err)
@@ -105,7 +106,7 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 	defer server.Close()
 	feed, err := NewClient(server.Client(), Auth{}).Search(context.Background(), server.URL+"/root", "Moby Dick")
 	require.NoError(t, err)
-	assert.Len(t, feed.Entries, 1)
+	require.Len(t, feed.Entries, 1)
 	assert.Equal(t, "moby", feed.Entries[0].ID)
 }
 
@@ -131,13 +132,13 @@ func TestLanguageEndpointsFollowPagination(t *testing.T) {
 	client := NewClient(server.Client(), Auth{})
 	languages, err := client.ListLanguages(context.Background(), server.URL+"/calibre/opds?ignored=yes")
 	require.NoError(t, err)
-	assert.Len(t, languages.Entries, 1)
+	require.Len(t, languages.Entries, 1)
 	assert.Equal(t, "German", languages.Entries[0].Title)
 	books, err := client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "7")
 	require.NoError(t, err)
-	assert.Len(t, books.Entries, 3)
+	require.Len(t, books.Entries, 3)
 	filtered := FilterEPUBEntries(books)
-	assert.Len(t, filtered.Entries, 2)
+	require.Len(t, filtered.Entries, 2)
 	assert.Equal(t, "epub-2", filtered.Entries[1].ID)
 	assert.Len(t, requests, 3)
 	_, err = client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "../authors")
@@ -157,7 +158,7 @@ func TestLanguageEndpointPreservesCatalogQueryCredentials(t *testing.T) {
 	_, err := NewClient(server.Client(), Auth{}).ListLanguages(context.Background(), server.URL+"/opds?access_token=catalog-secret&view=books")
 	require.NoError(t, err)
 	want := "/opds/language?access_token=catalog-secret&view=books"
-	assert.Len(t, requests, 1)
+	require.Len(t, requests, 1)
 	assert.Equal(t, want, requests[0])
 }
 
@@ -174,7 +175,7 @@ func TestListPageReturnsOnlyRequestedPageAndPaginationLinks(t *testing.T) {
 
 	feed, err := NewClient(server.Client(), Auth{}).ListPage(context.Background(), server.URL+"/page-1")
 	require.NoError(t, err)
-	assert.Len(t, feed.Entries, 1)
+	require.Len(t, feed.Entries, 1)
 	assert.Equal(t, "one", feed.Entries[0].ID)
 	assert.NotEmpty(t, linkByRel(feed.Links, "next"))
 }
@@ -318,7 +319,7 @@ func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
 	})}, Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example"})
 	_, err := client.ListPage(context.Background(), "https://catalog.example/redirect")
 	assert.Error(t, err, "HTTPS downgrade was followed")
-	assert.Len(t, requests, 1)
+	require.Len(t, requests, 1)
 	assert.Equal(t, "https://catalog.example/redirect", requests[0])
 }
 

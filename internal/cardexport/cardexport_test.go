@@ -98,8 +98,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	for _, f := range zr.File {
 		members[f.Name] = f
 	}
-	assert.NotNil(t, members["collection.anki2"])
-	assert.NotNil(t, members["media"])
+	require.NotNil(t, members["collection.anki2"])
+	require.NotNil(t, members["media"])
 	assert.Len(t, members, 2)
 	media, _ := members["media"].Open()
 	var mediaMap map[string]string
@@ -145,7 +145,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
 	assert.Equal(t, stableID("note|"+note.Key), noteID)
-	assert.Len(t, serializedFields, 8)
+	require.Len(t, serializedFields, 8)
 	assert.Equal(t, note.Identity, serializedFields[0])
 	assert.Equal(t, note.Text, serializedFields[1])
 	assert.Equal(t, note.Article, serializedFields[2])
@@ -161,7 +161,7 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	assert.Len(t, serializedFields, 8)
+	require.Len(t, serializedFields, 8)
 	assert.Equal(t, "", serializedFields[6])
 	var distinctSortFields int64
 	err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
@@ -418,7 +418,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 		err := rows.Scan(&fields, &sortField, &checksum)
 		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		assert.Len(t, serialized, 8)
+		require.Len(t, serialized, 8)
 		assert.Equal(t, sortField, serialized[0])
 		assert.Equal(t, fieldChecksum(sortField), checksum)
 		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
@@ -510,8 +510,8 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	r.Comma = '\t'
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
-	assert.Len(t, rows, 1)
-	assert.Len(t, rows[0], 9)
+	require.Len(t, rows, 1)
+	require.Len(t, rows[0], 9)
 	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:8], "\x1f"))
 	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][8])
 }
@@ -594,7 +594,7 @@ func TestLongContextIsRejectedWithoutShorteningOrAlternativeFront(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, 0, artifact.Count)
 	assert.Equal(t, 1, artifact.Completeness.QualityOmitted)
-	assert.Len(t, artifact.Omitted, 1)
+	require.Len(t, artifact.Omitted, 1)
 	assert.True(t, contains(artifact.Omitted[0].Reasons, "too long"))
 	assert.NotContains(t, artifact.TSV, longSentence, "long source was rendered despite deterministic quality gate")
 }
@@ -673,8 +673,8 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 
 	rows, err := readTSV(first.TSV)
 	require.NoError(t, err)
-	assert.Len(t, rows, len(fixtures)-1)
-	assert.Len(t, rows[0], 9)
+	require.Len(t, rows, len(fixtures)-1)
+	require.Len(t, rows[0], 9)
 	assert.NotContains(t, first.TSV, longSentence)
 	assert.Contains(t, first.TSV, "\tNOUN\t")
 	assert.NotContains(t, first.TSV, "{{c1::")
@@ -688,7 +688,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		assert.Len(t, row, 8)
+		require.Len(t, row, 8)
 		assert.NotContains(t, row[1], "{{c1::")
 		assert.NotContains(t, row[3], "geleiten|leiten")
 		assert.NotContains(t, row[3], `"Case"`)
@@ -872,7 +872,7 @@ func TestBuildCoveragePreparesItalianCardWithoutChangingAccents(t *testing.T) {
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, "Mouseion::it::Il viaggio", artifact.DeckName)
 	assert.Equal(t, "Il viaggio.apkg", artifact.Filename)
-	assert.Len(t, artifact.Generated, 1)
+	require.Len(t, artifact.Generated, 1)
 	note := artifact.Generated[0].Note
 	assert.Contains(t, note.Text, "<b>porterà</b>")
 	assert.Equal(t, "", note.Article)
@@ -892,7 +892,7 @@ func TestBuildCoverageForAnalysisUsesOnlyItsCorpus(t *testing.T) {
 	artifact, err := NewService(store).BuildCoverageForAnalysis(context.Background(), "alice", "run-1")
 	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
-	assert.Len(t, artifact.Generated, 1)
+	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "portare", artifact.Generated[0].Entry.CanonicalLemma)
 }
 
@@ -945,7 +945,7 @@ func TestCoverageCandidatesExcludesKnownAndGeneratedBeforeCutoff(t *testing.T) {
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "current-book", candidates)
 	require.NoError(t, err)
-	assert.Len(t, got, 1)
+	require.Len(t, got, 1)
 	assert.Equal(t, "one", got[0].CanonicalLemma)
 	assert.Equal(t, 1, store.historyCalls["de"], "generated vocabulary loaded %d times", store.historyCalls["de"])
 }
@@ -973,7 +973,7 @@ func TestCoverageCandidatesReservesOnlyCurrentlyStudiedVocabulary(t *testing.T) 
 	}
 	got, err := NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
 	require.NoError(t, err)
-	assert.Len(t, got, 1)
+	require.Len(t, got, 1)
 	assert.Equal(t, "released", got[0].CanonicalLemma)
 	store.reserved = nil
 	got, err = NewService(store).coverageCandidates(context.Background(), "alice", "future-book", candidates)
@@ -1002,7 +1002,7 @@ func TestSelectRecurringCandidatesAppliesFrequencyFloor(t *testing.T) {
 	}
 	got := selectRecurringCandidates(candidates, defaultDeckMinOccurrences)
 	want := []string{"common", "boundary"}
-	assert.Len(t, got, len(want))
+	require.Len(t, got, len(want))
 	for i, candidate := range got {
 		assert.Equal(t, want[i], candidate.CanonicalLemma, "candidate %d = %q, want %q", i, candidate.CanonicalLemma, want[i])
 	}
@@ -1100,9 +1100,9 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, Completeness{TotalCards: 1, CardsWithEnglish: 1, CardsWithEnglishSentence: 1, QualityOmitted: 1}, artifact.Completeness)
-	assert.Len(t, artifact.Omitted, 1)
+	require.Len(t, artifact.Omitted, 1)
 	assert.Equal(t, "Haus", artifact.Omitted[0].CanonicalLemma)
-	assert.Len(t, artifact.EnrichmentCandidates, 1)
+	require.Len(t, artifact.EnrichmentCandidates, 1)
 	assert.Equal(t, "Baum", artifact.EnrichmentCandidates[0].CanonicalLemma)
 	assert.NotEmpty(t, artifact.EnrichmentCandidates[0].ExampleSentence)
 	assert.Len(t, store.generated, 1)

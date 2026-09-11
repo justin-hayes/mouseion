@@ -88,7 +88,7 @@ func TestBrowseLanguageFiltersNonEPUBFormats(t *testing.T) {
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
 	feed, err := NewService(store, &importerStub{}, server.Client()).BrowseLanguage(context.Background(), "owner", "connection", "3")
 	require.NoError(t, err)
-	assert.Len(t, feed.Entries, 1)
+	require.Len(t, feed.Entries, 1)
 	assert.Equal(t, "epub", feed.Entries[0].ID)
 }
 

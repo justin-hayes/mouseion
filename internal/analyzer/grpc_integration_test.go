@@ -55,7 +55,7 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	assert.NotEmpty(t, result.Sentences)
 	capabilities, err := analyzer.GetCapabilities(ctx)
 	require.NoError(t, err, "real gRPC capabilities")
-	assert.Len(t, capabilities.Languages, 1)
+	require.Len(t, capabilities.Languages, 1)
 	assert.Equal(t, "de", capabilities.Languages[0].Language)
 	assert.True(t, capabilities.Languages[0].Ready)
 }

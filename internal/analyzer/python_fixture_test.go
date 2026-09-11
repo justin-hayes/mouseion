@@ -33,7 +33,7 @@ func TestGoConsumesItalianStanzaRegressionFixture(t *testing.T) {
 	corpus := new(mouseionv1.NormalizedCorpus)
 	require.NoError(t, protojson.Unmarshal(payload, corpus), "unmarshal Italian Python fixture")
 	assert.Equal(t, "it", corpus.GetLanguage())
-	assert.Len(t, corpus.GetSentences(), 2)
+	require.Len(t, corpus.GetSentences(), 2)
 	tokens := corpus.GetSentences()[0].GetTokens()
 	assert.Equal(t, "L'", tokens[0].GetSurface())
 	assert.Equal(t, "il", tokens[0].GetRawLemma())

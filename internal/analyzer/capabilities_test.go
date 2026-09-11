@@ -107,7 +107,7 @@ func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {
 		err := <-errors
 		require.NoError(t, err, "capability lookup error = %v", err)
 		value := <-results
-		assert.Len(t, value.Languages, 1)
+		require.Len(t, value.Languages, 1)
 		assert.Equal(t, "de", value.Languages[0].Language)
 		assert.False(t, value.Degraded)
 	}
@@ -151,7 +151,7 @@ func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
 	waiterErr := <-waiterError
 	require.NoError(t, waiterErr, "waiter error = %v", waiterErr)
 	value := <-waiterResult
-	assert.Len(t, value.Languages, 1)
+	require.Len(t, value.Languages, 1)
 	assert.Equal(t, "de", value.Languages[0].Language)
 	assert.False(t, value.Degraded)
 	assert.Equal(t, int32(1), calls.Load(), "capability RPC calls = %d, want 1", calls.Load())

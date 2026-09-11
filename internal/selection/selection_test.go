@@ -63,7 +63,7 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "noun", false), tok("selten", "selten", "ADJ", false), tok("der", "der", "DET", false), tok("Berlin", "Berlin", "PROPN", false), tok("Anna", "Anna", "NOUN", true))
 	got, err := svc.Select(context.Background(), "alice", corpus, cfg)
 	require.NoError(t, err)
-	assert.Len(t, got, 2)
+	require.Len(t, got, 2)
 	assert.Equal(t, "Haus", got[0].Identity.CanonicalLemma)
 	assert.Equal(t, "selten", got[1].Identity.CanonicalLemma)
 	assert.Equal(t, []string{"Haus", "Häuser"}, got[0].ObservedForms)
@@ -115,7 +115,7 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 		{Identity: Identity{"it", "dare", "VERB"}, OccurrenceCount: 1},
 		{Identity: Identity{"it", "uomo", "NOUN"}, OccurrenceCount: 2},
 	}
-	assert.Len(t, got, len(want))
+	require.Len(t, got, len(want))
 	for i := range want {
 		assert.Equal(t, want[i].Identity, got[i].Identity, "Italian candidate %d", i)
 		assert.Equal(t, want[i].OccurrenceCount, got[i].OccurrenceCount, "Italian candidate %d", i)
@@ -142,7 +142,7 @@ func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
 	cfg.IncludeNamedEntities = true
 	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Berlin", "Berlin", "PROPN", true)), cfg)
 	require.NoError(t, err)
-	assert.Len(t, got, 1)
+	require.Len(t, got, 1)
 	assert.Equal(t, 1, got[0].OccurrenceCount)
 	assert.Len(t, store.saved, 1)
 }
@@ -157,7 +157,7 @@ func TestOwnerScopedExclusions(t *testing.T) {
 	svc := NewService(store)
 	alice, err := svc.Select(context.Background(), "alice", corpus, DefaultConfig("a"))
 	require.NoError(t, err)
-	assert.Len(t, alice, 1)
+	require.Len(t, alice, 1)
 	assert.Equal(t, "generated", alice[0].Identity.CanonicalLemma)
 	bob, err := svc.Select(context.Background(), "bob", corpus, DefaultConfig("b"))
 	require.NoError(t, err)

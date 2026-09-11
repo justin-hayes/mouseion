@@ -29,7 +29,7 @@ func TestEligibleLanguagesUsesReadyCatalogueLanguagesAndExcludesEnglish(t *testi
 		{Language: "es", DisplayName: "Spanish", Ready: true},
 	}}
 	got := eligibleLanguages(languages, capabilities)
-	assert.Len(t, got, 2)
+	require.Len(t, got, 2)
 	assert.Equal(t, "de-DE", got[0].capability.Language)
 	assert.Equal(t, "7", got[0].languageID)
 	assert.Equal(t, "fr", got[1].capability.Language)

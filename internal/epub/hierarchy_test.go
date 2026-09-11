@@ -19,7 +19,7 @@ func TestBuildUnitGroupsNestedNavigationAndFlatFallback(t *testing.T) {
 	first := BuildUnitGroups(units)
 	second := BuildUnitGroups(units)
 	assert.GreaterOrEqual(t, len(first), 4)
-	assert.Len(t, second, len(first))
+	require.Len(t, second, len(first))
 	for i := range first {
 		assert.Equal(t, second[i].ID, first[i].ID, "non-deterministic groups")
 		assert.Equal(t, second[i].First, first[i].First, "non-deterministic groups")

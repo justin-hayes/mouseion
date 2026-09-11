@@ -112,7 +112,7 @@ func TestExtractReadingOrderAndLocations(t *testing.T) {
 	assert.Equal(t, want, book.FullText)
 	assert.Equal(t, "Die Prüfung", book.Title)
 	assert.Equal(t, "urn:isbn:9780000000014", book.SourceIdentifier)
-	assert.Len(t, book.Chapters, 2)
+	require.Len(t, book.Chapters, 2)
 	first, second := book.Chapters[0], book.Chapters[1]
 	assert.Equal(t, "first", first.ID)
 	assert.Equal(t, "Erstes Kapitel", first.Title)
@@ -143,7 +143,7 @@ func TestExtractOrderedUnitsAndNavigationMetadata(t *testing.T) {
 	)
 	book, err := Extract(data)
 	require.NoError(t, err)
-	assert.Len(t, book.ExtractedUnits.Units, 2)
+	require.Len(t, book.ExtractedUnits.Units, 2)
 	first, second := book.ExtractedUnits.Units[0], book.ExtractedUnits.Units[1]
 	assert.Equal(t, UnitID(0, "first"), first.ID)
 	assert.Equal(t, uint64(0), first.Order)
@@ -165,7 +165,7 @@ func TestExtractOrderedUnitsAndNavigationMetadata(t *testing.T) {
 	assert.Equal(t, first.EndOffset+2, second.StartOffset)
 	assert.Equal(t, uint64(len([]rune(book.FullText))), second.EndOffset)
 	require.NoError(t, book.ExtractedUnits.ValidateOffsets(book.FullText))
-	assert.Len(t, book.Chapters, 2)
+	require.Len(t, book.Chapters, 2)
 	assert.Equal(t, "first", book.Chapters[0].ID)
 	assert.Equal(t, "second", book.Chapters[1].ID)
 	assert.Equal(t, first.StartOffset, book.Chapters[0].Location.StartOffset)
@@ -179,6 +179,7 @@ func TestExtractUnitTitleFallbackAndMalformedOptionalNavigation(t *testing.T) {
 	)
 	book, err := Extract(data)
 	require.NoError(t, err)
+	require.NotEmpty(t, book.ExtractedUnits.Units)
 	unit := book.ExtractedUnits.Units[0]
 	assert.Equal(t, "untitled", unit.Title)
 	assert.Equal(t, UnitTitleManifestID, unit.TitleSource)

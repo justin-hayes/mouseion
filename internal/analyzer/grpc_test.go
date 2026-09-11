@@ -81,7 +81,7 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	assert.Equal(t, "goethe", result.Sentences[0].Tokens[0].CanonicalLemma)
 	capabilities, err := analyzer.GetCapabilities(context.Background())
 	require.NoError(t, err)
-	assert.Len(t, capabilities.Languages, 2)
+	require.Len(t, capabilities.Languages, 2)
 	assert.Equal(t, "German", capabilities.Languages[0].DisplayName)
 	assert.Equal(t, "1.10.1", capabilities.Languages[0].ModelVersion)
 	assert.True(t, capabilities.Languages[0].Ready)
