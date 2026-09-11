@@ -207,20 +207,23 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Connect a catalogue", `href="/catalogs"`} {
+	for _, want := range []string{"Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account", `href="/catalogs">Set up a catalog</a>`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("empty My Books onboarding missing %q: %s", want, html)
 		}
+	}
+	if strings.Contains(html, "Add books") || strings.Contains(html, "Add a book") {
+		t.Fatalf("empty My Books onboarding exposed retired acquisition wording: %s", html)
 	}
 
 	output.Reset()
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "Sync catalogue") {
+	if !strings.Contains(output.String(), `href="/catalogs">Sync catalogue</a>`) {
 		t.Fatalf("connected empty state omitted sync guidance: %s", output.String())
 	}
-	if strings.Contains(output.String(), "Add a book") {
+	if strings.Contains(output.String(), "Add books") || strings.Contains(output.String(), "Add a book") {
 		t.Fatalf("connected empty state exposed manual book creation: %s", output.String())
 	}
 }
