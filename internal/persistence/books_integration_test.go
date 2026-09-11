@@ -4,40 +4,31 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/migrations"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "books-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "books-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	aliceConnection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://alice.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bobConnection, err := store.CreateOpdsConnection(ctx, bob.ID, domain.OpdsConnection{Name: "Bob catalog", URL: "https://bob.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	legacySources := []struct {
 		owner, language, identifier, title string
@@ -56,49 +47,40 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		if source.owner == bob.ID {
 			connectionID = bobConnection.ID
 		}
-		if _, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, source.language); err != nil {
-			t.Fatal(err)
-		}
+		_, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, source.language)
+		require.NoError(t, err)
 		var bookID string
-		if err = pool.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND value=$3`, source.owner, connectionID, source.identifier).Scan(&bookID); err != nil {
-			t.Fatal(err)
-		}
-		if err = store.LinkSourceToBook(ctx, source.owner, bookID, legacyIDs[i]); err != nil {
-			t.Fatal(err)
-		}
+		err = pool.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND value=$3`, source.owner, connectionID, source.identifier).Scan(&bookID)
+		require.NoError(t, err)
+		err = store.LinkSourceToBook(ctx, source.owner, bookID, legacyIDs[i])
+		require.NoError(t, err)
 	}
 
 	books, err := store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 2 {
-		t.Fatalf("alice backfill books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 2, "alice backfill books")
 	for _, source := range legacySources[:2] {
 		book, found, resolveErr := store.ResolveBookByAlias(ctx, source.owner, domain.NamespaceSourceIdentifier, source.identifier)
-		if resolveErr != nil || !found || book.LanguageState != domain.LanguageChosen || book.LanguageTag != source.language {
-			t.Fatalf("backfill alias %q book=%+v found=%v err=%v", source.identifier, book, found, resolveErr)
-		}
+		require.NoError(t, resolveErr)
+		assert.True(t, found, "backfill alias %q", source.identifier)
+		assert.Equal(t, domain.LanguageChosen, book.LanguageState, "backfill alias %q", source.identifier)
+		assert.Equal(t, source.language, book.LanguageTag, "backfill alias %q", source.identifier)
 	}
 	var linkedCount int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM source_materials WHERE book_id IS NOT NULL`).Scan(&linkedCount); err != nil || linkedCount != len(legacySources) {
-		t.Fatalf("backfilled source links=%d err=%v", linkedCount, err)
-	}
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM source_materials WHERE book_id IS NOT NULL`).Scan(&linkedCount)
+	require.NoError(t, err)
+	assert.Equal(t, len(legacySources), linkedCount)
 
 	metadataOnly, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	retriedMetadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unacquired book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil || retriedMetadata.ID == metadataOnly.ID {
-		t.Fatalf("repeated metadata create book=%q unexpectedly reused=%q err=%v", retriedMetadata.ID, metadataOnly.ID, err)
-	}
+	require.NoError(t, err)
+	assert.NotEqual(t, metadataOnly.ID, retriedMetadata.ID, "repeated metadata create reused book")
 	books, err = store.ListMyBooks(ctx, alice.ID)
-	if err != nil || !containsBook(books, metadataOnly.ID) {
-		t.Fatalf("metadata-only book missing from My Books: books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, containsBook(books, metadataOnly.ID), "metadata-only book missing from My Books")
 	view, err := store.ListMyBooksWithEvidence(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var metadataView *domain.MyBook
 	for i := range view {
 		if view[i].Book.ID == metadataOnly.ID {
@@ -106,128 +88,106 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 			break
 		}
 	}
-	if metadataView == nil || metadataView.Acquired != nil || metadataView.EvidenceState() != domain.BookNotAcquired || metadataView.Book.LanguageState != domain.LanguageUnknown {
-		t.Fatalf("metadata-only read model=%+v", metadataView)
-	}
+	require.NotNil(t, metadataView, "metadata-only read model")
+	assert.Nil(t, metadataView.Acquired)
+	assert.Equal(t, domain.BookNotAcquired, metadataView.EvidenceState())
+	assert.Equal(t, domain.LanguageUnknown, metadataView.Book.LanguageState)
 
 	promotion, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Promote this book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	promotionSource := putBookSource(t, ctx, store, alice.ID, "promotion-source", "Promoted", []byte("promotion-epub"), "promoted")
 	resolvedPromotion, err := store.ResolveOrCreateBookForAcquisitionForBook(ctx, alice.ID, promotion.ID, promotionSource.SourceIdentifier, promotionSource.Language, promotionSource.Title)
-	if err != nil || resolvedPromotion != promotion.ID {
-		t.Fatalf("promotion resolved book=%q want=%q err=%v", resolvedPromotion, promotion.ID, err)
-	}
-	if err = store.LinkSourceToBook(ctx, alice.ID, promotion.ID, promotionSource.ID); err != nil {
-		t.Fatal(err)
-	}
-	if repeated, repeatErr := store.ResolveOrCreateBookForAcquisitionForBook(ctx, alice.ID, promotion.ID, promotionSource.SourceIdentifier, promotionSource.Language, promotionSource.Title); repeatErr != nil || repeated != promotion.ID {
-		t.Fatalf("repeated promotion book=%q want=%q err=%v", repeated, promotion.ID, repeatErr)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, promotion.ID, resolvedPromotion)
+	err = store.LinkSourceToBook(ctx, alice.ID, promotion.ID, promotionSource.ID)
+	require.NoError(t, err)
+	promotionRepeat, repeatErr := store.ResolveOrCreateBookForAcquisitionForBook(ctx, alice.ID, promotion.ID, promotionSource.SourceIdentifier, promotionSource.Language, promotionSource.Title)
+	require.NoError(t, repeatErr)
+	assert.Equal(t, promotion.ID, promotionRepeat)
 	view, err = store.ListMyBooksWithEvidence(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	foundPromotion := false
 	for i := range view {
 		if view[i].Book.ID == promotion.ID {
 			foundPromotion = true
-			if view[i].Acquired == nil || view[i].Acquired.Source.ID != promotionSource.ID || view[i].Book.LanguageState != domain.LanguageUnknown || view[i].Book.LanguageTag != "" || view[i].EvidenceState() != domain.BookAcquiredUnassessed {
-				t.Fatalf("promoted read model=%+v", view[i])
-			}
+			require.NotNil(t, view[i].Acquired, "promoted read model")
+			assert.Equal(t, promotionSource.ID, view[i].Acquired.Source.ID, "promoted read model")
+			assert.Equal(t, domain.LanguageUnknown, view[i].Book.LanguageState, "promoted read model")
+			assert.Equal(t, "", view[i].Book.LanguageTag, "promoted read model")
+			assert.Equal(t, domain.BookAcquiredUnassessed, view[i].EvidenceState(), "promoted read model")
 			break
 		}
 	}
-	if !foundPromotion {
-		t.Fatalf("promoted book missing from My Books read model: %+v", view)
-	}
+	assert.True(t, foundPromotion, "promoted book missing from My Books read model")
 
 	first := putBookSource(t, ctx, store, alice.ID, "acquisition-source", "Acquired", []byte("epub-one"), "readable")
 	bookID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, first.SourceIdentifier, first.Language, first.Title)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = store.LinkSourceToBook(ctx, alice.ID, bookID, first.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, found, err := store.FindSourceMaterialForAcquisition(ctx, alice.ID, first.SourceIdentifier, first.ContentHash); err != nil || !found {
-		t.Fatalf("same acquisition was not found: found=%v err=%v", found, err)
-	}
-	if _, found, err := store.FindSourceMaterialForAcquisition(ctx, alice.ID, first.SourceIdentifier, domain.EPUBContentDigest([]byte("epub-two"))); err != nil || found {
-		t.Fatalf("changed acquisition was reported present: found=%v err=%v", found, err)
-	}
+	require.NoError(t, err)
+	err = store.LinkSourceToBook(ctx, alice.ID, bookID, first.ID)
+	require.NoError(t, err)
+	_, found, err := store.FindSourceMaterialForAcquisition(ctx, alice.ID, first.SourceIdentifier, first.ContentHash)
+	require.NoError(t, err)
+	assert.True(t, found, "same acquisition was not found")
+	_, found, err = store.FindSourceMaterialForAcquisition(ctx, alice.ID, first.SourceIdentifier, domain.EPUBContentDigest([]byte("epub-two")))
+	require.NoError(t, err)
+	assert.False(t, found, "changed acquisition was reported present")
 	repeated := putBookSource(t, ctx, store, alice.ID, "acquisition-source", "Acquired", []byte("epub-one"), "readable")
 	repeatedBookID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, repeated.SourceIdentifier, repeated.Language, repeated.Title)
-	if err != nil || repeatedBookID != bookID || repeated.ID != first.ID {
-		t.Fatalf("repeated acquisition source=%+v book=%q want source=%q book=%q err=%v", repeated, repeatedBookID, first.ID, bookID, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, bookID, repeatedBookID, "repeated acquisition")
+	assert.Equal(t, first.ID, repeated.ID, "repeated acquisition")
 	changed := putBookSource(t, ctx, store, alice.ID, "acquisition-source", "Acquired", []byte("epub-two"), "readable")
 	changedBookID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, changed.SourceIdentifier, changed.Language, changed.Title)
-	if err != nil || changedBookID != bookID || changed.ID != first.ID {
-		t.Fatalf("changed acquisition source=%+v book=%q want source=%q book=%q err=%v", changed, changedBookID, first.ID, bookID, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, bookID, changedBookID, "changed acquisition")
+	assert.Equal(t, first.ID, changed.ID, "changed acquisition")
 	var revisions int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, first.ID).Scan(&revisions); err != nil || revisions != 2 {
-		t.Fatalf("acquisition revisions=%d err=%v", revisions, err)
-	}
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, first.ID).Scan(&revisions)
+	require.NoError(t, err)
+	assert.Equal(t, 2, revisions)
 
 	otherSource := putBookSource(t, ctx, store, bob.ID, "acquisition-source", "Acquired", []byte("epub-one"), "readable")
 	otherBookID, err := store.ResolveOrCreateBookForAcquisition(ctx, bob.ID, otherSource.SourceIdentifier, otherSource.Language, otherSource.Title)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if otherBookID == bookID {
-		t.Fatal("cross-owner acquisition reused a Book")
-	}
-	if _, err = store.GetBook(ctx, alice.ID, otherBookID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("alice accessed bob book: err=%v", err)
-	}
-	if err = store.LinkSourceToBook(ctx, bob.ID, otherBookID, otherSource.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.NotEqual(t, bookID, otherBookID, "cross-owner acquisition reused a Book")
+	_, err = store.GetBook(ctx, alice.ID, otherBookID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	err = store.LinkSourceToBook(ctx, bob.ID, otherBookID, otherSource.ID)
+	require.NoError(t, err)
 
 	secondBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Second", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = store.AddBookAlias(ctx, alice.ID, bookID, domain.AliasStrongBibliographic, "isbn", "978-conflict"); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, domain.AliasStrongBibliographic, "isbn", "978-conflict"); !errors.Is(err, ErrAliasConflict) {
-		t.Fatalf("alias conflict error=%v", err)
-	}
+	require.NoError(t, err)
+	err = store.AddBookAlias(ctx, alice.ID, bookID, domain.AliasStrongBibliographic, "isbn", "978-conflict")
+	require.NoError(t, err)
+	err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, domain.AliasStrongBibliographic, "isbn", "978-conflict")
+	assert.ErrorIs(t, err, ErrAliasConflict)
 	resolved, found, err := store.ResolveBookByAlias(ctx, alice.ID, "isbn", "978-conflict")
-	if err != nil || !found || resolved.ID != bookID {
-		t.Fatalf("alias was reassigned: book=%+v found=%v err=%v", resolved, found, err)
-	}
-	if err = store.LinkSourceToBook(ctx, alice.ID, secondBook.ID, first.ID); !errors.Is(err, ErrSourceBookConflict) {
-		t.Fatalf("source conflict error=%v", err)
-	}
+	require.NoError(t, err)
+	assert.True(t, found, "alias was reassigned")
+	assert.Equal(t, bookID, resolved.ID, "alias was reassigned")
+	err = store.LinkSourceToBook(ctx, alice.ID, secondBook.ID, first.ID)
+	assert.ErrorIs(t, err, ErrSourceBookConflict)
 
-	if err = store.RemoveBookFromMyBooks(ctx, alice.ID, bookID); err != nil {
-		t.Fatal(err)
-	}
-	if books, err = store.ListMyBooks(ctx, alice.ID); err != nil || containsBook(books, bookID) {
-		t.Fatalf("removed book still active: books=%+v err=%v", books, err)
-	}
-	if err = store.AddBookToMyBooks(ctx, alice.ID, bookID); err != nil {
-		t.Fatal(err)
-	}
-	if restored, err := store.GetBook(ctx, alice.ID, bookID); err != nil || restored.ID != bookID {
-		t.Fatalf("restored book=%+v err=%v", restored, err)
-	}
-	if _, found, err = store.ResolveBookByAlias(ctx, alice.ID, domain.NamespaceSourceIdentifier, "acquisition-source"); err != nil || found {
-		t.Fatalf("connectionless acquisition source alias was persisted: found=%v err=%v", found, err)
-	}
+	err = store.RemoveBookFromMyBooks(ctx, alice.ID, bookID)
+	require.NoError(t, err)
+	books, err = store.ListMyBooks(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.False(t, containsBook(books, bookID), "removed book still active")
+	err = store.AddBookToMyBooks(ctx, alice.ID, bookID)
+	require.NoError(t, err)
+	restored, err := store.GetBook(ctx, alice.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, bookID, restored.ID, "restored book")
+	_, found, err = store.ResolveBookByAlias(ctx, alice.ID, domain.NamespaceSourceIdentifier, "acquisition-source")
+	require.NoError(t, err)
+	assert.False(t, found, "connectionless acquisition source alias was persisted")
 
-	if err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, "invalid", "failure", "must-not-commit"); err == nil {
-		t.Fatal("invalid alias was accepted")
-	}
+	err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, "invalid", "failure", "must-not-commit")
+	assert.Error(t, err, "invalid alias was accepted")
 	var invalidAliases int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='must-not-commit'`, alice.ID).Scan(&invalidAliases); err != nil || invalidAliases != 0 {
-		t.Fatalf("failed alias left partial row count=%d err=%v", invalidAliases, err)
-	}
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='must-not-commit'`, alice.ID).Scan(&invalidAliases)
+	require.NoError(t, err)
+	assert.Zero(t, invalidAliases, "failed alias left partial row")
 
 }
 
@@ -235,149 +195,105 @@ func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "active-language-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "active-language-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "" {
-		t.Fatalf("initial stored language=%q err=%v", got, err)
-	}
-	if err := store.SetActiveStudyLanguage(ctx, alice.ID, "IT_it"); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "it" {
-		t.Fatalf("stored language=%q err=%v", got, err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, bob.ID); err != nil || got != "" {
-		t.Fatalf("other owner stored language=%q err=%v", got, err)
-	}
+	require.NoError(t, err)
+	got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	err = store.SetActiveStudyLanguage(ctx, alice.ID, "IT_it")
+	require.NoError(t, err)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "it", got)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, bob.ID)
+	require.NoError(t, err)
+	assert.Empty(t, got)
 
 	deBook, err := domain.NewBook(alice.ID, "German", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	deBook, err = store.CreateBook(ctx, deBook)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	itBook, err := domain.NewBook(alice.ID, "Italian", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	itBook, err = store.CreateBook(ctx, itBook)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, `UPDATE book_membership SET activated_at=CASE book_id WHEN $2 THEN now() - interval '1 minute' WHEN $3 THEN now() ELSE activated_at END WHERE owner_id=$1`, alice.ID, deBook.ID, itBook.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE book_membership SET activated_at=CASE book_id WHEN $2 THEN now() - interval '1 minute' WHEN $3 THEN now() ELSE activated_at END WHERE owner_id=$1`, alice.ID, deBook.ID, itBook.ID)
+	require.NoError(t, err)
 
 	languages, err := store.ListStudyLanguages(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, alice.ID)
-	if err != nil || recent != "it" {
-		t.Fatalf("recent language=%q err=%v", recent, err)
-	}
-	if got := domain.ResolveActiveStudyLanguage(languages, "fr", recent); got != "it" {
-		t.Fatalf("invalid stored language resolved=%q, want it", got)
-	}
-	if err = store.RemoveBookFromMyBooks(ctx, alice.ID, itBook.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "it", recent)
+	assert.Equal(t, "it", domain.ResolveActiveStudyLanguage(languages, "fr", recent))
+	err = store.RemoveBookFromMyBooks(ctx, alice.ID, itBook.ID)
+	require.NoError(t, err)
 	recent, err = store.MostRecentlyActivatedStudyLanguage(ctx, alice.ID)
-	if err != nil || recent != "de" {
-		t.Fatalf("fallback recent language=%q err=%v", recent, err)
-	}
-	if got, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID); err != nil || got != "it" {
-		t.Fatalf("stored language changed during lazy fallback=%q err=%v", got, err)
-	}
-	if _, err = store.UpdateBookMetadata(ctx, alice.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, ""); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "de", recent)
+	got, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "it", got)
+	_, err = store.UpdateBookMetadata(ctx, alice.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, "")
+	require.NoError(t, err)
 	languages, err = store.ListStudyLanguages(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := domain.ResolveActiveStudyLanguage(languages, "fr", "de"); got != "" {
-		t.Fatalf("empty fallback language=%q, want none", got)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, domain.ResolveActiveStudyLanguage(languages, "fr", "de"))
 }
 
 func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "book-detail-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "book-detail-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	metadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Metadata", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	metadataDetail, err := store.GetBookDetail(ctx, alice.ID, metadata.ID)
-	if err != nil || metadataDetail.Acquired != nil || metadataDetail.EvidenceState() != domain.BookNotAcquired {
-		t.Fatalf("metadata detail=%+v err=%v", metadataDetail, err)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, metadataDetail.Acquired)
+	assert.Equal(t, domain.BookNotAcquired, metadataDetail.EvidenceState())
 
 	source := putBookSource(t, ctx, store, alice.ID, "detail-source", "Acquired", []byte("detail-epub"), "de")
 	bookID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, source.SourceIdentifier, source.Language, source.Title)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = store.LinkSourceToBook(ctx, alice.ID, bookID, source.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	err = store.LinkSourceToBook(ctx, alice.ID, bookID, source.ID)
+	require.NoError(t, err)
 	for _, id := range []string{bookID, source.ID} {
 		detail, detailErr := store.GetBookDetail(ctx, alice.ID, id)
-		if detailErr != nil || detail.Book.ID != bookID || detail.Acquired == nil || detail.Acquired.Source.ID != source.ID || detail.EvidenceState() != domain.BookAcquiredUnassessed {
-			t.Fatalf("detail id=%q result=%+v err=%v", id, detail, detailErr)
-		}
+		require.NoError(t, detailErr)
+		assert.Equal(t, bookID, detail.Book.ID, "detail id=%q", id)
+		require.NotNil(t, detail.Acquired, "detail id=%q", id)
+		assert.Equal(t, source.ID, detail.Acquired.Source.ID, "detail id=%q", id)
+		assert.Equal(t, domain.BookAcquiredUnassessed, detail.EvidenceState(), "detail id=%q", id)
 	}
-	if _, err = store.GetBookDetail(ctx, bob.ID, bookID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner book detail error=%v", err)
-	}
-	if _, err = store.GetBookDetail(ctx, alice.ID, "missing"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("unknown book detail error=%v", err)
-	}
+	_, err = store.GetBookDetail(ctx, bob.ID, bookID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = store.GetBookDetail(ctx, alice.ID, "missing")
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "study-languages-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err)
 	inputs := []struct {
 		title, language string
 		state           string
@@ -389,17 +305,12 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	}
 	for _, input := range inputs {
 		book, bookErr := domain.NewBook(alice.ID, input.title, domain.MetadataProvenanceCatalogueSync, input.state, input.language)
-		if bookErr != nil {
-			t.Fatal(bookErr)
-		}
-		if _, err = store.CreateBook(ctx, book); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, bookErr)
+		_, err = store.CreateBook(ctx, book)
+		require.NoError(t, err)
 	}
 	books, err := store.ListMyBooks(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var duplicateBookID string
 	for _, book := range books {
 		if book.Title == "German one" {
@@ -407,37 +318,28 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 			break
 		}
 	}
-	if duplicateBookID == "" {
-		t.Fatal("German one book missing")
-	}
-	if err = store.RemoveBookFromMyBooks(ctx, alice.ID, duplicateBookID); err != nil {
-		t.Fatal(err)
-	}
+	assert.NotEmpty(t, duplicateBookID, "German one book missing")
+	err = store.RemoveBookFromMyBooks(ctx, alice.ID, duplicateBookID)
+	require.NoError(t, err)
 
 	languages, err := store.ListStudyLanguages(ctx, alice.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(languages) != 2 || languages[0] != (domain.StudyLanguage{Language: "de", DisplayName: "German"}) || languages[1] != (domain.StudyLanguage{Language: "pt", DisplayName: "pt"}) {
-		t.Fatalf("derived study languages=%+v", languages)
-	}
+	require.NoError(t, err)
+	require.Len(t, languages, 2)
+	assert.Equal(t, domain.StudyLanguage{Language: "de", DisplayName: "German"}, languages[0])
+	assert.Equal(t, domain.StudyLanguage{Language: "pt", DisplayName: "pt"}, languages[1])
 }
 
 func migrationSQL(t *testing.T, name string) string {
 	t.Helper()
 	sql, err := migrations.FS.ReadFile(name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return string(sql)
 }
 
 func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language, identifier, title string, content []byte) string {
 	t.Helper()
 	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,'application/epub+zip',$5,$6,$7) RETURNING id::text`, owner, language, identifier, title, "legacy:"+identifier, content, string(content)).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,'application/epub+zip',$5,$6,$7) RETURNING id::text`, owner, language, identifier, title, "legacy:"+identifier, content, string(content)).Scan(&id))
 	return id
 }
 
@@ -449,9 +351,7 @@ func putBookSourceInLanguage(t *testing.T, ctx context.Context, store *PostgresS
 	t.Helper()
 	unit := domain.ExtractedUnit{ID: domain.EPUBUnitID(0, "item"), Order: 0, SpineIndex: 0, ManifestID: "item", Text: fullText, EndOffset: uint64(len([]rune(fullText))), MediaType: "application/xhtml+xml", Linear: true}
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: identifier, Title: title, MediaType: "application/epub+zip", Content: content, FullText: fullText}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{unit}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return source
 }
 

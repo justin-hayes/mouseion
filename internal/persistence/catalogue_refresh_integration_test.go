@@ -5,93 +5,78 @@ package persistence
 import (
 	"bytes"
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	owner, err := store.CreateUser(ctx, "refresh-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Refresh catalog", URL: "https://catalog.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	other, err := store.CreateUser(ctx, "refresh-other-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source := putBookSource(t, ctx, store, owner.ID, "refresh-entry", "Old title", []byte("acquired content"), "readable text")
 	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, source.Title, source.Language)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bookID := reconciled.Book.ID
-	if err = store.LinkSourceToBook(ctx, owner.ID, bookID, source.ID); err != nil {
-		t.Fatal(err)
-	}
+	err = store.LinkSourceToBook(ctx, owner.ID, bookID, source.ID)
+	require.NoError(t, err)
 
 	beforeSource, err := store.GetSourceMaterial(ctx, owner.ID, source.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var beforeRevisions, beforeAliases, beforeMemberships int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&beforeRevisions); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&beforeAliases); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&beforeMemberships); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&beforeRevisions)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&beforeAliases)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&beforeMemberships)
+	require.NoError(t, err)
 
 	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", "it")
-	if err != nil || !result.TitleChanged || !result.LanguageChanged || result.Book.Title != "New title" || result.Book.LanguageState != domain.LanguageChosen || result.Book.LanguageTag != "it" {
-		t.Fatalf("refresh result=%+v err=%v", result, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, result.TitleChanged)
+	assert.True(t, result.LanguageChanged)
+	assert.Equal(t, "New title", result.Book.Title)
+	assert.Equal(t, domain.LanguageChosen, result.Book.LanguageState)
+	assert.Equal(t, "it", result.Book.LanguageTag)
 	alias, err := store.GetBookCatalogEntryAlias(ctx, owner.ID, bookID)
-	if err != nil || alias.ConnectionID != connection.ID {
-		t.Fatalf("catalogue alias=%+v err=%v", alias, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, connection.ID, alias.ConnectionID)
 	afterSource, err := store.GetSourceMaterial(ctx, owner.ID, source.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var afterRevisions, afterAliases, afterMemberships int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&afterRevisions); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterAliases); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterMemberships); err != nil {
-		t.Fatal(err)
-	}
-	if beforeSource.Title != afterSource.Title || beforeSource.ContentHash != afterSource.ContentHash || beforeSource.ContentDigest != afterSource.ContentDigest || beforeSource.ContentRevisionID != afterSource.ContentRevisionID || !bytes.Equal(beforeSource.Content, afterSource.Content) || beforeRevisions != afterRevisions || beforeAliases != afterAliases || beforeMemberships != afterMemberships {
-		t.Fatalf("refresh changed acquired evidence before=%+v/%d/%d/%d after=%+v/%d/%d/%d", beforeSource, beforeRevisions, beforeAliases, beforeMemberships, afterSource, afterRevisions, afterAliases, afterMemberships)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&afterRevisions)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterAliases)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&afterMemberships)
+	require.NoError(t, err)
+	assert.Equal(t, beforeSource.Title, afterSource.Title)
+	assert.Equal(t, beforeSource.ContentHash, afterSource.ContentHash)
+	assert.Equal(t, beforeSource.ContentDigest, afterSource.ContentDigest)
+	assert.Equal(t, beforeSource.ContentRevisionID, afterSource.ContentRevisionID)
+	assert.True(t, bytes.Equal(beforeSource.Content, afterSource.Content), "refresh changed acquired content")
+	assert.Equal(t, beforeRevisions, afterRevisions)
+	assert.Equal(t, beforeAliases, afterAliases)
+	assert.Equal(t, beforeMemberships, afterMemberships)
 	updatedLibrary, err := store.ListSourceMaterials(ctx, owner.ID)
-	if err != nil || len(updatedLibrary) != 1 || updatedLibrary[0].BookTitle != "New title" {
-		t.Fatalf("refreshed canonical title was not projected into source summary: library=%+v err=%v", updatedLibrary, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, updatedLibrary, 1)
+	assert.Equal(t, "New title", updatedLibrary[0].BookTitle, "refreshed canonical title was not projected into source summary")
 
-	if _, err = store.GetBookCatalogEntryAlias(ctx, other.ID, bookID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner alias lookup err=%v", err)
-	}
-	if _, err = store.GetBook(ctx, other.ID, bookID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner book lookup err=%v", err)
-	}
+	_, err = store.GetBookCatalogEntryAlias(ctx, other.ID, bookID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = store.GetBook(ctx, other.ID, bookID)
+	assert.ErrorIs(t, err, ErrNotFound)
 }
