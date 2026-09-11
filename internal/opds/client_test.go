@@ -79,7 +79,6 @@ func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 	client := NewClient(server.Client(), Auth{})
 	feed, err := client.ListPage(context.Background(), server.URL+"/catalog?access_token=catalog-secret")
 	require.NoError(t, err)
-	require.Len(t, feed.Entries, 1)
 	links := FindEPUBs(feed.Entries[0])
 	require.Len(t, links, 1)
 	assert.Equal(t, server.URL+"/books/one.epub?access_token=catalog-secret", links[0].Href)

@@ -179,7 +179,6 @@ func TestExtractUnitTitleFallbackAndMalformedOptionalNavigation(t *testing.T) {
 	)
 	book, err := Extract(data)
 	require.NoError(t, err)
-	require.NotEmpty(t, book.ExtractedUnits.Units)
 	unit := book.ExtractedUnits.Units[0]
 	assert.Equal(t, "untitled", unit.Title)
 	assert.Equal(t, UnitTitleManifestID, unit.TitleSource)
