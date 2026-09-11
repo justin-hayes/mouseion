@@ -169,7 +169,7 @@ func (s *CatalogueSync) Cancel(ctx context.Context, owner string, id int64) (cat
 		return cataloguesync.Status{}, err
 	}
 	if status.LogicalState == "running" || status.LogicalState == "queued" {
-		if err := s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: "Catalogue sync cancelled before completion. Retry when ready.", UpdatedAt: fixtureJourneyTime}); err != nil {
+		if err := s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: "Catalog sync cancelled before completion. Retry when ready.", UpdatedAt: fixtureJourneyTime}); err != nil {
 			return cataloguesync.Status{}, err
 		}
 	}

@@ -79,10 +79,10 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		redirect(w, r, "/catalogs?error="+url.QueryEscape("The catalogue sync could not be started. Try again."))
+		redirect(w, r, "/catalogs?error="+url.QueryEscape("The catalog sync could not be started. Try again."))
 		return
 	}
-	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalogue sync submitted."))
+	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalog sync submitted."))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -177,7 +177,7 @@ func opdsErrorMessage(err error) string {
 	case strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
 		message = "The downloaded EPUB could not be added. Choose another book or try again."
 	case strings.Contains(lower, "invalid acquisition"):
-		message = "The catalogue could not acquire this book. Check the connection and try again."
+		message = "The catalog could not acquire this book. Check the connection and try again."
 	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
 		message = "The catalog could not be reached. Check its URL and network availability, then try again."
 	}

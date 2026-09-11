@@ -243,7 +243,7 @@ func refreshMessage(result cataloguesync.RefreshResult) string {
 	case result.Updated:
 		return "Metadata refreshed."
 	case result.Missing:
-		return "The catalogue entry is no longer available. Your book and its metadata are unchanged."
+		return "The catalog entry is no longer available. Your book and its metadata are unchanged."
 	case result.Failed:
 		return "Metadata could not be refreshed. Check the connection and try again."
 	default:
@@ -331,7 +331,7 @@ func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookI
 }
 
 func journeyAcquisitionError(ctx context.Context, store Store, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
-	connectionName, entryTitle := "catalogue connection", "this book"
+	connectionName, entryTitle := "catalog connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {
 		entryTitle = target.Entry.Title
 	} else if strings.TrimSpace(bookTitle) != "" {

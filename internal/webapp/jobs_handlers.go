@@ -121,10 +121,10 @@ func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
 					http.NotFound(w, r)
 					return
 				}
-				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalogue sync is not available for retry."))
+				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync is not available for retry."))
 				return
 			}
-			redirect(w, r, fmt.Sprintf("/jobs/%d?message=%s", handle.ID, url.QueryEscape("Catalogue sync retry submitted.")))
+			redirect(w, r, fmt.Sprintf("/jobs/%d?message=%s", handle.ID, url.QueryEscape("Catalog sync retry submitted.")))
 			return
 		}
 	}
@@ -165,10 +165,10 @@ func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request) {
 					http.NotFound(w, r)
 					return
 				}
-				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalogue sync could not be cancelled."))
+				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync could not be cancelled."))
 				return
 			}
-			redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Catalogue sync cancelled."))
+			redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Catalog sync cancelled."))
 			return
 		}
 	}
@@ -297,7 +297,7 @@ func catalogueSyncJobState(status cataloguesync.Status) string {
 
 func catalogueSyncJobSummary(status cataloguesync.Status) string {
 	if status.LogicalState == "completed" {
-		return "Catalogue metadata sync complete. No EPUB content was downloaded."
+		return "Catalog metadata sync complete. No EPUB content was downloaded."
 	}
 	if status.Error != "" {
 		return status.Error

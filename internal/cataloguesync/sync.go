@@ -29,7 +29,7 @@ const (
 	DefaultCadence        = 24 * time.Hour
 	defaultMaxAttempts    = 3
 	periodicJobIDPrefix   = "catalogue_sync:"
-	statusCancelledReason = "Catalogue sync cancelled before completion. Retry when ready."
+	statusCancelledReason = "Catalog sync cancelled before completion. Retry when ready."
 )
 
 var (
@@ -723,7 +723,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, errors.New("catalogue connection could not be loaded")
+		return 0, errors.New("catalog connection could not be loaded")
 	}
 	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
@@ -769,10 +769,10 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 }
 
 func safeSyncError(err error, connection domain.OpdsConnection) error {
-	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalogue connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalogue returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
+	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalog connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalog returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
 		return errors.New(err.Error())
 	}
-	host := "the catalogue"
+	host := "the catalog"
 	if parsed, parseErr := url.Parse(connection.URL); parseErr == nil && parsed.Host != "" {
 		host = parsed.Host
 	}
@@ -781,7 +781,7 @@ func safeSyncError(err error, connection domain.OpdsConnection) error {
 	case strings.Contains(lower, "401"), strings.Contains(lower, "403"), strings.Contains(lower, "unauthorized"):
 		return fmt.Errorf("authentication failed for connection %s", connection.Name)
 	case strings.Contains(lower, "unsafe"), strings.Contains(lower, "outside the catalog origin"):
-		return fmt.Errorf("catalogue returned an unsafe target for connection %s", connection.Name)
+		return fmt.Errorf("catalog returned an unsafe target for connection %s", connection.Name)
 	default:
 		return fmt.Errorf("could not reach %s", host)
 	}
@@ -805,7 +805,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 		return nil
 	}
 	if loadErr != nil {
-		return errors.New("catalogue connection could not be loaded")
+		return errors.New("catalog connection could not be loaded")
 	}
 	upserted, workErr := service.work(ctx, args)
 	if workErr == nil {

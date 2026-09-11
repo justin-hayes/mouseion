@@ -159,7 +159,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
-			Description: "No current EPUB content is available for this Journey entry. Retry acquisition when the catalogue can provide it.",
+			Description: "No current EPUB content is available for this Journey entry. Retry acquisition when the catalog can provide it.",
 			Label:       "Retry acquisition",
 			URL:         journeyReanalyzeURL(bookID),
 			Submit:      true,
@@ -333,7 +333,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 			return refreshed, nil
 		}
 		if errors.Is(err, persistence.ErrBookLanguageRequired) {
-			refreshed.Error = "This book needs a language before it can join Reading Journey. Fix the language in the catalogue, then re-sync."
+			refreshed.Error = "This book needs a language before it can join Reading Journey. Fix the language in the catalog, then re-sync."
 			return refreshed, nil
 		}
 		refreshed.Error = "The book could not be added to Reading Journey. No Journey changes were made; try again."

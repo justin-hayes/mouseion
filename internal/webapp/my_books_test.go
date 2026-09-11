@@ -220,7 +220,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	if err := MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", true, MyBooksBrowseState{}).Render(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), `href="/catalogs">Sync catalogue</a>`) {
+	if !strings.Contains(output.String(), `href="/catalogs">Sync catalog</a>`) {
 		t.Fatalf("connected empty state omitted sync guidance: %s", output.String())
 	}
 	if strings.Contains(output.String(), "Add books") || strings.Contains(output.String(), "Add a book") {
@@ -413,7 +413,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "catalogue entry is no longer available") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`) || !strings.Contains(response.Body.String(), "catalog entry is no longer available") {
 		t.Fatalf("HTMX refresh status=%d body=%s", response.Code, response.Body.String())
 	}
 

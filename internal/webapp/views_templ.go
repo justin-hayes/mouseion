@@ -868,7 +868,7 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</h2><p class=\"metadata\">Language not assigned in the catalogue</p></div></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</h2><p class=\"metadata\">Language not assigned in the catalog</p></div></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1255,7 +1255,7 @@ func NeedsLanguageStrip(count int) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if count == 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<p>1 book is outside the active language collections because the catalogue has not assigned a language.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<p>1 book is outside the active language collections because the catalog has not assigned a language.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1265,9 +1265,9 @@ func NeedsLanguageStrip(count int) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var61 string
-			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d books are outside the active language collections because the catalogue has not assigned a language.", count))
+			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d books are outside the active language collections because the catalog has not assigned a language.", count))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 293, Col: 133}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 293, Col: 131}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 			if templ_7745c5c3_Err != nil {
@@ -1278,7 +1278,7 @@ func NeedsLanguageStrip(count int) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<p>Fix the language in the catalogue, then re-sync from <a href=\"/catalogs\">Catalogs</a>.</p><p><a href=\"/library?needs-language\">Review books awaiting a language</a></p></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<p>Fix the language in the catalog, then re-sync from <a href=\"/catalogs\">Catalogs</a>.</p><p><a href=\"/library?needs-language\">Review books awaiting a language</a></p></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1374,7 +1374,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						return templ_7745c5c3_Err
 					}
 					if hasCatalogueConnections {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<a role=\"button\" class=\"outline\" href=\"/catalogs\">Sync catalogue</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<a role=\"button\" class=\"outline\" href=\"/catalogs\">Sync catalog</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1414,7 +1414,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 							return templ_7745c5c3_Err
 						}
 						if hasCatalogueConnections {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<a role=\"button\" class=\"outline\" href=\"/catalogs\">Sync catalogue</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<a role=\"button\" class=\"outline\" href=\"/catalogs\">Sync catalog</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5415,7 +5415,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 432, "<a href=\"/catalogs\">Connect a catalogue</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 432, "<a href=\"/catalogs\">Connect a catalog</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -6531,7 +6531,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Jobs", "Operational history for catalogue sync and analysis work.", nil).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6568,7 +6568,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = EmptyState("No jobs yet", "Catalogue sync and analysis work will appear here when submitted.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var311), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.").Render(templ.WithChildren(ctx, templ_7745c5c3_Var311), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6608,14 +6608,14 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 533, "\">Catalogue sync</a></td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 533, "\">Catalog sync</a></td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var314 string
 						templ_7745c5c3_Var314, templ_7745c5c3_Err = templ.JoinStringErrs(job.ConnectionName)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 119}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 117}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var314))
 						if templ_7745c5c3_Err != nil {
@@ -6628,7 +6628,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						var templ_7745c5c3_Var315 string
 						templ_7745c5c3_Var315, templ_7745c5c3_Err = templ.JoinStringErrs(catalogueSyncJobState(job))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 158}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 156}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var315))
 						if templ_7745c5c3_Err != nil {
@@ -6641,7 +6641,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						var templ_7745c5c3_Var316 string
 						templ_7745c5c3_Var316, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", job.Attempt))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 201}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 199}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var316))
 						if templ_7745c5c3_Err != nil {
@@ -6654,7 +6654,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						var templ_7745c5c3_Var317 string
 						templ_7745c5c3_Var317, templ_7745c5c3_Err = templ.JoinStringErrs(job.CreatedAt.Format("2006-01-02 15:04"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 254}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 252}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var317))
 						if templ_7745c5c3_Err != nil {
@@ -6667,7 +6667,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						var templ_7745c5c3_Var318 string
 						templ_7745c5c3_Var318, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 276}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 1128, Col: 274}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var318))
 						if templ_7745c5c3_Err != nil {
@@ -6684,7 +6684,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ResponsiveTable("Catalogue sync history").Render(templ.WithChildren(ctx, templ_7745c5c3_Var312), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ResponsiveTable("Catalog sync history").Render(templ.WithChildren(ctx, templ_7745c5c3_Var312), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6902,7 +6902,7 @@ func CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.St
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Catalogue sync", status.ConnectionName, nil).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Catalog sync", status.ConnectionName, nil).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6916,7 +6916,7 @@ func CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.St
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Catalogue sync #%d", status.ID), &user, csrf, NavigationLibrary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var330), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var330), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -6958,7 +6958,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 			}
 			ctx = templ.InitializeContext(ctx)
 			if status.Error != "" {
-				templ_7745c5c3_Err = Feedback(FeedbackError, "Catalogue sync needs attention", status.Error).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Feedback(FeedbackError, "Catalog sync needs attention", status.Error).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -7006,7 +7006,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 560, "\"><button>Retry catalogue sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 560, "\"><button>Retry catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7042,7 +7042,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 564, "\"><button class=\"outline secondary\">Cancel catalogue sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 564, "\"><button class=\"outline secondary\">Cancel catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7053,7 +7053,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 565, " <p>Catalogue sync reconciles metadata only; it does not download EPUB content.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 565, " <p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

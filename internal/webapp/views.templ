@@ -232,7 +232,7 @@ templ NeedsLanguageBookRow(book domain.MyBook) {
 	<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
-			<p class="metadata">Language not assigned in the catalogue</p>
+			<p class="metadata">Language not assigned in the catalog</p>
 		</div>
 	</article>
 }
@@ -288,11 +288,11 @@ templ NeedsLanguageStrip(count int) {
 	<section class="library-needs-language" aria-labelledby="library-needs-language-heading">
 		<h2 id="library-needs-language-heading">Books awaiting a language</h2>
 		if count == 1 {
-			<p>1 book is outside the active language collections because the catalogue has not assigned a language.</p>
+			<p>1 book is outside the active language collections because the catalog has not assigned a language.</p>
 		} else {
-			<p>{ fmt.Sprintf("%d books are outside the active language collections because the catalogue has not assigned a language.", count) }</p>
+			<p>{ fmt.Sprintf("%d books are outside the active language collections because the catalog has not assigned a language.", count) }</p>
 		}
-		<p>Fix the language in the catalogue, then re-sync from <a href="/catalogs">Catalogs</a>.</p>
+		<p>Fix the language in the catalog, then re-sync from <a href="/catalogs">Catalogs</a>.</p>
 		<p><a href="/library?needs-language">Review books awaiting a language</a></p>
 	</section>
 }
@@ -317,7 +317,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 				if hasCatalogueConnections {
-					<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
+					<a role="button" class="outline" href="/catalogs">Sync catalog</a>
 				}
 			}
 		}
@@ -328,7 +328,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 					if hasCatalogueConnections {
-						<a role="button" class="outline" href="/catalogs">Sync catalogue</a>
+						<a role="button" class="outline" href="/catalogs">Sync catalog</a>
 					}
 				}
 			} else {
@@ -961,7 +961,7 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 		if language == "" {
 			if len(languages) == 0 {
 				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
-					<a href="/catalogs">Connect a catalogue</a>
+					<a href="/catalogs">Connect a catalog</a>
 				}
 			} else {
 				<p>Choose a study language in the shell to view known vocabulary or import a lemma file.</p>
@@ -1114,18 +1114,18 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 
 templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, journeyEntryURLs map[string]string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
-		@PageHeader("Jobs", "Operational history for catalogue sync and analysis work.", nil)
+		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
 		}
 		if len(jobs) == 0 && len(syncJobs) == 0 {
-			@EmptyState("No jobs yet", "Catalogue sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
+			@EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
 		}
 		if len(syncJobs) > 0 {
-			@ResponsiveTable("Catalogue sync history") {
+			@ResponsiveTable("Catalog sync history") {
 				<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range syncJobs {
-					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalogue sync</a></td><td>{ job.ConnectionName }</td><td>{ catalogueSyncJobState(job) }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalog sync</a></td><td>{ job.ConnectionName }</td><td>{ catalogueSyncJobState(job) }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -1149,8 +1149,8 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 }
 
 templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.Status) {
-	@ShellLayout(fmt.Sprintf("Catalogue sync #%d", status.ID), &user, csrf, NavigationLibrary) {
-		@PageHeader("Catalogue sync", status.ConnectionName, nil)
+	@ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary) {
+		@PageHeader("Catalog sync", status.ConnectionName, nil)
 		@CatalogueSyncJobStatus(csrf, status)
 	}
 }
@@ -1158,16 +1158,16 @@ templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.S
 templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 	@AsyncStatus(catalogueSyncJobStatusAttributes(status.ID, catalogueSyncStatusRunning(status)), "catalogue-sync-job-status", catalogueSyncJobState(status), catalogueSyncJobSummary(status), status.Progress, 100, catalogueSyncStatusRunning(status)) {
 		if status.Error != "" {
-			@Feedback(FeedbackError, "Catalogue sync needs attention", status.Error)
+			@Feedback(FeedbackError, "Catalog sync needs attention", status.Error)
 		}
 		@ActionGroup() {
 			if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry catalogue sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry catalog sync</button></form>
 			}
 			if catalogueSyncStatusRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel catalogue sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel catalog sync</button></form>
 			}
 		}
-		<p>Catalogue sync reconciles metadata only; it does not download EPUB content.</p>
+		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
 	}
 }

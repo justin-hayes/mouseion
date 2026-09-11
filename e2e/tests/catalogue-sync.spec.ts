@@ -17,7 +17,7 @@ test.describe('catalogue sync status', () => {
       { id: 'fixture-connection', label: 'Last synced', detail: /3 books added or updated/ },
       { id: 'fixture-failed-connection', label: 'Sync failed', detail: /Authentication failed for this connection/ },
       { id: 'fixture-syncing-connection', label: 'Syncing', detail: /Existing Books remain available/ },
-      { id: 'fixture-never-synced-connection', label: 'Never synced', detail: /ready non-English catalogue languages/ },
+      { id: 'fixture-never-synced-connection', label: 'Never synced', detail: /ready non-English catalog languages/ },
     ];
 
     for (const state of states) {
