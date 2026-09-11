@@ -7,77 +7,60 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGeneratedVocabularyFirstProvenanceAndOwnerIsolation(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "generated-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "generated-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	aliceDeck, err := store.PutDeck(ctx, alice.ID, "de", "First deck")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	aliceSecondDeck, err := store.PutDeck(ctx, alice.ID, "de", "Second deck")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bobDeck, err := store.PutDeck(ctx, bob.ID, "de", "Bob deck")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	aliceSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "alice-first", Title: "First book", MediaType: "text/plain", ContentHash: "alice-first", Content: []byte("first"), FullText: "first"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	aliceSecondSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "alice-second", Title: "Second book", MediaType: "text/plain", ContentHash: "alice-second", Content: []byte("second"), FullText: "second"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	first, err := store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", FirstDeckID: aliceDeck.ID, FirstSourceMaterialID: &aliceSource.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.FirstDeckID != aliceDeck.ID || first.FirstSourceMaterialID == nil || *first.FirstSourceMaterialID != aliceSource.ID || first.FirstGeneratedAt.IsZero() {
-		t.Fatalf("first record = %+v", first)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, aliceDeck.ID, first.FirstDeckID, "first record")
+	require.NotNil(t, first.FirstSourceMaterialID, "first record")
+	assert.Equal(t, aliceSource.ID, *first.FirstSourceMaterialID, "first record")
+	assert.False(t, first.FirstGeneratedAt.IsZero(), "first record")
 	repeated, err := store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", FirstDeckID: aliceSecondDeck.ID, FirstSourceMaterialID: &aliceSecondSource.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if repeated.FirstDeckID != first.FirstDeckID || repeated.FirstSourceMaterialID == nil || *repeated.FirstSourceMaterialID != *first.FirstSourceMaterialID || !repeated.FirstGeneratedAt.Equal(first.FirstGeneratedAt) {
-		t.Fatalf("repeat changed first provenance: first=%+v repeated=%+v", first, repeated)
-	}
-	if _, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: bob.ID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", FirstDeckID: bobDeck.ID}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, first.FirstDeckID, repeated.FirstDeckID, "repeat changed first provenance")
+	require.NotNil(t, repeated.FirstSourceMaterialID, "repeat changed first provenance")
+	assert.Equal(t, *first.FirstSourceMaterialID, *repeated.FirstSourceMaterialID, "repeat changed first provenance")
+	assert.True(t, repeated.FirstGeneratedAt.Equal(first.FirstGeneratedAt), "repeat changed first provenance")
+	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: bob.ID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", FirstDeckID: bobDeck.ID})
+	require.NoError(t, err)
 	aliceWords, err := store.ListGeneratedVocabulary(ctx, alice.ID, "de")
-	if err != nil || len(aliceWords) != 1 || aliceWords[0].OwnerID != alice.ID {
-		t.Fatalf("alice list = %+v, err=%v", aliceWords, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, aliceWords, 1)
+	assert.Equal(t, alice.ID, aliceWords[0].OwnerID, "alice list")
 	bobWords, err := store.ListGeneratedVocabulary(ctx, bob.ID, "de")
-	if err != nil || len(bobWords) != 1 || bobWords[0].OwnerID != bob.ID || bobWords[0].FirstSourceMaterialID != nil {
-		t.Fatalf("bob list = %+v, err=%v", bobWords, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, bobWords, 1)
+	assert.Equal(t, bob.ID, bobWords[0].OwnerID, "bob list")
+	assert.Nil(t, bobWords[0].FirstSourceMaterialID, "bob list")
 
-	if _, err = store.Pool().Exec(ctx, `DELETE FROM source_materials WHERE owner_id=$1 AND id=$2`, alice.ID, aliceSource.ID); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.Pool().Exec(ctx, `DELETE FROM source_materials WHERE owner_id=$1 AND id=$2`, alice.ID, aliceSource.ID)
+	require.NoError(t, err)
 	aliceWords, err = store.ListGeneratedVocabulary(ctx, alice.ID, "de")
-	if err != nil || aliceWords[0].FirstSourceMaterialID != nil {
-		t.Fatalf("source deletion did not clear provenance: %+v, err=%v", aliceWords, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, aliceWords, 1)
+	assert.Nil(t, aliceWords[0].FirstSourceMaterialID, "source deletion did not clear provenance")
 }

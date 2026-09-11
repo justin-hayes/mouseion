@@ -4,38 +4,35 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/migrations"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateFirstUserAndSessionIsAtomicAndOwnerReady(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
-	if exists, err := store.HasUsers(ctx); err != nil || exists {
-		t.Fatalf("fresh users exists=%v err=%v", exists, err)
-	}
+	exists, err := store.HasUsers(ctx)
+	require.NoError(t, err)
+	assert.False(t, exists, "fresh users")
 	u, created, err := store.CreateFirstUserAndSession(ctx, "alice", "hash", "token-hash", time.Now().Add(time.Hour))
-	if err != nil || !created || u.Username != "alice" {
-		t.Fatalf("create first: %+v created=%v err=%v", u, created, err)
-	}
-	if _, _, err = store.GetSession(ctx, "token-hash"); err != nil {
-		t.Fatalf("initial session: %v", err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatalf("supported language: %v", err)
-	}
-	if _, created, err = store.CreateFirstUserAndSession(ctx, "bob", "hash", "other-token", time.Now().Add(time.Hour)); err != nil || created {
-		t.Fatalf("second create created=%v err=%v", created, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, created, "create first")
+	assert.Equal(t, "alice", u.Username)
+	_, _, err = store.GetSession(ctx, "token-hash")
+	require.NoError(t, err, "initial session")
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err, "supported language")
+	_, created, err = store.CreateFirstUserAndSession(ctx, "bob", "hash", "other-token", time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	assert.False(t, created, "second create")
 }
 
 func integrationDatabase(t *testing.T, ctx context.Context) string {
@@ -48,129 +45,96 @@ func TestRemoveAdminRoleMigrationPreservesAccounts(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	var id string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES('legacy-admin','hash',true) RETURNING id`).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES('legacy-admin','hash',true) RETURNING id`).Scan(&id)
+	require.NoError(t, err)
 	migration, err := migrations.FS.ReadFile("000017_remove_admin_role.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, string(migration)); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, string(migration))
+	require.NoError(t, err)
 	var username, passwordHash string
 	var isAdmin bool
-	if err = store.Pool().QueryRow(ctx, `SELECT username,password_hash,is_admin FROM users WHERE id=$1`, id).Scan(&username, &passwordHash, &isAdmin); err != nil {
-		t.Fatal(err)
-	}
-	if username != "legacy-admin" || passwordHash != "hash" || isAdmin {
-		t.Fatalf("migrated account username=%q hash=%q is_admin=%v", username, passwordHash, isAdmin)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT username,password_hash,is_admin FROM users WHERE id=$1`, id).Scan(&username, &passwordHash, &isAdmin)
+	require.NoError(t, err)
+	assert.Equal(t, "legacy-admin", username)
+	assert.Equal(t, "hash", passwordHash)
+	assert.False(t, isAdmin)
 }
 
 func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
 	store, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err)
 
 	artifact := domain.NormalizedArtifact{ContentHash: "sha256:shared", Language: "de", SchemaVersion: "1.0.0", NormalizationProfile: "de-standard", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
-	if err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{{CanonicalLemma: "Haus", UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut"}`), Frequency: 3}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, lemmas, err := store.GetArtifact(ctx, artifact.ContentHash); err != nil || len(lemmas) != 1 {
-		t.Fatalf("shared artifact: lemmas=%d err=%v", len(lemmas), err)
-	}
+	err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{{CanonicalLemma: "Haus", UPOS: "NOUN", Morphology: []byte(`{"Gender":"Neut"}`), Frequency: 3}})
+	require.NoError(t, err)
+	_, lemmas, err := store.GetArtifact(ctx, artifact.ContentHash)
+	require.NoError(t, err)
+	assert.Len(t, lemmas, 1, "shared artifact")
 
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "book-1", Title: "Private", MediaType: "application/epub+zip", ContentHash: "sha256:shared", Content: []byte("epub"), FullText: "private sentence"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.GetSourceMaterial(ctx, bob.ID, source.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("bob read alice source: %v", err)
-	}
+	require.NoError(t, err)
+	_, err = store.GetSourceMaterial(ctx, bob.ID, source.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	library, err := store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "not analyzed" {
-		t.Fatalf("alice library before analysis: books=%v err=%v", library, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, library, 1)
+	assert.Equal(t, "not analyzed", library[0].AnalysisStatus, "alice library before analysis")
 	bobLibrary, err := store.ListSourceMaterials(ctx, bob.ID)
-	if err != nil || len(bobLibrary) != 0 {
-		t.Fatalf("bob library leaked alice source: books=%v err=%v", bobLibrary, err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash) VALUES(84001,1,$1,$2,$3)`, alice.ID, source.ID, source.ContentHash); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, bobLibrary, "bob library leaked alice source")
+	_, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash) VALUES(84001,1,$1,$2,$3)`, alice.ID, source.ID, source.ContentHash)
+	require.NoError(t, err)
 	library, err = store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzing" || library[0].AnalysisJobID != 84001 {
-		t.Fatalf("alice library during analysis: books=%v err=%v", library, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, library, 1)
+	assert.Equal(t, "analyzing", library[0].AnalysisStatus, "alice library during analysis")
+	assert.Equal(t, int64(84001), library[0].AnalysisJobID, "alice library during analysis")
 	corpus, err := store.PutCorpus(ctx, alice.ID, source.ID, artifact.ContentHash)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	legacyCorpus, err := store.GetCorpus(ctx, alice.ID, corpus.ID)
-	if err != nil || legacyCorpus.Statistics != nil {
-		t.Fatalf("legacy corpus statistics = %+v, err = %v; want unavailable", legacyCorpus.Statistics, err)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, legacyCorpus.Statistics, "legacy corpus statistics want unavailable")
 	library, err = store.ListSourceMaterials(ctx, alice.ID)
-	if err != nil || len(library) != 1 || library[0].AnalysisStatus != "analyzing" || library[0].AnalysisRunID != "" || library[0].CorpusID != "" {
-		t.Fatalf("alice library after legacy corpus: books=%v err=%v", library, err)
-	}
-	if _, err = store.GetCorpus(ctx, bob.ID, corpus.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("bob read alice corpus: %v", err)
-	}
-	if _, err = store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`)); err == nil {
-		t.Fatal("bob inserted a sentence into alice corpus")
-	}
+	require.NoError(t, err)
+	require.Len(t, library, 1)
+	assert.Equal(t, "analyzing", library[0].AnalysisStatus, "alice library after legacy corpus")
+	assert.Empty(t, library[0].AnalysisRunID, "alice library after legacy corpus")
+	assert.Empty(t, library[0].CorpusID, "alice library after legacy corpus")
+	_, err = store.GetCorpus(ctx, bob.ID, corpus.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`))
+	assert.Error(t, err, "bob inserted a sentence into alice corpus")
 
 	state, err := store.PutVocabularyState(ctx, alice.ID, "de", "Haus", "NOUN", "accepted")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.GetVocabularyState(ctx, bob.ID, state.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("bob read alice state: %v", err)
-	}
-	if err = store.DeleteVocabularyState(ctx, bob.ID, state.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("bob deleted alice state: %v", err)
-	}
+	require.NoError(t, err)
+	_, err = store.GetVocabularyState(ctx, bob.ID, state.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	err = store.DeleteVocabularyState(ctx, bob.ID, state.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	got, err := store.GetVocabularyState(ctx, alice.ID, state.ID)
-	if err != nil || got.State != "accepted" {
-		t.Fatalf("alice state changed: %+v %v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "accepted", got.State, "alice state changed")
 
 	known, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "gehen", "VERB")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.GetKnownVocabulary(ctx, bob.ID, known.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("bob read alice known vocabulary: %v", err)
-	}
+	require.NoError(t, err)
+	_, err = store.GetKnownVocabulary(ctx, bob.ID, known.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	deck, err := store.PutDeck(ctx, alice.ID, "de", "Study")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutCard(ctx, domain.Card{OwnerID: bob.ID, DeckID: deck.ID, DedupKey: "x", CanonicalLemma: "Haus", UPOS: "NOUN", Front: "x", Back: "y"}); err == nil {
-		t.Fatal("bob inserted a card into alice deck")
-	}
+	require.NoError(t, err)
+	_, err = store.PutCard(ctx, domain.Card{OwnerID: bob.ID, DeckID: deck.ID, DedupKey: "x", CanonicalLemma: "Haus", UPOS: "NOUN", Front: "x", Back: "y"})
+	assert.Error(t, err, "bob inserted a card into alice deck")
 }

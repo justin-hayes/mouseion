@@ -4,11 +4,12 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
@@ -16,78 +17,60 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	ctx := context.Background()
 	databaseURL := integrationDatabase(t, ctx)
 	store, err := Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	alice, err := store.CreateUser(ctx, "alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	created, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Home library", URL: "https://books.example/opds", Username: "reader", Password: "plain-password-must-not-be-stored"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if created.Password != "plain-password-must-not-be-stored" {
-		t.Fatalf("created=%+v", created)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "plain-password-must-not-be-stored", created.Password)
 	pool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer pool.Close()
 	var legacyID string
-	if err = pool.QueryRow(ctx, `INSERT INTO opds_connections(name,url,language) VALUES('Preserved legacy catalog','https://legacy.example/opds','de') RETURNING id`).Scan(&legacyID); err != nil {
-		t.Fatal(err)
-	}
-	if listed, listErr := store.ListOpdsConnections(ctx, alice.ID); listErr != nil || len(listed) != 1 {
-		t.Fatalf("legacy row exposed to owner: %+v err=%v", listed, listErr)
-	}
+	err = pool.QueryRow(ctx, `INSERT INTO opds_connections(name,url,language) VALUES('Preserved legacy catalog','https://legacy.example/opds','de') RETURNING id`).Scan(&legacyID)
+	require.NoError(t, err)
+	listed, listErr := store.ListOpdsConnections(ctx, alice.ID)
+	require.NoError(t, listErr)
+	assert.Len(t, listed, 1, "legacy row exposed to owner")
 	var legacyStillExists bool
-	if err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM opds_connections WHERE id=$1 AND owner_id IS NULL)`, legacyID).Scan(&legacyStillExists); err != nil || !legacyStillExists {
-		t.Fatalf("legacy row was not preserved: exists=%v err=%v", legacyStillExists, err)
-	}
+	err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM opds_connections WHERE id=$1 AND owner_id IS NULL)`, legacyID).Scan(&legacyStillExists)
+	require.NoError(t, err)
+	assert.True(t, legacyStillExists, "legacy row was not preserved")
 	var encrypted []byte
-	if err = pool.QueryRow(ctx, `SELECT password_encrypted FROM opds_connections WHERE id=$1`, created.ID).Scan(&encrypted); err != nil {
-		t.Fatal(err)
-	}
-	if string(encrypted) == created.Password || len(encrypted) <= len(created.Password) {
-		t.Fatalf("credential not encrypted: %q", encrypted)
-	}
+	err = pool.QueryRow(ctx, `SELECT password_encrypted FROM opds_connections WHERE id=$1`, created.ID).Scan(&encrypted)
+	require.NoError(t, err)
+	assert.NotEqual(t, created.Password, string(encrypted), "credential not encrypted")
+	assert.Greater(t, len(encrypted), len(created.Password), "credential not encrypted")
 	got, err := store.GetOpdsConnection(ctx, alice.ID, created.ID)
-	if err != nil || got.Password != created.Password {
-		t.Fatalf("round trip=%+v err=%v", got, err)
-	}
-	if listed, err := store.ListOpdsConnections(ctx, alice.ID); err != nil || len(listed) != 1 || listed[0].ID != created.ID || listed[0].OwnerID != alice.ID {
-		t.Fatalf("owner list=%+v err=%v", listed, err)
-	}
-	if listed, err := store.ListOpdsConnections(ctx, bob.ID); err != nil || len(listed) != 0 {
-		t.Fatalf("cross-owner list=%+v err=%v", listed, err)
-	}
-	if _, err = store.GetOpdsConnection(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner read: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, created.Password, got.Password, "round trip")
+	listed, err = store.ListOpdsConnections(ctx, alice.ID)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, created.ID, listed[0].ID)
+	assert.Equal(t, alice.ID, listed[0].OwnerID)
+	listed, err = store.ListOpdsConnections(ctx, bob.ID)
+	require.NoError(t, err)
+	assert.Empty(t, listed)
+	_, err = store.GetOpdsConnection(ctx, bob.ID, created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	created.Name = "Updated"
 	created.URL = "https://books.example/new-opds"
 	created.Password = "new-password"
-	if _, err = store.UpdateOpdsConnection(ctx, bob.ID, created); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner update: %v", err)
-	}
-	if err = store.DeleteOpdsConnection(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner delete: %v", err)
-	}
+	_, err = store.UpdateOpdsConnection(ctx, bob.ID, created)
+	assert.ErrorIs(t, err, ErrNotFound)
+	err = store.DeleteOpdsConnection(ctx, bob.ID, created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	updated, err := store.UpdateOpdsConnection(ctx, alice.ID, created)
-	if err != nil || updated.Name != "Updated" || updated.Password != "new-password" || !updated.UpdatedAt.After(updated.CreatedAt) {
-		t.Fatalf("updated=%+v err=%v", updated, err)
-	}
-	if err = store.DeleteOpdsConnection(ctx, alice.ID, created.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.GetOpdsConnection(ctx, alice.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("deleted connection read: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Updated", updated.Name)
+	assert.Equal(t, "new-password", updated.Password)
+	assert.True(t, updated.UpdatedAt.After(updated.CreatedAt))
+	err = store.DeleteOpdsConnection(ctx, alice.ID, created.ID)
+	require.NoError(t, err)
+	_, err = store.GetOpdsConnection(ctx, alice.ID, created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 }

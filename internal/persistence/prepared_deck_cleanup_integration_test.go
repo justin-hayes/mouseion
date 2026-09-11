@@ -4,7 +4,6 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -13,42 +12,31 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "cleanup-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	other, err := store.CreateUser(ctx, "cleanup-other", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var sourceID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,'de','cleanup-book','Cleanup Book','text/plain','cleanup-hash','Haus','Haus') RETURNING id::text`, owner.ID).Scan(&sourceID); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,'de','cleanup-book','Cleanup Book','text/plain','cleanup-hash','Haus','Haus') RETURNING id::text`, owner.ID).Scan(&sourceID)
+	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: sourceID, Filename: "Cleanup.apkg", DeckName: "Cleanup", ContentHash: "cleanup-hash"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	sentence := "Das Haus steht am Ende der stillen Straße."
 	manifest := cardexport.NewManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence, TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(sentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	tx, err := store.Pool().Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	frozen, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{
 		OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(),
 		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"},
@@ -56,29 +44,26 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 	})
 	if err != nil {
 		_ = tx.Rollback(ctx)
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
-	if err = tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
+	err = tx.Commit(ctx)
+	require.NoError(t, err)
 	chunkID := frozen.Chunks[0].ID
-	if _, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_batch_chunks SET state='completed',input_file_id='file-input',output_file_id='file-output',error_file_id='file-error',completed_count=1 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4`, owner.ID, preparation.ID, frozen.Run.ID, chunkID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.GetDeckPreparationStatus(ctx, other.ID, preparation.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner status error=%v", err)
-	}
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_batch_chunks SET state='completed',input_file_id='file-input',output_file_id='file-output',error_file_id='file-error',completed_count=1 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4`, owner.ID, preparation.ID, frozen.Run.ID, chunkID)
+	require.NoError(t, err)
+	_, err = store.GetDeckPreparationStatus(ctx, other.ID, preparation.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	claimToken := uuid.NewString()
 	claimed, err := store.ClaimPreparedDeckBatchCleanup(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunkID, claimToken, time.Now().UTC().Add(time.Minute))
-	if err != nil || claimed.CleanupClaimToken != claimToken {
-		t.Fatalf("cleanup claim=%+v err=%v", claimed, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, claimToken, claimed.CleanupClaimToken)
 	finished, err := store.FinishPreparedDeckBatchCleanup(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunkID, claimToken, PreparedDeckBatchCleanupUpdate{InputFileState: "deleted", OutputFileState: "failed", ErrorFileState: "deleted", InputFileAttempts: 1, OutputFileAttempts: 1, ErrorFileAttempts: 1, ErrorClass: "provider", ErrorCode: "delete_file"})
-	if err != nil || finished.InputFileCleanupState != "deleted" || finished.OutputFileCleanupState != "failed" || finished.CleanupCompletedAt != nil {
-		t.Fatalf("cleanup result=%+v err=%v", finished, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "deleted", finished.InputFileCleanupState)
+	assert.Equal(t, "failed", finished.OutputFileCleanupState)
+	assert.Nil(t, finished.CleanupCompletedAt)
 	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, preparation.ID)
-	if err != nil || status.State != domain.DeckPreparationPreparing || status.CurrentRunID != frozen.Run.ID {
-		t.Fatalf("preparation status=%+v err=%v", status, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationPreparing, status.State)
+	assert.Equal(t, frozen.Run.ID, status.CurrentRunID)
 }

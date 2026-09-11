@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
@@ -20,22 +21,16 @@ func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
 		{name: "retrying", progress: domain.PreparedDeckRunProgress{RetryingCount: 1}, want: "retrying"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := preparationPhase(domain.DeckPreparationPreparing, run, test.progress, test.chunks); got != test.want {
-				t.Fatalf("phase=%q want %q", got, test.want)
-			}
+			assert.Equal(t, test.want, preparationPhase(domain.DeckPreparationPreparing, run, test.progress, test.chunks), test.name)
 		})
 	}
 }
 
 func TestPreparationPhasesExposeStandardTranslationAndAssembly(t *testing.T) {
 	standard := domain.PreparedDeckRun{ExecutionMode: domain.PreparedDeckExecutionStandard, State: domain.PreparedDeckRunTranslating}
-	if got := preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil); got != "translating" {
-		t.Fatalf("standard translating phase=%q", got)
-	}
+	assert.Equal(t, "translating", preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil))
 	standard.State = domain.PreparedDeckRunFinalizing
-	if got := preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil); got != "assembling" {
-		t.Fatalf("standard assembling phase=%q", got)
-	}
+	assert.Equal(t, "assembling", preparationPhase(domain.DeckPreparationPreparing, standard, domain.PreparedDeckRunProgress{}, nil))
 }
 
 func TestPreparedDeckFailureClassUsesFailedChunkDiagnostic(t *testing.T) {
@@ -44,13 +39,9 @@ func TestPreparedDeckFailureClassUsesFailedChunkDiagnostic(t *testing.T) {
 		{State: domain.PreparedDeckBatchCompleted, ErrorClass: "expired"},
 		{State: domain.PreparedDeckBatchFailed, ErrorClass: "provider"},
 	}
-	if got := preparedDeckFailureClass(run, chunks); got != "provider" {
-		t.Fatalf("failure class=%q want provider", got)
-	}
+	assert.Equal(t, "provider", preparedDeckFailureClass(run, chunks))
 	run.ErrorClass = "configuration"
-	if got := preparedDeckFailureClass(run, chunks); got != "configuration" {
-		t.Fatalf("specific run failure class was replaced: %q", got)
-	}
+	assert.Equal(t, "configuration", preparedDeckFailureClass(run, chunks))
 }
 
 func TestPreparedDeckRunReconciliationErrorClassIsBounded(t *testing.T) {
@@ -62,8 +53,6 @@ func TestPreparedDeckRunReconciliationErrorClassIsBounded(t *testing.T) {
 		"configuration":    "configuration",
 		"private detail":   "reconciliation",
 	} {
-		if got := preparedDeckRunReconciliationErrorClass(chunkClass); got != want {
-			t.Errorf("chunk class %q mapped to %q want %q", chunkClass, got, want)
-		}
+		assert.Equal(t, want, preparedDeckRunReconciliationErrorClass(chunkClass), chunkClass)
 	}
 }

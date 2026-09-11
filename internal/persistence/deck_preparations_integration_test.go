@@ -4,245 +4,197 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeckPreparationPersistence(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 
 	alice, err := store.CreateUser(ctx, "prep-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "prep-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "prep-book", Title: "Book", MediaType: "text/plain", ContentHash: "prep-hash", Content: []byte("Buch"), FullText: "Buch"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	created, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: source.ID, Filename: "book.apkg", DeckName: "Mouseion::de::Book", ContentHash: source.ContentHash})
-	if err != nil || created.State != domain.DeckPreparationQueued {
-		t.Fatalf("create: %+v, %v", created, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationQueued, created.State, "create")
 	repeated, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: source.ID, Filename: "changed.apkg", DeckName: "changed", ContentHash: source.ContentHash})
-	if err != nil || repeated.ID != created.ID || repeated.Filename != created.Filename {
-		t.Fatalf("idempotent create: %+v, %v", repeated, err)
-	}
-	if _, err = store.GetDeckPreparation(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner status: %v", err)
-	}
-	if _, err = store.DownloadDeckPreparation(ctx, alice.ID, created.ID); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("queued download: %v", err)
-	}
-	if _, err = store.DownloadDeckPreparation(ctx, bob.ID, created.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("cross-owner download: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, repeated.ID, "idempotent create")
+	assert.Equal(t, created.Filename, repeated.Filename, "idempotent create")
+	_, err = store.GetDeckPreparation(ctx, bob.ID, created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = store.DownloadDeckPreparation(ctx, alice.ID, created.ID)
+	assert.ErrorIs(t, err, ErrInvalidTransition)
+	_, err = store.DownloadDeckPreparation(ctx, bob.ID, created.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 
 	claimed, err := store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
-	if err != nil || claimed.State != domain.DeckPreparationPreparing || claimed.StartedAt == nil {
-		t.Fatalf("claim: %+v, %v", claimed, err)
-	}
-	if _, err = store.ClaimDeckPreparation(ctx, alice.ID, created.ID); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("second claim: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationPreparing, claimed.State, "claim")
+	assert.NotNil(t, claimed.StartedAt, "claim")
+	_, err = store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
+	assert.ErrorIs(t, err, ErrInvalidTransition)
 	readyInput := domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "book.apkg", DeckName: "Mouseion::de::Book", TotalCards: 4, CardsWithEnglish: 3, CardsWithContextualSentenceTranslations: 2, QualityOmissions: 1}
 	ready, err := store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
-	if err != nil || ready.State != domain.DeckPreparationReady || ready.CompletedAt == nil {
-		t.Fatalf("complete: %+v, %v", ready, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, ready.State, "complete")
+	assert.NotNil(t, ready.CompletedAt, "complete")
 	downloaded, err := store.DownloadDeckPreparation(ctx, alice.ID, created.ID)
-	if err != nil || string(downloaded.Artifact) != "apkg" || downloaded.TotalCards != 4 {
-		t.Fatalf("download: %+v, %v", downloaded, err)
-	}
-	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput); err != nil {
-		t.Fatalf("idempotent complete: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "apkg", string(downloaded.Artifact), "download")
+	assert.Equal(t, 4, downloaded.TotalCards, "download")
+	_, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
+	require.NoError(t, err, "idempotent complete")
 	changed := readyInput
 	changed.Artifact = []byte("different")
-	if _, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, changed); !errors.Is(err, ErrImmutable) {
-		t.Fatalf("mutate ready artifact: %v", err)
-	}
-	if _, err = store.RetryDeckPreparation(ctx, alice.ID, created.ID); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("retry ready: %v", err)
-	}
+	_, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, changed)
+	assert.ErrorIs(t, err, ErrImmutable)
+	_, err = store.RetryDeckPreparation(ctx, alice.ID, created.ID)
+	assert.ErrorIs(t, err, ErrInvalidTransition)
 
 	failed := createPreparation(t, ctx, store, alice.ID, source.ID, "failed-hash")
-	if _, err = store.ClaimDeckPreparation(ctx, alice.ID, failed.ID); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.ClaimDeckPreparation(ctx, alice.ID, failed.ID)
+	require.NoError(t, err)
 	failed, err = store.FailDeckPreparation(ctx, alice.ID, failed.ID, "provider unavailable")
-	if err != nil || failed.State != domain.DeckPreparationFailed || failed.Error == "" {
-		t.Fatalf("fail: %+v, %v", failed, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, failed.State, "fail")
+	assert.NotEmpty(t, failed.Error, "fail")
 	retried, err := store.RetryDeckPreparation(ctx, alice.ID, failed.ID)
-	if err != nil || retried.State != domain.DeckPreparationQueued || retried.Error != "" || retried.StartedAt != nil || retried.CompletedAt != nil {
-		t.Fatalf("retry: %+v, %v", retried, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationQueued, retried.State, "retry")
+	assert.Empty(t, retried.Error, "retry")
+	assert.Nil(t, retried.StartedAt, "retry")
+	assert.Nil(t, retried.CompletedAt, "retry")
 	cancelled, err := store.CancelDeckPreparation(ctx, alice.ID, retried.ID)
-	if err != nil || cancelled.State != domain.DeckPreparationCancelled {
-		t.Fatalf("cancel: %+v, %v", cancelled, err)
-	}
-	if _, err = store.RetryDeckPreparation(ctx, alice.ID, cancelled.ID); err != nil {
-		t.Fatalf("retry cancelled: %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State, "cancel")
+	_, err = store.RetryDeckPreparation(ctx, alice.ID, cancelled.ID)
+	require.NoError(t, err, "retry cancelled")
 
 	var generated int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&generated); err != nil || generated != 0 {
-		t.Fatalf("terminal preparations created exclusions: count=%d err=%v", generated, err)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&generated)
+	require.NoError(t, err)
+	assert.Zero(t, generated, "terminal preparations created exclusions")
 }
 
 func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "atomic-prep", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "atomic-book", Title: "Atomic Book", MediaType: "text/plain", ContentHash: "atomic-hash", Content: []byte("Haus"), FullText: "Haus"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, lemma := range []string{"Haus", "Baum"} {
-		if _, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma); err != nil {
-			t.Fatal(err)
-		}
+		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
+		require.NoError(t, err)
 	}
 	p := createPreparation(t, ctx, store, owner.ID, source.ID, source.ContentHash)
-	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID)
+	require.NoError(t, err)
 	record := func(lemma string) cardexport.GeneratedRecord {
 		return cardexport.GeneratedRecord{Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}, Note: cardexport.Note{Key: lemma, Text: lemma + " front", BackExtra: lemma + " back", BookTitle: "Atomic Book"}}
 	}
 	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Missing")}, Completeness: cardexport.Completeness{TotalCards: 2}}
-	if _, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected rollback error, got %v", err)
-	}
+	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)
+	assert.ErrorIs(t, err, ErrNotFound, "expected rollback error")
 	var cards, generated int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&generated); err != nil {
-		t.Fatal(err)
-	}
-	if cards != 0 || generated != 0 {
-		t.Fatalf("partial provenance after failure: cards=%d generated=%d", cards, generated)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&generated)
+	require.NoError(t, err)
+	assert.Zero(t, cards, "partial provenance after failure")
+	assert.Zero(t, generated, "partial provenance after failure")
 	artifact := cardexport.Artifact{APKG: []byte("apkg"), Filename: "atomic.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Baum")}, Completeness: cardexport.Completeness{TotalCards: 2, CardsWithEnglish: 2, CardsWithEnglishSentence: 1}}
 	ready, err := store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact)
-	if err != nil || ready.State != domain.DeckPreparationReady || ready.TotalCards != 2 {
-		t.Fatalf("complete: %+v %v", ready, err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil || cards != 2 {
-		t.Fatalf("cards=%d err=%v", cards, err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2`, owner.ID, source.ID).Scan(&generated); err != nil || generated != 2 {
-		t.Fatalf("generated=%d err=%v", generated, err)
-	}
-	if _, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact); err != nil {
-		t.Fatalf("idempotent completion: %v", err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards); err != nil || cards != 2 {
-		t.Fatalf("duplicate cards=%d err=%v", cards, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, ready.State, "complete")
+	assert.Equal(t, 2, ready.TotalCards, "complete")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
+	require.NoError(t, err)
+	assert.Equal(t, 2, cards)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND first_source_material_id=$2`, owner.ID, source.ID).Scan(&generated)
+	require.NoError(t, err)
+	assert.Equal(t, 2, generated)
+	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, artifact)
+	require.NoError(t, err, "idempotent completion")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
+	require.NoError(t, err)
+	assert.Equal(t, 2, cards, "duplicate cards")
 	var assignments int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, owner.ID).Scan(&assignments); err != nil || assignments != 2 {
-		t.Fatalf("duplicate state assignments=%d err=%v", assignments, err)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, owner.ID).Scan(&assignments)
+	require.NoError(t, err)
+	assert.Equal(t, 2, assignments, "duplicate state assignments")
 }
 
 func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "study-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "study-book", Title: "Study Book", MediaType: "text/plain", ContentHash: "study-hash", Content: []byte("Haus"), FullText: "Haus"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var deckID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','study-deck') RETURNING id`, owner.ID).Scan(&deckID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','lernen','VERB',$2,$3)`, owner.ID, deckID, source.ID); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','study-deck') RETURNING id`, owner.ID).Scan(&deckID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','lernen','VERB',$2,$3)`, owner.ID, deckID, source.ID)
+	require.NoError(t, err)
 	preparation := createPreparation(t, ctx, store, owner.ID, source.ID, "study-hash-1")
-	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID); err != nil {
-		t.Fatal(err)
-	}
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
 	preparation, err = store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{Artifact: []byte("study-apkg"), Filename: "study.apkg", DeckName: "Study", TotalCards: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	started, err := store.StartDeckVocabularyStudy(ctx, owner.ID, preparation.ID)
-	if err != nil || started.StudyingAt == nil || started.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("start: %+v, %v", started, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, started.StudyingAt, "start")
+	assert.Equal(t, domain.VocabularyStudyStudying, started.VocabularyStudyStatus(), "start")
 	reserved, err := store.IsReservedVocabulary(ctx, owner.ID, "de", "lernen", "VERB")
-	if err != nil || !reserved {
-		t.Fatalf("reservation=%v err=%v", reserved, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, reserved)
 	snapshot, err := store.ListDeckPreparationVocabulary(ctx, owner.ID, preparation.ID)
-	if err != nil || len(snapshot) != 1 || snapshot[0].CanonicalLemma != "lernen" {
-		t.Fatalf("snapshot=%+v err=%v", snapshot, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1)
+	assert.Equal(t, "lernen", snapshot[0].CanonicalLemma)
 	second := createPreparation(t, ctx, store, owner.ID, source.ID, "study-hash-2")
-	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, second.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.CompleteDeckPreparation(ctx, owner.ID, second.ID, domain.DeckPreparation{Artifact: []byte("study-apkg-2"), Filename: "study-2.apkg", DeckName: "Study 2", TotalCards: 1}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.StartDeckVocabularyStudy(ctx, owner.ID, second.ID); !errors.Is(err, ErrActiveVocabularyStudy) {
-		t.Fatalf("second study error=%v", err)
-	}
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, second.ID)
+	require.NoError(t, err)
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, second.ID, domain.DeckPreparation{Artifact: []byte("study-apkg-2"), Filename: "study-2.apkg", DeckName: "Study 2", TotalCards: 1})
+	require.NoError(t, err)
+	_, err = store.StartDeckVocabularyStudy(ctx, owner.ID, second.ID)
+	assert.ErrorIs(t, err, ErrActiveVocabularyStudy)
 	released, err := store.ReleaseDeckVocabularyStudy(ctx, owner.ID, preparation.ID)
-	if err != nil || released.StudyingAt != nil || released.ReleasedAt == nil {
-		t.Fatalf("release: %+v, %v", released, err)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, released.StudyingAt, "release")
+	assert.NotNil(t, released.ReleasedAt, "release")
 	eligible, err := store.IsReservedVocabulary(ctx, owner.ID, "de", "lernen", "VERB")
-	if err != nil || eligible {
-		t.Fatalf("released reservation=%v err=%v", eligible, err)
-	}
-	if _, err = store.StartDeckVocabularyStudy(ctx, owner.ID, second.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.False(t, eligible, "released reservation")
+	_, err = store.StartDeckVocabularyStudy(ctx, owner.ID, second.ID)
+	require.NoError(t, err)
 	graduated, err := store.ConfirmDeckVocabularyReview(ctx, owner.ID, second.ID)
-	if err != nil || graduated.GraduatedAt == nil || graduated.ReviewedAt == nil || graduated.StudyingAt != nil {
-		t.Fatalf("confirm: %+v, %v", graduated, err)
-	}
+	require.NoError(t, err)
+	assert.NotNil(t, graduated.GraduatedAt, "confirm")
+	assert.NotNil(t, graduated.ReviewedAt, "confirm")
+	assert.Nil(t, graduated.StudyingAt, "confirm")
 	known, err := store.IsKnownVocabularyIdentity(ctx, owner.ID, "de", "lernen", "VERB")
-	if err != nil || !known {
-		t.Fatalf("known=%v err=%v", known, err)
-	}
+	require.NoError(t, err)
+	assert.True(t, known)
 	knownVocabulary, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var provenance string
 	for _, item := range knownVocabulary {
 		if item.CanonicalLemma == "lernen" && item.UPOS == "VERB" {
@@ -250,106 +202,76 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 			break
 		}
 	}
-	if provenance != "Graduated from reviewed deck" {
-		t.Fatalf("known vocabulary provenance=%q", provenance)
-	}
-	if _, err = store.ReleaseDeckVocabularyStudy(ctx, owner.ID, second.ID); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("release reviewed error=%v", err)
-	}
+	assert.Equal(t, "Graduated from reviewed deck", provenance)
+	_, err = store.ReleaseDeckVocabularyStudy(ctx, owner.ID, second.ID)
+	assert.ErrorIs(t, err, ErrInvalidTransition)
 }
 
 func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
 	ctx := context.Background()
 	store, err := Open(ctx, integrationDatabase(t, ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "current-deck-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Reanalyzed Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "current-deck-book", Title: book.Title, MediaType: "application/epub+zip", Content: []byte("eins"), FullText: "eins"}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit-1"), Order: 0, SpineIndex: 0, ManifestID: "unit-1", Text: "eins", StartOffset: 0, EndOffset: 4}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID).Scan(&source.ContentSnapshotID); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID).Scan(&source.ContentSnapshotID)
+	require.NoError(t, err)
+	err = store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID)
+	require.NoError(t, err)
 	var firstRun, secondRun string
 	for i, runID := range []*string{&firstRun, &secondRun} {
-		if err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, owner.ID, source.ID, source.ContentRevisionID, source.ContentSnapshotID, string(rune('a'+i))).Scan(runID); err != nil {
-			t.Fatal(err)
-		}
+		err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, owner.ID, source.ID, source.ContentRevisionID, source.ContentSnapshotID, string(rune('a'+i))).Scan(runID)
+		require.NoError(t, err)
 	}
 	var deckID string
-	if err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','current-deck-test') RETURNING id`, owner.ID).Scan(&deckID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','eins','NUM',$2,$3)`, owner.ID, deckID, source.ID); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','current-deck-test') RETURNING id`, owner.ID).Scan(&deckID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','eins','NUM',$2,$3)`, owner.ID, deckID, source.ID)
+	require.NoError(t, err)
 	first, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: firstRun, Filename: "one.apkg", DeckName: "One", ContentHash: source.ContentHash})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id,deck_preparation_id,language,canonical_lemma,upos,generated_at) VALUES($1,$2,'de','eins','NUM',now())`, owner.ID, first.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.ClaimDeckPreparation(ctx, owner.ID, first.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.CompleteDeckPreparation(ctx, owner.ID, first.ID, domain.DeckPreparation{Artifact: []byte("one-apkg"), Filename: "one.apkg", DeckName: "One", TotalCards: 1}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id,deck_preparation_id,language,canonical_lemma,upos,generated_at) VALUES($1,$2,'de','eins','NUM',now())`, owner.ID, first.ID)
+	require.NoError(t, err)
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, first.ID)
+	require.NoError(t, err)
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, first.ID, domain.DeckPreparation{Artifact: []byte("one-apkg"), Filename: "one.apkg", DeckName: "One", TotalCards: 1})
+	require.NoError(t, err)
 	first, err = store.StartDeckVocabularyStudy(ctx, owner.ID, first.ID)
-	if err != nil || first.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("start first study=%+v err=%v", first, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.VocabularyStudyStudying, first.VocabularyStudyStatus(), "start first study")
 	second, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: secondRun, Filename: "two.apkg", DeckName: "Two", ContentHash: source.ContentHash})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	first, err = store.GetDeckPreparation(ctx, owner.ID, first.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.ID == second.ID || second.RetiredAt != nil || first.RetiredAt == nil {
-		t.Fatalf("current deck transition first=%+v second=%+v", first, second)
-	}
+	require.NoError(t, err)
+	assert.NotEqual(t, second.ID, first.ID, "current deck transition")
+	assert.Nil(t, second.RetiredAt, "current deck transition")
+	assert.NotNil(t, first.RetiredAt, "current deck transition")
 	active, err := store.GetActiveDeckVocabularyStudy(ctx, owner.ID, source.ID)
-	if err != nil || active.ID != first.ID || active.RetiredAt == nil || active.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		t.Fatalf("retired active study=%+v err=%v", active, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, active.ID, "retired active study")
+	assert.NotNil(t, active.RetiredAt, "retired active study")
+	assert.Equal(t, domain.VocabularyStudyStudying, active.VocabularyStudyStatus(), "retired active study")
 	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
-	if err != nil || len(reserved) != 1 || reserved[0].DeckPreparationID != first.ID {
-		t.Fatalf("retired study reservation=%+v err=%v", reserved, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, reserved, 1)
+	assert.Equal(t, first.ID, reserved[0].DeckPreparationID, "retired study reservation")
 	var current, history int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE retired_at IS NULL), count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&current, &history); err != nil {
-		t.Fatal(err)
-	}
-	if current != 1 || history != 2 {
-		t.Fatalf("current=%d history=%d, want one current and two historical rows", current, history)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE retired_at IS NULL), count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&current, &history)
+	require.NoError(t, err)
+	assert.Equal(t, 1, current, "one current deck")
+	assert.Equal(t, 2, history, "two historical rows")
 	retry, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: secondRun, Filename: "changed.apkg", DeckName: "Changed", ContentHash: "changed"})
-	if err != nil || retry.ID != second.ID {
-		t.Fatalf("analysis retry=%+v err=%v", retry, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, second.ID, retry.ID, "analysis retry")
 }
 
 func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner, source, hash string) domain.DeckPreparation {
 	t.Helper()
 	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source, Filename: hash + ".apkg", DeckName: hash, ContentHash: hash})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return p
 }

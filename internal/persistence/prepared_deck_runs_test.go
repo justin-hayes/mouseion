@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunConfigMatchesFrozenExecutionIdentity(t *testing.T) {
 	config, err := validatePreparedDeckRunConfig(PreparedDeckRunConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	run := domain.PreparedDeckRun{
 		ExecutionMode:       domain.PreparedDeckExecutionBatch,
 		TargetLanguage:      "en",
@@ -20,16 +20,10 @@ func TestRunConfigMatchesFrozenExecutionIdentity(t *testing.T) {
 		BatchMaxRequests:    config.BatchMaxRequests,
 		BatchMaxBytes:       config.BatchMaxBytes,
 	}
-	if !runConfigMatches(run, PreparedDeckRunConfig{}) {
-		t.Fatal("default batch/en config should match frozen identity")
-	}
+	assert.True(t, runConfigMatches(run, PreparedDeckRunConfig{}), "default batch/en config should match frozen identity")
 	config.ExecutionMode = "standard"
-	if runConfigMatches(run, config) {
-		t.Fatal("changed execution mode matched frozen identity")
-	}
+	assert.False(t, runConfigMatches(run, config), "changed execution mode matched frozen identity")
 	config.ExecutionMode = "batch"
 	config.TargetLanguage = "fr"
-	if runConfigMatches(run, config) {
-		t.Fatal("changed target language matched frozen identity")
-	}
+	assert.False(t, runConfigMatches(run, config), "changed target language matched frozen identity")
 }
