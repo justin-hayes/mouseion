@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -211,26 +212,26 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 	}
 	reader, writer := io.Pipe()
 	multipartWriter := multipart.NewWriter(writer)
-	writeResult := make(chan error, 1)
-	go func() {
+	var group errgroup.Group
+	group.Go(func() error {
 		err := writeBatchMultipart(multipartWriter, filename, content)
 		if closeErr := multipartWriter.Close(); err == nil {
 			err = closeErr
 		}
 		_ = writer.CloseWithError(err)
-		writeResult <- err
-	}()
+		return err
+	})
 	req, err := c.newRequest(ctx, http.MethodPost, "/files", reader)
 	if err != nil {
 		_ = reader.CloseWithError(err)
-		<-writeResult
+		_ = group.Wait()
 		return OpenAIFile{}, err
 	}
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	var file OpenAIFile
 	err = c.doJSON(req, "upload file", &file)
 	_ = reader.CloseWithError(err)
-	if writeErr := <-writeResult; writeErr != nil && err == nil {
+	if writeErr := group.Wait(); writeErr != nil && err == nil {
 		class := ProviderErrorTransport
 		if errors.Is(writeErr, errBatchFileTooLarge) {
 			class = ProviderErrorResponseTooLarge
