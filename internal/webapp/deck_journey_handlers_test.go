@@ -96,7 +96,7 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 		{
 			name:      "language required",
 			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4}, addErr: persistence.ErrBookLanguageRequired},
-			wantState: deckJourneyNotMember, wantText: "Fix the language in the catalogue", wantRev: 4, wantAdds: 1, wantErr: true,
+			wantState: deckJourneyNotMember, wantText: "Fix the language in the catalog", wantRev: 4, wantAdds: 1, wantErr: true,
 		},
 	}
 	for _, test := range tests {

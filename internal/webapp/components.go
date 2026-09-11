@@ -99,7 +99,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	view := catalogueSyncConnectionView{HasStatus: found}
 	if !found {
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalogue languages; it does not download EPUB content.", connection.Name)
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content.", connection.Name)
 		return view
 	}
 	switch status.State {
@@ -117,7 +117,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 		if status.LastUpsertedCount == 0 {
 			view.Message = "Sync completed, but no eligible EPUB entries were found; the library was unchanged."
 		} else {
-			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalogue sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
+			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalog sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
 		}
 	case domain.CatalogueSyncFailed:
 		view.State = "Sync failed"
@@ -126,7 +126,7 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 		view.Error = status.LastError
 	default:
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalogue languages; it does not download EPUB content.", connection.Name)
+		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content.", connection.Name)
 	}
 	return view
 }
@@ -289,7 +289,7 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 		}
 		return bookLifecycleAction{
 			Status:      myBookEvidenceLabel(state),
-			Description: "No usable acquired EPUB evidence is available for assessment. Add this book to Reading Journey when its catalogue content is available.",
+			Description: "No usable acquired EPUB evidence is available for assessment. Add this book to Reading Journey when its catalog content is available.",
 			Tone:        statusTone(myBookEvidenceLabel(state)),
 		}
 	}
@@ -550,7 +550,7 @@ func jobStatusAttributes(id int64, running bool) templ.Attributes {
 }
 
 func catalogueSyncJobStatusAttributes(id int64, running bool) templ.Attributes {
-	attributes := templ.Attributes{"data-workflow": "catalogue sync"}
+	attributes := templ.Attributes{"data-workflow": "catalog sync"}
 	if running {
 		attributes["hx-get"] = fmt.Sprintf("/jobs/%d/status", id)
 		attributes["hx-trigger"] = "every 2s"

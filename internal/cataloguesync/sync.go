@@ -29,12 +29,12 @@ const (
 	DefaultCadence        = 24 * time.Hour
 	defaultMaxAttempts    = 3
 	periodicJobIDPrefix   = "catalogue_sync:"
-	statusCancelledReason = "Catalogue sync cancelled before completion. Retry when ready."
+	statusCancelledReason = "Catalog sync cancelled before completion. Retry when ready."
 )
 
 var (
-	ErrNotFound           = errors.New("catalogue sync job: not found")
-	ErrConnectionNotFound = errors.New("catalogue sync: alias connection not found")
+	ErrNotFound           = errors.New("catalog sync job: not found")
+	ErrConnectionNotFound = errors.New("catalog sync: alias connection not found")
 )
 
 var liveJobStates = []rivertype.JobState{
@@ -141,11 +141,11 @@ func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx], 
 // migration and retry it after correcting catalogue data or credentials.
 func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackfillResult, error) {
 	if s == nil || s.store == nil || s.reader == nil {
-		return AliasBackfillResult{}, errors.New("catalogue alias backfill service is unavailable")
+		return AliasBackfillResult{}, errors.New("catalog alias backfill service is unavailable")
 	}
 	aliases, err := s.store.ListUnscopedCatalogueEntryAliases(ctx)
 	if err != nil {
-		return AliasBackfillResult{}, fmt.Errorf("list unscoped catalogue aliases: %w", err)
+		return AliasBackfillResult{}, fmt.Errorf("list unscoped catalog aliases: %w", err)
 	}
 	result := AliasBackfillResult{}
 	for _, alias := range aliases {
@@ -180,10 +180,10 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 			}
 		}
 		if len(matches) == 0 {
-			return result, fmt.Errorf("catalogue alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
+			return result, fmt.Errorf("catalog alias %s value %q is absent from every owner connection feed", alias.ID, alias.Value)
 		}
 		if len(matches) != 1 {
-			return result, fmt.Errorf("catalogue alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
+			return result, fmt.Errorf("catalog alias %s value %q is present in %d owner connections", alias.ID, alias.Value, len(matches))
 		}
 		var connectionID string
 		for connectionID = range matches {
@@ -222,13 +222,13 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 	}
 	inserted, err := s.client.Insert(ctx, SyncArgs{OwnerID: owner, ConnectionID: connectionID}, insertOpts())
 	if err != nil {
-		return Handle{}, fmt.Errorf("enqueue catalogue sync: %w", err)
+		return Handle{}, fmt.Errorf("enqueue catalog sync: %w", err)
 	}
 	if inserted == nil || inserted.Job == nil {
-		return Handle{}, errors.New("catalogue sync enqueue returned no River job")
+		return Handle{}, errors.New("catalog sync enqueue returned no River job")
 	}
 	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing}); err != nil {
-		return Handle{}, fmt.Errorf("record catalogue sync status: %w", err)
+		return Handle{}, fmt.Errorf("record catalog sync status: %w", err)
 	}
 	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
 }
@@ -237,10 +237,10 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 // performs no I/O and therefore cannot leak credentials or block the leader.
 func (s *Service) RegisterConnection(_ context.Context, owner, connectionID string) error {
 	if s == nil || s.store == nil || s.client == nil {
-		return errors.New("catalogue sync service is unavailable")
+		return errors.New("catalog sync service is unavailable")
 	}
 	if strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" {
-		return errors.New("catalogue sync connection identity is incomplete")
+		return errors.New("catalog sync connection identity is incomplete")
 	}
 	s.periodicMu.Lock()
 	defer s.periodicMu.Unlock()
@@ -419,7 +419,7 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 // no credential is copied into the periodic constructor or River args.
 func (s *Service) RegisterAll(ctx context.Context) error {
 	if s == nil || s.store == nil {
-		return errors.New("catalogue sync service is unavailable")
+		return errors.New("catalog sync service is unavailable")
 	}
 	connections, err := s.store.ListAllOpdsConnectionIDs(ctx)
 	if err != nil {
@@ -475,7 +475,7 @@ func (s *Service) liveJobExists(ctx context.Context, owner, connectionID string)
 		  AND args->>'connection_id'=$3 AND state::text=ANY($4::text[])
 	)`, Kind, owner, connectionID, liveRiverStates()).Scan(&live)
 	if err != nil {
-		return false, fmt.Errorf("check catalogue sync job state: %w", err)
+		return false, fmt.Errorf("check catalog sync job state: %w", err)
 	}
 	return live, nil
 }
@@ -530,7 +530,7 @@ LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::te
 		return Status{}, ErrNotFound
 	}
 	if err != nil {
-		return Status{}, fmt.Errorf("get catalogue sync job: %w", err)
+		return Status{}, fmt.Errorf("get catalog sync job: %w", err)
 	}
 	status.OwnerID = owner
 	status.ConnectionID = connectionID
@@ -565,7 +565,7 @@ LEFT JOIN opds_connections c ON c.owner_id=$1::uuid AND c.id::text=j.args->>'con
 LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::text=j.args->>'connection_id'
 WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id DESC LIMIT 100`, owner, Kind)
 	if err != nil {
-		return nil, fmt.Errorf("list catalogue sync jobs: %w", err)
+		return nil, fmt.Errorf("list catalog sync jobs: %w", err)
 	}
 	defer rows.Close()
 	var out []Status
@@ -602,7 +602,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 		return Handle{}, err
 	}
 	if status.LogicalState != "failed" && status.LogicalState != "cancelled" {
-		return Handle{}, fmt.Errorf("catalogue sync job is not retryable")
+		return Handle{}, fmt.Errorf("catalog sync job is not retryable")
 	}
 	return s.Enqueue(ctx, owner, status.ConnectionID)
 }
@@ -616,7 +616,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 		return status, nil
 	}
 	if _, err = s.client.JobCancel(ctx, id); err != nil {
-		return Status{}, fmt.Errorf("cancel catalogue sync job: %w", err)
+		return Status{}, fmt.Errorf("cancel catalog sync job: %w", err)
 	}
 	durable, durableErr := s.store.GetCatalogueSyncStatus(ctx, owner, status.ConnectionID)
 	if durableErr != nil && !errors.Is(durableErr, persistence.ErrNotFound) {
@@ -723,7 +723,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, errors.New("catalogue connection could not be loaded")
+		return 0, errors.New("catalog connection could not be loaded")
 	}
 	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
@@ -769,10 +769,10 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 }
 
 func safeSyncError(err error, connection domain.OpdsConnection) error {
-	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalogue connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalogue returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
+	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalog connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalog returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
 		return errors.New(err.Error())
 	}
-	host := "the catalogue"
+	host := "the catalog"
 	if parsed, parseErr := url.Parse(connection.URL); parseErr == nil && parsed.Host != "" {
 		host = parsed.Host
 	}
@@ -781,7 +781,7 @@ func safeSyncError(err error, connection domain.OpdsConnection) error {
 	case strings.Contains(lower, "401"), strings.Contains(lower, "403"), strings.Contains(lower, "unauthorized"):
 		return fmt.Errorf("authentication failed for connection %s", connection.Name)
 	case strings.Contains(lower, "unsafe"), strings.Contains(lower, "outside the catalog origin"):
-		return fmt.Errorf("catalogue returned an unsafe target for connection %s", connection.Name)
+		return fmt.Errorf("catalog returned an unsafe target for connection %s", connection.Name)
 	default:
 		return fmt.Errorf("could not reach %s", host)
 	}
@@ -796,7 +796,7 @@ type Worker struct {
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr error) {
 	if w == nil || w.Store == nil || w.Reader == nil || w.Capabilities == nil || job == nil {
-		return errors.New("catalogue sync worker is unavailable")
+		return errors.New("catalog sync worker is unavailable")
 	}
 	service := &Service{store: w.Store, reader: w.Reader, capabilities: w.Capabilities}
 	args := job.Args
@@ -805,7 +805,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 		return nil
 	}
 	if loadErr != nil {
-		return errors.New("catalogue connection could not be loaded")
+		return errors.New("catalog connection could not be loaded")
 	}
 	upserted, workErr := service.work(ctx, args)
 	if workErr == nil {
