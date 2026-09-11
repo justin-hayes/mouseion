@@ -1,8 +1,10 @@
 package epub
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProjectTOCChoicesReliableProjectionAndDeterminism(t *testing.T) {
@@ -18,12 +20,8 @@ func TestProjectTOCChoicesReliableProjectionAndDeterminism(t *testing.T) {
 		{Label: "Third Part", UnitIDs: []string{units.Units[2].ID}, First: 2},
 	}
 	got := ProjectTOCChoices(data, units)
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("choices = %#v, want %#v", got, want)
-	}
-	if repeated := ProjectTOCChoices(data, units); !reflect.DeepEqual(got, repeated) {
-		t.Fatalf("projection is not deterministic:\nfirst=%#v\nsecond=%#v", got, repeated)
-	}
+	assert.Equal(t, want, got)
+	assert.Equal(t, got, ProjectTOCChoices(data, units), "projection is not deterministic")
 }
 
 func TestProjectTOCChoicesNestedTargetsBelongToParent(t *testing.T) {
@@ -39,9 +37,7 @@ func TestProjectTOCChoicesNestedTargetsBelongToParent(t *testing.T) {
 		{Label: "Part One", UnitIDs: []string{units.Units[0].ID, units.Units[1].ID}, First: 0},
 		{Label: "Part Two", UnitIDs: []string{units.Units[2].ID}, First: 2},
 	}
-	if got := ProjectTOCChoices(data, units); !reflect.DeepEqual(got, want) {
-		t.Fatalf("choices = %#v, want %#v", got, want)
-	}
+	assert.Equal(t, want, ProjectTOCChoices(data, units))
 }
 
 func TestProjectTOCChoicesFlatFallback(t *testing.T) {
@@ -69,9 +65,7 @@ func TestProjectTOCChoicesFlatFallback(t *testing.T) {
 func TestProjectTOCChoicesEPUB2UsesFlatFallback(t *testing.T) {
 	data := fixtureDirectory(t, "testfixtures/epub2-clean")
 	book, err := Extract(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assertFlatTOCChoices(t, ProjectTOCChoices(data, book.ExtractedUnits), book.ExtractedUnits)
 }
 
@@ -85,9 +79,7 @@ func TestProjectTOCChoicesFlatFallbackNormalizesPersistedTitle(t *testing.T) {
 		{Label: "First Chapter", UnitIDs: []string{"first"}, First: 4},
 		{Label: "second", UnitIDs: []string{"second"}, First: 9},
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("choices = %#v, want %#v", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func tocProjectionFixture(t *testing.T, nav string) ([]byte, ExtractedUnits) {
@@ -106,18 +98,14 @@ func tocProjectionFixture(t *testing.T, nav string) ([]byte, ExtractedUnits) {
 	}
 	data := epubFixture(t, validPackage(manifest, spine), files...)
 	book, err := Extract(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return data, book.ExtractedUnits
 }
 
 func assertFlatTOCChoices(t *testing.T, got []TOCChoice, units ExtractedUnits) {
 	t.Helper()
 	readable := readableSnapshotUnits(units)
-	if len(got) != len(readable) {
-		t.Fatalf("choice count = %d, want %d: %#v", len(got), len(readable), got)
-	}
+	require.Len(t, got, len(readable))
 	for i, choice := range got {
 		unit := readable[i]
 		wantLabel := cleanSpace(unit.Title)
@@ -125,8 +113,6 @@ func assertFlatTOCChoices(t *testing.T, got []TOCChoice, units ExtractedUnits) {
 			wantLabel = unit.ManifestID
 		}
 		want := TOCChoice{Label: wantLabel, UnitIDs: []string{unit.ID}, First: unit.Order}
-		if !reflect.DeepEqual(choice, want) {
-			t.Errorf("choice %d = %#v, want %#v", i, choice, want)
-		}
+		assert.Equal(t, want, choice, "choice %d", i)
 	}
 }

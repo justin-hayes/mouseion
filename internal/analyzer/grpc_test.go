@@ -3,11 +3,12 @@ package analyzer
 import (
 	"context"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -67,28 +68,26 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = analyzer.Close() })
 
 	result, err := analyzer.Analyze(context.Background(), AnalyzeRequest{
 		Language: "de",
 		Document: SourceDocument{ID: "document-1", SourceIdentifier: "opds:1", Title: "Faust", Text: "Goethe"},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Language != "de" || result.Analysis.AnalyzedAt != time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC) || result.Sentences[0].Tokens[0].CanonicalLemma != "goethe" {
-		t.Fatalf("result = %+v", result)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "de", result.Language)
+	assert.Equal(t, time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC), result.Analysis.AnalyzedAt)
+	assert.Equal(t, "goethe", result.Sentences[0].Tokens[0].CanonicalLemma)
 	capabilities, err := analyzer.GetCapabilities(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(capabilities.Languages) != 2 || capabilities.Languages[0].DisplayName != "German" || capabilities.Languages[0].ModelVersion != "1.10.1" || !capabilities.Languages[0].Ready || capabilities.Languages[1].DisplayName != "Italian" || capabilities.Languages[1].ModelVersion != "1.9.2" || capabilities.Languages[1].Ready {
-		t.Fatalf("capabilities = %+v", capabilities)
-	}
+	require.NoError(t, err)
+	require.Len(t, capabilities.Languages, 2)
+	assert.Equal(t, "German", capabilities.Languages[0].DisplayName)
+	assert.Equal(t, "1.10.1", capabilities.Languages[0].ModelVersion)
+	assert.True(t, capabilities.Languages[0].Ready)
+	assert.Equal(t, "Italian", capabilities.Languages[1].DisplayName)
+	assert.Equal(t, "1.9.2", capabilities.Languages[1].ModelVersion)
+	assert.False(t, capabilities.Languages[1].Ready)
 }
 
 func TestGRPCAnalyzerReportsRPCFailure(t *testing.T) {
@@ -96,14 +95,11 @@ func TestGRPCAnalyzerReportsRPCFailure(t *testing.T) {
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return nil, context.DeadlineExceeded }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = analyzer.Close() })
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
 	_, err = analyzer.Analyze(ctx, AnalyzeRequest{})
-	if err == nil || !strings.Contains(err.Error(), "call NLP analyzer") {
-		t.Fatalf("expected RPC error, got %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "call NLP analyzer", "expected RPC error, got %v", err)
 }

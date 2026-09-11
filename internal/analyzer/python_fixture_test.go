@@ -7,53 +7,45 @@ import (
 	"testing"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestGoConsumesPythonProducedCorpus(t *testing.T) {
 	encoded, err := os.ReadFile("testdata/stanza_python_corpus.pb.b64")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	payload, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(encoded)))
-	if err != nil {
-		t.Fatalf("decode Python fixture: %v", err)
-	}
+	require.NoError(t, err, "decode Python fixture")
 	corpus := new(mouseionv1.NormalizedCorpus)
-	if err := proto.Unmarshal(payload, corpus); err != nil {
-		t.Fatalf("unmarshal Python fixture: %v", err)
-	}
-	if corpus.GetSchemaVersion() != "1.0.0" || corpus.GetLanguage() != "de" {
-		t.Fatalf("unexpected corpus header: %v", corpus)
-	}
+	require.NoError(t, proto.Unmarshal(payload, corpus), "unmarshal Python fixture")
+	assert.Equal(t, "1.0.0", corpus.GetSchemaVersion())
+	assert.Equal(t, "de", corpus.GetLanguage())
 	token := corpus.GetSentences()[0].GetTokens()[0]
-	if token.GetSurface() != "Goethe" || token.GetNamedEntity() != "B-PER" {
-		t.Fatalf("unexpected Python-produced token: %v", token)
-	}
+	assert.Equal(t, "Goethe", token.GetSurface())
+	assert.Equal(t, "B-PER", token.GetNamedEntity())
 }
 
 func TestGoConsumesItalianStanzaRegressionFixture(t *testing.T) {
 	payload, err := os.ReadFile("../../nlp/tests/testdata/italian_stanza_expected.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	corpus := new(mouseionv1.NormalizedCorpus)
-	if err = protojson.Unmarshal(payload, corpus); err != nil {
-		t.Fatalf("unmarshal Italian Python fixture: %v", err)
-	}
-	if corpus.GetLanguage() != "it" || len(corpus.GetSentences()) != 2 {
-		t.Fatalf("unexpected Italian corpus header: %v", corpus)
-	}
+	require.NoError(t, protojson.Unmarshal(payload, corpus), "unmarshal Italian Python fixture")
+	assert.Equal(t, "it", corpus.GetLanguage())
+	require.Len(t, corpus.GetSentences(), 2)
 	tokens := corpus.GetSentences()[0].GetTokens()
-	if tokens[0].GetSurface() != "L'" || tokens[0].GetRawLemma() != "il" || tokens[4].GetCanonicalLemma() != "ragazza" || tokens[4].GetMorphology()["Number"] != "Plur" {
-		t.Fatalf("unexpected article/gender/number normalization: %v", tokens)
-	}
-	if tokens[6].GetSurface() != "dell'" || tokens[6].GetRawLemma() != "di" || tokens[7].GetSurface() != "dell'" || tokens[7].GetRawLemma() != "il" {
-		t.Fatalf("unexpected contraction expansion: %v", tokens[6:8])
-	}
+	assert.Equal(t, "L'", tokens[0].GetSurface())
+	assert.Equal(t, "il", tokens[0].GetRawLemma())
+	assert.Equal(t, "ragazza", tokens[4].GetCanonicalLemma())
+	assert.Equal(t, "Plur", tokens[4].GetMorphology()["Number"])
+	assert.Equal(t, "dell'", tokens[6].GetSurface())
+	assert.Equal(t, "di", tokens[6].GetRawLemma())
+	assert.Equal(t, "dell'", tokens[7].GetSurface())
+	assert.Equal(t, "il", tokens[7].GetRawLemma())
 	second := corpus.GetSentences()[1].GetTokens()
-	if second[0].GetNamedEntity() != "S-PER" || second[5].GetSurface() != "porterà" || second[5].GetRawLemma() != "portare" || second[9].GetMorphology()["Clitic"] != "Yes" {
-		t.Fatalf("unexpected name/accent/clitic normalization: %v", second)
-	}
+	assert.Equal(t, "S-PER", second[0].GetNamedEntity())
+	assert.Equal(t, "porterà", second[5].GetSurface())
+	assert.Equal(t, "portare", second[5].GetRawLemma())
+	assert.Equal(t, "Yes", second[9].GetMorphology()["Clitic"])
 }

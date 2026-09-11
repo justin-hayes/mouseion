@@ -15,6 +15,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type fakeCapabilities struct{ value analyzer.Capabilities }
@@ -65,34 +67,22 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	alice, err := store.CreateUser(ctx, "sync-alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "sync-bob", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "en", "English"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "it", "Italian"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "fr", "French"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "en", "English")
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "it", "Italian")
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "fr", "French")
+	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://catalog.example/opds", Password: "catalog-secret"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	reader := &fakeReader{feeds: map[string]opds.Feed{
 		"7":  {Entries: []opds.Entry{testEntry("entry-1", "First title")}},
 		"8":  {Entries: []opds.Entry{testEntry("english-entry", "Do not sync")}},
@@ -101,23 +91,18 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	}}
 	worker := &Worker{Store: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: alice.ID, ConnectionID: connection.ID}}
-	if err = worker.Work(ctx, job); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, worker.Work(ctx, job))
 	books, err := store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 2 {
-		t.Fatalf("first sync books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 2)
 	tags := make(map[string]string, len(books))
 	for _, book := range books {
 		tags[book.Title] = book.LanguageTag
-		if book.LanguageState != domain.LanguageChosen || book.MetadataProvenance != domain.MetadataProvenanceCatalogueSync {
-			t.Fatalf("first sync book=%+v", book)
-		}
+		assert.Equal(t, domain.LanguageChosen, book.LanguageState, "first sync book=%+v", book)
+		assert.Equal(t, domain.MetadataProvenanceCatalogueSync, book.MetadataProvenance, "first sync book=%+v", book)
 	}
-	if tags["First title"] != "de" || tags["French title"] != "fr" {
-		t.Fatalf("first sync language tags=%v", tags)
-	}
+	assert.Equal(t, "de", tags["First title"])
+	assert.Equal(t, "fr", tags["French title"])
 	var journeyBookID string
 	for _, book := range books {
 		if book.Title == "First title" {
@@ -125,92 +110,68 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 			break
 		}
 	}
-	if journeyBookID == "" {
-		t.Fatal("first synced book was not found for Journey lifecycle check")
-	}
+	require.NotEmpty(t, journeyBookID, "first synced book was not found for Journey lifecycle check")
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision); err != nil {
-		t.Fatal(err)
-	}
-	if len(reader.visited) != 2 || reader.visited[0] != "7" || reader.visited[1] != "10" {
-		t.Fatalf("visited catalog language IDs=%v", reader.visited)
-	}
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
+	require.NoError(t, err)
+	require.Len(t, reader.visited, 2)
+	assert.Equal(t, "7", reader.visited[0])
+	assert.Equal(t, "10", reader.visited[1])
 	status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	if err != nil || status.State != domain.CatalogueSyncSynced || status.LastSyncedAt == nil || status.LastError != "" || status.LastUpsertedCount != 2 {
-		t.Fatalf("sync status=%+v err=%v", status, err)
-	}
-	if err = worker.Work(ctx, job); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.CatalogueSyncSynced, status.State)
+	assert.NotNil(t, status.LastSyncedAt)
+	assert.Equal(t, "", status.LastError)
+	assert.Equal(t, 2, status.LastUpsertedCount)
+	require.NoError(t, worker.Work(ctx, job))
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	if err != nil || status.LastUpsertedCount != 0 {
-		t.Fatalf("unchanged rerun sync status=%+v err=%v", status, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 0, status.LastUpsertedCount)
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntry("entry-1", "Updated title")}}
-	if err = worker.Work(ctx, job); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 2 {
-		t.Fatalf("rerun books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 2)
 	updatedTitles := make(map[string]string, len(books))
 	for _, book := range books {
 		updatedTitles[book.Title] = book.LanguageTag
 	}
-	if updatedTitles["Updated title"] != "de" || updatedTitles["French title"] != "fr" {
-		t.Fatalf("rerun language tags=%v", updatedTitles)
-	}
+	assert.Equal(t, "de", updatedTitles["Updated title"])
+	assert.Equal(t, "fr", updatedTitles["French title"])
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	if err != nil || status.LastUpsertedCount != 1 {
-		t.Fatalf("updated rerun sync status=%+v err=%v", status, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, status.LastUpsertedCount)
 	var analysisRuns, analysisJobs int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs); err != nil {
-		t.Fatal(err)
-	}
-	if analysisRuns != 0 || analysisJobs != 0 {
-		t.Fatalf("catalogue sync triggered analysis for Journey member: runs=%d jobs=%d", analysisRuns, analysisJobs)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs)
+	require.NoError(t, err)
+	assert.Equal(t, 0, analysisRuns)
+	assert.Equal(t, 0, analysisJobs)
 	var aliases, memberships int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, alice.ID).Scan(&aliases); err != nil {
-		t.Fatal(err)
-	}
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, alice.ID).Scan(&memberships); err != nil {
-		t.Fatal(err)
-	}
-	if aliases != 2 || memberships != 2 {
-		t.Fatalf("rerun aliases=%d memberships=%d", aliases, memberships)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, alice.ID).Scan(&aliases)
+	require.NoError(t, err)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, alice.ID).Scan(&memberships)
+	require.NoError(t, err)
+	assert.Equal(t, 2, aliases)
+	assert.Equal(t, 2, memberships)
 	reader.feeds["7"] = opds.Feed{}
-	if err = worker.Work(ctx, job); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
-	if err != nil || len(books) != 2 {
-		t.Fatalf("upstream removal changed My Books=%+v err=%v", books, err)
-	}
-	if err = worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}); err != nil {
-		t.Fatal(err)
-	}
-	if bobBooks, listErr := store.ListMyBooks(ctx, bob.ID); listErr != nil || len(bobBooks) != 0 {
-		t.Fatalf("cross-owner books=%+v err=%v", bobBooks, listErr)
-	}
-	if _, err = store.GetCatalogueSyncStatus(ctx, bob.ID, connection.ID); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("cross-owner status err=%v", err)
-	}
-	if _, err = store.GetOpdsConnection(ctx, bob.ID, connection.ID); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("cross-owner connection err=%v", err)
-	}
-	if got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID); err != nil || got.Password != "catalog-secret" {
-		t.Fatalf("credential load got=%+v err=%v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 2)
+	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
+	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
+	require.NoError(t, listErr)
+	assert.Empty(t, bobBooks)
+	_, err = store.GetCatalogueSyncStatus(ctx, bob.ID, connection.ID)
+	assert.ErrorIs(t, err, persistence.ErrNotFound)
+	_, err = store.GetOpdsConnection(ctx, bob.ID, connection.ID)
+	assert.ErrorIs(t, err, persistence.ErrNotFound)
+	got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "catalog-secret", got.Password)
 }
 
 func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T) {
@@ -218,58 +179,39 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "sync-collision-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, language := range []string{"de"} {
-		if _, err = store.PutSupportedLanguage(ctx, language, "German"); err != nil {
-			t.Fatal(err)
-		}
+		_, err = store.PutSupportedLanguage(ctx, language, "German")
+		require.NoError(t, err)
 	}
 	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First catalog", URL: "https://first.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second catalog", URL: "https://second.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	reader := &fakeReader{feeds: map[string]opds.Feed{
 		"7": {Entries: []opds.Entry{testEntry("same-entry", "First catalog title")}},
 	}, connectionFeedTitles: map[string]string{first.ID: "First catalog title", second.ID: "Second catalog title"}}
 	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
 	worker := &Worker{Store: store, Reader: reader, Capabilities: capabilities}
 	for _, connection := range []domain.OpdsConnection{first, second} {
-		if err = worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
 	}
 	books, err := store.ListMyBooks(ctx, owner.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(books) != 2 {
-		t.Fatalf("same entry ID produced %d books, want 2: %+v", len(books), books)
-	}
+	require.NoError(t, err)
+	assert.Len(t, books, 2, "same entry ID produced %d books, want 2: %+v", len(books), books)
 	titles := map[string]bool{}
 	for _, book := range books {
 		titles[book.Title] = true
 	}
-	if !titles["First catalog title"] || !titles["Second catalog title"] {
-		t.Fatalf("same entry ID titles=%v", titles)
-	}
+	assert.True(t, titles["First catalog title"])
+	assert.True(t, titles["Second catalog title"])
 	var aliasCount int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='same-entry'`, owner.ID).Scan(&aliasCount); err != nil {
-		t.Fatal(err)
-	}
-	if aliasCount != 2 {
-		t.Fatalf("same entry ID aliases=%d, want 2", aliasCount)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='same-entry'`, owner.ID).Scan(&aliasCount)
+	require.NoError(t, err)
+	assert.Equal(t, 2, aliasCount, "same entry ID aliases=%d, want 2", aliasCount)
 }
 
 func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
@@ -277,95 +219,65 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
 	owner, err := store.CreateUser(ctx, "sync-failure", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Private catalog", URL: "https://catalog.example/opds", Password: "super-secret"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.PutSupportedLanguage(ctx, "de", "German"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err)
 	worker := &Worker{Store: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
-	if err = worker.Work(ctx, job); err == nil || err.Error() != "authentication failed for connection Private catalog" {
-		t.Fatalf("safe worker error=%v", err)
-	}
+	err = worker.Work(ctx, job)
+	require.Error(t, err)
+	assert.Equal(t, "authentication failed for connection Private catalog", err.Error())
 	status, err := store.GetCatalogueSyncStatus(ctx, owner.ID, connection.ID)
-	if err != nil || status.LastError != "authentication failed for connection Private catalog" || status.LastError == "super-secret" {
-		t.Fatalf("safe failure status=%+v err=%v", status, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "authentication failed for connection Private catalog", status.LastError)
+	assert.NotEqual(t, "super-secret", status.LastError)
 }
 
 func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer store.Close()
-	if err = analysis.MigrateRiver(ctx, store.Pool()); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
 	owner, err := store.CreateUser(ctx, "sync-status-owner", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Status catalog", URL: "https://catalog.example/opds"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncSyncing}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncSyncing}))
 	service := NewService(store, nil, nil, nil)
 	statuses, err := service.ListCatalogueSyncStatuses(ctx, owner.ID)
-	if err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncFailed {
-		t.Fatalf("stale status=%+v err=%v", statuses, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, statuses, 1)
+	assert.Equal(t, domain.CatalogueSyncFailed, statuses[0].State)
 
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer client.Stop(context.Background())
 	service.client = client
 	first, err := service.Enqueue(ctx, owner.ID, connection.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	second, err := service.Enqueue(ctx, owner.ID, connection.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first != second {
-		t.Fatalf("duplicate enqueue handles differ: first=%+v second=%+v", first, second)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, second, first, "duplicate enqueue handles differ")
 	var liveJobs int
-	if err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'connection_id'=$3 AND state::text=ANY($4::text[])`, Kind, owner.ID, connection.ID, liveRiverStates()).Scan(&liveJobs); err != nil {
-		t.Fatal(err)
-	}
-	if liveJobs != 1 {
-		t.Fatalf("duplicate enqueue created %d live jobs", liveJobs)
-	}
-	if statuses, err = service.ListCatalogueSyncStatuses(ctx, owner.ID); err != nil || len(statuses) != 1 || statuses[0].State != domain.CatalogueSyncSyncing {
-		t.Fatalf("live status=%+v err=%v", statuses, err)
-	}
-	if _, err = client.JobCancel(ctx, first.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = service.List(ctx, owner.ID); err != nil {
-		t.Fatal(err)
-	}
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'connection_id'=$3 AND state::text=ANY($4::text[])`, Kind, owner.ID, connection.ID, liveRiverStates()).Scan(&liveJobs)
+	require.NoError(t, err)
+	assert.Equal(t, 1, liveJobs, "duplicate enqueue created %d live jobs", liveJobs)
+	statuses, err = service.ListCatalogueSyncStatuses(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, statuses, 1)
+	assert.Equal(t, domain.CatalogueSyncSyncing, statuses[0].State)
+	_, err = client.JobCancel(ctx, first.ID)
+	require.NoError(t, err)
+	_, err = service.List(ctx, owner.ID)
+	require.NoError(t, err)
 	status, err := store.GetCatalogueSyncStatus(ctx, owner.ID, connection.ID)
-	if err != nil || status.State != domain.CatalogueSyncFailed {
-		t.Fatalf("reconciled durable status=%+v err=%v", status, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, domain.CatalogueSyncFailed, status.State)
 }

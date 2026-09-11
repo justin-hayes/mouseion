@@ -1,12 +1,15 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestReadingJourneyValidate(t *testing.T) {
 	valid := ReadingJourney{OwnerID: "owner", Entries: []ReadingJourneyEntry{{OwnerID: "owner", BookID: "book", Position: 1}}}
-	if err := valid.Validate(); err != nil {
-		t.Fatalf("valid journey rejected: %v", err)
-	}
+	require.NoError(t, valid.Validate(), "valid journey rejected")
 
 	tests := []struct {
 		name  string
@@ -18,9 +21,7 @@ func TestReadingJourneyValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.entry.Validate(); err == nil {
-				t.Fatalf("invalid entry accepted: %+v", tt.entry)
-			}
+			assert.Error(t, tt.entry.Validate(), "invalid entry accepted: %+v", tt.entry)
 		})
 	}
 }

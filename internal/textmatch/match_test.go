@@ -3,6 +3,9 @@ package textmatch
 import (
 	"testing"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCleanLexicalSurface(t *testing.T) {
@@ -20,9 +23,7 @@ func TestCleanLexicalSurface(t *testing.T) {
 		{input: "—", want: "—"},
 	}
 	for _, test := range tests {
-		if got := CleanLexicalSurface(test.input); got != test.want {
-			t.Errorf("CleanLexicalSurface(%q) = %q, want %q", test.input, got, test.want)
-		}
+		assert.Equal(t, test.want, CleanLexicalSurface(test.input))
 	}
 }
 
@@ -36,28 +37,24 @@ func TestFoldedWordSpanPreservesOriginalUTF8Offsets(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			start, end, ok := FoldedWordSpan(test.text, test.target)
-			if !ok || test.text[start:end] != test.want || !utf8.ValidString(test.text[start:end]) {
-				t.Fatalf("span=(%d,%d,%v) value=%q", start, end, ok, test.text[start:end])
-			}
+			require.True(t, ok)
+			span := test.text[start:end]
+			assert.Equal(t, test.want, span)
+			assert.True(t, utf8.ValidString(span))
 		})
 	}
 }
 
 func TestFoldedWordSpanUsesUnicodeWordBoundaries(t *testing.T) {
-	if _, _, ok := FoldedWordSpan("Das Hausboot liegt dort.", "Haus"); ok {
-		t.Fatal("matched inside a larger word")
-	}
-	if _, _, ok := FoldedWordSpan("Das Cafe\u0301 liegt dort.", "Cafe"); ok {
-		t.Fatal("matched before a combining mark")
-	}
-	if _, _, ok := FoldedWordSpan("Die U-Bahn fährt heute.", "Bahn"); ok {
-		t.Fatal("matched inside a hyphenated word")
-	}
-	if _, _, ok := FoldedWordSpan("O'Neill wartet heute.", "Neill"); ok {
-		t.Fatal("matched inside an apostrophized word")
-	}
+	_, _, ok := FoldedWordSpan("Das Hausboot liegt dort.", "Haus")
+	assert.False(t, ok, "matched inside a larger word")
+	_, _, ok = FoldedWordSpan("Das Cafe\u0301 liegt dort.", "Cafe")
+	assert.False(t, ok, "matched before a combining mark")
+	_, _, ok = FoldedWordSpan("Die U-Bahn fährt heute.", "Bahn")
+	assert.False(t, ok, "matched inside a hyphenated word")
+	_, _, ok = FoldedWordSpan("O'Neill wartet heute.", "Neill")
+	assert.False(t, ok, "matched inside an apostrophized word")
 	start, end, ok := FoldedWordSpan("Das ‹Haus› liegt dort.", "haus")
-	if !ok || "Das ‹Haus› liegt dort."[start:end] != "Haus" {
-		t.Fatalf("punctuation-bounded span=(%d,%d,%v)", start, end, ok)
-	}
+	require.True(t, ok)
+	assert.Equal(t, "Haus", "Das ‹Haus› liegt dort."[start:end])
 }

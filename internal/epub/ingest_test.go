@@ -2,10 +2,11 @@ package epub
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
@@ -60,49 +61,34 @@ func (m *acquisitionMemoryStore) FindSourceMaterialForAcquisition(context.Contex
 func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	store := &memoryStore{}
 	result, err := NewService(store).Import(context.Background(), "owner-id", "de", fixture(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Source.OwnerID != "owner-id" || result.History.OwnerID != "owner-id" {
-		t.Fatalf("owner scope: %+v", result)
-	}
-	if store.resolved != 1 || store.linked != 1 {
-		t.Fatalf("book linking: resolved=%d linked=%d", store.resolved, store.linked)
-	}
-	if result.Source.MediaType != MediaType() || len(result.Source.Content) == 0 || result.Source.FullText == "" {
-		t.Fatalf("source: %+v", result.Source)
-	}
-	if err := store.units.ValidateOffsets(result.Source.FullText); err != nil {
-		t.Fatalf("stored units: %v", err)
-	}
-	if result.History.Operation != "epub.import" || result.History.Status != "complete" || len(result.History.Details) == 0 {
-		t.Fatalf("history: %+v", result.History)
-	}
-	if result.Source.ContentHash != ContentDigest(fixture(t)) {
-		t.Fatalf("content digest: got=%s want=%s", result.Source.ContentHash, ContentDigest(fixture(t)))
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "owner-id", result.Source.OwnerID)
+	assert.Equal(t, "owner-id", result.History.OwnerID)
+	assert.Equal(t, 1, store.resolved)
+	assert.Equal(t, 1, store.linked)
+	assert.Equal(t, MediaType(), result.Source.MediaType)
+	assert.NotEmpty(t, result.Source.Content)
+	assert.NotEmpty(t, result.Source.FullText)
+	require.NoError(t, store.units.ValidateOffsets(result.Source.FullText))
+	assert.Equal(t, "epub.import", result.History.Operation)
+	assert.Equal(t, "complete", result.History.Status)
+	assert.NotEmpty(t, result.History.Details)
+	assert.Equal(t, ContentDigest(fixture(t)), result.Source.ContentHash)
 }
 
 func TestImportRequiresAuthenticatedOwner(t *testing.T) {
 	_, err := NewService(&memoryStore{}).Import(context.Background(), "", "de", fixture(t))
-	if !errors.Is(err, ErrUnauthenticated) {
-		t.Fatalf("error = %v", err)
-	}
+	assert.ErrorIs(t, err, ErrUnauthenticated)
 }
 
 func TestImportForAcquisitionReturnsExistingSourceWithoutRewritingIt(t *testing.T) {
 	store := &acquisitionMemoryStore{existing: domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"}}
 	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", fixture(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.AlreadyPresent || result.Source.ID != "existing-source" {
-		t.Fatalf("result=%+v", result)
-	}
-	if store.puts != 0 || store.histories != 0 {
-		t.Fatalf("existing acquisition rewrote source: puts=%d histories=%d", store.puts, store.histories)
-	}
-	if store.resolved != 1 || store.linked != 1 {
-		t.Fatalf("existing acquisition was not linked: resolved=%d linked=%d", store.resolved, store.linked)
-	}
+	require.NoError(t, err)
+	assert.True(t, result.AlreadyPresent)
+	assert.Equal(t, "existing-source", result.Source.ID)
+	assert.Equal(t, 0, store.puts)
+	assert.Equal(t, 0, store.histories)
+	assert.Equal(t, 1, store.resolved)
+	assert.Equal(t, 1, store.linked)
 }

@@ -2,11 +2,12 @@ package vocabulary
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
@@ -42,52 +43,39 @@ func TestLifecycleForwardReversibleAndIdempotent(t *testing.T) {
 	steps := []State{Candidate, Accepted, Generated}
 	for _, state := range steps {
 		got, err := lifecycle.Transition(ctx, "alice", id, state)
-		if err != nil || got.State != string(state) {
-			t.Fatalf("transition to %s: %+v, %v", state, got, err)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, string(state), got.State, "transition to %s", state)
 	}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Generated); err != nil {
-		t.Fatal(err)
-	}
-	if len(store.history) != 3 {
-		t.Fatalf("idempotent transition wrote history: %d", len(store.history))
-	}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Candidate); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("implicit reopen: %v", err)
-	}
-	if got, err := lifecycle.Reset(ctx, "alice", id); err != nil || got.State != string(Candidate) {
-		t.Fatalf("reset: %+v, %v", got, err)
-	}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Ignored); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lifecycle.Reset(ctx, "alice", id); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Known); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Candidate); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("implicit known reset: %v", err)
-	}
-	if _, err := lifecycle.Reset(ctx, "alice", id); err != nil {
-		t.Fatal(err)
-	}
+	_, err := lifecycle.Transition(ctx, "alice", id, Generated)
+	require.NoError(t, err)
+	assert.Len(t, store.history, 3, "idempotent transition wrote history")
+	_, err = lifecycle.Transition(ctx, "alice", id, Candidate)
+	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit reopen")
+	got, err := lifecycle.Reset(ctx, "alice", id)
+	require.NoError(t, err)
+	assert.Equal(t, string(Candidate), got.State)
+	_, err = lifecycle.Transition(ctx, "alice", id, Ignored)
+	require.NoError(t, err)
+	_, err = lifecycle.Reset(ctx, "alice", id)
+	require.NoError(t, err)
+	_, err = lifecycle.Transition(ctx, "alice", id, Known)
+	require.NoError(t, err)
+	_, err = lifecycle.Transition(ctx, "alice", id, Candidate)
+	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit known reset")
+	_, err = lifecycle.Reset(ctx, "alice", id)
+	require.NoError(t, err)
 }
 
 func TestLifecycleRejectsInvalidTransitionsAndIdentity(t *testing.T) {
 	ctx := context.Background()
 	lifecycle := NewLifecycle(newMemoryStore())
 	id := Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}
-	if _, err := lifecycle.Transition(ctx, "alice", id, Accepted); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("new accepted: %v", err)
-	}
-	if _, err := lifecycle.Reset(ctx, "alice", id); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("reset missing: %v", err)
-	}
-	if _, err := lifecycle.Transition(ctx, "", id, Candidate); !errors.Is(err, ErrInvalidTransition) {
-		t.Fatalf("empty owner: %v", err)
-	}
+	_, err := lifecycle.Transition(ctx, "alice", id, Accepted)
+	assert.ErrorIs(t, err, ErrInvalidTransition, "new accepted")
+	_, err = lifecycle.Reset(ctx, "alice", id)
+	assert.ErrorIs(t, err, ErrInvalidTransition, "reset missing")
+	_, err = lifecycle.Transition(ctx, "", id, Candidate)
+	assert.ErrorIs(t, err, ErrInvalidTransition, "empty owner")
 }
 
 func TestLifecycleIdentityIncludesOwnerLanguageLemmaAndUPOS(t *testing.T) {
@@ -104,11 +92,8 @@ func TestLifecycleIdentityIncludesOwnerLanguageLemmaAndUPOS(t *testing.T) {
 		{"alice", Identity{"de", "reisen", "NOUN"}},
 	}
 	for _, item := range identities {
-		if _, err := lifecycle.Transition(ctx, item.owner, item.id, Candidate); err != nil {
-			t.Fatal(err)
-		}
+		_, err := lifecycle.Transition(ctx, item.owner, item.id, Candidate)
+		require.NoError(t, err)
 	}
-	if len(store.states) != len(identities) {
-		t.Fatalf("states = %d", len(store.states))
-	}
+	assert.Len(t, store.states, len(identities), "states = %d", len(store.states))
 }

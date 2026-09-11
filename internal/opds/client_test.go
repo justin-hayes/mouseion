@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListRootPaginationAndAcquisition(t *testing.T) {
@@ -27,28 +30,20 @@ func TestListRootPaginationAndAcquisition(t *testing.T) {
 	defer server.Close()
 
 	feed, err := NewClient(server.Client(), Auth{Username: "reader", Password: "secret"}).ListRoot(context.Background(), server.URL+"/catalog")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if feed.Title != "Books" || len(feed.Entries) != 2 {
-		t.Fatalf("feed=%+v", feed)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Books", feed.Title)
+	require.Len(t, feed.Entries, 2)
 	links := FindEPUBs(feed.Entries[0])
-	if len(links) != 1 || links[0].Href != server.URL+"/one.epub" {
-		t.Fatalf("EPUB links=%+v", links)
-	}
-	if links := FindEPUBs(feed.Entries[1]); len(links) != 0 {
-		t.Fatalf("PDF treated as EPUB: %+v", links)
-	}
+	require.Len(t, links, 1)
+	assert.Equal(t, server.URL+"/one.epub", links[0].Href)
+	assert.Empty(t, FindEPUBs(feed.Entries[1]), "PDF treated as EPUB")
 }
 
 func TestRelativePaginationPreservesCatalogQueryCredentials(t *testing.T) {
 	var requests []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests = append(requests, r.URL.RequestURI())
-		if r.URL.Query().Get("access_token") != "catalog-secret" {
-			t.Fatalf("access token query=%q", r.URL.RawQuery)
-		}
+		assert.Equal(t, "catalog-secret", r.URL.Query().Get("access_token"), "access token query=%q", r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/atom+xml")
 		if r.URL.Query().Get("offset") == "1" {
 			_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>two</id><title>Two</title></entry></feed>`)
@@ -59,22 +54,15 @@ func TestRelativePaginationPreservesCatalogQueryCredentials(t *testing.T) {
 	defer server.Close()
 
 	feed, err := NewClient(server.Client(), Auth{}).List(context.Background(), server.URL+"/catalog?access_token=catalog-secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(feed.Entries) != 2 {
-		t.Fatalf("entries=%+v", feed.Entries)
-	}
-	if len(requests) != 2 || requests[1] != "/catalog?access_token=catalog-secret&offset=1" {
-		t.Fatalf("pagination requests=%v", requests)
-	}
+	require.NoError(t, err)
+	assert.Len(t, feed.Entries, 2)
+	require.Len(t, requests, 2)
+	assert.Equal(t, "/catalog?access_token=catalog-secret&offset=1", requests[1])
 }
 
 func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("access_token") != "catalog-secret" {
-			t.Fatalf("access token query=%q", r.URL.RawQuery)
-		}
+		assert.Equal(t, "catalog-secret", r.URL.Query().Get("access_token"), "access token query=%q", r.URL.RawQuery)
 		switch r.URL.Path {
 		case "/catalog":
 			w.Header().Set("Content-Type", "application/atom+xml")
@@ -90,17 +78,13 @@ func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 
 	client := NewClient(server.Client(), Auth{})
 	feed, err := client.ListPage(context.Background(), server.URL+"/catalog?access_token=catalog-secret")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	links := FindEPUBs(feed.Entries[0])
-	if len(links) != 1 || links[0].Href != server.URL+"/books/one.epub?access_token=catalog-secret" {
-		t.Fatalf("EPUB links=%+v", links)
-	}
+	require.Len(t, links, 1)
+	assert.Equal(t, server.URL+"/books/one.epub?access_token=catalog-secret", links[0].Href)
 	data, err := client.Download(context.Background(), links[0].Href)
-	if err != nil || string(data) != "epub bytes" {
-		t.Fatalf("data=%q err=%v", data, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "epub bytes", string(data))
 }
 
 func TestSearchViaOpenSearchDescription(t *testing.T) {
@@ -112,9 +96,7 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 		case "/open-search.xml":
 			_, _ = w.Write([]byte(`<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="application/atom+xml" template="` + server.URL + `/search?q={searchTerms}"/></OpenSearchDescription>`))
 		case "/search":
-			if r.URL.Query().Get("q") != "Moby Dick" {
-				t.Fatalf("query=%q", r.URL.RawQuery)
-			}
+			assert.Equal(t, "Moby Dick", r.URL.Query().Get("q"), "query=%q", r.URL.RawQuery)
 			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Results</title><entry><id>moby</id><title>Moby Dick</title></entry></feed>`))
 		default:
 			http.NotFound(w, r)
@@ -122,9 +104,9 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 	}))
 	defer server.Close()
 	feed, err := NewClient(server.Client(), Auth{}).Search(context.Background(), server.URL+"/root", "Moby Dick")
-	if err != nil || len(feed.Entries) != 1 || feed.Entries[0].ID != "moby" {
-		t.Fatalf("feed=%+v err=%v", feed, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, feed.Entries, 1)
+	assert.Equal(t, "moby", feed.Entries[0].ID)
 }
 
 func TestLanguageEndpointsFollowPagination(t *testing.T) {
@@ -148,44 +130,35 @@ func TestLanguageEndpointsFollowPagination(t *testing.T) {
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
 	languages, err := client.ListLanguages(context.Background(), server.URL+"/calibre/opds?ignored=yes")
-	if err != nil || len(languages.Entries) != 1 || languages.Entries[0].Title != "German" {
-		t.Fatalf("languages=%+v err=%v", languages, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, languages.Entries, 1)
+	assert.Equal(t, "German", languages.Entries[0].Title)
 	books, err := client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "7")
-	if err != nil || len(books.Entries) != 3 {
-		t.Fatalf("books=%+v err=%v", books, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, books.Entries, 3)
 	filtered := FilterEPUBEntries(books)
-	if len(filtered.Entries) != 2 || filtered.Entries[1].ID != "epub-2" {
-		t.Fatalf("filtered=%+v", filtered)
-	}
-	if len(requests) != 3 {
-		t.Fatalf("requests=%v", requests)
-	}
-	if _, err = client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "../authors"); err == nil {
-		t.Fatal("invalid language id accepted")
-	}
+	require.Len(t, filtered.Entries, 2)
+	assert.Equal(t, "epub-2", filtered.Entries[1].ID)
+	assert.Len(t, requests, 3)
+	_, err = client.ListLanguage(context.Background(), server.URL+"/calibre/opds", "../authors")
+	assert.Error(t, err, "invalid language id accepted")
 }
 
 func TestLanguageEndpointPreservesCatalogQueryCredentials(t *testing.T) {
 	var requests []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests = append(requests, r.URL.RequestURI())
-		if r.URL.Query().Get("access_token") != "catalog-secret" {
-			t.Fatalf("access token query=%q", r.URL.RawQuery)
-		}
+		assert.Equal(t, "catalog-secret", r.URL.Query().Get("access_token"), "access token query=%q", r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/atom+xml")
 		_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title></feed>`)
 	}))
 	defer server.Close()
 
-	if _, err := NewClient(server.Client(), Auth{}).ListLanguages(context.Background(), server.URL+"/opds?access_token=catalog-secret&view=books"); err != nil {
-		t.Fatal(err)
-	}
+	_, err := NewClient(server.Client(), Auth{}).ListLanguages(context.Background(), server.URL+"/opds?access_token=catalog-secret&view=books")
+	require.NoError(t, err)
 	want := "/opds/language?access_token=catalog-secret&view=books"
-	if len(requests) != 1 || requests[0] != want {
-		t.Fatalf("language requests=%v want [%q]", requests, want)
-	}
+	require.Len(t, requests, 1)
+	assert.Equal(t, want, requests[0])
 }
 
 func TestListPageReturnsOnlyRequestedPageAndPaginationLinks(t *testing.T) {
@@ -200,12 +173,10 @@ func TestListPageReturnsOnlyRequestedPageAndPaginationLinks(t *testing.T) {
 	defer server.Close()
 
 	feed, err := NewClient(server.Client(), Auth{}).ListPage(context.Background(), server.URL+"/page-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(feed.Entries) != 1 || feed.Entries[0].ID != "one" || linkByRel(feed.Links, "next") == "" {
-		t.Fatalf("page=%+v", feed)
-	}
+	require.NoError(t, err)
+	require.Len(t, feed.Entries, 1)
+	assert.Equal(t, "one", feed.Entries[0].ID)
+	assert.NotEmpty(t, linkByRel(feed.Links, "next"))
 }
 
 func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
@@ -215,15 +186,10 @@ func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
 	feed, err := client.ListRoot(context.Background(), server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if SupportsSearch(feed) {
-		t.Fatal("feed without a search link reported search support")
-	}
-	if _, err = client.Search(context.Background(), server.URL, "book"); !errors.Is(err, ErrSearchUnavailable) {
-		t.Fatalf("search error=%v", err)
-	}
+	require.NoError(t, err)
+	assert.False(t, SupportsSearch(feed), "feed without a search link reported search support")
+	_, err = client.Search(context.Background(), server.URL, "book")
+	assert.ErrorIs(t, err, ErrSearchUnavailable)
 }
 
 func TestDownloadErrorsAndMediaType(t *testing.T) {
@@ -241,24 +207,21 @@ func TestDownloadErrorsAndMediaType(t *testing.T) {
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
 	data, err := client.Download(context.Background(), server.URL+"/book")
-	if err != nil || string(data) != "epub bytes" {
-		t.Fatalf("data=%q err=%v", data, err)
-	}
-	if _, err = client.Download(context.Background(), server.URL+"/pdf"); err == nil || !strings.Contains(err.Error(), "incompatible") {
-		t.Fatalf("PDF error=%v", err)
-	}
-	if _, err = client.Download(context.Background(), server.URL+"/missing"); err == nil || !strings.Contains(err.Error(), "404") {
-		t.Fatalf("404 error=%v", err)
-	}
-	if _, err = NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") })}, Auth{}).List(context.Background(), "http://catalog.invalid"); err == nil || !strings.Contains(err.Error(), "offline") {
-		t.Fatalf("network error=%v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "epub bytes", string(data))
+	_, err = client.Download(context.Background(), server.URL+"/pdf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "incompatible")
+	_, err = client.Download(context.Background(), server.URL+"/missing")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "404")
+	_, err = NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") })}, Auth{}).List(context.Background(), "http://catalog.invalid")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "offline")
 }
 
 func TestUnavailableFormat(t *testing.T) {
-	if links := FindEPUBs(Entry{Links: []Link{{Rel: AcquisitionRel, Type: "application/pdf"}}}); len(links) != 0 {
-		t.Fatal(links)
-	}
+	assert.Empty(t, FindEPUBs(Entry{Links: []Link{{Rel: AcquisitionRel, Type: "application/pdf"}}}))
 }
 
 func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
@@ -267,11 +230,8 @@ func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
 		{Title: "de-DE", Links: []Link{{Rel: "subsection", Href: "/language/8"}}},
 	}}
 
-	if got := LanguageID(feed, "de-DE", "German (Germany)"); got != "8" {
-		t.Fatalf("LanguageID()=%q, want exact regional feed 8", got)
-	}
+	assert.Equal(t, "8", LanguageID(feed, "de-DE", "German (Germany)"))
 }
-
 func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	receivedCredentials := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,21 +241,18 @@ func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example/opds"})
-	if _, err := client.Download(context.Background(), server.URL); err == nil || !strings.Contains(err.Error(), "outside the catalog origin") {
-		t.Fatalf("external download error=%v", err)
-	}
-	if receivedCredentials {
-		t.Fatal("catalog credentials were sent to a different origin")
-	}
+	_, err := client.Download(context.Background(), server.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside the catalog origin")
+	assert.False(t, receivedCredentials, "catalog credentials were sent to a different origin")
 }
 
 func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.T) {
 	var externalHit bool
 	external := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		externalHit = true
-		if _, _, ok := r.BasicAuth(); ok {
-			t.Fatalf("catalog credentials crossed an unapproved redirect")
-		}
+		_, _, ok := r.BasicAuth()
+		assert.False(t, ok, "catalog credentials crossed an unapproved redirect")
 		http.Error(w, "must not fetch", http.StatusForbidden)
 	}))
 	defer external.Close()
@@ -319,12 +276,11 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 			return
 		}
 		if r.URL.Path == "/same-final" {
-			if r.Header.Get("X-Custom-Redirect") != "preserved" {
-				t.Fatalf("custom redirect behavior was not preserved")
-			}
-			if user, password, ok := r.BasicAuth(); !ok || user != "reader" || password != "secret" {
-				t.Fatalf("same-origin redirect lost credentials")
-			}
+			assert.Equal(t, "preserved", r.Header.Get("X-Custom-Redirect"), "custom redirect behavior was not preserved")
+			user, password, ok := r.BasicAuth()
+			assert.True(t, ok)
+			assert.Equal(t, "reader", user, "same-origin redirect lost credentials")
+			assert.Equal(t, "secret", password, "same-origin redirect lost credentials")
 			_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title></feed>`)
 			return
 		}
@@ -338,21 +294,14 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 		return nil
 	}}
 	opdsClient := NewClient(client, Auth{Username: "reader", Password: "secret", Origin: catalog.URL})
-	if _, err := opdsClient.ListPage(context.Background(), catalog.URL+"/same-redirect"); err != nil {
-		t.Fatal(err)
-	}
-	if !customRedirectCalled {
-		t.Fatal("custom CheckRedirect was not called")
-	}
-	if _, err := opdsClient.ListPage(context.Background(), catalog.URL+"/external-redirect"); err == nil {
-		t.Fatal("external redirect was followed")
-	}
-	if _, err := opdsClient.Download(context.Background(), catalog.URL+"/download-redirect"); err == nil {
-		t.Fatal("external download redirect was followed")
-	}
-	if externalHit {
-		t.Fatal("external redirect target was fetched")
-	}
+	_, err := opdsClient.ListPage(context.Background(), catalog.URL+"/same-redirect")
+	require.NoError(t, err)
+	assert.True(t, customRedirectCalled, "custom CheckRedirect was not called")
+	_, err = opdsClient.ListPage(context.Background(), catalog.URL+"/external-redirect")
+	assert.Error(t, err, "external redirect was followed")
+	_, err = opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
+	assert.Error(t, err, "external download redirect was followed")
+	assert.False(t, externalHit, "external redirect target was fetched")
 }
 
 func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
@@ -367,12 +316,10 @@ func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
 			Request:    r,
 		}, nil
 	})}, Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example"})
-	if _, err := client.ListPage(context.Background(), "https://catalog.example/redirect"); err == nil {
-		t.Fatal("HTTPS downgrade was followed")
-	}
-	if len(requests) != 1 || requests[0] != "https://catalog.example/redirect" {
-		t.Fatalf("requests=%v", requests)
-	}
+	_, err := client.ListPage(context.Background(), "https://catalog.example/redirect")
+	assert.Error(t, err, "HTTPS downgrade was followed")
+	require.Len(t, requests, 1)
+	assert.Equal(t, "https://catalog.example/redirect", requests[0])
 }
 
 func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
@@ -403,24 +350,17 @@ func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
 	defer catalog.Close()
 
 	client := NewClient(catalog.Client(), Auth{})
-	if _, err := client.List(context.Background(), catalog.URL+"/next-root"); err == nil {
-		t.Fatal("external rel-next target was followed")
-	}
-	if _, err := NewClient(catalog.Client(), Auth{Origin: catalog.URL}).ListPage(context.Background(), external.URL+"/direct-page"); err == nil {
-		t.Fatal("external direct pagination target was fetched")
-	}
-	if _, err := client.Search(context.Background(), catalog.URL+"/search-root", "book"); err == nil {
-		t.Fatal("external rel-search target was fetched")
-	}
-	if _, err := client.Search(context.Background(), catalog.URL+"/description-root", "book"); err == nil {
-		t.Fatal("external OpenSearch description was fetched")
-	}
-	if _, err := client.Search(context.Background(), catalog.URL+"/expanded-root", "book"); err == nil {
-		t.Fatal("external expanded search template was fetched")
-	}
-	if externalHit {
-		t.Fatal("external discovered target was reached")
-	}
+	_, err := client.List(context.Background(), catalog.URL+"/next-root")
+	assert.Error(t, err, "external rel-next target was followed")
+	_, err = NewClient(catalog.Client(), Auth{Origin: catalog.URL}).ListPage(context.Background(), external.URL+"/direct-page")
+	assert.Error(t, err, "external direct pagination target was fetched")
+	_, err = client.Search(context.Background(), catalog.URL+"/search-root", "book")
+	assert.Error(t, err, "external rel-search target was fetched")
+	_, err = client.Search(context.Background(), catalog.URL+"/description-root", "book")
+	assert.Error(t, err, "external OpenSearch description was fetched")
+	_, err = client.Search(context.Background(), catalog.URL+"/expanded-root", "book")
+	assert.Error(t, err, "external expanded search template was fetched")
+	assert.False(t, externalHit, "external discovered target was reached")
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

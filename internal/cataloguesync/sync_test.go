@@ -11,6 +11,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEligibleLanguagesUsesReadyCatalogueLanguagesAndExcludesEnglish(t *testing.T) {
@@ -27,36 +29,34 @@ func TestEligibleLanguagesUsesReadyCatalogueLanguagesAndExcludesEnglish(t *testi
 		{Language: "es", DisplayName: "Spanish", Ready: true},
 	}}
 	got := eligibleLanguages(languages, capabilities)
-	if len(got) != 2 || got[0].capability.Language != "de-DE" || got[0].languageID != "7" || got[1].capability.Language != "fr" || got[1].languageID != "10" {
-		t.Fatalf("eligible languages=%+v", got)
-	}
+	require.Len(t, got, 2)
+	assert.Equal(t, "de-DE", got[0].capability.Language)
+	assert.Equal(t, "7", got[0].languageID)
+	assert.Equal(t, "fr", got[1].capability.Language)
+	assert.Equal(t, "10", got[1].languageID)
 }
 
 func TestSyncArgsNeverSerializeCredentials(t *testing.T) {
 	args := SyncArgs{OwnerID: "owner", ConnectionID: "connection"}
 	encoded, err := json.Marshal(args)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	text := string(encoded)
-	if strings.Contains(text, "password") || strings.Contains(text, "secret") {
-		t.Fatalf("sync args contain credentials: %s", text)
-	}
+	assert.NotContains(t, text, "password")
+	assert.NotContains(t, text, "secret")
 }
 
 func TestSafeSyncErrorIsActionableWithoutCredential(t *testing.T) {
 	secret := "plain-password-must-not-escape"
 	err := safeSyncError(errors.New("opds: HTTP 401 Unauthorized: "+secret), domain.OpdsConnection{Name: "Home", URL: "https://catalog.example/opds", Password: secret})
-	if !strings.Contains(err.Error(), "authentication failed") || strings.Contains(err.Error(), secret) {
-		t.Fatalf("safe error=%q", err)
-	}
+	assert.Contains(t, err.Error(), "authentication failed")
+	assert.NotContains(t, err.Error(), secret)
 }
 
 func TestWorkerUnavailableDoesNotExposeInput(t *testing.T) {
 	var worker *Worker
-	if err := worker.Work(context.Background(), nil); err == nil || strings.Contains(err.Error(), "password") {
-		t.Fatalf("worker error=%v", err)
-	}
+	err := worker.Work(context.Background(), nil)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "password")
 }
 
 type refreshStore struct {
@@ -231,31 +231,31 @@ func TestBackfillCatalogueEntryAliasesIsStrictAndIdempotent(t *testing.T) {
 			reader := &backfillReader{languages: map[string]opds.Feed{"alice:one": languages("7"), "alice:two": languages("7")}, feeds: tc.feeds}
 			result, err := newRefreshService(store, reader).BackfillCatalogueEntryAliases(context.Background())
 			if tc.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
-					t.Fatalf("error=%v, want %q", err, tc.wantErr)
-				}
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
 				return
 			}
-			if err != nil || result.Examined != 1 || result.Updated != 1 || store.assigned["alice:a"] != "one" {
-				t.Fatalf("result=%+v error=%v assigned=%v", result, err, store.assigned)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, 1, result.Examined)
+			assert.Equal(t, 1, result.Updated)
+			assert.Equal(t, "one", store.assigned["alice:a"])
 		})
 	}
 
 	store := &refreshStore{backfillAliases: []domain.BookAlias{{ID: "a", OwnerID: "alice", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "entry", ConnectionID: "one"}}, connections: []domain.OpdsConnection{{ID: "one", OwnerID: "alice"}}}
 	reader := &backfillReader{languages: map[string]opds.Feed{"alice:one": languages("7")}, feeds: map[string]opds.Feed{"alice:one:7": entry("entry")}}
 	result, err := newRefreshService(store, reader).BackfillCatalogueEntryAliases(context.Background())
-	if err != nil || result.Examined != 0 || result.Updated != 0 {
-		t.Fatalf("idempotent result=%+v error=%v", result, err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.Examined)
+	assert.Equal(t, 0, result.Updated)
 }
 
 func TestBackfillLeavesStrongBibliographicAliasesUnselected(t *testing.T) {
 	store := &refreshStore{backfillAliases: []domain.BookAlias{{ID: "isbn", OwnerID: "alice", AliasType: domain.AliasStrongBibliographic, Namespace: "isbn", Value: "978"}}}
 	result, err := newRefreshService(store, &backfillReader{}).BackfillCatalogueEntryAliases(context.Background())
-	if err != nil || result.Examined != 0 || len(store.assigned) != 0 {
-		t.Fatalf("result=%+v error=%v assigned=%v", result, err, store.assigned)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.Examined)
+	assert.Empty(t, store.assigned)
 }
 
 func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
@@ -285,11 +285,14 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 				reconcile:   persistence.CatalogueEntryReconcileResult{TitleChanged: tc.titleChange, Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "New title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 			}
 			result, err := newRefreshService(store, &refreshReader{feed: tc.feed, err: tc.readerErr}).RefreshEntry(context.Background(), "alice", "book-1")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if result.Updated != tc.wantUpdated || result.Missing != tc.wantMissing || result.Failed != tc.wantFailed || store.reconciles != tc.wantReconciles || (tc.wantReconciles > 0 && (store.lastOwner != "alice" || store.lastConnection != "connection-1")) {
-				t.Fatalf("result=%+v reconciles=%d owner=%q connection=%q", result, store.reconciles, store.lastOwner, store.lastConnection)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantUpdated, result.Updated)
+			assert.Equal(t, tc.wantMissing, result.Missing)
+			assert.Equal(t, tc.wantFailed, result.Failed)
+			assert.Equal(t, tc.wantReconciles, store.reconciles)
+			if tc.wantReconciles > 0 {
+				assert.Equal(t, "alice", store.lastOwner)
+				assert.Equal(t, "connection-1", store.lastConnection)
 			}
 		})
 	}
@@ -299,9 +302,8 @@ func TestRefreshEntryRejectsCrossOwnerBookWithoutReadingCatalogue(t *testing.T) 
 	store := &refreshStore{book: domain.Book{ID: "book-1", OwnerID: "alice"}, alias: domain.BookAlias{BookID: "book-1", Value: "entry-1"}}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "should not read"}}}}
 	_, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "bob", "book-1")
-	if !errors.Is(err, ErrNotFound) || reader.reads != 0 {
-		t.Fatalf("cross-owner refresh err=%v catalogue reads=%d", err, reader.reads)
-	}
+	assert.ErrorIs(t, err, ErrNotFound)
+	assert.Equal(t, 0, reader.reads, "cross-owner refresh catalogue reads")
 }
 
 func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
@@ -315,16 +317,14 @@ func TestRefreshEntryRepeatedUnchangedMetadataIsIdempotent(t *testing.T) {
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Same title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType}}}}}}
 	service := newRefreshService(store, reader)
 	first, err := service.RefreshEntry(context.Background(), "alice", "book-1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	second, err := service.RefreshEntry(context.Background(), "alice", "book-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.Updated || second.Updated || first.Created || second.Created || store.reconciles != 2 {
-		t.Fatalf("repeated refresh first=%+v second=%+v reconciles=%d", first, second, store.reconciles)
-	}
+	require.NoError(t, err)
+	assert.False(t, first.Updated)
+	assert.False(t, second.Updated)
+	assert.False(t, first.Created)
+	assert.False(t, second.Created)
+	assert.Equal(t, 2, store.reconciles)
 }
 
 func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
@@ -340,9 +340,10 @@ func TestRefreshEntryUsesSupportedLanguageDisplayName(t *testing.T) {
 		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
 	}
 	result, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
-	if err != nil || result.Missing || result.Failed || store.reconciles != 1 {
-		t.Fatalf("result=%+v err=%v reconciles=%d", result, err, store.reconciles)
-	}
+	require.NoError(t, err)
+	assert.False(t, result.Missing)
+	assert.False(t, result.Failed)
+	assert.Equal(t, 1, store.reconciles)
 }
 
 func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
@@ -357,12 +358,11 @@ func TestFindAcquisitionTargetUsesSupportedLanguageDisplayName(t *testing.T) {
 		feed:      opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Old title", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/book.epub"}}}}},
 	}
 	target, err := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	if err != nil || target.Href != "https://catalog.example/book.epub" || target.ConnectionID != "connection-1" || target.Language != "de" {
-		t.Fatalf("target=%+v err=%v", target, err)
-	}
-	if strings.Join(reader.connections, ",") != "connection-1,connection-1" {
-		t.Fatalf("acquisition catalogue connections=%v", reader.connections)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "https://catalog.example/book.epub", target.Href)
+	assert.Equal(t, "connection-1", target.ConnectionID)
+	assert.Equal(t, "de", target.Language)
+	assert.Equal(t, "connection-1,connection-1", strings.Join(reader.connections, ","))
 }
 
 func TestRefreshEntryUsesOnlyAliasConnection(t *testing.T) {
@@ -374,12 +374,9 @@ func TestRefreshEntryUsesOnlyAliasConnection(t *testing.T) {
 		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageTag: "de"}},
 	}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Title"}}}}
-	if _, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1"); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Join(reader.connections, ",") != "connection-2,connection-2" {
-		t.Fatalf("catalogue connections=%v", reader.connections)
-	}
+	_, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+	require.NoError(t, err)
+	assert.Equal(t, "connection-2,connection-2", strings.Join(reader.connections, ","))
 }
 
 func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
@@ -390,11 +387,9 @@ func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
 	}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Wrong connection"}}}}
 	_, refreshErr := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
-	if !errors.Is(refreshErr, ErrConnectionNotFound) || len(reader.connections) != 0 {
-		t.Fatalf("refresh error=%v reads=%v", refreshErr, reader.connections)
-	}
+	assert.ErrorIs(t, refreshErr, ErrConnectionNotFound)
+	assert.Empty(t, reader.connections)
 	_, acquisitionErr := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	if !errors.Is(acquisitionErr, ErrConnectionNotFound) || len(reader.connections) != 0 {
-		t.Fatalf("acquisition error=%v reads=%v", acquisitionErr, reader.connections)
-	}
+	assert.ErrorIs(t, acquisitionErr, ErrConnectionNotFound)
+	assert.Empty(t, reader.connections)
 }

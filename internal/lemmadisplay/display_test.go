@@ -1,6 +1,10 @@
 package lemmadisplay
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestFormat(t *testing.T) {
 	tests := []struct {
@@ -16,9 +20,7 @@ func TestFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Format(tt.language, tt.lemma, tt.upos); got != tt.want {
-				t.Fatalf("Format(%q, %q, %q) = %q, want %q", tt.language, tt.lemma, tt.upos, got, tt.want)
-			}
+			assert.Equal(t, tt.want, Format(tt.language, tt.lemma, tt.upos), "Format(%q, %q, %q)", tt.language, tt.lemma, tt.upos)
 		})
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Verify that a v1 (legacy) snapshot still hashes to its historical digest and
@@ -18,9 +20,7 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	candidate := manifest.EnrichmentCandidates()[0]
 	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	snapshot := bound.Snapshot()
 
 	// Legacy v1 persisted manifests were created with target language empty in
@@ -29,29 +29,17 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	legacyKey := key
 	legacyKey.TargetLanguage = ""
 	legacyBound, err := manifest.BindCacheKeys([]enrichment.CacheKey{legacyKey})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	legacy := legacyBound.Snapshot()
 	legacy.SchemaVersion = LegacyManifestSchemaVersion
 	legacyDigest, err := legacy.Digest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	const wantLegacyDigest = "1e8f4112b54cb863b2beba9e2a6be9715f3e9e468fecedee2165d8937cb2c50c"
-	if legacyDigest != wantLegacyDigest {
-		t.Fatalf("legacy v1 digest=%q want=%q", legacyDigest, wantLegacyDigest)
-	}
+	assert.Equal(t, wantLegacyDigest, legacyDigest, "legacy v1 digest=%q want=%q", legacyDigest, wantLegacyDigest)
 
 	digest, err := snapshot.Digest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	const wantV2Digest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
-	if digest != wantV2Digest {
-		t.Fatalf("v2 digest=%q want=%q", digest, wantV2Digest)
-	}
-	if legacyDigest == digest {
-		t.Fatal("v1 and v2 digests must differ")
-	}
+	assert.Equal(t, wantV2Digest, digest, "v2 digest=%q want=%q", digest, wantV2Digest)
+	assert.NotEqual(t, digest, legacyDigest, "v1 and v2 digests must differ")
 }
