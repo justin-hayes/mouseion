@@ -291,35 +291,50 @@ func (w *BatchPollWorker) decodeProviderFiles(ctx context.Context, runID string,
 	errorPipe := w.streamFile(&downloads, ctx, errorFileID)
 	var outputReader, errorReader io.Reader
 	if outputPipe != nil {
-		outputReader = outputPipe
+		outputReader = outputPipe.reader
 	}
 	if errorPipe != nil {
-		errorReader = errorPipe
+		errorReader = errorPipe.reader
 	}
-	decoded, missing, err := w.Codec.DecodeBatchResultsPartial(runID, generation, items, outputReader, errorReader)
-	if outputPipe != nil {
-		_ = outputPipe.Close()
+	decoded, missing, err := func() (map[int]enrichment.BatchTranslationOutcome, []int, error) {
+		if outputPipe != nil {
+			defer outputPipe.reader.Close()
+		}
+		if errorPipe != nil {
+			defer errorPipe.reader.Close()
+		}
+		return w.Codec.DecodeBatchResultsPartial(runID, generation, items, outputReader, errorReader)
+	}()
+	downloadErr := downloads.Wait()
+	if outputPipe != nil && outputPipe.err != nil {
+		return nil, nil, outputPipe.err
 	}
-	if errorPipe != nil {
-		_ = errorPipe.Close()
+	if errorPipe != nil && errorPipe.err != nil {
+		return nil, nil, errorPipe.err
 	}
-	if err := downloads.Wait(); err != nil {
-		return nil, nil, err
+	if downloadErr != nil {
+		return nil, nil, downloadErr
 	}
 	return decoded, missing, err
 }
 
-func (w *BatchPollWorker) streamFile(group *errgroup.Group, ctx context.Context, fileID string) *io.PipeReader {
+type streamedBatchFile struct {
+	reader *io.PipeReader
+	err    error
+}
+
+func (w *BatchPollWorker) streamFile(group *errgroup.Group, ctx context.Context, fileID string) *streamedBatchFile {
 	if fileID == "" {
 		return nil
 	}
 	reader, writer := io.Pipe()
+	file := &streamedBatchFile{reader: reader}
 	group.Go(func() error {
-		err := w.Provider.FileContent(ctx, fileID, writer)
-		_ = writer.CloseWithError(err)
-		return err
+		file.err = w.Provider.FileContent(ctx, fileID, writer)
+		_ = writer.CloseWithError(file.err)
+		return file.err
 	})
-	return reader
+	return file
 }
 
 func (w *BatchPollWorker) snoozeAfterPollError(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token, code string) error {
