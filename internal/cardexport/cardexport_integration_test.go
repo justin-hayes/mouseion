@@ -83,7 +83,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	reservedVocabulary, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, reservedVocabulary, 1)
+	require.Len(t, reservedVocabulary, 1)
 	assert.Equal(t, "Himmel", reservedVocabulary[0].CanonicalLemma)
 	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs neues Haus steht nah am Fluss.", 1, 10})
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN")

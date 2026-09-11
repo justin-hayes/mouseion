@@ -15,7 +15,7 @@ func TestEPUBContentDigestHashesExactContainerBytes(t *testing.T) {
 	got, want := domain.EPUBContentDigest(first), domain.EPUBContentDigest(second)
 	assert.Equal(t, want, got, "equal bytes produced different digests")
 	assert.NotEqual(t, domain.EPUBContentDigest([]byte("metadata-only")), got, "digest did not identify changed source bytes")
-	assert.Len(t, got, len("sha256:")+64, "digest format")
+	require.Len(t, got, len("sha256:")+64, "digest format")
 	assert.Equal(t, "sha256:", got[:7], "digest format")
 }
 
