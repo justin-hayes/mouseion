@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 )
 
 var errBatchFileTooLarge = errors.New("Batch file exceeds provider limit")
+var errOpenAIFileNotReady = errors.New("provider file is not ready")
 
 // ProviderErrorClass is a bounded, privacy-safe classification for failures at
 // the OpenAI Files and Batch boundary.
@@ -280,43 +283,43 @@ func (c *OpenAIBatchClient) waitForFileReady(ctx context.Context, uploaded OpenA
 	pollCtx, cancel := context.WithTimeout(ctx, openAIFileReadyTimeout)
 	defer cancel()
 
-	interval := openAIFileInitialPollInterval
-	for {
+	backoffPolicy := backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(openAIFileInitialPollInterval),
+		backoff.WithMultiplier(2),
+		backoff.WithRandomizationFactor(0),
+		backoff.WithMaxInterval(openAIFileMaxPollInterval),
+		backoff.WithMaxElapsedTime(0),
+	)
+	file, err := backoff.RetryWithData(func() (OpenAIFile, error) {
 		file, err := c.GetFile(pollCtx, uploaded.ID)
 		if err != nil {
 			if errors.Is(pollCtx.Err(), context.DeadlineExceeded) {
-				return OpenAIFile{}, fileReadinessTimeoutError()
+				return OpenAIFile{}, backoff.Permanent(fileReadinessTimeoutError())
 			}
 			if !temporaryOpenAIError(err) {
-				return OpenAIFile{}, err
+				return OpenAIFile{}, backoff.Permanent(err)
 			}
-		} else {
-			switch file.Status {
-			case "processed":
-				return file, nil
-			case "error":
-				return OpenAIFile{}, providerError("wait for file processing", ProviderErrorFileProcessing, 0, errors.New("provider reported terminal file processing failure"))
-			}
+			return OpenAIFile{}, err
 		}
-
-		timer := time.NewTimer(interval)
-		select {
-		case <-pollCtx.Done():
-			if errors.Is(pollCtx.Err(), context.DeadlineExceeded) {
-				timer.Stop()
-				return OpenAIFile{}, fileReadinessTimeoutError()
-			}
-			timer.Stop()
-			return OpenAIFile{}, providerError("wait for file processing", ProviderErrorTransport, 0, pollCtx.Err())
-		case <-timer.C:
+		switch file.Status {
+		case "processed":
+			return file, nil
+		case "error":
+			return OpenAIFile{}, backoff.Permanent(providerError("wait for file processing", ProviderErrorFileProcessing, 0, errors.New("provider reported terminal file processing failure")))
+		default:
+			return OpenAIFile{}, errOpenAIFileNotReady
 		}
-		if interval < openAIFileMaxPollInterval {
-			interval *= 2
-			if interval > openAIFileMaxPollInterval {
-				interval = openAIFileMaxPollInterval
-			}
-		}
+	}, backoff.WithContext(backoffPolicy, pollCtx))
+	if err == nil {
+		return file, nil
 	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return OpenAIFile{}, fileReadinessTimeoutError()
+	}
+	if errors.Is(err, context.Canceled) {
+		return OpenAIFile{}, providerError("wait for file processing", ProviderErrorTransport, 0, err)
+	}
+	return OpenAIFile{}, err
 }
 
 func fileReadinessTimeoutError() error {
