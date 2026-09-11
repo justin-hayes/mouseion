@@ -5,7 +5,6 @@ package webauth
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,35 +13,32 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFirstAccountAuthLifecycleAgainstPostgres(t *testing.T) {
 	_, service, _ := setup(t)
 	ctx := context.Background()
-	if exists, err := service.HasUsers(ctx); err != nil || exists {
-		t.Fatalf("fresh users exists=%v err=%v", exists, err)
-	}
+	exists, err := service.HasUsers(ctx)
+	require.NoError(t, err)
+	assert.False(t, exists, "fresh install already has users")
 	u, token, err := service.CreateFirstAccount(ctx, "alice", "alice-password")
-	if err != nil || token == "" {
-		t.Fatalf("create first account: %+v token=%q err=%v", u, token, err)
-	}
-	if got, err := service.Authenticate(ctx, token); err != nil || got.ID != u.ID {
-		t.Fatalf("authenticate first session: %+v err=%v", got, err)
-	}
-	if _, _, err = service.CreateFirstAccount(ctx, "bob", "bob-password"); !errors.Is(err, auth.ErrFirstAccountExists) {
-		t.Fatalf("second first account: %v", err)
-	}
+	require.NoError(t, err, "create first account: %+v token=%q err=%v", u, token, err)
+	require.NotEmpty(t, token, "create first account: %+v token=%q err=%v", u, token, err)
+	got, err := service.Authenticate(ctx, token)
+	require.NoError(t, err, "authenticate first session: %+v err=%v", got, err)
+	assert.Equal(t, u.ID, got.ID, "authenticate first session: %+v err=%v", got, err)
+	_, _, err = service.CreateFirstAccount(ctx, "bob", "bob-password")
+	assert.ErrorIs(t, err, auth.ErrFirstAccountExists, "second first account: %v", err)
 }
 
 func setup(t *testing.T) (*persistence.PostgresStore, *auth.Service, http.Handler) {
 	t.Helper()
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	var err error
 	store, err := persistence.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	s := auth.New(store, time.Hour)
 	return store, s, New(s, false, time.Hour)
@@ -62,55 +58,37 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	store, s, h := setup(t)
 	ctx := context.Background()
 	for _, path := range []string{"/admin/bootstrap", "/admin/users", "/admin/users/someone/reset-password"} {
-		if w := request(t, h, "POST", path, `{}`, nil); w.Code != http.StatusNotFound {
-			t.Fatalf("removed route %s status=%d", path, w.Code)
-		}
+		w := request(t, h, "POST", path, `{}`, nil)
+		assert.Equal(t, http.StatusNotFound, w.Code, "removed route %s status=%d", path, w.Code)
 	}
 	aliceHash, err := auth.HashPassword("alice-password")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	alice, err := store.CreateUserWithPassword(ctx, "alice", aliceHash, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bobHash, err := auth.HashPassword("bob-password")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	bob, err := store.CreateUserWithPassword(ctx, "bob", bobHash, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = auth.AuthorizeOwner(alice, bob.ID); err == nil {
-		t.Fatal("cross-user owner check allowed")
-	}
-	if _, err = s.Login(ctx, "alice", "wrong"); err == nil {
-		t.Fatal("wrong password logged in")
-	}
+	require.NoError(t, err)
+	err = auth.AuthorizeOwner(alice, bob.ID)
+	assert.Error(t, err, "cross-user owner check allowed")
+	_, err = s.Login(ctx, "alice", "wrong")
+	assert.Error(t, err, "wrong password logged in")
 	w := request(t, h, "POST", "/login", `{"username":"alice","password":"alice-password"}`, nil)
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("login status=%d body=%s", w.Code, w.Body.String())
-	}
-	cookie := w.Result().Cookies()[0]
-	if !cookie.HttpOnly || cookie.MaxAge <= 0 {
-		t.Fatalf("unsafe cookie: %+v", cookie)
-	}
+	assert.Equal(t, http.StatusNoContent, w.Code, "login status=%d body=%s", w.Code, w.Body.String())
+	cookies := w.Result().Cookies()
+	require.Len(t, cookies, 1, "login set no session cookie: body=%s", w.Body.String())
+	cookie := cookies[0]
+	assert.True(t, cookie.HttpOnly, "unsafe cookie: %+v", cookie)
+	assert.Greater(t, cookie.MaxAge, 0, "unsafe cookie: %+v", cookie)
 	raw, err := s.Login(ctx, "bob", "bob-password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := s.Authenticate(ctx, raw); err != nil || got.ID != bob.ID {
-		t.Fatalf("bob authenticate: %+v %v", got, err)
-	}
+	require.NoError(t, err)
+	got, err := s.Authenticate(ctx, raw)
+	require.NoError(t, err, "bob authenticate: %+v %v", got, err)
+	assert.Equal(t, bob.ID, got.ID, "bob authenticate: %+v %v", got, err)
 	raw, err = s.Login(ctx, "alice", "alice-password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = s.Logout(ctx, raw); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = s.Authenticate(ctx, raw); err == nil {
-		t.Fatal("logout did not invalidate session")
-	}
+	require.NoError(t, err)
+	err = s.Logout(ctx, raw)
+	require.NoError(t, err)
+	_, err = s.Authenticate(ctx, raw)
+	assert.Error(t, err, "logout did not invalidate session")
 }

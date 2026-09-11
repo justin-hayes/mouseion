@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type routeStore struct {
@@ -84,39 +86,28 @@ func TestJourneyProjectionIsDeterministicAndKeepsIncomparableBooksInPlace(t *tes
 		reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "unknown-a", UPOS: "NOUN"}},
 	}
 	got, err := NewService(store).JourneyProjection(ctx, "alice", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Language != "de" || store.journeyLanguage != "de" || got.ComparableCount != 3 || got.IncomparableCount != 1 {
-		t.Fatalf("summary = %+v", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "de", got.Language)
+	assert.Equal(t, "de", store.journeyLanguage)
+	assert.Equal(t, 3, got.ComparableCount)
+	assert.Equal(t, 1, got.IncomparableCount)
+	require.Len(t, got.LearnerOrder, 4)
 	for i, want := range []string{"a", "b", "c", "d"} {
-		if got.LearnerOrder[i].BookID != want {
-			t.Fatalf("learner order = %+v", got.LearnerOrder)
-		}
+		assert.Equal(t, want, got.LearnerOrder[i].BookID, "learner order = %+v", got.LearnerOrder)
 	}
+	require.Len(t, got.AdvisoryOrder, 4)
 	for i, want := range []string{"c", "a", "b", "d"} {
-		if got.AdvisoryOrder[i].BookID != want {
-			t.Fatalf("advisory order = %+v", got.AdvisoryOrder)
-		}
+		assert.Equal(t, want, got.AdvisoryOrder[i].BookID, "advisory order = %+v", got.AdvisoryOrder)
 	}
 	for i := range got.AdvisoryOrder[:3] {
-		if got.AdvisoryOrder[i].Rank == nil {
-			t.Fatalf("comparable rank[%d] = %+v", i, got.AdvisoryOrder)
-		}
+		assert.NotNil(t, got.AdvisoryOrder[i].Rank, "comparable rank[%d] = %+v", i, got.AdvisoryOrder)
 	}
-	if got.AdvisoryOrder[3].Rank != nil {
-		t.Fatalf("ranks = %+v", got.AdvisoryOrder)
-	}
-	if !got.LearnerOrder[1].Comparable || got.LearnerOrder[1].IncomparableReason != "" {
-		t.Fatalf("explicit-language projection excluded book = %+v", got.LearnerOrder[1])
-	}
-	if got.LearnerOrder[3].Comparable || got.LearnerOrder[3].Rank != nil {
-		t.Fatalf("legacy exclusion = %+v", got.LearnerOrder[3])
-	}
-	if got.LearnerOrder[0].ConditionalCoverage.KnownTokenCount != 100 {
-		t.Fatalf("conditional coverage = %+v", got.LearnerOrder[0].ConditionalCoverage)
-	}
+	assert.Nil(t, got.AdvisoryOrder[3].Rank, "ranks = %+v", got.AdvisoryOrder)
+	assert.True(t, got.LearnerOrder[1].Comparable, "explicit-language projection excluded book = %+v", got.LearnerOrder[1])
+	assert.Empty(t, got.LearnerOrder[1].IncomparableReason, "explicit-language projection excluded book = %+v", got.LearnerOrder[1])
+	assert.False(t, got.LearnerOrder[3].Comparable, "legacy exclusion = %+v", got.LearnerOrder[3])
+	assert.Nil(t, got.LearnerOrder[3].Rank, "legacy exclusion = %+v", got.LearnerOrder[3])
+	assert.Equal(t, int64(100), got.LearnerOrder[0].ConditionalCoverage.KnownTokenCount, "conditional coverage = %+v", got.LearnerOrder[0].ConditionalCoverage)
 }
 
 func TestJourneyProjectionClassifiesMismatchedCorpusAsEvidenceIntegrityFailure(t *testing.T) {
@@ -136,13 +127,11 @@ func TestJourneyProjectionClassifiesMismatchedCorpusAsEvidenceIntegrityFailure(t
 	}
 
 	result, err := NewService(store).JourneyProjection(context.Background(), "alice", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.Len(t, result.LearnerOrder, 1)
 	book := result.LearnerOrder[0]
-	if book.Comparable || book.IncomparableReason != "stale/incomplete: corpus evidence is not modeled book language" {
-		t.Fatalf("corpus integrity state = %+v", book)
-	}
+	assert.False(t, book.Comparable, "corpus integrity state = %+v", book)
+	assert.Equal(t, "stale/incomplete: corpus evidence is not modeled book language", book.IncomparableReason, "corpus integrity state = %+v", book)
 }
 
 func TestJourneyProjectionDoesNotInferLanguageFromJourneyMembers(t *testing.T) {
@@ -162,12 +151,8 @@ func TestJourneyProjectionDoesNotInferLanguageFromJourneyMembers(t *testing.T) {
 	}
 
 	result, err := NewService(store).JourneyProjection(context.Background(), "alice", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Language != "" {
-		t.Fatalf("projection inferred language %q", result.Language)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, result.Language, "projection inferred language %q", result.Language)
 }
 
 func TestJourneyProjectionAnchorsGoalAfterIncomparableAndRecomputesVocabulary(t *testing.T) {
@@ -194,29 +179,24 @@ func TestJourneyProjectionAnchorsGoalAfterIncomparableAndRecomputesVocabulary(t 
 	}
 
 	result, err := NewService(store).JourneyProjection(context.Background(), "owner", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := []string{result.AdvisoryOrder[0].BookID, result.AdvisoryOrder[1].BookID, result.AdvisoryOrder[2].BookID}; got[0] != "missing" || got[1] != "c" || got[2] != "b" {
-		t.Fatalf("advisory order = %v", got)
-	}
-	if result.AdvisoryOrder[0].Rank != nil || result.AdvisoryOrder[1].PlacementReason == "" {
-		t.Fatalf("explanations/ranks = %+v", result.AdvisoryOrder)
-	}
+	require.NoError(t, err)
+	require.Len(t, result.AdvisoryOrder, 3)
+	assert.Equal(t, "missing", result.AdvisoryOrder[0].BookID, "advisory order = %v", []string{result.AdvisoryOrder[0].BookID, result.AdvisoryOrder[1].BookID, result.AdvisoryOrder[2].BookID})
+	assert.Equal(t, "c", result.AdvisoryOrder[1].BookID, "advisory order = %v", []string{result.AdvisoryOrder[0].BookID, result.AdvisoryOrder[1].BookID, result.AdvisoryOrder[2].BookID})
+	assert.Equal(t, "b", result.AdvisoryOrder[2].BookID, "advisory order = %v", []string{result.AdvisoryOrder[0].BookID, result.AdvisoryOrder[1].BookID, result.AdvisoryOrder[2].BookID})
+	assert.Nil(t, result.AdvisoryOrder[0].Rank, "explanations/ranks = %+v", result.AdvisoryOrder)
+	assert.NotEmpty(t, result.AdvisoryOrder[1].PlacementReason, "explanations/ranks = %+v", result.AdvisoryOrder)
 
 	// The same projection call observes current vocabulary changes; no route
 	// projection is stored between calls.
 	store.known = append(store.known, domain.KnownVocabulary{OwnerID: "owner", Language: "de", CanonicalLemma: "unknown-b", UPOS: "VERB"})
 	result, err = NewService(store).JourneyProjection(context.Background(), "owner", "de")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.AdvisoryOrder[1].BookID != "c" || result.AdvisoryOrder[2].BookID != "b" {
-		t.Fatalf("recomputed advisory order = %+v", result.AdvisoryOrder)
-	}
-	if result.AdvisoryOrder[2].Coverage == nil || result.AdvisoryOrder[2].Coverage.KnownTokenCount != 100 {
-		t.Fatalf("recomputed coverage = %+v", result.AdvisoryOrder[2].Coverage)
-	}
+	require.NoError(t, err)
+	require.Len(t, result.AdvisoryOrder, 3)
+	assert.Equal(t, "c", result.AdvisoryOrder[1].BookID, "recomputed advisory order = %+v", result.AdvisoryOrder)
+	assert.Equal(t, "b", result.AdvisoryOrder[2].BookID, "recomputed advisory order = %+v", result.AdvisoryOrder)
+	require.NotNil(t, result.AdvisoryOrder[2].Coverage)
+	assert.Equal(t, int64(100), result.AdvisoryOrder[2].Coverage.KnownTokenCount, "recomputed coverage = %+v", result.AdvisoryOrder[2].Coverage)
 }
 
 // TestJourneyProjectionTiesDeterministicOnEqualCoverageAndCarryThresholds
@@ -267,53 +247,46 @@ func TestJourneyProjectionTiesDeterministicOnEqualCoverageAndCarryThresholds(t *
 			},
 		}
 		got, err := NewService(store).JourneyProjection(ctx, "alice", "de")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		return got
 	}
 
 	got := run([]string{"x", "y", "z"})
-	if got.LearnerOrder[0].BookID != "x" || got.LearnerOrder[1].BookID != "y" {
-		t.Fatalf("learner order changed = %+v", got.LearnerOrder)
-	}
+	require.Len(t, got.LearnerOrder, 3)
+	assert.Equal(t, "x", got.LearnerOrder[0].BookID, "learner order changed = %+v", got.LearnerOrder)
+	assert.Equal(t, "y", got.LearnerOrder[1].BookID, "learner order changed = %+v", got.LearnerOrder)
+	require.Len(t, got.AdvisoryOrder, 3)
 	for i, want := range []string{"x", "y", "z"} {
-		if got.AdvisoryOrder[i].BookID != want {
-			t.Fatalf("advisory order = %+v, want [x y z]", got.AdvisoryOrder)
-		}
+		assert.Equal(t, want, got.AdvisoryOrder[i].BookID, "advisory order = %+v, want [x y z]", got.AdvisoryOrder)
 	}
 	// Equal-cost tie falls back to ascending learner position, deterministically.
-	if got.AdvisoryOrder[0].Coverage.KnownTokenCount != got.AdvisoryOrder[1].Coverage.KnownTokenCount {
-		t.Fatalf("x and y were not an equal-cost tie: %d vs %d",
-			got.AdvisoryOrder[0].Coverage.KnownTokenCount, got.AdvisoryOrder[1].Coverage.KnownTokenCount)
-	}
+	require.NotNil(t, got.AdvisoryOrder[0].Coverage)
+	require.NotNil(t, got.AdvisoryOrder[1].Coverage)
+	assert.Equal(t, got.AdvisoryOrder[0].Coverage.KnownTokenCount, got.AdvisoryOrder[1].Coverage.KnownTokenCount, "x and y were not an equal-cost tie: %d vs %d",
+		got.AdvisoryOrder[0].Coverage.KnownTokenCount, got.AdvisoryOrder[1].Coverage.KnownTokenCount)
 	// Reversing the learner order flips the tie: secondary key is position.
 	reversed := run([]string{"y", "x", "z"})
+	require.Len(t, reversed.AdvisoryOrder, 3)
 	for i, want := range []string{"y", "x", "z"} {
-		if reversed.AdvisoryOrder[i].BookID != want {
-			t.Fatalf("reversed advisory order = %+v, want [y x z]", reversed.AdvisoryOrder)
-		}
+		assert.Equal(t, want, reversed.AdvisoryOrder[i].BookID, "reversed advisory order = %+v, want [y x z]", reversed.AdvisoryOrder)
 	}
 	// Per-book ADR 0025 threshold data is carried honestly; an unreachable
 	// threshold neither excludes the book nor influences the objective.
 	z := got.AdvisoryOrder[2]
-	if z.Coverage == nil || len(z.Coverage.Thresholds) == 0 {
-		t.Fatalf("z carried no thresholds: %+v", z)
-	}
+	require.NotNil(t, z.Coverage, "z carried no thresholds: %+v", z)
+	require.NotEmpty(t, z.Coverage.Thresholds, "z carried no thresholds: %+v", z)
 	var firstReachable bool
 	for _, threshold := range z.Coverage.Thresholds {
 		if threshold.TargetPercent == 95 {
 			firstReachable = threshold.Reachable
 		}
 	}
-	if firstReachable {
-		t.Fatal("z reported its 95%% threshold as reachable but 50 known + 20 eligible cannot reach it")
-	}
-	if z.PlacementReason == "" || z.Rank == nil {
-		t.Fatalf("z should still be ranked by coverage with attributions: %+v", z)
-	}
+	assert.False(t, firstReachable, "z reported its 95%% threshold as reachable but 50 known + 20 eligible cannot reach it")
+	assert.NotEmpty(t, z.PlacementReason, "z should still be ranked by coverage with attributions: %+v", z)
+	assert.NotNil(t, z.Rank, "z should still be ranked by coverage with attributions: %+v", z)
 	// Idempotent and reproducible on repeated computation from the same evidence.
-	if again := run([]string{"x", "y", "z"}); again.AdvisoryOrder[0].BookID != "x" || again.AdvisoryOrder[1].BookID != "y" {
-		t.Fatalf("non-deterministic result: %+v", again.AdvisoryOrder)
-	}
+	again := run([]string{"x", "y", "z"})
+	require.Len(t, again.AdvisoryOrder, 3)
+	assert.Equal(t, "x", again.AdvisoryOrder[0].BookID, "non-deterministic result: %+v", again.AdvisoryOrder)
+	assert.Equal(t, "y", again.AdvisoryOrder[1].BookID, "non-deterministic result: %+v", again.AdvisoryOrder)
 }
