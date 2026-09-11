@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river"
+	"golang.org/x/sync/errgroup"
 )
 
 const batchReconciliationLease = 5 * time.Minute
@@ -285,54 +286,40 @@ func (w *BatchPollWorker) insertFinalizerJob(ctx context.Context, tx pgx.Tx, run
 }
 
 func (w *BatchPollWorker) decodeProviderFiles(ctx context.Context, runID string, generation int, items []enrichment.BatchTranslationItem, outputFileID, errorFileID string) (map[int]enrichment.BatchTranslationOutcome, []int, error) {
-	output := w.streamFile(ctx, outputFileID)
-	errorOutput := w.streamFile(ctx, errorFileID)
+	var downloads errgroup.Group
+	outputPipe := w.streamFile(&downloads, ctx, outputFileID)
+	errorPipe := w.streamFile(&downloads, ctx, errorFileID)
 	var outputReader, errorReader io.Reader
-	if output != nil {
-		outputReader = output.reader
-		defer output.reader.Close()
+	if outputPipe != nil {
+		outputReader = outputPipe
 	}
-	if errorOutput != nil {
-		errorReader = errorOutput.reader
-		defer errorOutput.reader.Close()
+	if errorPipe != nil {
+		errorReader = errorPipe
 	}
 	decoded, missing, err := w.Codec.DecodeBatchResultsPartial(runID, generation, items, outputReader, errorReader)
-	var downloadErr error
-	if output != nil {
-		_ = output.reader.Close()
-		if fileErr := <-output.done; downloadErr == nil {
-			downloadErr = fileErr
-		}
+	if outputPipe != nil {
+		_ = outputPipe.Close()
 	}
-	if errorOutput != nil {
-		_ = errorOutput.reader.Close()
-		if fileErr := <-errorOutput.done; downloadErr == nil {
-			downloadErr = fileErr
-		}
+	if errorPipe != nil {
+		_ = errorPipe.Close()
 	}
-	if downloadErr != nil {
-		return nil, nil, downloadErr
+	if err := downloads.Wait(); err != nil {
+		return nil, nil, err
 	}
 	return decoded, missing, err
 }
 
-type streamedBatchFile struct {
-	reader *io.PipeReader
-	done   <-chan error
-}
-
-func (w *BatchPollWorker) streamFile(ctx context.Context, fileID string) *streamedBatchFile {
+func (w *BatchPollWorker) streamFile(group *errgroup.Group, ctx context.Context, fileID string) *io.PipeReader {
 	if fileID == "" {
 		return nil
 	}
 	reader, writer := io.Pipe()
-	done := make(chan error, 1)
-	go func() {
+	group.Go(func() error {
 		err := w.Provider.FileContent(ctx, fileID, writer)
 		_ = writer.CloseWithError(err)
-		done <- err
-	}()
-	return &streamedBatchFile{reader: reader, done: done}
+		return err
+	})
+	return reader
 }
 
 func (w *BatchPollWorker) snoozeAfterPollError(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token, code string) error {
