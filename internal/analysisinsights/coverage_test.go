@@ -186,7 +186,6 @@ func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T)
 	assert.Equal(t, int64(2), got.UnknownLemmaCount)
 	require.Len(t, got.TopUnknownLemmas, 1)
 	assert.NotEqual(t, "reserved", got.TopUnknownLemmas[0].CanonicalLemma, "unfinished reserved vocabulary was treated as current or deck-eligible: %+v", got.TopUnknownLemmas)
-	require.Len(t, got.TopUnknownLemmas, 1)
 	assert.Equal(t, "released", got.TopUnknownLemmas[0].CanonicalLemma, "deck-eligible vocabulary = %+v", got.TopUnknownLemmas)
 	store.reserved = nil // release releases the reservation without persisting mastery
 	got, err = NewService(store).Coverage(context.Background(), "alice", "corpus")
