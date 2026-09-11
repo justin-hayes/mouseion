@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/sync/singleflight"
 )
 
 // CapabilityProvider reports the analysis languages currently exposed by the
@@ -44,6 +45,7 @@ type CachedCapabilityProvider struct {
 	provider CapabilityProvider
 	ttl      time.Duration
 	now      func() time.Time
+	lookup   singleflight.Group
 
 	mu      sync.Mutex
 	value   Capabilities
@@ -56,24 +58,47 @@ func NewCachedCapabilityProvider(provider CapabilityProvider, ttl time.Duration)
 
 func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabilities, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	now := c.now()
 	if !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl {
-		return cloneCapabilities(c.value), nil
-	}
-	value, err := c.provider.GetCapabilities(ctx)
-	if err == nil {
-		value.Degraded = false
-		c.value = cloneCapabilities(value)
-		c.fetched = now
-		return cloneCapabilities(value), nil
-	}
-	if !c.fetched.IsZero() {
-		value = cloneCapabilities(c.value)
-		value.Degraded = true
+		value := cloneCapabilities(c.value)
+		c.mu.Unlock()
 		return value, nil
 	}
-	return Capabilities{}, err
+	c.mu.Unlock()
+
+	result, err, _ := c.lookup.Do("capabilities", func() (any, error) {
+		c.mu.Lock()
+		now := c.now()
+		if !c.fetched.IsZero() && now.Sub(c.fetched) < c.ttl {
+			value := cloneCapabilities(c.value)
+			c.mu.Unlock()
+			return value, nil
+		}
+		c.mu.Unlock()
+
+		value, err := c.provider.GetCapabilities(ctx)
+		if err == nil {
+			value.Degraded = false
+			c.mu.Lock()
+			c.value = cloneCapabilities(value)
+			c.fetched = now
+			result := cloneCapabilities(value)
+			c.mu.Unlock()
+			return result, nil
+		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if !c.fetched.IsZero() {
+			value = cloneCapabilities(c.value)
+			value.Degraded = true
+			return value, nil
+		}
+		return Capabilities{}, err
+	})
+	if err != nil {
+		return Capabilities{}, err
+	}
+	return cloneCapabilities(result.(Capabilities)), nil
 }
 
 func cloneCapabilities(value Capabilities) Capabilities {
