@@ -318,7 +318,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 			break
 		}
 	}
-	assert.NotEmpty(t, duplicateBookID, "German one book missing")
+	require.NotEmpty(t, duplicateBookID, "German one book missing")
 	err = store.RemoveBookFromMyBooks(ctx, alice.ID, duplicateBookID)
 	require.NoError(t, err)
 
