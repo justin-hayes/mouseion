@@ -172,7 +172,34 @@ _Avoid_: active campaign, target destination, current project.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
-at the scope of a Book or of a study language's analyzed library. A future
+at the scope of a Book or of a study language's analyzed library. Context
+covers both the linear text around each occurrence and, where dependency
+analysis has been persisted, the occurrence's syntactic role. A future
 learner-facing surface; its persistence foundation is the per-analysis
 normalized corpus.
 _Avoid_: KWIC (a rendering style, not the feature), occurrence list.
+
+**Dependency relation**:
+The syntactic function a token (the dependent) fulfils relative to its head
+in a sentence's dependency parse, for example `nsubj` (subject), `obj`, or
+`advcl`. One of the dimensions of a sentence's surrounding context; what makes
+grammar-aware concordance queries and syntactic sentence scoring possible.
+_Avoid_: parse tag, syntax label.
+
+**Head** (governor):
+The token a dependent attaches to in a dependency relation. The root of a
+sentence is its own head. Headedness is part of an occurrence's persisted
+context, so an occurrence can be located under its governor or its dependents.
+_Avoid_: parent (implementation flavoured), controller.
+
+**Dependent**:
+A token whose dependency relation attaches it to a head. A queried lemma's
+dependents in a specific relation are what a grammar query returns.
+_Avoid_: child, argument.
+
+**Collocation**:
+Words that co-occur with a queried lemma within a limited span (typically the
+same sentence), counted across an analyzed Book or study language. A
+concordance enhancement considered for a later milestone, not part of the
+persistence foundation.
+_Avoid_: co-occurrence (fine in prose), n-gram.
