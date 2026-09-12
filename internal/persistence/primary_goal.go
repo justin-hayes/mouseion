@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -74,20 +75,9 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 }
 
 func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language, bookID string) error {
-	var eligible bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1
-		FROM reading_journey_membership jm
-		JOIN books b ON b.owner_id=jm.owner_id AND b.id=jm.book_id AND b.language_state='chosen' AND b.language_tag=$3
-		JOIN source_materials s ON s.owner_id=jm.owner_id AND s.book_id=jm.book_id
-		JOIN book_current_analyses current ON current.owner_id=s.owner_id AND current.book_id=s.book_id AND current.source_material_id=s.id
-		JOIN analysis_runs r ON r.owner_id=current.owner_id AND r.id=current.analysis_run_id AND r.source_material_id=current.source_material_id AND r.state='completed'
-		JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.source_material_id=r.source_material_id AND c.analysis_run_id=r.id AND c.status='complete'
-		WHERE jm.owner_id=$1 AND jm.language=$3 AND jm.book_id=$2
-		  AND lower(s.media_type)='application/epub+zip'
-		  AND s.current_content_revision_id=r.content_revision_id
-		  AND s.current_snapshot_id=r.snapshot_id
-	)`, owner, bookID, language).Scan(&eligible)
+	eligible, err := sqlcgen.New(tx).PrimaryGoalCandidateEligible(ctx, sqlcgen.PrimaryGoalCandidateEligibleParams{
+		Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID),
+	})
 	if err != nil {
 		return err
 	}

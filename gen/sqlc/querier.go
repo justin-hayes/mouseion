@@ -91,6 +91,10 @@ type Querier interface {
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID pgtype.UUID) (pgtype.Text, error)
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)
+	// Reading Journey read queries. Current analysis eligibility comes from the
+	// current_analysis_identity view so the identity chain is not duplicated in
+	// application SQL.
+	PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error)
 	PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error)
 	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)
 	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
