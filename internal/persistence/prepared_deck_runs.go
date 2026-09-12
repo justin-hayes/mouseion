@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -423,62 +424,34 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 }
 
 func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, preparationID, runID string) (domain.PreparedDeckRunProgress, error) {
-	var progress domain.PreparedDeckRunProgress
-	var exists bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3)`, owner, preparationID, runID).Scan(&exists)
+	exists, err := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID)})
 	if err != nil {
-		return progress, err
+		return domain.PreparedDeckRunProgress{}, err
 	}
 	if !exists {
-		return progress, ErrNotFound
+		return domain.PreparedDeckRunProgress{}, ErrNotFound
 	}
-	err = s.pool.QueryRow(ctx, `SELECT count(*),count(*) FILTER (WHERE state='pending'),count(*) FILTER (WHERE state='running'),count(*) FILTER (WHERE state='completed'),count(*) FILTER (WHERE state='failed'),count(*) FILTER (WHERE state='cancelled'),count(*) FILTER (WHERE state='pending' AND provider_attempt_count > 0) FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, owner, preparationID, runID).Scan(&progress.CandidateCount, &progress.PendingCount, &progress.RunningCount, &progress.CompletedCount, &progress.FailedCount, &progress.CancelledCount, &progress.RetryingCount)
+	row, err := s.queries().GetPreparedDeckRunProgress(ctx, sqlcgen.GetPreparedDeckRunProgressParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID)})
 	if err != nil {
-		return progress, err
+		return domain.PreparedDeckRunProgress{}, err
 	}
-	if err = s.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE disposition='quality_omitted') FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, owner, preparationID, runID).Scan(&progress.ManifestOmissions); err != nil {
-		return progress, err
+	progress := domain.PreparedDeckRunProgress{
+		CandidateCount: int(row.CandidateCount), PendingCount: int(row.PendingCount), RunningCount: int(row.RunningCount),
+		CompletedCount: int(row.CompletedCount), FailedCount: int(row.FailedCount), CancelledCount: int(row.CancelledCount),
+		RetryingCount: int(row.RetryingCount), ManifestOmissions: int(row.ManifestOmissions),
+		BatchChunkCount: int(row.BatchChunkCount), BatchSubmittedChunks: int(row.BatchSubmittedChunks),
+		BatchPollingChunks: int(row.BatchPollingChunks), BatchReconcilingChunks: int(row.BatchReconcilingChunks),
+		BatchCompletedChunks: int(row.BatchCompletedChunks), BatchFailedChunks: int(row.BatchFailedChunks),
+		BatchCancelledChunks: int(row.BatchCancelledChunks), BatchRequestCount: int(row.BatchRequestCount),
+		BatchCompletedRequests: int(row.BatchCompletedRequests), BatchFailedRequests: int(row.BatchFailedRequests),
+		BatchExpiredRequests: int(row.BatchExpiredRequests), BatchInputTokens: row.BatchInputTokens,
+		BatchOutputTokens: row.BatchOutputTokens,
 	}
-	var submittedAt *time.Time
-	if err = s.pool.QueryRow(ctx, `SELECT min(submitted_at) FROM deck_preparation_batch_chunks WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND submitted_at IS NOT NULL`, owner, preparationID, runID).Scan(&submittedAt); err != nil {
-		return progress, err
-	}
-	if submittedAt != nil && time.Now().After(*submittedAt) {
-		progress.BatchAge = time.Since(*submittedAt)
-	}
-	rows, err := s.pool.Query(ctx, `SELECT state,request_count,completed_count,failed_count,expired_count,input_tokens,output_tokens FROM deck_preparation_batch_chunks WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, owner, preparationID, runID)
-	if err != nil {
-		return progress, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var state domain.PreparedDeckBatchChunkState
-		var requests, completed, failed, expired int
-		var inputTokens, outputTokens int64
-		if err = rows.Scan(&state, &requests, &completed, &failed, &expired, &inputTokens, &outputTokens); err != nil {
-			return progress, err
-		}
-		progress.BatchChunkCount++
-		progress.BatchRequestCount += requests
-		progress.BatchCompletedRequests += completed
-		progress.BatchFailedRequests += failed
-		progress.BatchExpiredRequests += expired
-		progress.BatchInputTokens += inputTokens
-		progress.BatchOutputTokens += outputTokens
-		switch state {
-		case domain.PreparedDeckBatchSubmitted:
-			progress.BatchSubmittedChunks++
-		case domain.PreparedDeckBatchPolling:
-			progress.BatchPollingChunks++
-		case domain.PreparedDeckBatchReconciling:
-			progress.BatchReconcilingChunks++
-		case domain.PreparedDeckBatchCompleted:
-			progress.BatchCompletedChunks++
-		case domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchAmbiguous:
-			progress.BatchFailedChunks++
-		case domain.PreparedDeckBatchCancelled:
-			progress.BatchCancelledChunks++
+	if row.BatchSubmittedEpoch > 0 {
+		submittedAt := time.Unix(0, int64(row.BatchSubmittedEpoch*float64(time.Second)))
+		if time.Now().After(submittedAt) {
+			progress.BatchAge = time.Since(submittedAt)
 		}
 	}
-	return progress, rows.Err()
+	return progress, nil
 }
