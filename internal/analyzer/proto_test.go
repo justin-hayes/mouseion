@@ -17,17 +17,29 @@ func TestProtoRoundTrip(t *testing.T) {
 		Language:      "de",
 		Sentences: []analyzer.Sentence{{
 			Text: "Er grüßte.",
-			Tokens: []analyzer.Token{{
-				Surface:        "grüßte",
-				RawLemma:       "grüßen",
-				CanonicalLemma: "grüßen",
-				UPOS:           "VERB",
-				Dependency:     "root",
-				Head:           0,
-				Morphology:     map[string]string{"Tense": "Past"},
-				NamedEntity:    &namedEntity,
-				Location:       analyzer.SourceLocation{SourceDocumentID: "doc-1", Chapter: "1", Section: "opening", StartOffset: 3, EndOffset: 9},
-			}},
+			Tokens: []analyzer.Token{
+				{
+					Surface:        "Er",
+					RawLemma:       "er",
+					CanonicalLemma: "er",
+					UPOS:           "PRON",
+					Dependency:     "nsubj",
+					Head:           1,
+					Morphology:     map[string]string{"Case": "Nom"},
+					Location:       analyzer.SourceLocation{SourceDocumentID: "doc-1", Chapter: "1", Section: "opening", StartOffset: 0, EndOffset: 2},
+				},
+				{
+					Surface:        "grüßte",
+					RawLemma:       "grüßen",
+					CanonicalLemma: "grüßen",
+					UPOS:           "VERB",
+					Dependency:     "root",
+					Head:           1,
+					Morphology:     map[string]string{"Tense": "Past"},
+					NamedEntity:    &namedEntity,
+					Location:       analyzer.SourceLocation{SourceDocumentID: "doc-1", Chapter: "1", Section: "opening", StartOffset: 3, EndOffset: 9},
+				},
+			},
 			Location: analyzer.SourceLocation{SourceDocumentID: "doc-1", Chapter: "1", Section: "opening", StartOffset: 0, EndOffset: 10},
 		}},
 		SourceDocuments: []analyzer.SourceDocumentMetadata{{ID: "doc-1", SourceIdentifier: "opds:book", Title: "Book"}},
@@ -41,6 +53,14 @@ func TestProtoRoundTrip(t *testing.T) {
 	}
 
 	message := analyzer.ToProto(want)
+	require.Len(t, message.GetSentences(), 1)
+	wireTokens := message.GetSentences()[0].GetTokens()
+	require.Len(t, wireTokens, 2)
+	assert.Equal(t, "nsubj", wireTokens[0].GetDependency())
+	assert.Equal(t, uint32(1), wireTokens[0].GetHead())
+	assert.Equal(t, "root", wireTokens[1].GetDependency())
+	assert.Equal(t, uint32(1), wireTokens[1].GetHead())
+
 	bytes, err := proto.Marshal(message)
 	require.NoError(t, err)
 	assert.NotEmpty(t, bytes, "Marshal() returned empty transport payload")
@@ -48,6 +68,9 @@ func TestProtoRoundTrip(t *testing.T) {
 	got, err := analyzer.FromProto(message)
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
+	require.Len(t, got.Sentences[0].Tokens, 2)
+	assert.Equal(t, "nsubj", got.Sentences[0].Tokens[0].Dependency)
+	assert.Equal(t, uint32(1), got.Sentences[0].Tokens[0].Head)
 }
 
 func TestFromProtoRejectsInvalidAnalysisTime(t *testing.T) {
