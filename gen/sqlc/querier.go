@@ -26,7 +26,6 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	CompleteDeckPreparation(ctx context.Context, arg CompleteDeckPreparationParams) (DeckPreparation, error)
-	CompletePreparedDeckArtifact(ctx context.Context, arg CompletePreparedDeckArtifactParams) (DeckPreparation, error)
 	ConfirmDeckVocabularyReview(ctx context.Context, arg ConfirmDeckVocabularyReviewParams) (DeckPreparation, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountDeckPreparationVocabulary(ctx context.Context, arg CountDeckPreparationVocabularyParams) (int64, error)
@@ -69,9 +68,7 @@ type Querier interface {
 	// row mapping, and RETURNING clauses.
 	GetDeckPreparation(ctx context.Context, arg GetDeckPreparationParams) (DeckPreparation, error)
 	GetDeckPreparationBySourceAnalysis(ctx context.Context, arg GetDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
-	GetDeckPreparationBySourceAnalysisUnretired(ctx context.Context, arg GetDeckPreparationBySourceAnalysisUnretiredParams) (DeckPreparation, error)
-	GetDeckPreparationBySourceHash(ctx context.Context, arg GetDeckPreparationBySourceHashParams) (DeckPreparation, error)
-	GetDeckPreparationBySourceHashLegacy(ctx context.Context, arg GetDeckPreparationBySourceHashLegacyParams) (DeckPreparation, error)
+	GetDeckPreparationBySourceHashWithoutAnalysis(ctx context.Context, arg GetDeckPreparationBySourceHashWithoutAnalysisParams) (DeckPreparation, error)
 	GetDeckPreparationForAnalysis(ctx context.Context, arg GetDeckPreparationForAnalysisParams) (DeckPreparation, error)
 	GetDeckPreparationForUpdate(ctx context.Context, arg GetDeckPreparationForUpdateParams) (DeckPreparation, error)
 	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
@@ -95,6 +92,8 @@ type Querier interface {
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id pgtype.UUID) (pgtype.Text, error)
+	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
+	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
@@ -106,6 +105,7 @@ type Querier interface {
 	// states, known vocabulary, generated vocabulary, example/curated sentences,
 	// decks, cards, and processing history.
 	HasUsers(ctx context.Context) (bool, error)
+	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
 	InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error

@@ -72,7 +72,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'ready';
 
--- name: GetDeckPreparationBySourceAnalysis :one
+-- name: GetUnretiredDeckPreparationBySourceAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -85,7 +85,7 @@ WHERE owner_id = sqlc.arg('owner')
   AND analysis_run_id = sqlc.arg('analysis_run')
   AND retired_at IS NULL;
 
--- name: GetDeckPreparationBySourceHash :one
+-- name: GetUnretiredDeckPreparationBySourceHash :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -98,7 +98,7 @@ WHERE owner_id = sqlc.arg('owner')
   AND content_hash = sqlc.arg('content_hash')
   AND retired_at IS NULL;
 
--- name: GetDeckPreparationBySourceAnalysisUnretired :one
+-- name: GetDeckPreparationBySourceAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -110,7 +110,7 @@ WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
   AND analysis_run_id = sqlc.arg('analysis_run');
 
--- name: GetDeckPreparationBySourceHashLegacy :one
+-- name: GetDeckPreparationBySourceHashWithoutAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -176,22 +176,6 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
           book_id, retired_at;
 
--- name: CompletePreparedDeckArtifact :one
-UPDATE deck_preparations
-SET state = 'ready', artifact = sqlc.arg('artifact'), filename = sqlc.arg('filename'),
-    deck_name = sqlc.arg('deck_name'), total_cards = sqlc.arg('total_cards'),
-    cards_with_english = sqlc.arg('cards_with_english'),
-    cards_with_contextual_sentence_translations = sqlc.arg('cards_with_contextual_sentence_translations'),
-    quality_omissions = sqlc.arg('quality_omissions'), error = '',
-    completed_at = now(), updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'preparing'
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-          book_id, retired_at;
-
 -- name: TransitionDeckPreparation :one
 UPDATE deck_preparations
 SET state = sqlc.arg('next_state'), error = sqlc.arg('message'),
@@ -210,6 +194,10 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 
 -- name: DeckPreparationExists :one
 SELECT EXISTS(SELECT 1 FROM deck_preparations WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id'));
+
+-- name: InsertDeckPreparationHistory :exec
+INSERT INTO processing_history(owner_id, operation, status, details, completed_at)
+VALUES (sqlc.arg('owner'), 'prepared_deck', sqlc.arg('status'), sqlc.arg('details'), now());
 
 -- name: ListDeckPreparationVocabulary :many
 SELECT owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at, graduated_at

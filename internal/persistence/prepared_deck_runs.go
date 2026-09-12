@@ -448,7 +448,7 @@ func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, prep
 		BatchOutputTokens: row.BatchOutputTokens,
 	}
 	if row.BatchSubmittedEpoch > 0 {
-		submittedAt := time.Unix(int64(row.BatchSubmittedEpoch), 0)
+		submittedAt := time.Unix(0, int64(row.BatchSubmittedEpoch*float64(time.Second)))
 		if time.Now().After(submittedAt) {
 			progress.BatchAge = time.Since(submittedAt)
 		}

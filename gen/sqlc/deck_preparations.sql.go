@@ -211,78 +211,6 @@ func (q *Queries) CompleteDeckPreparation(ctx context.Context, arg CompleteDeckP
 	return i, err
 }
 
-const completePreparedDeckArtifact = `-- name: CompletePreparedDeckArtifact :one
-UPDATE deck_preparations
-SET state = 'ready', artifact = $1, filename = $2,
-    deck_name = $3, total_cards = $4,
-    cards_with_english = $5,
-    cards_with_contextual_sentence_translations = $6,
-    quality_omissions = $7, error = '',
-    completed_at = now(), updated_at = now()
-WHERE owner_id = $8 AND id = $9 AND state = 'preparing'
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-          book_id, retired_at
-`
-
-type CompletePreparedDeckArtifactParams struct {
-	Artifact                                []byte
-	Filename                                string
-	DeckName                                string
-	TotalCards                              int32
-	CardsWithEnglish                        int32
-	CardsWithContextualSentenceTranslations int32
-	QualityOmissions                        int32
-	Owner                                   pgtype.UUID
-	ID                                      pgtype.UUID
-}
-
-func (q *Queries) CompletePreparedDeckArtifact(ctx context.Context, arg CompletePreparedDeckArtifactParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, completePreparedDeckArtifact,
-		arg.Artifact,
-		arg.Filename,
-		arg.DeckName,
-		arg.TotalCards,
-		arg.CardsWithEnglish,
-		arg.CardsWithContextualSentenceTranslations,
-		arg.QualityOmissions,
-		arg.Owner,
-		arg.ID,
-	)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-	)
-	return i, err
-}
-
 const confirmDeckVocabularyReview = `-- name: ConfirmDeckVocabularyReview :one
 UPDATE deck_preparations
 SET studying_at = NULL, reviewed_at = COALESCE(reviewed_at, now()),
@@ -622,7 +550,6 @@ FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
   AND analysis_run_id = $3
-  AND retired_at IS NULL
 `
 
 type GetDeckPreparationBySourceAnalysisParams struct {
@@ -664,112 +591,7 @@ func (q *Queries) GetDeckPreparationBySourceAnalysis(ctx context.Context, arg Ge
 	return i, err
 }
 
-const getDeckPreparationBySourceAnalysisUnretired = `-- name: GetDeckPreparationBySourceAnalysisUnretired :one
-SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
-       content_hash, total_cards, cards_with_english,
-       cards_with_contextual_sentence_translations, quality_omissions, error,
-       created_at, updated_at, started_at, completed_at, analysis_run_id,
-       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-       book_id, retired_at
-FROM deck_preparations
-WHERE owner_id = $1
-  AND source_material_id = $2
-  AND analysis_run_id = $3
-`
-
-type GetDeckPreparationBySourceAnalysisUnretiredParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
-	AnalysisRun    pgtype.UUID
-}
-
-func (q *Queries) GetDeckPreparationBySourceAnalysisUnretired(ctx context.Context, arg GetDeckPreparationBySourceAnalysisUnretiredParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, getDeckPreparationBySourceAnalysisUnretired, arg.Owner, arg.SourceMaterial, arg.AnalysisRun)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-	)
-	return i, err
-}
-
-const getDeckPreparationBySourceHash = `-- name: GetDeckPreparationBySourceHash :one
-SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
-       content_hash, total_cards, cards_with_english,
-       cards_with_contextual_sentence_translations, quality_omissions, error,
-       created_at, updated_at, started_at, completed_at, analysis_run_id,
-       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-       book_id, retired_at
-FROM deck_preparations
-WHERE owner_id = $1
-  AND source_material_id = $2
-  AND content_hash = $3
-  AND retired_at IS NULL
-`
-
-type GetDeckPreparationBySourceHashParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
-	ContentHash    string
-}
-
-func (q *Queries) GetDeckPreparationBySourceHash(ctx context.Context, arg GetDeckPreparationBySourceHashParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, getDeckPreparationBySourceHash, arg.Owner, arg.SourceMaterial, arg.ContentHash)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-	)
-	return i, err
-}
-
-const getDeckPreparationBySourceHashLegacy = `-- name: GetDeckPreparationBySourceHashLegacy :one
+const getDeckPreparationBySourceHashWithoutAnalysis = `-- name: GetDeckPreparationBySourceHashWithoutAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -783,14 +605,14 @@ WHERE owner_id = $1
   AND analysis_run_id IS NULL
 `
 
-type GetDeckPreparationBySourceHashLegacyParams struct {
+type GetDeckPreparationBySourceHashWithoutAnalysisParams struct {
 	Owner          pgtype.UUID
 	SourceMaterial pgtype.UUID
 	ContentHash    string
 }
 
-func (q *Queries) GetDeckPreparationBySourceHashLegacy(ctx context.Context, arg GetDeckPreparationBySourceHashLegacyParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, getDeckPreparationBySourceHashLegacy, arg.Owner, arg.SourceMaterial, arg.ContentHash)
+func (q *Queries) GetDeckPreparationBySourceHashWithoutAnalysis(ctx context.Context, arg GetDeckPreparationBySourceHashWithoutAnalysisParams) (DeckPreparation, error) {
+	row := q.db.QueryRow(ctx, getDeckPreparationBySourceHashWithoutAnalysis, arg.Owner, arg.SourceMaterial, arg.ContentHash)
 	var i DeckPreparation
 	err := row.Scan(
 		&i.ID,
@@ -925,6 +747,112 @@ func (q *Queries) GetDeckPreparationForUpdate(ctx context.Context, arg GetDeckPr
 	return i, err
 }
 
+const getUnretiredDeckPreparationBySourceAnalysis = `-- name: GetUnretiredDeckPreparationBySourceAnalysis :one
+SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
+       content_hash, total_cards, cards_with_english,
+       cards_with_contextual_sentence_translations, quality_omissions, error,
+       created_at, updated_at, started_at, completed_at, analysis_run_id,
+       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
+       book_id, retired_at
+FROM deck_preparations
+WHERE owner_id = $1
+  AND source_material_id = $2
+  AND analysis_run_id = $3
+  AND retired_at IS NULL
+`
+
+type GetUnretiredDeckPreparationBySourceAnalysisParams struct {
+	Owner          pgtype.UUID
+	SourceMaterial pgtype.UUID
+	AnalysisRun    pgtype.UUID
+}
+
+func (q *Queries) GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error) {
+	row := q.db.QueryRow(ctx, getUnretiredDeckPreparationBySourceAnalysis, arg.Owner, arg.SourceMaterial, arg.AnalysisRun)
+	var i DeckPreparation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.SourceMaterialID,
+		&i.State,
+		&i.Artifact,
+		&i.Filename,
+		&i.DeckName,
+		&i.ContentHash,
+		&i.TotalCards,
+		&i.CardsWithEnglish,
+		&i.CardsWithContextualSentenceTranslations,
+		&i.QualityOmissions,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.AnalysisRunID,
+		&i.CurrentRunID,
+		&i.StudyingAt,
+		&i.ReviewedAt,
+		&i.GraduatedAt,
+		&i.ReleasedAt,
+		&i.BookID,
+		&i.RetiredAt,
+	)
+	return i, err
+}
+
+const getUnretiredDeckPreparationBySourceHash = `-- name: GetUnretiredDeckPreparationBySourceHash :one
+SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
+       content_hash, total_cards, cards_with_english,
+       cards_with_contextual_sentence_translations, quality_omissions, error,
+       created_at, updated_at, started_at, completed_at, analysis_run_id,
+       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
+       book_id, retired_at
+FROM deck_preparations
+WHERE owner_id = $1
+  AND source_material_id = $2
+  AND content_hash = $3
+  AND retired_at IS NULL
+`
+
+type GetUnretiredDeckPreparationBySourceHashParams struct {
+	Owner          pgtype.UUID
+	SourceMaterial pgtype.UUID
+	ContentHash    string
+}
+
+func (q *Queries) GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error) {
+	row := q.db.QueryRow(ctx, getUnretiredDeckPreparationBySourceHash, arg.Owner, arg.SourceMaterial, arg.ContentHash)
+	var i DeckPreparation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.SourceMaterialID,
+		&i.State,
+		&i.Artifact,
+		&i.Filename,
+		&i.DeckName,
+		&i.ContentHash,
+		&i.TotalCards,
+		&i.CardsWithEnglish,
+		&i.CardsWithContextualSentenceTranslations,
+		&i.QualityOmissions,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.AnalysisRunID,
+		&i.CurrentRunID,
+		&i.StudyingAt,
+		&i.ReviewedAt,
+		&i.GraduatedAt,
+		&i.ReleasedAt,
+		&i.BookID,
+		&i.RetiredAt,
+	)
+	return i, err
+}
+
 const graduateDeckPreparationVocabularyStates = `-- name: GraduateDeckPreparationVocabularyStates :exec
 INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
 SELECT dv.owner_id, dv.language, dv.canonical_lemma, dv.upos, 'known'
@@ -947,6 +875,22 @@ type GraduateDeckPreparationVocabularyStatesParams struct {
 
 func (q *Queries) GraduateDeckPreparationVocabularyStates(ctx context.Context, arg GraduateDeckPreparationVocabularyStatesParams) error {
 	_, err := q.db.Exec(ctx, graduateDeckPreparationVocabularyStates, arg.Owner, arg.Preparation)
+	return err
+}
+
+const insertDeckPreparationHistory = `-- name: InsertDeckPreparationHistory :exec
+INSERT INTO processing_history(owner_id, operation, status, details, completed_at)
+VALUES ($1, 'prepared_deck', $2, $3, now())
+`
+
+type InsertDeckPreparationHistoryParams struct {
+	Owner   pgtype.UUID
+	Status  string
+	Details []byte
+}
+
+func (q *Queries) InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error {
+	_, err := q.db.Exec(ctx, insertDeckPreparationHistory, arg.Owner, arg.Status, arg.Details)
 	return err
 }
 

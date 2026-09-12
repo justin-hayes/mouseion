@@ -145,7 +145,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 			}
 		}
 	}
-	readyModel, err := q.CompletePreparedDeckArtifact(ctx, sqlcgen.CompletePreparedDeckArtifactParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: int32(artifact.Completeness.TotalCards), CardsWithEnglish: int32(artifact.Completeness.CardsWithEnglish), CardsWithContextualSentenceTranslations: int32(artifact.Completeness.CardsWithEnglishSentence), QualityOmissions: int32(artifact.Completeness.QualityOmitted), Owner: uuidArg(owner), ID: uuidArg(id)})
+	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: int32(artifact.Completeness.TotalCards), CardsWithEnglish: int32(artifact.Completeness.CardsWithEnglish), CardsWithContextualSentenceTranslations: int32(artifact.Completeness.CardsWithEnglishSentence), QualityOmissions: int32(artifact.Completeness.QualityOmitted), Owner: uuidArg(owner), ID: uuidArg(id)})
 	err = missing(err)
 	ready := deckPreparationFromModel(readyModel)
 	if err != nil {
@@ -357,10 +357,10 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 		var existing domain.DeckPreparation
 		var err error
 		if p.AnalysisRunID != "" {
-			model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
+			model, queryErr := sqlcgen.New(tx).GetUnretiredDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
 			existing, err = deckPreparationFromModel(model), missing(queryErr)
 		} else {
-			model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceHash(ctx, sqlcgen.GetDeckPreparationBySourceHashParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), ContentHash: p.ContentHash})
+			model, queryErr := sqlcgen.New(tx).GetUnretiredDeckPreparationBySourceHash(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceHashParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), ContentHash: p.ContentHash})
 			existing, err = deckPreparationFromModel(model), missing(queryErr)
 		}
 		if err == nil {
@@ -379,10 +379,10 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 	var existing domain.DeckPreparation
 	var err error
 	if p.AnalysisRunID != "" {
-		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceAnalysisUnretired(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisUnretiredParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
+		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
 		existing, err = deckPreparationFromModel(model), missing(queryErr)
 	} else {
-		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceHashLegacy(ctx, sqlcgen.GetDeckPreparationBySourceHashLegacyParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), ContentHash: p.ContentHash})
+		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceHashWithoutAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceHashWithoutAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), ContentHash: p.ContentHash})
 		existing, err = deckPreparationFromModel(model), missing(queryErr)
 	}
 	if err == nil {
@@ -488,7 +488,7 @@ func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id
 	if marshalErr != nil {
 		return p, marshalErr
 	}
-	if err = sqlcgen.New(tx).InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: uuidArg(owner), Operation: "prepared_deck", Status: string(next), Details: details, CompletedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
+	if err = sqlcgen.New(tx).InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: uuidArg(owner), Status: string(next), Details: details}); err != nil {
 		return p, err
 	}
 	if err = tx.Commit(ctx); err != nil {
