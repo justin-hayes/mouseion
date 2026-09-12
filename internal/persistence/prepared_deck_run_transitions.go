@@ -260,8 +260,11 @@ func (s *PostgresStore) AssignPreparedDeckBatchSubmissionJob(ctx context.Context
 	if jobID < 1 {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET submission_generation=submission_generation+1,submission_job_id=$6,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.submission_generation=$5 AND c.state='pending' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, expectedGeneration, jobID))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().AssignPreparedDeckBatchSubmissionJob(ctx, sqlcgen.AssignPreparedDeckBatchSubmissionJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(expectedGeneration), SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrInvalidTransition
 	}
 	return chunk, err
@@ -271,8 +274,11 @@ func (s *PostgresStore) ClaimPreparedDeckBatchSubmission(ctx context.Context, ow
 	if !validClaim(token, leaseExpiresAt) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='submitting',submission_claim_token=$6,submission_claimed_at=now(),submission_lease_expires_at=$7,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.submission_generation=$5 AND c.state IN ('pending','submitting') AND (c.submission_claim_token IS NULL OR c.submission_lease_expires_at<=now()) AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, leaseExpiresAt))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().ClaimPreparedDeckBatchSubmission(ctx, sqlcgen.ClaimPreparedDeckBatchSubmissionParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(generation), SubmissionClaimToken: uuidArg(token), SubmissionLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrInvalidTransition
 	}
 	return chunk, err
@@ -301,8 +307,11 @@ func (s *PostgresStore) AssignPreparedDeckBatchReconciliationJob(ctx context.Con
 	if jobID < 1 {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET reconciliation_generation=reconciliation_generation+1,reconciliation_job_id=$6,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.reconciliation_generation=$5 AND c.state IN ('submitted','polling') AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, expectedGeneration, jobID))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().AssignPreparedDeckBatchReconciliationJob(ctx, sqlcgen.AssignPreparedDeckBatchReconciliationJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationGeneration: int32(expectedGeneration), ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true},
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrInvalidTransition
 	}
 	return chunk, err
@@ -312,8 +321,11 @@ func (s *PostgresStore) ClaimPreparedDeckBatchReconciliation(ctx context.Context
 	if !validClaim(token, leaseExpiresAt) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='reconciling',reconciliation_claim_token=$6,reconciliation_claimed_at=now(),reconciliation_lease_expires_at=$7,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.reconciliation_generation=$5 AND c.state IN ('submitted','polling','reconciling') AND (c.reconciliation_claim_token IS NULL OR c.reconciliation_lease_expires_at<=now()) AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, leaseExpiresAt))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().ClaimPreparedDeckBatchReconciliation(ctx, sqlcgen.ClaimPreparedDeckBatchReconciliationParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationGeneration: int32(generation), ReconciliationClaimToken: uuidArg(token), ReconciliationLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrInvalidTransition
 	}
 	return chunk, err
@@ -344,15 +356,10 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 	}
 	defer tx.Rollback(ctx)
 	var count int
-	err = tx.QueryRow(ctx, `WITH hit AS (
-		UPDATE deck_preparation_translation_outcomes o SET state='completed',terminal_at=now(),cache_hit_count=cache_hit_count+1,updated_at=now(),claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL
-		FROM deck_preparation_batch_chunk_items ci
-		JOIN deck_preparation_batch_chunks c ON c.owner_id=ci.owner_id AND c.preparation_id=ci.preparation_id AND c.run_id=ci.run_id AND c.id=ci.chunk_id AND c.generation=ci.generation
-		JOIN deck_preparation_manifest_items mi ON mi.owner_id=ci.owner_id AND mi.preparation_id=ci.preparation_id AND mi.run_id=ci.run_id AND mi.ordinal=ci.ordinal
-		JOIN enrichment_cache ec ON ec.language=mi.language AND ec.target_language=mi.target_language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
-		WHERE o.owner_id=$1 AND o.preparation_id=$2 AND o.run_id=$3 AND o.ordinal=ci.ordinal AND o.state='pending' AND c.id=$4 AND c.generation=$5 AND c.state='submitting' AND c.submission_claim_token=$6
-		RETURNING o.ordinal
-	) SELECT count(*) FROM hit`, owner, preparationID, runID, chunkID, generation, token).Scan(&count)
+	count64, err := sqlcgen.New(tx).CompletePreparedDeckBatchCacheHits(ctx, sqlcgen.CompletePreparedDeckBatchCacheHitsParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token),
+	})
+	count = int(count64)
 	if err != nil {
 		return 0, err
 	}
@@ -372,8 +379,11 @@ func (s *PostgresStore) FinishPreparedDeckBatchSubmission(ctx context.Context, o
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state=$7,error_class=$8,error_code=$9,completed_count=CASE WHEN $7='completed' THEN request_count ELSE completed_count END,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, state, errorClass, errorCode))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().FinishPreparedDeckBatchSubmission(ctx, sqlcgen.FinishPreparedDeckBatchSubmissionParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), State: string(state), ErrorClass: errorClass, ErrorCode: errorCode,
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrPreparedDeckClaimLost
 	}
 	return chunk, err
@@ -386,8 +396,11 @@ func (s *PostgresStore) RetryPreparedDeckBatchSubmission(ctx context.Context, ow
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='pending',error_class=$7,error_code=$8,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND c.input_file_id IS NULL AND c.batch_id IS NULL AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, errorClass, errorCode))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().RetryPreparedDeckBatchSubmission(ctx, sqlcgen.RetryPreparedDeckBatchSubmissionParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), ErrorClass: errorClass, ErrorCode: errorCode,
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrPreparedDeckClaimLost
 	}
 	return chunk, err
@@ -424,10 +437,11 @@ func (s *PostgresStore) FinishPreparedDeckBatchReconciliation(ctx context.Contex
 	if err := validateBoundedError(update.ErrorClass, update.ErrorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state=$7,provider_status=NULLIF($8,''),output_file_id=NULLIF($9,''),error_file_id=NULLIF($10,''),completed_count=$11,failed_count=$12,expired_count=$13,input_tokens=$14,output_tokens=$15,total_tokens=$14::bigint+$15::bigint,error_class=$16,error_code=$17,provider_completed_at=$18,last_polled_at=now(),reconciled_at=CASE WHEN $7 IN ('completed','failed') THEN now() ELSE reconciled_at END,reconciliation_claim_token=NULL,reconciliation_claimed_at=NULL,reconciliation_lease_expires_at=NULL,updated_at=now()
-		FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.reconciliation_generation=$5 AND c.reconciliation_claim_token=$6 AND c.state='reconciling' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns),
-		owner, preparationID, runID, chunkID, generation, token, update.State, update.ProviderStatus, update.OutputFileID, update.ErrorFileID, update.CompletedCount, update.FailedCount, update.ExpiredCount, update.InputTokens, update.OutputTokens, update.ErrorClass, update.ErrorCode, update.ProviderCompletedAt))
-	if err != nil && errors.Is(err, ErrNotFound) {
+	model, err := s.queries().FinishPreparedDeckBatchReconciliation(ctx, sqlcgen.FinishPreparedDeckBatchReconciliationParams{
+		Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), Token: uuidArg(token), State: string(update.State), ProviderStatus: update.ProviderStatus, OutputFileID: update.OutputFileID, ErrorFileID: update.ErrorFileID, CompletedCount: int32(update.CompletedCount), FailedCount: int32(update.FailedCount), ExpiredCount: int32(update.ExpiredCount), InputTokens: update.InputTokens, OutputTokens: update.OutputTokens, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(update.ProviderCompletedAt),
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return chunk, ErrInvalidTransition
 	}
 	return chunk, err
@@ -440,45 +454,18 @@ func (s *PostgresStore) ListPreparedDeckRecoveryWork(ctx context.Context, limit 
 	if limit < 1 {
 		return nil, ErrInvalidTransition
 	}
-	rows, err := s.pool.Query(ctx, `
-		SELECT o.owner_id::text,o.preparation_id::text,o.run_id::text,''::text,o.ordinal,o.dispatch_generation,'outcome',o.state='running'
-		FROM deck_preparation_translation_outcomes o JOIN deck_preparation_runs r ON r.owner_id=o.owner_id AND r.preparation_id=o.preparation_id AND r.id=o.run_id
-		WHERE r.state='translating' AND ((o.state='pending' AND o.next_attempt_at<=now()) OR (o.state='running' AND o.lease_expires_at<=now()))
-		UNION ALL
-		SELECT c.owner_id::text,c.preparation_id::text,c.run_id::text,c.id::text,-1,c.submission_generation,'batch_submission',c.state='submitting'
-		FROM deck_preparation_batch_chunks c JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
-		WHERE r.state='translating' AND (c.state='pending' OR (c.state='submitting' AND c.submission_lease_expires_at<=now()))
-		UNION ALL
-		SELECT c.owner_id::text,c.preparation_id::text,c.run_id::text,c.id::text,-1,c.reconciliation_generation,'batch_reconciliation',c.state='reconciling'
-		FROM deck_preparation_batch_chunks c JOIN deck_preparation_runs r ON r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id
-		WHERE r.state='translating' AND (c.state IN ('submitted','polling') OR (c.state='reconciling' AND c.reconciliation_lease_expires_at<=now()))
-		UNION ALL
-		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'finalizer',finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now()
-		FROM deck_preparation_runs WHERE state='finalizing' AND translation_state='completed' AND (finalization_claim_token IS NULL OR finalization_lease_expires_at<=now())
-		UNION ALL
-		SELECT owner_id::text,preparation_id::text,run_id::text,id::text,-1,generation,'batch_cleanup',cleanup_claim_token IS NOT NULL AND cleanup_lease_expires_at<=now()
-		FROM deck_preparation_batch_chunks
-		WHERE state IN ('completed','cancelled') AND (cleanup_claim_token IS NULL OR cleanup_lease_expires_at<=now()) AND
-		      ((input_file_id IS NOT NULL AND input_file_cleanup_state IN ('pending','failed') AND input_file_cleanup_attempts < 3) OR
-		       (output_file_id IS NOT NULL AND output_file_cleanup_state IN ('pending','failed') AND output_file_cleanup_attempts < 3) OR
-		       (error_file_id IS NOT NULL AND error_file_cleanup_state IN ('pending','failed') AND error_file_cleanup_attempts < 3))
-		UNION ALL
-		SELECT owner_id::text,preparation_id::text,id::text,''::text,-1,finalization_dispatch_generation,'translation_completion',false
-		FROM deck_preparation_runs r WHERE state='translating' AND NOT EXISTS (SELECT 1 FROM deck_preparation_translation_outcomes o WHERE o.run_id=r.id AND o.state IN ('pending','running'))
-		ORDER BY 7,3,5 LIMIT $1`, limit)
+	rows, err := s.queries().ListPreparedDeckRecoveryWork(ctx, int32(limit))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var work []domain.PreparedDeckRecoveryWork
-	for rows.Next() {
-		var item domain.PreparedDeckRecoveryWork
-		if err = rows.Scan(&item.OwnerID, &item.PreparationID, &item.RunID, &item.ChunkID, &item.Ordinal, &item.Generation, &item.Kind, &item.LeaseExpired); err != nil {
-			return nil, err
-		}
-		work = append(work, item)
+	for _, row := range rows {
+		work = append(work, domain.PreparedDeckRecoveryWork{
+			OwnerID: row.OOwnerID, PreparationID: row.OPreparationID, RunID: row.ORunID, ChunkID: row.ChunkID,
+			Ordinal: int(row.Ordinal), Generation: int(row.Generation), Kind: row.Kind, LeaseExpired: row.LeaseExpired,
+		})
 	}
-	return work, rows.Err()
+	return work, nil
 }
 
 func validateBoundedError(errorClass, errorCode string) error {

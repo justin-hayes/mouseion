@@ -11,6 +11,192 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignPreparedDeckBatchReconciliationJob = `-- name: AssignPreparedDeckBatchReconciliationJob :one
+UPDATE deck_preparation_batch_chunks c
+SET reconciliation_generation = reconciliation_generation + 1,
+    reconciliation_job_id = $6,
+    updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.reconciliation_generation = $5 AND c.state IN ('submitted', 'polling')
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type AssignPreparedDeckBatchReconciliationJobParams struct {
+	OwnerID                  pgtype.UUID
+	PreparationID            pgtype.UUID
+	RunID                    pgtype.UUID
+	ID                       pgtype.UUID
+	ReconciliationGeneration int32
+	ReconciliationJobID      pgtype.Int8
+}
+
+func (q *Queries) AssignPreparedDeckBatchReconciliationJob(ctx context.Context, arg AssignPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, assignPreparedDeckBatchReconciliationJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.ReconciliationGeneration,
+		arg.ReconciliationJobID,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const assignPreparedDeckBatchSubmissionJob = `-- name: AssignPreparedDeckBatchSubmissionJob :one
+UPDATE deck_preparation_batch_chunks c
+SET submission_generation = submission_generation + 1,
+    submission_job_id = $6,
+    updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.submission_generation = $5 AND c.state = 'pending'
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type AssignPreparedDeckBatchSubmissionJobParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	SubmissionGeneration int32
+	SubmissionJobID      pgtype.Int8
+}
+
+func (q *Queries) AssignPreparedDeckBatchSubmissionJob(ctx context.Context, arg AssignPreparedDeckBatchSubmissionJobParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, assignPreparedDeckBatchSubmissionJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.SubmissionGeneration,
+		arg.SubmissionJobID,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
 const assignPreparedDeckFinalizationJob = `-- name: AssignPreparedDeckFinalizationJob :one
 UPDATE deck_preparation_runs
 SET finalization_dispatch_generation = finalization_dispatch_generation + 1,
@@ -118,6 +304,453 @@ func (q *Queries) AssignPreparedDeckFinalizationJob(ctx context.Context, arg Ass
 		&i.UpdatedAt,
 		&i.TranslationCompletedAt,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const attachPreparedDeckBatchReconciliationJob = `-- name: AttachPreparedDeckBatchReconciliationJob :one
+UPDATE deck_preparation_batch_chunks
+SET reconciliation_job_id = $5, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND state = 'submitted' AND batch_id = $6
+RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at
+`
+
+type AttachPreparedDeckBatchReconciliationJobParams struct {
+	OwnerID             pgtype.UUID
+	PreparationID       pgtype.UUID
+	RunID               pgtype.UUID
+	ID                  pgtype.UUID
+	ReconciliationJobID pgtype.Int8
+	BatchID             pgtype.Text
+}
+
+func (q *Queries) AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, attachPreparedDeckBatchReconciliationJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.ReconciliationJobID,
+		arg.BatchID,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const attachPreparedDeckRun = `-- name: AttachPreparedDeckRun :exec
+UPDATE deck_preparations
+SET state = 'preparing', current_run_id = $3, started_at = COALESCE(started_at, now()),
+    completed_at = NULL, error = '', updated_at = now()
+WHERE owner_id = $1 AND id = $2
+`
+
+type AttachPreparedDeckRunParams struct {
+	OwnerID      pgtype.UUID
+	ID           pgtype.UUID
+	CurrentRunID pgtype.UUID
+}
+
+func (q *Queries) AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error {
+	_, err := q.db.Exec(ctx, attachPreparedDeckRun, arg.OwnerID, arg.ID, arg.CurrentRunID)
+	return err
+}
+
+const cancelPreparedDeckBatchChunks = `-- name: CancelPreparedDeckBatchChunks :exec
+UPDATE deck_preparation_batch_chunks
+SET state = 'cancelled',
+    submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL,
+    reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL,
+    error_class = 'cancelled', error_code = '', updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND state NOT IN ('completed', 'failed', 'cancelled')
+`
+
+type CancelPreparedDeckBatchChunksParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) CancelPreparedDeckBatchChunks(ctx context.Context, arg CancelPreparedDeckBatchChunksParams) error {
+	_, err := q.db.Exec(ctx, cancelPreparedDeckBatchChunks, arg.OwnerID, arg.PreparationID, arg.RunID)
+	return err
+}
+
+const cancelPreparedDeckOutcomes = `-- name: CancelPreparedDeckOutcomes :exec
+UPDATE deck_preparation_translation_outcomes
+SET state = 'cancelled', claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL,
+    terminal_at = now(), error_class = 'cancellation', error_code = '', updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND state IN ('pending', 'running')
+`
+
+type CancelPreparedDeckOutcomesParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) CancelPreparedDeckOutcomes(ctx context.Context, arg CancelPreparedDeckOutcomesParams) error {
+	_, err := q.db.Exec(ctx, cancelPreparedDeckOutcomes, arg.OwnerID, arg.PreparationID, arg.RunID)
+	return err
+}
+
+const cancelPreparedDeckRun = `-- name: CancelPreparedDeckRun :exec
+UPDATE deck_preparation_runs
+SET state = 'cancelled',
+    translation_state = CASE WHEN translation_state IN ('pending', 'running') THEN 'cancelled' ELSE translation_state END,
+    finalization_claim_token = NULL, finalization_claimed_at = NULL, finalization_lease_expires_at = NULL,
+    error_class = '', error_code = '', completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state IN ('translating', 'finalizing')
+`
+
+type CancelPreparedDeckRunParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+}
+
+func (q *Queries) CancelPreparedDeckRun(ctx context.Context, arg CancelPreparedDeckRunParams) error {
+	_, err := q.db.Exec(ctx, cancelPreparedDeckRun, arg.OwnerID, arg.PreparationID, arg.ID)
+	return err
+}
+
+const claimPreparedDeckBatchCleanup = `-- name: ClaimPreparedDeckBatchCleanup :one
+UPDATE deck_preparation_batch_chunks
+SET cleanup_claim_token = $5, cleanup_claimed_at = now(), cleanup_lease_expires_at = $6, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4
+  AND state IN ('completed', 'cancelled')
+  AND (cleanup_claim_token IS NULL OR cleanup_lease_expires_at <= now())
+  AND ((input_file_id IS NOT NULL AND input_file_cleanup_state IN ('pending', 'failed') AND input_file_cleanup_attempts < $7) OR
+       (output_file_id IS NOT NULL AND output_file_cleanup_state IN ('pending', 'failed') AND output_file_cleanup_attempts < $7) OR
+       (error_file_id IS NOT NULL AND error_file_cleanup_state IN ('pending', 'failed') AND error_file_cleanup_attempts < $7))
+RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at
+`
+
+type ClaimPreparedDeckBatchCleanupParams struct {
+	OwnerID                  pgtype.UUID
+	PreparationID            pgtype.UUID
+	RunID                    pgtype.UUID
+	ID                       pgtype.UUID
+	CleanupClaimToken        pgtype.UUID
+	CleanupLeaseExpiresAt    pgtype.Timestamptz
+	InputFileCleanupAttempts int32
+}
+
+func (q *Queries) ClaimPreparedDeckBatchCleanup(ctx context.Context, arg ClaimPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, claimPreparedDeckBatchCleanup,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.CleanupClaimToken,
+		arg.CleanupLeaseExpiresAt,
+		arg.InputFileCleanupAttempts,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const claimPreparedDeckBatchReconciliation = `-- name: ClaimPreparedDeckBatchReconciliation :one
+UPDATE deck_preparation_batch_chunks c
+SET state = 'reconciling', reconciliation_claim_token = $6, reconciliation_claimed_at = now(), reconciliation_lease_expires_at = $7, updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.reconciliation_generation = $5 AND c.state IN ('submitted', 'polling', 'reconciling')
+  AND (c.reconciliation_claim_token IS NULL OR c.reconciliation_lease_expires_at <= now())
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type ClaimPreparedDeckBatchReconciliationParams struct {
+	OwnerID                      pgtype.UUID
+	PreparationID                pgtype.UUID
+	RunID                        pgtype.UUID
+	ID                           pgtype.UUID
+	ReconciliationGeneration     int32
+	ReconciliationClaimToken     pgtype.UUID
+	ReconciliationLeaseExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) ClaimPreparedDeckBatchReconciliation(ctx context.Context, arg ClaimPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, claimPreparedDeckBatchReconciliation,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.ReconciliationGeneration,
+		arg.ReconciliationClaimToken,
+		arg.ReconciliationLeaseExpiresAt,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const claimPreparedDeckBatchSubmission = `-- name: ClaimPreparedDeckBatchSubmission :one
+UPDATE deck_preparation_batch_chunks c
+SET state = 'submitting', submission_claim_token = $6, submission_claimed_at = now(), submission_lease_expires_at = $7, updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.submission_generation = $5 AND c.state IN ('pending', 'submitting')
+  AND (c.submission_claim_token IS NULL OR c.submission_lease_expires_at <= now())
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type ClaimPreparedDeckBatchSubmissionParams struct {
+	OwnerID                  pgtype.UUID
+	PreparationID            pgtype.UUID
+	RunID                    pgtype.UUID
+	ID                       pgtype.UUID
+	SubmissionGeneration     int32
+	SubmissionClaimToken     pgtype.UUID
+	SubmissionLeaseExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) ClaimPreparedDeckBatchSubmission(ctx context.Context, arg ClaimPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, claimPreparedDeckBatchSubmission,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.SubmissionGeneration,
+		arg.SubmissionClaimToken,
+		arg.SubmissionLeaseExpiresAt,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
 	)
 	return i, err
 }
@@ -322,6 +955,1228 @@ func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg C
 	return i, err
 }
 
+const completePreparedDeckBatchCacheHits = `-- name: CompletePreparedDeckBatchCacheHits :one
+WITH hit AS (
+  UPDATE deck_preparation_translation_outcomes o
+  SET state = 'completed', terminal_at = now(), cache_hit_count = cache_hit_count + 1, updated_at = now(),
+      claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL
+  FROM deck_preparation_batch_chunk_items ci
+  JOIN deck_preparation_batch_chunks c ON c.owner_id = ci.owner_id AND c.preparation_id = ci.preparation_id AND c.run_id = ci.run_id AND c.id = ci.chunk_id AND c.generation = ci.generation
+  JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
+  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '')
+  WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3 AND o.ordinal = ci.ordinal AND o.state = 'pending'
+    AND c.id = $4 AND c.generation = $5 AND c.state = 'submitting' AND c.submission_claim_token = $6
+  RETURNING o.ordinal
+) SELECT count(*) FROM hit
+`
+
+type CompletePreparedDeckBatchCacheHitsParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	Generation           int32
+	SubmissionClaimToken pgtype.UUID
+}
+
+func (q *Queries) CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, completePreparedDeckBatchCacheHits,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.Generation,
+		arg.SubmissionClaimToken,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const completePreparedDeckBatchChunk = `-- name: CompletePreparedDeckBatchChunk :one
+UPDATE deck_preparation_batch_chunks
+SET state = 'completed', provider_status = $1, output_file_id = NULLIF($2::text, ''), error_file_id = NULLIF($3::text, ''),
+    completed_count = $4, failed_count = $5, expired_count = $6, input_tokens = $7, output_tokens = $8, total_tokens = $7::bigint + $8::bigint,
+    error_class = $9, error_code = $10, provider_completed_at = $11, reconciled_at = now(), last_polled_at = now(),
+    reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL, updated_at = now()
+WHERE owner_id = $12 AND preparation_id = $13 AND run_id = $14 AND id = $15
+RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at
+`
+
+type CompletePreparedDeckBatchChunkParams struct {
+	ProviderStatus      pgtype.Text
+	OutputFileID        string
+	ErrorFileID         string
+	CompletedCount      int32
+	FailedCount         int32
+	ExpiredCount        int32
+	InputTokens         int64
+	OutputTokens        int64
+	ErrorClass          string
+	ErrorCode           string
+	ProviderCompletedAt pgtype.Timestamptz
+	Owner               pgtype.UUID
+	Preparation         pgtype.UUID
+	Run                 pgtype.UUID
+	ID                  pgtype.UUID
+}
+
+func (q *Queries) CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, completePreparedDeckBatchChunk,
+		arg.ProviderStatus,
+		arg.OutputFileID,
+		arg.ErrorFileID,
+		arg.CompletedCount,
+		arg.FailedCount,
+		arg.ExpiredCount,
+		arg.InputTokens,
+		arg.OutputTokens,
+		arg.ErrorClass,
+		arg.ErrorCode,
+		arg.ProviderCompletedAt,
+		arg.Owner,
+		arg.Preparation,
+		arg.Run,
+		arg.ID,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const completePreparedDeckRun = `-- name: CompletePreparedDeckRun :one
+UPDATE deck_preparation_runs
+SET state = 'completed', finalization_claim_token = NULL, finalization_claimed_at = NULL,
+    finalization_lease_expires_at = NULL, error_class = '', error_code = '',
+    completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
+  AND state = 'finalizing' AND finalization_claim_token = $4
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type CompletePreparedDeckRunParams struct {
+	OwnerID                pgtype.UUID
+	PreparationID          pgtype.UUID
+	ID                     pgtype.UUID
+	FinalizationClaimToken pgtype.UUID
+}
+
+func (q *Queries) CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, completePreparedDeckRun,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.FinalizationClaimToken,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const countPreparedDeckRunOutcomeStates = `-- name: CountPreparedDeckRunOutcomeStates :one
+SELECT count(*) FILTER (WHERE state = 'completed') AS completed_count,
+       count(*) FILTER (WHERE state = 'failed') AS failed_count,
+       count(*) FILTER (WHERE state IN ('pending', 'running')) AS nonterminal_count
+FROM deck_preparation_translation_outcomes
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
+`
+
+type CountPreparedDeckRunOutcomeStatesParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+type CountPreparedDeckRunOutcomeStatesRow struct {
+	CompletedCount   int64
+	FailedCount      int64
+	NonterminalCount int64
+}
+
+func (q *Queries) CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error) {
+	row := q.db.QueryRow(ctx, countPreparedDeckRunOutcomeStates, arg.OwnerID, arg.PreparationID, arg.RunID)
+	var i CountPreparedDeckRunOutcomeStatesRow
+	err := row.Scan(&i.CompletedCount, &i.FailedCount, &i.NonterminalCount)
+	return i, err
+}
+
+const enrichmentCacheLookup = `-- name: EnrichmentCacheLookup :one
+SELECT 1 FROM enrichment_cache
+WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+`
+
+type EnrichmentCacheLookupParams struct {
+	Language        string
+	TargetLanguage  string
+	CanonicalLemma  string
+	Upos            string
+	Provider        string
+	ProviderVersion string
+	SentenceHash    string
+}
+
+func (q *Queries) EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error) {
+	row := q.db.QueryRow(ctx, enrichmentCacheLookup,
+		arg.Language,
+		arg.TargetLanguage,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.SentenceHash,
+	)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const failDeckPreparationTranslation = `-- name: FailDeckPreparationTranslation :execrows
+UPDATE deck_preparations
+SET state = 'failed', error = $4, completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND id = $2 AND current_run_id = $3 AND state = 'preparing'
+`
+
+type FailDeckPreparationTranslationParams struct {
+	OwnerID      pgtype.UUID
+	ID           pgtype.UUID
+	CurrentRunID pgtype.UUID
+	Error        string
+}
+
+func (q *Queries) FailDeckPreparationTranslation(ctx context.Context, arg FailDeckPreparationTranslationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, failDeckPreparationTranslation,
+		arg.OwnerID,
+		arg.ID,
+		arg.CurrentRunID,
+		arg.Error,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failPreparedDeckBatchChunk = `-- name: FailPreparedDeckBatchChunk :execrows
+UPDATE deck_preparation_batch_chunks
+SET state = 'failed', provider_status = $7, error_class = $8, error_code = $9,
+    reconciled_at = now(), last_polled_at = now(),
+    reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4
+  AND reconciliation_generation = $5 AND reconciliation_claim_token = $6 AND state = 'reconciling'
+`
+
+type FailPreparedDeckBatchChunkParams struct {
+	OwnerID                  pgtype.UUID
+	PreparationID            pgtype.UUID
+	RunID                    pgtype.UUID
+	ID                       pgtype.UUID
+	ReconciliationGeneration int32
+	ReconciliationClaimToken pgtype.UUID
+	ProviderStatus           pgtype.Text
+	ErrorClass               string
+	ErrorCode                string
+}
+
+func (q *Queries) FailPreparedDeckBatchChunk(ctx context.Context, arg FailPreparedDeckBatchChunkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, failPreparedDeckBatchChunk,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.ReconciliationGeneration,
+		arg.ReconciliationClaimToken,
+		arg.ProviderStatus,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failPreparedDeckBatchChunkSubmission = `-- name: FailPreparedDeckBatchChunkSubmission :execrows
+UPDATE deck_preparation_batch_chunks
+SET state = $7, error_class = $8, error_code = $9,
+    submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4
+  AND generation = $5 AND submission_claim_token = $6 AND state = 'submitting'
+`
+
+type FailPreparedDeckBatchChunkSubmissionParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	Generation           int32
+	SubmissionClaimToken pgtype.UUID
+	State                string
+	ErrorClass           string
+	ErrorCode            string
+}
+
+func (q *Queries) FailPreparedDeckBatchChunkSubmission(ctx context.Context, arg FailPreparedDeckBatchChunkSubmissionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, failPreparedDeckBatchChunkSubmission,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.Generation,
+		arg.SubmissionClaimToken,
+		arg.State,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failPreparedDeckFinalizationRun = `-- name: FailPreparedDeckFinalizationRun :one
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', error_class = $5, error_code = $6,
+    finalization_claim_token = NULL, finalization_claimed_at = NULL,
+    finalization_lease_expires_at = NULL, completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
+  AND state = 'finalizing' AND finalization_claim_token = $4
+RETURNING state
+`
+
+type FailPreparedDeckFinalizationRunParams struct {
+	OwnerID                pgtype.UUID
+	PreparationID          pgtype.UUID
+	ID                     pgtype.UUID
+	FinalizationClaimToken pgtype.UUID
+	ErrorClass             string
+	ErrorCode              string
+}
+
+func (q *Queries) FailPreparedDeckFinalizationRun(ctx context.Context, arg FailPreparedDeckFinalizationRunParams) (string, error) {
+	row := q.db.QueryRow(ctx, failPreparedDeckFinalizationRun,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.FinalizationClaimToken,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	var state string
+	err := row.Scan(&state)
+	return state, err
+}
+
+const failPreparedDeckRun = `-- name: FailPreparedDeckRun :execrows
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', error_class = $4, error_code = $5,
+    completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+`
+
+type FailPreparedDeckRunParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+	ErrorClass    string
+	ErrorCode     string
+}
+
+func (q *Queries) FailPreparedDeckRun(ctx context.Context, arg FailPreparedDeckRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, failPreparedDeckRun,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failPreparedDeckRunIncomplete = `-- name: FailPreparedDeckRunIncomplete :one
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
+    error_class = 'translation', error_code = 'incomplete', completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type FailPreparedDeckRunIncompleteParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	ID             pgtype.UUID
+	CompletedCount int32
+	FailedCount    int32
+}
+
+func (q *Queries) FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPreparedDeckRunIncompleteParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, failPreparedDeckRunIncomplete,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.CompletedCount,
+		arg.FailedCount,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const finalizePreparedDeckRun = `-- name: FinalizePreparedDeckRun :one
+UPDATE deck_preparation_runs
+SET state = 'finalizing', translation_state = 'completed', completed_count = $4, failed_count = $5,
+    translation_completed_at = COALESCE(translation_completed_at, now()), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type FinalizePreparedDeckRunParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	ID             pgtype.UUID
+	CompletedCount int32
+	FailedCount    int32
+}
+
+func (q *Queries) FinalizePreparedDeckRun(ctx context.Context, arg FinalizePreparedDeckRunParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, finalizePreparedDeckRun,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.CompletedCount,
+		arg.FailedCount,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const finishPreparedDeckBatchCleanup = `-- name: FinishPreparedDeckBatchCleanup :one
+UPDATE deck_preparation_batch_chunks
+SET input_file_cleanup_state = $6, output_file_cleanup_state = $7, error_file_cleanup_state = $8,
+    input_file_cleanup_attempts = $9, output_file_cleanup_attempts = $10, error_file_cleanup_attempts = $11,
+    cleanup_error_class = $12, cleanup_error_code = $13,
+    cleanup_claim_token = NULL, cleanup_claimed_at = NULL, cleanup_lease_expires_at = NULL,
+    cleanup_completed_at = CASE WHEN $6 IN ('deleted', 'not_needed') AND $7 IN ('deleted', 'not_needed') AND $8 IN ('deleted', 'not_needed') THEN COALESCE(cleanup_completed_at, now()) ELSE NULL END,
+    updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND cleanup_claim_token = $5
+  AND state IN ('completed', 'cancelled')
+RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at
+`
+
+type FinishPreparedDeckBatchCleanupParams struct {
+	OwnerID                   pgtype.UUID
+	PreparationID             pgtype.UUID
+	RunID                     pgtype.UUID
+	ID                        pgtype.UUID
+	CleanupClaimToken         pgtype.UUID
+	InputFileCleanupState     string
+	OutputFileCleanupState    string
+	ErrorFileCleanupState     string
+	InputFileCleanupAttempts  int32
+	OutputFileCleanupAttempts int32
+	ErrorFileCleanupAttempts  int32
+	CleanupErrorClass         string
+	CleanupErrorCode          string
+}
+
+func (q *Queries) FinishPreparedDeckBatchCleanup(ctx context.Context, arg FinishPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, finishPreparedDeckBatchCleanup,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.CleanupClaimToken,
+		arg.InputFileCleanupState,
+		arg.OutputFileCleanupState,
+		arg.ErrorFileCleanupState,
+		arg.InputFileCleanupAttempts,
+		arg.OutputFileCleanupAttempts,
+		arg.ErrorFileCleanupAttempts,
+		arg.CleanupErrorClass,
+		arg.CleanupErrorCode,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const finishPreparedDeckBatchReconciliation = `-- name: FinishPreparedDeckBatchReconciliation :one
+UPDATE deck_preparation_batch_chunks c
+SET state = $1, provider_status = NULLIF($2::text, ''), output_file_id = NULLIF($3::text, ''), error_file_id = NULLIF($4::text, ''),
+    completed_count = $5, failed_count = $6, expired_count = $7, input_tokens = $8, output_tokens = $9, total_tokens = $8::bigint + $9::bigint,
+    error_class = $10, error_code = $11, provider_completed_at = $12, last_polled_at = now(),
+    reconciled_at = CASE WHEN $1 IN ('completed', 'failed') THEN now() ELSE reconciled_at END,
+    reconciliation_claim_token = NULL, reconciliation_claimed_at = NULL, reconciliation_lease_expires_at = NULL, updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $13 AND c.preparation_id = $14 AND c.run_id = $15 AND c.id = $16
+  AND c.reconciliation_generation = $17 AND c.reconciliation_claim_token = $18 AND c.state = 'reconciling'
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type FinishPreparedDeckBatchReconciliationParams struct {
+	State               string
+	ProviderStatus      string
+	OutputFileID        string
+	ErrorFileID         string
+	CompletedCount      int32
+	FailedCount         int32
+	ExpiredCount        int32
+	InputTokens         int64
+	OutputTokens        int64
+	ErrorClass          string
+	ErrorCode           string
+	ProviderCompletedAt pgtype.Timestamptz
+	Owner               pgtype.UUID
+	Preparation         pgtype.UUID
+	Run                 pgtype.UUID
+	ID                  pgtype.UUID
+	Generation          int32
+	Token               pgtype.UUID
+}
+
+func (q *Queries) FinishPreparedDeckBatchReconciliation(ctx context.Context, arg FinishPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, finishPreparedDeckBatchReconciliation,
+		arg.State,
+		arg.ProviderStatus,
+		arg.OutputFileID,
+		arg.ErrorFileID,
+		arg.CompletedCount,
+		arg.FailedCount,
+		arg.ExpiredCount,
+		arg.InputTokens,
+		arg.OutputTokens,
+		arg.ErrorClass,
+		arg.ErrorCode,
+		arg.ProviderCompletedAt,
+		arg.Owner,
+		arg.Preparation,
+		arg.Run,
+		arg.ID,
+		arg.Generation,
+		arg.Token,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const finishPreparedDeckBatchSubmission = `-- name: FinishPreparedDeckBatchSubmission :one
+UPDATE deck_preparation_batch_chunks c
+SET state = $7, error_class = $8, error_code = $9,
+    completed_count = CASE WHEN $7 = 'completed' THEN request_count ELSE completed_count END,
+    submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL, updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.generation = $5 AND c.submission_claim_token = $6 AND c.state = 'submitting'
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type FinishPreparedDeckBatchSubmissionParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	Generation           int32
+	SubmissionClaimToken pgtype.UUID
+	State                string
+	ErrorClass           string
+	ErrorCode            string
+}
+
+func (q *Queries) FinishPreparedDeckBatchSubmission(ctx context.Context, arg FinishPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, finishPreparedDeckBatchSubmission,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.Generation,
+		arg.SubmissionClaimToken,
+		arg.State,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const getCurrentPreparedDeckRun = `-- name: GetCurrentPreparedDeckRun :one
+SELECT r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translation_state, r.external_translation_consent, r.external_translation_configured, r.context_mode, r.provider, r.provider_version, r.endpoint, r.model, r.manifest_schema_version, r.retry_policy_version, r.max_provider_attempts, r.max_batch_generations, r.batch_max_requests, r.batch_max_bytes, r.candidate_count, r.completed_count, r.failed_count, r.finalization_dispatch_generation, r.finalization_dispatch_count, r.finalization_job_id, r.finalization_claim_token, r.finalization_claimed_at, r.finalization_lease_expires_at, r.error_class, r.error_code, r.created_at, r.updated_at, r.translation_completed_at, r.completed_at, r.execution_mode, r.target_language FROM deck_preparation_runs r
+WHERE r.owner_id = $1 AND r.preparation_id = $2 AND r.id = (SELECT p.current_run_id FROM deck_preparations p WHERE p.owner_id = $1 AND p.id = $2)
+`
+
+type GetCurrentPreparedDeckRunParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+}
+
+func (q *Queries) GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, getCurrentPreparedDeckRun, arg.OwnerID, arg.PreparationID)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const getDeckPreparationFreezeState = `-- name: GetDeckPreparationFreezeState :one
+SELECT state, current_run_id, filename FROM deck_preparations WHERE owner_id = $1 AND id = $2 FOR UPDATE
+`
+
+type GetDeckPreparationFreezeStateParams struct {
+	OwnerID pgtype.UUID
+	ID      pgtype.UUID
+}
+
+type GetDeckPreparationFreezeStateRow struct {
+	State        string
+	CurrentRunID pgtype.UUID
+	Filename     string
+}
+
+func (q *Queries) GetDeckPreparationFreezeState(ctx context.Context, arg GetDeckPreparationFreezeStateParams) (GetDeckPreparationFreezeStateRow, error) {
+	row := q.db.QueryRow(ctx, getDeckPreparationFreezeState, arg.OwnerID, arg.ID)
+	var i GetDeckPreparationFreezeStateRow
+	err := row.Scan(&i.State, &i.CurrentRunID, &i.Filename)
+	return i, err
+}
+
+const getDeckPreparationStateForRun = `-- name: GetDeckPreparationStateForRun :one
+SELECT state FROM deck_preparations WHERE owner_id = $1 AND id = $2 AND current_run_id = $3 FOR UPDATE
+`
+
+type GetDeckPreparationStateForRunParams struct {
+	OwnerID      pgtype.UUID
+	ID           pgtype.UUID
+	CurrentRunID pgtype.UUID
+}
+
+func (q *Queries) GetDeckPreparationStateForRun(ctx context.Context, arg GetDeckPreparationStateForRunParams) (string, error) {
+	row := q.db.QueryRow(ctx, getDeckPreparationStateForRun, arg.OwnerID, arg.ID, arg.CurrentRunID)
+	var state string
+	err := row.Scan(&state)
+	return state, err
+}
+
+const getPreparedDeckBatchChunkForUpdate = `-- name: GetPreparedDeckBatchChunkForUpdate :one
+SELECT id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at FROM deck_preparation_batch_chunks WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 FOR UPDATE
+`
+
+type GetPreparedDeckBatchChunkForUpdateParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	ID            pgtype.UUID
+}
+
+func (q *Queries) GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg GetPreparedDeckBatchChunkForUpdateParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckBatchChunkForUpdate,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const getPreparedDeckManifest = `-- name: GetPreparedDeckManifest :one
+SELECT owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count, created_at FROM deck_preparation_manifests WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
+`
+
+type GetPreparedDeckManifestParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDeckManifestParams) (DeckPreparationManifest, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckManifest, arg.OwnerID, arg.PreparationID, arg.RunID)
+	var i DeckPreparationManifest
+	err := row.Scan(
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.SchemaVersion,
+		&i.ManifestDigest,
+		&i.DeckName,
+		&i.Filename,
+		&i.SelectedCount,
+		&i.AcceptedCount,
+		&i.OmittedCount,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPreparedDeckManifestDigest = `-- name: GetPreparedDeckManifestDigest :one
+SELECT manifest_digest FROM deck_preparation_manifests WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
+`
+
+type GetPreparedDeckManifestDigestParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) GetPreparedDeckManifestDigest(ctx context.Context, arg GetPreparedDeckManifestDigestParams) (string, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckManifestDigest, arg.OwnerID, arg.PreparationID, arg.RunID)
+	var manifest_digest string
+	err := row.Scan(&manifest_digest)
+	return manifest_digest, err
+}
+
+const getPreparedDeckRun = `-- name: GetPreparedDeckRun :one
+SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
+`
+
+type GetPreparedDeckRunParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+}
+
+func (q *Queries) GetPreparedDeckRun(ctx context.Context, arg GetPreparedDeckRunParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckRun, arg.OwnerID, arg.PreparationID, arg.ID)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const getPreparedDeckRunForUpdate = `-- name: GetPreparedDeckRunForUpdate :one
+SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 FOR UPDATE
+`
+
+type GetPreparedDeckRunForUpdateParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+}
+
+func (q *Queries) GetPreparedDeckRunForUpdate(ctx context.Context, arg GetPreparedDeckRunForUpdateParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckRunForUpdate, arg.OwnerID, arg.PreparationID, arg.ID)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
 const getPreparedDeckRunProgress = `-- name: GetPreparedDeckRunProgress :one
 WITH outcomes AS (
   SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
@@ -445,6 +2300,729 @@ func (q *Queries) GetPreparedDeckTranslationCoverage(ctx context.Context, arg Ge
 	return i, err
 }
 
+const getPreparedDeckTranslationOutcome = `-- name: GetPreparedDeckTranslationOutcome :one
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+`
+
+type GetPreparedDeckTranslationOutcomeParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	Ordinal       int32
+}
+
+func (q *Queries) GetPreparedDeckTranslationOutcome(ctx context.Context, arg GetPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckTranslationOutcome,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+	)
+	var i DeckPreparationTranslationOutcome
+	err := row.Scan(
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.Ordinal,
+		&i.State,
+		&i.DispatchCount,
+		&i.ProviderAttemptCount,
+		&i.MaxProviderAttempts,
+		&i.NextAttemptAt,
+		&i.DispatchGeneration,
+		&i.RiverJobID,
+		&i.ClaimToken,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.TerminalAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CacheHitCount,
+		&i.ProviderCallCount,
+		&i.CacheLatencyMs,
+		&i.ProviderLatencyMs,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPreparedDeckTranslationOutcomeForUpdate = `-- name: GetPreparedDeckTranslationOutcomeForUpdate :one
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4 FOR UPDATE
+`
+
+type GetPreparedDeckTranslationOutcomeForUpdateParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	Ordinal       int32
+}
+
+func (q *Queries) GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckTranslationOutcomeForUpdate,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+	)
+	var i DeckPreparationTranslationOutcome
+	err := row.Scan(
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.Ordinal,
+		&i.State,
+		&i.DispatchCount,
+		&i.ProviderAttemptCount,
+		&i.MaxProviderAttempts,
+		&i.NextAttemptAt,
+		&i.DispatchGeneration,
+		&i.RiverJobID,
+		&i.ClaimToken,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.TerminalAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CacheHitCount,
+		&i.ProviderCallCount,
+		&i.CacheLatencyMs,
+		&i.ProviderLatencyMs,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertPreparedDeckBatchChunk = `-- name: InsertPreparedDeckBatchChunk :exec
+INSERT INTO deck_preparation_batch_chunks(id, owner_id, preparation_id, run_id, chunk_index, generation, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+`
+
+type InsertPreparedDeckBatchChunkParams struct {
+	ID                    pgtype.UUID
+	OwnerID               pgtype.UUID
+	PreparationID         pgtype.UUID
+	RunID                 pgtype.UUID
+	ChunkIndex            int32
+	Generation            int32
+	Model                 string
+	Endpoint              string
+	SplitReason           string
+	FirstOrdinal          int32
+	LastOrdinal           int32
+	InputDigest           string
+	RequestCount          int32
+	InputBytes            int64
+	EstimatedPromptTokens int64
+}
+
+func (q *Queries) InsertPreparedDeckBatchChunk(ctx context.Context, arg InsertPreparedDeckBatchChunkParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckBatchChunk,
+		arg.ID,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ChunkIndex,
+		arg.Generation,
+		arg.Model,
+		arg.Endpoint,
+		arg.SplitReason,
+		arg.FirstOrdinal,
+		arg.LastOrdinal,
+		arg.InputDigest,
+		arg.RequestCount,
+		arg.InputBytes,
+		arg.EstimatedPromptTokens,
+	)
+	return err
+}
+
+const insertPreparedDeckBatchChunkItem = `-- name: InsertPreparedDeckBatchChunkItem :exec
+INSERT INTO deck_preparation_batch_chunk_items(owner_id, preparation_id, run_id, chunk_id, generation, position, ordinal, candidate_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type InsertPreparedDeckBatchChunkItemParams struct {
+	OwnerID         pgtype.UUID
+	PreparationID   pgtype.UUID
+	RunID           pgtype.UUID
+	ChunkID         pgtype.UUID
+	Generation      int32
+	Position        int32
+	Ordinal         int32
+	CandidateDigest string
+}
+
+func (q *Queries) InsertPreparedDeckBatchChunkItem(ctx context.Context, arg InsertPreparedDeckBatchChunkItemParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckBatchChunkItem,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ChunkID,
+		arg.Generation,
+		arg.Position,
+		arg.Ordinal,
+		arg.CandidateDigest,
+	)
+	return err
+}
+
+const insertPreparedDeckBatchChunkItemFromManifest = `-- name: InsertPreparedDeckBatchChunkItemFromManifest :exec
+INSERT INTO deck_preparation_batch_chunk_items(owner_id, preparation_id, run_id, chunk_id, generation, position, ordinal, candidate_digest)
+SELECT $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::integer, $6::integer, $7::integer, candidate_digest
+FROM deck_preparation_manifest_items
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $7
+`
+
+type InsertPreparedDeckBatchChunkItemFromManifestParams struct {
+	Owner       pgtype.UUID
+	Preparation pgtype.UUID
+	Run         pgtype.UUID
+	Chunk       pgtype.UUID
+	Generation  int32
+	Position    int32
+	Ordinal     int32
+}
+
+func (q *Queries) InsertPreparedDeckBatchChunkItemFromManifest(ctx context.Context, arg InsertPreparedDeckBatchChunkItemFromManifestParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckBatchChunkItemFromManifest,
+		arg.Owner,
+		arg.Preparation,
+		arg.Run,
+		arg.Chunk,
+		arg.Generation,
+		arg.Position,
+		arg.Ordinal,
+	)
+	return err
+}
+
+const insertPreparedDeckManifest = `-- name: InsertPreparedDeckManifest :exec
+INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_name, filename, selected_count, accepted_count, omitted_count)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+`
+
+type InsertPreparedDeckManifestParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	RunID          pgtype.UUID
+	SchemaVersion  int32
+	ManifestDigest string
+	DeckName       string
+	Filename       string
+	SelectedCount  int32
+	AcceptedCount  int32
+	OmittedCount   int32
+}
+
+func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPreparedDeckManifestParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckManifest,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.SchemaVersion,
+		arg.ManifestDigest,
+		arg.DeckName,
+		arg.Filename,
+		arg.SelectedCount,
+		arg.AcceptedCount,
+		arg.OmittedCount,
+	)
+	return err
+}
+
+const insertPreparedDeckManifestItem = `-- name: InsertPreparedDeckManifestItem :exec
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+`
+
+type InsertPreparedDeckManifestItemParams struct {
+	OwnerID         pgtype.UUID
+	PreparationID   pgtype.UUID
+	RunID           pgtype.UUID
+	Ordinal         int32
+	Disposition     string
+	Language        string
+	TargetLanguage  string
+	CanonicalLemma  string
+	Upos            string
+	SourceSentence  string
+	TestedTarget    string
+	FirstEncounter  int64
+	QualityScore    int32
+	QualityReasons  []string
+	RenderPayload   []byte
+	Provider        pgtype.Text
+	ProviderVersion pgtype.Text
+	SentenceHash    pgtype.Text
+	CandidateDigest string
+}
+
+func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg InsertPreparedDeckManifestItemParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckManifestItem,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+		arg.Disposition,
+		arg.Language,
+		arg.TargetLanguage,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.SourceSentence,
+		arg.TestedTarget,
+		arg.FirstEncounter,
+		arg.QualityScore,
+		arg.QualityReasons,
+		arg.RenderPayload,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.SentenceHash,
+		arg.CandidateDigest,
+	)
+	return err
+}
+
+const insertPreparedDeckRun = `-- name: InsertPreparedDeckRun :exec
+INSERT INTO deck_preparation_runs(id, owner_id, preparation_id, run_number, state, translation_state, execution_mode, target_language, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, translation_completed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+`
+
+type InsertPreparedDeckRunParams struct {
+	ID                            pgtype.UUID
+	OwnerID                       pgtype.UUID
+	PreparationID                 pgtype.UUID
+	RunNumber                     int32
+	State                         string
+	TranslationState              string
+	ExecutionMode                 string
+	TargetLanguage                string
+	ExternalTranslationConsent    bool
+	ExternalTranslationConfigured bool
+	ContextMode                   pgtype.Text
+	Provider                      pgtype.Text
+	ProviderVersion               pgtype.Text
+	Endpoint                      pgtype.Text
+	Model                         pgtype.Text
+	ManifestSchemaVersion         int32
+	RetryPolicyVersion            int32
+	MaxProviderAttempts           int32
+	MaxBatchGenerations           int32
+	BatchMaxRequests              int32
+	BatchMaxBytes                 int64
+	CandidateCount                int32
+	CompletedCount                int32
+	TranslationCompletedAt        pgtype.Timestamptz
+}
+
+func (q *Queries) InsertPreparedDeckRun(ctx context.Context, arg InsertPreparedDeckRunParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckRun,
+		arg.ID,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunNumber,
+		arg.State,
+		arg.TranslationState,
+		arg.ExecutionMode,
+		arg.TargetLanguage,
+		arg.ExternalTranslationConsent,
+		arg.ExternalTranslationConfigured,
+		arg.ContextMode,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.Endpoint,
+		arg.Model,
+		arg.ManifestSchemaVersion,
+		arg.RetryPolicyVersion,
+		arg.MaxProviderAttempts,
+		arg.MaxBatchGenerations,
+		arg.BatchMaxRequests,
+		arg.BatchMaxBytes,
+		arg.CandidateCount,
+		arg.CompletedCount,
+		arg.TranslationCompletedAt,
+	)
+	return err
+}
+
+const insertPreparedDeckTranslationOutcome = `-- name: InsertPreparedDeckTranslationOutcome :exec
+INSERT INTO deck_preparation_translation_outcomes(owner_id, preparation_id, run_id, ordinal, state, max_provider_attempts, terminal_at, cache_hit_count)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type InsertPreparedDeckTranslationOutcomeParams struct {
+	OwnerID             pgtype.UUID
+	PreparationID       pgtype.UUID
+	RunID               pgtype.UUID
+	Ordinal             int32
+	State               string
+	MaxProviderAttempts int32
+	TerminalAt          pgtype.Timestamptz
+	CacheHitCount       int32
+}
+
+func (q *Queries) InsertPreparedDeckTranslationOutcome(ctx context.Context, arg InsertPreparedDeckTranslationOutcomeParams) error {
+	_, err := q.db.Exec(ctx, insertPreparedDeckTranslationOutcome,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+		arg.State,
+		arg.MaxProviderAttempts,
+		arg.TerminalAt,
+		arg.CacheHitCount,
+	)
+	return err
+}
+
+const listPreparedDeckBatchChunkMembers = `-- name: ListPreparedDeckBatchChunkMembers :many
+SELECT ci.ordinal, mi.language, mi.target_language, mi.canonical_lemma, mi.upos,
+       COALESCE(mi.provider, ''), COALESCE(mi.provider_version, ''), COALESCE(mi.sentence_hash, '')
+FROM deck_preparation_batch_chunk_items ci
+JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
+WHERE ci.owner_id = $1 AND ci.preparation_id = $2 AND ci.run_id = $3 AND ci.chunk_id = $4
+ORDER BY ci.position
+`
+
+type ListPreparedDeckBatchChunkMembersParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	ChunkID       pgtype.UUID
+}
+
+type ListPreparedDeckBatchChunkMembersRow struct {
+	Ordinal         int32
+	Language        string
+	TargetLanguage  string
+	CanonicalLemma  string
+	Upos            string
+	Provider        string
+	ProviderVersion string
+	SentenceHash    string
+}
+
+func (q *Queries) ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckBatchChunkMembers,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ChunkID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPreparedDeckBatchChunkMembersRow{}
+	for rows.Next() {
+		var i ListPreparedDeckBatchChunkMembersRow
+		if err := rows.Scan(
+			&i.Ordinal,
+			&i.Language,
+			&i.TargetLanguage,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Provider,
+			&i.ProviderVersion,
+			&i.SentenceHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedDeckBatchChunkOrdinals = `-- name: ListPreparedDeckBatchChunkOrdinals :many
+SELECT ordinal FROM deck_preparation_batch_chunk_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND chunk_id = $4 ORDER BY position
+`
+
+type ListPreparedDeckBatchChunkOrdinalsParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	ChunkID       pgtype.UUID
+}
+
+func (q *Queries) ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int32, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckBatchChunkOrdinals,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ChunkID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int32{}
+	for rows.Next() {
+		var ordinal int32
+		if err := rows.Scan(&ordinal); err != nil {
+			return nil, err
+		}
+		items = append(items, ordinal)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedDeckBatchChunks = `-- name: ListPreparedDeckBatchChunks :many
+SELECT id, owner_id, preparation_id, run_id, chunk_index, generation, state, provider_status, model, endpoint, split_reason, first_ordinal, last_ordinal, input_digest, request_count, input_bytes, estimated_prompt_tokens, completed_count, failed_count, expired_count, input_file_id, batch_id, output_file_id, error_file_id, submission_job_id, submission_generation, submission_claim_token, submission_claimed_at, submission_lease_expires_at, reconciliation_job_id, reconciliation_generation, reconciliation_claim_token, reconciliation_claimed_at, reconciliation_lease_expires_at, error_class, error_code, input_tokens, output_tokens, total_tokens, created_at, updated_at, submitted_at, last_polled_at, provider_completed_at, reconciled_at, input_file_cleanup_state, output_file_cleanup_state, error_file_cleanup_state, input_file_cleanup_attempts, output_file_cleanup_attempts, error_file_cleanup_attempts, cleanup_error_class, cleanup_error_code, cleanup_claim_token, cleanup_claimed_at, cleanup_lease_expires_at, cleanup_completed_at FROM deck_preparation_batch_chunks WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY generation, chunk_index
+`
+
+type ListPreparedDeckBatchChunksParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) ListPreparedDeckBatchChunks(ctx context.Context, arg ListPreparedDeckBatchChunksParams) ([]DeckPreparationBatchChunk, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckBatchChunks, arg.OwnerID, arg.PreparationID, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DeckPreparationBatchChunk{}
+	for rows.Next() {
+		var i DeckPreparationBatchChunk
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.PreparationID,
+			&i.RunID,
+			&i.ChunkIndex,
+			&i.Generation,
+			&i.State,
+			&i.ProviderStatus,
+			&i.Model,
+			&i.Endpoint,
+			&i.SplitReason,
+			&i.FirstOrdinal,
+			&i.LastOrdinal,
+			&i.InputDigest,
+			&i.RequestCount,
+			&i.InputBytes,
+			&i.EstimatedPromptTokens,
+			&i.CompletedCount,
+			&i.FailedCount,
+			&i.ExpiredCount,
+			&i.InputFileID,
+			&i.BatchID,
+			&i.OutputFileID,
+			&i.ErrorFileID,
+			&i.SubmissionJobID,
+			&i.SubmissionGeneration,
+			&i.SubmissionClaimToken,
+			&i.SubmissionClaimedAt,
+			&i.SubmissionLeaseExpiresAt,
+			&i.ReconciliationJobID,
+			&i.ReconciliationGeneration,
+			&i.ReconciliationClaimToken,
+			&i.ReconciliationClaimedAt,
+			&i.ReconciliationLeaseExpiresAt,
+			&i.ErrorClass,
+			&i.ErrorCode,
+			&i.InputTokens,
+			&i.OutputTokens,
+			&i.TotalTokens,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubmittedAt,
+			&i.LastPolledAt,
+			&i.ProviderCompletedAt,
+			&i.ReconciledAt,
+			&i.InputFileCleanupState,
+			&i.OutputFileCleanupState,
+			&i.ErrorFileCleanupState,
+			&i.InputFileCleanupAttempts,
+			&i.OutputFileCleanupAttempts,
+			&i.ErrorFileCleanupAttempts,
+			&i.CleanupErrorClass,
+			&i.CleanupErrorCode,
+			&i.CleanupClaimToken,
+			&i.CleanupClaimedAt,
+			&i.CleanupLeaseExpiresAt,
+			&i.CleanupCompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedDeckLiveBatchIDs = `-- name: ListPreparedDeckLiveBatchIDs :many
+SELECT batch_id FROM deck_preparation_batch_chunks
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND batch_id IS NOT NULL
+  AND COALESCE(provider_status, '') NOT IN ('completed', 'failed', 'expired', 'cancelled')
+ORDER BY generation, chunk_index
+`
+
+type ListPreparedDeckLiveBatchIDsParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPreparedDeckLiveBatchIDsParams) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckLiveBatchIDs, arg.OwnerID, arg.PreparationID, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.Text{}
+	for rows.Next() {
+		var batch_id pgtype.Text
+		if err := rows.Scan(&batch_id); err != nil {
+			return nil, err
+		}
+		items = append(items, batch_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedDeckManifestItems = `-- name: ListPreparedDeckManifestItems :many
+SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+`
+
+type ListPreparedDeckManifestItemsParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) ListPreparedDeckManifestItems(ctx context.Context, arg ListPreparedDeckManifestItemsParams) ([]DeckPreparationManifestItem, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckManifestItems, arg.OwnerID, arg.PreparationID, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DeckPreparationManifestItem{}
+	for rows.Next() {
+		var i DeckPreparationManifestItem
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.PreparationID,
+			&i.RunID,
+			&i.Ordinal,
+			&i.Disposition,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.SourceSentence,
+			&i.TestedTarget,
+			&i.FirstEncounter,
+			&i.QualityScore,
+			&i.QualityReasons,
+			&i.RenderPayload,
+			&i.Provider,
+			&i.ProviderVersion,
+			&i.SentenceHash,
+			&i.CandidateDigest,
+			&i.CreatedAt,
+			&i.TargetLanguage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedDeckRecoveryWork = `-- name: ListPreparedDeckRecoveryWork :many
+SELECT o.owner_id::text, o.preparation_id::text, o.run_id::text, ''::text AS chunk_id, o.ordinal,
+       o.dispatch_generation AS generation, 'outcome'::text AS kind, o.state = 'running' AS lease_expired
+FROM deck_preparation_translation_outcomes o
+JOIN deck_preparation_runs r ON r.owner_id = o.owner_id AND r.preparation_id = o.preparation_id AND r.id = o.run_id
+WHERE r.state = 'translating' AND ((o.state = 'pending' AND o.next_attempt_at <= now()) OR (o.state = 'running' AND o.lease_expires_at <= now()))
+UNION ALL
+SELECT c.owner_id::text, c.preparation_id::text, c.run_id::text, c.id::text, -1,
+       c.submission_generation, 'batch_submission'::text, c.state = 'submitting'
+FROM deck_preparation_batch_chunks c
+JOIN deck_preparation_runs r ON r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id
+WHERE r.state = 'translating' AND (c.state = 'pending' OR (c.state = 'submitting' AND c.submission_lease_expires_at <= now()))
+UNION ALL
+SELECT c.owner_id::text, c.preparation_id::text, c.run_id::text, c.id::text, -1,
+       c.reconciliation_generation, 'batch_reconciliation'::text, c.state = 'reconciling'
+FROM deck_preparation_batch_chunks c
+JOIN deck_preparation_runs r ON r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id
+WHERE r.state = 'translating' AND (c.state IN ('submitted', 'polling') OR (c.state = 'reconciling' AND c.reconciliation_lease_expires_at <= now()))
+UNION ALL
+SELECT owner_id::text, preparation_id::text, id::text, ''::text, -1,
+       finalization_dispatch_generation, 'finalizer'::text, finalization_claim_token IS NOT NULL AND finalization_lease_expires_at <= now()
+FROM deck_preparation_runs
+WHERE state = 'finalizing' AND translation_state = 'completed' AND (finalization_claim_token IS NULL OR finalization_lease_expires_at <= now())
+UNION ALL
+SELECT owner_id::text, preparation_id::text, run_id::text, id::text, -1,
+       generation, 'batch_cleanup'::text, cleanup_claim_token IS NOT NULL AND cleanup_lease_expires_at <= now()
+FROM deck_preparation_batch_chunks
+WHERE state IN ('completed', 'cancelled') AND (cleanup_claim_token IS NULL OR cleanup_lease_expires_at <= now()) AND
+      ((input_file_id IS NOT NULL AND input_file_cleanup_state IN ('pending', 'failed') AND input_file_cleanup_attempts < 3) OR
+       (output_file_id IS NOT NULL AND output_file_cleanup_state IN ('pending', 'failed') AND output_file_cleanup_attempts < 3) OR
+       (error_file_id IS NOT NULL AND error_file_cleanup_state IN ('pending', 'failed') AND error_file_cleanup_attempts < 3))
+UNION ALL
+SELECT owner_id::text, preparation_id::text, id::text, ''::text, -1,
+       finalization_dispatch_generation, 'translation_completion'::text, false
+FROM deck_preparation_runs r
+WHERE state = 'translating' AND NOT EXISTS (SELECT 1 FROM deck_preparation_translation_outcomes o WHERE o.run_id = r.id AND o.state IN ('pending', 'running'))
+ORDER BY 7, 3, 5
+LIMIT $1
+`
+
+type ListPreparedDeckRecoveryWorkRow struct {
+	OOwnerID       string
+	OPreparationID string
+	ORunID         string
+	ChunkID        string
+	Ordinal        int32
+	Generation     int32
+	Kind           string
+	LeaseExpired   bool
+}
+
+func (q *Queries) ListPreparedDeckRecoveryWork(ctx context.Context, limit int32) ([]ListPreparedDeckRecoveryWorkRow, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckRecoveryWork, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPreparedDeckRecoveryWorkRow{}
+	for rows.Next() {
+		var i ListPreparedDeckRecoveryWorkRow
+		if err := rows.Scan(
+			&i.OOwnerID,
+			&i.OPreparationID,
+			&i.ORunID,
+			&i.ChunkID,
+			&i.Ordinal,
+			&i.Generation,
+			&i.Kind,
+			&i.LeaseExpired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPreparedDeckStuckBatches = `-- name: ListPreparedDeckStuckBatches :many
 SELECT owner_id::text, preparation_id::text, run_id::text, id::text, state,
        COALESCE(provider_status, ''), error_class, request_count,
@@ -510,6 +3088,151 @@ func (q *Queries) ListPreparedDeckStuckBatches(ctx context.Context, arg ListPrep
 	return items, nil
 }
 
+const listPreparedDeckTranslationOutcomes = `-- name: ListPreparedDeckTranslationOutcomes :many
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+`
+
+type ListPreparedDeckTranslationOutcomesParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+}
+
+func (q *Queries) ListPreparedDeckTranslationOutcomes(ctx context.Context, arg ListPreparedDeckTranslationOutcomesParams) ([]DeckPreparationTranslationOutcome, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckTranslationOutcomes, arg.OwnerID, arg.PreparationID, arg.RunID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DeckPreparationTranslationOutcome{}
+	for rows.Next() {
+		var i DeckPreparationTranslationOutcome
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.PreparationID,
+			&i.RunID,
+			&i.Ordinal,
+			&i.State,
+			&i.DispatchCount,
+			&i.ProviderAttemptCount,
+			&i.MaxProviderAttempts,
+			&i.NextAttemptAt,
+			&i.DispatchGeneration,
+			&i.RiverJobID,
+			&i.ClaimToken,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.TerminalAt,
+			&i.ErrorClass,
+			&i.ErrorCode,
+			&i.CacheHitCount,
+			&i.ProviderCallCount,
+			&i.CacheLatencyMs,
+			&i.ProviderLatencyMs,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockPreparedDeckRunTranslating = `-- name: LockPreparedDeckRunTranslating :one
+SELECT 1 FROM deck_preparation_runs
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+FOR UPDATE
+`
+
+type LockPreparedDeckRunTranslatingParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+}
+
+func (q *Queries) LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error) {
+	row := q.db.QueryRow(ctx, lockPreparedDeckRunTranslating, arg.OwnerID, arg.PreparationID, arg.ID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const nextPreparedDeckBatchChunkIndex = `-- name: NextPreparedDeckBatchChunkIndex :one
+SELECT COALESCE(max(chunk_index), -1) + 1 FROM deck_preparation_batch_chunks
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND generation = $4
+`
+
+type NextPreparedDeckBatchChunkIndexParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	RunID         pgtype.UUID
+	Generation    int32
+}
+
+func (q *Queries) NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error) {
+	row := q.db.QueryRow(ctx, nextPreparedDeckBatchChunkIndex,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Generation,
+	)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const nextPreparedDeckRunNumber = `-- name: NextPreparedDeckRunNumber :one
+SELECT COALESCE(max(run_number), 0) + 1 FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2
+`
+
+type NextPreparedDeckRunNumberParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+}
+
+func (q *Queries) NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error) {
+	row := q.db.QueryRow(ctx, nextPreparedDeckRunNumber, arg.OwnerID, arg.PreparationID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const preparedDeckCacheExists = `-- name: PreparedDeckCacheExists :one
+SELECT EXISTS(
+  SELECT 1 FROM enrichment_cache
+  WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
+    AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+)
+`
+
+type PreparedDeckCacheExistsParams struct {
+	Language        string
+	TargetLanguage  string
+	CanonicalLemma  string
+	Upos            string
+	Provider        string
+	ProviderVersion string
+	SentenceHash    string
+}
+
+func (q *Queries) PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckCacheExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, preparedDeckCacheExists,
+		arg.Language,
+		arg.TargetLanguage,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.SentenceHash,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const preparedDeckRunExists = `-- name: PreparedDeckRunExists :one
 SELECT EXISTS(
   SELECT 1 FROM deck_preparation_runs
@@ -528,6 +3251,105 @@ func (q *Queries) PreparedDeckRunExists(ctx context.Context, arg PreparedDeckRun
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const recordPreparedDeckBatchSubmitted = `-- name: RecordPreparedDeckBatchSubmitted :one
+UPDATE deck_preparation_batch_chunks c
+SET state = 'submitted', input_file_id = $7, batch_id = $8, submitted_at = $9,
+    submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL,
+    error_class = '', error_code = '', updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.generation = $5 AND c.submission_generation = $5 AND c.submission_claim_token = $6 AND c.state = 'submitting'
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type RecordPreparedDeckBatchSubmittedParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	Generation           int32
+	SubmissionClaimToken pgtype.UUID
+	InputFileID          pgtype.Text
+	BatchID              pgtype.Text
+	SubmittedAt          pgtype.Timestamptz
+}
+
+func (q *Queries) RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, recordPreparedDeckBatchSubmitted,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.Generation,
+		arg.SubmissionClaimToken,
+		arg.InputFileID,
+		arg.BatchID,
+		arg.SubmittedAt,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
+	)
+	return i, err
 }
 
 const redispatchPreparedDeckTranslationOutcome = `-- name: RedispatchPreparedDeckTranslationOutcome :one
@@ -597,6 +3419,103 @@ func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, 
 		&i.CacheLatencyMs,
 		&i.ProviderLatencyMs,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const retryPreparedDeckBatchSubmission = `-- name: RetryPreparedDeckBatchSubmission :one
+UPDATE deck_preparation_batch_chunks c
+SET state = 'pending', error_class = $7, error_code = $8,
+    submission_claim_token = NULL, submission_claimed_at = NULL, submission_lease_expires_at = NULL, updated_at = now()
+FROM deck_preparation_runs r
+WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3 AND c.id = $4
+  AND c.generation = $5 AND c.submission_claim_token = $6 AND c.state = 'submitting'
+  AND c.input_file_id IS NULL AND c.batch_id IS NULL
+  AND r.owner_id = c.owner_id AND r.preparation_id = c.preparation_id AND r.id = c.run_id AND r.state = 'translating'
+RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at
+`
+
+type RetryPreparedDeckBatchSubmissionParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	Generation           int32
+	SubmissionClaimToken pgtype.UUID
+	ErrorClass           string
+	ErrorCode            string
+}
+
+func (q *Queries) RetryPreparedDeckBatchSubmission(ctx context.Context, arg RetryPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error) {
+	row := q.db.QueryRow(ctx, retryPreparedDeckBatchSubmission,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.Generation,
+		arg.SubmissionClaimToken,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	var i DeckPreparationBatchChunk
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.ChunkIndex,
+		&i.Generation,
+		&i.State,
+		&i.ProviderStatus,
+		&i.Model,
+		&i.Endpoint,
+		&i.SplitReason,
+		&i.FirstOrdinal,
+		&i.LastOrdinal,
+		&i.InputDigest,
+		&i.RequestCount,
+		&i.InputBytes,
+		&i.EstimatedPromptTokens,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.ExpiredCount,
+		&i.InputFileID,
+		&i.BatchID,
+		&i.OutputFileID,
+		&i.ErrorFileID,
+		&i.SubmissionJobID,
+		&i.SubmissionGeneration,
+		&i.SubmissionClaimToken,
+		&i.SubmissionClaimedAt,
+		&i.SubmissionLeaseExpiresAt,
+		&i.ReconciliationJobID,
+		&i.ReconciliationGeneration,
+		&i.ReconciliationClaimToken,
+		&i.ReconciliationClaimedAt,
+		&i.ReconciliationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.TotalTokens,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubmittedAt,
+		&i.LastPolledAt,
+		&i.ProviderCompletedAt,
+		&i.ReconciledAt,
+		&i.InputFileCleanupState,
+		&i.OutputFileCleanupState,
+		&i.ErrorFileCleanupState,
+		&i.InputFileCleanupAttempts,
+		&i.OutputFileCleanupAttempts,
+		&i.ErrorFileCleanupAttempts,
+		&i.CleanupErrorClass,
+		&i.CleanupErrorCode,
+		&i.CleanupClaimToken,
+		&i.CleanupClaimedAt,
+		&i.CleanupLeaseExpiresAt,
+		&i.CleanupCompletedAt,
 	)
 	return i, err
 }
@@ -681,6 +3600,306 @@ func (q *Queries) RetryPreparedDeckTranslationOutcome(ctx context.Context, arg R
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setPreparedDeckBatchReconciliationJob = `-- name: SetPreparedDeckBatchReconciliationJob :execrows
+UPDATE deck_preparation_batch_chunks
+SET reconciliation_job_id = $6,
+    reconciliation_claim_token = CASE WHEN state = 'reconciling' AND reconciliation_lease_expires_at <= now() THEN NULL ELSE reconciliation_claim_token END,
+    reconciliation_claimed_at = CASE WHEN state = 'reconciling' AND reconciliation_lease_expires_at <= now() THEN NULL ELSE reconciliation_claimed_at END,
+    reconciliation_lease_expires_at = CASE WHEN state = 'reconciling' AND reconciliation_lease_expires_at <= now() THEN NULL ELSE reconciliation_lease_expires_at END,
+    state = CASE WHEN state = 'reconciling' AND reconciliation_lease_expires_at <= now() THEN 'polling' ELSE state END,
+    updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND reconciliation_generation = $5
+  AND (state IN ('submitted', 'polling') OR (state = 'reconciling' AND reconciliation_lease_expires_at <= now()))
+`
+
+type SetPreparedDeckBatchReconciliationJobParams struct {
+	OwnerID                  pgtype.UUID
+	PreparationID            pgtype.UUID
+	RunID                    pgtype.UUID
+	ID                       pgtype.UUID
+	ReconciliationGeneration int32
+	ReconciliationJobID      pgtype.Int8
+}
+
+func (q *Queries) SetPreparedDeckBatchReconciliationJob(ctx context.Context, arg SetPreparedDeckBatchReconciliationJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPreparedDeckBatchReconciliationJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.ReconciliationGeneration,
+		arg.ReconciliationJobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setPreparedDeckBatchSubmissionJob = `-- name: SetPreparedDeckBatchSubmissionJob :execrows
+UPDATE deck_preparation_batch_chunks
+SET submission_job_id = $6, submission_generation = $5, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND generation = $5
+  AND (state = 'pending' OR (state = 'submitting' AND submission_lease_expires_at <= now()))
+`
+
+type SetPreparedDeckBatchSubmissionJobParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	SubmissionGeneration int32
+	SubmissionJobID      pgtype.Int8
+}
+
+func (q *Queries) SetPreparedDeckBatchSubmissionJob(ctx context.Context, arg SetPreparedDeckBatchSubmissionJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPreparedDeckBatchSubmissionJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.SubmissionGeneration,
+		arg.SubmissionJobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setPreparedDeckBatchSubmissionJobPending = `-- name: SetPreparedDeckBatchSubmissionJobPending :execrows
+UPDATE deck_preparation_batch_chunks
+SET submission_job_id = $6, submission_generation = $5, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND generation = $5
+  AND state = 'pending'
+`
+
+type SetPreparedDeckBatchSubmissionJobPendingParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	ID                   pgtype.UUID
+	SubmissionGeneration int32
+	SubmissionJobID      pgtype.Int8
+}
+
+func (q *Queries) SetPreparedDeckBatchSubmissionJobPending(ctx context.Context, arg SetPreparedDeckBatchSubmissionJobPendingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPreparedDeckBatchSubmissionJobPending,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.ID,
+		arg.SubmissionGeneration,
+		arg.SubmissionJobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setPreparedDeckFinalizationJob = `-- name: SetPreparedDeckFinalizationJob :execrows
+UPDATE deck_preparation_runs
+SET finalization_job_id = $5,
+    finalization_claim_token = CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at <= now() THEN NULL ELSE finalization_claim_token END,
+    finalization_claimed_at = CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at <= now() THEN NULL ELSE finalization_claimed_at END,
+    finalization_lease_expires_at = CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at <= now() THEN NULL ELSE finalization_lease_expires_at END,
+    updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND finalization_dispatch_generation = $4 AND state = 'finalizing'
+`
+
+type SetPreparedDeckFinalizationJobParams struct {
+	OwnerID                        pgtype.UUID
+	PreparationID                  pgtype.UUID
+	ID                             pgtype.UUID
+	FinalizationDispatchGeneration int32
+	FinalizationJobID              pgtype.Int8
+}
+
+func (q *Queries) SetPreparedDeckFinalizationJob(ctx context.Context, arg SetPreparedDeckFinalizationJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPreparedDeckFinalizationJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.FinalizationDispatchGeneration,
+		arg.FinalizationJobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setPreparedDeckTranslationJob = `-- name: SetPreparedDeckTranslationJob :execrows
+UPDATE deck_preparation_translation_outcomes
+SET river_job_id = $6
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+  AND dispatch_generation = $5 AND state = 'pending' AND river_job_id IS NULL
+`
+
+type SetPreparedDeckTranslationJobParams struct {
+	OwnerID            pgtype.UUID
+	PreparationID      pgtype.UUID
+	RunID              pgtype.UUID
+	Ordinal            int32
+	DispatchGeneration int32
+	RiverJobID         pgtype.Int8
+}
+
+func (q *Queries) SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPreparedDeckTranslationJob,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+		arg.DispatchGeneration,
+		arg.RiverJobID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updatePreparedDeckOutcomeFromBatch = `-- name: UpdatePreparedDeckOutcomeFromBatch :exec
+UPDATE deck_preparation_translation_outcomes
+SET state = $5, provider_attempt_count = GREATEST(provider_attempt_count, $6), next_attempt_at = now(),
+    claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, terminal_at = $7,
+    error_class = $8, error_code = $9, provider_call_count = provider_call_count + 1, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+`
+
+type UpdatePreparedDeckOutcomeFromBatchParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	Ordinal              int32
+	State                string
+	ProviderAttemptCount int32
+	TerminalAt           pgtype.Timestamptz
+	ErrorClass           string
+	ErrorCode            string
+}
+
+func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error {
+	_, err := q.db.Exec(ctx, updatePreparedDeckOutcomeFromBatch,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+		arg.State,
+		arg.ProviderAttemptCount,
+		arg.TerminalAt,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	return err
+}
+
+const updatePreparedDeckRunTranslationRunning = `-- name: UpdatePreparedDeckRunTranslationRunning :one
+UPDATE deck_preparation_runs
+SET translation_state = 'running', completed_count = $4, failed_count = $5, updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type UpdatePreparedDeckRunTranslationRunningParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	ID             pgtype.UUID
+	CompletedCount int32
+	FailedCount    int32
+}
+
+func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, updatePreparedDeckRunTranslationRunning,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.CompletedCount,
+		arg.FailedCount,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
+const upsertEnrichmentCache = `-- name: UpsertEnrichmentCache :exec
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, translation, gloss, sentence_translation, sentence_translation_target, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+ON CONFLICT DO NOTHING
+`
+
+type UpsertEnrichmentCacheParams struct {
+	Language                  string
+	TargetLanguage            string
+	CanonicalLemma            string
+	Upos                      string
+	Provider                  string
+	ProviderVersion           string
+	SentenceHash              string
+	Translation               string
+	Gloss                     string
+	SentenceTranslation       string
+	SentenceTranslationTarget string
+	CachedAt                  pgtype.Timestamptz
+}
+
+func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error {
+	_, err := q.db.Exec(ctx, upsertEnrichmentCache,
+		arg.Language,
+		arg.TargetLanguage,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.SentenceHash,
+		arg.Translation,
+		arg.Gloss,
+		arg.SentenceTranslation,
+		arg.SentenceTranslationTarget,
+		arg.CachedAt,
+	)
+	return err
 }
 
 const verifyPreparedDeckBatchSubmissionClaim = `-- name: VerifyPreparedDeckBatchSubmissionClaim :one

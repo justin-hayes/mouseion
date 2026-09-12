@@ -49,10 +49,11 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	}
 	preparationState := domain.DeckPreparationState(preparation.State)
 	currentRunID := uuidString(preparation.CurrentRunID)
-	run, err := scanPreparedDeckRun(tx.QueryRow(ctx, `SELECT `+preparedDeckRunColumns+` FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 FOR UPDATE`, owner, preparationID, runID))
+	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)})
 	if err != nil {
-		return domain.DeckPreparation{}, err
+		return domain.DeckPreparation{}, missing(err)
 	}
+	run := preparedDeckRunFromModel(runModel)
 	if preparationState == domain.DeckPreparationReady && run.State == domain.PreparedDeckRunCompleted && currentRunID == runID {
 		ready, completeErr := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact)
 		if completeErr != nil {
@@ -63,10 +64,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 		}
 		return ready, nil
 	}
-	var leaseActive bool
-	if err = tx.QueryRow(ctx, `SELECT COALESCE(finalization_lease_expires_at > now(),false) FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3`, owner, preparationID, runID).Scan(&leaseActive); err != nil {
-		return domain.DeckPreparation{}, missing(err)
-	}
+	leaseActive := runModel.FinalizationLeaseExpiresAt.Valid && runModel.FinalizationLeaseExpiresAt.Time.After(time.Now())
 	if currentRunID != runID || run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted || run.FinalizationClaimToken == "" || run.FinalizationClaimToken != claimToken || !leaseActive {
 		return domain.DeckPreparation{}, ErrFenced
 	}
@@ -74,12 +72,11 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	if err != nil {
 		return ready, err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_runs SET state='completed',finalization_claim_token=NULL,finalization_claimed_at=NULL,finalization_lease_expires_at=NULL,error_class='',error_code='',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='finalizing' AND finalization_claim_token=$4`, owner, preparationID, runID, claimToken)
-	if err != nil {
+	if _, err = sqlcgen.New(tx).CompletePreparedDeckRun(ctx, sqlcgen.CompletePreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), FinalizationClaimToken: uuidArg(claimToken)}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.DeckPreparation{}, ErrFenced
+		}
 		return domain.DeckPreparation{}, err
-	}
-	if tag.RowsAffected() != 1 {
-		return domain.DeckPreparation{}, ErrFenced
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return domain.DeckPreparation{}, err
@@ -447,11 +444,10 @@ func (s *PostgresStore) FailPreparedDeckFinalization(ctx context.Context, owner,
 		return err
 	}
 	defer tx.Rollback(ctx)
-	var runState domain.PreparedDeckRunState
-	if err = tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',error_class=$5,error_code=$6,finalization_claim_token=NULL,finalization_claimed_at=NULL,finalization_lease_expires_at=NULL,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='finalizing' AND finalization_claim_token=$4 RETURNING state`, owner, preparationID, runID, claimToken, errorClass, errorCode).Scan(&runState); err != nil {
+	if _, err = sqlcgen.New(tx).FailPreparedDeckFinalizationRun(ctx, sqlcgen.FailPreparedDeckFinalizationRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), FinalizationClaimToken: uuidArg(claimToken), ErrorClass: errorClass, ErrorCode: errorCode}); err != nil {
 		return missing(err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='failed',error='prepared-deck translation was incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND current_run_id=$3 AND state='preparing'`, owner, preparationID, runID); err != nil {
+	if _, err = sqlcgen.New(tx).FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: uuidArg(owner), ID: uuidArg(preparationID), CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
