@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -31,8 +32,8 @@ WHERE c.owner_id = $1
 `
 
 type GetCorpusForAnalysisParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetCorpusForAnalysisRow struct {
@@ -42,7 +43,7 @@ type GetCorpusForAnalysisRow struct {
 	ArtifactHash      string
 	AnalysisRunID     string
 	Status            string
-	CreatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
 }
 
 // Card export and generated-vocabulary persistence queries.
@@ -77,7 +78,7 @@ WHERE owner_id = $1
 `
 
 type GetGeneratedVocabularyParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -90,7 +91,7 @@ type GetGeneratedVocabularyRow struct {
 	Upos                  string
 	FirstDeckID           string
 	FirstSourceMaterialID string
-	FirstGeneratedAt      pgtype.Timestamptz
+	FirstGeneratedAt      time.Time
 }
 
 func (q *Queries) GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVocabularyParams) (GetGeneratedVocabularyRow, error) {
@@ -128,7 +129,7 @@ ORDER BY canonical_lemma, upos
 `
 
 type ListGeneratedVocabularyParams struct {
-	OwnerID  pgtype.UUID
+	OwnerID  string
 	Language string
 }
 
@@ -139,7 +140,7 @@ type ListGeneratedVocabularyRow struct {
 	Upos                  string
 	FirstDeckID           string
 	FirstSourceMaterialID string
-	FirstGeneratedAt      pgtype.Timestamptz
+	FirstGeneratedAt      time.Time
 }
 
 func (q *Queries) ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error) {
@@ -180,8 +181,8 @@ ON CONFLICT(owner_id, dedup_key) DO UPDATE SET
 `
 
 type PutGeneratedCardParams struct {
-	OwnerID        pgtype.UUID
-	DeckID         pgtype.UUID
+	OwnerID        string
+	DeckID         string
 	DedupKey       string
 	CanonicalLemma string
 	Upos           string
@@ -209,11 +210,11 @@ ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
 `
 
 type PutGeneratedVocabularyParams struct {
-	OwnerID               pgtype.UUID
+	OwnerID               string
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
-	FirstDeckID           pgtype.UUID
+	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
 }
 

@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,8 +20,8 @@ SELECT EXISTS(
 `
 
 type BookExistsParams struct {
-	Owner pgtype.UUID
-	Book  pgtype.UUID
+	Owner string
+	Book  string
 }
 
 func (q *Queries) BookExists(ctx context.Context, arg BookExistsParams) (bool, error) {
@@ -38,7 +39,7 @@ RETURNING revision
 `
 
 type BumpReadingJourneyRevisionParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -57,8 +58,8 @@ RETURNING owner_id::text, language, book_id::text, created_at, updated_at, readi
 `
 
 type ChangePrimaryGoalBookParams struct {
-	Book     pgtype.UUID
-	Owner    pgtype.UUID
+	Book     string
+	Owner    string
 	Language string
 }
 
@@ -66,8 +67,8 @@ type ChangePrimaryGoalBookRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -96,7 +97,7 @@ WHERE m.owner_id = $1
 `
 
 type DeleteNonChosenJourneyMembersParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -114,7 +115,7 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type DeletePrimaryGoalParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -131,9 +132,9 @@ WHERE owner_id = $1
 `
 
 type DeletePrimaryGoalForBookParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
-	Book     pgtype.UUID
+	Book     string
 }
 
 func (q *Queries) DeletePrimaryGoalForBook(ctx context.Context, arg DeletePrimaryGoalForBookParams) error {
@@ -147,7 +148,7 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type DeleteReadingJourneyParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -164,9 +165,9 @@ WHERE owner_id = $1
 `
 
 type DeleteReadingJourneyMemberParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
-	Book     pgtype.UUID
+	Book     string
 }
 
 func (q *Queries) DeleteReadingJourneyMember(ctx context.Context, arg DeleteReadingJourneyMemberParams) error {
@@ -187,7 +188,7 @@ SELECT EXISTS(
 `
 
 type DerivedJourneyBooksExistParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -206,7 +207,7 @@ RETURNING owner_id::text, language, book_id::text, created_at, updated_at, readi
 `
 
 type FinishPrimaryGoalReadingParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -214,8 +215,8 @@ type FinishPrimaryGoalReadingRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -240,8 +241,8 @@ WHERE owner_id = $1 AND id = $2
 `
 
 type GetBookLanguageStateParams struct {
-	Owner pgtype.UUID
-	Book  pgtype.UUID
+	Owner string
+	Book  string
 }
 
 type GetBookLanguageStateRow struct {
@@ -263,7 +264,7 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type GetPrimaryGoalParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -271,8 +272,8 @@ type GetPrimaryGoalRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -297,7 +298,7 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type GetPrimaryGoalBookIDParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -316,7 +317,7 @@ FOR UPDATE
 `
 
 type GetPrimaryGoalForUpdateParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -324,8 +325,8 @@ type GetPrimaryGoalForUpdateRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -351,13 +352,13 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type GetReadingJourneyParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
 type GetReadingJourneyRow struct {
 	Revision  int64
-	UpdatedAt pgtype.Timestamptz
+	UpdatedAt time.Time
 }
 
 // Reading Journey and Primary Goal queries. Current analysis eligibility comes
@@ -378,7 +379,7 @@ FOR UPDATE
 `
 
 type GetReadingJourneyRevisionForUpdateParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -397,17 +398,17 @@ RETURNING owner_id::text, language, book_id::text, created_at, updated_at, readi
 `
 
 type InsertPrimaryGoalParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
-	Book     pgtype.UUID
+	Book     string
 }
 
 type InsertPrimaryGoalRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -432,7 +433,7 @@ ON CONFLICT (owner_id, language) DO NOTHING
 `
 
 type InsertReadingJourneyIfAbsentParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -453,13 +454,13 @@ ORDER BY m.position, m.created_at, m.book_id
 
 type ListReadingJourneyMembersParams struct {
 	Language string
-	Owner    pgtype.UUID
+	Owner    string
 }
 
 type ListReadingJourneyMembersRow struct {
 	BookID    string
-	Position  int32
-	CreatedAt pgtype.Timestamptz
+	Position  int
+	CreatedAt time.Time
 }
 
 func (q *Queries) ListReadingJourneyMembers(ctx context.Context, arg ListReadingJourneyMembersParams) ([]ListReadingJourneyMembersRow, error) {
@@ -495,13 +496,13 @@ FOR UPDATE
 
 type ListReadingJourneyMembersForUpdateParams struct {
 	Language string
-	Owner    pgtype.UUID
+	Owner    string
 }
 
 type ListReadingJourneyMembersForUpdateRow struct {
 	BookID    string
-	Position  int32
-	CreatedAt pgtype.Timestamptz
+	Position  int
+	CreatedAt time.Time
 }
 
 func (q *Queries) ListReadingJourneyMembersForUpdate(ctx context.Context, arg ListReadingJourneyMembersForUpdateParams) ([]ListReadingJourneyMembersForUpdateRow, error) {
@@ -546,9 +547,9 @@ SELECT EXISTS(
 `
 
 type PrimaryGoalCandidateEligibleParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
-	Book     pgtype.UUID
+	Book     string
 }
 
 func (q *Queries) PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error) {
@@ -568,8 +569,8 @@ RETURNING owner_id::text, language, book_id::text, created_at, updated_at, readi
 `
 
 type ReactivatePrimaryGoalParams struct {
-	Book     pgtype.UUID
-	Owner    pgtype.UUID
+	Book     string
+	Owner    string
 	Language string
 }
 
@@ -577,8 +578,8 @@ type ReactivatePrimaryGoalRow struct {
 	OwnerID           string
 	Language          string
 	BookID            string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 }
 
@@ -609,8 +610,8 @@ WHERE sm.owner_id = $2 AND sm.id = $3
 
 type ResolveJourneyLinkedBookParams struct {
 	Namespace string
-	Owner     pgtype.UUID
-	Source    pgtype.UUID
+	Owner     string
+	Source    string
 }
 
 func (q *Queries) ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error) {
@@ -628,10 +629,10 @@ DO UPDATE SET position = EXCLUDED.position
 `
 
 type UpsertReadingJourneyMemberPositionParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
-	Book     pgtype.UUID
-	Position int32
+	Book     string
+	Position int
 }
 
 func (q *Queries) UpsertReadingJourneyMemberPosition(ctx context.Context, arg UpsertReadingJourneyMemberPositionParams) error {

@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -21,8 +22,8 @@ ON CONFLICT(owner_id, book_id) DO UPDATE SET
 `
 
 type ActivateBookMembershipParams struct {
-	OwnerID pgtype.UUID
-	BookID  pgtype.UUID
+	OwnerID string
+	BookID  string
 }
 
 func (q *Queries) ActivateBookMembership(ctx context.Context, arg ActivateBookMembershipParams) error {
@@ -35,8 +36,8 @@ DELETE FROM primary_goals WHERE owner_id = $1 AND book_id = $2
 `
 
 type DeleteBookGoalsParams struct {
-	OwnerID pgtype.UUID
-	BookID  pgtype.UUID
+	OwnerID string
+	BookID  string
 }
 
 func (q *Queries) DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error {
@@ -49,8 +50,8 @@ DELETE FROM primary_goals WHERE owner_id = $1 AND book_id = $2 AND language <> $
 `
 
 type DeleteBookGoalsExceptLanguageParams struct {
-	OwnerID  pgtype.UUID
-	BookID   pgtype.UUID
+	OwnerID  string
+	BookID   string
 	Language string
 }
 
@@ -66,8 +67,8 @@ FROM books WHERE owner_id = $1 AND id = $2
 `
 
 type GetBookParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetBookRow struct {
@@ -77,8 +78,8 @@ type GetBookRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error) {
@@ -103,8 +104,8 @@ FROM book_aliases WHERE owner_id = $1 AND id = $2
 `
 
 type GetBookAliasConnectionParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 func (q *Queries) GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error) {
@@ -123,7 +124,7 @@ WHERE a.owner_id = $1 AND a.namespace = $2 AND a.value = $3
 `
 
 type GetBookByAliasParams struct {
-	OwnerID   pgtype.UUID
+	OwnerID   string
 	Namespace string
 	Value     string
 }
@@ -135,8 +136,8 @@ type GetBookByAliasRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error) {
@@ -165,7 +166,7 @@ FOR UPDATE OF b, a
 `
 
 type GetBookByUnscopedAliasForUpdateParams struct {
-	OwnerID   pgtype.UUID
+	OwnerID   string
 	Namespace string
 	Value     string
 }
@@ -177,8 +178,8 @@ type GetBookByUnscopedAliasForUpdateRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error) {
@@ -207,8 +208,8 @@ WHERE a.owner_id = $1 AND a.book_id = $2 AND a.alias_type = $3 AND a.namespace =
 `
 
 type GetBookCatalogEntryAliasParams struct {
-	OwnerID   pgtype.UUID
-	BookID    pgtype.UUID
+	OwnerID   string
+	BookID    string
 	AliasType string
 	Namespace string
 }
@@ -221,7 +222,7 @@ type GetBookCatalogEntryAliasRow struct {
 	AliasType    string
 	Namespace    string
 	Value        string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 }
 
 func (q *Queries) GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error) {
@@ -251,8 +252,8 @@ FROM books WHERE owner_id = $1 AND id = $2
 `
 
 type GetBookMetadataParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetBookMetadataRow struct {
@@ -276,7 +277,7 @@ FOR UPDATE
 `
 
 type GetCatalogueAliasBookForUpdateParams struct {
-	OwnerID      pgtype.UUID
+	OwnerID      string
 	ConnectionID pgtype.UUID
 	Namespace    string
 	Value        string
@@ -302,7 +303,7 @@ FOR UPDATE
 `
 
 type GetSourceMaterialBookByIdentifierForUpdateParams struct {
-	OwnerID          pgtype.UUID
+	OwnerID          string
 	SourceIdentifier string
 }
 
@@ -321,8 +322,8 @@ FOR UPDATE
 `
 
 type GetSourceMaterialBookForUpdateParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 func (q *Queries) GetSourceMaterialBookForUpdate(ctx context.Context, arg GetSourceMaterialBookForUpdateParams) (string, error) {
@@ -340,7 +341,7 @@ FOR UPDATE
 `
 
 type GetUnscopedAliasBookForUpdateParams struct {
-	OwnerID   pgtype.UUID
+	OwnerID   string
 	Namespace string
 	Value     string
 }
@@ -360,7 +361,7 @@ RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
 `
 
 type InsertBookParams struct {
-	OwnerID            pgtype.UUID
+	OwnerID            string
 	Title              string
 	MetadataProvenance string
 	LanguageState      string
@@ -374,8 +375,8 @@ type InsertBookRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error) {
@@ -408,8 +409,8 @@ RETURNING id::text
 `
 
 type InsertBookAliasParams struct {
-	OwnerID   pgtype.UUID
-	BookID    pgtype.UUID
+	OwnerID   string
+	BookID    string
 	AliasType string
 	Namespace string
 	Value     string
@@ -434,8 +435,8 @@ VALUES ($1, $2, 'active', now())
 `
 
 type InsertBookMembershipParams struct {
-	OwnerID pgtype.UUID
-	BookID  pgtype.UUID
+	OwnerID string
+	BookID  string
 }
 
 func (q *Queries) InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error {
@@ -449,8 +450,8 @@ VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type InsertCatalogueEntryAliasParams struct {
-	OwnerID      pgtype.UUID
-	BookID       pgtype.UUID
+	OwnerID      string
+	BookID       string
 	ConnectionID pgtype.UUID
 	AliasType    string
 	Namespace    string
@@ -490,7 +491,7 @@ type ListStudyLanguagesRow struct {
 
 // Book, membership, and alias identity queries. Domain-level conflict and
 // ownership decisions remain in the persistence methods.
-func (q *Queries) ListStudyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListStudyLanguagesRow, error) {
+func (q *Queries) ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error) {
 	rows, err := q.db.Query(ctx, listStudyLanguages, ownerID)
 	if err != nil {
 		return nil, err
@@ -531,7 +532,7 @@ type ListUnscopedCatalogueEntryAliasesRow struct {
 	AliasType    string
 	Namespace    string
 	Value        string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 }
 
 func (q *Queries) ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error) {
@@ -572,8 +573,8 @@ ON CONFLICT(owner_id, book_id) DO UPDATE SET
 `
 
 type RemoveBookMembershipParams struct {
-	OwnerID pgtype.UUID
-	BookID  pgtype.UUID
+	OwnerID string
+	BookID  string
 }
 
 func (q *Queries) RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error {
@@ -590,8 +591,8 @@ WHERE a.owner_id = $1 AND a.id = $2 AND a.connection_id IS NULL
 `
 
 type SetCatalogueEntryAliasConnectionParams struct {
-	OwnerID      pgtype.UUID
-	ID           pgtype.UUID
+	OwnerID      string
+	ID           string
 	ConnectionID pgtype.UUID
 	AliasType    string
 	Namespace    string
@@ -616,8 +617,8 @@ UPDATE source_materials SET book_id = $3 WHERE owner_id = $1 AND id = $2
 `
 
 type SetSourceMaterialBookParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 	BookID  pgtype.UUID
 }
 
@@ -635,8 +636,8 @@ RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
 `
 
 type UpdateBookMetadataParams struct {
-	OwnerID       pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	ID            string
 	Title         string
 	LanguageState string
 	LanguageTag   pgtype.Text
@@ -649,8 +650,8 @@ type UpdateBookMetadataRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (q *Queries) UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error) {

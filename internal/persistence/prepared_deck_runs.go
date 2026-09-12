@@ -79,7 +79,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if s == nil || tx == nil || strings.TrimSpace(params.OwnerID) == "" || strings.TrimSpace(params.PreparationID) == "" {
 		return FreezePreparedDeckRunResult{}, ErrInvalidTransition
 	}
-	freezeState, err := sqlcgen.New(tx).GetDeckPreparationFreezeState(ctx, sqlcgen.GetDeckPreparationFreezeStateParams{OwnerID: uuidArg(params.OwnerID), ID: uuidArg(params.PreparationID)})
+	freezeState, err := sqlcgen.New(tx).GetDeckPreparationFreezeState(ctx, sqlcgen.GetDeckPreparationFreezeStateParams{OwnerID: params.OwnerID, ID: params.PreparationID})
 	preparationState := domain.DeckPreparationState(freezeState.State)
 	currentRunID := uuidString(freezeState.CurrentRunID)
 	preparationFilename := freezeState.Filename
@@ -102,7 +102,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			return FreezePreparedDeckRunResult{}, getErr
 		}
 		var storedDigest string
-		if storedDigest, getErr = sqlcgen.New(tx).GetPreparedDeckManifestDigest(ctx, sqlcgen.GetPreparedDeckManifestDigestParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(currentRunID)}); getErr != nil {
+		if storedDigest, getErr = sqlcgen.New(tx).GetPreparedDeckManifestDigest(ctx, sqlcgen.GetPreparedDeckManifestDigestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: currentRunID}); getErr != nil {
 			return FreezePreparedDeckRunResult{}, missing(getErr)
 		}
 		if storedDigest != digest || !runConfigMatches(run, params.Config) {
@@ -168,7 +168,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	} else if len(params.Chunks) != 0 {
 		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: standard runs cannot contain Batch chunks", ErrImmutable)
 	}
-	runNumberValue, err := sqlcgen.New(tx).NextPreparedDeckRunNumber(ctx, sqlcgen.NextPreparedDeckRunNumberParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID)})
+	runNumberValue, err := sqlcgen.New(tx).NextPreparedDeckRunNumber(ctx, sqlcgen.NextPreparedDeckRunNumberParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID})
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -186,10 +186,10 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		completedAt := time.Now().UTC()
 		translationCompletedAt = &completedAt
 	}
-	if err = sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: uuidArg(runID), OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunNumber: int32(runNumber), State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: int32(params.Manifest.SchemaVersion), RetryPolicyVersion: int32(config.RetryPolicyVersion), MaxProviderAttempts: int32(config.MaxProviderAttempts), MaxBatchGenerations: int32(config.MaxBatchGenerations), BatchMaxRequests: int32(config.BatchMaxRequests), BatchMaxBytes: config.BatchMaxBytes, CandidateCount: int32(acceptedCount), CompletedCount: int32(completedCount), TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt)}); err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: runID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunNumber: runNumber, State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: params.Manifest.SchemaVersion, RetryPolicyVersion: config.RetryPolicyVersion, MaxProviderAttempts: config.MaxProviderAttempts, MaxBatchGenerations: config.MaxBatchGenerations, BatchMaxRequests: config.BatchMaxRequests, BatchMaxBytes: config.BatchMaxBytes, CandidateCount: acceptedCount, CompletedCount: completedCount, TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), SchemaVersion: int32(params.Manifest.SchemaVersion), ManifestDigest: digest, DeckName: params.Manifest.DeckName, Filename: params.Manifest.Filename, SelectedCount: int32(selectedCount), AcceptedCount: int32(acceptedCount), OmittedCount: int32(omittedCount)}); err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, SchemaVersion: params.Manifest.SchemaVersion, ManifestDigest: digest, DeckName: params.Manifest.DeckName, Filename: params.Manifest.Filename, SelectedCount: selectedCount, AcceptedCount: acceptedCount, OmittedCount: omittedCount}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	for _, item := range params.Manifest.Items {
@@ -205,7 +205,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		if item.CacheKey != nil {
 			provider, providerVersion, sentenceHash = nullableTextArg(item.CacheKey.Provider), nullableTextArg(item.CacheKey.ProviderVersion), nullableTextArg(item.CacheKey.SentenceHash)
 		}
-		if err = sqlcgen.New(tx).InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), Ordinal: int32(item.Ordinal), Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: int32(item.Quality.Score), QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest}); err != nil {
+		if err = sqlcgen.New(tx).InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest}); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 		if item.Disposition == cardexport.ManifestAccepted {
@@ -218,7 +218,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			} else if item.CacheKey != nil {
 				cacheHits = 1
 			}
-			if err = sqlcgen.New(tx).InsertPreparedDeckTranslationOutcome(ctx, sqlcgen.InsertPreparedDeckTranslationOutcomeParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), Ordinal: int32(item.Ordinal), State: string(state), MaxProviderAttempts: int32(config.MaxProviderAttempts), TerminalAt: pgTimeArgPtr(terminalAt), CacheHitCount: int32(cacheHits)}); err != nil {
+			if err = sqlcgen.New(tx).InsertPreparedDeckTranslationOutcome(ctx, sqlcgen.InsertPreparedDeckTranslationOutcomeParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, State: string(state), MaxProviderAttempts: config.MaxProviderAttempts, TerminalAt: pgTimeArgPtr(terminalAt), CacheHitCount: cacheHits}); err != nil {
 				return FreezePreparedDeckRunResult{}, err
 			}
 		}
@@ -227,7 +227,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: uuidArg(params.OwnerID), ID: uuidArg(params.PreparationID), CurrentRunID: uuidArg(runID)}); err != nil {
+	if err = sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: params.OwnerID, ID: params.PreparationID, CurrentRunID: uuidArg(runID)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
@@ -248,7 +248,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			chunkID = uuid.NewString()
 		}
 		first, last := plan.Ordinals[0], plan.Ordinals[len(plan.Ordinals)-1]
-		err := sqlcgen.New(tx).InsertPreparedDeckBatchChunk(ctx, sqlcgen.InsertPreparedDeckBatchChunkParams{ID: uuidArg(chunkID), OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), ChunkIndex: int32(plan.ChunkIndex), Generation: int32(plan.Generation), Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: plan.SplitReason, FirstOrdinal: int32(first), LastOrdinal: int32(last), InputDigest: plan.InputDigest, RequestCount: int32(len(plan.Ordinals)), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens})
+		err := sqlcgen.New(tx).InsertPreparedDeckBatchChunk(ctx, sqlcgen.InsertPreparedDeckBatchChunkParams{ID: chunkID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkIndex: plan.ChunkIndex, Generation: plan.Generation, Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: plan.SplitReason, FirstOrdinal: first, LastOrdinal: last, InputDigest: plan.InputDigest, RequestCount: len(plan.Ordinals), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens})
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +257,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			if digestErr != nil {
 				return nil, digestErr
 			}
-			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), ChunkID: uuidArg(chunkID), Generation: int32(plan.Generation), Position: int32(position), Ordinal: int32(ordinal), CandidateDigest: candidateDigest}); err != nil {
+			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkID: chunkID, Generation: plan.Generation, Position: position, Ordinal: ordinal, CandidateDigest: candidateDigest}); err != nil {
 				return nil, err
 			}
 		}
@@ -346,7 +346,7 @@ func runConfigMatches(run domain.PreparedDeckRun, config PreparedDeckRunConfig) 
 }
 
 func getPreparedDeckRun(ctx context.Context, q sqlcgen.DBTX, owner, preparationID, runID string) (domain.PreparedDeckRun, error) {
-	model, err := sqlcgen.New(q).GetPreparedDeckRun(ctx, sqlcgen.GetPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)})
+	model, err := sqlcgen.New(q).GetPreparedDeckRun(ctx, sqlcgen.GetPreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
 	if err != nil {
 		return domain.PreparedDeckRun{}, missing(err)
 	}
@@ -358,7 +358,7 @@ func (s *PostgresStore) GetPreparedDeckRun(ctx context.Context, owner, preparati
 }
 
 func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, preparationID string) (domain.PreparedDeckRun, error) {
-	model, err := sqlcgen.New(s.pool).GetCurrentPreparedDeckRun(ctx, sqlcgen.GetCurrentPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID)})
+	model, err := sqlcgen.New(s.pool).GetCurrentPreparedDeckRun(ctx, sqlcgen.GetCurrentPreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID})
 	if err != nil {
 		return domain.PreparedDeckRun{}, missing(err)
 	}
@@ -367,7 +367,7 @@ func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, pr
 
 func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, preparationID, runID string) (cardexport.ManifestSnapshot, string, error) {
 	var snapshot cardexport.ManifestSnapshot
-	manifest, err := sqlcgen.New(s.pool).GetPreparedDeckManifest(ctx, sqlcgen.GetPreparedDeckManifestParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)})
+	manifest, err := sqlcgen.New(s.pool).GetPreparedDeckManifest(ctx, sqlcgen.GetPreparedDeckManifestParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
 	if err != nil {
 		return snapshot, "", missing(err)
 	}
@@ -377,7 +377,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 	snapshot.Filename = manifest.Filename
 	storedDigest := manifest.ManifestDigest
 	selectedCount, acceptedCount, omittedCount := int(manifest.SelectedCount), int(manifest.AcceptedCount), int(manifest.OmittedCount)
-	items, err := sqlcgen.New(s.pool).ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)})
+	items, err := sqlcgen.New(s.pool).ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
 	if err != nil {
 		return snapshot, "", err
 	}
@@ -416,14 +416,14 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 }
 
 func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, preparationID, runID string) (domain.PreparedDeckRunProgress, error) {
-	exists, err := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID)})
+	exists, err := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{Owner: owner, Preparation: preparationID, Run: runID})
 	if err != nil {
 		return domain.PreparedDeckRunProgress{}, err
 	}
 	if !exists {
 		return domain.PreparedDeckRunProgress{}, ErrNotFound
 	}
-	row, err := s.queries().GetPreparedDeckRunProgress(ctx, sqlcgen.GetPreparedDeckRunProgressParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID)})
+	row, err := s.queries().GetPreparedDeckRunProgress(ctx, sqlcgen.GetPreparedDeckRunProgressParams{Owner: owner, Preparation: preparationID, Run: runID})
 	if err != nil {
 		return domain.PreparedDeckRunProgress{}, err
 	}

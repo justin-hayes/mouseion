@@ -41,33 +41,33 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		row, err := q.UpsertSourceMaterialForExtractedUnits(ctx, sqlcgen.UpsertSourceMaterialForExtractedUnitsParams{
-			OwnerID: uuidArg(v.OwnerID), Language: v.Language, SourceIdentifier: v.SourceIdentifier,
+			OwnerID: v.OwnerID, Language: v.Language, SourceIdentifier: v.SourceIdentifier,
 			Title: v.Title, MediaType: v.MediaType, ContentHash: digest, Content: storedContent, FullText: v.FullText,
 		})
 		if err != nil {
 			return err
 		}
 		out = sourceMaterialFromFields(row.ID, row.OwnerID, row.Language, row.SourceIdentifier, row.Title, row.MediaType, row.ContentHash, "", "", row.Content, row.FullText, 0, row.CreatedAt)
-		currentRevisionID, err := q.GetCurrentContentRevisionForUpdate(ctx, sqlcgen.GetCurrentContentRevisionForUpdateParams{OwnerID: uuidArg(out.OwnerID), ID: uuidArg(out.ID)})
+		currentRevisionID, err := q.GetCurrentContentRevisionForUpdate(ctx, sqlcgen.GetCurrentContentRevisionForUpdateParams{OwnerID: out.OwnerID, ID: out.ID})
 		if err != nil {
 			return err
 		}
-		revisionID, err := q.GetSourceContentRevisionByDigest(ctx, sqlcgen.GetSourceContentRevisionByDigestParams{OwnerID: uuidArg(out.OwnerID), SourceMaterialID: uuidArg(out.ID), ContentDigest: digest})
+		revisionID, err := q.GetSourceContentRevisionByDigest(ctx, sqlcgen.GetSourceContentRevisionByDigestParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, ContentDigest: digest})
 		if errors.Is(err, pgx.ErrNoRows) {
-			revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: uuidArg(out.OwnerID), SourceMaterialID: uuidArg(out.ID), DigestVersion: int32(digestVersion), ContentDigest: digest, Content: storedContent, FullText: v.FullText})
+			revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, DigestVersion: digestVersion, ContentDigest: digest, Content: storedContent, FullText: v.FullText})
 		}
 		if err != nil {
 			return err
 		}
 		if revisionID != currentRevisionID {
-			if err = q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: uuidArg(out.OwnerID), ID: uuidArg(out.ID), CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
+			if err = q.SetCurrentContentRevision(ctx, sqlcgen.SetCurrentContentRevisionParams{OwnerID: out.OwnerID, ID: out.ID, CurrentContentRevisionID: uuidArg(revisionID)}); err != nil {
 				return err
 			}
-			snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: uuidArg(out.OwnerID), SourceMaterialID: uuidArg(out.ID), ContentRevisionID: uuidArg(revisionID), SchemaVersion: int32(units.SchemaVersion)})
+			snapshotID, err := q.InsertSourceMaterialUnitSnapshot(ctx, sqlcgen.InsertSourceMaterialUnitSnapshotParams{OwnerID: out.OwnerID, SourceMaterialID: out.ID, ContentRevisionID: revisionID, SchemaVersion: units.SchemaVersion})
 			if err != nil {
 				return err
 			}
-			if err = q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: uuidArg(out.OwnerID), ID: uuidArg(out.ID), CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
+			if err = q.SetCurrentSnapshot(ctx, sqlcgen.SetCurrentSnapshotParams{OwnerID: out.OwnerID, ID: out.ID, CurrentSnapshotID: uuidArg(snapshotID)}); err != nil {
 				return err
 			}
 			for _, unit := range units.Units {
@@ -84,7 +84,7 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 					return marshalErr
 				}
 				if err = q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
-					OwnerID: uuidArg(out.OwnerID), SourceMaterialID: uuidArg(out.ID), SnapshotID: uuidArg(snapshotID), UnitID: unit.ID,
+					OwnerID: out.OwnerID, SourceMaterialID: out.ID, SnapshotID: snapshotID, UnitID: unit.ID,
 					UnitOrder: int64(unit.Order), SpineIndex: int64(unit.SpineIndex), Title: unit.Title, TitleSource: unit.TitleSource,
 					Text: unit.Text, StartOffset: int64(unit.StartOffset), EndOffset: int64(unit.EndOffset), PackagePath: unit.PackagePath,
 					ManifestID: unit.ManifestID, SourceHref: unit.SourceHref, ResolvedHref: unit.ResolvedHref, MediaType: unit.MediaType,
@@ -94,7 +94,7 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 				}
 			}
 		}
-		current, err := q.GetCurrentSourceMaterialContent(ctx, sqlcgen.GetCurrentSourceMaterialContentParams{OwnerID: uuidArg(out.OwnerID), ID: uuidArg(out.ID)})
+		current, err := q.GetCurrentSourceMaterialContent(ctx, sqlcgen.GetCurrentSourceMaterialContentParams{OwnerID: out.OwnerID, ID: out.ID})
 		if err != nil {
 			return err
 		}
@@ -120,15 +120,15 @@ func (s *PostgresStore) GetExtractedUnits(ctx context.Context, owner, sourceID s
 // current owner-scoped extracted-unit snapshot.
 func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sourceID string) (string, domain.ExtractedUnits, error) {
 	var out domain.ExtractedUnits
-	snapshot, err := s.queries().GetCurrentExtractedUnitSnapshot(ctx, sqlcgen.GetCurrentExtractedUnitSnapshotParams{OwnerID: uuidArg(owner), SourceMaterialID: uuidArg(sourceID)})
+	snapshot, err := s.queries().GetCurrentExtractedUnitSnapshot(ctx, sqlcgen.GetCurrentExtractedUnitSnapshotParams{OwnerID: owner, SourceMaterialID: sourceID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", out, domain.ErrExtractedUnitsUnavailable
 	}
 	if err != nil {
 		return "", out, err
 	}
-	out.SchemaVersion = int(snapshot.SchemaVersion)
-	rows, err := s.queries().ListCurrentExtractedUnits(ctx, sqlcgen.ListCurrentExtractedUnitsParams{OwnerID: uuidArg(owner), SourceMaterialID: uuidArg(sourceID)})
+	out.SchemaVersion = snapshot.SchemaVersion
+	rows, err := s.queries().ListCurrentExtractedUnits(ctx, sqlcgen.ListCurrentExtractedUnitsParams{OwnerID: owner, SourceMaterialID: sourceID})
 	if err != nil {
 		return "", out, err
 	}

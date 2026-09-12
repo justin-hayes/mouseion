@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -34,8 +35,8 @@ type CreateOpdsConnectionRow struct {
 	Username          string
 	PasswordEncrypted []byte
 	Language          string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // OPDS connection queries. Credential decryption stays in Go; these queries
@@ -69,7 +70,7 @@ DELETE FROM opds_connections WHERE owner_id = $1 AND id = $2
 
 type DeleteOpdsConnectionParams struct {
 	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	ID      string
 }
 
 func (q *Queries) DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error) {
@@ -87,7 +88,7 @@ FROM opds_connections WHERE owner_id = $1 AND id = $2
 
 type GetOpdsConnectionParams struct {
 	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	ID      string
 }
 
 type GetOpdsConnectionRow struct {
@@ -98,8 +99,8 @@ type GetOpdsConnectionRow struct {
 	Username          string
 	PasswordEncrypted []byte
 	Language          string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (q *Queries) GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error) {
@@ -161,8 +162,8 @@ type ListOpdsConnectionsRow struct {
 	Username          string
 	PasswordEncrypted []byte
 	Language          string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (q *Queries) ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error) {
@@ -201,7 +202,7 @@ SELECT EXISTS(SELECT 1 FROM opds_connections WHERE owner_id = $1 AND id = $2)
 
 type OpdsConnectionExistsParams struct {
 	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	ID      string
 }
 
 func (q *Queries) OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error) {
@@ -219,7 +220,7 @@ RETURNING id::text, owner_id::text, name, url, username, password_encrypted, lan
 
 type UpdateOpdsConnectionParams struct {
 	OwnerID           pgtype.UUID
-	ID                pgtype.UUID
+	ID                string
 	Name              string
 	Url               string
 	Username          string
@@ -234,8 +235,8 @@ type UpdateOpdsConnectionRow struct {
 	Username          string
 	PasswordEncrypted []byte
 	Language          string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (q *Queries) UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error) {

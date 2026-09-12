@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -24,11 +25,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type AssignPreparedDeckBatchReconciliationJobParams struct {
-	OwnerID                  pgtype.UUID
-	PreparationID            pgtype.UUID
-	RunID                    pgtype.UUID
-	ID                       pgtype.UUID
-	ReconciliationGeneration int32
+	OwnerID                  string
+	PreparationID            string
+	RunID                    string
+	ID                       string
+	ReconciliationGeneration int
 	ReconciliationJobID      pgtype.Int8
 }
 
@@ -117,11 +118,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type AssignPreparedDeckBatchSubmissionJobParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	SubmissionGeneration int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	SubmissionGeneration int
 	SubmissionJobID      pgtype.Int8
 }
 
@@ -212,18 +213,18 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type AssignPreparedDeckFinalizationJobParams struct {
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	ID                             pgtype.UUID
-	FinalizationDispatchGeneration int32
+	OwnerID                        string
+	PreparationID                  string
+	ID                             string
+	FinalizationDispatchGeneration int
 	FinalizationJobID              pgtype.Int8
 }
 
 type AssignPreparedDeckFinalizationJobRow struct {
-	ID                             pgtype.UUID
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	RunNumber                      int32
+	ID                             string
+	OwnerID                        string
+	PreparationID                  string
+	RunNumber                      int
 	State                          string
 	TranslationState               string
 	ExecutionMode                  string
@@ -235,25 +236,25 @@ type AssignPreparedDeckFinalizationJobRow struct {
 	ProviderVersion                pgtype.Text
 	Endpoint                       pgtype.Text
 	Model                          pgtype.Text
-	ManifestSchemaVersion          int32
-	RetryPolicyVersion             int32
-	MaxProviderAttempts            int32
-	MaxBatchGenerations            int32
-	BatchMaxRequests               int32
+	ManifestSchemaVersion          int
+	RetryPolicyVersion             int
+	MaxProviderAttempts            int
+	MaxBatchGenerations            int
+	BatchMaxRequests               int
 	BatchMaxBytes                  int64
-	CandidateCount                 int32
-	CompletedCount                 int32
-	FailedCount                    int32
-	FinalizationDispatchGeneration int32
-	FinalizationDispatchCount      int32
+	CandidateCount                 int
+	CompletedCount                 int
+	FailedCount                    int
+	FinalizationDispatchGeneration int
+	FinalizationDispatchCount      int
 	FinalizationJobID              pgtype.Int8
 	FinalizationClaimToken         pgtype.UUID
 	FinalizationClaimedAt          pgtype.Timestamptz
 	FinalizationLeaseExpiresAt     pgtype.Timestamptz
 	ErrorClass                     string
 	ErrorCode                      string
-	CreatedAt                      pgtype.Timestamptz
-	UpdatedAt                      pgtype.Timestamptz
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time
 	TranslationCompletedAt         pgtype.Timestamptz
 	CompletedAt                    pgtype.Timestamptz
 }
@@ -316,10 +317,10 @@ RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, 
 `
 
 type AttachPreparedDeckBatchReconciliationJobParams struct {
-	OwnerID             pgtype.UUID
-	PreparationID       pgtype.UUID
-	RunID               pgtype.UUID
-	ID                  pgtype.UUID
+	OwnerID             string
+	PreparationID       string
+	RunID               string
+	ID                  string
 	ReconciliationJobID pgtype.Int8
 	BatchID             pgtype.Text
 }
@@ -404,8 +405,8 @@ WHERE owner_id = $1 AND id = $2
 `
 
 type AttachPreparedDeckRunParams struct {
-	OwnerID      pgtype.UUID
-	ID           pgtype.UUID
+	OwnerID      string
+	ID           string
 	CurrentRunID pgtype.UUID
 }
 
@@ -424,9 +425,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND state NOT IN ('c
 `
 
 type CancelPreparedDeckBatchChunksParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) CancelPreparedDeckBatchChunks(ctx context.Context, arg CancelPreparedDeckBatchChunksParams) error {
@@ -442,9 +443,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND state IN ('pendi
 `
 
 type CancelPreparedDeckOutcomesParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) CancelPreparedDeckOutcomes(ctx context.Context, arg CancelPreparedDeckOutcomesParams) error {
@@ -462,9 +463,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state IN ('translati
 `
 
 type CancelPreparedDeckRunParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 }
 
 func (q *Queries) CancelPreparedDeckRun(ctx context.Context, arg CancelPreparedDeckRunParams) error {
@@ -485,13 +486,13 @@ RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, 
 `
 
 type ClaimPreparedDeckBatchCleanupParams struct {
-	OwnerID                  pgtype.UUID
-	PreparationID            pgtype.UUID
-	RunID                    pgtype.UUID
-	ID                       pgtype.UUID
+	OwnerID                  string
+	PreparationID            string
+	RunID                    string
+	ID                       string
 	CleanupClaimToken        pgtype.UUID
 	CleanupLeaseExpiresAt    pgtype.Timestamptz
-	InputFileCleanupAttempts int32
+	InputFileCleanupAttempts int
 }
 
 func (q *Queries) ClaimPreparedDeckBatchCleanup(ctx context.Context, arg ClaimPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error) {
@@ -579,11 +580,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type ClaimPreparedDeckBatchReconciliationParams struct {
-	OwnerID                      pgtype.UUID
-	PreparationID                pgtype.UUID
-	RunID                        pgtype.UUID
-	ID                           pgtype.UUID
-	ReconciliationGeneration     int32
+	OwnerID                      string
+	PreparationID                string
+	RunID                        string
+	ID                           string
+	ReconciliationGeneration     int
 	ReconciliationClaimToken     pgtype.UUID
 	ReconciliationLeaseExpiresAt pgtype.Timestamptz
 }
@@ -673,11 +674,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type ClaimPreparedDeckBatchSubmissionParams struct {
-	OwnerID                  pgtype.UUID
-	PreparationID            pgtype.UUID
-	RunID                    pgtype.UUID
-	ID                       pgtype.UUID
-	SubmissionGeneration     int32
+	OwnerID                  string
+	PreparationID            string
+	RunID                    string
+	ID                       string
+	SubmissionGeneration     int
 	SubmissionClaimToken     pgtype.UUID
 	SubmissionLeaseExpiresAt pgtype.Timestamptz
 }
@@ -778,19 +779,19 @@ RETURNING r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translati
 `
 
 type ClaimPreparedDeckFinalizationParams struct {
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	ID                             pgtype.UUID
-	FinalizationDispatchGeneration int32
+	OwnerID                        string
+	PreparationID                  string
+	ID                             string
+	FinalizationDispatchGeneration int
 	FinalizationClaimToken         pgtype.UUID
 	FinalizationLeaseExpiresAt     pgtype.Timestamptz
 }
 
 type ClaimPreparedDeckFinalizationRow struct {
-	ID                             pgtype.UUID
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	RunNumber                      int32
+	ID                             string
+	OwnerID                        string
+	PreparationID                  string
+	RunNumber                      int
 	State                          string
 	TranslationState               string
 	ExecutionMode                  string
@@ -802,25 +803,25 @@ type ClaimPreparedDeckFinalizationRow struct {
 	ProviderVersion                pgtype.Text
 	Endpoint                       pgtype.Text
 	Model                          pgtype.Text
-	ManifestSchemaVersion          int32
-	RetryPolicyVersion             int32
-	MaxProviderAttempts            int32
-	MaxBatchGenerations            int32
-	BatchMaxRequests               int32
+	ManifestSchemaVersion          int
+	RetryPolicyVersion             int
+	MaxProviderAttempts            int
+	MaxBatchGenerations            int
+	BatchMaxRequests               int
 	BatchMaxBytes                  int64
-	CandidateCount                 int32
-	CompletedCount                 int32
-	FailedCount                    int32
-	FinalizationDispatchGeneration int32
-	FinalizationDispatchCount      int32
+	CandidateCount                 int
+	CompletedCount                 int
+	FailedCount                    int
+	FinalizationDispatchGeneration int
+	FinalizationDispatchCount      int
 	FinalizationJobID              pgtype.Int8
 	FinalizationClaimToken         pgtype.UUID
 	FinalizationClaimedAt          pgtype.Timestamptz
 	FinalizationLeaseExpiresAt     pgtype.Timestamptz
 	ErrorClass                     string
 	ErrorCode                      string
-	CreatedAt                      pgtype.Timestamptz
-	UpdatedAt                      pgtype.Timestamptz
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time
 	TranslationCompletedAt         pgtype.Timestamptz
 	CompletedAt                    pgtype.Timestamptz
 }
@@ -903,11 +904,11 @@ RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch
 `
 
 type ClaimPreparedDeckTranslationOutcomeParams struct {
-	OwnerID            pgtype.UUID
-	PreparationID      pgtype.UUID
-	RunID              pgtype.UUID
-	Ordinal            int32
-	DispatchGeneration int32
+	OwnerID            string
+	PreparationID      string
+	RunID              string
+	Ordinal            int
+	DispatchGeneration int
 	ClaimToken         pgtype.UUID
 	LeaseExpiresAt     pgtype.Timestamptz
 }
@@ -966,11 +967,11 @@ WITH hit AS (
 `
 
 type CompletePreparedDeckBatchCacheHitsParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 }
 
@@ -1002,18 +1003,18 @@ type CompletePreparedDeckBatchChunkParams struct {
 	ProviderStatus      pgtype.Text
 	OutputFileID        string
 	ErrorFileID         string
-	CompletedCount      int32
-	FailedCount         int32
-	ExpiredCount        int32
+	CompletedCount      int
+	FailedCount         int
+	ExpiredCount        int
 	InputTokens         int64
 	OutputTokens        int64
 	ErrorClass          string
 	ErrorCode           string
 	ProviderCompletedAt pgtype.Timestamptz
-	Owner               pgtype.UUID
-	Preparation         pgtype.UUID
-	Run                 pgtype.UUID
-	ID                  pgtype.UUID
+	Owner               string
+	Preparation         string
+	Run                 string
+	ID                  string
 }
 
 func (q *Queries) CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error) {
@@ -1108,9 +1109,9 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type CompletePreparedDeckRunParams struct {
-	OwnerID                pgtype.UUID
-	PreparationID          pgtype.UUID
-	ID                     pgtype.UUID
+	OwnerID                string
+	PreparationID          string
+	ID                     string
 	FinalizationClaimToken pgtype.UUID
 }
 
@@ -1172,9 +1173,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3
 `
 
 type CountPreparedDeckRunOutcomeStatesParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 type CountPreparedDeckRunOutcomeStatesRow struct {
@@ -1228,8 +1229,8 @@ WHERE owner_id = $1 AND id = $2 AND current_run_id = $3 AND state = 'preparing'
 `
 
 type FailDeckPreparationTranslationParams struct {
-	OwnerID      pgtype.UUID
-	ID           pgtype.UUID
+	OwnerID      string
+	ID           string
 	CurrentRunID pgtype.UUID
 	Error        string
 }
@@ -1257,11 +1258,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4
 `
 
 type FailPreparedDeckBatchChunkParams struct {
-	OwnerID                  pgtype.UUID
-	PreparationID            pgtype.UUID
-	RunID                    pgtype.UUID
-	ID                       pgtype.UUID
-	ReconciliationGeneration int32
+	OwnerID                  string
+	PreparationID            string
+	RunID                    string
+	ID                       string
+	ReconciliationGeneration int
 	ReconciliationClaimToken pgtype.UUID
 	ProviderStatus           pgtype.Text
 	ErrorClass               string
@@ -1295,11 +1296,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4
 `
 
 type FailPreparedDeckBatchChunkSubmissionParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 	State                string
 	ErrorClass           string
@@ -1335,9 +1336,9 @@ RETURNING state
 `
 
 type FailPreparedDeckFinalizationRunParams struct {
-	OwnerID                pgtype.UUID
-	PreparationID          pgtype.UUID
-	ID                     pgtype.UUID
+	OwnerID                string
+	PreparationID          string
+	ID                     string
 	FinalizationClaimToken pgtype.UUID
 	ErrorClass             string
 	ErrorCode              string
@@ -1365,9 +1366,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating
 `
 
 type FailPreparedDeckRunParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 	ErrorClass    string
 	ErrorCode     string
 }
@@ -1395,11 +1396,11 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type FailPreparedDeckRunIncompleteParams struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	ID             pgtype.UUID
-	CompletedCount int32
-	FailedCount    int32
+	OwnerID        string
+	PreparationID  string
+	ID             string
+	CompletedCount int
+	FailedCount    int
 }
 
 func (q *Queries) FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPreparedDeckRunIncompleteParams) (DeckPreparationRun, error) {
@@ -1461,11 +1462,11 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type FailPreparedDeckRunWithCountsParams struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	ID             pgtype.UUID
-	CompletedCount int32
-	FailedCount    int32
+	OwnerID        string
+	PreparationID  string
+	ID             string
+	CompletedCount int
+	FailedCount    int
 	ErrorClass     string
 	ErrorCode      string
 }
@@ -1531,11 +1532,11 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type FinalizePreparedDeckRunParams struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	ID             pgtype.UUID
-	CompletedCount int32
-	FailedCount    int32
+	OwnerID        string
+	PreparationID  string
+	ID             string
+	CompletedCount int
+	FailedCount    int
 }
 
 func (q *Queries) FinalizePreparedDeckRun(ctx context.Context, arg FinalizePreparedDeckRunParams) (DeckPreparationRun, error) {
@@ -1602,17 +1603,17 @@ RETURNING id, owner_id, preparation_id, run_id, chunk_index, generation, state, 
 `
 
 type FinishPreparedDeckBatchCleanupParams struct {
-	OwnerID                   pgtype.UUID
-	PreparationID             pgtype.UUID
-	RunID                     pgtype.UUID
-	ID                        pgtype.UUID
+	OwnerID                   string
+	PreparationID             string
+	RunID                     string
+	ID                        string
 	CleanupClaimToken         pgtype.UUID
 	InputFileCleanupState     string
 	OutputFileCleanupState    string
 	ErrorFileCleanupState     string
-	InputFileCleanupAttempts  int32
-	OutputFileCleanupAttempts int32
-	ErrorFileCleanupAttempts  int32
+	InputFileCleanupAttempts  int
+	OutputFileCleanupAttempts int
+	ErrorFileCleanupAttempts  int
 	CleanupErrorClass         string
 	CleanupErrorCode          string
 }
@@ -1715,19 +1716,19 @@ type FinishPreparedDeckBatchReconciliationParams struct {
 	ProviderStatus      string
 	OutputFileID        string
 	ErrorFileID         string
-	CompletedCount      int32
-	FailedCount         int32
-	ExpiredCount        int32
+	CompletedCount      int
+	FailedCount         int
+	ExpiredCount        int
 	InputTokens         int64
 	OutputTokens        int64
 	ErrorClass          string
 	ErrorCode           string
 	ProviderCompletedAt pgtype.Timestamptz
-	Owner               pgtype.UUID
-	Preparation         pgtype.UUID
-	Run                 pgtype.UUID
-	ID                  pgtype.UUID
-	Generation          int32
+	Owner               string
+	Preparation         string
+	Run                 string
+	ID                  string
+	Generation          int
 	Token               pgtype.UUID
 }
 
@@ -1828,11 +1829,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type FinishPreparedDeckBatchSubmissionParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 	State                string
 	ErrorClass           string
@@ -1940,18 +1941,18 @@ RETURNING owner_id, preparation_id, run_id, ordinal, state, dispatch_count, prov
 `
 
 type FinishPreparedDeckTranslationOutcomeParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	Ordinal              int32
-	DispatchGeneration   int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
+	DispatchGeneration   int
 	ClaimToken           pgtype.UUID
 	State                string
-	ProviderAttemptCount int32
+	ProviderAttemptCount int
 	ErrorClass           string
 	ErrorCode            string
-	CacheHitCount        int32
-	ProviderCallCount    int32
+	CacheHitCount        int
+	ProviderCallCount    int
 	CacheLatencyMs       int64
 	ProviderLatencyMs    int64
 }
@@ -2007,8 +2008,8 @@ WHERE r.owner_id = $1 AND r.preparation_id = $2 AND r.id = (SELECT p.current_run
 `
 
 type GetCurrentPreparedDeckRunParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
+	OwnerID       string
+	PreparationID string
 }
 
 func (q *Queries) GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error) {
@@ -2060,8 +2061,8 @@ SELECT state, current_run_id, filename FROM deck_preparations WHERE owner_id = $
 `
 
 type GetDeckPreparationFreezeStateParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetDeckPreparationFreezeStateRow struct {
@@ -2082,8 +2083,8 @@ SELECT state FROM deck_preparations WHERE owner_id = $1 AND id = $2 AND current_
 `
 
 type GetDeckPreparationStateForRunParams struct {
-	OwnerID      pgtype.UUID
-	ID           pgtype.UUID
+	OwnerID      string
+	ID           string
 	CurrentRunID pgtype.UUID
 }
 
@@ -2099,10 +2100,10 @@ SELECT id, owner_id, preparation_id, run_id, chunk_index, generation, state, pro
 `
 
 type GetPreparedDeckBatchChunkForUpdateParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	ID            string
 }
 
 func (q *Queries) GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg GetPreparedDeckBatchChunkForUpdateParams) (DeckPreparationBatchChunk, error) {
@@ -2180,9 +2181,9 @@ SELECT owner_id, preparation_id, run_id, schema_version, manifest_digest, deck_n
 `
 
 type GetPreparedDeckManifestParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDeckManifestParams) (DeckPreparationManifest, error) {
@@ -2209,9 +2210,9 @@ SELECT manifest_digest FROM deck_preparation_manifests WHERE owner_id = $1 AND p
 `
 
 type GetPreparedDeckManifestDigestParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) GetPreparedDeckManifestDigest(ctx context.Context, arg GetPreparedDeckManifestDigestParams) (string, error) {
@@ -2226,9 +2227,9 @@ SELECT id, owner_id, preparation_id, run_number, state, translation_state, exter
 `
 
 type GetPreparedDeckRunParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 }
 
 func (q *Queries) GetPreparedDeckRun(ctx context.Context, arg GetPreparedDeckRunParams) (DeckPreparationRun, error) {
@@ -2280,9 +2281,9 @@ SELECT id, owner_id, preparation_id, run_number, state, translation_state, exter
 `
 
 type GetPreparedDeckRunForUpdateParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 }
 
 func (q *Queries) GetPreparedDeckRunForUpdate(ctx context.Context, arg GetPreparedDeckRunForUpdateParams) (DeckPreparationRun, error) {
@@ -2365,9 +2366,9 @@ SELECT (SELECT count(*) FROM outcomes) AS candidate_count,
 `
 
 type GetPreparedDeckRunProgressParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
-	Run         pgtype.UUID
+	Owner       string
+	Preparation string
+	Run         string
 }
 
 type GetPreparedDeckRunProgressRow struct {
@@ -2435,9 +2436,9 @@ WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3 AND mi.disp
 `
 
 type GetPreparedDeckTranslationCoverageParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
-	Run         pgtype.UUID
+	Owner       string
+	Preparation string
+	Run         string
 }
 
 type GetPreparedDeckTranslationCoverageRow struct {
@@ -2457,10 +2458,10 @@ SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provide
 `
 
 type GetPreparedDeckTranslationOutcomeParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	Ordinal       int32
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	Ordinal       int
 }
 
 func (q *Queries) GetPreparedDeckTranslationOutcome(ctx context.Context, arg GetPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
@@ -2503,10 +2504,10 @@ SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provide
 `
 
 type GetPreparedDeckTranslationOutcomeForUpdateParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	Ordinal       int32
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	Ordinal       int
 }
 
 func (q *Queries) GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error) {
@@ -2550,19 +2551,19 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 `
 
 type InsertPreparedDeckBatchChunkParams struct {
-	ID                    pgtype.UUID
-	OwnerID               pgtype.UUID
-	PreparationID         pgtype.UUID
-	RunID                 pgtype.UUID
-	ChunkIndex            int32
-	Generation            int32
+	ID                    string
+	OwnerID               string
+	PreparationID         string
+	RunID                 string
+	ChunkIndex            int
+	Generation            int
 	Model                 string
 	Endpoint              string
 	SplitReason           string
-	FirstOrdinal          int32
-	LastOrdinal           int32
+	FirstOrdinal          int
+	LastOrdinal           int
 	InputDigest           string
-	RequestCount          int32
+	RequestCount          int
 	InputBytes            int64
 	EstimatedPromptTokens int64
 }
@@ -2594,13 +2595,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertPreparedDeckBatchChunkItemParams struct {
-	OwnerID         pgtype.UUID
-	PreparationID   pgtype.UUID
-	RunID           pgtype.UUID
-	ChunkID         pgtype.UUID
-	Generation      int32
-	Position        int32
-	Ordinal         int32
+	OwnerID         string
+	PreparationID   string
+	RunID           string
+	ChunkID         string
+	Generation      int
+	Position        int
+	Ordinal         int
 	CandidateDigest string
 }
 
@@ -2626,13 +2627,13 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $7
 `
 
 type InsertPreparedDeckBatchChunkItemFromManifestParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
-	Run         pgtype.UUID
-	Chunk       pgtype.UUID
-	Generation  int32
-	Position    int32
-	Ordinal     int32
+	Owner       string
+	Preparation string
+	Run         string
+	Chunk       string
+	Generation  int
+	Position    int
+	Ordinal     int
 }
 
 func (q *Queries) InsertPreparedDeckBatchChunkItemFromManifest(ctx context.Context, arg InsertPreparedDeckBatchChunkItemFromManifestParams) error {
@@ -2654,16 +2655,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type InsertPreparedDeckManifestParams struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	RunID          pgtype.UUID
-	SchemaVersion  int32
+	OwnerID        string
+	PreparationID  string
+	RunID          string
+	SchemaVersion  int
 	ManifestDigest string
 	DeckName       string
 	Filename       string
-	SelectedCount  int32
-	AcceptedCount  int32
-	OmittedCount   int32
+	SelectedCount  int
+	AcceptedCount  int
+	OmittedCount   int
 }
 
 func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPreparedDeckManifestParams) error {
@@ -2688,10 +2689,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 `
 
 type InsertPreparedDeckManifestItemParams struct {
-	OwnerID         pgtype.UUID
-	PreparationID   pgtype.UUID
-	RunID           pgtype.UUID
-	Ordinal         int32
+	OwnerID         string
+	PreparationID   string
+	RunID           string
+	Ordinal         int
 	Disposition     string
 	Language        string
 	TargetLanguage  string
@@ -2700,7 +2701,7 @@ type InsertPreparedDeckManifestItemParams struct {
 	SourceSentence  string
 	TestedTarget    string
 	FirstEncounter  int64
-	QualityScore    int32
+	QualityScore    int
 	QualityReasons  []string
 	RenderPayload   []byte
 	Provider        pgtype.Text
@@ -2740,10 +2741,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 `
 
 type InsertPreparedDeckRunParams struct {
-	ID                            pgtype.UUID
-	OwnerID                       pgtype.UUID
-	PreparationID                 pgtype.UUID
-	RunNumber                     int32
+	ID                            string
+	OwnerID                       string
+	PreparationID                 string
+	RunNumber                     int
 	State                         string
 	TranslationState              string
 	ExecutionMode                 string
@@ -2755,14 +2756,14 @@ type InsertPreparedDeckRunParams struct {
 	ProviderVersion               pgtype.Text
 	Endpoint                      pgtype.Text
 	Model                         pgtype.Text
-	ManifestSchemaVersion         int32
-	RetryPolicyVersion            int32
-	MaxProviderAttempts           int32
-	MaxBatchGenerations           int32
-	BatchMaxRequests              int32
+	ManifestSchemaVersion         int
+	RetryPolicyVersion            int
+	MaxProviderAttempts           int
+	MaxBatchGenerations           int
+	BatchMaxRequests              int
 	BatchMaxBytes                 int64
-	CandidateCount                int32
-	CompletedCount                int32
+	CandidateCount                int
+	CompletedCount                int
 	TranslationCompletedAt        pgtype.Timestamptz
 }
 
@@ -2802,14 +2803,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertPreparedDeckTranslationOutcomeParams struct {
-	OwnerID             pgtype.UUID
-	PreparationID       pgtype.UUID
-	RunID               pgtype.UUID
-	Ordinal             int32
+	OwnerID             string
+	PreparationID       string
+	RunID               string
+	Ordinal             int
 	State               string
-	MaxProviderAttempts int32
+	MaxProviderAttempts int
 	TerminalAt          pgtype.Timestamptz
-	CacheHitCount       int32
+	CacheHitCount       int
 }
 
 func (q *Queries) InsertPreparedDeckTranslationOutcome(ctx context.Context, arg InsertPreparedDeckTranslationOutcomeParams) error {
@@ -2836,14 +2837,14 @@ ORDER BY ci.position
 `
 
 type ListPreparedDeckBatchChunkMembersParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	ChunkID       pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	ChunkID       string
 }
 
 type ListPreparedDeckBatchChunkMembersRow struct {
-	Ordinal         int32
+	Ordinal         int
 	Language        string
 	TargetLanguage  string
 	CanonicalLemma  string
@@ -2892,13 +2893,13 @@ SELECT ordinal FROM deck_preparation_batch_chunk_items WHERE owner_id = $1 AND p
 `
 
 type ListPreparedDeckBatchChunkOrdinalsParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	ChunkID       pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	ChunkID       string
 }
 
-func (q *Queries) ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int32, error) {
+func (q *Queries) ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int, error) {
 	rows, err := q.db.Query(ctx, listPreparedDeckBatchChunkOrdinals,
 		arg.OwnerID,
 		arg.PreparationID,
@@ -2909,9 +2910,9 @@ func (q *Queries) ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg Li
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int32{}
+	items := []int{}
 	for rows.Next() {
-		var ordinal int32
+		var ordinal int
 		if err := rows.Scan(&ordinal); err != nil {
 			return nil, err
 		}
@@ -2928,9 +2929,9 @@ SELECT id, owner_id, preparation_id, run_id, chunk_index, generation, state, pro
 `
 
 type ListPreparedDeckBatchChunksParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) ListPreparedDeckBatchChunks(ctx context.Context, arg ListPreparedDeckBatchChunksParams) ([]DeckPreparationBatchChunk, error) {
@@ -3019,9 +3020,9 @@ ORDER BY generation, chunk_index
 `
 
 type ListPreparedDeckLiveBatchIDsParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPreparedDeckLiveBatchIDsParams) ([]pgtype.Text, error) {
@@ -3049,9 +3050,9 @@ SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonic
 `
 
 type ListPreparedDeckManifestItemsParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) ListPreparedDeckManifestItems(ctx context.Context, arg ListPreparedDeckManifestItemsParams) ([]DeckPreparationManifestItem, error) {
@@ -3140,8 +3141,8 @@ type ListPreparedDeckRecoveryWorkRow struct {
 	OPreparationID string
 	ORunID         string
 	ChunkID        string
-	Ordinal        int32
-	Generation     int32
+	Ordinal        int
+	Generation     int
 	Kind           string
 	LeaseExpired   bool
 }
@@ -3200,10 +3201,10 @@ type ListPreparedDeckStuckBatchesRow struct {
 	State          string
 	ProviderStatus string
 	ErrorClass     string
-	RequestCount   int32
-	CompletedCount int32
-	FailedCount    int32
-	ExpiredCount   int32
+	RequestCount   int
+	CompletedCount int
+	FailedCount    int
+	ExpiredCount   int
 	AgeSeconds     float64
 }
 
@@ -3245,9 +3246,9 @@ SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provide
 `
 
 type ListPreparedDeckTranslationOutcomesParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	RunID         string
 }
 
 func (q *Queries) ListPreparedDeckTranslationOutcomes(ctx context.Context, arg ListPreparedDeckTranslationOutcomesParams) ([]DeckPreparationTranslationOutcome, error) {
@@ -3300,9 +3301,9 @@ FOR UPDATE
 `
 
 type LockPreparedDeckRunTranslatingParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 }
 
 func (q *Queries) LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error) {
@@ -3318,10 +3319,10 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND generation = $4
 `
 
 type NextPreparedDeckBatchChunkIndexParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	RunID         pgtype.UUID
-	Generation    int32
+	OwnerID       string
+	PreparationID string
+	RunID         string
+	Generation    int
 }
 
 func (q *Queries) NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error) {
@@ -3341,8 +3342,8 @@ SELECT COALESCE(max(run_number), 0) + 1 FROM deck_preparation_runs WHERE owner_i
 `
 
 type NextPreparedDeckRunNumberParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
+	OwnerID       string
+	PreparationID string
 }
 
 func (q *Queries) NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error) {
@@ -3393,9 +3394,9 @@ SELECT EXISTS(
 `
 
 type PreparedDeckRunExistsParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
-	Run         pgtype.UUID
+	Owner       string
+	Preparation string
+	Run         string
 }
 
 func (q *Queries) PreparedDeckRunExists(ctx context.Context, arg PreparedDeckRunExistsParams) (bool, error) {
@@ -3418,11 +3419,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type RecordPreparedDeckBatchSubmittedParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 	InputFileID          pgtype.Text
 	BatchID              pgtype.Text
@@ -3532,11 +3533,11 @@ RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch
 `
 
 type RedispatchPreparedDeckTranslationOutcomeParams struct {
-	OwnerID            pgtype.UUID
-	PreparationID      pgtype.UUID
-	RunID              pgtype.UUID
-	Ordinal            int32
-	DispatchGeneration int32
+	OwnerID            string
+	PreparationID      string
+	RunID              string
+	Ordinal            int
+	DispatchGeneration int
 }
 
 func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
@@ -3588,11 +3589,11 @@ RETURNING c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generat
 `
 
 type RetryPreparedDeckBatchSubmissionParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 	ErrorClass           string
 	ErrorCode            string
@@ -3703,13 +3704,13 @@ RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch
 `
 
 type RetryPreparedDeckTranslationOutcomeParams struct {
-	OwnerID            pgtype.UUID
-	PreparationID      pgtype.UUID
-	RunID              pgtype.UUID
-	Ordinal            int32
-	DispatchGeneration int32
+	OwnerID            string
+	PreparationID      string
+	RunID              string
+	Ordinal            int
+	DispatchGeneration int
 	ClaimToken         pgtype.UUID
-	NextAttemptAt      pgtype.Timestamptz
+	NextAttemptAt      time.Time
 	ErrorClass         string
 	ErrorCode          string
 }
@@ -3767,11 +3768,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND reco
 `
 
 type SetPreparedDeckBatchReconciliationJobParams struct {
-	OwnerID                  pgtype.UUID
-	PreparationID            pgtype.UUID
-	RunID                    pgtype.UUID
-	ID                       pgtype.UUID
-	ReconciliationGeneration int32
+	OwnerID                  string
+	PreparationID            string
+	RunID                    string
+	ID                       string
+	ReconciliationGeneration int
 	ReconciliationJobID      pgtype.Int8
 }
 
@@ -3798,11 +3799,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND gene
 `
 
 type SetPreparedDeckBatchSubmissionJobParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	SubmissionGeneration int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	SubmissionGeneration int
 	SubmissionJobID      pgtype.Int8
 }
 
@@ -3829,11 +3830,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND id = $4 AND gene
 `
 
 type SetPreparedDeckBatchSubmissionJobPendingParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	SubmissionGeneration int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	SubmissionGeneration int
 	SubmissionJobID      pgtype.Int8
 }
 
@@ -3863,10 +3864,10 @@ WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND finalization_dispatc
 `
 
 type SetPreparedDeckFinalizationJobParams struct {
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	ID                             pgtype.UUID
-	FinalizationDispatchGeneration int32
+	OwnerID                        string
+	PreparationID                  string
+	ID                             string
+	FinalizationDispatchGeneration int
 	FinalizationJobID              pgtype.Int8
 }
 
@@ -3892,11 +3893,11 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
 `
 
 type SetPreparedDeckTranslationJobParams struct {
-	OwnerID            pgtype.UUID
-	PreparationID      pgtype.UUID
-	RunID              pgtype.UUID
-	Ordinal            int32
-	DispatchGeneration int32
+	OwnerID            string
+	PreparationID      string
+	RunID              string
+	Ordinal            int
+	DispatchGeneration int
 	RiverJobID         pgtype.Int8
 }
 
@@ -3923,9 +3924,9 @@ WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND translation_state = 
 `
 
 type StartPreparedDeckTranslationParams struct {
-	OwnerID       pgtype.UUID
-	PreparationID pgtype.UUID
-	ID            pgtype.UUID
+	OwnerID       string
+	PreparationID string
+	ID            string
 }
 
 // Fenced prepared-deck transitions. The domain rules (claim-token validation,
@@ -3946,12 +3947,12 @@ WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
 `
 
 type UpdatePreparedDeckOutcomeFromBatchParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	Ordinal              int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
 	State                string
-	ProviderAttemptCount int32
+	ProviderAttemptCount int
 	TerminalAt           pgtype.Timestamptz
 	ErrorClass           string
 	ErrorCode            string
@@ -3980,11 +3981,11 @@ RETURNING id, owner_id, preparation_id, run_number, state, translation_state, ex
 `
 
 type UpdatePreparedDeckRunTranslationRunningParams struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	ID             pgtype.UUID
-	CompletedCount int32
-	FailedCount    int32
+	OwnerID        string
+	PreparationID  string
+	ID             string
+	CompletedCount int
+	FailedCount    int
 }
 
 func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error) {
@@ -4055,7 +4056,7 @@ type UpsertEnrichmentCacheParams struct {
 	Gloss                     string
 	SentenceTranslation       string
 	SentenceTranslationTarget string
-	CachedAt                  pgtype.Timestamptz
+	CachedAt                  time.Time
 }
 
 func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error {
@@ -4093,11 +4094,11 @@ SELECT EXISTS(
 `
 
 type VerifyPreparedDeckBatchSubmissionClaimParams struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	ID                   pgtype.UUID
-	Generation           int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	ID                   string
+	Generation           int
 	SubmissionClaimToken pgtype.UUID
 }
 

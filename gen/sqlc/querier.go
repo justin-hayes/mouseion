@@ -64,7 +64,7 @@ type Querier interface {
 	DeleteReadingJourneyMember(ctx context.Context, arg DeleteReadingJourneyMemberParams) error
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
 	DeleteSession(ctx context.Context, tokenHash string) error
-	DeleteUserSessions(ctx context.Context, userID pgtype.UUID) error
+	DeleteUserSessions(ctx context.Context, userID string) error
 	DeleteVocabularyState(ctx context.Context, arg DeleteVocabularyStateParams) (int64, error)
 	DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourneyBooksExistParams) (bool, error)
 	DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error)
@@ -145,11 +145,11 @@ type Querier interface {
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
 	GetSourceMaterialBookByIdentifierForUpdate(ctx context.Context, arg GetSourceMaterialBookByIdentifierForUpdateParams) (string, error)
 	GetSourceMaterialBookForUpdate(ctx context.Context, arg GetSourceMaterialBookForUpdateParams) (string, error)
-	GetStoredActiveStudyLanguage(ctx context.Context, id pgtype.UUID) (pgtype.Text, error)
+	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
-	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
+	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
 	GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error)
@@ -191,22 +191,22 @@ type Querier interface {
 	// source_material_evidence view in 000068) so the composed projection and its
 	// analysis status/state classification are one SQL artifact instead of Go
 	// string stitching.
-	ListActiveBooks(ctx context.Context, owner pgtype.UUID) ([]ListActiveBooksRow, error)
+	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
-	ListAnalysisJobs(ctx context.Context, ownerID pgtype.UUID) ([]ListAnalysisJobsRow, error)
-	ListCatalogueSyncStatuses(ctx context.Context, ownerID pgtype.UUID) ([]ListCatalogueSyncStatusesRow, error)
+	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
+	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error)
 	ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error)
 	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
-	ListKnownVocabularyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListKnownVocabularyLanguagesRow, error)
+	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBooksEvidence, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error)
-	ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int32, error)
+	ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int, error)
 	ListPreparedDeckBatchChunks(ctx context.Context, arg ListPreparedDeckBatchChunksParams) ([]DeckPreparationBatchChunk, error)
 	ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPreparedDeckLiveBatchIDsParams) ([]pgtype.Text, error)
 	ListPreparedDeckManifestItems(ctx context.Context, arg ListPreparedDeckManifestItemsParams) ([]DeckPreparationManifestItem, error)
@@ -229,13 +229,13 @@ type Querier interface {
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
-	ListStudyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListStudyLanguagesRow, error)
+	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
 	MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error
-	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID pgtype.UUID) (pgtype.Text, error)
+	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
 	NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error)
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)

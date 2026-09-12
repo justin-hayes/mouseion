@@ -7,8 +7,7 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const listSourceMaterials = `-- name: ListSourceMaterials :many
@@ -50,8 +49,8 @@ type ListSourceMaterialsRow struct {
 	ContentDigest     string
 	ContentRevisionID string
 	ContentSnapshotID string
-	DigestVersion     int32
-	SourceCreatedAt   pgtype.Timestamptz
+	DigestVersion     int
+	SourceCreatedAt   time.Time
 	AnalysisStatus    string
 	AnalysisState     string
 	AnalysisRunID     string

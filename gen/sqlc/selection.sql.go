@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -47,8 +48,8 @@ WHERE sc.owner_id = $2 AND sm.id = $3
 
 type GetCoverageEntryForBookParams struct {
 	FirstEncounter int64
-	Owner          pgtype.UUID
-	Book           pgtype.UUID
+	Owner          string
+	Book           string
 	Corpus         string
 	Language       string
 	CanonicalLemma string
@@ -132,7 +133,7 @@ WHERE sc.owner_id = $2 AND sc.corpus_id = $3
 
 type GetCoverageEntryForCorpusParams struct {
 	FirstEncounter int64
-	Owner          pgtype.UUID
+	Owner          string
 	Corpus         string
 	Language       string
 	CanonicalLemma string
@@ -195,16 +196,16 @@ ORDER BY e.is_chosen DESC, e.selection_rank, e.id
 `
 
 type ListReviewSentencesParams struct {
-	Owner          pgtype.UUID
+	Owner          string
 	Language       pgtype.Text
 	CanonicalLemma pgtype.Text
 	Upos           pgtype.Text
 }
 
 type ListReviewSentencesRow struct {
-	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	ID               string
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
@@ -215,7 +216,7 @@ type ListReviewSentencesRow struct {
 	SelectionScore   pgtype.Int4
 	SelectionReasons []byte
 	IsChosen         bool
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error) {
@@ -268,17 +269,17 @@ ORDER BY e.is_chosen DESC, e.selection_rank, e.id
 `
 
 type ListReviewSentencesForBookParams struct {
-	Owner          pgtype.UUID
-	Book           pgtype.UUID
+	Owner          string
+	Book           string
 	Language       pgtype.Text
 	CanonicalLemma pgtype.Text
 	Upos           pgtype.Text
 }
 
 type ListReviewSentencesForBookRow struct {
-	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	ID               string
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
@@ -289,7 +290,7 @@ type ListReviewSentencesForBookRow struct {
 	SelectionScore   pgtype.Int4
 	SelectionReasons []byte
 	IsChosen         bool
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error) {
@@ -342,17 +343,17 @@ ORDER BY selection_rank
 `
 
 type ListSelectedSentencesParams struct {
-	Owner          pgtype.UUID
-	Corpus         pgtype.UUID
+	Owner          string
+	Corpus         string
 	Language       pgtype.Text
 	CanonicalLemma pgtype.Text
 	Upos           pgtype.Text
 }
 
 type ListSelectedSentencesRow struct {
-	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	ID               string
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
@@ -363,7 +364,7 @@ type ListSelectedSentencesRow struct {
 	SelectionScore   pgtype.Int4
 	SelectionReasons []byte
 	IsChosen         bool
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) ListSelectedSentences(ctx context.Context, arg ListSelectedSentencesParams) ([]ListSelectedSentencesRow, error) {
@@ -430,8 +431,8 @@ ORDER BY sc.language, sc.canonical_lemma, sc.upos
 `
 
 type ListSelectionCandidatesForBookParams struct {
-	Owner pgtype.UUID
-	Book  pgtype.UUID
+	Owner string
+	Book  string
 }
 
 type ListSelectionCandidatesForBookRow struct {
@@ -440,11 +441,11 @@ type ListSelectionCandidatesForBookRow struct {
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
-	OccurrenceCount      int32
+	OccurrenceCount      int
 	ObservedForms        []byte
 	EligibleSentenceRefs []byte
 	Provenance           []byte
-	SelectedAt           pgtype.Timestamptz
+	SelectedAt           time.Time
 	FirstEncounter       int64
 }
 
@@ -503,7 +504,7 @@ ORDER BY sc.language, sc.canonical_lemma, sc.upos
 `
 
 type ListSelectionCandidatesForCorpusParams struct {
-	Owner  pgtype.UUID
+	Owner  string
 	Corpus string
 }
 
@@ -513,11 +514,11 @@ type ListSelectionCandidatesForCorpusRow struct {
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
-	OccurrenceCount      int32
+	OccurrenceCount      int
 	ObservedForms        []byte
 	EligibleSentenceRefs []byte
 	Provenance           []byte
-	SelectedAt           pgtype.Timestamptz
+	SelectedAt           time.Time
 	FirstEncounter       int64
 }
 
@@ -568,7 +569,7 @@ LIMIT 1
 `
 
 type SelectAcquisitionCandidateParams struct {
-	Owner          pgtype.UUID
+	Owner          string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -614,8 +615,8 @@ RETURNING id, owner_id, corpus_id, sentence_key, sentence_text, source_location,
 `
 
 type UpsertReviewSentenceFromAnalysisParams struct {
-	OwnerID        pgtype.UUID
-	CorpusID       pgtype.UUID
+	OwnerID        string
+	CorpusID       string
 	SentenceKey    string
 	SentenceText   string
 	SourceLocation []byte
@@ -625,9 +626,9 @@ type UpsertReviewSentenceFromAnalysisParams struct {
 }
 
 type UpsertReviewSentenceFromAnalysisRow struct {
-	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	ID               string
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
@@ -638,7 +639,7 @@ type UpsertReviewSentenceFromAnalysisRow struct {
 	SelectionScore   pgtype.Int4
 	SelectionReasons []byte
 	IsChosen         bool
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error) {

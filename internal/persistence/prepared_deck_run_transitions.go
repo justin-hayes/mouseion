@@ -34,7 +34,7 @@ func outcomeTransitionErrorTx(ctx context.Context, q *sqlcgen.Queries, owner, pr
 		return err
 	}
 	_, getErr := q.GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal,
 	})
 	if getErr != nil {
 		return missing(getErr)
@@ -52,11 +52,11 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		model, err := q.ClaimPreparedDeckTranslationOutcome(ctx, sqlcgen.ClaimPreparedDeckTranslationOutcomeParams{
-			OwnerID:            uuidArg(owner),
-			PreparationID:      uuidArg(preparationID),
-			RunID:              uuidArg(runID),
-			Ordinal:            int32(ordinal),
-			DispatchGeneration: int32(generation),
+			OwnerID:            owner,
+			PreparationID:      preparationID,
+			RunID:              runID,
+			Ordinal:            ordinal,
+			DispatchGeneration: generation,
 			ClaimToken:         uuidArg(token),
 			LeaseExpiresAt:     pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
 		})
@@ -65,7 +65,7 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 		}
 		outcome = preparedDeckOutcomeFromModel(model)
 		if err = q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
-			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID),
+			OwnerID: owner, PreparationID: preparationID, ID: runID,
 		}); err != nil {
 			return err
 		}
@@ -84,13 +84,13 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		model, err := q.RetryPreparedDeckTranslationOutcome(ctx, sqlcgen.RetryPreparedDeckTranslationOutcomeParams{
-			OwnerID:            uuidArg(owner),
-			PreparationID:      uuidArg(preparationID),
-			RunID:              uuidArg(runID),
-			Ordinal:            int32(ordinal),
-			DispatchGeneration: int32(generation),
+			OwnerID:            owner,
+			PreparationID:      preparationID,
+			RunID:              runID,
+			Ordinal:            ordinal,
+			DispatchGeneration: generation,
 			ClaimToken:         uuidArg(token),
-			NextAttemptAt:      pgtype.Timestamptz{Time: nextAttemptAt, Valid: true},
+			NextAttemptAt:      nextAttemptAt,
 			ErrorClass:         errorClass,
 			ErrorCode:          errorCode,
 		})
@@ -129,7 +129,7 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		runModel, err := q.GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{
-			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID),
+			OwnerID: owner, PreparationID: preparationID, ID: runID,
 		})
 		run = preparedDeckRunFromModel(runModel)
 		if err != nil {
@@ -151,9 +151,9 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 			return ErrInvalidTransition
 		}
 		model, err := q.FinishPreparedDeckTranslationOutcome(ctx, sqlcgen.FinishPreparedDeckTranslationOutcomeParams{
-			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal), DispatchGeneration: int32(generation), ClaimToken: uuidArg(token),
-			State: string(update.State), ProviderAttemptCount: int32(boolInt(update.ProviderAttempt)), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
-			CacheHitCount: int32(boolInt(update.CacheHit)), ProviderCallCount: int32(boolInt(update.ProviderCall)), CacheLatencyMs: cacheLatencyMS, ProviderLatencyMs: providerLatencyMS,
+			OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal, DispatchGeneration: generation, ClaimToken: uuidArg(token),
+			State: string(update.State), ProviderAttemptCount: boolInt(update.ProviderAttempt), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+			CacheHitCount: boolInt(update.CacheHit), ProviderCallCount: boolInt(update.ProviderCall), CacheLatencyMs: cacheLatencyMS, ProviderLatencyMs: providerLatencyMS,
 		})
 		if err != nil {
 			if errors.Is(missing(err), ErrNotFound) {
@@ -172,7 +172,7 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 		outcome = preparedDeckOutcomeFromModel(model)
 
 		counts, err := q.CountPreparedDeckRunOutcomeStates(ctx, sqlcgen.CountPreparedDeckRunOutcomeStatesParams{
-			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+			OwnerID: owner, PreparationID: preparationID, RunID: runID,
 		})
 		if err != nil {
 			return err
@@ -181,16 +181,16 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 		if counts.NonterminalCount == 0 {
 			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
 				if runModel, err = q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{
-					OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+					OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
 				}); err != nil {
 					return err
 				}
 				run = preparedDeckRunFromModel(runModel)
-				if _, err = q.FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: uuidArg(owner), ID: uuidArg(preparationID), CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"}); err != nil {
+				if _, err = q.FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: owner, ID: preparationID, CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"}); err != nil {
 					return err
 				}
 			} else {
-				runModel, err = q.FinalizePreparedDeckRun(ctx, sqlcgen.FinalizePreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount)})
+				runModel, err = q.FinalizePreparedDeckRun(ctx, sqlcgen.FinalizePreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount})
 				if err != nil {
 					return err
 				}
@@ -202,7 +202,7 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 				}
 			}
 		} else {
-			runModel, err = q.UpdatePreparedDeckRunTranslationRunning(ctx, sqlcgen.UpdatePreparedDeckRunTranslationRunningParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount)})
+			runModel, err = q.UpdatePreparedDeckRunTranslationRunning(ctx, sqlcgen.UpdatePreparedDeckRunTranslationRunningParams{OwnerID: owner, PreparationID: preparationID, ID: runID, CompletedCount: run.CompletedCount, FailedCount: run.FailedCount})
 			if err != nil {
 				return err
 			}
@@ -215,7 +215,7 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 
 func getPreparedDeckTranslationOutcomeTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {
 	model, err := q.GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal,
 	})
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
@@ -234,11 +234,11 @@ func boolInt(value bool) int {
 // increments the generation that stale workers must match.
 func (s *PostgresStore) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal, expectedGeneration int) (domain.PreparedDeckTranslationOutcome, error) {
 	model, err := s.queries().RedispatchPreparedDeckTranslationOutcome(ctx, sqlcgen.RedispatchPreparedDeckTranslationOutcomeParams{
-		OwnerID:            uuidArg(owner),
-		PreparationID:      uuidArg(preparationID),
-		RunID:              uuidArg(runID),
-		Ordinal:            int32(ordinal),
-		DispatchGeneration: int32(expectedGeneration),
+		OwnerID:            owner,
+		PreparationID:      preparationID,
+		RunID:              runID,
+		Ordinal:            ordinal,
+		DispatchGeneration: expectedGeneration,
 	})
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
@@ -253,10 +253,10 @@ func (s *PostgresStore) ClaimPreparedDeckFinalization(ctx context.Context, owner
 		return domain.PreparedDeckRun{}, ErrInvalidTransition
 	}
 	row, err := s.queries().ClaimPreparedDeckFinalization(ctx, sqlcgen.ClaimPreparedDeckFinalizationParams{
-		OwnerID:                        uuidArg(owner),
-		PreparationID:                  uuidArg(preparationID),
-		ID:                             uuidArg(runID),
-		FinalizationDispatchGeneration: int32(generation),
+		OwnerID:                        owner,
+		PreparationID:                  preparationID,
+		ID:                             runID,
+		FinalizationDispatchGeneration: generation,
 		FinalizationClaimToken:         uuidArg(token),
 		FinalizationLeaseExpiresAt:     pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
 	})
@@ -281,10 +281,10 @@ func (s *PostgresStore) AssignPreparedDeckFinalizationJob(ctx context.Context, o
 		return domain.PreparedDeckRun{}, ErrInvalidTransition
 	}
 	row, err := s.queries().AssignPreparedDeckFinalizationJob(ctx, sqlcgen.AssignPreparedDeckFinalizationJobParams{
-		OwnerID:                        uuidArg(owner),
-		PreparationID:                  uuidArg(preparationID),
-		ID:                             uuidArg(runID),
-		FinalizationDispatchGeneration: int32(expectedGeneration),
+		OwnerID:                        owner,
+		PreparationID:                  preparationID,
+		ID:                             runID,
+		FinalizationDispatchGeneration: expectedGeneration,
 		FinalizationJobID:              pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	if err != nil {
@@ -301,7 +301,7 @@ func (s *PostgresStore) AssignPreparedDeckBatchSubmissionJob(ctx context.Context
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err := s.queries().AssignPreparedDeckBatchSubmissionJob(ctx, sqlcgen.AssignPreparedDeckBatchSubmissionJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(expectedGeneration), SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, SubmissionGeneration: expectedGeneration, SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -315,7 +315,7 @@ func (s *PostgresStore) ClaimPreparedDeckBatchSubmission(ctx context.Context, ow
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err := s.queries().ClaimPreparedDeckBatchSubmission(ctx, sqlcgen.ClaimPreparedDeckBatchSubmissionParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(generation), SubmissionClaimToken: uuidArg(token), SubmissionLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, SubmissionGeneration: generation, SubmissionClaimToken: uuidArg(token), SubmissionLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -348,7 +348,7 @@ func (s *PostgresStore) AssignPreparedDeckBatchReconciliationJob(ctx context.Con
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err := s.queries().AssignPreparedDeckBatchReconciliationJob(ctx, sqlcgen.AssignPreparedDeckBatchReconciliationJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationGeneration: int32(expectedGeneration), ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, ReconciliationGeneration: expectedGeneration, ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -362,7 +362,7 @@ func (s *PostgresStore) ClaimPreparedDeckBatchReconciliation(ctx context.Context
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err := s.queries().ClaimPreparedDeckBatchReconciliation(ctx, sqlcgen.ClaimPreparedDeckBatchReconciliationParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationGeneration: int32(generation), ReconciliationClaimToken: uuidArg(token), ReconciliationLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, ReconciliationGeneration: generation, ReconciliationClaimToken: uuidArg(token), ReconciliationLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -397,7 +397,7 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 	defer tx.Rollback(ctx)
 	var count int
 	count64, err := sqlcgen.New(tx).CompletePreparedDeckBatchCacheHits(ctx, sqlcgen.CompletePreparedDeckBatchCacheHitsParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token),
 	})
 	count = int(count64)
 	if err != nil {
@@ -420,7 +420,7 @@ func (s *PostgresStore) FinishPreparedDeckBatchSubmission(ctx context.Context, o
 		return domain.PreparedDeckBatchChunk{}, err
 	}
 	model, err := s.queries().FinishPreparedDeckBatchSubmission(ctx, sqlcgen.FinishPreparedDeckBatchSubmissionParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), State: string(state), ErrorClass: errorClass, ErrorCode: errorCode,
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token), State: string(state), ErrorClass: errorClass, ErrorCode: errorCode,
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -437,7 +437,7 @@ func (s *PostgresStore) RetryPreparedDeckBatchSubmission(ctx context.Context, ow
 		return domain.PreparedDeckBatchChunk{}, err
 	}
 	model, err := s.queries().RetryPreparedDeckBatchSubmission(ctx, sqlcgen.RetryPreparedDeckBatchSubmissionParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), ErrorClass: errorClass, ErrorCode: errorCode,
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token), ErrorClass: errorClass, ErrorCode: errorCode,
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
@@ -451,11 +451,11 @@ func (s *PostgresStore) RetryPreparedDeckBatchSubmission(ctx context.Context, ow
 // the provider call ineligible.
 func (s *PostgresStore) VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) error {
 	exists, err := s.queries().VerifyPreparedDeckBatchSubmissionClaim(ctx, sqlcgen.VerifyPreparedDeckBatchSubmissionClaimParams{
-		OwnerID:              uuidArg(owner),
-		PreparationID:        uuidArg(preparationID),
-		RunID:                uuidArg(runID),
-		ID:                   uuidArg(chunkID),
-		Generation:           int32(generation),
+		OwnerID:              owner,
+		PreparationID:        preparationID,
+		RunID:                runID,
+		ID:                   chunkID,
+		Generation:           generation,
 		SubmissionClaimToken: uuidArg(token),
 	})
 	if err != nil {
@@ -478,7 +478,7 @@ func (s *PostgresStore) FinishPreparedDeckBatchReconciliation(ctx context.Contex
 		return domain.PreparedDeckBatchChunk{}, err
 	}
 	model, err := s.queries().FinishPreparedDeckBatchReconciliation(ctx, sqlcgen.FinishPreparedDeckBatchReconciliationParams{
-		Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), Token: uuidArg(token), State: string(update.State), ProviderStatus: update.ProviderStatus, OutputFileID: update.OutputFileID, ErrorFileID: update.ErrorFileID, CompletedCount: int32(update.CompletedCount), FailedCount: int32(update.FailedCount), ExpiredCount: int32(update.ExpiredCount), InputTokens: update.InputTokens, OutputTokens: update.OutputTokens, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(update.ProviderCompletedAt),
+		Owner: owner, Preparation: preparationID, Run: runID, ID: chunkID, Generation: generation, Token: uuidArg(token), State: string(update.State), ProviderStatus: update.ProviderStatus, OutputFileID: update.OutputFileID, ErrorFileID: update.ErrorFileID, CompletedCount: update.CompletedCount, FailedCount: update.FailedCount, ExpiredCount: update.ExpiredCount, InputTokens: update.InputTokens, OutputTokens: update.OutputTokens, ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(update.ProviderCompletedAt),
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
