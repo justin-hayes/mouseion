@@ -205,9 +205,13 @@ class Producer:
         }
         tokens = []
         for ordinal, (word, _token, start, end, ner, surface, lemma, primary_lemma) in enumerate(words):
-            dependency = getattr(word, "deprel", "")
             head_id = getattr(word, "head", 0)
-            head = ordinal if head_id == 0 else word_ordinals.get(head_id)
+            if head_id == 0:
+                dependency = "root"
+                head = ordinal
+            else:
+                dependency = getattr(word, "deprel", "")
+                head = word_ordinals.get(head_id)
             if not dependency or head is None:
                 raise ValueError(
                     f"dependency parse did not resolve token {ordinal} in sentence {sentence.text!r}"
