@@ -352,6 +352,8 @@ func (s *PostgresStore) CreateFirstUserAndSession(ctx context.Context, username,
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
+	// This process-wide advisory lock serializes first-user creation; it is a
+	// domain fence rather than a data query and therefore remains raw SQL.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(110011)`); err != nil {
 		return u, false, err
 	}
@@ -628,6 +630,8 @@ func (s *PostgresStore) GetArtifact(ctx context.Context, hash string) (a domain.
 func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash string) (v domain.Corpus, err error) {
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
+		// This advisory lock serializes per-owner/source corpus replacement; it
+		// is a domain fence rather than a data query and remains raw SQL.
 		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner+":"+sourceID); err != nil {
 			return err
 		}

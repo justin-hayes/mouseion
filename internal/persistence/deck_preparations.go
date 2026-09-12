@@ -344,6 +344,8 @@ func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.Deck
 // one commit boundary.
 func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation) (domain.DeckPreparation, bool, error) {
 	var bookID *string
+	// These row locks fence the book/source identity while the preparation is
+	// created; they are domain concurrency rules, not ordinary data queries.
 	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2 FOR UPDATE`, p.OwnerID, p.SourceMaterialID).Scan(&bookID); err != nil {
 		return domain.DeckPreparation{}, false, missing(err)
 	}

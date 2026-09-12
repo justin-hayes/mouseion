@@ -95,6 +95,26 @@ func pgInt8(value pgtype.Int8) int64 {
 	return value.Int64
 }
 
+func generatedVocabularyFromFields(ownerID, language, lemma, upos, firstDeckID, firstSourceMaterialID string, firstGeneratedAt pgtype.Timestamptz) domain.GeneratedVocabulary {
+	var sourceMaterialID *string
+	if firstSourceMaterialID != "" {
+		sourceMaterialID = &firstSourceMaterialID
+	}
+	return domain.GeneratedVocabulary{
+		OwnerID: ownerID, Language: language, CanonicalLemma: lemma, UPOS: upos,
+		FirstDeckID: firstDeckID, FirstSourceMaterialID: sourceMaterialID,
+		FirstGeneratedAt: pgTime(firstGeneratedAt),
+	}
+}
+
+func bookFromFields(id, ownerID, title, metadataProvenance, languageState, languageTag string, createdAt, updatedAt pgtype.Timestamptz) domain.Book {
+	return domain.Book{ID: id, OwnerID: ownerID, Title: title, MetadataProvenance: metadataProvenance, LanguageState: languageState, LanguageTag: languageTag, CreatedAt: pgTime(createdAt), UpdatedAt: pgTime(updatedAt)}
+}
+
+func bookAliasFromFields(id, ownerID, bookID, connectionID, aliasType, namespace, value string, createdAt pgtype.Timestamptz) domain.BookAlias {
+	return domain.BookAlias{ID: id, OwnerID: ownerID, BookID: bookID, ConnectionID: connectionID, AliasType: aliasType, Namespace: namespace, Value: value, CreatedAt: pgTime(createdAt)}
+}
+
 // textArg converts a string into the pgtype form sqlc binds for nullable text
 // columns that are guaranteed non-null by the caller's domain rules.
 func textArg(value string) pgtype.Text {

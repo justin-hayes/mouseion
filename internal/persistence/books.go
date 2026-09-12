@@ -13,9 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const bookColumns = `id::text,owner_id::text,title,metadata_provenance,language_state,COALESCE(language_tag,''),created_at,updated_at`
-const qualifiedBookColumns = `b.id::text,b.owner_id::text,b.title,b.metadata_provenance,b.language_state,COALESCE(b.language_tag,''),b.created_at,b.updated_at`
-
 // LanguageCount is one owner-scoped language pill count. Tag is "unknown"
 // for books whose language state is unknown.
 type LanguageCount struct {
@@ -29,12 +26,6 @@ type MyBooksBrowseResult struct {
 	Total      int
 	Counts     []LanguageCount
 	AllCount   int
-}
-
-func scanBook(row pgx.Row) (domain.Book, error) {
-	var b domain.Book
-	err := row.Scan(&b.ID, &b.OwnerID, &b.Title, &b.MetadataProvenance, &b.LanguageState, &b.LanguageTag, &b.CreatedAt, &b.UpdatedAt)
-	return b, missing(err)
 }
 
 func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain.Book, error) {
@@ -62,29 +53,15 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 // with a chosen canonical language. Reference names are optional so newly
 // discovered tags remain importable.
 func (s *PostgresStore) ListStudyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
-	rows, err := s.pool.Query(ctx, `WITH chosen_languages AS (
-		SELECT DISTINCT b.language_tag AS language
-		FROM books b
-		JOIN book_membership m ON m.owner_id=b.owner_id AND m.book_id=b.id AND m.state='active'
-		WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag <> ''
-	)
-	SELECT c.language, COALESCE(NULLIF(s.display_name,''), c.language)
-	FROM chosen_languages c
-	LEFT JOIN supported_languages s ON s.language=c.language
-	ORDER BY COALESCE(NULLIF(s.display_name,''), c.language), c.language`, owner)
+	rows, err := s.queries().ListStudyLanguages(ctx, uuidArg(owner))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []domain.StudyLanguage
-	for rows.Next() {
-		var language domain.StudyLanguage
-		if err := rows.Scan(&language.Language, &language.DisplayName); err != nil {
-			return nil, err
-		}
-		out = append(out, language)
+	for _, row := range rows {
+		out = append(out, domain.StudyLanguage{Language: pgText(row.Language), DisplayName: pgText(row.DisplayName)})
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // ListMyBooksWithEvidence is the My Books collection read model. Membership
@@ -186,74 +163,56 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 }
 
 func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (domain.Book, error) {
-	return scanBook(s.pool.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
+	row, err := s.queries().GetBook(ctx, sqlcgen.GetBookParams{OwnerID: uuidArg(owner), ID: uuidArg(bookID)})
+	if err != nil {
+		return domain.Book{}, missing(err)
+	}
+	return bookFromFields(row.ID, row.OwnerID, row.Title, row.MetadataProvenance, row.LanguageState, row.LanguageTag, row.CreatedAt, row.UpdatedAt), nil
 }
 
 // GetBookCatalogEntryAlias returns the owner's recorded catalogue identity for
 // an active Book. Missing and cross-owner identities are deliberately the same
 // not-found result.
 func (s *PostgresStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
-	var alias domain.BookAlias
-	var connectionID *string
-	err := s.pool.QueryRow(ctx, `SELECT a.id::text,a.owner_id::text,a.book_id::text,a.connection_id::text,a.alias_type,a.namespace,a.value,a.created_at
-		FROM book_aliases a
-		JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
-		JOIN book_membership m ON m.owner_id=a.owner_id AND m.book_id=a.book_id AND m.state='active'
-		WHERE a.owner_id=$1 AND a.book_id=$2 AND a.alias_type=$3 AND a.namespace=$4`, owner, bookID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier).
-		Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &connectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt)
-	if connectionID != nil {
-		alias.ConnectionID = *connectionID
+	row, err := s.queries().GetBookCatalogEntryAlias(ctx, sqlcgen.GetBookCatalogEntryAliasParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
+	if err != nil {
+		return domain.BookAlias{}, missing(err)
 	}
-	return alias, missing(err)
+	return bookAliasFromFields(row.AID, row.AOwnerID, row.ABookID, row.ConnectionID, row.AliasType, row.Namespace, row.Value, row.CreatedAt), nil
 }
 
 // ListUnscopedCatalogueEntryAliases returns only legacy catalogue-entry aliases
 // that still need the application-logic connection backfill. Strong
 // bibliographic aliases are intentionally excluded.
 func (s *PostgresStore) ListUnscopedCatalogueEntryAliases(ctx context.Context) ([]domain.BookAlias, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id::text,owner_id::text,book_id::text,connection_id::text,alias_type,namespace,value,created_at
-		FROM book_aliases
-		WHERE connection_id IS NULL AND alias_type=$1 AND namespace=$2
-		ORDER BY owner_id,id`, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier)
+	rows, err := s.queries().ListUnscopedCatalogueEntryAliases(ctx, sqlcgen.ListUnscopedCatalogueEntryAliasesParams{AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var aliases []domain.BookAlias
-	for rows.Next() {
-		var alias domain.BookAlias
-		var connectionID *string
-		if err := rows.Scan(&alias.ID, &alias.OwnerID, &alias.BookID, &connectionID, &alias.AliasType, &alias.Namespace, &alias.Value, &alias.CreatedAt); err != nil {
-			return nil, err
-		}
-		if connectionID != nil {
-			alias.ConnectionID = *connectionID
-		}
-		aliases = append(aliases, alias)
+	for _, row := range rows {
+		aliases = append(aliases, bookAliasFromFields(row.ID, row.OwnerID, row.BookID, row.ConnectionID, row.AliasType, row.Namespace, row.Value, row.CreatedAt))
 	}
-	return aliases, rows.Err()
+	return aliases, nil
 }
 
 // SetCatalogueEntryAliasConnection assigns a legacy alias only while it is
 // unscoped and only to a connection owned by the same learner.
 func (s *PostgresStore) SetCatalogueEntryAliasConnection(ctx context.Context, owner, aliasID, connectionID string) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE book_aliases a SET connection_id=$3
-		WHERE a.owner_id=$1 AND a.id=$2 AND a.connection_id IS NULL
-		  AND a.alias_type=$4 AND a.namespace=$5
-		  AND EXISTS (SELECT 1 FROM opds_connections c WHERE c.owner_id=$1 AND c.id=$3)`, owner, aliasID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier)
+	tag, err := s.queries().SetCatalogueEntryAliasConnection(ctx, sqlcgen.SetCatalogueEntryAliasConnectionParams{OwnerID: uuidArg(owner), ID: uuidArg(aliasID), ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
 	if err != nil {
 		return aliasConflictError(err)
 	}
-	if tag.RowsAffected() == 0 {
-		var current *string
-		err = s.pool.QueryRow(ctx, `SELECT connection_id::text FROM book_aliases WHERE owner_id=$1 AND id=$2`, owner, aliasID).Scan(&current)
+	if tag == 0 {
+		current, lookupErr := s.queries().GetBookAliasConnection(ctx, sqlcgen.GetBookAliasConnectionParams{OwnerID: uuidArg(owner), ID: uuidArg(aliasID)})
+		err = lookupErr
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
 		}
-		if current != nil && *current == connectionID {
+		if current == connectionID {
 			return nil
 		}
 		return ErrAliasConflict
@@ -267,27 +226,22 @@ func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.B
 	if err := b.Validate(); err != nil {
 		return domain.Book{}, err
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.Book{}, err
-	}
-	defer tx.Rollback(ctx)
-	created, err := scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,$4,$5) RETURNING `+bookColumns, b.OwnerID, b.Title, b.MetadataProvenance, b.LanguageState, nullableLanguageTag(b.LanguageState, b.LanguageTag)))
-	if err != nil {
-		return domain.Book{}, err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO book_membership(owner_id,book_id,state,activated_at) VALUES($1,$2,'active',now())`, created.OwnerID, created.ID); err != nil {
-		return domain.Book{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.Book{}, err
-	}
-	return created, nil
+	var created domain.Book
+	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		row, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: uuidArg(b.OwnerID), Title: b.Title, MetadataProvenance: b.MetadataProvenance, LanguageState: b.LanguageState, LanguageTag: nullableTextArg(nullableLanguageTag(b.LanguageState, b.LanguageTag))})
+		if err != nil {
+			return err
+		}
+		created = bookFromFields(row.ID, row.OwnerID, row.Title, row.MetadataProvenance, row.LanguageState, row.LanguageTag, row.CreatedAt, row.UpdatedAt)
+		return q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: uuidArg(created.OwnerID), BookID: uuidArg(created.ID)})
+	})
+	return created, err
 }
 
-func nullableLanguageTag(state, tag string) any {
+func nullableLanguageTag(state, tag string) string {
 	if state == domain.LanguageUnknown {
-		return nil
+		return ""
 	}
 	return tag
 }
@@ -305,27 +259,20 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 	if err = candidate.Validate(); err != nil {
 		return domain.Book{}, err
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.Book{}, err
-	}
-	defer tx.Rollback(ctx)
-	updated, err := scanBook(tx.QueryRow(ctx, `UPDATE books SET title=$3,language_state=$4,language_tag=$5,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+bookColumns, owner, bookID, title, languageState, nullableLanguageTag(languageState, languageTag)))
-	if err != nil {
-		return domain.Book{}, err
-	}
-	if languageState == domain.LanguageChosen {
-		_, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2 AND language<>$3`, owner, bookID, languageTag)
-	} else {
-		_, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND book_id=$2`, owner, bookID)
-	}
-	if err != nil {
-		return domain.Book{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.Book{}, err
-	}
-	return updated, nil
+	var updated domain.Book
+	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		row, err := q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: uuidArg(owner), ID: uuidArg(bookID), Title: title, LanguageState: languageState, LanguageTag: nullableTextArg(nullableLanguageTag(languageState, languageTag))})
+		if err != nil {
+			return err
+		}
+		updated = bookFromFields(row.ID, row.OwnerID, row.Title, row.MetadataProvenance, row.LanguageState, row.LanguageTag, row.CreatedAt, row.UpdatedAt)
+		if languageState == domain.LanguageChosen {
+			return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), Language: languageTag})
+		}
+		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID)})
+	})
+	return updated, err
 }
 
 func ensureBookExists(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
@@ -340,8 +287,7 @@ func ensureBookExists(ctx context.Context, tx pgx.Tx, owner, bookID string) erro
 }
 
 func activateMembership(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
-	_, err := tx.Exec(ctx, `INSERT INTO book_membership(owner_id,book_id,state,activated_at) VALUES($1,$2,'active',now()) ON CONFLICT(owner_id,book_id) DO UPDATE SET state='active',activated_at=CASE WHEN book_membership.state='removed' THEN now() ELSE book_membership.activated_at END,removed_at=NULL`, owner, bookID)
-	return err
+	return sqlcgen.New(tx).ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID)})
 }
 
 func (s *PostgresStore) AddBookToMyBooks(ctx context.Context, owner, bookID string) error {
@@ -368,8 +314,7 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO book_membership(owner_id,book_id,state,removed_at) VALUES($1,$2,'removed',now()) ON CONFLICT(owner_id,book_id) DO UPDATE SET state='removed',removed_at=CASE WHEN book_membership.state='removed' THEN book_membership.removed_at ELSE now() END`, owner, bookID)
-	if err != nil {
+	if err = sqlcgen.New(tx).RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID)}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -377,11 +322,14 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 
 func (s *PostgresStore) ResolveBookByAlias(ctx context.Context, owner, namespace, value string) (domain.Book, bool, error) {
 	namespace, value = strings.TrimSpace(namespace), strings.TrimSpace(value)
-	b, err := scanBook(s.pool.QueryRow(ctx, `SELECT `+qualifiedBookColumns+` FROM books b JOIN book_aliases a ON a.owner_id=b.owner_id AND a.book_id=b.id WHERE a.owner_id=$1 AND a.namespace=$2 AND a.value=$3`, owner, namespace, value))
-	if errors.Is(err, ErrNotFound) {
+	row, err := s.queries().GetBookByAlias(ctx, sqlcgen.GetBookByAliasParams{OwnerID: uuidArg(owner), Namespace: namespace, Value: value})
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Book{}, false, nil
 	}
-	return b, err == nil, err
+	if err != nil {
+		return domain.Book{}, false, err
+	}
+	return bookFromFields(row.BID, row.BOwnerID, row.Title, row.MetadataProvenance, row.LanguageState, row.LanguageTag, row.CreatedAt, row.UpdatedAt), true, nil
 }
 
 func aliasConflictError(err error) error {
@@ -408,11 +356,11 @@ func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasTy
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	var inserted string
-	err = tx.QueryRow(ctx, `INSERT INTO book_aliases(owner_id,book_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,namespace,value) WHERE connection_id IS NULL DO NOTHING RETURNING id::text`, owner, bookID, aliasType, alias.Namespace, alias.Value).Scan(&inserted)
+	_, err = sqlcgen.New(tx).InsertBookAlias(ctx, sqlcgen.InsertBookAliasParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), AliasType: aliasType, Namespace: alias.Namespace, Value: alias.Value})
 	if errors.Is(err, pgx.ErrNoRows) {
 		var existingBook string
-		if err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 AND connection_id IS NULL`, owner, alias.Namespace, alias.Value).Scan(&existingBook); err != nil {
+		existingBook, err = sqlcgen.New(tx).GetUnscopedAliasBookForUpdate(ctx, sqlcgen.GetUnscopedAliasBookForUpdateParams{OwnerID: uuidArg(owner), Namespace: alias.Namespace, Value: alias.Value})
+		if err != nil {
 			return err
 		}
 		if existingBook != bookID {
@@ -436,19 +384,18 @@ func (s *PostgresStore) LinkSourceToBook(ctx context.Context, owner, bookID, sou
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	var current *string
-	err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, sourceMaterialID).Scan(&current)
+	current, err := sqlcgen.New(tx).GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: uuidArg(owner), ID: uuidArg(sourceMaterialID)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
 	if err != nil {
 		return err
 	}
-	if current != nil && *current != bookID {
+	if current != "" && current != bookID {
 		return ErrSourceBookConflict
 	}
-	if current == nil {
-		if _, err = tx.Exec(ctx, `UPDATE source_materials SET book_id=$3 WHERE owner_id=$1 AND id=$2`, owner, sourceMaterialID, bookID); err != nil {
+	if current == "" {
+		if err = sqlcgen.New(tx).SetSourceMaterialBook(ctx, sqlcgen.SetSourceMaterialBookParams{OwnerID: uuidArg(owner), ID: uuidArg(sourceMaterialID), BookID: uuidArg(bookID)}); err != nil {
 			return err
 		}
 	}
@@ -489,55 +436,58 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		return CatalogueEntryReconcileResult{}, err
 	}
 	defer tx.Rollback(ctx)
+	q := sqlcgen.New(tx)
+	// Advisory lock serializes catalogue identity reconciliation; it is a
+	// domain fence rather than a data query and therefore remains raw SQL.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	var aliasBook *string
-	err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND namespace=$3 AND value=$4 FOR UPDATE`, owner, connectionID, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasBook)
+	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: uuidArg(owner), ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
+		aliasBook = ""
 	} else if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	bookID := ""
-	if aliasBook != nil {
-		bookID = *aliasBook
+	if aliasBook != "" {
+		bookID = aliasBook
 	}
 	created := bookID == ""
 	var titleChanged, languageChanged bool
 	if bookID == "" {
-		var createdBook domain.Book
-		createdBook, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,'chosen',$4) RETURNING `+bookColumns, owner, title, domain.MetadataProvenanceCatalogueSync, language))
+		createdBook, insertErr := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: uuidArg(owner), Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
+		err = insertErr
 		if err != nil {
 			return CatalogueEntryReconcileResult{}, err
 		}
 		bookID = createdBook.ID
 	} else {
-		var currentTitle, currentLanguageState, currentLanguageTag string
-		if err = tx.QueryRow(ctx, `SELECT title,language_state,COALESCE(language_tag,'') FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&currentTitle, &currentLanguageState, &currentLanguageTag); err != nil {
+		current, getErr := q.GetBookMetadata(ctx, sqlcgen.GetBookMetadataParams{OwnerID: uuidArg(owner), ID: uuidArg(bookID)})
+		if err = getErr; err != nil {
 			return CatalogueEntryReconcileResult{}, err
 		}
-		titleChanged = strings.TrimSpace(currentTitle) != title
-		languageChanged = currentLanguageState != domain.LanguageChosen || currentLanguageTag != language
+		titleChanged = strings.TrimSpace(current.Title) != title
+		languageChanged = current.LanguageState != domain.LanguageChosen || current.LanguageTag != language
 	}
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE books SET title=$3,language_state='chosen',language_tag=$4,updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, bookID, title, language); err != nil {
+	if _, err = q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: uuidArg(owner), ID: uuidArg(bookID), Title: title, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)}); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if aliasBook == nil {
-		if _, err = tx.Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5,$6)`, owner, bookID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, sourceIdentifier); err != nil {
+	if aliasBook == "" {
+		if err = q.InsertCatalogueEntryAlias(ctx, sqlcgen.InsertCatalogueEntryAliasParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier}); err != nil {
 			return CatalogueEntryReconcileResult{}, aliasConflictError(err)
 		}
 	}
-	book, err := scanBook(tx.QueryRow(ctx, `SELECT `+bookColumns+` FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID))
+	bookRow, err := q.GetBook(ctx, sqlcgen.GetBookParams{OwnerID: uuidArg(owner), ID: uuidArg(bookID)})
 	if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
+	book := bookFromFields(bookRow.ID, bookRow.OwnerID, bookRow.Title, bookRow.MetadataProvenance, bookRow.LanguageState, bookRow.LanguageTag, bookRow.CreatedAt, bookRow.UpdatedAt)
 	if err = tx.Commit(ctx); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
@@ -561,6 +511,9 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		return "", err
 	}
 	defer tx.Rollback(ctx)
+	q := sqlcgen.New(tx)
+	// Advisory lock serializes acquisition identity resolution; it is a domain
+	// fence rather than a data query and therefore remains raw SQL.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,466))`, owner+":"+sourceIdentifier); err != nil {
 		return "", err
 	}
@@ -568,24 +521,24 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		if err = ensureBookExists(ctx, tx, owner, requestedBookID); err != nil {
 			return "", err
 		}
-		var linkedBook *string
-		err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND source_identifier=$2 FOR UPDATE`, owner, sourceIdentifier).Scan(&linkedBook)
+		linkedBook, getErr := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: uuidArg(owner), SourceIdentifier: sourceIdentifier})
+		err = getErr
 		if errors.Is(err, pgx.ErrNoRows) {
-			err = nil
+			linkedBook = ""
 		} else if err != nil {
 			return "", err
 		}
-		if linkedBook != nil && *linkedBook != requestedBookID {
+		if linkedBook != "" && linkedBook != requestedBookID {
 			return "", ErrSourceBookConflict
 		}
-		var aliasedBook *string
-		err = tx.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND namespace=$2 AND value=$3 AND connection_id IS NULL FOR UPDATE`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&aliasedBook)
+		aliasedBook, getErr := q.GetUnscopedAliasBookForUpdate(ctx, sqlcgen.GetUnscopedAliasBookForUpdateParams{OwnerID: uuidArg(owner), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
+		err = getErr
 		if errors.Is(err, pgx.ErrNoRows) {
-			err = nil
+			aliasedBook = ""
 		} else if err != nil {
 			return "", err
 		}
-		if aliasedBook != nil && *aliasedBook != requestedBookID {
+		if aliasedBook != "" && aliasedBook != requestedBookID {
 			return "", ErrAliasConflict
 		}
 		if err = activateMembership(ctx, tx, owner, requestedBookID); err != nil {
@@ -596,32 +549,35 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		}
 		return requestedBookID, nil
 	}
-	var linkedBook *string
-	err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND source_identifier=$2 FOR UPDATE`, owner, sourceIdentifier).Scan(&linkedBook)
+	linkedBook, getErr := q.GetSourceMaterialBookByIdentifierForUpdate(ctx, sqlcgen.GetSourceMaterialBookByIdentifierForUpdateParams{OwnerID: uuidArg(owner), SourceIdentifier: sourceIdentifier})
+	err = getErr
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
+		linkedBook = ""
 	} else if err != nil {
 		return "", err
 	}
-	if linkedBook != nil {
-		if err = ensureBookExists(ctx, tx, owner, *linkedBook); err != nil {
+	if linkedBook != "" {
+		if err = ensureBookExists(ctx, tx, owner, linkedBook); err != nil {
 			return "", err
 		}
-		if err = activateMembership(ctx, tx, owner, *linkedBook); err != nil {
+		if err = activateMembership(ctx, tx, owner, linkedBook); err != nil {
 			return "", err
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return "", err
 		}
-		return *linkedBook, nil
+		return linkedBook, nil
 	}
 
 	var bookID string
-	err = tx.QueryRow(ctx, `SELECT b.id::text FROM books b JOIN book_aliases a ON a.owner_id=b.owner_id AND a.book_id=b.id WHERE a.owner_id=$1 AND a.namespace=$2 AND a.value=$3 AND a.connection_id IS NULL FOR UPDATE OF b,a`, owner, domain.NamespaceSourceIdentifier, sourceIdentifier).Scan(&bookID)
+	bookRow, getErr := q.GetBookByUnscopedAliasForUpdate(ctx, sqlcgen.GetBookByUnscopedAliasForUpdateParams{OwnerID: uuidArg(owner), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
+	err = getErr
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
+		bookID = ""
 	} else if err != nil {
 		return "", err
+	} else {
+		bookID = bookRow.BID
 	}
 	if bookID != "" {
 		if err = activateMembership(ctx, tx, owner, bookID); err != nil {
@@ -633,16 +589,15 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		return bookID, nil
 	}
 
-	var created domain.Book
-	created, err = scanBook(tx.QueryRow(ctx, `INSERT INTO books(owner_id,title,metadata_provenance,language_state,language_tag) VALUES($1,$2,$3,$4,$5) RETURNING `+bookColumns, owner, title, domain.MetadataProvenanceAcquisition, domain.LanguageChosen, language))
+	createdRow, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: uuidArg(owner), Title: title, MetadataProvenance: domain.MetadataProvenanceAcquisition, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 	if err != nil {
 		return "", err
 	}
-	if err = activateMembership(ctx, tx, owner, created.ID); err != nil {
+	if err = activateMembership(ctx, tx, owner, createdRow.ID); err != nil {
 		return "", err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return "", err
 	}
-	return created.ID, nil
+	return createdRow.ID, nil
 }

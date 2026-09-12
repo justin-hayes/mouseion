@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	ActivateBookMembership(ctx context.Context, arg ActivateBookMembershipParams) error
 	AssignPreparedDeckBatchReconciliationJob(ctx context.Context, arg AssignPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AssignPreparedDeckBatchSubmissionJob(ctx context.Context, arg AssignPreparedDeckBatchSubmissionJobParams) (DeckPreparationBatchChunk, error)
 	AssignPreparedDeckFinalizationJob(ctx context.Context, arg AssignPreparedDeckFinalizationJobParams) (AssignPreparedDeckFinalizationJobRow, error)
@@ -53,6 +54,8 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
+	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
+	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error
@@ -81,12 +84,24 @@ type Querier interface {
 	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	FinishPrimaryGoalReading(ctx context.Context, arg FinishPrimaryGoalReadingParams) (FinishPrimaryGoalReadingRow, error)
 	GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error)
+	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
+	GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error)
+	GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error)
+	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
+	GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error)
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
+	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
+	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
+	// Card export and generated-vocabulary persistence queries.
+	GetCorpusForAnalysis(ctx context.Context, arg GetCorpusForAnalysisParams) (GetCorpusForAnalysisRow, error)
 	GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error)
 	GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error)
+	GetCurrentContentRevisionForUpdate(ctx context.Context, arg GetCurrentContentRevisionForUpdateParams) (string, error)
+	GetCurrentExtractedUnitSnapshot(ctx context.Context, arg GetCurrentExtractedUnitSnapshotParams) (GetCurrentExtractedUnitSnapshotRow, error)
 	GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error)
+	GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error)
 	// Deck-preparation lifecycle and book-anchored vocabulary-study queries.
 	// Domain guards stay in the repository; these statements own the SQL shape,
 	// row mapping, and RETURNING clauses.
@@ -97,10 +112,12 @@ type Querier interface {
 	GetDeckPreparationForUpdate(ctx context.Context, arg GetDeckPreparationForUpdateParams) (DeckPreparation, error)
 	GetDeckPreparationFreezeState(ctx context.Context, arg GetDeckPreparationFreezeStateParams) (GetDeckPreparationFreezeStateRow, error)
 	GetDeckPreparationStateForRun(ctx context.Context, arg GetDeckPreparationStateForRunParams) (string, error)
-	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
-	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
 	// Legacy enrichment reads used by the immediate card-export path. Exact
 	// prepared-deck enrichment is resolved separately from its manifest keys.
+	GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error)
+	GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVocabularyParams) (GetGeneratedVocabularyRow, error)
+	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
+	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
@@ -123,10 +140,14 @@ type Querier interface {
 	GetReadingJourney(ctx context.Context, arg GetReadingJourneyParams) (GetReadingJourneyRow, error)
 	GetReadingJourneyRevisionForUpdate(ctx context.Context, arg GetReadingJourneyRevisionForUpdateParams) (int64, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
+	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
+	GetSourceMaterialBookByIdentifierForUpdate(ctx context.Context, arg GetSourceMaterialBookByIdentifierForUpdateParams) (string, error)
+	GetSourceMaterialBookForUpdate(ctx context.Context, arg GetSourceMaterialBookForUpdateParams) (string, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id pgtype.UUID) (pgtype.Text, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
+	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
@@ -138,6 +159,10 @@ type Querier interface {
 	// states, known vocabulary, generated vocabulary, example/curated sentences,
 	// decks, cards, and processing history.
 	HasUsers(ctx context.Context) (bool, error)
+	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
+	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
+	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
+	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
 	InsertPreparedDeckBatchChunk(ctx context.Context, arg InsertPreparedDeckBatchChunkParams) error
@@ -153,6 +178,9 @@ type Querier interface {
 	InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertReadingJourneyIfAbsentParams) error
 	InsertSelectedSentence(ctx context.Context, arg InsertSelectedSentenceParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
+	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
+	InsertSourceMaterialUnit(ctx context.Context, arg InsertSourceMaterialUnitParams) error
+	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
 	InsertVocabularyStateCandidate(ctx context.Context, arg InsertVocabularyStateCandidateParams) error
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
@@ -164,10 +192,14 @@ type Querier interface {
 	// string stitching.
 	ListActiveBooks(ctx context.Context, owner pgtype.UUID) ([]ListActiveBooksRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
+	// Analysis-insight vocabulary aggregation.
+	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID pgtype.UUID) ([]ListAnalysisJobsRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID pgtype.UUID) ([]ListCatalogueSyncStatusesRow, error)
+	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error)
 	ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error)
+	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListKnownVocabularyLanguagesRow, error)
 	ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBooksEvidence, error)
@@ -194,8 +226,12 @@ type Querier interface {
 	// view (migration 000067); this query only selects from it, so the status
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	// Book, membership, and alias identity queries. Domain-level conflict and
+	// ownership decisions remain in the persistence methods.
+	ListStudyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListStudyLanguagesRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
+	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
 	MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID pgtype.UUID) (pgtype.Text, error)
@@ -210,6 +246,8 @@ type Querier interface {
 	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
 	PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error)
 	PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error)
+	PutGeneratedCard(ctx context.Context, arg PutGeneratedCardParams) error
+	PutGeneratedVocabulary(ctx context.Context, arg PutGeneratedVocabularyParams) error
 	PutNormalizedCorpusArtifact(ctx context.Context, arg PutNormalizedCorpusArtifactParams) error
 	PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCardParams) error
 	PutProcessingHistory(ctx context.Context, arg PutProcessingHistoryParams) (PutProcessingHistoryRow, error)
@@ -224,6 +262,7 @@ type Querier interface {
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error)
+	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RepairDeckPreparationVocabulary(ctx context.Context, arg RepairDeckPreparationVocabularyParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
@@ -236,12 +275,16 @@ type Querier interface {
 	// the statement statically analyzable.
 	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
 	SetActiveStudyLanguage(ctx context.Context, arg SetActiveStudyLanguageParams) (int64, error)
+	SetCatalogueEntryAliasConnection(ctx context.Context, arg SetCatalogueEntryAliasConnectionParams) (int64, error)
 	SetCatalogueSyncStatus(ctx context.Context, arg SetCatalogueSyncStatusParams) error
+	SetCurrentContentRevision(ctx context.Context, arg SetCurrentContentRevisionParams) error
+	SetCurrentSnapshot(ctx context.Context, arg SetCurrentSnapshotParams) error
 	SetPreparedDeckBatchReconciliationJob(ctx context.Context, arg SetPreparedDeckBatchReconciliationJobParams) (int64, error)
 	SetPreparedDeckBatchSubmissionJob(ctx context.Context, arg SetPreparedDeckBatchSubmissionJobParams) (int64, error)
 	SetPreparedDeckBatchSubmissionJobPending(ctx context.Context, arg SetPreparedDeckBatchSubmissionJobPendingParams) (int64, error)
 	SetPreparedDeckFinalizationJob(ctx context.Context, arg SetPreparedDeckFinalizationJobParams) (int64, error)
 	SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error)
+	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
 	SetVocabularyStateGenerated(ctx context.Context, arg SetVocabularyStateGeneratedParams) error
 	StartDeckVocabularyStudy(ctx context.Context, arg StartDeckVocabularyStudyParams) (DeckPreparation, error)
@@ -251,6 +294,7 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
+	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
 	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error
 	UpdateExampleSentenceText(ctx context.Context, arg UpdateExampleSentenceTextParams) error
 	UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error)
@@ -261,6 +305,8 @@ type Querier interface {
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
 	UpsertReadingJourneyMemberPosition(ctx context.Context, arg UpsertReadingJourneyMemberPositionParams) error
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
+	// Immutable source revisions and extracted EPUB-unit snapshots.
+	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
 }
 
