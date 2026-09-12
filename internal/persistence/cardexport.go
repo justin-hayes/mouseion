@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -127,11 +128,11 @@ func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, co
 }
 
 func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysisRunID string) (domain.Corpus, error) {
-	var corpus domain.Corpus
-	err := s.pool.QueryRow(ctx, `SELECT c.id::text,c.owner_id::text,c.source_material_id::text,c.artifact_hash,COALESCE(c.analysis_run_id::text,''),c.status,c.created_at
-		FROM corpora c JOIN analysis_runs r ON r.owner_id=c.owner_id AND r.id=c.analysis_run_id AND r.source_material_id=c.source_material_id
-		WHERE c.owner_id=$1 AND r.id=$2 AND r.state='completed' AND c.status='complete'`, owner, analysisRunID).Scan(&corpus.ID, &corpus.OwnerID, &corpus.SourceMaterialID, &corpus.ArtifactHash, &corpus.AnalysisRunID, &corpus.Status, &corpus.CreatedAt)
-	return corpus, missing(err)
+	row, err := s.queries().GetCorpusForAnalysis(ctx, sqlcgen.GetCorpusForAnalysisParams{OwnerID: uuidArg(owner), ID: uuidArg(analysisRunID)})
+	if err != nil {
+		return domain.Corpus{}, missing(err)
+	}
+	return domain.Corpus{ID: row.CID, OwnerID: row.COwnerID, SourceMaterialID: row.CSourceMaterialID, ArtifactHash: row.ArtifactHash, AnalysisRunID: row.AnalysisRunID, Status: row.Status, CreatedAt: pgTime(row.CreatedAt)}, nil
 }
 
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {
@@ -145,80 +146,67 @@ func (s *PostgresStore) RecordGeneratedForBook(ctx context.Context, owner, bookI
 }
 
 func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	var state string
-	err = tx.QueryRow(ctx, `SELECT state FROM vocabulary_states WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4 FOR UPDATE`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS).Scan(&state)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	if state != "candidate" && state != "accepted" && state != "generated" {
-		return fmt.Errorf("cardexport: vocabulary state is %s", state)
-	}
-	var deckID string
-	if err = tx.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,$2,$3) ON CONFLICT(owner_id,language,name) DO UPDATE SET name=excluded.name RETURNING id::text`, owner, entry.Language, deckName).Scan(&deckID); err != nil {
-		return err
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(owner_id,dedup_key) DO UPDATE SET deck_id=excluded.deck_id,front=excluded.front,back=excluded.back`, owner, deckID, note.Key, entry.CanonicalLemma, entry.UPOS, note.Text, note.BackExtra); err != nil {
-		return err
-	}
-	var sourceMaterialID *string
-	if bookID != "" {
-		sourceMaterialID = &bookID
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS, deckID, sourceMaterialID); err != nil {
-		return err
-	}
-	// Keep the generated lifecycle state as legacy bookkeeping for compatibility.
-	// Cross-book exclusion is driven exclusively by generated_vocabulary above.
-	if state != "generated" {
-		if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET state='generated',updated_at=now() WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, entry.Language, entry.CanonicalLemma, entry.UPOS); err != nil {
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
 			return err
 		}
-		details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": state, "to": "generated"})
-		completed := time.Now().UTC()
-		if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'vocabulary.transition','completed',$2,$3)`, owner, details, completed); err != nil {
+		if state != "candidate" && state != "accepted" && state != "generated" {
+			return fmt.Errorf("cardexport: vocabulary state is %s", state)
+		}
+		deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: uuidArg(owner), Language: entry.Language, Name: deckName})
+		if err != nil {
 			return err
 		}
-	}
-	return tx.Commit(ctx)
+		if err = q.PutGeneratedCard(ctx, sqlcgen.PutGeneratedCardParams{OwnerID: uuidArg(owner), DeckID: uuidArg(deck.ID), DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
+			return err
+		}
+		if err = q.PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, FirstDeckID: uuidArg(deck.ID), FirstSourceMaterialID: nullableUUIDArg(bookID)}); err != nil {
+			return err
+		}
+		// Keep the generated lifecycle state as legacy bookkeeping for compatibility.
+		// Cross-book exclusion is driven exclusively by generated_vocabulary above.
+		if state != "generated" {
+			if err = q.SetVocabularyStateGenerated(ctx, sqlcgen.SetVocabularyStateGeneratedParams{Owner: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
+				return err
+			}
+			details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": state, "to": "generated"})
+			completed := time.Now().UTC()
+			return q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: uuidArg(owner), Operation: "vocabulary.transition", Status: "completed", Details: details, CompletedAt: pgtype.Timestamptz{Time: completed, Valid: true}})
+		}
+		return nil
+	})
 }
 
 // RecordGeneratedVocabulary records first provenance for an owner-scoped
 // vocabulary identity. Repeated records intentionally preserve the first row.
 func (s *PostgresStore) RecordGeneratedVocabulary(ctx context.Context, value domain.GeneratedVocabulary) (domain.GeneratedVocabulary, error) {
-	_, err := s.pool.Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS, value.FirstDeckID, value.FirstSourceMaterialID)
-	if err != nil {
+	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(value.OwnerID), Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: uuidArg(value.FirstDeckID), FirstSourceMaterialID: nullableUUIDArg(stringValue(value.FirstSourceMaterialID))}); err != nil {
 		return domain.GeneratedVocabulary{}, err
 	}
 	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS)
 }
 
 func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, language, lemma, upos string) (value domain.GeneratedVocabulary, err error) {
-	err = s.pool.QueryRow(ctx, `SELECT owner_id::text,language,canonical_lemma,upos,first_deck_id::text,first_source_material_id::text,first_generated_at FROM generated_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=$3 AND upos=$4`, owner, language, lemma, upos).Scan(&value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.FirstDeckID, &value.FirstSourceMaterialID, &value.FirstGeneratedAt)
-	err = missing(err)
-	return
+	row, err := s.queries().GetGeneratedVocabulary(ctx, sqlcgen.GetGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: language, CanonicalLemma: lemma, Upos: upos})
+	if err != nil {
+		return value, missing(err)
+	}
+	return generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt), nil
 }
 
 func (s *PostgresStore) ListGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
-	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,language,canonical_lemma,upos,first_deck_id::text,first_source_material_id::text,first_generated_at FROM generated_vocabulary WHERE owner_id=$1 AND language=$2 ORDER BY canonical_lemma,upos`, owner, language)
+	rows, err := s.queries().ListGeneratedVocabulary(ctx, sqlcgen.ListGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: language})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var result []domain.GeneratedVocabulary
-	for rows.Next() {
-		var value domain.GeneratedVocabulary
-		if err := rows.Scan(&value.OwnerID, &value.Language, &value.CanonicalLemma, &value.UPOS, &value.FirstDeckID, &value.FirstSourceMaterialID, &value.FirstGeneratedAt); err != nil {
-			return nil, err
-		}
-		result = append(result, value)
+	for _, row := range rows {
+		result = append(result, generatedVocabularyFromFields(row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.FirstDeckID, row.FirstSourceMaterialID, row.FirstGeneratedAt))
 	}
-	return result, rows.Err()
+	return result, nil
 }

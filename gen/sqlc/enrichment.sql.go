@@ -7,10 +7,60 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getLegacyEnrichmentForSentence = `-- name: GetLegacyEnrichmentForSentence :one
+const getEnrichmentCache = `-- name: GetEnrichmentCache :one
 
+SELECT translation, gloss, sentence_translation, sentence_translation_target, cached_at
+FROM enrichment_cache
+WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+`
+
+type GetEnrichmentCacheParams struct {
+	Language        string
+	TargetLanguage  string
+	CanonicalLemma  string
+	Upos            string
+	Provider        string
+	ProviderVersion string
+	SentenceHash    string
+}
+
+type GetEnrichmentCacheRow struct {
+	Translation               string
+	Gloss                     string
+	SentenceTranslation       string
+	SentenceTranslationTarget string
+	CachedAt                  pgtype.Timestamptz
+}
+
+// Legacy enrichment reads used by the immediate card-export path. Exact
+// prepared-deck enrichment is resolved separately from its manifest keys.
+func (q *Queries) GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error) {
+	row := q.db.QueryRow(ctx, getEnrichmentCache,
+		arg.Language,
+		arg.TargetLanguage,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Provider,
+		arg.ProviderVersion,
+		arg.SentenceHash,
+	)
+	var i GetEnrichmentCacheRow
+	err := row.Scan(
+		&i.Translation,
+		&i.Gloss,
+		&i.SentenceTranslation,
+		&i.SentenceTranslationTarget,
+		&i.CachedAt,
+	)
+	return i, err
+}
+
+const getLegacyEnrichmentForSentence = `-- name: GetLegacyEnrichmentForSentence :one
 SELECT translation, sentence_translation, sentence_translation_target
 FROM enrichment_cache
 WHERE language = $1
@@ -35,8 +85,6 @@ type GetLegacyEnrichmentForSentenceRow struct {
 	SentenceTranslationTarget string
 }
 
-// Legacy enrichment reads used by the immediate card-export path. Exact
-// prepared-deck enrichment is resolved separately from its manifest keys.
 func (q *Queries) GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error) {
 	row := q.db.QueryRow(ctx, getLegacyEnrichmentForSentence,
 		arg.Language,
