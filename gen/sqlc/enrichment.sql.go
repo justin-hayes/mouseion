@@ -16,7 +16,7 @@ FROM enrichment_cache
 WHERE language = $1
   AND target_language = 'en'
   AND canonical_lemma = $2
-  AND upos = upper($3)
+  AND upos = upper($3::text)
   AND sentence_hash = $4
 ORDER BY cached_at DESC
 LIMIT 1
@@ -25,7 +25,7 @@ LIMIT 1
 type GetLegacyEnrichmentForSentenceParams struct {
 	Language       string
 	CanonicalLemma string
-	Upos           interface{}
+	Upos           string
 	SentenceHash   string
 }
 

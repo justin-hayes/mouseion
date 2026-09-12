@@ -7,7 +7,7 @@ FROM enrichment_cache
 WHERE language = sqlc.arg('language')
   AND target_language = 'en'
   AND canonical_lemma = sqlc.arg('canonical_lemma')
-  AND upos = upper(sqlc.arg('upos'))
+  AND upos = upper(sqlc.arg('upos')::text)
   AND sentence_hash = sqlc.arg('sentence_hash')
 ORDER BY cached_at DESC
 LIMIT 1;
