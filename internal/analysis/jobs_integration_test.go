@@ -97,7 +97,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sentenceCount, tokenCount int
+	var sentenceCount, tokenCount int64
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM corpus_sentences WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID).Scan(&sentenceCount); err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 		case <-analyzeCtx.Done():
 			return analyzer.Result{}, analyzeCtx.Err()
 		}
-		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN"}}}}}, nil
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 4}}}}}}, nil
 	}}
 	client, err := NewClient(store.Pool(), fake, selection.NewService(store))
 	require.NoError(t, err)
