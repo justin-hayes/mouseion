@@ -442,7 +442,7 @@ func (q *Queries) InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertRe
 }
 
 const listReadingJourneyMembers = `-- name: ListReadingJourneyMembers :many
-SELECT m.book_id::text, m.position, m.created_at
+SELECT m.book_id::text AS book_id, m.position, m.created_at
 FROM reading_journey_membership m
 JOIN books b
   ON b.owner_id = m.owner_id AND b.id = m.book_id
@@ -457,7 +457,7 @@ type ListReadingJourneyMembersParams struct {
 }
 
 type ListReadingJourneyMembersRow struct {
-	MBookID   string
+	BookID    string
 	Position  int32
 	CreatedAt pgtype.Timestamptz
 }
@@ -471,7 +471,7 @@ func (q *Queries) ListReadingJourneyMembers(ctx context.Context, arg ListReading
 	items := []ListReadingJourneyMembersRow{}
 	for rows.Next() {
 		var i ListReadingJourneyMembersRow
-		if err := rows.Scan(&i.MBookID, &i.Position, &i.CreatedAt); err != nil {
+		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -483,7 +483,7 @@ func (q *Queries) ListReadingJourneyMembers(ctx context.Context, arg ListReading
 }
 
 const listReadingJourneyMembersForUpdate = `-- name: ListReadingJourneyMembersForUpdate :many
-SELECT m.book_id::text, m.position, m.created_at
+SELECT m.book_id::text AS book_id, m.position, m.created_at
 FROM reading_journey_membership m
 JOIN books b
   ON b.owner_id = m.owner_id AND b.id = m.book_id
@@ -499,7 +499,7 @@ type ListReadingJourneyMembersForUpdateParams struct {
 }
 
 type ListReadingJourneyMembersForUpdateRow struct {
-	MBookID   string
+	BookID    string
 	Position  int32
 	CreatedAt pgtype.Timestamptz
 }
@@ -513,7 +513,7 @@ func (q *Queries) ListReadingJourneyMembersForUpdate(ctx context.Context, arg Li
 	items := []ListReadingJourneyMembersForUpdateRow{}
 	for rows.Next() {
 		var i ListReadingJourneyMembersForUpdateRow
-		if err := rows.Scan(&i.MBookID, &i.Position, &i.CreatedAt); err != nil {
+		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

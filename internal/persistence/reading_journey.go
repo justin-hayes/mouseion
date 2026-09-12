@@ -38,7 +38,7 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 	}
 	for _, member := range members {
 		entry := domain.ReadingJourneyEntry{OwnerID: owner, Language: language}
-		entry.BookID = member.MBookID
+		entry.BookID = member.BookID
 		entry.Position = int(member.Position)
 		entry.CreatedAt = pgTime(member.CreatedAt)
 		journey.Entries = append(journey.Entries, entry)
@@ -82,7 +82,7 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	}
 	var members []readingJourneyMembership
 	for _, row := range rows {
-		members = append(members, readingJourneyMembership{bookID: row.MBookID, position: int(row.Position), createdAt: pgTime(row.CreatedAt)})
+		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: pgTime(row.CreatedAt)})
 	}
 	return tx, revision, members, true, cleanupRows > 0, nil
 }

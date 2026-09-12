@@ -8,7 +8,7 @@ FROM reading_journeys
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
 -- name: ListReadingJourneyMembers :many
-SELECT m.book_id::text, m.position, m.created_at
+SELECT m.book_id::text AS book_id, m.position, m.created_at
 FROM reading_journey_membership m
 JOIN books b
   ON b.owner_id = m.owner_id AND b.id = m.book_id
@@ -37,7 +37,7 @@ WHERE m.owner_id = sqlc.arg('owner')
   AND (b.language_state <> 'chosen' OR b.language_tag <> sqlc.arg('language')::text);
 
 -- name: ListReadingJourneyMembersForUpdate :many
-SELECT m.book_id::text, m.position, m.created_at
+SELECT m.book_id::text AS book_id, m.position, m.created_at
 FROM reading_journey_membership m
 JOIN books b
   ON b.owner_id = m.owner_id AND b.id = m.book_id

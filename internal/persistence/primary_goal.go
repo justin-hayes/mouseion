@@ -31,9 +31,6 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language stri
 		return domain.PrimaryGoal{}, nil
 	}
 	row, err := s.queries().GetPrimaryGoal(ctx, sqlcgen.GetPrimaryGoalParams{Owner: uuidArg(owner), Language: language})
-	if errors.Is(err, ErrNotFound) {
-		return domain.PrimaryGoal{}, nil
-	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, nil
 	}
@@ -97,14 +94,14 @@ func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language,
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) (domain.PrimaryGoal, error) {
 	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
 	if errors.Is(err, pgx.ErrNoRows) {
-		row, err := q.ReactivatePrimaryGoal(ctx, sqlcgen.ReactivatePrimaryGoalParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
+		reactivated, err := q.ReactivatePrimaryGoal(ctx, sqlcgen.ReactivatePrimaryGoalParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.PrimaryGoal{}, ErrGoalExists
 		}
 		if err != nil {
 			return domain.PrimaryGoal{}, err
 		}
-		return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt, row.ReadingFinishedAt), nil
+		return primaryGoalFromValues(reactivated.OwnerID, reactivated.Language, reactivated.BookID, reactivated.CreatedAt, reactivated.UpdatedAt, reactivated.ReadingFinishedAt), nil
 	}
 	if err != nil {
 		return domain.PrimaryGoal{}, err
