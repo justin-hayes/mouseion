@@ -11,8 +11,520 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const primaryGoalCandidateEligible = `-- name: PrimaryGoalCandidateEligible :one
+const bookExists = `-- name: BookExists :one
+SELECT EXISTS(
+  SELECT 1 FROM books
+  WHERE owner_id = $1 AND id = $2
+)
+`
 
+type BookExistsParams struct {
+	Owner pgtype.UUID
+	Book  pgtype.UUID
+}
+
+func (q *Queries) BookExists(ctx context.Context, arg BookExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookExists, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const bumpReadingJourneyRevision = `-- name: BumpReadingJourneyRevision :one
+UPDATE reading_journeys
+SET revision = revision + 1, updated_at = now()
+WHERE owner_id = $1 AND language = $2
+RETURNING revision
+`
+
+type BumpReadingJourneyRevisionParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) BumpReadingJourneyRevision(ctx context.Context, arg BumpReadingJourneyRevisionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, bumpReadingJourneyRevision, arg.Owner, arg.Language)
+	var revision int64
+	err := row.Scan(&revision)
+	return revision, err
+}
+
+const changePrimaryGoalBook = `-- name: ChangePrimaryGoalBook :one
+UPDATE primary_goals
+SET book_id = $1, reading_finished_at = NULL, updated_at = now()
+WHERE owner_id = $2 AND language = $3
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+`
+
+type ChangePrimaryGoalBookParams struct {
+	Book     pgtype.UUID
+	Owner    pgtype.UUID
+	Language string
+}
+
+type ChangePrimaryGoalBookRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGoalBookParams) (ChangePrimaryGoalBookRow, error) {
+	row := q.db.QueryRow(ctx, changePrimaryGoalBook, arg.Book, arg.Owner, arg.Language)
+	var i ChangePrimaryGoalBookRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const deleteNonChosenJourneyMembers = `-- name: DeleteNonChosenJourneyMembers :execrows
+DELETE FROM reading_journey_membership m
+USING books b
+WHERE m.owner_id = $1
+  AND m.language = $2::text
+  AND m.book_id = b.id
+  AND b.owner_id = $1
+  AND (b.language_state <> 'chosen' OR b.language_tag <> $2::text)
+`
+
+type DeleteNonChosenJourneyMembersParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteNonChosenJourneyMembers, arg.Owner, arg.Language)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deletePrimaryGoal = `-- name: DeletePrimaryGoal :exec
+DELETE FROM primary_goals
+WHERE owner_id = $1 AND language = $2
+`
+
+type DeletePrimaryGoalParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error {
+	_, err := q.db.Exec(ctx, deletePrimaryGoal, arg.Owner, arg.Language)
+	return err
+}
+
+const deletePrimaryGoalForBook = `-- name: DeletePrimaryGoalForBook :exec
+DELETE FROM primary_goals
+WHERE owner_id = $1
+  AND language = $2
+  AND book_id = $3
+`
+
+type DeletePrimaryGoalForBookParams struct {
+	Owner    pgtype.UUID
+	Language string
+	Book     pgtype.UUID
+}
+
+func (q *Queries) DeletePrimaryGoalForBook(ctx context.Context, arg DeletePrimaryGoalForBookParams) error {
+	_, err := q.db.Exec(ctx, deletePrimaryGoalForBook, arg.Owner, arg.Language, arg.Book)
+	return err
+}
+
+const deleteReadingJourney = `-- name: DeleteReadingJourney :exec
+DELETE FROM reading_journeys
+WHERE owner_id = $1 AND language = $2
+`
+
+type DeleteReadingJourneyParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) DeleteReadingJourney(ctx context.Context, arg DeleteReadingJourneyParams) error {
+	_, err := q.db.Exec(ctx, deleteReadingJourney, arg.Owner, arg.Language)
+	return err
+}
+
+const deleteReadingJourneyMember = `-- name: DeleteReadingJourneyMember :exec
+DELETE FROM reading_journey_membership
+WHERE owner_id = $1
+  AND language = $2
+  AND book_id = $3
+`
+
+type DeleteReadingJourneyMemberParams struct {
+	Owner    pgtype.UUID
+	Language string
+	Book     pgtype.UUID
+}
+
+func (q *Queries) DeleteReadingJourneyMember(ctx context.Context, arg DeleteReadingJourneyMemberParams) error {
+	_, err := q.db.Exec(ctx, deleteReadingJourneyMember, arg.Owner, arg.Language, arg.Book)
+	return err
+}
+
+const derivedJourneyBooksExist = `-- name: DerivedJourneyBooksExist :one
+SELECT EXISTS(
+  SELECT 1
+  FROM books b
+  JOIN book_membership bm
+    ON bm.owner_id = b.owner_id AND bm.book_id = b.id AND bm.state = 'active'
+  WHERE b.owner_id = $1
+    AND b.language_state = 'chosen'
+    AND b.language_tag = $2::text
+)
+`
+
+type DerivedJourneyBooksExistParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourneyBooksExistParams) (bool, error) {
+	row := q.db.QueryRow(ctx, derivedJourneyBooksExist, arg.Owner, arg.Language)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const finishPrimaryGoalReading = `-- name: FinishPrimaryGoalReading :one
+UPDATE primary_goals
+SET reading_finished_at = now(), updated_at = now()
+WHERE owner_id = $1 AND language = $2
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+`
+
+type FinishPrimaryGoalReadingParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+type FinishPrimaryGoalReadingRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) FinishPrimaryGoalReading(ctx context.Context, arg FinishPrimaryGoalReadingParams) (FinishPrimaryGoalReadingRow, error) {
+	row := q.db.QueryRow(ctx, finishPrimaryGoalReading, arg.Owner, arg.Language)
+	var i FinishPrimaryGoalReadingRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const getBookLanguageState = `-- name: GetBookLanguageState :one
+SELECT language_state, COALESCE(language_tag, '') AS language_tag
+FROM books
+WHERE owner_id = $1 AND id = $2
+`
+
+type GetBookLanguageStateParams struct {
+	Owner pgtype.UUID
+	Book  pgtype.UUID
+}
+
+type GetBookLanguageStateRow struct {
+	LanguageState string
+	LanguageTag   string
+}
+
+func (q *Queries) GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error) {
+	row := q.db.QueryRow(ctx, getBookLanguageState, arg.Owner, arg.Book)
+	var i GetBookLanguageStateRow
+	err := row.Scan(&i.LanguageState, &i.LanguageTag)
+	return i, err
+}
+
+const getPrimaryGoal = `-- name: GetPrimaryGoal :one
+SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+FROM primary_goals
+WHERE owner_id = $1 AND language = $2
+`
+
+type GetPrimaryGoalParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+type GetPrimaryGoalRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGoal, arg.Owner, arg.Language)
+	var i GetPrimaryGoalRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const getPrimaryGoalBookID = `-- name: GetPrimaryGoalBookID :one
+SELECT book_id::text
+FROM primary_goals
+WHERE owner_id = $1 AND language = $2
+`
+
+type GetPrimaryGoalBookIDParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGoalBookID, arg.Owner, arg.Language)
+	var book_id string
+	err := row.Scan(&book_id)
+	return book_id, err
+}
+
+const getPrimaryGoalForUpdate = `-- name: GetPrimaryGoalForUpdate :one
+SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+FROM primary_goals
+WHERE owner_id = $1 AND language = $2
+FOR UPDATE
+`
+
+type GetPrimaryGoalForUpdateParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+type GetPrimaryGoalForUpdateRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGoalForUpdate, arg.Owner, arg.Language)
+	var i GetPrimaryGoalForUpdateRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const getReadingJourney = `-- name: GetReadingJourney :one
+
+SELECT revision, updated_at
+FROM reading_journeys
+WHERE owner_id = $1 AND language = $2
+`
+
+type GetReadingJourneyParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+type GetReadingJourneyRow struct {
+	Revision  int64
+	UpdatedAt pgtype.Timestamptz
+}
+
+// Reading Journey and Primary Goal queries. Current analysis eligibility comes
+// from the current_analysis_identity view so the identity chain is not
+// duplicated in application SQL.
+func (q *Queries) GetReadingJourney(ctx context.Context, arg GetReadingJourneyParams) (GetReadingJourneyRow, error) {
+	row := q.db.QueryRow(ctx, getReadingJourney, arg.Owner, arg.Language)
+	var i GetReadingJourneyRow
+	err := row.Scan(&i.Revision, &i.UpdatedAt)
+	return i, err
+}
+
+const getReadingJourneyRevisionForUpdate = `-- name: GetReadingJourneyRevisionForUpdate :one
+SELECT revision
+FROM reading_journeys
+WHERE owner_id = $1 AND language = $2
+FOR UPDATE
+`
+
+type GetReadingJourneyRevisionForUpdateParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) GetReadingJourneyRevisionForUpdate(ctx context.Context, arg GetReadingJourneyRevisionForUpdateParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getReadingJourneyRevisionForUpdate, arg.Owner, arg.Language)
+	var revision int64
+	err := row.Scan(&revision)
+	return revision, err
+}
+
+const insertPrimaryGoal = `-- name: InsertPrimaryGoal :one
+INSERT INTO primary_goals(owner_id, language, book_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (owner_id, language) DO NOTHING
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+`
+
+type InsertPrimaryGoalParams struct {
+	Owner    pgtype.UUID
+	Language string
+	Book     pgtype.UUID
+}
+
+type InsertPrimaryGoalRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error) {
+	row := q.db.QueryRow(ctx, insertPrimaryGoal, arg.Owner, arg.Language, arg.Book)
+	var i InsertPrimaryGoalRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const insertReadingJourneyIfAbsent = `-- name: InsertReadingJourneyIfAbsent :exec
+INSERT INTO reading_journeys(owner_id, language)
+VALUES ($1, $2)
+ON CONFLICT (owner_id, language) DO NOTHING
+`
+
+type InsertReadingJourneyIfAbsentParams struct {
+	Owner    pgtype.UUID
+	Language string
+}
+
+func (q *Queries) InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertReadingJourneyIfAbsentParams) error {
+	_, err := q.db.Exec(ctx, insertReadingJourneyIfAbsent, arg.Owner, arg.Language)
+	return err
+}
+
+const listReadingJourneyMembers = `-- name: ListReadingJourneyMembers :many
+SELECT m.book_id::text AS book_id, m.position, m.created_at
+FROM reading_journey_membership m
+JOIN books b
+  ON b.owner_id = m.owner_id AND b.id = m.book_id
+ AND b.language_state = 'chosen' AND b.language_tag = $1::text
+WHERE m.owner_id = $2 AND m.language = $1::text
+ORDER BY m.position, m.created_at, m.book_id
+`
+
+type ListReadingJourneyMembersParams struct {
+	Language string
+	Owner    pgtype.UUID
+}
+
+type ListReadingJourneyMembersRow struct {
+	BookID    string
+	Position  int32
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListReadingJourneyMembers(ctx context.Context, arg ListReadingJourneyMembersParams) ([]ListReadingJourneyMembersRow, error) {
+	rows, err := q.db.Query(ctx, listReadingJourneyMembers, arg.Language, arg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReadingJourneyMembersRow{}
+	for rows.Next() {
+		var i ListReadingJourneyMembersRow
+		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadingJourneyMembersForUpdate = `-- name: ListReadingJourneyMembersForUpdate :many
+SELECT m.book_id::text AS book_id, m.position, m.created_at
+FROM reading_journey_membership m
+JOIN books b
+  ON b.owner_id = m.owner_id AND b.id = m.book_id
+ AND b.language_state = 'chosen' AND b.language_tag = $1::text
+WHERE m.owner_id = $2 AND m.language = $1::text
+ORDER BY m.position, m.created_at, m.book_id
+FOR UPDATE
+`
+
+type ListReadingJourneyMembersForUpdateParams struct {
+	Language string
+	Owner    pgtype.UUID
+}
+
+type ListReadingJourneyMembersForUpdateRow struct {
+	BookID    string
+	Position  int32
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListReadingJourneyMembersForUpdate(ctx context.Context, arg ListReadingJourneyMembersForUpdateParams) ([]ListReadingJourneyMembersForUpdateRow, error) {
+	rows, err := q.db.Query(ctx, listReadingJourneyMembersForUpdate, arg.Language, arg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReadingJourneyMembersForUpdateRow{}
+	for rows.Next() {
+		var i ListReadingJourneyMembersForUpdateRow
+		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const primaryGoalCandidateEligible = `-- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
   SELECT 1
   FROM reading_journey_membership jm
@@ -39,12 +551,95 @@ type PrimaryGoalCandidateEligibleParams struct {
 	Book     pgtype.UUID
 }
 
-// Reading Journey read queries. Current analysis eligibility comes from the
-// current_analysis_identity view so the identity chain is not duplicated in
-// application SQL.
 func (q *Queries) PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error) {
 	row := q.db.QueryRow(ctx, primaryGoalCandidateEligible, arg.Owner, arg.Language, arg.Book)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const reactivatePrimaryGoal = `-- name: ReactivatePrimaryGoal :one
+UPDATE primary_goals
+SET book_id = $1, reading_finished_at = NULL, updated_at = now()
+WHERE owner_id = $2
+  AND language = $3
+  AND reading_finished_at IS NOT NULL
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+`
+
+type ReactivatePrimaryGoalParams struct {
+	Book     pgtype.UUID
+	Owner    pgtype.UUID
+	Language string
+}
+
+type ReactivatePrimaryGoalRow struct {
+	OwnerID           string
+	Language          string
+	BookID            string
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	ReadingFinishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ReactivatePrimaryGoal(ctx context.Context, arg ReactivatePrimaryGoalParams) (ReactivatePrimaryGoalRow, error) {
+	row := q.db.QueryRow(ctx, reactivatePrimaryGoal, arg.Book, arg.Owner, arg.Language)
+	var i ReactivatePrimaryGoalRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const resolveJourneyLinkedBook = `-- name: ResolveJourneyLinkedBook :one
+SELECT (COALESCE(sm.book_id::text, b.id::text, ''))::text AS linked_book_id
+FROM source_materials sm
+LEFT JOIN book_aliases a
+  ON a.owner_id = sm.owner_id
+ AND a.namespace = $1
+ AND a.value = sm.source_identifier
+LEFT JOIN books b ON b.owner_id = a.owner_id AND b.id = a.book_id
+WHERE sm.owner_id = $2 AND sm.id = $3
+`
+
+type ResolveJourneyLinkedBookParams struct {
+	Namespace string
+	Owner     pgtype.UUID
+	Source    pgtype.UUID
+}
+
+func (q *Queries) ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error) {
+	row := q.db.QueryRow(ctx, resolveJourneyLinkedBook, arg.Namespace, arg.Owner, arg.Source)
+	var linked_book_id string
+	err := row.Scan(&linked_book_id)
+	return linked_book_id, err
+}
+
+const upsertReadingJourneyMemberPosition = `-- name: UpsertReadingJourneyMemberPosition :exec
+INSERT INTO reading_journey_membership(owner_id, language, book_id, position)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (owner_id, language, book_id)
+DO UPDATE SET position = EXCLUDED.position
+`
+
+type UpsertReadingJourneyMemberPositionParams struct {
+	Owner    pgtype.UUID
+	Language string
+	Book     pgtype.UUID
+	Position int32
+}
+
+func (q *Queries) UpsertReadingJourneyMemberPosition(ctx context.Context, arg UpsertReadingJourneyMemberPositionParams) error {
+	_, err := q.db.Exec(ctx, upsertReadingJourneyMemberPosition,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.Position,
+	)
+	return err
 }

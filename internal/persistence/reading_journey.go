@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -21,29 +22,28 @@ type readingJourneyMembership struct {
 func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language string) (domain.ReadingJourney, error) {
 	language = canonicalization.NormalizeLanguage(language)
 	journey := domain.ReadingJourney{OwnerID: owner, Language: language}
-	if err := s.pool.QueryRow(ctx, `SELECT revision,updated_at FROM reading_journeys WHERE owner_id=$1 AND language=$2`, owner, language).Scan(&journey.Revision, &journey.UpdatedAt); err != nil {
+	row, err := s.queries().GetReadingJourney(ctx, sqlcgen.GetReadingJourneyParams{Owner: uuidArg(owner), Language: language})
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return journey, nil
 		}
-		return journey, missing(err)
+		return journey, err
 	}
+	journey.Revision = row.Revision
+	journey.UpdatedAt = pgTime(row.UpdatedAt)
 
-	rows, err := s.pool.Query(ctx, `SELECT m.book_id::text,m.position,m.created_at
-		FROM reading_journey_membership m
-		JOIN books b ON b.owner_id=m.owner_id AND b.id=m.book_id AND b.language_state='chosen' AND b.language_tag=$2
-		WHERE m.owner_id=$1 AND m.language=$2 ORDER BY m.position,m.created_at,m.book_id`, owner, language)
+	members, err := s.queries().ListReadingJourneyMembers(ctx, sqlcgen.ListReadingJourneyMembersParams{Owner: uuidArg(owner), Language: language})
 	if err != nil {
 		return journey, err
 	}
-	defer rows.Close()
-	for rows.Next() {
+	for _, member := range members {
 		entry := domain.ReadingJourneyEntry{OwnerID: owner, Language: language}
-		if err := rows.Scan(&entry.BookID, &entry.Position, &entry.CreatedAt); err != nil {
-			return journey, err
-		}
+		entry.BookID = member.BookID
+		entry.Position = int(member.Position)
+		entry.CreatedAt = pgTime(member.CreatedAt)
 		journey.Entries = append(journey.Entries, entry)
 	}
-	return journey, rows.Err()
+	return journey, nil
 }
 
 func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, language string, create bool) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
@@ -56,12 +56,12 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 		return nil, 0, nil, false, false, err
 	}
 	if create {
-		if _, err = tx.Exec(ctx, `INSERT INTO reading_journeys(owner_id,language) VALUES($1,$2) ON CONFLICT (owner_id,language) DO NOTHING`, owner, language); err != nil {
+		if err = sqlcgen.New(tx).InsertReadingJourneyIfAbsent(ctx, sqlcgen.InsertReadingJourneyIfAbsentParams{Owner: uuidArg(owner), Language: language}); err != nil {
 			return rollback(err)
 		}
 	}
 	var revision int64
-	err = tx.QueryRow(ctx, `SELECT revision FROM reading_journeys WHERE owner_id=$1 AND language=$2 FOR UPDATE`, owner, language).Scan(&revision)
+	revision, err = sqlcgen.New(tx).GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: uuidArg(owner), Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		if create {
 			return rollback(ErrNotFound)
@@ -72,41 +72,30 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 		return rollback(missing(err))
 	}
 	// Retagged or unknown-language Books cannot remain members of this Journey.
-	cleanup, err := tx.Exec(ctx, `DELETE FROM reading_journey_membership m USING books b
-		WHERE m.owner_id=$1 AND m.language=$2 AND m.book_id=b.id AND b.owner_id=$1
-		AND (b.language_state <> 'chosen' OR b.language_tag <> $2)`, owner, language)
+	cleanupRows, err := sqlcgen.New(tx).DeleteNonChosenJourneyMembers(ctx, sqlcgen.DeleteNonChosenJourneyMembersParams{Owner: uuidArg(owner), Language: language})
 	if err != nil {
 		return rollback(err)
 	}
-	rows, err := tx.Query(ctx, `SELECT m.book_id::text,m.position,m.created_at
-		FROM reading_journey_membership m
-		JOIN books b ON b.owner_id=m.owner_id AND b.id=m.book_id AND b.language_state='chosen' AND b.language_tag=$2
-		WHERE m.owner_id=$1 AND m.language=$2 ORDER BY m.position,m.created_at,m.book_id FOR UPDATE`, owner, language)
+	rows, err := sqlcgen.New(tx).ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: uuidArg(owner), Language: language})
 	if err != nil {
 		return rollback(err)
 	}
-	defer rows.Close()
 	var members []readingJourneyMembership
-	for rows.Next() {
-		var member readingJourneyMembership
-		if err := rows.Scan(&member.bookID, &member.position, &member.createdAt); err != nil {
-			return rollback(err)
-		}
-		members = append(members, member)
+	for _, row := range rows {
+		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: pgTime(row.CreatedAt)})
 	}
-	if err = rows.Err(); err != nil {
-		return rollback(err)
-	}
-	return tx, revision, members, true, cleanup.RowsAffected() > 0, nil
+	return tx, revision, members, true, cleanupRows > 0, nil
 }
 
 func rewriteReadingJourneyPositions(ctx context.Context, tx pgx.Tx, owner, language string, members []readingJourneyMembership) error {
 	// UPSERT: a member removed from the slice was already deleted by the
 	// caller, so it is not re-inserted here; a freshly appended member (Add)
 	// is inserted; all other members are re-positioned to stay contiguous.
+	q := sqlcgen.New(tx)
 	for position, member := range members {
-		if _, err := tx.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id, language, book_id, position) VALUES($1, $2, $3, $4)
-			ON CONFLICT (owner_id, language, book_id) DO UPDATE SET position = EXCLUDED.position`, owner, language, member.bookID, position+1); err != nil {
+		if err := q.UpsertReadingJourneyMemberPosition(ctx, sqlcgen.UpsertReadingJourneyMemberPositionParams{
+			Owner: uuidArg(owner), Language: language, Book: uuidArg(member.bookID), Position: int32(position + 1),
+		}); err != nil {
 			return err
 		}
 	}
@@ -114,9 +103,7 @@ func rewriteReadingJourneyPositions(ctx context.Context, tx pgx.Tx, owner, langu
 }
 
 func bumpReadingJourneyRevision(ctx context.Context, tx pgx.Tx, owner, language string) (int64, error) {
-	var revision int64
-	err := tx.QueryRow(ctx, `UPDATE reading_journeys SET revision=revision+1,updated_at=now() WHERE owner_id=$1 AND language=$2 RETURNING revision`, owner, language).Scan(&revision)
-	return revision, err
+	return sqlcgen.New(tx).BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: uuidArg(owner), Language: language})
 }
 
 // AddToReadingJourney appends a known owner book to the Journey.
@@ -136,11 +123,11 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
 	}
-	var languageState, bookLanguage string
-	if err = tx.QueryRow(ctx, `SELECT language_state,COALESCE(language_tag,'') FROM books WHERE owner_id=$1 AND id=$2`, owner, bookID).Scan(&languageState, &bookLanguage); err != nil {
+	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: uuidArg(owner), Book: uuidArg(bookID)})
+	if err != nil {
 		return 0, err
 	}
-	if languageState != domain.LanguageChosen || bookLanguage != language {
+	if book.LanguageState != domain.LanguageChosen || book.LanguageTag != language {
 		return 0, ErrBookLanguageRequired
 	}
 	for _, member := range members {
@@ -182,29 +169,26 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 // legacy sources where the link column is unset. The second result reports
 // whether a book identity exists for the owner.
 func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id string) (string, bool, error) {
-	var exists bool
-	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM books WHERE owner_id=$1 AND id=$2)`, owner, id).Scan(&exists); err != nil {
+	exists, err := s.queries().BookExists(ctx, sqlcgen.BookExistsParams{Owner: uuidArg(owner), Book: uuidArg(id)})
+	if err != nil {
 		return "", false, err
 	}
 	if exists {
 		return id, true, nil
 	}
-	var linked *string
-	err := s.pool.QueryRow(ctx, `SELECT COALESCE(sm.book_id::text,b.id::text)
-		FROM source_materials sm
-		LEFT JOIN book_aliases a ON a.owner_id=sm.owner_id AND a.namespace=$3 AND a.value=sm.source_identifier
-		LEFT JOIN books b ON b.owner_id=a.owner_id AND b.id=a.book_id
-		WHERE sm.owner_id=$1 AND sm.id=$2`, owner, id, domain.NamespaceSourceIdentifier).Scan(&linked)
+	linked, err := s.queries().ResolveJourneyLinkedBook(ctx, sqlcgen.ResolveJourneyLinkedBookParams{
+		Owner: uuidArg(owner), Source: uuidArg(id), Namespace: domain.NamespaceSourceIdentifier,
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
 	if err != nil {
 		return "", false, err
 	}
-	if linked == nil {
+	if linked == "" {
 		return "", false, nil
 	}
-	return *linked, true, nil
+	return linked, true, nil
 }
 
 // RemoveFromReadingJourney removes a Journey member and compacts positions.
@@ -233,16 +217,12 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 	}
 	if memberIndex == -1 {
 		if len(members) == 0 {
-			var derived bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS(
-			SELECT 1 FROM books b
-			JOIN book_membership bm ON bm.owner_id=b.owner_id AND bm.book_id=b.id AND bm.state='active'
-			WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
-		)`, owner, language).Scan(&derived); err != nil {
-				return 0, err
+			derived, queryErr := sqlcgen.New(tx).DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: uuidArg(owner), Language: language})
+			if queryErr != nil {
+				return 0, queryErr
 			}
 			if !derived {
-				if _, err = tx.Exec(ctx, `DELETE FROM reading_journeys WHERE owner_id=$1 AND language=$2`, owner, language); err != nil {
+				if err = sqlcgen.New(tx).DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: uuidArg(owner), Language: language}); err != nil {
 					return 0, err
 				}
 				if err = tx.Commit(ctx); err != nil {
@@ -264,26 +244,23 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 		}
 		return revision, nil
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM reading_journey_membership WHERE owner_id=$1 AND language=$2 AND book_id=$3`, owner, language, bookID); err != nil {
+	q := sqlcgen.New(tx)
+	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)}); err != nil {
 		return 0, err
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM primary_goals WHERE owner_id=$1 AND language=$2 AND book_id=$3`, owner, language, bookID); err != nil {
+	if err = q.DeletePrimaryGoalForBook(ctx, sqlcgen.DeletePrimaryGoalForBookParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)}); err != nil {
 		return 0, err
 	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
 	if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
 		return 0, err
 	}
-	var derived bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM books b
-		JOIN book_membership bm ON bm.owner_id=b.owner_id AND bm.book_id=b.id AND bm.state='active'
-		WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
-	)`, owner, language).Scan(&derived); err != nil {
+	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: uuidArg(owner), Language: language})
+	if err != nil {
 		return 0, err
 	}
 	if len(members) == 0 && !derived {
-		if _, err = tx.Exec(ctx, `DELETE FROM reading_journeys WHERE owner_id=$1 AND language=$2`, owner, language); err != nil {
+		if err = q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: uuidArg(owner), Language: language}); err != nil {
 			return 0, err
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -343,9 +320,12 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, lang
 		}
 		return 0, ErrNotFound
 	}
-	var goalBookID string
-	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language).Scan(&goalBookID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return 0, err
+	goalBookID, goalErr := sqlcgen.New(tx).GetPrimaryGoalBookID(ctx, sqlcgen.GetPrimaryGoalBookIDParams{Owner: uuidArg(owner), Language: language})
+	if goalErr != nil && !errors.Is(goalErr, pgx.ErrNoRows) {
+		return 0, goalErr
+	}
+	if errors.Is(goalErr, pgx.ErrNoRows) {
+		goalBookID = ""
 	}
 	if goalBookID != "" && goalBookID != bookID {
 		goalIndex := -1
