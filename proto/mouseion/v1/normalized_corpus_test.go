@@ -10,7 +10,7 @@ import (
 func TestNormalizedCorpusRoundTrip(t *testing.T) {
 	namedEntity := "BUILDING"
 	want := &mouseionv1.NormalizedCorpus{
-		SchemaVersion: "1.0.0",
+		SchemaVersion: "1.1.0",
 		Language:      "de",
 		SourceDocuments: []*mouseionv1.SourceDocument{{
 			Id: "book-1", SourceIdentifier: "opds:42", Title: "Das Buch",
@@ -29,6 +29,7 @@ func TestNormalizedCorpusRoundTrip(t *testing.T) {
 			},
 			Tokens: []*mouseionv1.Token{{
 				Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", Pos: "NOUN",
+				Dependency: "root", Head: 0,
 				Morphology:  map[string]string{"Case": "Nom", "Number": "Sing"},
 				NamedEntity: &namedEntity,
 				Location: &mouseionv1.SourceLocation{

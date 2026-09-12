@@ -52,12 +52,15 @@ type Sentence struct {
 // and symbols while sentence text and offsets preserve the source; RawLemma
 // preserves backend output. CanonicalLemma is derived using
 // Result.NormalizationProfile. UPOS contains a coarse Universal Dependencies
-// part-of-speech tag.
+// part-of-speech tag. Dependency is the basic Universal Dependencies relation
+// and Head is the 0-based ordinal of the token's head within its sentence.
 type Token struct {
 	Surface        string
 	RawLemma       string
 	CanonicalLemma string
 	UPOS           string
+	Dependency     string
+	Head           uint32
 	Morphology     map[string]string
 	NamedEntity    *string
 	Location       SourceLocation

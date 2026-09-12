@@ -71,6 +71,11 @@ message Token {
   map<string, string> morphology = 5;
   optional string named_entity = 6;
   SourceLocation location = 7;
+  // dependency is the token's basic Universal Dependencies relation.
+  string dependency = 8;
+  // head is the 0-based ordinal of this token's head within the sentence.
+  // Sentence roots are self-headed.
+  uint32 head = 9;
 }
 
 message SourceDocument {

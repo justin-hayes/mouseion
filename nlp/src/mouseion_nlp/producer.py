@@ -54,7 +54,9 @@ GERMAN_POST_1996_EQUIVALENCES = {
 
 @lru_cache(maxsize=None)
 def _stanza_pipeline(language: str, enable_ner: bool) -> Any:
-    processors = "tokenize,pos,lemma,ner" if enable_ner else "tokenize,pos,lemma"
+    processors = "tokenize,pos,lemma,depparse"
+    if enable_ner:
+        processors += ",ner"
     return stanza.Pipeline(lang=language, processors=processors, verbose=False)
 
 
@@ -146,7 +148,7 @@ class Producer:
         profile_name, profile_version = self._normalization_profile(language)
 
         return normalized_corpus_pb2.NormalizedCorpus(
-            schema_version="1.0.0",
+            schema_version="1.1.0",
             language=language,
             sentences=sentences,
             source_documents=[
@@ -167,7 +169,7 @@ class Producer:
 
     def _map_sentence(self, sentence: Any, source: SourceDocument, language: str) -> Any:
         entities = getattr(sentence, "ents", ()) if self.enable_ner else ()
-        tokens = []
+        words = []
         for token in sentence.tokens:
             for word in token.words:
                 start = getattr(word, "start_char", None)
@@ -195,17 +197,38 @@ class Producer:
                         extra={"raw_lemma": lemma},
                     )
                     continue
-                value = normalized_corpus_pb2.Token(
-                    surface=surface,
-                    raw_lemma=lemma,
-                    canonical_lemma=self._canonical_lemma(language, _clean_surface(primary_lemma)),
-                    pos=word.upos or "",
-                    morphology=_morphology(word.feats),
-                    location=self._location(source, start, end),
+                words.append((word, token, start, end, ner, surface, lemma, primary_lemma))
+
+        word_ordinals = {
+            getattr(word, "id", None) or ordinal + 1: ordinal
+            for ordinal, (word, *_rest) in enumerate(words)
+        }
+        tokens = []
+        for ordinal, (word, _token, start, end, ner, surface, lemma, primary_lemma) in enumerate(words):
+            head_id = getattr(word, "head", 0)
+            if head_id == 0:
+                dependency = "root"
+                head = ordinal
+            else:
+                dependency = getattr(word, "deprel", "")
+                head = word_ordinals.get(head_id)
+            if not dependency or head is None:
+                raise ValueError(
+                    f"dependency parse did not resolve token {ordinal} in sentence {sentence.text!r}"
                 )
-                if ner and ner != "O":
-                    value.named_entity = ner
-                tokens.append(value)
+            value = normalized_corpus_pb2.Token(
+                surface=surface,
+                raw_lemma=lemma,
+                canonical_lemma=self._canonical_lemma(language, _clean_surface(primary_lemma)),
+                pos=word.upos or "",
+                morphology=_morphology(word.feats),
+                location=self._location(source, start, end),
+                dependency=dependency,
+                head=head,
+            )
+            if ner and ner != "O":
+                value.named_entity = ner
+            tokens.append(value)
 
         start = tokens[0].location.start_offset if tokens else 0
         end = tokens[-1].location.end_offset if tokens else start
