@@ -138,6 +138,34 @@ type Corpora struct {
 	AnalysisRunID            pgtype.UUID
 }
 
+type CorpusSentence struct {
+	OwnerID         string
+	AnalysisRunID   string
+	CorpusID        string
+	UnitID          string
+	SentenceOrdinal int64
+	SentenceText    string
+	StartOffset     int64
+	EndOffset       int64
+}
+
+type CorpusToken struct {
+	OwnerID         string
+	Language        string
+	AnalysisRunID   string
+	CorpusID        string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+	Surface         string
+	RawLemma        string
+	CanonicalLemma  string
+	Upos            string
+	Morphology      []byte
+	NamedEntity     pgtype.Text
+	StartOffset     int64
+	EndOffset       int64
+}
+
 type CuratedSentence struct {
 	ID                string
 	OwnerID           string
