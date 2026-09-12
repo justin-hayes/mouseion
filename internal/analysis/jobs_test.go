@@ -1,12 +1,41 @@
 package analysis
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRequireDependencyParsing(t *testing.T) {
+	provider := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
+		Language: "de-DE", SupportedFeatures: []string{"tokenize", analyzer.FeatureDepparse}, Ready: true,
+	}}}}
+
+	assert.NoError(t, requireDependencyParsing(context.Background(), provider, "de"))
+
+	missing := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
+		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
+	}}}}
+	err := requireDependencyParsing(context.Background(), missing, "de")
+	require.ErrorIs(t, err, ErrDependencyParsingUnavailable)
+	assert.Contains(t, err.Error(), `language "de"`)
+
+	degraded := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{
+		Degraded:  true,
+		Languages: []analyzer.LanguageCapability{{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}}},
+	}}
+	assert.NoError(t, requireDependencyParsing(context.Background(), degraded, "de"))
+
+	outage := analyzertest.CapabilityProvider{Err: errors.New("NLP unavailable")}
+	err = requireDependencyParsing(context.Background(), outage, "de")
+	assert.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
+	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
+}
 
 func TestAggregateLemmasIsIdempotent(t *testing.T) {
 	result := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Sing"}}, {CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Sing"}}, {CanonicalLemma: "5", UPOS: "NOUN"}}}}}

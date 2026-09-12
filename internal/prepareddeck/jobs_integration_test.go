@@ -39,7 +39,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "service-book", Title: "A Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
 	require.NoError(t, err)
-	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, selection.NewService(store))
+	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	analysisService := analysis.NewService(store.Pool(), analysisRiver)
 	analysisHandle, err := analysisService.SubmitAnalysis(ctx, owner.ID, source.ID)

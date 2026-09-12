@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -24,9 +25,25 @@ type LanguageCapability struct {
 	Ready             bool
 }
 
+const FeatureDepparse = "depparse"
+
+func (c LanguageCapability) Supports(feature string) bool {
+	return slices.Contains(c.SupportedFeatures, feature)
+}
+
 type Capabilities struct {
 	Languages []LanguageCapability
 	Degraded  bool
+}
+
+func (c Capabilities) SupportsLanguage(language, feature string) bool {
+	normalizedLanguage := canonicalization.NormalizeLanguage(language)
+	for _, capability := range c.Languages {
+		if canonicalization.NormalizeLanguage(capability.Language) == normalizedLanguage && capability.Supports(feature) {
+			return true
+		}
+	}
+	return false
 }
 
 func ReadySupportedLanguages(value Capabilities) []domain.SupportedLanguage {
