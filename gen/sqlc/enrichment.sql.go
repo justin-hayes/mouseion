@@ -7,8 +7,7 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const getEnrichmentCache = `-- name: GetEnrichmentCache :one
@@ -34,7 +33,7 @@ type GetEnrichmentCacheRow struct {
 	Gloss                     string
 	SentenceTranslation       string
 	SentenceTranslationTarget string
-	CachedAt                  pgtype.Timestamptz
+	CachedAt                  time.Time
 }
 
 // Legacy enrichment reads used by the immediate card-export path. Exact

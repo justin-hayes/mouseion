@@ -18,6 +18,23 @@ sql:
         emit_interface: true
         emit_empty_slices: true
         overrides:
+          # Native Go scalars for non-nullable columns; sqlc keeps nullable
+          # columns of these types as pgtype.* (NULL-safe) so no pointer
+          # semantics are lost. int8 already defaults to int64; the override
+          # documents the intent and pins any expressions that would otherwise
+          # drift.
+          - db_type: "uuid"
+            go_type: "string"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          # sqlc matches db_type against the schema DDL spelling; the
+          # pg_catalog.* canonical names cover integer/smallint/bigint.
+          - db_type: "pg_catalog.int4"
+            go_type: "int"
+          - db_type: "pg_catalog.int2"
+            go_type: "int"
+          - db_type: "pg_catalog.int8"
+            go_type: "int64"
           # my_books_evidence columns derived through a window-function source
           # projection cannot be statically typed by sqlc; pin the concrete
           # domain-facing Go types they always produce.
@@ -33,6 +50,14 @@ sql:
             go_type: "string"
           - column: "my_books_evidence.acquired"
             go_type: "bool"
+          # source_created_at is passed through the LEFT JOIN without
+          # COALESCE, so the column is nullable at runtime even though the
+          # base table is NOT NULL; keep pointer semantics.
+          - column: "my_books_evidence.source_created_at"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
           - column: "my_books_evidence.analysis_run_id"
             go_type: "string"
           - column: "my_books_evidence.corpus_id"

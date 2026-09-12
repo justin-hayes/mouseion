@@ -18,6 +18,12 @@ JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id AND m.sta
 WHERE b.owner_id = sqlc.arg('owner')
 ORDER BY b.title, b.id;
 
+-- name: GetBookForUpdate :one
+SELECT id::text
+FROM books
+WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
+FOR UPDATE;
+
 -- name: ListMyBooksEvidence :many
 SELECT * FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner')

@@ -5,126 +5,128 @@
 package sqlc
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AnalysisJob struct {
 	RiverJobID       int64
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 	ContentHash      string
 	CorpusID         pgtype.UUID
-	Progress         int16
+	Progress         int
 	Error            string
-	CreatedAt        pgtype.Timestamptz
-	UpdatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 	DisplayNumber    int64
 	AnalysisRunID    pgtype.UUID
 	AnalysisIdentity pgtype.Text
 }
 
 type AnalysisRun struct {
-	ID                pgtype.UUID
-	OwnerID           pgtype.UUID
-	SourceMaterialID  pgtype.UUID
-	ContentRevisionID pgtype.UUID
-	SnapshotID        pgtype.UUID
+	ID                string
+	OwnerID           string
+	SourceMaterialID  string
+	ContentRevisionID string
+	SnapshotID        string
 	AnalyzerName      string
 	AnalyzerVersion   string
 	ConfigIdentity    string
 	State             string
-	AttemptCount      int32
+	AttemptCount      int
 	LastError         string
 	CorpusID          pgtype.UUID
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	StartedAt         pgtype.Timestamptz
 	CompletedAt       pgtype.Timestamptz
 }
 
 type AnalysisRunAttempt struct {
-	ID               pgtype.UUID
-	RunID            pgtype.UUID
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
-	AttemptNumber    int32
+	ID               string
+	RunID            string
+	OwnerID          string
+	SourceMaterialID string
+	AttemptNumber    int
 	RiverJobID       int64
 	State            string
 	Error            string
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 	StartedAt        pgtype.Timestamptz
 	FinalizedAt      pgtype.Timestamptz
 }
 
 type Book struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
+	ID                 string
+	OwnerID            string
 	Title              string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        pgtype.Text
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type BookAlias struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	BookID       pgtype.UUID
+	ID           string
+	OwnerID      string
+	BookID       string
 	AliasType    string
 	Namespace    string
 	Value        string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 	ConnectionID pgtype.UUID
 }
 
 type BookCurrentAnalysis struct {
-	OwnerID          pgtype.UUID
-	BookID           pgtype.UUID
-	SourceMaterialID pgtype.UUID
-	AnalysisRunID    pgtype.UUID
-	PromotedAt       pgtype.Timestamptz
+	OwnerID          string
+	BookID           string
+	SourceMaterialID string
+	AnalysisRunID    string
+	PromotedAt       time.Time
 }
 
 type BookMembership struct {
-	OwnerID     pgtype.UUID
-	BookID      pgtype.UUID
+	OwnerID     string
+	BookID      string
 	State       string
-	CreatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
 	ActivatedAt pgtype.Timestamptz
 	RemovedAt   pgtype.Timestamptz
 }
 
 type Card struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	DeckID         pgtype.UUID
+	ID             string
+	OwnerID        string
+	DeckID         string
 	DedupKey       string
 	CanonicalLemma string
 	Upos           string
 	Front          string
 	Back           string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 type CatalogueSyncStatus struct {
-	OwnerID      pgtype.UUID
-	ConnectionID pgtype.UUID
+	OwnerID      string
+	ConnectionID string
 	State        string
 	LastSyncedAt pgtype.Timestamptz
 	// Books added or updated by the most recent successful sync; zero means the collection was already current.
-	LastUpsertedCount int32
+	LastUpsertedCount int
 	LastError         string
-	UpdatedAt         pgtype.Timestamptz
+	UpdatedAt         time.Time
 }
 
 type Corpora struct {
-	ID                       pgtype.UUID
-	OwnerID                  pgtype.UUID
-	SourceMaterialID         pgtype.UUID
+	ID                       string
+	OwnerID                  string
+	SourceMaterialID         string
 	ArtifactHash             string
 	Status                   string
-	CreatedAt                pgtype.Timestamptz
+	CreatedAt                time.Time
 	AnalyzableTokenCount     pgtype.Int8
 	DistinctLemmaCount       pgtype.Int8
 	SentenceCount            pgtype.Int8
@@ -137,50 +139,50 @@ type Corpora struct {
 }
 
 type CuratedSentence struct {
-	ID                pgtype.UUID
-	OwnerID           pgtype.UUID
-	ExampleSentenceID pgtype.UUID
+	ID                string
+	OwnerID           string
+	ExampleSentenceID string
 	Language          string
 	CanonicalLemma    string
 	Upos              string
 	Notes             string
-	CreatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
 }
 
 type CurrentAnalysisIdentity struct {
-	OwnerID           pgtype.UUID
-	BookID            pgtype.UUID
-	SourceMaterialID  pgtype.UUID
-	AnalysisRunID     pgtype.UUID
-	ContentRevisionID pgtype.UUID
-	SnapshotID        pgtype.UUID
-	CorpusID          pgtype.UUID
+	OwnerID           string
+	BookID            string
+	SourceMaterialID  string
+	AnalysisRunID     string
+	ContentRevisionID string
+	SnapshotID        string
+	CorpusID          string
 }
 
 type Deck struct {
-	ID        pgtype.UUID
-	OwnerID   pgtype.UUID
+	ID        string
+	OwnerID   string
 	Language  string
 	Name      string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
 type DeckPreparation struct {
-	ID                                      pgtype.UUID
-	OwnerID                                 pgtype.UUID
-	SourceMaterialID                        pgtype.UUID
+	ID                                      string
+	OwnerID                                 string
+	SourceMaterialID                        string
 	State                                   string
 	Artifact                                []byte
 	Filename                                string
 	DeckName                                string
 	ContentHash                             string
-	TotalCards                              int32
-	CardsWithEnglish                        int32
-	CardsWithContextualSentenceTranslations int32
-	QualityOmissions                        int32
+	TotalCards                              int
+	CardsWithEnglish                        int
+	CardsWithContextualSentenceTranslations int
+	QualityOmissions                        int
 	Error                                   string
-	CreatedAt                               pgtype.Timestamptz
-	UpdatedAt                               pgtype.Timestamptz
+	CreatedAt                               time.Time
+	UpdatedAt                               time.Time
 	StartedAt                               pgtype.Timestamptz
 	CompletedAt                             pgtype.Timestamptz
 	AnalysisRunID                           pgtype.UUID
@@ -194,37 +196,37 @@ type DeckPreparation struct {
 }
 
 type DeckPreparationBatchChunk struct {
-	ID                           pgtype.UUID
-	OwnerID                      pgtype.UUID
-	PreparationID                pgtype.UUID
-	RunID                        pgtype.UUID
-	ChunkIndex                   int32
-	Generation                   int32
+	ID                           string
+	OwnerID                      string
+	PreparationID                string
+	RunID                        string
+	ChunkIndex                   int
+	Generation                   int
 	State                        string
 	ProviderStatus               pgtype.Text
 	Model                        string
 	Endpoint                     string
 	SplitReason                  string
-	FirstOrdinal                 int32
-	LastOrdinal                  int32
+	FirstOrdinal                 int
+	LastOrdinal                  int
 	InputDigest                  string
-	RequestCount                 int32
+	RequestCount                 int
 	InputBytes                   int64
 	EstimatedPromptTokens        int64
-	CompletedCount               int32
-	FailedCount                  int32
-	ExpiredCount                 int32
+	CompletedCount               int
+	FailedCount                  int
+	ExpiredCount                 int
 	InputFileID                  pgtype.Text
 	BatchID                      pgtype.Text
 	OutputFileID                 pgtype.Text
 	ErrorFileID                  pgtype.Text
 	SubmissionJobID              pgtype.Int8
-	SubmissionGeneration         int32
+	SubmissionGeneration         int
 	SubmissionClaimToken         pgtype.UUID
 	SubmissionClaimedAt          pgtype.Timestamptz
 	SubmissionLeaseExpiresAt     pgtype.Timestamptz
 	ReconciliationJobID          pgtype.Int8
-	ReconciliationGeneration     int32
+	ReconciliationGeneration     int
 	ReconciliationClaimToken     pgtype.UUID
 	ReconciliationClaimedAt      pgtype.Timestamptz
 	ReconciliationLeaseExpiresAt pgtype.Timestamptz
@@ -233,8 +235,8 @@ type DeckPreparationBatchChunk struct {
 	InputTokens                  int64
 	OutputTokens                 int64
 	TotalTokens                  int64
-	CreatedAt                    pgtype.Timestamptz
-	UpdatedAt                    pgtype.Timestamptz
+	CreatedAt                    time.Time
+	UpdatedAt                    time.Time
 	SubmittedAt                  pgtype.Timestamptz
 	LastPolledAt                 pgtype.Timestamptz
 	ProviderCompletedAt          pgtype.Timestamptz
@@ -242,9 +244,9 @@ type DeckPreparationBatchChunk struct {
 	InputFileCleanupState        string
 	OutputFileCleanupState       string
 	ErrorFileCleanupState        string
-	InputFileCleanupAttempts     int32
-	OutputFileCleanupAttempts    int32
-	ErrorFileCleanupAttempts     int32
+	InputFileCleanupAttempts     int
+	OutputFileCleanupAttempts    int
+	ErrorFileCleanupAttempts     int
 	CleanupErrorClass            string
 	CleanupErrorCode             string
 	CleanupClaimToken            pgtype.UUID
@@ -254,35 +256,35 @@ type DeckPreparationBatchChunk struct {
 }
 
 type DeckPreparationBatchChunkItem struct {
-	OwnerID         pgtype.UUID
-	PreparationID   pgtype.UUID
-	RunID           pgtype.UUID
-	ChunkID         pgtype.UUID
-	Generation      int32
-	Position        int32
-	Ordinal         int32
+	OwnerID         string
+	PreparationID   string
+	RunID           string
+	ChunkID         string
+	Generation      int
+	Position        int
+	Ordinal         int
 	CandidateDigest string
 }
 
 type DeckPreparationManifest struct {
-	OwnerID        pgtype.UUID
-	PreparationID  pgtype.UUID
-	RunID          pgtype.UUID
-	SchemaVersion  int32
+	OwnerID        string
+	PreparationID  string
+	RunID          string
+	SchemaVersion  int
 	ManifestDigest string
 	DeckName       string
 	Filename       string
-	SelectedCount  int32
-	AcceptedCount  int32
-	OmittedCount   int32
-	CreatedAt      pgtype.Timestamptz
+	SelectedCount  int
+	AcceptedCount  int
+	OmittedCount   int
+	CreatedAt      time.Time
 }
 
 type DeckPreparationManifestItem struct {
-	OwnerID         pgtype.UUID
-	PreparationID   pgtype.UUID
-	RunID           pgtype.UUID
-	Ordinal         int32
+	OwnerID         string
+	PreparationID   string
+	RunID           string
+	Ordinal         int
 	Disposition     string
 	Language        string
 	CanonicalLemma  string
@@ -290,23 +292,23 @@ type DeckPreparationManifestItem struct {
 	SourceSentence  string
 	TestedTarget    string
 	FirstEncounter  int64
-	QualityScore    int32
+	QualityScore    int
 	QualityReasons  []string
 	RenderPayload   []byte
 	Provider        pgtype.Text
 	ProviderVersion pgtype.Text
 	SentenceHash    pgtype.Text
 	CandidateDigest string
-	CreatedAt       pgtype.Timestamptz
+	CreatedAt       time.Time
 	// Frozen target language for this manifest item cache identity
 	TargetLanguage string
 }
 
 type DeckPreparationRun struct {
-	ID                             pgtype.UUID
-	OwnerID                        pgtype.UUID
-	PreparationID                  pgtype.UUID
-	RunNumber                      int32
+	ID                             string
+	OwnerID                        string
+	PreparationID                  string
+	RunNumber                      int
 	State                          string
 	TranslationState               string
 	ExternalTranslationConsent     bool
@@ -316,25 +318,25 @@ type DeckPreparationRun struct {
 	ProviderVersion                pgtype.Text
 	Endpoint                       pgtype.Text
 	Model                          pgtype.Text
-	ManifestSchemaVersion          int32
-	RetryPolicyVersion             int32
-	MaxProviderAttempts            int32
-	MaxBatchGenerations            int32
-	BatchMaxRequests               int32
+	ManifestSchemaVersion          int
+	RetryPolicyVersion             int
+	MaxProviderAttempts            int
+	MaxBatchGenerations            int
+	BatchMaxRequests               int
 	BatchMaxBytes                  int64
-	CandidateCount                 int32
-	CompletedCount                 int32
-	FailedCount                    int32
-	FinalizationDispatchGeneration int32
-	FinalizationDispatchCount      int32
+	CandidateCount                 int
+	CompletedCount                 int
+	FailedCount                    int
+	FinalizationDispatchGeneration int
+	FinalizationDispatchCount      int
 	FinalizationJobID              pgtype.Int8
 	FinalizationClaimToken         pgtype.UUID
 	FinalizationClaimedAt          pgtype.Timestamptz
 	FinalizationLeaseExpiresAt     pgtype.Timestamptz
 	ErrorClass                     string
 	ErrorCode                      string
-	CreatedAt                      pgtype.Timestamptz
-	UpdatedAt                      pgtype.Timestamptz
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time
 	TranslationCompletedAt         pgtype.Timestamptz
 	CompletedAt                    pgtype.Timestamptz
 	// Frozen prepared-deck executor mode: standard or batch
@@ -344,16 +346,16 @@ type DeckPreparationRun struct {
 }
 
 type DeckPreparationTranslationOutcome struct {
-	OwnerID              pgtype.UUID
-	PreparationID        pgtype.UUID
-	RunID                pgtype.UUID
-	Ordinal              int32
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
 	State                string
-	DispatchCount        int32
-	ProviderAttemptCount int32
-	MaxProviderAttempts  int32
-	NextAttemptAt        pgtype.Timestamptz
-	DispatchGeneration   int32
+	DispatchCount        int
+	ProviderAttemptCount int
+	MaxProviderAttempts  int
+	NextAttemptAt        time.Time
+	DispatchGeneration   int
 	RiverJobID           pgtype.Int8
 	ClaimToken           pgtype.UUID
 	ClaimedAt            pgtype.Timestamptz
@@ -361,20 +363,20 @@ type DeckPreparationTranslationOutcome struct {
 	TerminalAt           pgtype.Timestamptz
 	ErrorClass           string
 	ErrorCode            string
-	CacheHitCount        int32
-	ProviderCallCount    int32
+	CacheHitCount        int
+	ProviderCallCount    int
 	CacheLatencyMs       int64
 	ProviderLatencyMs    int64
-	UpdatedAt            pgtype.Timestamptz
+	UpdatedAt            time.Time
 }
 
 type DeckPreparationVocabulary struct {
-	OwnerID           pgtype.UUID
-	DeckPreparationID pgtype.UUID
+	OwnerID           string
+	DeckPreparationID string
 	Language          string
 	CanonicalLemma    string
 	Upos              string
-	GeneratedAt       pgtype.Timestamptz
+	GeneratedAt       time.Time
 	GraduatedAt       pgtype.Timestamptz
 }
 
@@ -387,7 +389,7 @@ type EnrichmentCache struct {
 	ProviderVersion string
 	Translation     string
 	Gloss           string
-	CachedAt        pgtype.Timestamptz
+	CachedAt        time.Time
 	// Lowercase hex SHA-256 of conservatively normalized approved sentence text; empty for lemma-only legacy entries
 	SentenceHash string
 	// Natural translation of the complete approved example sentence; empty when unavailable
@@ -399,13 +401,13 @@ type EnrichmentCache struct {
 }
 
 type ExampleSentence struct {
-	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	ID               string
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 	Language         pgtype.Text
 	CanonicalLemma   pgtype.Text
 	Upos             pgtype.Text
@@ -416,11 +418,11 @@ type ExampleSentence struct {
 }
 
 type FrequencyDataset struct {
-	ID          pgtype.UUID
+	ID          string
 	Language    string
 	Name        string
 	Version     string
-	CreatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
 	SourceUrl   string
 	License     string
 	Attribution string
@@ -428,32 +430,32 @@ type FrequencyDataset struct {
 }
 
 type FrequencyEntry struct {
-	DatasetID      pgtype.UUID
+	DatasetID      string
 	Language       string
 	CanonicalLemma string
 	Upos           string
 	Rank           int64
 	Frequency      float64
-	FrequencyClass int16
+	FrequencyClass int
 }
 
 type GeneratedVocabulary struct {
-	OwnerID               pgtype.UUID
+	OwnerID               string
 	Language              string
 	CanonicalLemma        string
 	Upos                  string
-	FirstDeckID           pgtype.UUID
+	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
-	FirstGeneratedAt      pgtype.Timestamptz
+	FirstGeneratedAt      time.Time
 }
 
 type KnownVocabulary struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
+	ID             string
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 type MyBooksEvidence struct {
@@ -463,8 +465,8 @@ type MyBooksEvidence struct {
 	BookMetadataProvenance  string
 	BookLanguageState       string
 	BookLanguageTag         string
-	BookCreatedAt           pgtype.Timestamptz
-	BookUpdatedAt           pgtype.Timestamptz
+	BookCreatedAt           time.Time
+	BookUpdatedAt           time.Time
 	SourceID                string
 	SourceOwnerID           string
 	SourceLanguage          string
@@ -475,8 +477,8 @@ type MyBooksEvidence struct {
 	SourceContentDigest     string
 	SourceContentRevisionID string
 	SourceContentSnapshotID string
-	SourceDigestVersion     int32
-	SourceCreatedAt         pgtype.Timestamptz
+	SourceDigestVersion     int
+	SourceCreatedAt         *time.Time
 	Acquired                bool
 	AnalysisStatus          string
 	AnalysisState           string
@@ -493,68 +495,68 @@ type NormalizedCorpusArtifact struct {
 	NormalizationVersion string
 	AnalyzerName         string
 	AnalyzerVersion      string
-	CreatedAt            pgtype.Timestamptz
+	CreatedAt            time.Time
 }
 
 type OpdsConnection struct {
-	ID       pgtype.UUID
+	ID       string
 	Name     string
 	Url      string
 	Username string
 	// AES-256-GCM ciphertext (nonce prefixed), encrypted by MOUSEION_SECRET
 	PasswordEncrypted []byte
 	Language          string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	OwnerID           pgtype.UUID
 }
 
 type PrimaryGoal struct {
-	OwnerID           pgtype.UUID
-	BookID            pgtype.UUID
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	OwnerID           string
+	BookID            string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	ReadingFinishedAt pgtype.Timestamptz
 	Language          string
 }
 
 type ProcessingHistory struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
+	ID          string
+	OwnerID     string
 	CorpusID    pgtype.UUID
 	Operation   string
 	Status      string
 	Details     []byte
-	StartedAt   pgtype.Timestamptz
+	StartedAt   time.Time
 	CompletedAt pgtype.Timestamptz
 }
 
 type ReadingJourney struct {
-	OwnerID   pgtype.UUID
+	OwnerID   string
 	Revision  int64
-	UpdatedAt pgtype.Timestamptz
+	UpdatedAt time.Time
 	Language  string
 }
 
 type ReadingJourneyMembership struct {
-	OwnerID   pgtype.UUID
-	BookID    pgtype.UUID
-	Position  int32
-	CreatedAt pgtype.Timestamptz
+	OwnerID   string
+	BookID    string
+	Position  int
+	CreatedAt time.Time
 	Language  string
 }
 
 type SelectionCandidate struct {
-	OwnerID              pgtype.UUID
+	OwnerID              string
 	CorpusID             string
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
-	OccurrenceCount      int32
+	OccurrenceCount      int
 	ObservedForms        []byte
 	EligibleSentenceRefs []byte
 	Provenance           []byte
-	SelectedAt           pgtype.Timestamptz
+	SelectedAt           time.Time
 	RankingGlobalPct     pgtype.Float8
 	RankingCorpusPct     pgtype.Float8
 	RankingPriority      pgtype.Bool
@@ -564,12 +566,12 @@ type SelectionCandidate struct {
 }
 
 type Session struct {
-	ID         pgtype.UUID
-	UserID     pgtype.UUID
+	ID         string
+	UserID     string
 	TokenHash  string
-	CreatedAt  pgtype.Timestamptz
-	ExpiresAt  pgtype.Timestamptz
-	LastSeenAt pgtype.Timestamptz
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	LastSeenAt time.Time
 }
 
 type SharedLemma struct {
@@ -583,19 +585,19 @@ type SharedLemma struct {
 }
 
 type SourceContentRevision struct {
-	RevisionID       pgtype.UUID
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
-	DigestVersion    int32
+	RevisionID       string
+	OwnerID          string
+	SourceMaterialID string
+	DigestVersion    int
 	ContentDigest    string
 	Content          []byte
 	FullText         string
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 type SourceMaterial struct {
-	ID                       pgtype.UUID
-	OwnerID                  pgtype.UUID
+	ID                       string
+	OwnerID                  string
 	Language                 string
 	SourceIdentifier         string
 	Title                    string
@@ -603,7 +605,7 @@ type SourceMaterial struct {
 	ContentHash              string
 	Content                  []byte
 	FullText                 string
-	CreatedAt                pgtype.Timestamptz
+	CreatedAt                time.Time
 	CurrentContentRevisionID pgtype.UUID
 	CurrentSnapshotID        pgtype.UUID
 	BookID                   pgtype.UUID
@@ -622,8 +624,8 @@ type SourceMaterialEvidence struct {
 	ContentDigest     string
 	ContentRevisionID string
 	ContentSnapshotID string
-	DigestVersion     int32
-	SourceCreatedAt   pgtype.Timestamptz
+	DigestVersion     int
+	SourceCreatedAt   time.Time
 	AnalysisStatus    string
 	AnalysisState     string
 	AnalysisRunID     string
@@ -633,8 +635,8 @@ type SourceMaterialEvidence struct {
 }
 
 type SourceMaterialUnit struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 	UnitID           string
 	UnitOrder        int64
 	SpineIndex       int64
@@ -653,39 +655,39 @@ type SourceMaterialUnit struct {
 	NavigationLabels []byte
 	LandmarkTypes    []byte
 	Selected         bool
-	SnapshotID       pgtype.UUID
+	SnapshotID       string
 }
 
 type SourceMaterialUnitSnapshot struct {
-	OwnerID           pgtype.UUID
-	SourceMaterialID  pgtype.UUID
-	SchemaVersion     int32
-	CreatedAt         pgtype.Timestamptz
-	SnapshotID        pgtype.UUID
-	ContentRevisionID pgtype.UUID
+	OwnerID           string
+	SourceMaterialID  string
+	SchemaVersion     int
+	CreatedAt         time.Time
+	SnapshotID        string
+	ContentRevisionID string
 }
 
 type SupportedLanguage struct {
 	Language    string
 	DisplayName string
-	CreatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
 }
 
 type User struct {
-	ID                  pgtype.UUID
+	ID                  string
 	Username            string
 	IsAdmin             bool
-	CreatedAt           pgtype.Timestamptz
+	CreatedAt           time.Time
 	PasswordHash        pgtype.Text
 	ActiveStudyLanguage pgtype.Text
 }
 
 type VocabularyState struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
+	ID             string
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
 	State          string
-	UpdatedAt      pgtype.Timestamptz
+	UpdatedAt      time.Time
 }

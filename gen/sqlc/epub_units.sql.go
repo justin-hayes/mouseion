@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,8 +20,8 @@ FOR UPDATE
 `
 
 type GetCurrentContentRevisionForUpdateParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 func (q *Queries) GetCurrentContentRevisionForUpdate(ctx context.Context, arg GetCurrentContentRevisionForUpdateParams) (string, error) {
@@ -43,13 +44,13 @@ WHERE u.owner_id = $1 AND u.source_material_id = $2
 `
 
 type GetCurrentExtractedUnitSnapshotParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 }
 
 type GetCurrentExtractedUnitSnapshotRow struct {
 	USnapshotID   string
-	SchemaVersion int32
+	SchemaVersion int
 	FullText      string
 }
 
@@ -74,8 +75,8 @@ WHERE s.owner_id = $1 AND s.id = $2
 `
 
 type GetCurrentSourceMaterialContentParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetCurrentSourceMaterialContentRow struct {
@@ -84,7 +85,7 @@ type GetCurrentSourceMaterialContentRow struct {
 	ContentHash       string
 	ContentDigest     string
 	ContentRevisionID string
-	DigestVersion     int32
+	DigestVersion     int
 }
 
 func (q *Queries) GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error) {
@@ -108,8 +109,8 @@ WHERE owner_id = $1 AND source_material_id = $2 AND content_digest = $3
 `
 
 type GetSourceContentRevisionByDigestParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 	ContentDigest    string
 }
 
@@ -127,9 +128,9 @@ RETURNING revision_id::text
 `
 
 type InsertSourceContentRevisionParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
-	DigestVersion    int32
+	OwnerID          string
+	SourceMaterialID string
+	DigestVersion    int
 	ContentDigest    string
 	Content          []byte
 	FullText         string
@@ -158,9 +159,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 `
 
 type InsertSourceMaterialUnitParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
-	SnapshotID       pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
+	SnapshotID       string
 	UnitID           string
 	UnitOrder        int64
 	SpineIndex       int64
@@ -213,10 +214,10 @@ RETURNING snapshot_id::text
 `
 
 type InsertSourceMaterialUnitSnapshotParams struct {
-	OwnerID           pgtype.UUID
-	SourceMaterialID  pgtype.UUID
-	ContentRevisionID pgtype.UUID
-	SchemaVersion     int32
+	OwnerID           string
+	SourceMaterialID  string
+	ContentRevisionID string
+	SchemaVersion     int
 }
 
 func (q *Queries) InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error) {
@@ -245,8 +246,8 @@ ORDER BY u.unit_order
 `
 
 type ListCurrentExtractedUnitsParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 }
 
 type ListCurrentExtractedUnitsRow struct {
@@ -314,8 +315,8 @@ WHERE owner_id = $1 AND id = $2
 `
 
 type SetCurrentContentRevisionParams struct {
-	OwnerID                  pgtype.UUID
-	ID                       pgtype.UUID
+	OwnerID                  string
+	ID                       string
 	CurrentContentRevisionID pgtype.UUID
 }
 
@@ -331,8 +332,8 @@ WHERE owner_id = $1 AND id = $2
 `
 
 type SetCurrentSnapshotParams struct {
-	OwnerID           pgtype.UUID
-	ID                pgtype.UUID
+	OwnerID           string
+	ID                string
 	CurrentSnapshotID pgtype.UUID
 }
 
@@ -354,7 +355,7 @@ RETURNING id::text, owner_id::text, language, source_identifier, title, media_ty
 `
 
 type UpsertSourceMaterialForExtractedUnitsParams struct {
-	OwnerID          pgtype.UUID
+	OwnerID          string
 	Language         string
 	SourceIdentifier string
 	Title            string
@@ -374,7 +375,7 @@ type UpsertSourceMaterialForExtractedUnitsRow struct {
 	ContentHash      string
 	Content          []byte
 	FullText         string
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 // Immutable source revisions and extracted EPUB-unit snapshots.

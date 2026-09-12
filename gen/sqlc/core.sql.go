@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -16,8 +17,8 @@ SELECT EXISTS(SELECT 1 FROM corpora WHERE owner_id = $1 AND id = $2)
 `
 
 type CorpusOwnedParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 func (q *Queries) CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error) {
@@ -40,7 +41,7 @@ type CreateFirstUserAndSessionParams struct {
 type CreateFirstUserAndSessionRow struct {
 	ID        string
 	Username  string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
 func (q *Queries) CreateFirstUserAndSession(ctx context.Context, arg CreateFirstUserAndSessionParams) (CreateFirstUserAndSessionRow, error) {
@@ -63,7 +64,7 @@ type CreateUserParams struct {
 type CreateUserRow struct {
 	ID        string
 	Username  string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
@@ -87,7 +88,7 @@ type CreateUserWithPasswordParams struct {
 type CreateUserWithPasswordRow struct {
 	ID        string
 	Username  string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
 func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error) {
@@ -102,8 +103,8 @@ SELECT EXISTS(SELECT 1 FROM example_sentences WHERE id = $1 AND owner_id = $2 AN
 `
 
 type CuratedSentenceExistsParams struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
+	ID             string
+	OwnerID        string
 	Language       pgtype.Text
 	CanonicalLemma pgtype.Text
 	Upos           pgtype.Text
@@ -127,8 +128,8 @@ DELETE FROM example_sentences WHERE owner_id = $1 AND corpus_id = $2 AND languag
 `
 
 type DeleteSelectedSentencesParams struct {
-	OwnerID        pgtype.UUID
-	CorpusID       pgtype.UUID
+	OwnerID        string
+	CorpusID       string
 	Language       pgtype.Text
 	CanonicalLemma pgtype.Text
 	Upos           pgtype.Text
@@ -158,7 +159,7 @@ const deleteUserSessions = `-- name: DeleteUserSessions :exec
 DELETE FROM sessions WHERE user_id = $1
 `
 
-func (q *Queries) DeleteUserSessions(ctx context.Context, userID pgtype.UUID) error {
+func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 	_, err := q.db.Exec(ctx, deleteUserSessions, userID)
 	return err
 }
@@ -168,8 +169,8 @@ DELETE FROM vocabulary_states WHERE owner_id = $1 AND id = $2
 `
 
 type DeleteVocabularyStateParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 func (q *Queries) DeleteVocabularyState(ctx context.Context, arg DeleteVocabularyStateParams) (int64, error) {
@@ -202,7 +203,7 @@ LIMIT 1
 `
 
 type FindSourceMaterialForAcquisitionParams struct {
-	OwnerID          pgtype.UUID
+	OwnerID          string
 	SourceIdentifier string
 	ContentHash      string
 }
@@ -219,8 +220,8 @@ type FindSourceMaterialForAcquisitionRow struct {
 	Content           []byte
 	FullText          string
 	ContentRevisionID string
-	DigestVersion     int32
-	CreatedAt         pgtype.Timestamptz
+	DigestVersion     int
+	CreatedAt         time.Time
 }
 
 func (q *Queries) FindSourceMaterialForAcquisition(ctx context.Context, arg FindSourceMaterialForAcquisitionParams) (FindSourceMaterialForAcquisitionRow, error) {
@@ -250,8 +251,8 @@ FROM catalogue_sync_status WHERE owner_id = $1 AND connection_id = $2
 `
 
 type GetCatalogueSyncStatusParams struct {
-	OwnerID      pgtype.UUID
-	ConnectionID pgtype.UUID
+	OwnerID      string
+	ConnectionID string
 }
 
 type GetCatalogueSyncStatusRow struct {
@@ -259,9 +260,9 @@ type GetCatalogueSyncStatusRow struct {
 	ConnectionID      string
 	State             string
 	LastSyncedAt      pgtype.Timestamptz
-	LastUpsertedCount int32
+	LastUpsertedCount int
 	LastError         string
-	UpdatedAt         pgtype.Timestamptz
+	UpdatedAt         time.Time
 }
 
 func (q *Queries) GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error) {
@@ -299,8 +300,8 @@ FROM corpora WHERE owner_id = $1 AND id = $2
 `
 
 type GetCorpusParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetCorpusRow struct {
@@ -318,7 +319,7 @@ type GetCorpusRow struct {
 	MedianSentenceTokenCount pgtype.Float8
 	P90SentenceTokenCount    pgtype.Int8
 	LongSentenceCount        pgtype.Int8
-	CreatedAt                pgtype.Timestamptz
+	CreatedAt                time.Time
 }
 
 func (q *Queries) GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error) {
@@ -362,8 +363,8 @@ FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2
 `
 
 type GetKnownVocabularyParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetKnownVocabularyRow struct {
@@ -373,7 +374,7 @@ type GetKnownVocabularyRow struct {
 	CanonicalLemma string
 	Upos           string
 	Provenance     string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error) {
@@ -397,7 +398,7 @@ FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma 
 `
 
 type GetKnownVocabularyByIdentityParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -409,7 +410,7 @@ type GetKnownVocabularyByIdentityRow struct {
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error) {
@@ -462,8 +463,8 @@ WHERE s.token_hash = $1 AND s.expires_at > now()
 type GetSessionRow struct {
 	UID       string
 	Username  string
-	CreatedAt pgtype.Timestamptz
-	ExpiresAt pgtype.Timestamptz
+	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 func (q *Queries) GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error) {
@@ -498,8 +499,8 @@ WHERE s.owner_id = $1 AND s.id = $2
 `
 
 type GetSourceMaterialParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetSourceMaterialRow struct {
@@ -514,8 +515,8 @@ type GetSourceMaterialRow struct {
 	Content           []byte
 	FullText          string
 	ContentRevisionID string
-	DigestVersion     int32
-	CreatedAt         pgtype.Timestamptz
+	DigestVersion     int
+	CreatedAt         time.Time
 }
 
 func (q *Queries) GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error) {
@@ -543,7 +544,7 @@ const getStoredActiveStudyLanguage = `-- name: GetStoredActiveStudyLanguage :one
 SELECT active_study_language FROM users WHERE id = $1
 `
 
-func (q *Queries) GetStoredActiveStudyLanguage(ctx context.Context, id pgtype.UUID) (pgtype.Text, error) {
+func (q *Queries) GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error) {
 	row := q.db.QueryRow(ctx, getStoredActiveStudyLanguage, id)
 	var active_study_language pgtype.Text
 	err := row.Scan(&active_study_language)
@@ -557,10 +558,10 @@ SELECT id::text, username, created_at FROM users WHERE id = $1
 type GetUserByIDRow struct {
 	ID        string
 	Username  string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
-func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i GetUserByIDRow
 	err := row.Scan(&i.ID, &i.Username, &i.CreatedAt)
@@ -575,7 +576,7 @@ FROM users WHERE username = $1
 type GetUserByUsernameRow struct {
 	ID           string
 	Username     string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 	PasswordHash string
 }
 
@@ -597,8 +598,8 @@ FROM vocabulary_states WHERE owner_id = $1 AND id = $2
 `
 
 type GetVocabularyStateParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type GetVocabularyStateRow struct {
@@ -608,7 +609,7 @@ type GetVocabularyStateRow struct {
 	CanonicalLemma string
 	Upos           string
 	State          string
-	UpdatedAt      pgtype.Timestamptz
+	UpdatedAt      time.Time
 }
 
 func (q *Queries) GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error) {
@@ -632,7 +633,7 @@ FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND canonical_lemma
 `
 
 type GetVocabularyStateByIdentityParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -645,7 +646,7 @@ type GetVocabularyStateByIdentityRow struct {
 	CanonicalLemma string
 	Upos           string
 	State          string
-	UpdatedAt      pgtype.Timestamptz
+	UpdatedAt      time.Time
 }
 
 func (q *Queries) GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error) {
@@ -673,7 +674,7 @@ SELECT state FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND ca
 `
 
 type GetVocabularyStateForUpdateParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -713,7 +714,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type InsertProcessingHistoryParams struct {
-	OwnerID     pgtype.UUID
+	OwnerID     string
 	CorpusID    pgtype.UUID
 	Operation   string
 	Status      string
@@ -739,7 +740,7 @@ VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertProcessingHistoryWithoutCorpusParams struct {
-	OwnerID     pgtype.UUID
+	OwnerID     string
 	Operation   string
 	Status      string
 	Details     []byte
@@ -763,8 +764,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
 type InsertSelectedSentenceParams struct {
-	OwnerID          pgtype.UUID
-	CorpusID         pgtype.UUID
+	OwnerID          string
+	CorpusID         string
 	SentenceKey      string
 	SentenceText     string
 	SourceLocation   []byte
@@ -800,9 +801,9 @@ INSERT INTO sessions(user_id, token_hash, expires_at) VALUES ($1, $2, $3)
 `
 
 type InsertSessionParams struct {
-	UserID    pgtype.UUID
+	UserID    string
 	TokenHash string
-	ExpiresAt pgtype.Timestamptz
+	ExpiresAt time.Time
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
@@ -816,7 +817,7 @@ VALUES ($1, $2, $3, $4, 'candidate') ON CONFLICT DO NOTHING
 `
 
 type InsertVocabularyStateCandidateParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -837,7 +838,7 @@ SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = 
 `
 
 type IsKnownVocabularyIdentityParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -860,7 +861,7 @@ SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = 
 `
 
 type KnownVocabularyExistsParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -884,8 +885,8 @@ FROM corpora WHERE owner_id = $1 AND source_material_id = $2 ORDER BY created_at
 `
 
 type LatestCorpusForSourceParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 }
 
 type LatestCorpusForSourceRow struct {
@@ -894,7 +895,7 @@ type LatestCorpusForSourceRow struct {
 	SourceMaterialID string
 	ArtifactHash     string
 	Status           string
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error) {
@@ -940,13 +941,13 @@ type ListAnalysisJobsRow struct {
 	CorpusID          string
 	AnalysisRunID     string
 	AnalysisState     string
-	Progress          int16
+	Progress          int
 	Error             string
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
-func (q *Queries) ListAnalysisJobs(ctx context.Context, ownerID pgtype.UUID) ([]ListAnalysisJobsRow, error) {
+func (q *Queries) ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error) {
 	rows, err := q.db.Query(ctx, listAnalysisJobs, ownerID)
 	if err != nil {
 		return nil, err
@@ -989,12 +990,12 @@ type ListCatalogueSyncStatusesRow struct {
 	ConnectionID      string
 	State             string
 	LastSyncedAt      pgtype.Timestamptz
-	LastUpsertedCount int32
+	LastUpsertedCount int
 	LastError         string
-	UpdatedAt         pgtype.Timestamptz
+	UpdatedAt         time.Time
 }
 
-func (q *Queries) ListCatalogueSyncStatuses(ctx context.Context, ownerID pgtype.UUID) ([]ListCatalogueSyncStatusesRow, error) {
+func (q *Queries) ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error) {
 	rows, err := q.db.Query(ctx, listCatalogueSyncStatuses, ownerID)
 	if err != nil {
 		return nil, err
@@ -1040,7 +1041,7 @@ FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv
 `
 
 type ListKnownVocabularyParams struct {
-	OwnerID  pgtype.UUID
+	OwnerID  string
 	Language string
 }
 
@@ -1051,7 +1052,7 @@ type ListKnownVocabularyRow struct {
 	CanonicalLemma string
 	Upos           string
 	Provenance     string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error) {
@@ -1097,7 +1098,7 @@ type ListKnownVocabularyLanguagesRow struct {
 	DisplayName string
 }
 
-func (q *Queries) ListKnownVocabularyLanguages(ctx context.Context, ownerID pgtype.UUID) ([]ListKnownVocabularyLanguagesRow, error) {
+func (q *Queries) ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error) {
 	rows, err := q.db.Query(ctx, listKnownVocabularyLanguages, ownerID)
 	if err != nil {
 		return nil, err
@@ -1193,7 +1194,7 @@ ORDER BY gv.canonical_lemma, gv.upos
 `
 
 type ListUnattachedGeneratedVocabularyParams struct {
-	OwnerID  pgtype.UUID
+	OwnerID  string
 	Language string
 }
 
@@ -1204,7 +1205,7 @@ type ListUnattachedGeneratedVocabularyRow struct {
 	Upos                  string
 	FirstDeckID           string
 	FirstSourceMaterialID pgtype.UUID
-	FirstGeneratedAt      pgtype.Timestamptz
+	FirstGeneratedAt      time.Time
 }
 
 func (q *Queries) ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error) {
@@ -1244,7 +1245,7 @@ ORDER BY m.activated_at DESC NULLS LAST, b.updated_at DESC, b.id DESC
 LIMIT 1
 `
 
-func (q *Queries) MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID pgtype.UUID) (pgtype.Text, error) {
+func (q *Queries) MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error) {
 	row := q.db.QueryRow(ctx, mostRecentlyActivatedStudyLanguage, ownerID)
 	var language_tag pgtype.Text
 	err := row.Scan(&language_tag)
@@ -1259,8 +1260,8 @@ RETURNING id::text, owner_id::text, deck_id::text, dedup_key, canonical_lemma, u
 `
 
 type PutCardParams struct {
-	OwnerID        pgtype.UUID
-	DeckID         pgtype.UUID
+	OwnerID        string
+	DeckID         string
 	DedupKey       string
 	CanonicalLemma string
 	Upos           string
@@ -1277,7 +1278,7 @@ type PutCardRow struct {
 	Upos           string
 	Front          string
 	Back           string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error) {
@@ -1311,8 +1312,8 @@ RETURNING id::text, owner_id::text, source_material_id::text, artifact_hash, sta
 `
 
 type PutCorpusParams struct {
-	OwnerID          pgtype.UUID
-	SourceMaterialID pgtype.UUID
+	OwnerID          string
+	SourceMaterialID string
 	ArtifactHash     string
 }
 
@@ -1322,7 +1323,7 @@ type PutCorpusRow struct {
 	SourceMaterialID string
 	ArtifactHash     string
 	Status           string
-	CreatedAt        pgtype.Timestamptz
+	CreatedAt        time.Time
 }
 
 func (q *Queries) PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error) {
@@ -1348,8 +1349,8 @@ RETURNING id::text, owner_id::text, example_sentence_id::text, language, canonic
 `
 
 type PutCuratedSentenceParams struct {
-	OwnerID           pgtype.UUID
-	ExampleSentenceID pgtype.UUID
+	OwnerID           string
+	ExampleSentenceID string
 	Language          string
 	CanonicalLemma    string
 	Upos              string
@@ -1364,7 +1365,7 @@ type PutCuratedSentenceRow struct {
 	CanonicalLemma    string
 	Upos              string
 	Notes             string
-	CreatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
 }
 
 func (q *Queries) PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error) {
@@ -1397,7 +1398,7 @@ RETURNING id::text, owner_id::text, language, name, created_at
 `
 
 type PutDeckParams struct {
-	OwnerID  pgtype.UUID
+	OwnerID  string
 	Language string
 	Name     string
 }
@@ -1407,7 +1408,7 @@ type PutDeckRow struct {
 	OwnerID   string
 	Language  string
 	Name      string
-	CreatedAt pgtype.Timestamptz
+	CreatedAt time.Time
 }
 
 func (q *Queries) PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error) {
@@ -1432,21 +1433,21 @@ RETURNING id, owner_id, corpus_id, sentence_key, sentence_text, source_location,
 `
 
 type PutExampleSentenceParams struct {
-	OwnerID        pgtype.UUID
-	CorpusID       pgtype.UUID
+	OwnerID        string
+	CorpusID       string
 	SentenceKey    string
 	SentenceText   string
 	SourceLocation []byte
 }
 
 type PutExampleSentenceRow struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	CorpusID       pgtype.UUID
+	ID             string
+	OwnerID        string
+	CorpusID       string
 	SentenceKey    string
 	SentenceText   string
 	SourceLocation []byte
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error) {
@@ -1506,7 +1507,7 @@ RETURNING id::text, owner_id::text, (COALESCE(corpus_id::text, ''))::text AS cor
 `
 
 type PutProcessingHistoryParams struct {
-	OwnerID     pgtype.UUID
+	OwnerID     string
 	CorpusID    pgtype.UUID
 	Operation   string
 	Status      string
@@ -1521,7 +1522,7 @@ type PutProcessingHistoryRow struct {
 	Operation   string
 	Status      string
 	Details     []byte
-	StartedAt   pgtype.Timestamptz
+	StartedAt   time.Time
 	CompletedAt pgtype.Timestamptz
 }
 
@@ -1560,12 +1561,12 @@ ON CONFLICT(owner_id, corpus_id, language, canonical_lemma, upos) DO UPDATE SET
 `
 
 type PutSelectionCandidateParams struct {
-	OwnerID              pgtype.UUID
+	OwnerID              string
 	CorpusID             string
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
-	OccurrenceCount      int32
+	OccurrenceCount      int
 	ObservedForms        []byte
 	EligibleSentenceRefs []byte
 	Provenance           []byte
@@ -1622,7 +1623,7 @@ RETURNING id::text
 `
 
 type PutSourceMaterialParams struct {
-	OwnerID          pgtype.UUID
+	OwnerID          string
 	Language         string
 	SourceIdentifier string
 	Title            string
@@ -1684,7 +1685,7 @@ RETURNING id::text, owner_id::text, language, canonical_lemma, upos, state, upda
 `
 
 type PutVocabularyStateParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -1698,7 +1699,7 @@ type PutVocabularyStateRow struct {
 	CanonicalLemma string
 	Upos           string
 	State          string
-	UpdatedAt      pgtype.Timestamptz
+	UpdatedAt      time.Time
 }
 
 func (q *Queries) PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error) {
@@ -1732,7 +1733,7 @@ SELECT EXISTS(
 `
 
 type ReservedVocabularyExistsParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -1755,7 +1756,7 @@ UPDATE users SET active_study_language = $2 WHERE id = $1
 `
 
 type SetActiveStudyLanguageParams struct {
-	ID                  pgtype.UUID
+	ID                  string
 	ActiveStudyLanguage pgtype.Text
 }
 
@@ -1779,11 +1780,11 @@ ON CONFLICT(owner_id, connection_id) DO UPDATE SET
 `
 
 type SetCatalogueSyncStatusParams struct {
-	OwnerID           pgtype.UUID
-	ConnectionID      pgtype.UUID
+	OwnerID           string
+	ConnectionID      string
 	State             string
 	LastSyncedAt      pgtype.Timestamptz
-	LastUpsertedCount int32
+	LastUpsertedCount int
 	LastError         string
 }
 
@@ -1804,7 +1805,7 @@ UPDATE users SET password_hash = $2 WHERE id = $1
 `
 
 type SetUserPasswordParams struct {
-	ID           pgtype.UUID
+	ID           string
 	PasswordHash pgtype.Text
 }
 
@@ -1821,8 +1822,8 @@ UPDATE corpora SET artifact_hash = $3 WHERE owner_id = $1 AND id = $2
 `
 
 type UpdateCorpusArtifactHashParams struct {
-	OwnerID      pgtype.UUID
-	ID           pgtype.UUID
+	OwnerID      string
+	ID           string
 	ArtifactHash string
 }
 
@@ -1837,8 +1838,8 @@ UPDATE example_sentences SET sentence_text = $1 WHERE id = $2 AND owner_id = $3
 
 type UpdateExampleSentenceTextParams struct {
 	SentenceText string
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
+	ID           string
+	OwnerID      string
 }
 
 func (q *Queries) UpdateExampleSentenceText(ctx context.Context, arg UpdateExampleSentenceTextParams) error {
@@ -1855,8 +1856,8 @@ RETURNING id::text, owner_id::text, example_sentence_id::text, language, canonic
 `
 
 type UpsertCuratedSentenceParams struct {
-	OwnerID           pgtype.UUID
-	ExampleSentenceID pgtype.UUID
+	OwnerID           string
+	ExampleSentenceID string
 	Language          string
 	CanonicalLemma    string
 	Upos              string
@@ -1871,7 +1872,7 @@ type UpsertCuratedSentenceRow struct {
 	CanonicalLemma    string
 	Upos              string
 	Notes             string
-	CreatedAt         pgtype.Timestamptz
+	CreatedAt         time.Time
 }
 
 func (q *Queries) UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error) {
@@ -1905,7 +1906,7 @@ RETURNING id::text, owner_id::text, language, canonical_lemma, upos, created_at
 `
 
 type UpsertKnownVocabularyParams struct {
-	OwnerID        pgtype.UUID
+	OwnerID        string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -1917,7 +1918,7 @@ type UpsertKnownVocabularyRow struct {
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	CreatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
 }
 
 func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error) {

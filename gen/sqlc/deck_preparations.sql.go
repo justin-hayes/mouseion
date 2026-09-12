@@ -21,8 +21,8 @@ ON CONFLICT DO NOTHING
 `
 
 type AttachDeckPreparationVocabularyParams struct {
-	Preparation    pgtype.UUID
-	Owner          pgtype.UUID
+	Preparation    string
+	Owner          string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -52,8 +52,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type CancelDeckPreparationParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 func (q *Queries) CancelDeckPreparation(ctx context.Context, arg CancelDeckPreparationParams) (DeckPreparation, error) {
@@ -102,8 +102,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type ClaimDeckPreparationParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 func (q *Queries) ClaimDeckPreparation(ctx context.Context, arg ClaimDeckPreparationParams) (DeckPreparation, error) {
@@ -160,12 +160,12 @@ type CompleteDeckPreparationParams struct {
 	Artifact                                []byte
 	Filename                                string
 	DeckName                                string
-	TotalCards                              int32
-	CardsWithEnglish                        int32
-	CardsWithContextualSentenceTranslations int32
-	QualityOmissions                        int32
-	Owner                                   pgtype.UUID
-	ID                                      pgtype.UUID
+	TotalCards                              int
+	CardsWithEnglish                        int
+	CardsWithContextualSentenceTranslations int
+	QualityOmissions                        int
+	Owner                                   string
+	ID                                      string
 }
 
 func (q *Queries) CompleteDeckPreparation(ctx context.Context, arg CompleteDeckPreparationParams) (DeckPreparation, error) {
@@ -225,8 +225,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type ConfirmDeckVocabularyReviewParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) ConfirmDeckVocabularyReview(ctx context.Context, arg ConfirmDeckVocabularyReviewParams) (DeckPreparation, error) {
@@ -269,8 +269,8 @@ WHERE owner_id = $1 AND deck_preparation_id = $2
 `
 
 type CountDeckPreparationVocabularyParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) CountDeckPreparationVocabulary(ctx context.Context, arg CountDeckPreparationVocabularyParams) (int64, error) {
@@ -294,8 +294,8 @@ WHERE dv.owner_id = $1 AND dv.deck_preparation_id = $2
 `
 
 type CountDeckPreparationVocabularyToGraduateParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) CountDeckPreparationVocabularyToGraduate(ctx context.Context, arg CountDeckPreparationVocabularyToGraduateParams) (int64, error) {
@@ -317,8 +317,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type CreateDeckPreparationParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	BookID         pgtype.UUID
 	AnalysisRun    pgtype.UUID
 	Filename       string
@@ -372,8 +372,8 @@ SELECT EXISTS(SELECT 1 FROM deck_preparations WHERE owner_id = $1 AND id = $2)
 `
 
 type DeckPreparationExistsParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 func (q *Queries) DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error) {
@@ -395,8 +395,8 @@ WHERE owner_id = $1 AND id = $2 AND state = 'ready'
 `
 
 type DownloadDeckPreparationParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 func (q *Queries) DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error) {
@@ -449,8 +449,8 @@ LIMIT 1
 `
 
 type GetActiveDeckVocabularyStudyParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 }
 
 func (q *Queries) GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error) {
@@ -499,8 +499,8 @@ WHERE owner_id = $1 AND id = $2
 `
 
 type GetDeckPreparationParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 // Deck-preparation lifecycle and book-anchored vocabulary-study queries.
@@ -553,8 +553,8 @@ WHERE owner_id = $1
 `
 
 type GetDeckPreparationBySourceAnalysisParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	AnalysisRun    pgtype.UUID
 }
 
@@ -606,8 +606,8 @@ WHERE owner_id = $1
 `
 
 type GetDeckPreparationBySourceHashWithoutAnalysisParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	ContentHash    string
 }
 
@@ -659,8 +659,8 @@ WHERE owner_id = $1
 `
 
 type GetDeckPreparationForAnalysisParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	AnalysisRun    pgtype.UUID
 }
 
@@ -710,8 +710,8 @@ FOR UPDATE
 `
 
 type GetDeckPreparationForUpdateParams struct {
-	Owner pgtype.UUID
-	ID    pgtype.UUID
+	Owner string
+	ID    string
 }
 
 func (q *Queries) GetDeckPreparationForUpdate(ctx context.Context, arg GetDeckPreparationForUpdateParams) (DeckPreparation, error) {
@@ -762,8 +762,8 @@ WHERE owner_id = $1
 `
 
 type GetUnretiredDeckPreparationBySourceAnalysisParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	AnalysisRun    pgtype.UUID
 }
 
@@ -815,8 +815,8 @@ WHERE owner_id = $1
 `
 
 type GetUnretiredDeckPreparationBySourceHashParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 	ContentHash    string
 }
 
@@ -869,8 +869,8 @@ SET state = 'known', updated_at = now()
 `
 
 type GraduateDeckPreparationVocabularyStatesParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) GraduateDeckPreparationVocabularyStates(ctx context.Context, arg GraduateDeckPreparationVocabularyStatesParams) error {
@@ -884,7 +884,7 @@ VALUES ($1, 'prepared_deck', $2, $3, now())
 `
 
 type InsertDeckPreparationHistoryParams struct {
-	Owner   pgtype.UUID
+	Owner   string
 	Status  string
 	Details []byte
 }
@@ -903,12 +903,12 @@ ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
 `
 
 type InsertGeneratedVocabularyParams struct {
-	Owner          pgtype.UUID
+	Owner          string
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	Deck           pgtype.UUID
-	Preparation    pgtype.UUID
+	Deck           string
+	Preparation    string
 }
 
 func (q *Queries) InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error {
@@ -931,8 +931,8 @@ ORDER BY language, canonical_lemma, upos
 `
 
 type ListDeckPreparationVocabularyParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error) {
@@ -976,8 +976,8 @@ ORDER BY COALESCE(completed_at, created_at) DESC, id
 `
 
 type ListDeckPreparationsForSourceMaterialParams struct {
-	Owner          pgtype.UUID
-	SourceMaterial pgtype.UUID
+	Owner          string
+	SourceMaterial string
 }
 
 func (q *Queries) ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error) {
@@ -1036,7 +1036,7 @@ ORDER BY dv.canonical_lemma, dv.upos
 `
 
 type ListReservedDeckVocabularyParams struct {
-	Owner    pgtype.UUID
+	Owner    string
 	Language string
 }
 
@@ -1075,8 +1075,8 @@ WHERE owner_id = $1 AND deck_preparation_id = $2
 `
 
 type MarkDeckPreparationVocabularyGraduatedParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error {
@@ -1092,8 +1092,8 @@ SET deck_id = excluded.deck_id, front = excluded.front, back = excluded.back
 `
 
 type PutPreparedDeckCardParams struct {
-	Owner          pgtype.UUID
-	Deck           pgtype.UUID
+	Owner          string
+	Deck           string
 	DedupKey       string
 	CanonicalLemma string
 	Upos           string
@@ -1129,8 +1129,8 @@ ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
 `
 
 type RecordGraduatedDeckVocabularyParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error {
@@ -1151,8 +1151,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type ReleaseDeckVocabularyStudyParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error) {
@@ -1197,8 +1197,8 @@ ON CONFLICT DO NOTHING
 `
 
 type RepairDeckPreparationVocabularyParams struct {
-	Preparation    pgtype.UUID
-	Owner          pgtype.UUID
+	Preparation    string
+	Owner          string
 	SourceMaterial pgtype.UUID
 }
 
@@ -1214,7 +1214,7 @@ WHERE owner_id = $1 AND book_id = $2 AND retired_at IS NULL
 `
 
 type RetireDeckPreparationsForBookParams struct {
-	Owner pgtype.UUID
+	Owner string
 	Book  pgtype.UUID
 }
 
@@ -1231,7 +1231,7 @@ WHERE owner_id = $1 AND language = $2
 `
 
 type SetVocabularyStateGeneratedParams struct {
-	Owner          pgtype.UUID
+	Owner          string
 	Language       string
 	CanonicalLemma string
 	Upos           string
@@ -1260,8 +1260,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 `
 
 type StartDeckVocabularyStudyParams struct {
-	Owner       pgtype.UUID
-	Preparation pgtype.UUID
+	Owner       string
+	Preparation string
 }
 
 func (q *Queries) StartDeckVocabularyStudy(ctx context.Context, arg StartDeckVocabularyStudyParams) (DeckPreparation, error) {
@@ -1317,8 +1317,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
 type TransitionDeckPreparationParams struct {
 	NextState  string
 	Message    string
-	Owner      pgtype.UUID
-	ID         pgtype.UUID
+	Owner      string
+	ID         string
 	FromStates []string
 }
 

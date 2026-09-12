@@ -72,7 +72,7 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	// is active, count only exact cache rows belonging to the frozen manifest.
 	// This keeps status correct under duplicate polling and partial success.
 	if p.State != domain.DeckPreparationReady && run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
-		coverage, coverageErr := s.queries().GetPreparedDeckTranslationCoverage(ctx, sqlcgen.GetPreparedDeckTranslationCoverageParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(run.ID)})
+		coverage, coverageErr := s.queries().GetPreparedDeckTranslationCoverage(ctx, sqlcgen.GetPreparedDeckTranslationCoverageParams{Owner: owner, Preparation: preparationID, Run: run.ID})
 		if coverageErr != nil {
 			return p, coverageErr
 		}

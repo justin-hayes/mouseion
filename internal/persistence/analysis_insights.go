@@ -11,13 +11,13 @@ import (
 // GetAnalysisCorpusVocabulary resolves the corpus through its owner and groups
 // morphology-specific artifact rows into lemma-and-UPOS occurrence identities.
 func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, corpusID string) (value domain.AnalysisCorpusVocabulary, err error) {
-	corpus, err := s.queries().GetCorpus(ctx, sqlcgen.GetCorpusParams{OwnerID: uuidArg(owner), ID: uuidArg(corpusID)})
+	corpus, err := s.queries().GetCorpus(ctx, sqlcgen.GetCorpusParams{OwnerID: owner, ID: corpusID})
 	if err != nil {
 		return value, missing(err)
 	}
 	value.CorpusID, value.SourceMaterialID, value.AnalysisRunID = corpus.ID, corpus.SourceMaterialID, corpus.AnalysisRunID
 	value.Statistics = corpusFromRow(corpus).Statistics
-	rows, err := s.queries().ListAnalysisCorpusVocabulary(ctx, sqlcgen.ListAnalysisCorpusVocabularyParams{OwnerID: uuidArg(owner), ID: uuidArg(corpusID)})
+	rows, err := s.queries().ListAnalysisCorpusVocabulary(ctx, sqlcgen.ListAnalysisCorpusVocabularyParams{OwnerID: owner, ID: corpusID})
 	if err != nil {
 		return value, err
 	}

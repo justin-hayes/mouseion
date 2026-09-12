@@ -22,7 +22,7 @@ type readingJourneyMembership struct {
 func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language string) (domain.ReadingJourney, error) {
 	language = canonicalization.NormalizeLanguage(language)
 	journey := domain.ReadingJourney{OwnerID: owner, Language: language}
-	row, err := s.queries().GetReadingJourney(ctx, sqlcgen.GetReadingJourneyParams{Owner: uuidArg(owner), Language: language})
+	row, err := s.queries().GetReadingJourney(ctx, sqlcgen.GetReadingJourneyParams{Owner: owner, Language: language})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return journey, nil
@@ -30,9 +30,9 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 		return journey, err
 	}
 	journey.Revision = row.Revision
-	journey.UpdatedAt = pgTime(row.UpdatedAt)
+	journey.UpdatedAt = row.UpdatedAt
 
-	members, err := s.queries().ListReadingJourneyMembers(ctx, sqlcgen.ListReadingJourneyMembersParams{Owner: uuidArg(owner), Language: language})
+	members, err := s.queries().ListReadingJourneyMembers(ctx, sqlcgen.ListReadingJourneyMembersParams{Owner: owner, Language: language})
 	if err != nil {
 		return journey, err
 	}
@@ -40,7 +40,7 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 		entry := domain.ReadingJourneyEntry{OwnerID: owner, Language: language}
 		entry.BookID = member.BookID
 		entry.Position = int(member.Position)
-		entry.CreatedAt = pgTime(member.CreatedAt)
+		entry.CreatedAt = member.CreatedAt
 		journey.Entries = append(journey.Entries, entry)
 	}
 	return journey, nil
@@ -56,12 +56,12 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 		return nil, 0, nil, false, false, err
 	}
 	if create {
-		if err = sqlcgen.New(tx).InsertReadingJourneyIfAbsent(ctx, sqlcgen.InsertReadingJourneyIfAbsentParams{Owner: uuidArg(owner), Language: language}); err != nil {
+		if err = sqlcgen.New(tx).InsertReadingJourneyIfAbsent(ctx, sqlcgen.InsertReadingJourneyIfAbsentParams{Owner: owner, Language: language}); err != nil {
 			return rollback(err)
 		}
 	}
 	var revision int64
-	revision, err = sqlcgen.New(tx).GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: uuidArg(owner), Language: language})
+	revision, err = sqlcgen.New(tx).GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		if create {
 			return rollback(ErrNotFound)
@@ -72,17 +72,17 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 		return rollback(missing(err))
 	}
 	// Retagged or unknown-language Books cannot remain members of this Journey.
-	cleanupRows, err := sqlcgen.New(tx).DeleteNonChosenJourneyMembers(ctx, sqlcgen.DeleteNonChosenJourneyMembersParams{Owner: uuidArg(owner), Language: language})
+	cleanupRows, err := sqlcgen.New(tx).DeleteNonChosenJourneyMembers(ctx, sqlcgen.DeleteNonChosenJourneyMembersParams{Owner: owner, Language: language})
 	if err != nil {
 		return rollback(err)
 	}
-	rows, err := sqlcgen.New(tx).ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: uuidArg(owner), Language: language})
+	rows, err := sqlcgen.New(tx).ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
 	if err != nil {
 		return rollback(err)
 	}
 	var members []readingJourneyMembership
 	for _, row := range rows {
-		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: pgTime(row.CreatedAt)})
+		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: row.CreatedAt})
 	}
 	return tx, revision, members, true, cleanupRows > 0, nil
 }
@@ -94,7 +94,7 @@ func rewriteReadingJourneyPositions(ctx context.Context, tx pgx.Tx, owner, langu
 	q := sqlcgen.New(tx)
 	for position, member := range members {
 		if err := q.UpsertReadingJourneyMemberPosition(ctx, sqlcgen.UpsertReadingJourneyMemberPositionParams{
-			Owner: uuidArg(owner), Language: language, Book: uuidArg(member.bookID), Position: int32(position + 1),
+			Owner: owner, Language: language, Book: member.bookID, Position: position + 1,
 		}); err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func rewriteReadingJourneyPositions(ctx context.Context, tx pgx.Tx, owner, langu
 }
 
 func bumpReadingJourneyRevision(ctx context.Context, tx pgx.Tx, owner, language string) (int64, error) {
-	return sqlcgen.New(tx).BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: uuidArg(owner), Language: language})
+	return sqlcgen.New(tx).BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: owner, Language: language})
 }
 
 // AddToReadingJourney appends a known owner book to the Journey.
@@ -123,7 +123,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
 	}
-	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: uuidArg(owner), Book: uuidArg(bookID)})
+	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return 0, err
 	}
@@ -169,7 +169,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 // legacy sources where the link column is unset. The second result reports
 // whether a book identity exists for the owner.
 func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id string) (string, bool, error) {
-	exists, err := s.queries().BookExists(ctx, sqlcgen.BookExistsParams{Owner: uuidArg(owner), Book: uuidArg(id)})
+	exists, err := s.queries().BookExists(ctx, sqlcgen.BookExistsParams{Owner: owner, Book: id})
 	if err != nil {
 		return "", false, err
 	}
@@ -177,7 +177,7 @@ func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id stri
 		return id, true, nil
 	}
 	linked, err := s.queries().ResolveJourneyLinkedBook(ctx, sqlcgen.ResolveJourneyLinkedBookParams{
-		Owner: uuidArg(owner), Source: uuidArg(id), Namespace: domain.NamespaceSourceIdentifier,
+		Owner: owner, Source: id, Namespace: domain.NamespaceSourceIdentifier,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
@@ -217,12 +217,12 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 	}
 	if memberIndex == -1 {
 		if len(members) == 0 {
-			derived, queryErr := sqlcgen.New(tx).DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: uuidArg(owner), Language: language})
+			derived, queryErr := sqlcgen.New(tx).DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
 			if queryErr != nil {
 				return 0, queryErr
 			}
 			if !derived {
-				if err = sqlcgen.New(tx).DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: uuidArg(owner), Language: language}); err != nil {
+				if err = sqlcgen.New(tx).DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language}); err != nil {
 					return 0, err
 				}
 				if err = tx.Commit(ctx); err != nil {
@@ -245,22 +245,22 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 		return revision, nil
 	}
 	q := sqlcgen.New(tx)
-	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)}); err != nil {
+	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: owner, Language: language, Book: bookID}); err != nil {
 		return 0, err
 	}
-	if err = q.DeletePrimaryGoalForBook(ctx, sqlcgen.DeletePrimaryGoalForBookParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)}); err != nil {
+	if err = q.DeletePrimaryGoalForBook(ctx, sqlcgen.DeletePrimaryGoalForBookParams{Owner: owner, Language: language, Book: bookID}); err != nil {
 		return 0, err
 	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
 	if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
 		return 0, err
 	}
-	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: uuidArg(owner), Language: language})
+	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
 	if err != nil {
 		return 0, err
 	}
 	if len(members) == 0 && !derived {
-		if err = q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: uuidArg(owner), Language: language}); err != nil {
+		if err = q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language}); err != nil {
 			return 0, err
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -320,7 +320,7 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, lang
 		}
 		return 0, ErrNotFound
 	}
-	goalBookID, goalErr := sqlcgen.New(tx).GetPrimaryGoalBookID(ctx, sqlcgen.GetPrimaryGoalBookIDParams{Owner: uuidArg(owner), Language: language})
+	goalBookID, goalErr := sqlcgen.New(tx).GetPrimaryGoalBookID(ctx, sqlcgen.GetPrimaryGoalBookIDParams{Owner: owner, Language: language})
 	if goalErr != nil && !errors.Is(goalErr, pgx.ErrNoRows) {
 		return 0, goalErr
 	}

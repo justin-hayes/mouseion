@@ -111,7 +111,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{
-			OwnerID: uuidArg(candidate.OwnerID), Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 		})
 		stateMissing := errors.Is(err, pgx.ErrNoRows)
 		if err != nil && !stateMissing {
@@ -121,7 +121,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 			return nil
 		}
 		known, err := q.KnownVocabularyExists(ctx, sqlcgen.KnownVocabularyExistsParams{
-			OwnerID: uuidArg(candidate.OwnerID), Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 		})
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 			return nil
 		}
 		reserved, err := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-			OwnerID: uuidArg(candidate.OwnerID), Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 		})
 		if err != nil {
 			return err
@@ -140,15 +140,15 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		}
 		if stateMissing {
 			if err = q.InsertVocabularyStateCandidate(ctx, sqlcgen.InsertVocabularyStateCandidateParams{
-				OwnerID: uuidArg(candidate.OwnerID), Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+				OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 			}); err != nil {
 				return err
 			}
 		}
 		if err = q.PutSelectionCandidate(ctx, sqlcgen.PutSelectionCandidateParams{
-			OwnerID: uuidArg(candidate.OwnerID), CorpusID: candidate.CorpusID, Language: candidate.Language,
+			OwnerID: candidate.OwnerID, CorpusID: candidate.CorpusID, Language: candidate.Language,
 			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-			OccurrenceCount: int32(candidate.OccurrenceCount), ObservedForms: candidate.ObservedForms,
+			OccurrenceCount: candidate.OccurrenceCount, ObservedForms: candidate.ObservedForms,
 			EligibleSentenceRefs: candidate.SentenceReferences, Provenance: candidate.Provenance,
 		}); err != nil {
 			return err
@@ -163,7 +163,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 // currently studied, not-yet-graduated deck.
 func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
 	return s.queries().ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-		OwnerID: uuidArg(owner), Language: language, CanonicalLemma: lemma, Upos: upos,
+		OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos,
 	})
 }
 
@@ -171,7 +171,7 @@ func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, languag
 // been attached to a prepared deck snapshot. It never infers knowledge.
 func (s *PostgresStore) ListUnattachedGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
 	rows, err := s.queries().ListUnattachedGeneratedVocabulary(ctx, sqlcgen.ListUnattachedGeneratedVocabularyParams{
-		OwnerID: uuidArg(owner), Language: language,
+		OwnerID: owner, Language: language,
 	})
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func (s *PostgresStore) ListUnattachedGeneratedVocabulary(ctx context.Context, o
 		result = append(result, domain.GeneratedVocabulary{
 			OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
 			FirstDeckID: row.FirstDeckID, FirstSourceMaterialID: uuidStringPtr(row.FirstSourceMaterialID),
-			FirstGeneratedAt: pgTime(row.FirstGeneratedAt),
+			FirstGeneratedAt: row.FirstGeneratedAt,
 		})
 	}
 	return result, nil
@@ -264,7 +264,7 @@ func (s *PostgresStore) CreateOpdsConnection(ctx context.Context, ownerID string
 	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
 }
 func (s *PostgresStore) GetOpdsConnection(ctx context.Context, ownerID, id string) (domain.OpdsConnection, error) {
-	row, err := s.queries().GetOpdsConnection(ctx, sqlcgen.GetOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: uuidArg(id)})
+	row, err := s.queries().GetOpdsConnection(ctx, sqlcgen.GetOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
 	if err != nil {
 		return domain.OpdsConnection{}, missing(err)
 	}
@@ -275,7 +275,7 @@ func (s *PostgresStore) GetOpdsConnection(ctx context.Context, ownerID, id strin
 // Callers that only enqueue work can use this at request time; workers load
 // the full connection when the job executes.
 func (s *PostgresStore) OpdsConnectionExists(ctx context.Context, ownerID, id string) (bool, error) {
-	return s.queries().OpdsConnectionExists(ctx, sqlcgen.OpdsConnectionExistsParams{OwnerID: uuidArg(ownerID), ID: uuidArg(id)})
+	return s.queries().OpdsConnectionExists(ctx, sqlcgen.OpdsConnectionExistsParams{OwnerID: uuidArg(ownerID), ID: id})
 }
 func (s *PostgresStore) ListOpdsConnections(ctx context.Context, ownerID string) ([]domain.OpdsConnection, error) {
 	rows, err := s.queries().ListOpdsConnections(ctx, uuidArg(ownerID))
@@ -313,7 +313,7 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 		return domain.OpdsConnection{}, err
 	}
 	row, err := s.queries().UpdateOpdsConnection(ctx, sqlcgen.UpdateOpdsConnectionParams{
-		OwnerID: uuidArg(ownerID), ID: uuidArg(v.ID), Name: v.Name, Url: v.URL, Username: v.Username, PasswordEncrypted: encrypted,
+		OwnerID: uuidArg(ownerID), ID: v.ID, Name: v.Name, Url: v.URL, Username: v.Username, PasswordEncrypted: encrypted,
 	})
 	if err != nil {
 		return domain.OpdsConnection{}, missing(err)
@@ -321,7 +321,7 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
 }
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
-	affected, err := s.queries().DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: uuidArg(id)})
+	affected, err := s.queries().DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
 	if err == nil && affected == 0 {
 		return ErrNotFound
 	}
@@ -331,14 +331,14 @@ func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id st
 func (s *PostgresStore) CreateUser(ctx context.Context, username string, admin bool) (u domain.User, err error) {
 	row, err := s.queries().CreateUser(ctx, sqlcgen.CreateUserParams{Username: username, IsAdmin: admin})
 	if err == nil {
-		u = domain.User{ID: row.ID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}
+		u = domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}
 	}
 	return
 }
 func (s *PostgresStore) CreateUserWithPassword(ctx context.Context, username, passwordHash string, admin bool) (u domain.User, err error) {
 	row, err := s.queries().CreateUserWithPassword(ctx, sqlcgen.CreateUserWithPasswordParams{Username: username, PasswordHash: textArg(passwordHash), IsAdmin: admin})
 	if err == nil {
-		u = domain.User{ID: row.ID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}
+		u = domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}
 	}
 	return
 }
@@ -365,33 +365,33 @@ func (s *PostgresStore) CreateFirstUserAndSession(ctx context.Context, username,
 	if err != nil {
 		return u, false, err
 	}
-	if err = q.InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: uuidArg(row.ID), TokenHash: tokenHash, ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}}); err != nil {
+	if err = q.InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: row.ID, TokenHash: tokenHash, ExpiresAt: expiresAt}); err != nil {
 		return u, false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return u, false, err
 	}
-	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}, true, nil
+	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}, true, nil
 }
 func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) (u domain.User, passwordHash string, err error) {
 	row, err := s.queries().GetUserByUsername(ctx, username)
 	if err != nil {
 		return domain.User{}, "", missing(err)
 	}
-	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}, row.PasswordHash, nil
+	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}, row.PasswordHash, nil
 }
 func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (u domain.User, err error) {
-	row, err := s.queries().GetUserByID(ctx, uuidArg(id))
+	row, err := s.queries().GetUserByID(ctx, id)
 	if err != nil {
 		return domain.User{}, missing(err)
 	}
-	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}, nil
+	return domain.User{ID: row.ID, Username: row.Username, CreatedAt: row.CreatedAt}, nil
 }
 
 // GetStoredActiveStudyLanguage returns the nullable learner context without
 // resolving it against the currently derived study-language set.
 func (s *PostgresStore) GetStoredActiveStudyLanguage(ctx context.Context, owner string) (string, error) {
-	value, err := s.queries().GetStoredActiveStudyLanguage(ctx, uuidArg(owner))
+	value, err := s.queries().GetStoredActiveStudyLanguage(ctx, owner)
 	if err != nil {
 		return "", missing(err)
 	}
@@ -403,7 +403,7 @@ func (s *PostgresStore) GetStoredActiveStudyLanguage(ctx context.Context, owner 
 func (s *PostgresStore) SetActiveStudyLanguage(ctx context.Context, owner, language string) error {
 	language = canonicalization.NormalizeLanguage(strings.TrimSpace(language))
 	affected, err := s.queries().SetActiveStudyLanguage(ctx, sqlcgen.SetActiveStudyLanguageParams{
-		ID: uuidArg(owner), ActiveStudyLanguage: nullableTextArg(language),
+		ID: owner, ActiveStudyLanguage: nullableTextArg(language),
 	})
 	if err == nil && affected == 0 {
 		return ErrNotFound
@@ -414,34 +414,34 @@ func (s *PostgresStore) SetActiveStudyLanguage(ctx context.Context, owner, langu
 // MostRecentlyActivatedStudyLanguage is deliberately a read-time fallback;
 // removing or retagging a Book never updates the stored context eagerly.
 func (s *PostgresStore) MostRecentlyActivatedStudyLanguage(ctx context.Context, owner string) (string, error) {
-	value, err := s.queries().MostRecentlyActivatedStudyLanguage(ctx, uuidArg(owner))
+	value, err := s.queries().MostRecentlyActivatedStudyLanguage(ctx, owner)
 	if err != nil {
 		return "", missing(err)
 	}
 	return pgText(value), nil
 }
 func (s *PostgresStore) SetUserPassword(ctx context.Context, userID, passwordHash string) error {
-	affected, err := s.queries().SetUserPassword(ctx, sqlcgen.SetUserPasswordParams{ID: uuidArg(userID), PasswordHash: textArg(passwordHash)})
+	affected, err := s.queries().SetUserPassword(ctx, sqlcgen.SetUserPasswordParams{ID: userID, PasswordHash: textArg(passwordHash)})
 	if err == nil && affected == 0 {
 		return ErrNotFound
 	}
 	return err
 }
 func (s *PostgresStore) CreateSession(ctx context.Context, userID, tokenHash string, expiresAt time.Time) error {
-	return s.queries().InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: uuidArg(userID), TokenHash: tokenHash, ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}})
+	return s.queries().InsertSession(ctx, sqlcgen.InsertSessionParams{UserID: userID, TokenHash: tokenHash, ExpiresAt: expiresAt})
 }
 func (s *PostgresStore) GetSession(ctx context.Context, tokenHash string) (u domain.User, expiresAt time.Time, err error) {
 	row, err := s.queries().GetSession(ctx, tokenHash)
 	if err != nil {
 		return domain.User{}, time.Time{}, missing(err)
 	}
-	return domain.User{ID: row.UID, Username: row.Username, CreatedAt: pgTime(row.CreatedAt)}, pgTime(row.ExpiresAt), nil
+	return domain.User{ID: row.UID, Username: row.Username, CreatedAt: row.CreatedAt}, row.ExpiresAt, nil
 }
 func (s *PostgresStore) DeleteSession(ctx context.Context, tokenHash string) error {
 	return s.queries().DeleteSession(ctx, tokenHash)
 }
 func (s *PostgresStore) DeleteUserSessions(ctx context.Context, userID string) error {
-	return s.queries().DeleteUserSessions(ctx, uuidArg(userID))
+	return s.queries().DeleteUserSessions(ctx, userID)
 }
 func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name string) (v domain.SupportedLanguage, err error) {
 	language = canonicalization.NormalizeLanguage(language)
@@ -453,7 +453,7 @@ func (s *PostgresStore) PutSupportedLanguage(ctx context.Context, language, name
 	if err != nil {
 		return v, err
 	}
-	return domain.SupportedLanguage{Language: row.Language, DisplayName: row.DisplayName, CreatedAt: pgTime(row.CreatedAt)}, nil
+	return domain.SupportedLanguage{Language: row.Language, DisplayName: row.DisplayName, CreatedAt: row.CreatedAt}, nil
 }
 
 func (s *PostgresStore) SyncSupportedLanguages(ctx context.Context, languages []domain.SupportedLanguage) error {
@@ -482,13 +482,13 @@ func (s *PostgresStore) ListSupportedLanguages(ctx context.Context) ([]domain.Su
 	}
 	var out []domain.SupportedLanguage
 	for _, row := range rows {
-		out = append(out, domain.SupportedLanguage{Language: row.Language, DisplayName: row.DisplayName, CreatedAt: pgTime(row.CreatedAt)})
+		out = append(out, domain.SupportedLanguage{Language: row.Language, DisplayName: row.DisplayName, CreatedAt: row.CreatedAt})
 	}
 	return out, nil
 }
 
 func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]domain.AnalysisJob, error) {
-	rows, err := s.queries().ListAnalysisJobs(ctx, uuidArg(owner))
+	rows, err := s.queries().ListAnalysisJobs(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -504,13 +504,13 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 // later failure retain the last durable success.
 func (s *PostgresStore) SetCatalogueSyncStatus(ctx context.Context, status domain.CatalogueSyncStatus) error {
 	return s.queries().SetCatalogueSyncStatus(ctx, sqlcgen.SetCatalogueSyncStatusParams{
-		OwnerID: uuidArg(status.OwnerID), ConnectionID: uuidArg(status.ConnectionID), State: string(status.State),
-		LastSyncedAt: pgTimeArgPtr(status.LastSyncedAt), LastUpsertedCount: int32(status.LastUpsertedCount), LastError: status.LastError,
+		OwnerID: status.OwnerID, ConnectionID: status.ConnectionID, State: string(status.State),
+		LastSyncedAt: pgTimeArgPtr(status.LastSyncedAt), LastUpsertedCount: status.LastUpsertedCount, LastError: status.LastError,
 	})
 }
 
 func (s *PostgresStore) GetCatalogueSyncStatus(ctx context.Context, owner, connectionID string) (domain.CatalogueSyncStatus, error) {
-	row, err := s.queries().GetCatalogueSyncStatus(ctx, sqlcgen.GetCatalogueSyncStatusParams{OwnerID: uuidArg(owner), ConnectionID: uuidArg(connectionID)})
+	row, err := s.queries().GetCatalogueSyncStatus(ctx, sqlcgen.GetCatalogueSyncStatusParams{OwnerID: owner, ConnectionID: connectionID})
 	if err != nil {
 		return domain.CatalogueSyncStatus{}, missing(err)
 	}
@@ -518,7 +518,7 @@ func (s *PostgresStore) GetCatalogueSyncStatus(ctx context.Context, owner, conne
 }
 
 func (s *PostgresStore) ListCatalogueSyncStatuses(ctx context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
-	rows, err := s.queries().ListCatalogueSyncStatuses(ctx, uuidArg(owner))
+	rows, err := s.queries().ListCatalogueSyncStatuses(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +534,7 @@ func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMa
 		content = []byte{}
 	}
 	id, err := s.queries().PutSourceMaterial(ctx, sqlcgen.PutSourceMaterialParams{
-		OwnerID: uuidArg(v.OwnerID), Language: v.Language, SourceIdentifier: v.SourceIdentifier, Title: v.Title,
+		OwnerID: v.OwnerID, Language: v.Language, SourceIdentifier: v.SourceIdentifier, Title: v.Title,
 		MediaType: v.MediaType, ContentHash: v.ContentHash, Content: content, FullText: v.FullText,
 	})
 	if err != nil {
@@ -543,7 +543,7 @@ func (s *PostgresStore) PutSourceMaterial(ctx context.Context, v domain.SourceMa
 	return s.GetSourceMaterial(ctx, v.OwnerID, id)
 }
 func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string) (v domain.SourceMaterial, err error) {
-	row, err := s.queries().GetSourceMaterial(ctx, sqlcgen.GetSourceMaterialParams{OwnerID: uuidArg(owner), ID: uuidArg(id)})
+	row, err := s.queries().GetSourceMaterial(ctx, sqlcgen.GetSourceMaterialParams{OwnerID: owner, ID: id})
 	if err != nil {
 		return v, missing(err)
 	}
@@ -557,7 +557,7 @@ func (s *PostgresStore) GetSourceMaterial(ctx context.Context, owner, id string)
 // being incorrectly reported as AlreadyPresent.
 func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, owner, sourceIdentifier, contentHash string) (v domain.SourceMaterial, found bool, err error) {
 	row, err := s.queries().FindSourceMaterialForAcquisition(ctx, sqlcgen.FindSourceMaterialForAcquisitionParams{
-		OwnerID: uuidArg(owner), SourceIdentifier: sourceIdentifier, ContentHash: contentHash,
+		OwnerID: owner, SourceIdentifier: sourceIdentifier, ContentHash: contentHash,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SourceMaterial{}, false, nil
@@ -613,7 +613,7 @@ func (s *PostgresStore) GetArtifact(ctx context.Context, hash string) (a domain.
 		ContentHash: artifact.ContentHash, Language: artifact.Language, SchemaVersion: artifact.SchemaVersion,
 		NormalizationProfile: artifact.NormalizationProfile, NormalizationVersion: artifact.NormalizationVersion,
 		AnalyzerName: artifact.AnalyzerName, AnalyzerVersion: artifact.AnalyzerVersion,
-		CreatedAt: pgTime(artifact.CreatedAt),
+		CreatedAt: artifact.CreatedAt,
 	}
 	rows, err := s.queries().ListSharedLemmas(ctx, hash)
 	if err != nil {
@@ -635,28 +635,28 @@ func (s *PostgresStore) PutCorpus(ctx context.Context, owner, sourceID, hash str
 		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner+":"+sourceID); err != nil {
 			return err
 		}
-		latest, err := q.LatestCorpusForSource(ctx, sqlcgen.LatestCorpusForSourceParams{OwnerID: uuidArg(owner), SourceMaterialID: uuidArg(sourceID)})
+		latest, err := q.LatestCorpusForSource(ctx, sqlcgen.LatestCorpusForSourceParams{OwnerID: owner, SourceMaterialID: sourceID})
 		if errors.Is(err, pgx.ErrNoRows) {
-			created, insertErr := q.PutCorpus(ctx, sqlcgen.PutCorpusParams{OwnerID: uuidArg(owner), SourceMaterialID: uuidArg(sourceID), ArtifactHash: hash})
+			created, insertErr := q.PutCorpus(ctx, sqlcgen.PutCorpusParams{OwnerID: owner, SourceMaterialID: sourceID, ArtifactHash: hash})
 			if insertErr != nil {
 				return insertErr
 			}
-			v = domain.Corpus{ID: created.ID, OwnerID: created.OwnerID, SourceMaterialID: created.SourceMaterialID, ArtifactHash: created.ArtifactHash, Status: created.Status, CreatedAt: pgTime(created.CreatedAt)}
+			v = domain.Corpus{ID: created.ID, OwnerID: created.OwnerID, SourceMaterialID: created.SourceMaterialID, ArtifactHash: created.ArtifactHash, Status: created.Status, CreatedAt: created.CreatedAt}
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		if err = q.UpdateCorpusArtifactHash(ctx, sqlcgen.UpdateCorpusArtifactHashParams{OwnerID: uuidArg(owner), ID: uuidArg(latest.ID), ArtifactHash: hash}); err != nil {
+		if err = q.UpdateCorpusArtifactHash(ctx, sqlcgen.UpdateCorpusArtifactHashParams{OwnerID: owner, ID: latest.ID, ArtifactHash: hash}); err != nil {
 			return err
 		}
-		v = domain.Corpus{ID: latest.ID, OwnerID: latest.OwnerID, SourceMaterialID: latest.SourceMaterialID, ArtifactHash: hash, Status: latest.Status, CreatedAt: pgTime(latest.CreatedAt)}
+		v = domain.Corpus{ID: latest.ID, OwnerID: latest.OwnerID, SourceMaterialID: latest.SourceMaterialID, ArtifactHash: hash, Status: latest.Status, CreatedAt: latest.CreatedAt}
 		return nil
 	})
 	return v, err
 }
 func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v domain.Corpus, err error) {
-	row, err := s.queries().GetCorpus(ctx, sqlcgen.GetCorpusParams{OwnerID: uuidArg(owner), ID: uuidArg(id)})
+	row, err := s.queries().GetCorpus(ctx, sqlcgen.GetCorpusParams{OwnerID: owner, ID: id})
 	if err != nil {
 		return v, missing(err)
 	}
@@ -664,32 +664,32 @@ func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v doma
 }
 func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
 	lang = canonicalization.NormalizeLanguage(lang)
-	existing, err := s.queries().GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos})
+	existing, err := s.queries().GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 	if err == nil {
 		return knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.CreatedAt), nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return domain.KnownVocabulary{}, err
 	}
-	row, err := s.queries().UpsertKnownVocabulary(ctx, sqlcgen.UpsertKnownVocabularyParams{OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos})
+	row, err := s.queries().UpsertKnownVocabulary(ctx, sqlcgen.UpsertKnownVocabularyParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 	if err != nil {
 		return domain.KnownVocabulary{}, err
 	}
 	return knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.CreatedAt), nil
 }
 func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
-	row, err := s.queries().GetKnownVocabulary(ctx, sqlcgen.GetKnownVocabularyParams{OwnerID: uuidArg(owner), ID: uuidArg(id)})
+	row, err := s.queries().GetKnownVocabulary(ctx, sqlcgen.GetKnownVocabularyParams{OwnerID: owner, ID: id})
 	if err != nil {
 		return v, missing(err)
 	}
 	return domain.KnownVocabulary{
 		ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-		UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: pgTime(row.CreatedAt),
+		UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: row.CreatedAt,
 	}, nil
 }
 func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
 	lang = canonicalization.NormalizeLanguage(lang)
-	rows, err := s.queries().ListKnownVocabulary(ctx, sqlcgen.ListKnownVocabularyParams{OwnerID: uuidArg(owner), Language: lang})
+	rows, err := s.queries().ListKnownVocabulary(ctx, sqlcgen.ListKnownVocabularyParams{OwnerID: owner, Language: lang})
 	if err != nil {
 		return nil, err
 	}
@@ -697,14 +697,14 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	for _, row := range rows {
 		result = append(result, domain.KnownVocabulary{
 			ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: pgTime(row.CreatedAt),
+			UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: row.CreatedAt,
 		})
 	}
 	return result, nil
 }
 
 func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
-	rows, err := s.queries().ListKnownVocabularyLanguages(ctx, uuidArg(owner))
+	rows, err := s.queries().ListKnownVocabularyLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -716,11 +716,11 @@ func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner 
 }
 func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
 	lang = canonicalization.NormalizeLanguage(lang)
-	return s.queries().IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos})
+	return s.queries().IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 }
 func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {
 	row, err := s.queries().PutVocabularyState(ctx, sqlcgen.PutVocabularyStateParams{
-		OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
+		OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
 	})
 	if err != nil {
 		return v, err
@@ -728,21 +728,21 @@ func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lem
 	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
 }
 func (s *PostgresStore) GetVocabularyState(ctx context.Context, owner, id string) (v domain.VocabularyState, err error) {
-	row, err := s.queries().GetVocabularyState(ctx, sqlcgen.GetVocabularyStateParams{OwnerID: uuidArg(owner), ID: uuidArg(id)})
+	row, err := s.queries().GetVocabularyState(ctx, sqlcgen.GetVocabularyStateParams{OwnerID: owner, ID: id})
 	if err != nil {
 		return v, missing(err)
 	}
 	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
 }
 func (s *PostgresStore) GetVocabularyStateByIdentity(ctx context.Context, owner, lang, lemma, upos string) (v domain.VocabularyState, err error) {
-	row, err := s.queries().GetVocabularyStateByIdentity(ctx, sqlcgen.GetVocabularyStateByIdentityParams{OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos})
+	row, err := s.queries().GetVocabularyStateByIdentity(ctx, sqlcgen.GetVocabularyStateByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 	if err != nil {
 		return v, missing(err)
 	}
 	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
 }
 func (s *PostgresStore) DeleteVocabularyState(ctx context.Context, owner, id string) error {
-	affected, err := s.queries().DeleteVocabularyState(ctx, sqlcgen.DeleteVocabularyStateParams{OwnerID: uuidArg(owner), ID: uuidArg(id)})
+	affected, err := s.queries().DeleteVocabularyState(ctx, sqlcgen.DeleteVocabularyStateParams{OwnerID: owner, ID: id})
 	if err == nil && affected == 0 {
 		return ErrNotFound
 	}
@@ -750,7 +750,7 @@ func (s *PostgresStore) DeleteVocabularyState(ctx context.Context, owner, id str
 }
 func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, key, sentence string, loc []byte) (v domain.ExampleSentence, err error) {
 	row, err := s.queries().PutExampleSentence(ctx, sqlcgen.PutExampleSentenceParams{
-		OwnerID: uuidArg(owner), CorpusID: uuidArg(corpus), SentenceKey: key, SentenceText: sentence, SourceLocation: loc,
+		OwnerID: owner, CorpusID: corpus, SentenceKey: key, SentenceText: sentence, SourceLocation: loc,
 	})
 	if err != nil {
 		return v, err
@@ -764,19 +764,19 @@ func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, k
 func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string, examples []domain.ExampleSentence) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		ownsCorpus, err := q.CorpusOwned(ctx, sqlcgen.CorpusOwnedParams{OwnerID: uuidArg(owner), ID: uuidArg(corpus)})
+		ownsCorpus, err := q.CorpusOwned(ctx, sqlcgen.CorpusOwnedParams{OwnerID: owner, ID: corpus})
 		if err != nil {
 			return err
 		}
 		if !ownsCorpus {
 			return ErrNotFound
 		}
-		if err = q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: uuidArg(owner), CorpusID: uuidArg(corpus), Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
+		if err = q.DeleteSelectedSentences(ctx, sqlcgen.DeleteSelectedSentencesParams{OwnerID: owner, CorpusID: corpus, Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos)}); err != nil {
 			return err
 		}
 		for _, example := range examples {
 			if err = q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
-				OwnerID: uuidArg(owner), CorpusID: uuidArg(corpus), SentenceKey: example.SentenceKey,
+				OwnerID: owner, CorpusID: corpus, SentenceKey: example.SentenceKey,
 				SentenceText: example.Text, SourceLocation: example.SourceLocation,
 				Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
 				SelectionRank: intArg(example.SelectionRank), SelectionScore: intArg(example.SelectionScore),
@@ -791,7 +791,7 @@ func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, cor
 
 func (s *PostgresStore) ListSelectedSentences(ctx context.Context, owner, corpus, language, lemma, upos string) ([]domain.ExampleSentence, error) {
 	rows, err := s.queries().ListSelectedSentences(ctx, sqlcgen.ListSelectedSentencesParams{
-		Owner: uuidArg(owner), Corpus: uuidArg(corpus),
+		Owner: owner, Corpus: corpus,
 		Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
 	})
 	if err != nil {
@@ -805,7 +805,7 @@ func (s *PostgresStore) ListSelectedSentences(ctx context.Context, owner, corpus
 }
 func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, lang, lemma, upos, notes string) (v domain.CuratedSentence, err error) {
 	row, err := s.queries().PutCuratedSentence(ctx, sqlcgen.PutCuratedSentenceParams{
-		OwnerID: uuidArg(owner), ExampleSentenceID: uuidArg(example), Language: lang, CanonicalLemma: lemma, Upos: upos, Notes: notes,
+		OwnerID: owner, ExampleSentenceID: example, Language: lang, CanonicalLemma: lemma, Upos: upos, Notes: notes,
 	})
 	if err != nil {
 		return v, err
@@ -818,7 +818,7 @@ func (s *PostgresStore) PutCuratedSentence(ctx context.Context, owner, example, 
 // alternatives in deterministic rank order.
 func (s *PostgresStore) ListReviewSentences(ctx context.Context, owner, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
 	rows, err := s.queries().ListReviewSentences(ctx, sqlcgen.ListReviewSentencesParams{
-		Owner: uuidArg(owner), Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+		Owner: owner, Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
 	})
 	if err != nil {
 		return nil, err
@@ -834,7 +834,7 @@ func (s *PostgresStore) ListReviewSentences(ctx context.Context, owner, lang, le
 // being reviewed, even when the same vocabulary identity occurs in other books.
 func (s *PostgresStore) ListReviewSentencesForBook(ctx context.Context, owner, bookID, lang, lemma, upos string) ([]domain.ExampleSentence, error) {
 	rows, err := s.queries().ListReviewSentencesForBook(ctx, sqlcgen.ListReviewSentencesForBookParams{
-		Owner: uuidArg(owner), Book: uuidArg(bookID),
+		Owner: owner, Book: bookID,
 		Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
 	})
 	if err != nil {
@@ -864,7 +864,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		book = bookID
 	}
 	row, err := q.SelectAcquisitionCandidate(ctx, sqlcgen.SelectAcquisitionCandidateParams{
-		Owner: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos, Book: book,
+		Owner: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, Book: book,
 	})
 	if err != nil {
 		return v, missing(err)
@@ -887,7 +887,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 		}
 		sentenceKey := fmt.Sprintf("analysis:%d", candidate.SentenceIndex)
 		inserted, err := q.UpsertReviewSentenceFromAnalysis(ctx, sqlcgen.UpsertReviewSentenceFromAnalysisParams{
-			OwnerID: uuidArg(owner), CorpusID: uuidArg(row.CorpusID), SentenceKey: sentenceKey,
+			OwnerID: owner, CorpusID: row.CorpusID, SentenceKey: sentenceKey,
 			SentenceText: candidate.Text, SourceLocation: location,
 			Language:       textArg(lang),
 			CanonicalLemma: textArg(lemma),
@@ -910,7 +910,7 @@ func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, example
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		exists, err := q.CuratedSentenceExists(ctx, sqlcgen.CuratedSentenceExistsParams{
-			OwnerID: uuidArg(owner), ID: uuidArg(exampleID), Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
+			OwnerID: owner, ID: exampleID, Language: textArg(lang), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
 		})
 		if err != nil {
 			return err
@@ -919,33 +919,33 @@ func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, example
 			return ErrNotFound
 		}
 		if editedText != "" {
-			if err = q.UpdateExampleSentenceText(ctx, sqlcgen.UpdateExampleSentenceTextParams{ID: uuidArg(exampleID), OwnerID: uuidArg(owner), SentenceText: editedText}); err != nil {
+			if err = q.UpdateExampleSentenceText(ctx, sqlcgen.UpdateExampleSentenceTextParams{ID: exampleID, OwnerID: owner, SentenceText: editedText}); err != nil {
 				return err
 			}
 		}
 		row, err := q.UpsertCuratedSentence(ctx, sqlcgen.UpsertCuratedSentenceParams{
-			OwnerID: uuidArg(owner), ExampleSentenceID: uuidArg(exampleID), Language: lang, CanonicalLemma: lemma, Upos: upos, Notes: notes,
+			OwnerID: owner, ExampleSentenceID: exampleID, Language: lang, CanonicalLemma: lemma, Upos: upos, Notes: notes,
 		})
 		if err != nil {
 			return err
 		}
 		v = curatedSentenceFromFields(row.ID, row.OwnerID, row.ExampleSentenceID, row.Language, row.CanonicalLemma, row.Upos, row.Notes, row.CreatedAt)
 		return q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{
-			OwnerID: uuidArg(history.OwnerID), Operation: history.Operation, Status: history.Status, Details: history.Details, CompletedAt: pgTimeArgPtr(history.CompletedAt),
+			OwnerID: history.OwnerID, Operation: history.Operation, Status: history.Status, Details: history.Details, CompletedAt: pgTimeArgPtr(history.CompletedAt),
 		})
 	})
 	return v, err
 }
 func (s *PostgresStore) PutDeck(ctx context.Context, owner, lang, name string) (v domain.Deck, err error) {
-	row, err := s.queries().PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: uuidArg(owner), Language: lang, Name: name})
+	row, err := s.queries().PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: lang, Name: name})
 	if err != nil {
 		return v, err
 	}
-	return deckFromFields(row.ID, row.OwnerID, row.Language, row.Name, row.CreatedAt), nil
+	return domain.Deck(row), nil
 }
 func (s *PostgresStore) PutCard(ctx context.Context, v domain.Card) (out domain.Card, err error) {
 	row, err := s.queries().PutCard(ctx, sqlcgen.PutCardParams{
-		OwnerID: uuidArg(v.OwnerID), DeckID: uuidArg(v.DeckID), DedupKey: v.DedupKey,
+		OwnerID: v.OwnerID, DeckID: v.DeckID, DedupKey: v.DedupKey,
 		CanonicalLemma: v.CanonicalLemma, Upos: v.UPOS, Front: v.Front, Back: v.Back,
 	})
 	if err != nil {
@@ -955,7 +955,7 @@ func (s *PostgresStore) PutCard(ctx context.Context, v domain.Card) (out domain.
 }
 func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.ProcessingHistory) (out domain.ProcessingHistory, err error) {
 	row, err := s.queries().PutProcessingHistory(ctx, sqlcgen.PutProcessingHistoryParams{
-		OwnerID: uuidArg(v.OwnerID), CorpusID: nullableUUIDArg(v.CorpusID), Operation: v.Operation, Status: v.Status,
+		OwnerID: v.OwnerID, CorpusID: nullableUUIDArg(v.CorpusID), Operation: v.Operation, Status: v.Status,
 		Details: v.Details, CompletedAt: pgTimeArgPtr(v.CompletedAt),
 	})
 	if err != nil {
@@ -963,7 +963,7 @@ func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.Proce
 	}
 	out = domain.ProcessingHistory{
 		ID: row.ID, OwnerID: row.OwnerID, CorpusID: row.CorpusID, Operation: row.Operation, Status: row.Status,
-		Details: row.Details, StartedAt: pgTime(row.StartedAt), CompletedAt: pgTimePtr(row.CompletedAt),
+		Details: row.Details, StartedAt: row.StartedAt, CompletedAt: pgTimePtr(row.CompletedAt),
 	}
 	return out, nil
 }
@@ -974,14 +974,14 @@ func (s *PostgresStore) PutVocabularyTransition(ctx context.Context, owner, lang
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		row, err := q.PutVocabularyState(ctx, sqlcgen.PutVocabularyStateParams{
-			OwnerID: uuidArg(owner), Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
+			OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
 		})
 		if err != nil {
 			return err
 		}
 		v = vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt)
 		return q.InsertProcessingHistory(ctx, sqlcgen.InsertProcessingHistoryParams{
-			OwnerID: uuidArg(history.OwnerID), CorpusID: nullableUUIDArg(history.CorpusID), Operation: history.Operation,
+			OwnerID: history.OwnerID, CorpusID: nullableUUIDArg(history.CorpusID), Operation: history.Operation,
 			Status: history.Status, Details: history.Details, CompletedAt: pgTimeArgPtr(history.CompletedAt),
 		})
 	})

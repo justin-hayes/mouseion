@@ -7,8 +7,6 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const listAnalysisCorpusVocabulary = `-- name: ListAnalysisCorpusVocabulary :many
@@ -28,8 +26,8 @@ ORDER BY sl.language, sl.canonical_lemma, sl.upos
 `
 
 type ListAnalysisCorpusVocabularyParams struct {
-	OwnerID pgtype.UUID
-	ID      pgtype.UUID
+	OwnerID string
+	ID      string
 }
 
 type ListAnalysisCorpusVocabularyRow struct {

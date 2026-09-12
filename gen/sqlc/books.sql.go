@@ -7,8 +7,7 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
@@ -176,6 +175,25 @@ func (q *Queries) CountMyBooksScope(ctx context.Context, arg CountMyBooksScopePa
 	return count, err
 }
 
+const getBookForUpdate = `-- name: GetBookForUpdate :one
+SELECT id::text
+FROM books
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type GetBookForUpdateParams struct {
+	Owner string
+	ID    string
+}
+
+func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error) {
+	row := q.db.QueryRow(ctx, getBookForUpdate, arg.Owner, arg.ID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getMyBookDetail = `-- name: GetMyBookDetail :one
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id FROM my_books_evidence e
 WHERE e.book_owner_id = $1 AND (e.book_id = $2 OR EXISTS (
@@ -250,8 +268,8 @@ type ListActiveBooksRow struct {
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // Book identity and My Books evidence queries. The read models select from
@@ -259,7 +277,7 @@ type ListActiveBooksRow struct {
 // source_material_evidence view in 000068) so the composed projection and its
 // analysis status/state classification are one SQL artifact instead of Go
 // string stitching.
-func (q *Queries) ListActiveBooks(ctx context.Context, owner pgtype.UUID) ([]ListActiveBooksRow, error) {
+func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error) {
 	rows, err := q.db.Query(ctx, listActiveBooks, owner)
 	if err != nil {
 		return nil, err

@@ -17,7 +17,7 @@ import (
 
 func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
 	rows, err := s.queries().ListSelectionCandidatesForBook(ctx, sqlcgen.ListSelectionCandidatesForBookParams{
-		Owner: uuidArg(owner), Book: uuidArg(bookID),
+		Owner: owner, Book: bookID,
 	})
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owne
 
 func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
 	rows, err := s.queries().ListSelectionCandidatesForCorpus(ctx, sqlcgen.ListSelectionCandidatesForCorpusParams{
-		Owner: uuidArg(owner), Corpus: corpusID,
+		Owner: owner, Corpus: corpusID,
 	})
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (s *PostgresStore) GetPreparedCoverageEntryForBook(ctx context.Context, own
 
 func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
 	row, err := s.queries().GetCoverageEntryForBook(ctx, sqlcgen.GetCoverageEntryForBookParams{
-		FirstEncounter: candidate.FirstEncounter, Owner: uuidArg(owner), Book: uuidArg(bookID),
+		FirstEncounter: candidate.FirstEncounter, Owner: owner, Book: bookID,
 		Corpus: candidate.CorpusID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
 	if err = missing(err); err != nil {
@@ -97,7 +97,7 @@ func (s *PostgresStore) GetPreparedCoverageEntryForCorpus(ctx context.Context, o
 
 func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
 	row, err := s.queries().GetCoverageEntryForCorpus(ctx, sqlcgen.GetCoverageEntryForCorpusParams{
-		FirstEncounter: candidate.FirstEncounter, Owner: uuidArg(owner), Corpus: corpusID,
+		FirstEncounter: candidate.FirstEncounter, Owner: owner, Corpus: corpusID,
 		Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
 	if err = missing(err); err != nil {
@@ -128,11 +128,11 @@ func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, co
 }
 
 func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysisRunID string) (domain.Corpus, error) {
-	row, err := s.queries().GetCorpusForAnalysis(ctx, sqlcgen.GetCorpusForAnalysisParams{OwnerID: uuidArg(owner), ID: uuidArg(analysisRunID)})
+	row, err := s.queries().GetCorpusForAnalysis(ctx, sqlcgen.GetCorpusForAnalysisParams{OwnerID: owner, ID: analysisRunID})
 	if err != nil {
 		return domain.Corpus{}, missing(err)
 	}
-	return domain.Corpus{ID: row.CID, OwnerID: row.COwnerID, SourceMaterialID: row.CSourceMaterialID, ArtifactHash: row.ArtifactHash, AnalysisRunID: row.AnalysisRunID, Status: row.Status, CreatedAt: pgTime(row.CreatedAt)}, nil
+	return domain.Corpus{ID: row.CID, OwnerID: row.COwnerID, SourceMaterialID: row.CSourceMaterialID, ArtifactHash: row.ArtifactHash, AnalysisRunID: row.AnalysisRunID, Status: row.Status, CreatedAt: row.CreatedAt}, nil
 }
 
 func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {
@@ -148,7 +148,7 @@ func (s *PostgresStore) RecordGeneratedForBook(ctx context.Context, owner, bookI
 func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
+		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -158,25 +158,25 @@ func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deck
 		if state != "candidate" && state != "accepted" && state != "generated" {
 			return fmt.Errorf("cardexport: vocabulary state is %s", state)
 		}
-		deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: uuidArg(owner), Language: entry.Language, Name: deckName})
+		deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: entry.Language, Name: deckName})
 		if err != nil {
 			return err
 		}
-		if err = q.PutGeneratedCard(ctx, sqlcgen.PutGeneratedCardParams{OwnerID: uuidArg(owner), DeckID: uuidArg(deck.ID), DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
+		if err = q.PutGeneratedCard(ctx, sqlcgen.PutGeneratedCardParams{OwnerID: owner, DeckID: deck.ID, DedupKey: note.Key, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Front: note.Text, Back: note.BackExtra}); err != nil {
 			return err
 		}
-		if err = q.PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, FirstDeckID: uuidArg(deck.ID), FirstSourceMaterialID: nullableUUIDArg(bookID)}); err != nil {
+		if err = q.PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, FirstDeckID: deck.ID, FirstSourceMaterialID: nullableUUIDArg(bookID)}); err != nil {
 			return err
 		}
 		// Keep the generated lifecycle state as legacy bookkeeping for compatibility.
 		// Cross-book exclusion is driven exclusively by generated_vocabulary above.
 		if state != "generated" {
-			if err = q.SetVocabularyStateGenerated(ctx, sqlcgen.SetVocabularyStateGeneratedParams{Owner: uuidArg(owner), Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
+			if err = q.SetVocabularyStateGenerated(ctx, sqlcgen.SetVocabularyStateGeneratedParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
 				return err
 			}
 			details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": state, "to": "generated"})
 			completed := time.Now().UTC()
-			return q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: uuidArg(owner), Operation: "vocabulary.transition", Status: "completed", Details: details, CompletedAt: pgtype.Timestamptz{Time: completed, Valid: true}})
+			return q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: owner, Operation: "vocabulary.transition", Status: "completed", Details: details, CompletedAt: pgtype.Timestamptz{Time: completed, Valid: true}})
 		}
 		return nil
 	})
@@ -189,14 +189,14 @@ func (s *PostgresStore) RecordGeneratedVocabulary(ctx context.Context, value dom
 	if value.FirstSourceMaterialID != nil {
 		firstSourceMaterialID = *value.FirstSourceMaterialID
 	}
-	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(value.OwnerID), Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: uuidArg(value.FirstDeckID), FirstSourceMaterialID: nullableUUIDArg(firstSourceMaterialID)}); err != nil {
+	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: value.OwnerID, Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: value.FirstDeckID, FirstSourceMaterialID: nullableUUIDArg(firstSourceMaterialID)}); err != nil {
 		return domain.GeneratedVocabulary{}, err
 	}
 	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS)
 }
 
 func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, language, lemma, upos string) (value domain.GeneratedVocabulary, err error) {
-	row, err := s.queries().GetGeneratedVocabulary(ctx, sqlcgen.GetGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: language, CanonicalLemma: lemma, Upos: upos})
+	row, err := s.queries().GetGeneratedVocabulary(ctx, sqlcgen.GetGeneratedVocabularyParams{OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos})
 	if err != nil {
 		return value, missing(err)
 	}
@@ -204,7 +204,7 @@ func (s *PostgresStore) getGeneratedVocabulary(ctx context.Context, owner, langu
 }
 
 func (s *PostgresStore) ListGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
-	rows, err := s.queries().ListGeneratedVocabulary(ctx, sqlcgen.ListGeneratedVocabularyParams{OwnerID: uuidArg(owner), Language: language})
+	rows, err := s.queries().ListGeneratedVocabulary(ctx, sqlcgen.ListGeneratedVocabularyParams{OwnerID: owner, Language: language})
 	if err != nil {
 		return nil, err
 	}

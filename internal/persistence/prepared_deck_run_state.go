@@ -15,49 +15,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
-const preparedDeckOutcomeColumns = `owner_id::text,preparation_id::text,run_id::text,ordinal,state,dispatch_count,provider_attempt_count,max_provider_attempts,next_attempt_at,dispatch_generation,COALESCE(river_job_id,0),COALESCE(claim_token::text,''),claimed_at,lease_expires_at,terminal_at,error_class,error_code,cache_hit_count,provider_call_count,cache_latency_ms,provider_latency_ms,updated_at`
-
-func qualifiedColumns(alias, columns string) string {
-	var parts []string
-	start, depth := 0, 0
-	for i, r := range columns {
-		switch r {
-		case '(':
-			depth++
-		case ')':
-			depth--
-		case ',':
-			if depth == 0 {
-				parts = append(parts, columns[start:i])
-				start = i + 1
-			}
-		}
-	}
-	parts = append(parts, columns[start:])
-	for i, part := range parts {
-		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "COALESCE(") {
-			part = strings.Replace(part, "COALESCE(", "COALESCE("+alias+".", 1)
-		} else {
-			part = alias + "." + part
-		}
-		parts[i] = part
-	}
-	return strings.Join(parts, ",")
-}
-
-func scanPreparedDeckOutcome(row rowScanner) (domain.PreparedDeckTranslationOutcome, error) {
-	var outcome domain.PreparedDeckTranslationOutcome
-	var cacheLatencyMS, providerLatencyMS int64
-	err := row.Scan(&outcome.OwnerID, &outcome.PreparationID, &outcome.RunID, &outcome.Ordinal, &outcome.State, &outcome.DispatchCount, &outcome.ProviderAttemptCount, &outcome.MaxProviderAttempts, &outcome.NextAttemptAt, &outcome.DispatchGeneration, &outcome.RiverJobID, &outcome.ClaimToken, &outcome.ClaimedAt, &outcome.LeaseExpiresAt, &outcome.TerminalAt, &outcome.ErrorClass, &outcome.ErrorCode, &outcome.CacheHitCount, &outcome.ProviderCallCount, &cacheLatencyMS, &providerLatencyMS, &outcome.UpdatedAt)
-	outcome.CacheLatency = time.Duration(cacheLatencyMS) * time.Millisecond
-	outcome.ProviderLatency = time.Duration(providerLatencyMS) * time.Millisecond
-	return outcome, missing(err)
-}
-
 func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {
 	model, err := s.queries().GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal,
 	})
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
@@ -67,7 +27,7 @@ func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, o
 
 func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context, owner, preparationID, runID string) ([]domain.PreparedDeckTranslationOutcome, error) {
 	models, err := s.queries().ListPreparedDeckTranslationOutcomes(ctx, sqlcgen.ListPreparedDeckTranslationOutcomesParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID,
 	})
 	if err != nil {
 		return nil, err
@@ -78,7 +38,7 @@ func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context,
 	}
 	if outcomes == nil {
 		exists, existsErr := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{
-			Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID),
+			Owner: owner, Preparation: preparationID, Run: runID,
 		})
 		if existsErr != nil {
 			return nil, existsErr
@@ -90,17 +50,9 @@ func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context,
 	return outcomes, nil
 }
 
-const preparedDeckBatchChunkColumns = `id::text,owner_id::text,preparation_id::text,run_id::text,chunk_index,generation,state,COALESCE(provider_status,''),model,endpoint,split_reason,first_ordinal,last_ordinal,input_digest,request_count,input_bytes,estimated_prompt_tokens,completed_count,failed_count,expired_count,COALESCE(input_file_id,''),COALESCE(batch_id,''),COALESCE(output_file_id,''),COALESCE(error_file_id,''),input_file_cleanup_state,output_file_cleanup_state,error_file_cleanup_state,input_file_cleanup_attempts,output_file_cleanup_attempts,error_file_cleanup_attempts,cleanup_error_class,cleanup_error_code,COALESCE(cleanup_claim_token::text,''),cleanup_claimed_at,cleanup_lease_expires_at,cleanup_completed_at,COALESCE(submission_job_id,0),submission_generation,COALESCE(submission_claim_token::text,''),submission_claimed_at,submission_lease_expires_at,COALESCE(reconciliation_job_id,0),reconciliation_generation,COALESCE(reconciliation_claim_token::text,''),reconciliation_claimed_at,reconciliation_lease_expires_at,error_class,error_code,input_tokens,output_tokens,total_tokens,created_at,updated_at,submitted_at,last_polled_at,provider_completed_at,reconciled_at`
-
-func scanPreparedDeckBatchChunk(row rowScanner) (domain.PreparedDeckBatchChunk, error) {
-	var chunk domain.PreparedDeckBatchChunk
-	err := row.Scan(&chunk.ID, &chunk.OwnerID, &chunk.PreparationID, &chunk.RunID, &chunk.ChunkIndex, &chunk.Generation, &chunk.State, &chunk.ProviderStatus, &chunk.Model, &chunk.Endpoint, &chunk.SplitReason, &chunk.FirstOrdinal, &chunk.LastOrdinal, &chunk.InputDigest, &chunk.RequestCount, &chunk.InputBytes, &chunk.EstimatedPromptTokens, &chunk.CompletedCount, &chunk.FailedCount, &chunk.ExpiredCount, &chunk.InputFileID, &chunk.BatchID, &chunk.OutputFileID, &chunk.ErrorFileID, &chunk.InputFileCleanupState, &chunk.OutputFileCleanupState, &chunk.ErrorFileCleanupState, &chunk.InputFileCleanupAttempts, &chunk.OutputFileCleanupAttempts, &chunk.ErrorFileCleanupAttempts, &chunk.CleanupErrorClass, &chunk.CleanupErrorCode, &chunk.CleanupClaimToken, &chunk.CleanupClaimedAt, &chunk.CleanupLeaseExpiresAt, &chunk.CleanupCompletedAt, &chunk.SubmissionJobID, &chunk.SubmissionGeneration, &chunk.SubmissionClaimToken, &chunk.SubmissionClaimedAt, &chunk.SubmissionLeaseExpiresAt, &chunk.ReconciliationJobID, &chunk.ReconciliationGeneration, &chunk.ReconciliationClaimToken, &chunk.ReconciliationClaimedAt, &chunk.ReconciliationLeaseExpiresAt, &chunk.ErrorClass, &chunk.ErrorCode, &chunk.InputTokens, &chunk.OutputTokens, &chunk.TotalTokens, &chunk.CreatedAt, &chunk.UpdatedAt, &chunk.SubmittedAt, &chunk.LastPolledAt, &chunk.ProviderCompletedAt, &chunk.ReconciledAt)
-	return chunk, missing(err)
-}
-
 func listPreparedDeckBatchChunks(ctx context.Context, q sqlcgen.DBTX, owner, preparationID, runID string) ([]domain.PreparedDeckBatchChunk, error) {
 	models, err := sqlcgen.New(q).ListPreparedDeckBatchChunks(ctx, sqlcgen.ListPreparedDeckBatchChunksParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID,
 	})
 	if err != nil {
 		return nil, err
@@ -111,7 +63,7 @@ func listPreparedDeckBatchChunks(ctx context.Context, q sqlcgen.DBTX, owner, pre
 	}
 	for i := range chunks {
 		ordinals, queryErr := sqlcgen.New(q).ListPreparedDeckBatchChunkOrdinals(ctx, sqlcgen.ListPreparedDeckBatchChunkOrdinalsParams{
-			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ChunkID: uuidArg(chunks[i].ID),
+			OwnerID: owner, PreparationID: preparationID, RunID: runID, ChunkID: chunks[i].ID,
 		})
 		if queryErr != nil {
 			return nil, queryErr
@@ -149,7 +101,7 @@ func (s *PostgresStore) GetPreparedDeckBatchChunk(ctx context.Context, owner, pr
 
 func (s *PostgresStore) SetPreparedDeckBatchSubmissionJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, chunkID string, generation int, jobID int64) error {
 	rows, err := sqlcgen.New(tx).SetPreparedDeckBatchSubmissionJob(ctx, sqlcgen.SetPreparedDeckBatchSubmissionJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(generation), SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, SubmissionGeneration: generation, SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
@@ -162,7 +114,7 @@ func (s *PostgresStore) SetPreparedDeckTranslationJobTx(ctx context.Context, tx 
 		return ErrInvalidTransition
 	}
 	rows, err := sqlcgen.New(tx).SetPreparedDeckTranslationJob(ctx, sqlcgen.SetPreparedDeckTranslationJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal), DispatchGeneration: int32(generation), RiverJobID: pgtype.Int8{Int64: jobID, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal, DispatchGeneration: generation, RiverJobID: pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
@@ -179,7 +131,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err := sqlcgen.New(tx).RecordPreparedDeckBatchSubmitted(ctx, sqlcgen.RecordPreparedDeckBatchSubmittedParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), InputFileID: textArg(inputFileID), BatchID: textArg(batchID), SubmittedAt: pgtype.Timestamptz{Time: submittedAt, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token), InputFileID: textArg(inputFileID), BatchID: textArg(batchID), SubmittedAt: pgtype.Timestamptz{Time: submittedAt, Valid: true},
 	})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil {
@@ -199,7 +151,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	model, err = sqlcgen.New(tx).AttachPreparedDeckBatchReconciliationJob(ctx, sqlcgen.AttachPreparedDeckBatchReconciliationJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true}, BatchID: textArg(batchID),
+		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true}, BatchID: textArg(batchID),
 	})
 	chunk = preparedDeckBatchChunkFromModel(model)
 	return chunk, missing(err)
@@ -207,7 +159,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 
 func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, generation int, jobID int64) error {
 	rows, err := sqlcgen.New(tx).SetPreparedDeckFinalizationJob(ctx, sqlcgen.SetPreparedDeckFinalizationJobParams{
-		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), FinalizationDispatchGeneration: int32(generation), FinalizationJobID: pgtype.Int8{Int64: jobID, Valid: true},
+		OwnerID: owner, PreparationID: preparationID, ID: runID, FinalizationDispatchGeneration: generation, FinalizationJobID: pgtype.Int8{Int64: jobID, Valid: true},
 	})
 	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
@@ -293,7 +245,7 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
-	model, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: uuidArg(owner), ID: uuidArg(preparationID)})
+	model, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	p := deckPreparationFromModel(model)
 	err = missing(err)
 	if err != nil {
@@ -306,20 +258,20 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 		return p, ErrInvalidTransition
 	}
 	runID := p.CurrentRunID
-	model, err = q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: uuidArg(owner), ID: uuidArg(preparationID)})
+	model, err = q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: owner, ID: preparationID})
 	err = missing(err)
 	p = deckPreparationFromModel(model)
 	if err != nil {
 		return p, err
 	}
 	if runID != "" {
-		if err = q.CancelPreparedDeckRun(ctx, sqlcgen.CancelPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)}); err != nil {
+		if err = q.CancelPreparedDeckRun(ctx, sqlcgen.CancelPreparedDeckRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID}); err != nil {
 			return p, err
 		}
-		if err = q.CancelPreparedDeckOutcomes(ctx, sqlcgen.CancelPreparedDeckOutcomesParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)}); err != nil {
+		if err = q.CancelPreparedDeckOutcomes(ctx, sqlcgen.CancelPreparedDeckOutcomesParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
 			return p, err
 		}
-		if err = q.CancelPreparedDeckBatchChunks(ctx, sqlcgen.CancelPreparedDeckBatchChunksParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)}); err != nil {
+		if err = q.CancelPreparedDeckBatchChunks(ctx, sqlcgen.CancelPreparedDeckBatchChunksParams{OwnerID: owner, PreparationID: preparationID, RunID: runID}); err != nil {
 			return p, err
 		}
 	}
@@ -327,7 +279,7 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 	if err != nil {
 		return p, err
 	}
-	if err = q.InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: uuidArg(owner), Status: "cancelled", Details: details}); err != nil {
+	if err = q.InsertDeckPreparationHistory(ctx, sqlcgen.InsertDeckPreparationHistoryParams{Owner: owner, Status: "cancelled", Details: details}); err != nil {
 		return p, err
 	}
 	if err = tx.Commit(ctx); err != nil {

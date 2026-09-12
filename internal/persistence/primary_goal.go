@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -11,10 +12,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func primaryGoalFromValues(ownerID, language, bookID string, createdAt, updatedAt, readingFinishedAt pgtype.Timestamptz) domain.PrimaryGoal {
+func primaryGoalFromValues(ownerID, language, bookID string, createdAt, updatedAt time.Time, readingFinishedAt pgtype.Timestamptz) domain.PrimaryGoal {
 	return domain.PrimaryGoal{
 		OwnerID: ownerID, Language: language, BookID: bookID,
-		CreatedAt: pgTime(createdAt), UpdatedAt: pgTime(updatedAt), ReadingFinishedAt: pgTimePtr(readingFinishedAt),
+		CreatedAt: createdAt, UpdatedAt: updatedAt, ReadingFinishedAt: pgTimePtr(readingFinishedAt),
 	}
 }
 
@@ -30,7 +31,7 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language stri
 	if language == "" {
 		return domain.PrimaryGoal{}, nil
 	}
-	row, err := s.queries().GetPrimaryGoal(ctx, sqlcgen.GetPrimaryGoalParams{Owner: uuidArg(owner), Language: language})
+	row, err := s.queries().GetPrimaryGoal(ctx, sqlcgen.GetPrimaryGoalParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, nil
 	}
@@ -58,7 +59,7 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: uuidArg(owner), Language: language})
+	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if err == nil && !current.ReadingFinishedAt.Valid {
 		return domain.PrimaryGoal{}, ErrGoalExists
 	}
@@ -80,7 +81,7 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 
 func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language, bookID string) error {
 	eligible, err := sqlcgen.New(tx).PrimaryGoalCandidateEligible(ctx, sqlcgen.PrimaryGoalCandidateEligibleParams{
-		Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID),
+		Owner: owner, Language: language, Book: bookID,
 	})
 	if err != nil {
 		return err
@@ -92,9 +93,9 @@ func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language,
 }
 
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) (domain.PrimaryGoal, error) {
-	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
+	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		reactivated, err := q.ReactivatePrimaryGoal(ctx, sqlcgen.ReactivatePrimaryGoalParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
+		reactivated, err := q.ReactivatePrimaryGoal(ctx, sqlcgen.ReactivatePrimaryGoalParams{Owner: owner, Language: language, Book: bookID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.PrimaryGoal{}, ErrGoalExists
 		}
@@ -123,7 +124,7 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: uuidArg(owner), Language: language})
+	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, ErrNotFound
 	}
@@ -139,7 +140,7 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	row, err := q.ChangePrimaryGoalBook(ctx, sqlcgen.ChangePrimaryGoalBookParams{Owner: uuidArg(owner), Language: language, Book: uuidArg(bookID)})
+	row, err := q.ChangePrimaryGoalBook(ctx, sqlcgen.ChangePrimaryGoalBookParams{Owner: owner, Language: language, Book: bookID})
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -161,7 +162,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
 
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: uuidArg(owner), Language: language})
+	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ReadingFinishResult{}, ErrNotFound
 	}
@@ -173,7 +174,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		return ReadingFinishResult{}, ErrGoalStale
 	}
 	if goal.ReadingFinishedAt == nil {
-		row, finishErr := q.FinishPrimaryGoalReading(ctx, sqlcgen.FinishPrimaryGoalReadingParams{Owner: uuidArg(owner), Language: language})
+		row, finishErr := q.FinishPrimaryGoalReading(ctx, sqlcgen.FinishPrimaryGoalReadingParams{Owner: owner, Language: language})
 		if finishErr != nil {
 			return ReadingFinishResult{}, finishErr
 		}
@@ -195,7 +196,7 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, e
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: uuidArg(owner), Language: language})
+	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -208,7 +209,7 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, e
 	if current.ReadingFinishedAt.Valid {
 		return ErrNotFound
 	}
-	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: uuidArg(owner), Language: language}); err != nil {
+	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

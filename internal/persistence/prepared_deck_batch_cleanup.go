@@ -30,7 +30,7 @@ func (s *PostgresStore) ClaimPreparedDeckBatchCleanup(ctx context.Context, owner
 	if token == "" || leaseExpiresAt.Before(time.Now()) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	model, err := s.queries().ClaimPreparedDeckBatchCleanup(ctx, sqlcgen.ClaimPreparedDeckBatchCleanupParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), CleanupClaimToken: uuidArg(token), CleanupLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true}, InputFileCleanupAttempts: preparedDeckBatchCleanupMaxAttempts})
+	model, err := s.queries().ClaimPreparedDeckBatchCleanup(ctx, sqlcgen.ClaimPreparedDeckBatchCleanupParams{OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, CleanupClaimToken: uuidArg(token), CleanupLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true}, InputFileCleanupAttempts: preparedDeckBatchCleanupMaxAttempts})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
@@ -48,7 +48,7 @@ func (s *PostgresStore) FinishPreparedDeckBatchCleanup(ctx context.Context, owne
 	if err := validateBoundedError(update.ErrorClass, update.ErrorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	model, err := s.queries().FinishPreparedDeckBatchCleanup(ctx, sqlcgen.FinishPreparedDeckBatchCleanupParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), CleanupClaimToken: uuidArg(token), InputFileCleanupState: update.InputFileState, OutputFileCleanupState: update.OutputFileState, ErrorFileCleanupState: update.ErrorFileState, InputFileCleanupAttempts: int32(update.InputFileAttempts), OutputFileCleanupAttempts: int32(update.OutputFileAttempts), ErrorFileCleanupAttempts: int32(update.ErrorFileAttempts), CleanupErrorClass: update.ErrorClass, CleanupErrorCode: update.ErrorCode})
+	model, err := s.queries().FinishPreparedDeckBatchCleanup(ctx, sqlcgen.FinishPreparedDeckBatchCleanupParams{OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, CleanupClaimToken: uuidArg(token), InputFileCleanupState: update.InputFileState, OutputFileCleanupState: update.OutputFileState, ErrorFileCleanupState: update.ErrorFileState, InputFileCleanupAttempts: update.InputFileAttempts, OutputFileCleanupAttempts: update.OutputFileAttempts, ErrorFileCleanupAttempts: update.ErrorFileAttempts, CleanupErrorClass: update.ErrorClass, CleanupErrorCode: update.ErrorCode})
 	chunk := preparedDeckBatchChunkFromModel(model)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PreparedDeckBatchChunk{}, ErrPreparedDeckClaimLost
