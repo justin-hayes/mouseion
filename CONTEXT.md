@@ -169,3 +169,10 @@ How many Goals across languages are active at once is the learner's own
 discipline, not an enforced invariant. The Goal carries commitment; Reading
 Journey membership does not.
 _Avoid_: active campaign, target destination, current project.
+
+**Concordance**:
+A listing of a word's (or lemma's) occurrences with their surrounding context,
+at the scope of a Book or of a study language's analyzed library. A future
+learner-facing surface; its persistence foundation is the per-analysis
+normalized corpus.
+_Avoid_: KWIC (a rendering style, not the feature), occurrence list.
