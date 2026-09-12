@@ -329,8 +329,8 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 }
 
 func ensureBookExists(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
-	var found bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM books WHERE owner_id=$1 AND id=$2)`, owner, bookID).Scan(&found); err != nil {
+	found, err := sqlcgen.New(tx).BookExists(ctx, sqlcgen.BookExistsParams{Owner: uuidArg(owner), Book: uuidArg(bookID)})
+	if err != nil {
 		return err
 	}
 	if !found {
