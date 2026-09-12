@@ -185,7 +185,11 @@ func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deck
 // RecordGeneratedVocabulary records first provenance for an owner-scoped
 // vocabulary identity. Repeated records intentionally preserve the first row.
 func (s *PostgresStore) RecordGeneratedVocabulary(ctx context.Context, value domain.GeneratedVocabulary) (domain.GeneratedVocabulary, error) {
-	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(value.OwnerID), Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: uuidArg(value.FirstDeckID), FirstSourceMaterialID: nullableUUIDArg(stringValue(value.FirstSourceMaterialID))}); err != nil {
+	firstSourceMaterialID := ""
+	if value.FirstSourceMaterialID != nil {
+		firstSourceMaterialID = *value.FirstSourceMaterialID
+	}
+	if err := s.queries().PutGeneratedVocabulary(ctx, sqlcgen.PutGeneratedVocabularyParams{OwnerID: uuidArg(value.OwnerID), Language: value.Language, CanonicalLemma: value.CanonicalLemma, Upos: value.UPOS, FirstDeckID: uuidArg(value.FirstDeckID), FirstSourceMaterialID: nullableUUIDArg(firstSourceMaterialID)}); err != nil {
 		return domain.GeneratedVocabulary{}, err
 	}
 	return s.getGeneratedVocabulary(ctx, value.OwnerID, value.Language, value.CanonicalLemma, value.UPOS)

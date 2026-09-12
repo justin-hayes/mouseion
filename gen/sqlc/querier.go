@@ -55,7 +55,7 @@ type Querier interface {
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
-	DeleteBookGoalsForLanguage(ctx context.Context, arg DeleteBookGoalsForLanguageParams) error
+	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error

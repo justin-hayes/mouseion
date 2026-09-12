@@ -268,7 +268,7 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		}
 		updated = bookFromFields(row.ID, row.OwnerID, row.Title, row.MetadataProvenance, row.LanguageState, row.LanguageTag, row.CreatedAt, row.UpdatedAt)
 		if languageState == domain.LanguageChosen {
-			return q.DeleteBookGoalsForLanguage(ctx, sqlcgen.DeleteBookGoalsForLanguageParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), Language: languageTag})
+			return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID), Language: languageTag})
 		}
 		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: uuidArg(owner), BookID: uuidArg(bookID)})
 	})
@@ -437,6 +437,8 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
+	// Advisory lock serializes catalogue identity reconciliation; it is a
+	// domain fence rather than a data query and therefore remains raw SQL.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
@@ -510,6 +512,8 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	}
 	defer tx.Rollback(ctx)
 	q := sqlcgen.New(tx)
+	// Advisory lock serializes acquisition identity resolution; it is a domain
+	// fence rather than a data query and therefore remains raw SQL.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,466))`, owner+":"+sourceIdentifier); err != nil {
 		return "", err
 	}

@@ -44,18 +44,18 @@ func (q *Queries) DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams
 	return err
 }
 
-const deleteBookGoalsForLanguage = `-- name: DeleteBookGoalsForLanguage :exec
+const deleteBookGoalsExceptLanguage = `-- name: DeleteBookGoalsExceptLanguage :exec
 DELETE FROM primary_goals WHERE owner_id = $1 AND book_id = $2 AND language <> $3
 `
 
-type DeleteBookGoalsForLanguageParams struct {
+type DeleteBookGoalsExceptLanguageParams struct {
 	OwnerID  pgtype.UUID
 	BookID   pgtype.UUID
 	Language string
 }
 
-func (q *Queries) DeleteBookGoalsForLanguage(ctx context.Context, arg DeleteBookGoalsForLanguageParams) error {
-	_, err := q.db.Exec(ctx, deleteBookGoalsForLanguage, arg.OwnerID, arg.BookID, arg.Language)
+func (q *Queries) DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error {
+	_, err := q.db.Exec(ctx, deleteBookGoalsExceptLanguage, arg.OwnerID, arg.BookID, arg.Language)
 	return err
 }
 

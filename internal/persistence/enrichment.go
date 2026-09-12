@@ -20,7 +20,7 @@ func (s *PostgresStore) Get(ctx context.Context, key enrichment.CacheKey) (entry
 	}
 	entry.Translation, entry.Gloss = row.Translation, row.Gloss
 	entry.SentenceTranslation, entry.SentenceTranslationTarget = row.SentenceTranslation, row.SentenceTranslationTarget
-	entry.CachedAt = row.CachedAt.Time
+	entry.CachedAt = pgTime(row.CachedAt)
 	return entry, true, nil
 }
 

@@ -95,13 +95,6 @@ func pgInt8(value pgtype.Int8) int64 {
 	return value.Int64
 }
 
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
 func generatedVocabularyFromFields(ownerID, language, lemma, upos, firstDeckID, firstSourceMaterialID string, firstGeneratedAt pgtype.Timestamptz) domain.GeneratedVocabulary {
 	var sourceMaterialID *string
 	if firstSourceMaterialID != "" {

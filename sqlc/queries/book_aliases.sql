@@ -61,7 +61,7 @@ WHERE owner_id = $1 AND id = $2
 RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
           COALESCE(language_tag, '') AS language_tag, created_at, updated_at;
 
--- name: DeleteBookGoalsForLanguage :exec
+-- name: DeleteBookGoalsExceptLanguage :exec
 DELETE FROM primary_goals WHERE owner_id = $1 AND book_id = $2 AND language <> $3;
 
 -- name: DeleteBookGoals :exec
