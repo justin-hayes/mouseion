@@ -183,6 +183,14 @@ func vocabularyStateFromFields(id, ownerID, language, canonicalLemma, upos, stat
 	}
 }
 
+func selectionCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos string, occurrenceCount int32, observedForms, sentenceReferences, provenance []byte, selectedAt pgtype.Timestamptz, firstEncounter int64) domain.SelectionCandidate {
+	return domain.SelectionCandidate{
+		OwnerID: ownerID, CorpusID: corpusID, Language: language, CanonicalLemma: canonicalLemma, UPOS: upos,
+		OccurrenceCount: int(occurrenceCount), ObservedForms: observedForms, SentenceReferences: sentenceReferences,
+		Provenance: provenance, SelectedAt: pgTime(selectedAt), FirstEncounter: firstEncounter,
+	}
+}
+
 func curatedSentenceFromFields(id, ownerID, exampleSentenceID, language, canonicalLemma, upos, notes string, createdAt pgtype.Timestamptz) domain.CuratedSentence {
 	return domain.CuratedSentence{
 		ID: id, OwnerID: ownerID, ExampleSentenceID: exampleSentenceID, Language: language,

@@ -8,47 +8,38 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sc.owner_id::text,sc.corpus_id,sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,sc.selected_at,COALESCE(first_seen.start_offset,9223372036854775807) FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'location'->>'StartOffset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true WHERE sc.owner_id=$1 AND co.source_material_id=$2 ORDER BY sc.language,sc.canonical_lemma,sc.upos`, owner, bookID)
+	rows, err := s.queries().ListSelectionCandidatesForBook(ctx, sqlcgen.ListSelectionCandidatesForBookParams{
+		Owner: uuidArg(owner), Book: uuidArg(bookID),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var candidates []domain.SelectionCandidate
-	for rows.Next() {
-		var candidate domain.SelectionCandidate
-		if err := rows.Scan(&candidate.OwnerID, &candidate.CorpusID, &candidate.Language, &candidate.CanonicalLemma, &candidate.UPOS, &candidate.OccurrenceCount, &candidate.ObservedForms, &candidate.SentenceReferences, &candidate.Provenance, &candidate.SelectedAt, &candidate.FirstEncounter); err != nil {
-			return nil, err
-		}
-		candidates = append(candidates, candidate)
+	for _, row := range rows {
+		candidates = append(candidates, selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
 	}
-	return candidates, rows.Err()
+	return candidates, nil
 }
 
 func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sc.owner_id::text,sc.corpus_id,sc.language,sc.canonical_lemma,sc.upos,sc.occurrence_count,sc.observed_forms,sc.eligible_sentence_refs,sc.provenance,sc.selected_at,COALESCE(first_seen.start_offset,9223372036854775807)
-		FROM selection_candidates sc
-		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
-		LEFT JOIN LATERAL (SELECT MIN(COALESCE(ref->'location'->>'start_offset',ref->'location'->>'StartOffset',ref->'Location'->>'StartOffset')::bigint) AS start_offset FROM jsonb_array_elements(sc.eligible_sentence_refs) ref) first_seen ON true
-		WHERE sc.owner_id=$1 AND sc.corpus_id=$2 ORDER BY sc.language,sc.canonical_lemma,sc.upos`, owner, corpusID)
+	rows, err := s.queries().ListSelectionCandidatesForCorpus(ctx, sqlcgen.ListSelectionCandidatesForCorpusParams{
+		Owner: uuidArg(owner), Corpus: corpusID,
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var candidates []domain.SelectionCandidate
-	for rows.Next() {
-		var candidate domain.SelectionCandidate
-		if err := rows.Scan(&candidate.OwnerID, &candidate.CorpusID, &candidate.Language, &candidate.CanonicalLemma, &candidate.UPOS, &candidate.OccurrenceCount, &candidate.ObservedForms, &candidate.SentenceReferences, &candidate.Provenance, &candidate.SelectedAt, &candidate.FirstEncounter); err != nil {
-			return nil, err
-		}
-		candidates = append(candidates, candidate)
+	for _, row := range rows {
+		candidates = append(candidates, selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
 	}
-	return candidates, rows.Err()
+	return candidates, nil
 }
 
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
@@ -62,11 +53,14 @@ func (s *PostgresStore) GetPreparedCoverageEntryForBook(ctx context.Context, own
 }
 
 func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
-	var entry cardexport.Entry
-	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphologies::text,'[]'),sm.title,'',$7::bigint FROM selection_candidates sc JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true LEFT JOIN LATERAL (SELECT jsonb_agg(morphology ORDER BY frequency DESC,morphology::text) AS morphologies FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos) sl ON true WHERE sc.owner_id=$1 AND sm.id=$2 AND sc.corpus_id=$3 AND sc.language=$4 AND sc.canonical_lemma=$5 AND sc.upos=$6`, owner, bookID, candidate.CorpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
+	row, err := s.queries().GetCoverageEntryForBook(ctx, sqlcgen.GetCoverageEntryForBookParams{
+		FirstEncounter: candidate.FirstEncounter, Owner: uuidArg(owner), Book: uuidArg(bookID),
+		Corpus: candidate.CorpusID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+	})
 	if err = missing(err); err != nil {
-		return entry, err
+		return cardexport.Entry{}, err
 	}
+	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
 	if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
@@ -75,11 +69,19 @@ func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, book
 	if !includeLegacyEnrichment {
 		return entry, nil
 	}
-	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND target_language='en' AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
+	enrichmentRow, err := s.queries().GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
+		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, SentenceHash: enrichment.SentenceHash(entry.Sentence),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
+		return entry, nil
 	}
-	return entry, err
+	if err != nil {
+		return entry, err
+	}
+	entry.Translation = enrichmentRow.Translation
+	entry.SentenceTranslation = enrichmentRow.SentenceTranslation
+	entry.SentenceTranslationTarget = enrichmentRow.SentenceTranslationTarget
+	return entry, nil
 }
 
 func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
@@ -93,17 +95,14 @@ func (s *PostgresStore) GetPreparedCoverageEntryForCorpus(ctx context.Context, o
 }
 
 func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
-	var entry cardexport.Entry
-	err := s.pool.QueryRow(ctx, `SELECT sc.owner_id::text,sc.language,sc.canonical_lemma,sc.upos,COALESCE(e.sentence_text,''),'','',COALESCE(sl.morphologies::text,'[]'),sm.title,'',$6::bigint
-		FROM selection_candidates sc
-		JOIN corpora co ON co.owner_id=sc.owner_id AND co.id::text=sc.corpus_id
-		JOIN source_materials sm ON sm.owner_id=co.owner_id AND sm.id=co.source_material_id
-		LEFT JOIN LATERAL (SELECT ex.* FROM example_sentences ex WHERE ex.owner_id=sc.owner_id AND ex.corpus_id=co.id AND ex.language=sc.language AND ex.canonical_lemma=sc.canonical_lemma AND ex.upos=sc.upos ORDER BY ex.is_chosen DESC,ex.selection_rank,ex.id LIMIT 1) e ON true
-		LEFT JOIN LATERAL (SELECT jsonb_agg(morphology ORDER BY frequency DESC,morphology::text) AS morphologies FROM shared_lemmas WHERE content_hash=co.artifact_hash AND language=sc.language AND canonical_lemma=sc.canonical_lemma AND upos=sc.upos) sl ON true
-		WHERE sc.owner_id=$1 AND sc.corpus_id=$2 AND sc.language=$3 AND sc.canonical_lemma=$4 AND sc.upos=$5`, owner, corpusID, candidate.Language, candidate.CanonicalLemma, candidate.UPOS, candidate.FirstEncounter).Scan(&entry.OwnerID, &entry.Language, &entry.CanonicalLemma, &entry.UPOS, &entry.Sentence, &entry.Translation, &entry.TargetWord, &entry.Morphology, &entry.SourceDocument, &entry.Notes, &entry.FirstEncounter)
+	row, err := s.queries().GetCoverageEntryForCorpus(ctx, sqlcgen.GetCoverageEntryForCorpusParams{
+		FirstEncounter: candidate.FirstEncounter, Owner: uuidArg(owner), Corpus: corpusID,
+		Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+	})
 	if err = missing(err); err != nil {
-		return entry, err
+		return cardexport.Entry{}, err
 	}
+	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
 	if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
@@ -112,11 +111,19 @@ func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, co
 	if !includeLegacyEnrichment {
 		return entry, nil
 	}
-	err = s.pool.QueryRow(ctx, `SELECT translation,sentence_translation,sentence_translation_target FROM enrichment_cache WHERE language=$1 AND target_language='en' AND canonical_lemma=$2 AND upos=upper($3) AND sentence_hash=$4 ORDER BY cached_at DESC LIMIT 1`, entry.Language, entry.CanonicalLemma, entry.UPOS, enrichment.SentenceHash(entry.Sentence)).Scan(&entry.Translation, &entry.SentenceTranslation, &entry.SentenceTranslationTarget)
+	enrichmentRow, err := s.queries().GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
+		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, SentenceHash: enrichment.SentenceHash(entry.Sentence),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = nil
+		return entry, nil
 	}
-	return entry, err
+	if err != nil {
+		return entry, err
+	}
+	entry.Translation = enrichmentRow.Translation
+	entry.SentenceTranslation = enrichmentRow.SentenceTranslation
+	entry.SentenceTranslationTarget = enrichmentRow.SentenceTranslationTarget
+	return entry, nil
 }
 
 func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysisRunID string) (domain.Corpus, error) {
