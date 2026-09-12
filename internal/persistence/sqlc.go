@@ -12,10 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-type rowScanner interface {
-	Scan(...any) error
-}
-
 // queries returns the generated sqlc query layer bound to the pool.
 func (s *PostgresStore) queries() *sqlcgen.Queries { return sqlcgen.New(s.pool) }
 

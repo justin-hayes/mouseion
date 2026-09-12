@@ -343,18 +343,17 @@ func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.Deck
 // submission path so retirement, preparation creation, and job insertion share
 // one commit boundary.
 func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation) (domain.DeckPreparation, bool, error) {
-	var bookID *string
-	// These row locks fence the book/source identity while the preparation is
-	// created; they are domain concurrency rules, not ordinary data queries.
-	if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2 FOR UPDATE`, p.OwnerID, p.SourceMaterialID).Scan(&bookID); err != nil {
+	// These row-locking queries fence the book/source identity while the
+	// preparation is created.
+	bookID, err := sqlcgen.New(tx).GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: uuidArg(p.OwnerID), ID: uuidArg(p.SourceMaterialID)})
+	if err != nil {
 		return domain.DeckPreparation{}, false, missing(err)
 	}
-	if bookID != nil {
-		if err := tx.QueryRow(ctx, `SELECT id FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, p.OwnerID, *bookID).Scan(new(string)); err != nil {
+	if bookID != "" {
+		if _, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: uuidArg(p.OwnerID), ID: uuidArg(bookID)}); err != nil {
 			return domain.DeckPreparation{}, false, missing(err)
 		}
 		var existing domain.DeckPreparation
-		var err error
 		if p.AnalysisRunID != "" {
 			model, queryErr := sqlcgen.New(tx).GetUnretiredDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetUnretiredDeckPreparationBySourceAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
 			existing, err = deckPreparationFromModel(model), missing(queryErr)
@@ -368,15 +367,14 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 		if !errors.Is(err, ErrNotFound) {
 			return domain.DeckPreparation{}, false, err
 		}
-		if err = sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: uuidArg(p.OwnerID), Book: uuidArg(*bookID)}); err != nil {
+		if err = sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: uuidArg(p.OwnerID), Book: uuidArg(bookID)}); err != nil {
 			return domain.DeckPreparation{}, false, err
 		}
-		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), BookID: uuidArg(*bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
 		return deckPreparationFromModel(model), true, err
 	}
 
 	var existing domain.DeckPreparation
-	var err error
 	if p.AnalysisRunID != "" {
 		model, queryErr := sqlcgen.New(tx).GetDeckPreparationBySourceAnalysis(ctx, sqlcgen.GetDeckPreparationBySourceAnalysisParams{Owner: uuidArg(p.OwnerID), SourceMaterial: uuidArg(p.SourceMaterialID), AnalysisRun: uuidArg(p.AnalysisRunID)})
 		existing, err = deckPreparationFromModel(model), missing(queryErr)

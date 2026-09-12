@@ -345,14 +345,6 @@ func runConfigMatches(run domain.PreparedDeckRun, config PreparedDeckRunConfig) 
 	return err == nil && run.ExecutionMode == domain.PreparedDeckExecutionMode(validated.ExecutionMode) && run.TargetLanguage == validated.TargetLanguage && run.ExternalTranslationConsent == validated.ExternalTranslationConsent && run.ExternalTranslationConfigured == validated.ExternalTranslationConfigured && run.ContextMode == validated.ContextMode && run.Provider == validated.Provider && run.ProviderVersion == validated.ProviderVersion && run.Endpoint == validated.Endpoint && run.Model == validated.Model && run.RetryPolicyVersion == validated.RetryPolicyVersion && run.MaxProviderAttempts == validated.MaxProviderAttempts && run.MaxBatchGenerations == validated.MaxBatchGenerations && run.BatchMaxRequests == validated.BatchMaxRequests && run.BatchMaxBytes == validated.BatchMaxBytes
 }
 
-const preparedDeckRunColumns = `id::text,owner_id::text,preparation_id::text,run_number,state,translation_state,execution_mode,target_language,external_translation_consent,external_translation_configured,COALESCE(context_mode,''),COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(endpoint,''),COALESCE(model,''),manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,failed_count,finalization_dispatch_generation,finalization_dispatch_count,COALESCE(finalization_job_id,0),COALESCE(finalization_claim_token::text,''),finalization_claimed_at,finalization_lease_expires_at,error_class,error_code,created_at,updated_at,translation_completed_at,completed_at`
-
-func scanPreparedDeckRun(row rowScanner) (domain.PreparedDeckRun, error) {
-	var run domain.PreparedDeckRun
-	err := row.Scan(&run.ID, &run.OwnerID, &run.PreparationID, &run.RunNumber, &run.State, &run.TranslationState, &run.ExecutionMode, &run.TargetLanguage, &run.ExternalTranslationConsent, &run.ExternalTranslationConfigured, &run.ContextMode, &run.Provider, &run.ProviderVersion, &run.Endpoint, &run.Model, &run.ManifestSchemaVersion, &run.RetryPolicyVersion, &run.MaxProviderAttempts, &run.MaxBatchGenerations, &run.BatchMaxRequests, &run.BatchMaxBytes, &run.CandidateCount, &run.CompletedCount, &run.FailedCount, &run.FinalizationDispatchGeneration, &run.FinalizationDispatchCount, &run.FinalizationJobID, &run.FinalizationClaimToken, &run.FinalizationClaimedAt, &run.FinalizationLeaseExpiresAt, &run.ErrorClass, &run.ErrorCode, &run.CreatedAt, &run.UpdatedAt, &run.TranslationCompletedAt, &run.CompletedAt)
-	return run, missing(err)
-}
-
 func getPreparedDeckRun(ctx context.Context, q sqlcgen.DBTX, owner, preparationID, runID string) (domain.PreparedDeckRun, error) {
 	model, err := sqlcgen.New(q).GetPreparedDeckRun(ctx, sqlcgen.GetPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)})
 	if err != nil {
