@@ -252,6 +252,21 @@ type AnalysisCoverage struct {
 	TextProfile          *TextProfile
 }
 
+// ConcordanceOccurrence is one exact-match token occurrence from a current
+// analysis. Sentence and unit offsets are relative to their respective
+// containers; book offsets and chapter identity are derived from unit metadata.
+type ConcordanceOccurrence struct {
+	Surface, CanonicalLemma, UPOS, SentenceText string
+	SentenceStartOffset, SentenceEndOffset      int64
+	UnitStartOffset, UnitEndOffset              int64
+	BookStartOffset, BookEndOffset              int64
+	BookID, BookTitle                           string
+	SourceMaterialID, AnalysisRunID, CorpusID   string
+	UnitID, ChapterTitle                        string
+	UnitOrder, SentenceOrdinal, TokenOrdinal    int64
+	BookPosition                                *int
+}
+
 // JourneyRouteBook is the derived, on-demand comparison view of one Journey
 // position. A nil Coverage means that the book was not comparable.
 type JourneyRouteBook struct {
