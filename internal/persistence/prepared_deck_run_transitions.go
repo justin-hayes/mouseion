@@ -29,6 +29,19 @@ func (s *PostgresStore) outcomeTransitionError(ctx context.Context, owner, prepa
 	return ErrPreparedDeckClaimLost
 }
 
+func outcomeTransitionErrorTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int, err error) error {
+	if !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	_, getErr := q.GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+	})
+	if getErr != nil {
+		return missing(getErr)
+	}
+	return ErrPreparedDeckClaimLost
+}
+
 // ClaimPreparedDeckTranslationOutcome grants one generation a leased item
 // claim. The token is required by every subsequent mutation.
 func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckTranslationOutcome, error) {
@@ -37,7 +50,8 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 	}
 	var outcome domain.PreparedDeckTranslationOutcome
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		model, err := sqlcgen.New(tx).ClaimPreparedDeckTranslationOutcome(ctx, sqlcgen.ClaimPreparedDeckTranslationOutcomeParams{
+		q := sqlcgen.New(tx)
+		model, err := q.ClaimPreparedDeckTranslationOutcome(ctx, sqlcgen.ClaimPreparedDeckTranslationOutcomeParams{
 			OwnerID:            uuidArg(owner),
 			PreparationID:      uuidArg(preparationID),
 			RunID:              uuidArg(runID),
@@ -47,10 +61,12 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 			LeaseExpiresAt:     pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true},
 		})
 		if err != nil {
-			return s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
+			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
 		}
 		outcome = preparedDeckOutcomeFromModel(model)
-		if _, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET translation_state='running',updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND translation_state='pending'`, owner, preparationID, runID); err != nil {
+		if err = q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
+			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID),
+		}); err != nil {
 			return err
 		}
 		return nil
@@ -64,21 +80,27 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, err
 	}
-	model, err := s.queries().RetryPreparedDeckTranslationOutcome(ctx, sqlcgen.RetryPreparedDeckTranslationOutcomeParams{
-		OwnerID:            uuidArg(owner),
-		PreparationID:      uuidArg(preparationID),
-		RunID:              uuidArg(runID),
-		Ordinal:            int32(ordinal),
-		DispatchGeneration: int32(generation),
-		ClaimToken:         uuidArg(token),
-		NextAttemptAt:      pgtype.Timestamptz{Time: nextAttemptAt, Valid: true},
-		ErrorClass:         errorClass,
-		ErrorCode:          errorCode,
+	var outcome domain.PreparedDeckTranslationOutcome
+	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		model, err := q.RetryPreparedDeckTranslationOutcome(ctx, sqlcgen.RetryPreparedDeckTranslationOutcomeParams{
+			OwnerID:            uuidArg(owner),
+			PreparationID:      uuidArg(preparationID),
+			RunID:              uuidArg(runID),
+			Ordinal:            int32(ordinal),
+			DispatchGeneration: int32(generation),
+			ClaimToken:         uuidArg(token),
+			NextAttemptAt:      pgtype.Timestamptz{Time: nextAttemptAt, Valid: true},
+			ErrorClass:         errorClass,
+			ErrorCode:          errorCode,
+		})
+		if err != nil {
+			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
+		}
+		outcome = preparedDeckOutcomeFromModel(model)
+		return nil
 	})
-	if err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
-	}
-	return preparedDeckOutcomeFromModel(model), nil
+	return outcome, err
 }
 
 type PreparedDeckOutcomeTerminalUpdate struct {
@@ -102,85 +124,103 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 	if err := validateBoundedError(update.ErrorClass, update.ErrorCode); err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
-	}
-	defer tx.Rollback(ctx)
-	run, err := scanPreparedDeckRun(tx.QueryRow(ctx, `SELECT `+preparedDeckRunColumns+` FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 FOR UPDATE`, owner, preparationID, runID))
-	if err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
-	}
-	if run.State != domain.PreparedDeckRunTranslating || (run.TranslationState != domain.PreparedDeckTranslationPending && run.TranslationState != domain.PreparedDeckTranslationRunning) {
-		existing, getErr := scanPreparedDeckOutcome(tx.QueryRow(ctx, `SELECT `+preparedDeckOutcomeColumns+` FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4`, owner, preparationID, runID, ordinal))
-		if getErr == nil && existing.State == update.State {
-			if err = tx.Commit(ctx); err != nil {
-				return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
-			}
-			return existing, run, nil
+	var outcome domain.PreparedDeckTranslationOutcome
+	var run domain.PreparedDeckRun
+	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		runModel, err := q.GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{
+			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID),
+		})
+		run = preparedDeckRunFromModel(runModel)
+		if err != nil {
+			return missing(err)
 		}
-		if getErr != nil && !errors.Is(getErr, ErrNotFound) {
-			return domain.PreparedDeckTranslationOutcome{}, run, getErr
-		}
-		return domain.PreparedDeckTranslationOutcome{}, run, ErrInvalidTransition
-	}
-	cacheLatencyMS, providerLatencyMS := update.CacheLatency.Milliseconds(), update.ProviderLatency.Milliseconds()
-	if cacheLatencyMS < 0 || providerLatencyMS < 0 {
-		return domain.PreparedDeckTranslationOutcome{}, run, ErrInvalidTransition
-	}
-	outcome, err := scanPreparedDeckOutcome(tx.QueryRow(ctx, `UPDATE deck_preparation_translation_outcomes SET state=$7,provider_attempt_count=provider_attempt_count+$8,claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,terminal_at=now(),error_class=$9,error_code=$10,cache_hit_count=cache_hit_count+$11,provider_call_count=provider_call_count+$12,cache_latency_ms=cache_latency_ms+$13,provider_latency_ms=provider_latency_ms+$14,updated_at=now()
-		WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND claim_token=$6 AND state='running' RETURNING `+preparedDeckOutcomeColumns,
-		owner, preparationID, runID, ordinal, generation, token, update.State, boolInt(update.ProviderAttempt), update.ErrorClass, update.ErrorCode, boolInt(update.CacheHit), boolInt(update.ProviderCall), cacheLatencyMS, providerLatencyMS))
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			existing, getErr := scanPreparedDeckOutcome(tx.QueryRow(ctx, `SELECT `+preparedDeckOutcomeColumns+` FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4`, owner, preparationID, runID, ordinal))
+		if run.State != domain.PreparedDeckRunTranslating || (run.TranslationState != domain.PreparedDeckTranslationPending && run.TranslationState != domain.PreparedDeckTranslationRunning) {
+			existing, getErr := getPreparedDeckTranslationOutcomeTx(ctx, q, owner, preparationID, runID, ordinal)
 			if getErr == nil && existing.State == update.State {
-				if err = tx.Commit(ctx); err != nil {
-					return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
-				}
-				return existing, run, nil
+				outcome = existing
+				return nil
 			}
 			if getErr != nil && !errors.Is(getErr, ErrNotFound) {
-				return domain.PreparedDeckTranslationOutcome{}, run, getErr
+				return getErr
 			}
-			return domain.PreparedDeckTranslationOutcome{}, run, ErrPreparedDeckClaimLost
+			return ErrInvalidTransition
 		}
-		return domain.PreparedDeckTranslationOutcome{}, run, err
-	}
-	var nonterminal int
-	if err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE state='completed'),count(*) FILTER (WHERE state='failed'),count(*) FILTER (WHERE state IN ('pending','running')) FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, owner, preparationID, runID).Scan(&run.CompletedCount, &run.FailedCount, &nonterminal); err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, run, err
-	}
-	if nonterminal == 0 {
-		if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
-			run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='failed',translation_state='failed',completed_count=$4,failed_count=$5,error_class=$6,error_code=$7,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount, update.ErrorClass, update.ErrorCode))
-			if err != nil {
-				return domain.PreparedDeckTranslationOutcome{}, run, err
+		cacheLatencyMS, providerLatencyMS := update.CacheLatency.Milliseconds(), update.ProviderLatency.Milliseconds()
+		if cacheLatencyMS < 0 || providerLatencyMS < 0 {
+			return ErrInvalidTransition
+		}
+		model, err := q.FinishPreparedDeckTranslationOutcome(ctx, sqlcgen.FinishPreparedDeckTranslationOutcomeParams{
+			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal), DispatchGeneration: int32(generation), ClaimToken: uuidArg(token),
+			State: string(update.State), ProviderAttemptCount: int32(boolInt(update.ProviderAttempt)), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+			CacheHitCount: int32(boolInt(update.CacheHit)), ProviderCallCount: int32(boolInt(update.ProviderCall)), CacheLatencyMs: cacheLatencyMS, ProviderLatencyMs: providerLatencyMS,
+		})
+		if err != nil {
+			if errors.Is(missing(err), ErrNotFound) {
+				existing, getErr := getPreparedDeckTranslationOutcomeTx(ctx, q, owner, preparationID, runID, ordinal)
+				if getErr == nil && existing.State == update.State {
+					outcome = existing
+					return nil
+				}
+				if getErr != nil && !errors.Is(getErr, ErrNotFound) {
+					return getErr
+				}
+				return ErrPreparedDeckClaimLost
 			}
-			if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='failed',error='prepared-deck translation was incomplete',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND current_run_id=$3 AND state='preparing'`, owner, preparationID, runID); err != nil {
-				return domain.PreparedDeckTranslationOutcome{}, run, err
-			}
-		} else {
-			run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET state='finalizing',translation_state='completed',completed_count=$4,failed_count=$5,translation_completed_at=COALESCE(translation_completed_at,now()),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state='translating' RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount))
-			if err != nil {
-				return domain.PreparedDeckTranslationOutcome{}, run, err
-			}
-			if insertFinalizer != nil {
-				if err = insertFinalizer(ctx, tx, run); err != nil {
-					return domain.PreparedDeckTranslationOutcome{}, run, err
+			return err
+		}
+		outcome = preparedDeckOutcomeFromModel(model)
+
+		counts, err := q.CountPreparedDeckRunOutcomeStates(ctx, sqlcgen.CountPreparedDeckRunOutcomeStatesParams{
+			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+		})
+		if err != nil {
+			return err
+		}
+		run.CompletedCount, run.FailedCount = int(counts.CompletedCount), int(counts.FailedCount)
+		if counts.NonterminalCount == 0 {
+			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
+				if runModel, err = q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{
+					OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+				}); err != nil {
+					return err
+				}
+				run = preparedDeckRunFromModel(runModel)
+				if _, err = q.FailDeckPreparationTranslation(ctx, sqlcgen.FailDeckPreparationTranslationParams{OwnerID: uuidArg(owner), ID: uuidArg(preparationID), CurrentRunID: uuidArg(runID), Error: "prepared-deck translation was incomplete"}); err != nil {
+					return err
+				}
+			} else {
+				runModel, err = q.FinalizePreparedDeckRun(ctx, sqlcgen.FinalizePreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount)})
+				if err != nil {
+					return err
+				}
+				run = preparedDeckRunFromModel(runModel)
+				if insertFinalizer != nil {
+					if err = insertFinalizer(ctx, tx, run); err != nil {
+						return err
+					}
 				}
 			}
+		} else {
+			runModel, err = q.UpdatePreparedDeckRunTranslationRunning(ctx, sqlcgen.UpdatePreparedDeckRunTranslationRunningParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount)})
+			if err != nil {
+				return err
+			}
+			run = preparedDeckRunFromModel(runModel)
 		}
-	} else {
-		run, err = scanPreparedDeckRun(tx.QueryRow(ctx, `UPDATE deck_preparation_runs SET translation_state='running',completed_count=$4,failed_count=$5,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 RETURNING `+preparedDeckRunColumns, owner, preparationID, runID, run.CompletedCount, run.FailedCount))
-		if err != nil {
-			return domain.PreparedDeckTranslationOutcome{}, run, err
-		}
+		return nil
+	})
+	return outcome, run, err
+}
+
+func getPreparedDeckTranslationOutcomeTx(ctx context.Context, q *sqlcgen.Queries, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {
+	model, err := q.GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+	})
+	if err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, missing(err)
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.PreparedDeckTranslationOutcome{}, domain.PreparedDeckRun{}, err
-	}
-	return outcome, run, nil
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 func boolInt(value bool) int {

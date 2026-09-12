@@ -877,7 +877,6 @@ func (q *Queries) ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPr
 }
 
 const claimPreparedDeckTranslationOutcome = `-- name: ClaimPreparedDeckTranslationOutcome :one
-
 UPDATE deck_preparation_translation_outcomes o
 SET state = 'running',
     dispatch_count = dispatch_count + 1,
@@ -913,10 +912,6 @@ type ClaimPreparedDeckTranslationOutcomeParams struct {
 	LeaseExpiresAt     pgtype.Timestamptz
 }
 
-// Fenced prepared-deck transitions. The domain rules (claim-token validation,
-// expected-state WHERE guards, bounded-error validation, lost-claim rechecks)
-// stay in Go; these generated :one statements own the UPDATE ... RETURNING
-// composition and run inside the caller's transaction via WithTx.
 func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
 	row := q.db.QueryRow(ctx, claimPreparedDeckTranslationOutcome,
 		arg.OwnerID,
@@ -1457,6 +1452,76 @@ func (q *Queries) FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPre
 	return i, err
 }
 
+const failPreparedDeckRunWithCounts = `-- name: FailPreparedDeckRunWithCounts :one
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
+    error_class = $6, error_code = $7, completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type FailPreparedDeckRunWithCountsParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	ID             pgtype.UUID
+	CompletedCount int32
+	FailedCount    int32
+	ErrorClass     string
+	ErrorCode      string
+}
+
+func (q *Queries) FailPreparedDeckRunWithCounts(ctx context.Context, arg FailPreparedDeckRunWithCountsParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, failPreparedDeckRunWithCounts,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.CompletedCount,
+		arg.FailedCount,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
 const finalizePreparedDeckRun = `-- name: FinalizePreparedDeckRun :one
 UPDATE deck_preparation_runs
 SET state = 'finalizing', translation_state = 'completed', completed_count = $4, failed_count = $5,
@@ -1845,6 +1910,93 @@ func (q *Queries) FinishPreparedDeckBatchSubmission(ctx context.Context, arg Fin
 		&i.CleanupClaimedAt,
 		&i.CleanupLeaseExpiresAt,
 		&i.CleanupCompletedAt,
+	)
+	return i, err
+}
+
+const finishPreparedDeckTranslationOutcome = `-- name: FinishPreparedDeckTranslationOutcome :one
+UPDATE deck_preparation_translation_outcomes
+SET state = $7,
+    provider_attempt_count = provider_attempt_count + $8,
+    claim_token = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    terminal_at = now(),
+    error_class = $9,
+    error_code = $10,
+    cache_hit_count = cache_hit_count + $11,
+    provider_call_count = provider_call_count + $12,
+    cache_latency_ms = cache_latency_ms + $13,
+    provider_latency_ms = provider_latency_ms + $14,
+    updated_at = now()
+WHERE owner_id = $1
+  AND preparation_id = $2
+  AND run_id = $3
+  AND ordinal = $4
+  AND dispatch_generation = $5
+  AND claim_token = $6
+  AND state = 'running'
+RETURNING owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at
+`
+
+type FinishPreparedDeckTranslationOutcomeParams struct {
+	OwnerID              pgtype.UUID
+	PreparationID        pgtype.UUID
+	RunID                pgtype.UUID
+	Ordinal              int32
+	DispatchGeneration   int32
+	ClaimToken           pgtype.UUID
+	State                string
+	ProviderAttemptCount int32
+	ErrorClass           string
+	ErrorCode            string
+	CacheHitCount        int32
+	ProviderCallCount    int32
+	CacheLatencyMs       int64
+	ProviderLatencyMs    int64
+}
+
+func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+	row := q.db.QueryRow(ctx, finishPreparedDeckTranslationOutcome,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.RunID,
+		arg.Ordinal,
+		arg.DispatchGeneration,
+		arg.ClaimToken,
+		arg.State,
+		arg.ProviderAttemptCount,
+		arg.ErrorClass,
+		arg.ErrorCode,
+		arg.CacheHitCount,
+		arg.ProviderCallCount,
+		arg.CacheLatencyMs,
+		arg.ProviderLatencyMs,
+	)
+	var i DeckPreparationTranslationOutcome
+	err := row.Scan(
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunID,
+		&i.Ordinal,
+		&i.State,
+		&i.DispatchCount,
+		&i.ProviderAttemptCount,
+		&i.MaxProviderAttempts,
+		&i.NextAttemptAt,
+		&i.DispatchGeneration,
+		&i.RiverJobID,
+		&i.ClaimToken,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.TerminalAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CacheHitCount,
+		&i.ProviderCallCount,
+		&i.CacheLatencyMs,
+		&i.ProviderLatencyMs,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -3761,6 +3913,28 @@ func (q *Queries) SetPreparedDeckTranslationJob(ctx context.Context, arg SetPrep
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const startPreparedDeckTranslation = `-- name: StartPreparedDeckTranslation :exec
+
+UPDATE deck_preparation_runs
+SET translation_state = 'running', updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND translation_state = 'pending'
+`
+
+type StartPreparedDeckTranslationParams struct {
+	OwnerID       pgtype.UUID
+	PreparationID pgtype.UUID
+	ID            pgtype.UUID
+}
+
+// Fenced prepared-deck transitions. The domain rules (claim-token validation,
+// expected-state WHERE guards, bounded-error validation, lost-claim rechecks)
+// stay in Go; these generated :one statements own the UPDATE ... RETURNING
+// composition and run inside the caller's transaction via WithTx.
+func (q *Queries) StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error {
+	_, err := q.db.Exec(ctx, startPreparedDeckTranslation, arg.OwnerID, arg.PreparationID, arg.ID)
+	return err
 }
 
 const updatePreparedDeckOutcomeFromBatch = `-- name: UpdatePreparedDeckOutcomeFromBatch :exec
