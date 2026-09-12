@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -22,6 +23,12 @@ type LanguageCapability struct {
 	ModelVersion      string
 	SupportedFeatures []string
 	Ready             bool
+}
+
+const FeatureDepparse = "depparse"
+
+func (c LanguageCapability) Supports(feature string) bool {
+	return slices.Contains(c.SupportedFeatures, feature)
 }
 
 type Capabilities struct {

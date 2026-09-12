@@ -102,7 +102,7 @@ func main() {
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
 	exportService := cardexport.NewService(store)
-	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
+	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		log.Fatal(err)
 	}

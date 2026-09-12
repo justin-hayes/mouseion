@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
@@ -34,6 +35,7 @@ const (
 
 var ErrNotFound = errors.New("analysis job: not found")
 var ErrEPUBRequired = errors.New("analysis requires an EPUB source")
+var ErrDependencyParsingUnavailable = errors.New("NLP service is misconfigured: dependency parsing is unavailable")
 
 type JobArgs struct {
 	RunID             string `json:"run_id,omitempty" river:"unique"`
@@ -633,6 +635,7 @@ type Worker struct {
 	river.WorkerDefaults[JobArgs]
 	Pool          *pgxpool.Pool
 	Analyzer      analyzer.Analyzer
+	Capabilities  analyzer.CapabilityProvider
 	Selection     *selection.Service
 	MaxChunkChars int
 }
@@ -723,6 +726,9 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	}
 	if !valid {
 		return errors.New("the source content revision is no longer current")
+	}
+	if err := requireDependencyParsing(ctx, w.Capabilities, a.Language); err != nil {
+		return err
 	}
 	var selectedUnits []snapshotUnit
 	var err error
@@ -939,8 +945,28 @@ func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, co
 	_, _ = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','failed',$3,now())`, owner, corpusID, details)
 }
 
-func safeAnalysisError(_ error) string {
+func safeAnalysisError(err error) string {
+	if errors.Is(err, ErrDependencyParsingUnavailable) {
+		return err.Error()
+	}
 	return "Analysis could not be completed. Retry the analysis or review the current source."
+}
+
+func requireDependencyParsing(ctx context.Context, provider analyzer.CapabilityProvider, language string) error {
+	if provider == nil {
+		return fmt.Errorf("%w: capability provider is not configured", ErrDependencyParsingUnavailable)
+	}
+	capabilities, err := provider.GetCapabilities(ctx)
+	if err != nil {
+		return fmt.Errorf("load NLP capabilities: %w", err)
+	}
+	normalizedLanguage := canonicalization.NormalizeLanguage(language)
+	for _, capability := range capabilities.Languages {
+		if canonicalization.NormalizeLanguage(capability.Language) == normalizedLanguage && capability.Supports(analyzer.FeatureDepparse) {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w for language %q", ErrDependencyParsingUnavailable, language)
 }
 
 func ordinaryAnalysisIdentity(contentHash string) string {
@@ -1006,17 +1032,17 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	return out
 }
 
-func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	return newClient(pool, a, selectionService, 1, workerSets...)
+func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
+	return newClient(pool, a, capabilities, selectionService, 1, workerSets...)
 }
 
-func NewClientWithPreparedDeckConcurrency(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	return newClient(pool, a, selectionService, standardWorkers, workerSets...)
+func NewClientWithPreparedDeckConcurrency(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
+	return newClient(pool, a, capabilities, selectionService, standardWorkers, workerSets...)
 }
 
-func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	if pool == nil || a == nil || selectionService == nil {
-		return nil, errors.New("analysis client requires pool, analyzer, and selection service")
+func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
+	if pool == nil || a == nil || capabilities == nil || selectionService == nil {
+		return nil, errors.New("analysis client requires pool, analyzer, capabilities, and selection service")
 	}
 	jobTimeout, err := configuredJobTimeout()
 	if err != nil {
@@ -1026,7 +1052,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, selectionService *select
 	if len(workerSets) > 0 && workerSets[0] != nil {
 		workers = workerSets[0]
 	}
-	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Selection: selectionService})
+	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}
