@@ -196,6 +196,11 @@ type Querier interface {
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
+	// Concordance occurrence queries read only the current analysis identity. Book
+	// position is the learner's Reading Journey position; analyzed Books outside
+	// the Journey remain in study-language results with no position.
+	ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error)
+	ListBookOccurrencesBySurface(ctx context.Context, arg ListBookOccurrencesBySurfaceParams) ([]ListBookOccurrencesBySurfaceRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error)
@@ -227,6 +232,8 @@ type Querier interface {
 	// view (migration 000067); this query only selects from it, so the status
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaParams) ([]ListStudyLanguageOccurrencesByLemmaRow, error)
+	ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceParams) ([]ListStudyLanguageOccurrencesBySurfaceRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
