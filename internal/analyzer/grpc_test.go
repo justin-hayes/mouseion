@@ -23,10 +23,10 @@ type analyzerService struct {
 func (s *analyzerService) GetCapabilities(context.Context, *mouseionv1.GetCapabilitiesRequest) (*mouseionv1.GetCapabilitiesResponse, error) {
 	return &mouseionv1.GetCapabilitiesResponse{Languages: []*mouseionv1.LanguageCapability{{
 		Language: "de", DisplayName: "German", ModelVersion: "1.10.1",
-		SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
+		SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: true,
 	}, {
 		Language: "it", DisplayName: "Italian", ModelVersion: "1.9.2",
-		SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: false,
+		SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: false,
 	}}}, nil
 }
 
@@ -35,11 +35,11 @@ func (s *analyzerService) Analyze(_ context.Context, request *mouseionv1.Analyze
 		return nil, &requestMismatch{got: request}
 	}
 	return &mouseionv1.NormalizedCorpus{
-		SchemaVersion: "1.0.0",
+		SchemaVersion: "1.1.0",
 		Language:      request.GetLanguage(),
 		Sentences: []*mouseionv1.Sentence{{
 			Text:   "Goethe",
-			Tokens: []*mouseionv1.Token{{Surface: "Goethe", RawLemma: "Goethe", CanonicalLemma: "goethe", Pos: "PROPN"}},
+			Tokens: []*mouseionv1.Token{{Surface: "Goethe", RawLemma: "Goethe", CanonicalLemma: "goethe", Pos: "PROPN", Dependency: "root", Head: 0}},
 		}},
 		SourceDocuments: []*mouseionv1.SourceDocument{request.GetSourceDocument()},
 		Analysis: &mouseionv1.AnalysisProvenance{

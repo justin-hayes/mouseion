@@ -16,7 +16,7 @@ from stanza.models.common.constant import lcode2lang
 from .producer import Producer, SourceDocument
 
 
-SUPPORTED_FEATURES = ("tokenize", "pos", "lemma")
+SUPPORTED_FEATURES = ("tokenize", "pos", "lemma", "depparse")
 
 
 @dataclass

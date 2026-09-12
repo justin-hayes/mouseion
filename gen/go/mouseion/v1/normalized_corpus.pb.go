@@ -409,8 +409,13 @@ type Token struct {
 	Morphology     map[string]string `protobuf:"bytes,5,rep,name=morphology,proto3" json:"morphology,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	NamedEntity    *string           `protobuf:"bytes,6,opt,name=named_entity,json=namedEntity,proto3,oneof" json:"named_entity,omitempty"`
 	Location       *SourceLocation   `protobuf:"bytes,7,opt,name=location,proto3" json:"location,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// dependency is the token's basic Universal Dependencies relation.
+	Dependency string `protobuf:"bytes,8,opt,name=dependency,proto3" json:"dependency,omitempty"`
+	// head is the 0-based ordinal of this token's head within the sentence.
+	// Sentence roots are self-headed.
+	Head          uint32 `protobuf:"varint,9,opt,name=head,proto3" json:"head,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Token) Reset() {
@@ -490,6 +495,20 @@ func (x *Token) GetLocation() *SourceLocation {
 		return x.Location
 	}
 	return nil
+}
+
+func (x *Token) GetDependency() string {
+	if x != nil {
+		return x.Dependency
+	}
+	return ""
+}
+
+func (x *Token) GetHead() uint32 {
+	if x != nil {
+		return x.Head
+	}
+	return 0
 }
 
 type SourceDocument struct {
@@ -782,7 +801,7 @@ const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"\bSentence\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12*\n" +
 	"\x06tokens\x18\x02 \x03(\v2\x12.mouseion.v1.TokenR\x06tokens\x127\n" +
-	"\blocation\x18\x03 \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\"\xee\x02\n" +
+	"\blocation\x18\x03 \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\"\xa2\x03\n" +
 	"\x05Token\x12\x18\n" +
 	"\asurface\x18\x01 \x01(\tR\asurface\x12\x1b\n" +
 	"\traw_lemma\x18\x02 \x01(\tR\brawLemma\x12\x10\n" +
@@ -792,7 +811,11 @@ const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"morphology\x18\x05 \x03(\v2\".mouseion.v1.Token.MorphologyEntryR\n" +
 	"morphology\x12&\n" +
 	"\fnamed_entity\x18\x06 \x01(\tH\x00R\vnamedEntity\x88\x01\x01\x127\n" +
-	"\blocation\x18\a \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\x1a=\n" +
+	"\blocation\x18\a \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\x12\x1e\n" +
+	"\n" +
+	"dependency\x18\b \x01(\tR\n" +
+	"dependency\x12\x12\n" +
+	"\x04head\x18\t \x01(\rR\x04head\x1a=\n" +
 	"\x0fMorphologyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0f\n" +

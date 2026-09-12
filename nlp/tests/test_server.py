@@ -28,7 +28,7 @@ class StubProducer:
             "Faust",
         )
         return normalized_corpus_pb2.NormalizedCorpus(
-            schema_version="1.0.0",
+            schema_version="1.1.0",
             language=language,
             source_documents=[
                 normalized_corpus_pb2.SourceDocument(id=document.id, title=document.title)
@@ -52,7 +52,7 @@ def test_grpc_server_serves_a_normalized_corpus() -> None:
                     ),
                 )
             )
-        assert corpus.schema_version == "1.0.0"
+        assert corpus.schema_version == "1.1.0"
         assert corpus.source_documents[0].id == "document-1"
     finally:
         server.stop(None).wait()
@@ -76,7 +76,7 @@ def test_grpc_server_reports_language_capabilities() -> None:
             "de-fixture-1",
             True,
         )
-        assert german.supported_features == ["tokenize", "pos", "lemma"]
+        assert german.supported_features == ["tokenize", "pos", "lemma", "depparse"]
         assert (italian.display_name, italian.model_version, italian.ready) == (
             "Italian",
             "it-fixture-2",

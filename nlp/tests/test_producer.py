@@ -9,9 +9,28 @@ from mouseion.v1 import normalized_corpus_pb2
 from mouseion_nlp import Producer, SourceDocument
 
 
-def word(text: str, lemma: str, upos: str, feats: str | None, start: int, end: int):
+def word(
+    text: str,
+    lemma: str,
+    upos: str,
+    feats: str | None,
+    start: int,
+    end: int,
+    *,
+    id: int | None = None,
+    head: int = 0,
+    deprel: str = "root",
+):
     return SimpleNamespace(
-        text=text, lemma=lemma, upos=upos, feats=feats, start_char=start, end_char=end
+        text=text,
+        lemma=lemma,
+        upos=upos,
+        feats=feats,
+        start_char=start,
+        end_char=end,
+        id=id,
+        head=head,
+        deprel=deprel,
     )
 
 
@@ -53,7 +72,7 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
     )
 
     assert calls == ["Goethe schrieb."]
-    assert artifact.schema_version == "1.0.0"
+    assert artifact.schema_version == "1.1.0"
     assert artifact.source_documents[0].id == "book-1"
     assert artifact.analysis.analyzer_name == "stanza"
     assert artifact.analysis.analyzed_at == "2026-08-21T12:00:00Z"
@@ -61,11 +80,60 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
     assert artifact.sentences[0].tokens[1].raw_lemma == "schreiben"
     assert artifact.sentences[0].tokens[1].pos == "VERB"
     assert artifact.sentences[0].tokens[1].morphology == {"Tense": "Past"}
+    assert artifact.sentences[0].tokens[0].dependency == "root"
+    assert artifact.sentences[0].tokens[0].head == 0
     assert artifact.sentences[0].tokens[0].named_entity == "B-PER"
     assert not artifact.sentences[0].tokens[1].HasField("named_entity")
     assert artifact.sentences[0].tokens[1].location.start_offset == 7
     assert artifact.sentences[0].location.end_offset == 15
     assert artifact.sentences[0].location.chapter == "1"
+
+
+def test_maps_dependency_heads_through_multiword_tokens() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="L'uomo mangia dell'acqua.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[
+                            word("L'", "il", "DET", None, 0, 2, id=1, head=2, deprel="det")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("uomo", "uomo", "NOUN", None, 2, 6, id=2, head=3, deprel="nsubj")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("mangia", "mangiare", "VERB", None, 7, 13, id=3, head=0, deprel="root")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("dell'", "di", "ADP", None, 14, 19, id=4, head=6, deprel="case"),
+                            word("dell'", "il", "DET", None, 14, 19, id=5, head=6, deprel="det"),
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word("acqua", "acqua", "NOUN", None, 19, 24, id=6, head=3, deprel="obj")
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 24, 25, id=7, head=3, deprel="punct")]
+                    ),
+                ],
+            )
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    tokens = producer.analyze("L'uomo mangia dell'acqua.", "it").sentences[0].tokens
+
+    assert [token.dependency for token in tokens] == ["det", "nsubj", "root", "case", "det", "obj", "punct"]
+    assert [token.head for token in tokens] == [1, 2, 2, 5, 5, 2, 2]
 
 
 def test_ner_is_not_emitted_when_disabled() -> None:
@@ -236,7 +304,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
 
 def test_normalized_corpus_round_trip() -> None:
     artifact = normalized_corpus_pb2.NormalizedCorpus(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         language="de",
         sentences=[normalized_corpus_pb2.Sentence(text="Das Haus steht.")],
     )
