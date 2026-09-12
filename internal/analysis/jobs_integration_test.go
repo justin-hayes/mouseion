@@ -32,6 +32,116 @@ func putAnalysisSource(ctx context.Context, store *persistence.PostgresStore, ow
 	}}})
 }
 
+func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err = MigrateRiver(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := store.CreateUser(ctx, "corpus-alice", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := putAnalysisSource(ctx, store, owner.ID, "corpus-source", "Corpus", "Hallo Berlin.", "sha256:corpus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	namedEntity := "LOC"
+	unitID := domain.EPUBUnitID(0, "corpus-source")
+	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		return analyzer.Result{
+			SchemaVersion: "1.0.0",
+			Language:      req.Language,
+			Sentences: []analyzer.Sentence{
+				{
+					Text:     "Hallo Berlin.",
+					Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 13},
+					Tokens: []analyzer.Token{
+						{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
+						{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
+					},
+				},
+				{Text: "", Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 13, EndOffset: 13}},
+			},
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fixture", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+		}, nil
+	}}
+	client, err := NewClient(store.Pool(), fake, selection.NewService(store))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Stop(context.Background())
+	service := NewService(store.Pool(), client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.State != rivertype.JobStateCompleted {
+		t.Fatalf("status = %+v", status)
+	}
+	corpus, err := service.Result(ctx, owner.ID, handle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sentenceCount, tokenCount int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM corpus_sentences WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID).Scan(&sentenceCount); err != nil {
+		t.Fatal(err)
+	}
+	if sentenceCount != 2 {
+		t.Fatalf("sentence count = %d, want 2", sentenceCount)
+	}
+	var emptySentenceCount int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM corpus_sentences WHERE owner_id=$1 AND corpus_id=$2 AND sentence_text='' AND start_offset=13 AND end_offset=13`, owner.ID, corpus.ID).Scan(&emptySentenceCount); err != nil {
+		t.Fatal(err)
+	}
+	if emptySentenceCount != 1 {
+		t.Fatalf("empty sentence count = %d, want 1", emptySentenceCount)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID).Scan(&tokenCount); err != nil {
+		t.Fatal(err)
+	}
+	if tokenCount != 2 {
+		t.Fatalf("token count = %d, want 2", tokenCount)
+	}
+	if corpus.Statistics == nil || corpus.Statistics.TextProfile == nil || corpus.Statistics.TextProfile.SentenceCount != sentenceCount || corpus.Statistics.TextProfile.EmptySentenceCount != 1 {
+		t.Fatalf("text profile = %+v, want two sentences and one empty sentence", corpus.Statistics)
+	}
+	var surface, rawLemma, canonicalLemma, upos, morphology, storedUnitID string
+	var namedEntityValue *string
+	var sentenceOrdinal, tokenOrdinal, startOffset, endOffset int64
+	if err = pool.QueryRow(ctx, `SELECT s.unit_id,t.surface,t.raw_lemma,t.canonical_lemma,t.upos,t.morphology::text,t.named_entity,s.sentence_ordinal,t.token_ordinal,t.start_offset,t.end_offset
+		FROM corpus_tokens t JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
+		WHERE t.owner_id=$1 AND t.corpus_id=$2 AND t.canonical_lemma='berlin'`, owner.ID, corpus.ID).Scan(&storedUnitID, &surface, &rawLemma, &canonicalLemma, &upos, &morphology, &namedEntityValue, &sentenceOrdinal, &tokenOrdinal, &startOffset, &endOffset); err != nil {
+		t.Fatal(err)
+	}
+	if storedUnitID != unitID || surface != "Berlin" || rawLemma != "Berlin" || canonicalLemma != "berlin" || upos != "PROPN" || namedEntityValue == nil || *namedEntityValue != namedEntity || sentenceOrdinal != 0 || tokenOrdinal != 1 || startOffset != 6 || endOffset != 12 {
+		t.Fatalf("stored token = unit=%q surface=%q raw=%q canonical=%q upos=%q morphology=%q entity=%v sentence=%d token=%d offsets=%d:%d", storedUnitID, surface, rawLemma, canonicalLemma, upos, morphology, namedEntityValue, sentenceOrdinal, tokenOrdinal, startOffset, endOffset)
+	}
+	assert.JSONEq(t, `{"Case":"Nom"}`, morphology)
+	var functionSurface, functionRawLemma, functionCanonicalLemma, functionUPOS, functionMorphology string
+	if err = pool.QueryRow(ctx, `SELECT surface,raw_lemma,canonical_lemma,upos,morphology::text FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND canonical_lemma='hallo'`, owner.ID, corpus.ID).Scan(&functionSurface, &functionRawLemma, &functionCanonicalLemma, &functionUPOS, &functionMorphology); err != nil {
+		t.Fatal(err)
+	}
+	if functionSurface != "Hallo" || functionRawLemma != "hallo" || functionCanonicalLemma != "hallo" || functionUPOS != "INTJ" {
+		t.Fatalf("stored function token = surface=%q raw=%q canonical=%q upos=%q", functionSurface, functionRawLemma, functionCanonicalLemma, functionUPOS)
+	}
+	assert.JSONEq(t, `{"Polite":"No"}`, functionMorphology)
+}
+
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -62,7 +172,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 			analyzedChunks = append(analyzedChunks, req.Document.Text)
 			analyzedChunksMu.Unlock()
 		}
-		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}}}}}}, nil
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Häuser", RawLemma: "Häuser", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 6}}}}}}, nil
 	}}
 	client, err := NewClient(store.Pool(), fake, selection.NewService(store))
 	require.NoError(t, err)
