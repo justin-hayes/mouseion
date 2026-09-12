@@ -50,8 +50,13 @@ type Querier interface {
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
+	GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error)
+	GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error)
 	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
 	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
+	// Legacy enrichment reads used by the immediate card-export path. Exact
+	// prepared-deck enrichment is resolved separately from its manifest keys.
+	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
@@ -104,6 +109,8 @@ type Querier interface {
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
 	ListSelectedSentences(ctx context.Context, arg ListSelectedSentencesParams) ([]ListSelectedSentencesRow, error)
+	ListSelectionCandidatesForBook(ctx context.Context, arg ListSelectionCandidatesForBookParams) ([]ListSelectionCandidatesForBookRow, error)
+	ListSelectionCandidatesForCorpus(ctx context.Context, arg ListSelectionCandidatesForCorpusParams) ([]ListSelectionCandidatesForCorpusRow, error)
 	ListSharedLemmas(ctx context.Context, contentHash string) ([]ListSharedLemmasRow, error)
 	// Source-material library queries. The current-analysis identity and the
 	// analysis status/state classification live in the source_material_evidence

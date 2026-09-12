@@ -45,10 +45,17 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, candidates, 1)
 	assert.Equal(t, owner.ID, candidates[0].OwnerID, "scoped candidates")
+	bookCandidates, err := store.ListSelectionCandidatesForBook(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	require.Len(t, bookCandidates, 1)
+	assert.Equal(t, candidate.CorpusID, bookCandidates[0].CorpusID, "book-scoped candidates")
 
 	entry, err := store.GetCoverageEntryForBook(ctx, owner.ID, book.ID, candidate)
 	require.NoError(t, err)
 	assert.Equal(t, candidate.FirstEncounter, entry.FirstEncounter)
+	corpusEntry, err := store.GetCoverageEntryForCorpus(ctx, owner.ID, corpus.ID, candidate)
+	require.NoError(t, err)
+	assert.Equal(t, candidate.FirstEncounter, corpusEntry.FirstEncounter)
 	var morphologies []map[string]string
 	err = json.Unmarshal([]byte(entry.Morphology), &morphologies)
 	require.NoError(t, err)

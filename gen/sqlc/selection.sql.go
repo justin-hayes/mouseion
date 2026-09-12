@@ -11,6 +11,174 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getCoverageEntryForBook = `-- name: GetCoverageEntryForBook :one
+SELECT sc.owner_id::text AS owner_id,
+       sc.language,
+       sc.canonical_lemma,
+       sc.upos,
+       COALESCE(e.sentence_text, '') AS sentence,
+       ''::text AS translation,
+       ''::text AS target_word,
+       COALESCE(sl.morphologies::text, '[]'::varchar)::varchar AS morphology,
+       sm.title AS source_document,
+       ''::text AS notes,
+       $1::bigint AS first_encounter
+FROM selection_candidates sc
+JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
+JOIN source_materials sm ON sm.owner_id = c.owner_id AND sm.id = c.source_material_id
+LEFT JOIN LATERAL (
+  SELECT ex.id, ex.owner_id, ex.corpus_id, ex.sentence_key, ex.sentence_text, ex.source_location, ex.created_at, ex.language, ex.canonical_lemma, ex.upos, ex.selection_rank, ex.selection_score, ex.selection_reasons, ex.is_chosen
+  FROM example_sentences ex
+  WHERE ex.owner_id = sc.owner_id AND ex.corpus_id = c.id
+    AND ex.language = sc.language AND ex.canonical_lemma = sc.canonical_lemma AND ex.upos = sc.upos
+  ORDER BY ex.is_chosen DESC, ex.selection_rank, ex.id
+  LIMIT 1
+) e ON true
+LEFT JOIN LATERAL (
+  SELECT jsonb_agg(morphology ORDER BY frequency DESC, morphology::text) AS morphologies
+  FROM shared_lemmas
+  WHERE content_hash = c.artifact_hash AND language = sc.language
+    AND canonical_lemma = sc.canonical_lemma AND upos = sc.upos
+) sl ON true
+WHERE sc.owner_id = $2 AND sm.id = $3
+  AND sc.corpus_id = $4 AND sc.language = $5
+  AND sc.canonical_lemma = $6 AND sc.upos = $7
+`
+
+type GetCoverageEntryForBookParams struct {
+	FirstEncounter int64
+	Owner          pgtype.UUID
+	Book           pgtype.UUID
+	Corpus         string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+}
+
+type GetCoverageEntryForBookRow struct {
+	OwnerID        string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+	Sentence       string
+	Translation    string
+	TargetWord     string
+	Morphology     string
+	SourceDocument string
+	Notes          string
+	FirstEncounter int64
+}
+
+func (q *Queries) GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error) {
+	row := q.db.QueryRow(ctx, getCoverageEntryForBook,
+		arg.FirstEncounter,
+		arg.Owner,
+		arg.Book,
+		arg.Corpus,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+	)
+	var i GetCoverageEntryForBookRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.CanonicalLemma,
+		&i.Upos,
+		&i.Sentence,
+		&i.Translation,
+		&i.TargetWord,
+		&i.Morphology,
+		&i.SourceDocument,
+		&i.Notes,
+		&i.FirstEncounter,
+	)
+	return i, err
+}
+
+const getCoverageEntryForCorpus = `-- name: GetCoverageEntryForCorpus :one
+SELECT sc.owner_id::text AS owner_id,
+       sc.language,
+       sc.canonical_lemma,
+       sc.upos,
+       COALESCE(e.sentence_text, '') AS sentence,
+       ''::text AS translation,
+       ''::text AS target_word,
+       COALESCE(sl.morphologies::text, '[]'::varchar)::varchar AS morphology,
+       sm.title AS source_document,
+       ''::text AS notes,
+       $1::bigint AS first_encounter
+FROM selection_candidates sc
+JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
+JOIN source_materials sm ON sm.owner_id = c.owner_id AND sm.id = c.source_material_id
+LEFT JOIN LATERAL (
+  SELECT ex.id, ex.owner_id, ex.corpus_id, ex.sentence_key, ex.sentence_text, ex.source_location, ex.created_at, ex.language, ex.canonical_lemma, ex.upos, ex.selection_rank, ex.selection_score, ex.selection_reasons, ex.is_chosen
+  FROM example_sentences ex
+  WHERE ex.owner_id = sc.owner_id AND ex.corpus_id = c.id
+    AND ex.language = sc.language AND ex.canonical_lemma = sc.canonical_lemma AND ex.upos = sc.upos
+  ORDER BY ex.is_chosen DESC, ex.selection_rank, ex.id
+  LIMIT 1
+) e ON true
+LEFT JOIN LATERAL (
+  SELECT jsonb_agg(morphology ORDER BY frequency DESC, morphology::text) AS morphologies
+  FROM shared_lemmas
+  WHERE content_hash = c.artifact_hash AND language = sc.language
+    AND canonical_lemma = sc.canonical_lemma AND upos = sc.upos
+) sl ON true
+WHERE sc.owner_id = $2 AND sc.corpus_id = $3
+  AND sc.language = $4 AND sc.canonical_lemma = $5
+  AND sc.upos = $6
+`
+
+type GetCoverageEntryForCorpusParams struct {
+	FirstEncounter int64
+	Owner          pgtype.UUID
+	Corpus         string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+}
+
+type GetCoverageEntryForCorpusRow struct {
+	OwnerID        string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+	Sentence       string
+	Translation    string
+	TargetWord     string
+	Morphology     string
+	SourceDocument string
+	Notes          string
+	FirstEncounter int64
+}
+
+func (q *Queries) GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error) {
+	row := q.db.QueryRow(ctx, getCoverageEntryForCorpus,
+		arg.FirstEncounter,
+		arg.Owner,
+		arg.Corpus,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+	)
+	var i GetCoverageEntryForCorpusRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.CanonicalLemma,
+		&i.Upos,
+		&i.Sentence,
+		&i.Translation,
+		&i.TargetWord,
+		&i.Morphology,
+		&i.SourceDocument,
+		&i.Notes,
+		&i.FirstEncounter,
+	)
+	return i, err
+}
+
 const listReviewSentences = `-- name: ListReviewSentences :many
 WITH latest AS (
   SELECT corpus_id FROM example_sentences
@@ -228,6 +396,152 @@ func (q *Queries) ListSelectedSentences(ctx context.Context, arg ListSelectedSen
 			&i.SelectionReasons,
 			&i.IsChosen,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSelectionCandidatesForBook = `-- name: ListSelectionCandidatesForBook :many
+SELECT sc.owner_id::text AS owner_id,
+       sc.corpus_id,
+       sc.language,
+       sc.canonical_lemma,
+       sc.upos,
+       sc.occurrence_count,
+       sc.observed_forms,
+       sc.eligible_sentence_refs,
+       sc.provenance,
+       sc.selected_at,
+       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
+FROM selection_candidates sc
+JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
+LEFT JOIN LATERAL (
+  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
+  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
+) first_seen ON true
+WHERE sc.owner_id = $1 AND c.source_material_id = $2
+ORDER BY sc.language, sc.canonical_lemma, sc.upos
+`
+
+type ListSelectionCandidatesForBookParams struct {
+	Owner pgtype.UUID
+	Book  pgtype.UUID
+}
+
+type ListSelectionCandidatesForBookRow struct {
+	OwnerID              string
+	CorpusID             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int32
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	SelectedAt           pgtype.Timestamptz
+	FirstEncounter       int64
+}
+
+func (q *Queries) ListSelectionCandidatesForBook(ctx context.Context, arg ListSelectionCandidatesForBookParams) ([]ListSelectionCandidatesForBookRow, error) {
+	rows, err := q.db.Query(ctx, listSelectionCandidatesForBook, arg.Owner, arg.Book)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSelectionCandidatesForBookRow{}
+	for rows.Next() {
+		var i ListSelectionCandidatesForBookRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.CorpusID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.OccurrenceCount,
+			&i.ObservedForms,
+			&i.EligibleSentenceRefs,
+			&i.Provenance,
+			&i.SelectedAt,
+			&i.FirstEncounter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSelectionCandidatesForCorpus = `-- name: ListSelectionCandidatesForCorpus :many
+SELECT sc.owner_id::text AS owner_id,
+       sc.corpus_id,
+       sc.language,
+       sc.canonical_lemma,
+       sc.upos,
+       sc.occurrence_count,
+       sc.observed_forms,
+       sc.eligible_sentence_refs,
+       sc.provenance,
+       sc.selected_at,
+       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
+FROM selection_candidates sc
+JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
+LEFT JOIN LATERAL (
+  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
+  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
+) first_seen ON true
+WHERE sc.owner_id = $1 AND sc.corpus_id = $2
+ORDER BY sc.language, sc.canonical_lemma, sc.upos
+`
+
+type ListSelectionCandidatesForCorpusParams struct {
+	Owner  pgtype.UUID
+	Corpus string
+}
+
+type ListSelectionCandidatesForCorpusRow struct {
+	OwnerID              string
+	CorpusID             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int32
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	SelectedAt           pgtype.Timestamptz
+	FirstEncounter       int64
+}
+
+func (q *Queries) ListSelectionCandidatesForCorpus(ctx context.Context, arg ListSelectionCandidatesForCorpusParams) ([]ListSelectionCandidatesForCorpusRow, error) {
+	rows, err := q.db.Query(ctx, listSelectionCandidatesForCorpus, arg.Owner, arg.Corpus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSelectionCandidatesForCorpusRow{}
+	for rows.Next() {
+		var i ListSelectionCandidatesForCorpusRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.CorpusID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.OccurrenceCount,
+			&i.ObservedForms,
+			&i.EligibleSentenceRefs,
+			&i.Provenance,
+			&i.SelectedAt,
+			&i.FirstEncounter,
 		); err != nil {
 			return nil, err
 		}
