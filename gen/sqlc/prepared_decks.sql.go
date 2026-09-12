@@ -322,6 +322,214 @@ func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg C
 	return i, err
 }
 
+const getPreparedDeckRunProgress = `-- name: GetPreparedDeckRunProgress :one
+WITH outcomes AS (
+  SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
+  WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3
+), manifest AS (
+  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language FROM deck_preparation_manifest_items mi
+  WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3
+), chunks AS (
+  SELECT c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at FROM deck_preparation_batch_chunks c
+  WHERE c.owner_id = $1 AND c.preparation_id = $2 AND c.run_id = $3
+)
+SELECT (SELECT count(*) FROM outcomes) AS candidate_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'pending') AS pending_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'running') AS running_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'completed') AS completed_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'failed') AS failed_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'cancelled') AS cancelled_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'pending' AND provider_attempt_count > 0) AS retrying_count,
+       (SELECT count(*) FROM manifest WHERE disposition = 'quality_omitted') AS manifest_omissions,
+       EXTRACT(EPOCH FROM COALESCE((SELECT min(submitted_at) FROM chunks WHERE submitted_at IS NOT NULL), 'epoch'::timestamptz))::double precision AS batch_submitted_epoch,
+       (SELECT count(*) FROM chunks) AS batch_chunk_count,
+       (SELECT count(*) FROM chunks WHERE state = 'submitted') AS batch_submitted_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'polling') AS batch_polling_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'reconciling') AS batch_reconciling_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'completed') AS batch_completed_chunks,
+       (SELECT count(*) FROM chunks WHERE state IN ('failed', 'ambiguous')) AS batch_failed_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'cancelled') AS batch_cancelled_chunks,
+       (SELECT COALESCE(sum(request_count), 0)::bigint FROM chunks) AS batch_request_count,
+       (SELECT COALESCE(sum(completed_count), 0)::bigint FROM chunks) AS batch_completed_requests,
+       (SELECT COALESCE(sum(failed_count), 0)::bigint FROM chunks) AS batch_failed_requests,
+       (SELECT COALESCE(sum(expired_count), 0)::bigint FROM chunks) AS batch_expired_requests,
+       (SELECT COALESCE(sum(input_tokens), 0)::bigint FROM chunks) AS batch_input_tokens,
+       (SELECT COALESCE(sum(output_tokens), 0)::bigint FROM chunks) AS batch_output_tokens
+`
+
+type GetPreparedDeckRunProgressParams struct {
+	Owner       pgtype.UUID
+	Preparation pgtype.UUID
+	Run         pgtype.UUID
+}
+
+type GetPreparedDeckRunProgressRow struct {
+	CandidateCount         int64
+	PendingCount           int64
+	RunningCount           int64
+	CompletedCount         int64
+	FailedCount            int64
+	CancelledCount         int64
+	RetryingCount          int64
+	ManifestOmissions      int64
+	BatchSubmittedEpoch    float64
+	BatchChunkCount        int64
+	BatchSubmittedChunks   int64
+	BatchPollingChunks     int64
+	BatchReconcilingChunks int64
+	BatchCompletedChunks   int64
+	BatchFailedChunks      int64
+	BatchCancelledChunks   int64
+	BatchRequestCount      int64
+	BatchCompletedRequests int64
+	BatchFailedRequests    int64
+	BatchExpiredRequests   int64
+	BatchInputTokens       int64
+	BatchOutputTokens      int64
+}
+
+func (q *Queries) GetPreparedDeckRunProgress(ctx context.Context, arg GetPreparedDeckRunProgressParams) (GetPreparedDeckRunProgressRow, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckRunProgress, arg.Owner, arg.Preparation, arg.Run)
+	var i GetPreparedDeckRunProgressRow
+	err := row.Scan(
+		&i.CandidateCount,
+		&i.PendingCount,
+		&i.RunningCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.CancelledCount,
+		&i.RetryingCount,
+		&i.ManifestOmissions,
+		&i.BatchSubmittedEpoch,
+		&i.BatchChunkCount,
+		&i.BatchSubmittedChunks,
+		&i.BatchPollingChunks,
+		&i.BatchReconcilingChunks,
+		&i.BatchCompletedChunks,
+		&i.BatchFailedChunks,
+		&i.BatchCancelledChunks,
+		&i.BatchRequestCount,
+		&i.BatchCompletedRequests,
+		&i.BatchFailedRequests,
+		&i.BatchExpiredRequests,
+		&i.BatchInputTokens,
+		&i.BatchOutputTokens,
+	)
+	return i, err
+}
+
+const getPreparedDeckTranslationCoverage = `-- name: GetPreparedDeckTranslationCoverage :one
+SELECT count(*) FILTER (WHERE COALESCE(ec.translation, '') <> '') AS cards_with_english,
+       count(*) FILTER (WHERE COALESCE(ec.sentence_translation, '') <> '') AS cards_with_contextual_sentence_translations
+FROM deck_preparation_manifest_items mi
+JOIN deck_preparation_translation_outcomes o ON o.owner_id = mi.owner_id AND o.preparation_id = mi.preparation_id AND o.run_id = mi.run_id AND o.ordinal = mi.ordinal AND o.state = 'completed'
+LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '')
+WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3 AND mi.disposition = 'accepted'
+`
+
+type GetPreparedDeckTranslationCoverageParams struct {
+	Owner       pgtype.UUID
+	Preparation pgtype.UUID
+	Run         pgtype.UUID
+}
+
+type GetPreparedDeckTranslationCoverageRow struct {
+	CardsWithEnglish                        int64
+	CardsWithContextualSentenceTranslations int64
+}
+
+func (q *Queries) GetPreparedDeckTranslationCoverage(ctx context.Context, arg GetPreparedDeckTranslationCoverageParams) (GetPreparedDeckTranslationCoverageRow, error) {
+	row := q.db.QueryRow(ctx, getPreparedDeckTranslationCoverage, arg.Owner, arg.Preparation, arg.Run)
+	var i GetPreparedDeckTranslationCoverageRow
+	err := row.Scan(&i.CardsWithEnglish, &i.CardsWithContextualSentenceTranslations)
+	return i, err
+}
+
+const listPreparedDeckStuckBatches = `-- name: ListPreparedDeckStuckBatches :many
+SELECT owner_id::text, preparation_id::text, run_id::text, id::text, state,
+       COALESCE(provider_status, ''), error_class, request_count,
+       completed_count, failed_count, expired_count,
+       EXTRACT(EPOCH FROM (now() - updated_at))::double precision AS age_seconds
+FROM deck_preparation_batch_chunks
+WHERE state IN ('pending', 'submitting', 'submitted', 'polling', 'reconciling')
+  AND updated_at <= now() - ($1::double precision * interval '1 second')
+ORDER BY updated_at ASC
+LIMIT $2
+`
+
+type ListPreparedDeckStuckBatchesParams struct {
+	OlderSeconds float64
+	Limit        int32
+}
+
+type ListPreparedDeckStuckBatchesRow struct {
+	OwnerID        string
+	PreparationID  string
+	RunID          string
+	ID             string
+	State          string
+	ProviderStatus string
+	ErrorClass     string
+	RequestCount   int32
+	CompletedCount int32
+	FailedCount    int32
+	ExpiredCount   int32
+	AgeSeconds     float64
+}
+
+func (q *Queries) ListPreparedDeckStuckBatches(ctx context.Context, arg ListPreparedDeckStuckBatchesParams) ([]ListPreparedDeckStuckBatchesRow, error) {
+	rows, err := q.db.Query(ctx, listPreparedDeckStuckBatches, arg.OlderSeconds, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPreparedDeckStuckBatchesRow{}
+	for rows.Next() {
+		var i ListPreparedDeckStuckBatchesRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.PreparationID,
+			&i.RunID,
+			&i.ID,
+			&i.State,
+			&i.ProviderStatus,
+			&i.ErrorClass,
+			&i.RequestCount,
+			&i.CompletedCount,
+			&i.FailedCount,
+			&i.ExpiredCount,
+			&i.AgeSeconds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const preparedDeckRunExists = `-- name: PreparedDeckRunExists :one
+SELECT EXISTS(
+  SELECT 1 FROM deck_preparation_runs
+  WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
+)
+`
+
+type PreparedDeckRunExistsParams struct {
+	Owner       pgtype.UUID
+	Preparation pgtype.UUID
+	Run         pgtype.UUID
+}
+
+func (q *Queries) PreparedDeckRunExists(ctx context.Context, arg PreparedDeckRunExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, preparedDeckRunExists, arg.Owner, arg.Preparation, arg.Run)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const redispatchPreparedDeckTranslationOutcome = `-- name: RedispatchPreparedDeckTranslationOutcome :one
 UPDATE deck_preparation_translation_outcomes o
 SET state = 'pending',

@@ -131,3 +131,62 @@ SELECT EXISTS(
     AND c.state = 'submitting'
     AND r.state = 'translating'
 );
+
+-- name: PreparedDeckRunExists :one
+SELECT EXISTS(
+  SELECT 1 FROM deck_preparation_runs
+  WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') AND id = sqlc.arg('run')
+);
+
+-- name: GetPreparedDeckRunProgress :one
+WITH outcomes AS (
+  SELECT o.* FROM deck_preparation_translation_outcomes o
+  WHERE o.owner_id = sqlc.arg('owner') AND o.preparation_id = sqlc.arg('preparation') AND o.run_id = sqlc.arg('run')
+), manifest AS (
+  SELECT mi.* FROM deck_preparation_manifest_items mi
+  WHERE mi.owner_id = sqlc.arg('owner') AND mi.preparation_id = sqlc.arg('preparation') AND mi.run_id = sqlc.arg('run')
+), chunks AS (
+  SELECT c.* FROM deck_preparation_batch_chunks c
+  WHERE c.owner_id = sqlc.arg('owner') AND c.preparation_id = sqlc.arg('preparation') AND c.run_id = sqlc.arg('run')
+)
+SELECT (SELECT count(*) FROM outcomes) AS candidate_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'pending') AS pending_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'running') AS running_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'completed') AS completed_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'failed') AS failed_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'cancelled') AS cancelled_count,
+       (SELECT count(*) FROM outcomes WHERE state = 'pending' AND provider_attempt_count > 0) AS retrying_count,
+       (SELECT count(*) FROM manifest WHERE disposition = 'quality_omitted') AS manifest_omissions,
+       EXTRACT(EPOCH FROM COALESCE((SELECT min(submitted_at) FROM chunks WHERE submitted_at IS NOT NULL), 'epoch'::timestamptz))::double precision AS batch_submitted_epoch,
+       (SELECT count(*) FROM chunks) AS batch_chunk_count,
+       (SELECT count(*) FROM chunks WHERE state = 'submitted') AS batch_submitted_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'polling') AS batch_polling_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'reconciling') AS batch_reconciling_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'completed') AS batch_completed_chunks,
+       (SELECT count(*) FROM chunks WHERE state IN ('failed', 'ambiguous')) AS batch_failed_chunks,
+       (SELECT count(*) FROM chunks WHERE state = 'cancelled') AS batch_cancelled_chunks,
+       (SELECT COALESCE(sum(request_count), 0)::bigint FROM chunks) AS batch_request_count,
+       (SELECT COALESCE(sum(completed_count), 0)::bigint FROM chunks) AS batch_completed_requests,
+       (SELECT COALESCE(sum(failed_count), 0)::bigint FROM chunks) AS batch_failed_requests,
+       (SELECT COALESCE(sum(expired_count), 0)::bigint FROM chunks) AS batch_expired_requests,
+       (SELECT COALESCE(sum(input_tokens), 0)::bigint FROM chunks) AS batch_input_tokens,
+       (SELECT COALESCE(sum(output_tokens), 0)::bigint FROM chunks) AS batch_output_tokens;
+
+-- name: GetPreparedDeckTranslationCoverage :one
+SELECT count(*) FILTER (WHERE COALESCE(ec.translation, '') <> '') AS cards_with_english,
+       count(*) FILTER (WHERE COALESCE(ec.sentence_translation, '') <> '') AS cards_with_contextual_sentence_translations
+FROM deck_preparation_manifest_items mi
+JOIN deck_preparation_translation_outcomes o ON o.owner_id = mi.owner_id AND o.preparation_id = mi.preparation_id AND o.run_id = mi.run_id AND o.ordinal = mi.ordinal AND o.state = 'completed'
+LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '')
+WHERE mi.owner_id = sqlc.arg('owner') AND mi.preparation_id = sqlc.arg('preparation') AND mi.run_id = sqlc.arg('run') AND mi.disposition = 'accepted';
+
+-- name: ListPreparedDeckStuckBatches :many
+SELECT owner_id::text, preparation_id::text, run_id::text, id::text, state,
+       COALESCE(provider_status, ''), error_class, request_count,
+       completed_count, failed_count, expired_count,
+       EXTRACT(EPOCH FROM (now() - updated_at))::double precision AS age_seconds
+FROM deck_preparation_batch_chunks
+WHERE state IN ('pending', 'submitting', 'submitted', 'polling', 'reconciling')
+  AND updated_at <= now() - (sqlc.arg('older_seconds')::double precision * interval '1 second')
+ORDER BY updated_at ASC
+LIMIT sqlc.arg('limit');

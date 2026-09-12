@@ -12,6 +12,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+type rowScanner interface {
+	Scan(...any) error
+}
+
 // queries returns the generated sqlc query layer bound to the pool.
 func (s *PostgresStore) queries() *sqlcgen.Queries { return sqlcgen.New(s.pool) }
 
@@ -180,6 +184,29 @@ func vocabularyStateFromFields(id, ownerID, language, canonicalLemma, upos, stat
 	return domain.VocabularyState{
 		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
 		UPOS: upos, State: state, UpdatedAt: pgTime(updatedAt),
+	}
+}
+
+func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparation {
+	return domain.DeckPreparation{
+		ID: uuidString(row.ID), OwnerID: uuidString(row.OwnerID), SourceMaterialID: uuidString(row.SourceMaterialID),
+		State: domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
+		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: int(row.TotalCards),
+		CardsWithEnglish: int(row.CardsWithEnglish), CardsWithContextualSentenceTranslations: int(row.CardsWithContextualSentenceTranslations),
+		QualityOmissions: int(row.QualityOmissions), Error: row.Error, CreatedAt: pgTime(row.CreatedAt),
+		UpdatedAt: pgTime(row.UpdatedAt), StartedAt: pgTimePtr(row.StartedAt), CompletedAt: pgTimePtr(row.CompletedAt),
+		AnalysisRunID: uuidString(row.AnalysisRunID), CurrentRunID: uuidString(row.CurrentRunID),
+		StudyingAt: pgTimePtr(row.StudyingAt), ReviewedAt: pgTimePtr(row.ReviewedAt),
+		GraduatedAt: pgTimePtr(row.GraduatedAt), ReleasedAt: pgTimePtr(row.ReleasedAt),
+		RetiredAt: pgTimePtr(row.RetiredAt),
+	}
+}
+
+func deckPreparationVocabularyFromModel(row sqlcgen.DeckPreparationVocabulary) domain.DeckPreparationVocabulary {
+	return domain.DeckPreparationVocabulary{
+		OwnerID: uuidString(row.OwnerID), DeckPreparationID: uuidString(row.DeckPreparationID),
+		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+		GeneratedAt: pgTime(row.GeneratedAt), GraduatedAt: pgTimePtr(row.GraduatedAt),
 	}
 }
 

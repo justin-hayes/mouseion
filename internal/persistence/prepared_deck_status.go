@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -71,13 +72,12 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	// is active, count only exact cache rows belonging to the frozen manifest.
 	// This keeps status correct under duplicate polling and partial success.
 	if p.State != domain.DeckPreparationReady && run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
-		if err = s.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE COALESCE(ec.translation,'') <> ''), count(*) FILTER (WHERE COALESCE(ec.sentence_translation,'') <> '')
-			FROM deck_preparation_manifest_items mi
-			JOIN deck_preparation_translation_outcomes o ON o.owner_id=mi.owner_id AND o.preparation_id=mi.preparation_id AND o.run_id=mi.run_id AND o.ordinal=mi.ordinal AND o.state='completed'
-			LEFT JOIN enrichment_cache ec ON ec.language=mi.language AND ec.target_language=mi.target_language AND ec.canonical_lemma=mi.canonical_lemma AND ec.upos=mi.upos AND ec.provider=mi.provider AND ec.provider_version=mi.provider_version AND ec.sentence_hash=COALESCE(mi.sentence_hash,'')
-			WHERE mi.owner_id=$1 AND mi.preparation_id=$2 AND mi.run_id=$3 AND mi.disposition='accepted'`, owner, preparationID, run.ID).Scan(&p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations); err != nil {
-			return p, err
+		coverage, coverageErr := s.queries().GetPreparedDeckTranslationCoverage(ctx, sqlcgen.GetPreparedDeckTranslationCoverageParams{Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(run.ID)})
+		if coverageErr != nil {
+			return p, coverageErr
 		}
+		p.CardsWithEnglish = int(coverage.CardsWithEnglish)
+		p.CardsWithContextualSentenceTranslations = int(coverage.CardsWithContextualSentenceTranslations)
 		p.TotalCards = progress.CandidateCount
 		p.QualityOmissions = progress.ManifestOmissions
 	}
@@ -155,23 +155,19 @@ func (s *PostgresStore) ListPreparedDeckStuckBatches(ctx context.Context, olderT
 	if olderThan <= 0 || limit < 1 {
 		return nil, ErrInvalidTransition
 	}
-	rows, err := s.pool.Query(ctx, `SELECT owner_id::text,preparation_id::text,run_id::text,id::text,state,COALESCE(provider_status,''),error_class,request_count,completed_count,failed_count,expired_count,EXTRACT(EPOCH FROM (now()-updated_at))
-		FROM deck_preparation_batch_chunks
-		WHERE state IN ('pending','submitting','submitted','polling','reconciling') AND updated_at <= now()-($1 * interval '1 second')
-		ORDER BY updated_at ASC LIMIT $2`, olderThan.Seconds(), limit)
+	rows, err := s.queries().ListPreparedDeckStuckBatches(ctx, sqlcgen.ListPreparedDeckStuckBatchesParams{OlderSeconds: olderThan.Seconds(), Limit: int32(limit)})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var result []PreparedDeckStuckBatch
-	for rows.Next() {
-		var item PreparedDeckStuckBatch
-		var ageSeconds float64
-		if err = rows.Scan(&item.OwnerID, &item.PreparationID, &item.RunID, &item.ChunkID, &item.State, &item.ProviderStatus, &item.ErrorClass, &item.RequestCount, &item.CompletedCount, &item.FailedCount, &item.ExpiredCount, &ageSeconds); err != nil {
-			return nil, err
-		}
-		item.Age = time.Duration(ageSeconds * float64(time.Second))
-		result = append(result, item)
+	result := make([]PreparedDeckStuckBatch, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, PreparedDeckStuckBatch{
+			OwnerID: row.OwnerID, PreparationID: row.PreparationID, RunID: row.RunID, ChunkID: row.ID,
+			State: row.State, ProviderStatus: row.ProviderStatus, ErrorClass: row.ErrorClass,
+			RequestCount: int(row.RequestCount), CompletedCount: int(row.CompletedCount),
+			FailedCount: int(row.FailedCount), ExpiredCount: int(row.ExpiredCount),
+			Age: time.Duration(row.AgeSeconds * float64(time.Second)),
+		})
 	}
-	return result, rows.Err()
+	return result, nil
 }

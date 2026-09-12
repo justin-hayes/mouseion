@@ -2,11 +2,14 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -291,7 +294,10 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 		return domain.DeckPreparation{}, err
 	}
 	defer tx.Rollback(ctx)
-	p, err := scanDeckPreparation(tx.QueryRow(ctx, `SELECT `+deckPreparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, preparationID))
+	q := sqlcgen.New(tx)
+	model, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: uuidArg(owner), ID: uuidArg(preparationID)})
+	p := deckPreparationFromModel(model)
+	err = missing(err)
 	if err != nil {
 		return p, err
 	}
@@ -302,7 +308,9 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 		return p, ErrInvalidTransition
 	}
 	runID := p.CurrentRunID
-	p, err = scanDeckPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state='cancelled',error='',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+deckPreparationColumns, owner, preparationID))
+	model, err = q.CancelDeckPreparation(ctx, sqlcgen.CancelDeckPreparationParams{Owner: uuidArg(owner), ID: uuidArg(preparationID)})
+	err = missing(err)
+	p = deckPreparationFromModel(model)
 	if err != nil {
 		return p, err
 	}
@@ -317,7 +325,11 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 			return p, err
 		}
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'prepared_deck','cancelled',jsonb_build_object('preparation_id',$2::text),now())`, owner, preparationID); err != nil {
+	details, err := json.Marshal(map[string]string{"preparation_id": preparationID})
+	if err != nil {
+		return p, err
+	}
+	if err = q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: uuidArg(owner), Operation: "prepared_deck", Status: "cancelled", Details: details, CompletedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
 		return p, err
 	}
 	if err = tx.Commit(ctx); err != nil {
