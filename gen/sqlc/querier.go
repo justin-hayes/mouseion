@@ -72,6 +72,7 @@ type Querier interface {
 	FailPreparedDeckFinalizationRun(ctx context.Context, arg FailPreparedDeckFinalizationRunParams) (string, error)
 	FailPreparedDeckRun(ctx context.Context, arg FailPreparedDeckRunParams) (int64, error)
 	FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPreparedDeckRunIncompleteParams) (DeckPreparationRun, error)
+	FailPreparedDeckRunWithCounts(ctx context.Context, arg FailPreparedDeckRunWithCountsParams) (DeckPreparationRun, error)
 	FinalizePreparedDeckRun(ctx context.Context, arg FinalizePreparedDeckRunParams) (DeckPreparationRun, error)
 	FindSourceMaterialForAcquisition(ctx context.Context, arg FindSourceMaterialForAcquisitionParams) (FindSourceMaterialForAcquisitionRow, error)
 	FinishPreparedDeckBatchCleanup(ctx context.Context, arg FinishPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error)

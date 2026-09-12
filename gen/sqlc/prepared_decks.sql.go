@@ -1452,6 +1452,76 @@ func (q *Queries) FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPre
 	return i, err
 }
 
+const failPreparedDeckRunWithCounts = `-- name: FailPreparedDeckRunWithCounts :one
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
+    error_class = $6, error_code = $7, completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+`
+
+type FailPreparedDeckRunWithCountsParams struct {
+	OwnerID        pgtype.UUID
+	PreparationID  pgtype.UUID
+	ID             pgtype.UUID
+	CompletedCount int32
+	FailedCount    int32
+	ErrorClass     string
+	ErrorCode      string
+}
+
+func (q *Queries) FailPreparedDeckRunWithCounts(ctx context.Context, arg FailPreparedDeckRunWithCountsParams) (DeckPreparationRun, error) {
+	row := q.db.QueryRow(ctx, failPreparedDeckRunWithCounts,
+		arg.OwnerID,
+		arg.PreparationID,
+		arg.ID,
+		arg.CompletedCount,
+		arg.FailedCount,
+		arg.ErrorClass,
+		arg.ErrorCode,
+	)
+	var i DeckPreparationRun
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.PreparationID,
+		&i.RunNumber,
+		&i.State,
+		&i.TranslationState,
+		&i.ExternalTranslationConsent,
+		&i.ExternalTranslationConfigured,
+		&i.ContextMode,
+		&i.Provider,
+		&i.ProviderVersion,
+		&i.Endpoint,
+		&i.Model,
+		&i.ManifestSchemaVersion,
+		&i.RetryPolicyVersion,
+		&i.MaxProviderAttempts,
+		&i.MaxBatchGenerations,
+		&i.BatchMaxRequests,
+		&i.BatchMaxBytes,
+		&i.CandidateCount,
+		&i.CompletedCount,
+		&i.FailedCount,
+		&i.FinalizationDispatchGeneration,
+		&i.FinalizationDispatchCount,
+		&i.FinalizationJobID,
+		&i.FinalizationClaimToken,
+		&i.FinalizationClaimedAt,
+		&i.FinalizationLeaseExpiresAt,
+		&i.ErrorClass,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TranslationCompletedAt,
+		&i.CompletedAt,
+		&i.ExecutionMode,
+		&i.TargetLanguage,
+	)
+	return i, err
+}
+
 const finalizePreparedDeckRun = `-- name: FinalizePreparedDeckRun :one
 UPDATE deck_preparation_runs
 SET state = 'finalizing', translation_state = 'completed', completed_count = $4, failed_count = $5,

@@ -180,13 +180,9 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 		run.CompletedCount, run.FailedCount = int(counts.CompletedCount), int(counts.FailedCount)
 		if counts.NonterminalCount == 0 {
 			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
-				if _, err = q.FailPreparedDeckRun(ctx, sqlcgen.FailPreparedDeckRunParams{
-					OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+				if runModel, err = q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{
+					OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), CompletedCount: int32(run.CompletedCount), FailedCount: int32(run.FailedCount), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
 				}); err != nil {
-					return err
-				}
-				runModel, err = q.GetPreparedDeckRun(ctx, sqlcgen.GetPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)})
-				if err != nil {
 					return err
 				}
 				run = preparedDeckRunFromModel(runModel)

@@ -569,6 +569,13 @@ SET state = 'failed', translation_state = 'failed', error_class = $4, error_code
     completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating';
 
+-- name: FailPreparedDeckRunWithCounts :one
+UPDATE deck_preparation_runs
+SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
+    error_class = $6, error_code = $7, completed_at = now(), updated_at = now()
+WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
+RETURNING *;
+
 -- name: CancelPreparedDeckRun :exec
 UPDATE deck_preparation_runs
 SET state = 'cancelled',
