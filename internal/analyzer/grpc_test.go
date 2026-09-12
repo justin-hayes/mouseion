@@ -38,8 +38,11 @@ func (s *analyzerService) Analyze(_ context.Context, request *mouseionv1.Analyze
 		SchemaVersion: "1.1.0",
 		Language:      request.GetLanguage(),
 		Sentences: []*mouseionv1.Sentence{{
-			Text:   "Goethe",
-			Tokens: []*mouseionv1.Token{{Surface: "Goethe", RawLemma: "Goethe", CanonicalLemma: "goethe", Pos: "PROPN", Dependency: "root", Head: 0}},
+			Text: "Der Goethe.",
+			Tokens: []*mouseionv1.Token{
+				{Surface: "Der", RawLemma: "der", CanonicalLemma: "der", Pos: "DET", Dependency: "det", Head: 1},
+				{Surface: "Goethe", RawLemma: "Goethe", CanonicalLemma: "goethe", Pos: "PROPN", Dependency: "root", Head: 1},
+			},
 		}},
 		SourceDocuments: []*mouseionv1.SourceDocument{request.GetSourceDocument()},
 		Analysis: &mouseionv1.AnalysisProvenance{
@@ -57,7 +60,7 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer()
 	want := &mouseionv1.AnalyzeRequest{
-		Language: "de", DocumentText: "Goethe",
+		Language: "de", DocumentText: "Der Goethe.",
 		SourceDocument: &mouseionv1.SourceDocument{Id: "document-1", SourceIdentifier: "opds:1", Title: "Faust"},
 	}
 	mouseionv1.RegisterAnalyzerServiceServer(server, &analyzerService{want: want})
@@ -73,12 +76,17 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 
 	result, err := analyzer.Analyze(context.Background(), AnalyzeRequest{
 		Language: "de",
-		Document: SourceDocument{ID: "document-1", SourceIdentifier: "opds:1", Title: "Faust", Text: "Goethe"},
+		Document: SourceDocument{ID: "document-1", SourceIdentifier: "opds:1", Title: "Faust", Text: "Der Goethe."},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "de", result.Language)
 	assert.Equal(t, time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC), result.Analysis.AnalyzedAt)
-	assert.Equal(t, "goethe", result.Sentences[0].Tokens[0].CanonicalLemma)
+	require.Len(t, result.Sentences[0].Tokens, 2)
+	assert.Equal(t, "det", result.Sentences[0].Tokens[0].Dependency)
+	assert.Equal(t, uint32(1), result.Sentences[0].Tokens[0].Head)
+	assert.Equal(t, "root", result.Sentences[0].Tokens[1].Dependency)
+	assert.Equal(t, uint32(1), result.Sentences[0].Tokens[1].Head)
+	assert.Equal(t, "goethe", result.Sentences[0].Tokens[1].CanonicalLemma)
 	capabilities, err := analyzer.GetCapabilities(context.Background())
 	require.NoError(t, err)
 	require.Len(t, capabilities.Languages, 2)

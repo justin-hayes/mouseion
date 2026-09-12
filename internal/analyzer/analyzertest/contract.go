@@ -29,7 +29,7 @@ func RunContract(
 		},
 	}
 	want := analyzer.Result{
-		SchemaVersion: "1.0.0",
+		SchemaVersion: "1.1.0",
 		Language:      "de",
 		SourceDocuments: []analyzer.SourceDocumentMetadata{{
 			ID:               "document-1",
@@ -38,15 +38,28 @@ func RunContract(
 		}},
 		Sentences: []analyzer.Sentence{{
 			Text: "Gregor erwachte.",
-			Tokens: []analyzer.Token{{
-				Surface:        "Gregor",
-				RawLemma:       "Gregor",
-				CanonicalLemma: "gregor",
-				UPOS:           "PROPN",
-				Morphology:     map[string]string{"Case": "Nom"},
-				NamedEntity:    &namedEntity,
-				Location:       analyzer.SourceLocation{SourceDocumentID: "document-1", StartOffset: 0, EndOffset: 6},
-			}},
+			Tokens: []analyzer.Token{
+				{
+					Surface:        "Gregor",
+					RawLemma:       "Gregor",
+					CanonicalLemma: "gregor",
+					UPOS:           "PROPN",
+					Dependency:     "nsubj",
+					Head:           1,
+					Morphology:     map[string]string{"Case": "Nom"},
+					NamedEntity:    &namedEntity,
+					Location:       analyzer.SourceLocation{SourceDocumentID: "document-1", StartOffset: 0, EndOffset: 6},
+				},
+				{
+					Surface:        "erwachte",
+					RawLemma:       "erwachen",
+					CanonicalLemma: "erwachen",
+					UPOS:           "VERB",
+					Dependency:     "root",
+					Head:           1,
+					Location:       analyzer.SourceLocation{SourceDocumentID: "document-1", StartOffset: 7, EndOffset: 15},
+				},
+			},
 			Location: analyzer.SourceLocation{SourceDocumentID: "document-1", StartOffset: 0, EndOffset: 16},
 		}},
 		Analysis: analyzer.AnalysisProvenance{
