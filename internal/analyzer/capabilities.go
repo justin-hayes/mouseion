@@ -36,6 +36,16 @@ type Capabilities struct {
 	Degraded  bool
 }
 
+func (c Capabilities) SupportsLanguage(language, feature string) bool {
+	normalizedLanguage := canonicalization.NormalizeLanguage(language)
+	for _, capability := range c.Languages {
+		if canonicalization.NormalizeLanguage(capability.Language) == normalizedLanguage && capability.Supports(feature) {
+			return true
+		}
+	}
+	return false
+}
+
 func ReadySupportedLanguages(value Capabilities) []domain.SupportedLanguage {
 	languages := make([]domain.SupportedLanguage, 0, len(value.Languages))
 	for _, capability := range value.Languages {

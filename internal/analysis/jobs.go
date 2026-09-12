@@ -17,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
@@ -960,11 +959,8 @@ func requireDependencyParsing(ctx context.Context, provider analyzer.CapabilityP
 	if err != nil {
 		return fmt.Errorf("load NLP capabilities: %w", err)
 	}
-	normalizedLanguage := canonicalization.NormalizeLanguage(language)
-	for _, capability := range capabilities.Languages {
-		if canonicalization.NormalizeLanguage(capability.Language) == normalizedLanguage && capability.Supports(analyzer.FeatureDepparse) {
-			return nil
-		}
+	if capabilities.SupportsLanguage(language, analyzer.FeatureDepparse) {
+		return nil
 	}
 	return fmt.Errorf("%w for language %q", ErrDependencyParsingUnavailable, language)
 }

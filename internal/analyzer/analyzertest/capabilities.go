@@ -15,7 +15,7 @@ func (p CapabilityProvider) GetCapabilities(context.Context) (analyzer.Capabilit
 	return p.Value, p.Err
 }
 
-func ReadyCapabilityProvider() CapabilityProvider {
+func ReadyDepparseCapabilityProvider() CapabilityProvider {
 	return CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}, Ready: true},
 		{Language: "it", SupportedFeatures: []string{analyzer.FeatureDepparse}, Ready: true},

@@ -115,7 +115,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
 		}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Häuser", RawLemma: "Häuser", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 6}}}}}}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	defer client.Stop(context.Background())
@@ -374,7 +374,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 4}}}}}}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	defer client.Stop(context.Background())

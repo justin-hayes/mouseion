@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -23,6 +24,17 @@ func TestRequireDependencyParsing(t *testing.T) {
 	err := requireDependencyParsing(context.Background(), missing, "de")
 	require.ErrorIs(t, err, ErrDependencyParsingUnavailable)
 	assert.Contains(t, err.Error(), `language "de"`)
+
+	degraded := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{
+		Degraded:  true,
+		Languages: []analyzer.LanguageCapability{{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}}},
+	}}
+	assert.NoError(t, requireDependencyParsing(context.Background(), degraded, "de"))
+
+	outage := analyzertest.CapabilityProvider{Err: errors.New("NLP unavailable")}
+	err = requireDependencyParsing(context.Background(), outage, "de")
+	assert.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
+	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
 }
 
 func TestAggregateLemmasIsIdempotent(t *testing.T) {
