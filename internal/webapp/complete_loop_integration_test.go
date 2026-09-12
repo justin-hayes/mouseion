@@ -302,8 +302,10 @@ func completeLoopAnalysis(ctx context.Context, request analyzer.AnalyzeRequest) 
 }
 
 func completeLoopSentence(documentID string, start uint64) analyzer.Sentence {
+	text := "Heute liest Anna das alte Haus."
 	return analyzer.Sentence{
-		Text: "Heute liest Anna das alte Haus.",
+		Text:     text,
+		Location: analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: start + uint64(len([]rune(text)))},
 		Tokens: []analyzer.Token{{
 			Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN",
 			Morphology: map[string]string{"Gender": "Neut"},
