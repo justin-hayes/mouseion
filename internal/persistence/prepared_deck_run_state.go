@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -55,29 +56,35 @@ func scanPreparedDeckOutcome(row rowScanner) (domain.PreparedDeckTranslationOutc
 }
 
 func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {
-	return scanPreparedDeckOutcome(s.pool.QueryRow(ctx, `SELECT `+preparedDeckOutcomeColumns+` FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4`, owner, preparationID, runID, ordinal))
+	model, err := s.queries().GetPreparedDeckTranslationOutcome(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal),
+	})
+	if err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, missing(err)
+	}
+	return preparedDeckOutcomeFromModel(model), nil
 }
 
 func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context, owner, preparationID, runID string) ([]domain.PreparedDeckTranslationOutcome, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+preparedDeckOutcomeColumns+` FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 ORDER BY ordinal`, owner, preparationID, runID)
+	models, err := s.queries().ListPreparedDeckTranslationOutcomes(ctx, sqlcgen.ListPreparedDeckTranslationOutcomesParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var outcomes []domain.PreparedDeckTranslationOutcome
-	for rows.Next() {
-		outcome, scanErr := scanPreparedDeckOutcome(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		outcomes = append(outcomes, outcome)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
+	for _, model := range models {
+		outcomes = append(outcomes, preparedDeckOutcomeFromModel(model))
 	}
 	if outcomes == nil {
-		if _, err = s.GetPreparedDeckRun(ctx, owner, preparationID, runID); err != nil {
-			return nil, err
+		exists, existsErr := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{
+			Owner: uuidArg(owner), Preparation: uuidArg(preparationID), Run: uuidArg(runID),
+		})
+		if existsErr != nil {
+			return nil, existsErr
+		}
+		if !exists {
+			return nil, ErrNotFound
 		}
 	}
 	return outcomes, nil
@@ -91,46 +98,26 @@ func scanPreparedDeckBatchChunk(row rowScanner) (domain.PreparedDeckBatchChunk, 
 	return chunk, missing(err)
 }
 
-type preparedDeckQueryer interface {
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-}
-
-func listPreparedDeckBatchChunks(ctx context.Context, q preparedDeckQueryer, owner, preparationID, runID string) ([]domain.PreparedDeckBatchChunk, error) {
-	rows, err := q.Query(ctx, `SELECT `+preparedDeckBatchChunkColumns+` FROM deck_preparation_batch_chunks WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 ORDER BY generation,chunk_index`, owner, preparationID, runID)
+func listPreparedDeckBatchChunks(ctx context.Context, q sqlcgen.DBTX, owner, preparationID, runID string) ([]domain.PreparedDeckBatchChunk, error) {
+	models, err := sqlcgen.New(q).ListPreparedDeckBatchChunks(ctx, sqlcgen.ListPreparedDeckBatchChunksParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID),
+	})
 	if err != nil {
 		return nil, err
 	}
 	var chunks []domain.PreparedDeckBatchChunk
-	for rows.Next() {
-		chunk, scanErr := scanPreparedDeckBatchChunk(rows)
-		if scanErr != nil {
-			rows.Close()
-			return nil, scanErr
-		}
-		chunks = append(chunks, chunk)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return nil, err
+	for _, model := range models {
+		chunks = append(chunks, preparedDeckBatchChunkFromModel(model))
 	}
 	for i := range chunks {
-		itemRows, queryErr := q.Query(ctx, `SELECT ordinal FROM deck_preparation_batch_chunk_items WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND chunk_id=$4 ORDER BY position`, owner, preparationID, runID, chunks[i].ID)
+		ordinals, queryErr := sqlcgen.New(q).ListPreparedDeckBatchChunkOrdinals(ctx, sqlcgen.ListPreparedDeckBatchChunkOrdinalsParams{
+			OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ChunkID: uuidArg(chunks[i].ID),
+		})
 		if queryErr != nil {
 			return nil, queryErr
 		}
-		for itemRows.Next() {
-			var ordinal int
-			if queryErr = itemRows.Scan(&ordinal); queryErr != nil {
-				itemRows.Close()
-				return nil, queryErr
-			}
-			chunks[i].Ordinals = append(chunks[i].Ordinals, ordinal)
-		}
-		queryErr = itemRows.Err()
-		itemRows.Close()
-		if queryErr != nil {
-			return nil, queryErr
+		for _, ordinal := range ordinals {
+			chunks[i].Ordinals = append(chunks[i].Ordinals, int(ordinal))
 		}
 	}
 	return chunks, nil
@@ -161,8 +148,10 @@ func (s *PostgresStore) GetPreparedDeckBatchChunk(ctx context.Context, owner, pr
 }
 
 func (s *PostgresStore) SetPreparedDeckBatchSubmissionJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID, chunkID string, generation int, jobID int64) error {
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_batch_chunks SET submission_job_id=$7,submission_generation=$6,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND generation=$5 AND (state='pending' OR (state='submitting' AND submission_lease_expires_at<=now()))`, owner, preparationID, runID, chunkID, generation, generation, jobID)
-	if err == nil && tag.RowsAffected() == 0 {
+	rows, err := sqlcgen.New(tx).SetPreparedDeckBatchSubmissionJob(ctx, sqlcgen.SetPreparedDeckBatchSubmissionJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), SubmissionGeneration: int32(generation), SubmissionJobID: pgtype.Int8{Int64: jobID, Valid: true},
+	})
+	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
 	}
 	return err
@@ -172,8 +161,10 @@ func (s *PostgresStore) SetPreparedDeckTranslationJobTx(ctx context.Context, tx 
 	if jobID < 1 {
 		return ErrInvalidTransition
 	}
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET river_job_id=$6 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='pending' AND river_job_id IS NULL`, owner, preparationID, runID, ordinal, generation, jobID)
-	if err == nil && tag.RowsAffected() == 0 {
+	rows, err := sqlcgen.New(tx).SetPreparedDeckTranslationJob(ctx, sqlcgen.SetPreparedDeckTranslationJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), Ordinal: int32(ordinal), DispatchGeneration: int32(generation), RiverJobID: pgtype.Int8{Int64: jobID, Valid: true},
+	})
+	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
 	}
 	return err
@@ -187,9 +178,12 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 	if tx == nil || strings.TrimSpace(inputFileID) == "" || strings.TrimSpace(batchID) == "" {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(tx.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks c SET state='submitted',input_file_id=$7,batch_id=$8,submitted_at=$9,submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,error_class='',error_code='',updated_at=now() FROM deck_preparation_runs r WHERE c.owner_id=$1 AND c.preparation_id=$2 AND c.run_id=$3 AND c.id=$4 AND c.generation=$5 AND c.submission_generation=$5 AND c.submission_claim_token=$6 AND c.state='submitting' AND r.owner_id=c.owner_id AND r.preparation_id=c.preparation_id AND r.id=c.run_id AND r.state='translating' RETURNING `+qualifiedColumns("c", preparedDeckBatchChunkColumns), owner, preparationID, runID, chunkID, generation, token, inputFileID, batchID, submittedAt))
+	model, err := sqlcgen.New(tx).RecordPreparedDeckBatchSubmitted(ctx, sqlcgen.RecordPreparedDeckBatchSubmittedParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), Generation: int32(generation), SubmissionClaimToken: uuidArg(token), InputFileID: textArg(inputFileID), BatchID: textArg(batchID), SubmittedAt: pgtype.Timestamptz{Time: submittedAt, Valid: true},
+	})
+	chunk := preparedDeckBatchChunkFromModel(model)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return chunk, ErrPreparedDeckClaimLost
 		}
 		return chunk, err
@@ -204,13 +198,18 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmittedTx(ctx context.Context, 
 	if jobID < 1 {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err = scanPreparedDeckBatchChunk(tx.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks SET reconciliation_job_id=$5,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND state='submitted' AND batch_id=$6 RETURNING `+preparedDeckBatchChunkColumns, owner, preparationID, runID, chunkID, jobID, batchID))
-	return chunk, err
+	model, err = sqlcgen.New(tx).AttachPreparedDeckBatchReconciliationJob(ctx, sqlcgen.AttachPreparedDeckBatchReconciliationJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), ReconciliationJobID: pgtype.Int8{Int64: jobID, Valid: true}, BatchID: textArg(batchID),
+	})
+	chunk = preparedDeckBatchChunkFromModel(model)
+	return chunk, missing(err)
 }
 
 func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx pgx.Tx, owner, preparationID, runID string, generation int, jobID int64) error {
-	tag, err := tx.Exec(ctx, `UPDATE deck_preparation_runs SET finalization_job_id=$5,finalization_claim_token=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_claim_token END,finalization_claimed_at=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_claimed_at END,finalization_lease_expires_at=CASE WHEN finalization_claim_token IS NOT NULL AND finalization_lease_expires_at<=now() THEN NULL ELSE finalization_lease_expires_at END,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND finalization_dispatch_generation=$4 AND state='finalizing'`, owner, preparationID, runID, generation, jobID)
-	if err == nil && tag.RowsAffected() == 0 {
+	rows, err := sqlcgen.New(tx).SetPreparedDeckFinalizationJob(ctx, sqlcgen.SetPreparedDeckFinalizationJobParams{
+		OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID), FinalizationDispatchGeneration: int32(generation), FinalizationJobID: pgtype.Int8{Int64: jobID, Valid: true},
+	})
+	if err == nil && rows == 0 {
 		return ErrPreparedDeckClaimLost
 	}
 	return err
@@ -314,13 +313,13 @@ func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner,
 		return p, err
 	}
 	if runID != "" {
-		if _, err = tx.Exec(ctx, `UPDATE deck_preparation_runs SET state='cancelled',translation_state=CASE WHEN translation_state IN ('pending','running') THEN 'cancelled' ELSE translation_state END,finalization_claim_token=NULL,finalization_claimed_at=NULL,finalization_lease_expires_at=NULL,error_class='',error_code='',completed_at=now(),updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND id=$3 AND state IN ('translating','finalizing')`, owner, preparationID, runID); err != nil {
+		if err = q.CancelPreparedDeckRun(ctx, sqlcgen.CancelPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)}); err != nil {
 			return p, err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET state='cancelled',claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,terminal_at=now(),error_class='cancellation',error_code='',updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND state IN ('pending','running')`, owner, preparationID, runID); err != nil {
+		if err = q.CancelPreparedDeckOutcomes(ctx, sqlcgen.CancelPreparedDeckOutcomesParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)}); err != nil {
 			return p, err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE deck_preparation_batch_chunks SET state='cancelled',submission_claim_token=NULL,submission_claimed_at=NULL,submission_lease_expires_at=NULL,reconciliation_claim_token=NULL,reconciliation_claimed_at=NULL,reconciliation_lease_expires_at=NULL,error_class='cancelled',error_code='',updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND state NOT IN ('completed','failed','cancelled')`, owner, preparationID, runID); err != nil {
+		if err = q.CancelPreparedDeckBatchChunks(ctx, sqlcgen.CancelPreparedDeckBatchChunksParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)}); err != nil {
 			return p, err
 		}
 	}

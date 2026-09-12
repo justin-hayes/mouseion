@@ -5,6 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -27,8 +30,9 @@ func (s *PostgresStore) ClaimPreparedDeckBatchCleanup(ctx context.Context, owner
 	if token == "" || leaseExpiresAt.Before(time.Now()) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks SET cleanup_claim_token=$5,cleanup_claimed_at=now(),cleanup_lease_expires_at=$6,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND state IN ('completed','cancelled') AND (cleanup_claim_token IS NULL OR cleanup_lease_expires_at<=now()) AND ((input_file_id IS NOT NULL AND input_file_cleanup_state IN ('pending','failed') AND input_file_cleanup_attempts < $7) OR (output_file_id IS NOT NULL AND output_file_cleanup_state IN ('pending','failed') AND output_file_cleanup_attempts < $7) OR (error_file_id IS NOT NULL AND error_file_cleanup_state IN ('pending','failed') AND error_file_cleanup_attempts < $7)) RETURNING `+preparedDeckBatchChunkColumns, owner, preparationID, runID, chunkID, token, leaseExpiresAt, preparedDeckBatchCleanupMaxAttempts))
-	if errors.Is(err, ErrNotFound) {
+	model, err := s.queries().ClaimPreparedDeckBatchCleanup(ctx, sqlcgen.ClaimPreparedDeckBatchCleanupParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), CleanupClaimToken: uuidArg(token), CleanupLeaseExpiresAt: pgtype.Timestamptz{Time: leaseExpiresAt, Valid: true}, InputFileCleanupAttempts: preparedDeckBatchCleanupMaxAttempts})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
 	return chunk, err
@@ -44,8 +48,9 @@ func (s *PostgresStore) FinishPreparedDeckBatchCleanup(ctx context.Context, owne
 	if err := validateBoundedError(update.ErrorClass, update.ErrorCode); err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	chunk, err := scanPreparedDeckBatchChunk(s.pool.QueryRow(ctx, `UPDATE deck_preparation_batch_chunks SET input_file_cleanup_state=$6,output_file_cleanup_state=$7,error_file_cleanup_state=$8,input_file_cleanup_attempts=$9,output_file_cleanup_attempts=$10,error_file_cleanup_attempts=$11,cleanup_error_class=$12,cleanup_error_code=$13,cleanup_claim_token=NULL,cleanup_claimed_at=NULL,cleanup_lease_expires_at=NULL,cleanup_completed_at=CASE WHEN $6 IN ('deleted','not_needed') AND $7 IN ('deleted','not_needed') AND $8 IN ('deleted','not_needed') THEN COALESCE(cleanup_completed_at,now()) ELSE NULL END,updated_at=now() WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4 AND cleanup_claim_token=$5 AND state IN ('completed','cancelled') RETURNING `+preparedDeckBatchChunkColumns, owner, preparationID, runID, chunkID, token, update.InputFileState, update.OutputFileState, update.ErrorFileState, update.InputFileAttempts, update.OutputFileAttempts, update.ErrorFileAttempts, update.ErrorClass, update.ErrorCode))
-	if errors.Is(err, ErrNotFound) {
+	model, err := s.queries().FinishPreparedDeckBatchCleanup(ctx, sqlcgen.FinishPreparedDeckBatchCleanupParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID), ID: uuidArg(chunkID), CleanupClaimToken: uuidArg(token), InputFileCleanupState: update.InputFileState, OutputFileCleanupState: update.OutputFileState, ErrorFileCleanupState: update.ErrorFileState, InputFileCleanupAttempts: int32(update.InputFileAttempts), OutputFileCleanupAttempts: int32(update.OutputFileAttempts), ErrorFileCleanupAttempts: int32(update.ErrorFileAttempts), CleanupErrorClass: update.ErrorClass, CleanupErrorCode: update.ErrorCode})
+	chunk := preparedDeckBatchChunkFromModel(model)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PreparedDeckBatchChunk{}, ErrPreparedDeckClaimLost
 	}
 	return chunk, err

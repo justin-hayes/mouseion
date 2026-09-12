@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -78,9 +79,10 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if s == nil || tx == nil || strings.TrimSpace(params.OwnerID) == "" || strings.TrimSpace(params.PreparationID) == "" {
 		return FreezePreparedDeckRunResult{}, ErrInvalidTransition
 	}
-	var preparationState domain.DeckPreparationState
-	var currentRunID, preparationFilename string
-	err := tx.QueryRow(ctx, `SELECT state,COALESCE(current_run_id::text,''),filename FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, params.OwnerID, params.PreparationID).Scan(&preparationState, &currentRunID, &preparationFilename)
+	freezeState, err := sqlcgen.New(tx).GetDeckPreparationFreezeState(ctx, sqlcgen.GetDeckPreparationFreezeStateParams{OwnerID: uuidArg(params.OwnerID), ID: uuidArg(params.PreparationID)})
+	preparationState := domain.DeckPreparationState(freezeState.State)
+	currentRunID := uuidString(freezeState.CurrentRunID)
+	preparationFilename := freezeState.Filename
 	if errors.Is(err, pgx.ErrNoRows) {
 		return FreezePreparedDeckRunResult{}, ErrNotFound
 	}
@@ -100,7 +102,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			return FreezePreparedDeckRunResult{}, getErr
 		}
 		var storedDigest string
-		if getErr = tx.QueryRow(ctx, `SELECT manifest_digest FROM deck_preparation_manifests WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, params.OwnerID, params.PreparationID, currentRunID).Scan(&storedDigest); getErr != nil {
+		if storedDigest, getErr = sqlcgen.New(tx).GetPreparedDeckManifestDigest(ctx, sqlcgen.GetPreparedDeckManifestDigestParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(currentRunID)}); getErr != nil {
 			return FreezePreparedDeckRunResult{}, missing(getErr)
 		}
 		if storedDigest != digest || !runConfigMatches(run, params.Config) {
@@ -135,7 +137,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		}
 		key := item.CacheKey
 		var found bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7)`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
+		if found, err = sqlcgen.New(tx).PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash}); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 		if found {
@@ -166,10 +168,11 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	} else if len(params.Chunks) != 0 {
 		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: standard runs cannot contain Batch chunks", ErrImmutable)
 	}
-	var runNumber int
-	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(run_number),0)+1 FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2`, params.OwnerID, params.PreparationID).Scan(&runNumber); err != nil {
+	runNumberValue, err := sqlcgen.New(tx).NextPreparedDeckRunNumber(ctx, sqlcgen.NextPreparedDeckRunNumberParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID)})
+	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
+	runNumber := int(runNumberValue)
 	runID := params.RunID
 	if runID == "" {
 		runID = uuid.NewString()
@@ -177,23 +180,16 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: invalid durable run identity", ErrImmutable)
 	}
 	runState, translationState := domain.PreparedDeckRunTranslating, domain.PreparedDeckTranslationPending
-	var translationCompletedAt any
+	var translationCompletedAt *time.Time
 	if len(pending) == 0 {
 		runState, translationState = domain.PreparedDeckRunFinalizing, domain.PreparedDeckTranslationCompleted
-		translationCompletedAt = time.Now().UTC()
+		completedAt := time.Now().UTC()
+		translationCompletedAt = &completedAt
 	}
-	nullable := func(value string) any {
-		if requested {
-			return value
-		}
-		return nil
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_runs(id,owner_id,preparation_id,run_number,state,translation_state,execution_mode,target_language,external_translation_consent,external_translation_configured,context_mode,provider,provider_version,endpoint,model,manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,translation_completed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`, runID, params.OwnerID, params.PreparationID, runNumber, runState, translationState, config.ExecutionMode, config.TargetLanguage, config.ExternalTranslationConsent, config.ExternalTranslationConfigured, nullable(config.ContextMode), nullable(config.Provider), nullable(config.ProviderVersion), nullable(config.Endpoint), nullable(config.Model), params.Manifest.SchemaVersion, config.RetryPolicyVersion, config.MaxProviderAttempts, config.MaxBatchGenerations, config.BatchMaxRequests, config.BatchMaxBytes, acceptedCount, completedCount, translationCompletedAt)
-	if err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: uuidArg(runID), OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunNumber: int32(runNumber), State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: int32(params.Manifest.SchemaVersion), RetryPolicyVersion: int32(config.RetryPolicyVersion), MaxProviderAttempts: int32(config.MaxProviderAttempts), MaxBatchGenerations: int32(config.MaxBatchGenerations), BatchMaxRequests: int32(config.BatchMaxRequests), BatchMaxBytes: config.BatchMaxBytes, CandidateCount: int32(acceptedCount), CompletedCount: int32(completedCount), TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_manifests(owner_id,preparation_id,run_id,schema_version,manifest_digest,deck_name,filename,selected_count,accepted_count,omitted_count) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, params.OwnerID, params.PreparationID, runID, params.Manifest.SchemaVersion, digest, params.Manifest.DeckName, params.Manifest.Filename, selectedCount, acceptedCount, omittedCount)
-	if err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), SchemaVersion: int32(params.Manifest.SchemaVersion), ManifestDigest: digest, DeckName: params.Manifest.DeckName, Filename: params.Manifest.Filename, SelectedCount: int32(selectedCount), AcceptedCount: int32(acceptedCount), OmittedCount: int32(omittedCount)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	for _, item := range params.Manifest.Items {
@@ -205,24 +201,24 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		if marshalErr != nil {
 			return FreezePreparedDeckRunResult{}, marshalErr
 		}
-		var provider, providerVersion, sentenceHash any
+		var provider, providerVersion, sentenceHash pgtype.Text
 		if item.CacheKey != nil {
-			provider, providerVersion, sentenceHash = item.CacheKey.Provider, item.CacheKey.ProviderVersion, item.CacheKey.SentenceHash
+			provider, providerVersion, sentenceHash = nullableTextArg(item.CacheKey.Provider), nullableTextArg(item.CacheKey.ProviderVersion), nullableTextArg(item.CacheKey.SentenceHash)
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_manifest_items(owner_id,preparation_id,run_id,ordinal,disposition,language,target_language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,provider,provider_version,sentence_hash,candidate_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`, params.OwnerID, params.PreparationID, runID, item.Ordinal, item.Disposition, item.Entry.Language, config.TargetLanguage, item.Entry.CanonicalLemma, item.Entry.UPOS, item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter, item.Quality.Score, item.Quality.Reasons, renderPayload, provider, providerVersion, sentenceHash, candidateDigest)
-		if err != nil {
+		if err = sqlcgen.New(tx).InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), Ordinal: int32(item.Ordinal), Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: int32(item.Quality.Score), QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest}); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 		if item.Disposition == cardexport.ManifestAccepted {
 			state, cacheHits := domain.PreparedDeckOutcomeCompleted, 0
-			var terminalAt any = time.Now().UTC()
+			var terminalAt *time.Time
+			terminal := time.Now().UTC()
+			terminalAt = &terminal
 			if _, waiting := pending[item.Ordinal]; waiting {
 				state, terminalAt = domain.PreparedDeckOutcomePending, nil
 			} else if item.CacheKey != nil {
 				cacheHits = 1
 			}
-			_, err = tx.Exec(ctx, `INSERT INTO deck_preparation_translation_outcomes(owner_id,preparation_id,run_id,ordinal,state,max_provider_attempts,terminal_at,cache_hit_count) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, params.OwnerID, params.PreparationID, runID, item.Ordinal, state, config.MaxProviderAttempts, terminalAt, cacheHits)
-			if err != nil {
+			if err = sqlcgen.New(tx).InsertPreparedDeckTranslationOutcome(ctx, sqlcgen.InsertPreparedDeckTranslationOutcomeParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), Ordinal: int32(item.Ordinal), State: string(state), MaxProviderAttempts: int32(config.MaxProviderAttempts), TerminalAt: pgTimeArgPtr(terminalAt), CacheHitCount: int32(cacheHits)}); err != nil {
 				return FreezePreparedDeckRunResult{}, err
 			}
 		}
@@ -231,7 +227,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET state='preparing',current_run_id=$3,started_at=COALESCE(started_at,now()),completed_at=NULL,error='',updated_at=now() WHERE owner_id=$1 AND id=$2`, params.OwnerID, params.PreparationID, runID); err != nil {
+	if err = sqlcgen.New(tx).AttachPreparedDeckRun(ctx, sqlcgen.AttachPreparedDeckRunParams{OwnerID: uuidArg(params.OwnerID), ID: uuidArg(params.PreparationID), CurrentRunID: uuidArg(runID)}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
@@ -252,7 +248,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			chunkID = uuid.NewString()
 		}
 		first, last := plan.Ordinals[0], plan.Ordinals[len(plan.Ordinals)-1]
-		_, err := tx.Exec(ctx, `INSERT INTO deck_preparation_batch_chunks(id,owner_id,preparation_id,run_id,chunk_index,generation,model,endpoint,split_reason,first_ordinal,last_ordinal,input_digest,request_count,input_bytes,estimated_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, chunkID, params.OwnerID, params.PreparationID, runID, plan.ChunkIndex, plan.Generation, plan.Model, plan.Endpoint, plan.SplitReason, first, last, plan.InputDigest, len(plan.Ordinals), plan.InputBytes, plan.EstimatedPromptTokens)
+		err := sqlcgen.New(tx).InsertPreparedDeckBatchChunk(ctx, sqlcgen.InsertPreparedDeckBatchChunkParams{ID: uuidArg(chunkID), OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), ChunkIndex: int32(plan.ChunkIndex), Generation: int32(plan.Generation), Model: plan.Model, Endpoint: plan.Endpoint, SplitReason: plan.SplitReason, FirstOrdinal: int32(first), LastOrdinal: int32(last), InputDigest: plan.InputDigest, RequestCount: int32(len(plan.Ordinals)), InputBytes: plan.InputBytes, EstimatedPromptTokens: plan.EstimatedPromptTokens})
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +257,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			if digestErr != nil {
 				return nil, digestErr
 			}
-			if _, err = tx.Exec(ctx, `INSERT INTO deck_preparation_batch_chunk_items(owner_id,preparation_id,run_id,chunk_id,generation,position,ordinal,candidate_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, params.OwnerID, params.PreparationID, runID, chunkID, plan.Generation, position, ordinal, candidateDigest); err != nil {
+			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: uuidArg(params.OwnerID), PreparationID: uuidArg(params.PreparationID), RunID: uuidArg(runID), ChunkID: uuidArg(chunkID), Generation: int32(plan.Generation), Position: int32(position), Ordinal: int32(ordinal), CandidateDigest: candidateDigest}); err != nil {
 				return nil, err
 			}
 		}
@@ -357,12 +353,12 @@ func scanPreparedDeckRun(row rowScanner) (domain.PreparedDeckRun, error) {
 	return run, missing(err)
 }
 
-type preparedDeckQueryRower interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
-func getPreparedDeckRun(ctx context.Context, q preparedDeckQueryRower, owner, preparationID, runID string) (domain.PreparedDeckRun, error) {
-	return scanPreparedDeckRun(q.QueryRow(ctx, `SELECT `+preparedDeckRunColumns+` FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3`, owner, preparationID, runID))
+func getPreparedDeckRun(ctx context.Context, q sqlcgen.DBTX, owner, preparationID, runID string) (domain.PreparedDeckRun, error) {
+	model, err := sqlcgen.New(q).GetPreparedDeckRun(ctx, sqlcgen.GetPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), ID: uuidArg(runID)})
+	if err != nil {
+		return domain.PreparedDeckRun{}, missing(err)
+	}
+	return preparedDeckRunFromModel(model), nil
 }
 
 func (s *PostgresStore) GetPreparedDeckRun(ctx context.Context, owner, preparationID, runID string) (domain.PreparedDeckRun, error) {
@@ -370,47 +366,51 @@ func (s *PostgresStore) GetPreparedDeckRun(ctx context.Context, owner, preparati
 }
 
 func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, preparationID string) (domain.PreparedDeckRun, error) {
-	return scanPreparedDeckRun(s.pool.QueryRow(ctx, `SELECT `+preparedDeckRunColumns+` FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=(SELECT current_run_id FROM deck_preparations WHERE owner_id=$1 AND id=$2)`, owner, preparationID))
+	model, err := sqlcgen.New(s.pool).GetCurrentPreparedDeckRun(ctx, sqlcgen.GetCurrentPreparedDeckRunParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID)})
+	if err != nil {
+		return domain.PreparedDeckRun{}, missing(err)
+	}
+	return preparedDeckRunFromModel(model), nil
 }
 
 func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, preparationID, runID string) (cardexport.ManifestSnapshot, string, error) {
 	var snapshot cardexport.ManifestSnapshot
-	var storedDigest string
-	var selectedCount, acceptedCount, omittedCount int
-	err := s.pool.QueryRow(ctx, `SELECT schema_version,deck_name,filename,manifest_digest,selected_count,accepted_count,omitted_count FROM deck_preparation_manifests WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3`, owner, preparationID, runID).Scan(&snapshot.SchemaVersion, &snapshot.DeckName, &snapshot.Filename, &storedDigest, &selectedCount, &acceptedCount, &omittedCount)
+	manifest, err := sqlcgen.New(s.pool).GetPreparedDeckManifest(ctx, sqlcgen.GetPreparedDeckManifestParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)})
 	if err != nil {
 		return snapshot, "", missing(err)
 	}
 	snapshot.Owner = owner
-	rows, err := s.pool.Query(ctx, `SELECT ordinal,disposition,language,target_language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_reasons,render_payload,COALESCE(provider,''),COALESCE(provider_version,''),COALESCE(sentence_hash,''),candidate_digest FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 ORDER BY ordinal`, owner, preparationID, runID)
+	snapshot.SchemaVersion = int(manifest.SchemaVersion)
+	snapshot.DeckName = manifest.DeckName
+	snapshot.Filename = manifest.Filename
+	storedDigest := manifest.ManifestDigest
+	selectedCount, acceptedCount, omittedCount := int(manifest.SelectedCount), int(manifest.AcceptedCount), int(manifest.OmittedCount)
+	items, err := sqlcgen.New(s.pool).ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: uuidArg(owner), PreparationID: uuidArg(preparationID), RunID: uuidArg(runID)})
 	if err != nil {
 		return snapshot, "", err
 	}
-	defer rows.Close()
-	for rows.Next() {
+	for _, model := range items {
 		var item cardexport.ManifestItem
-		var payload []byte
-		var provider, providerVersion, sentenceHash, candidateDigest, targetLanguage string
-		if err = rows.Scan(&item.Ordinal, &item.Disposition, &item.Entry.Language, &targetLanguage, &item.Entry.CanonicalLemma, &item.Entry.UPOS, &item.Entry.Sentence, &item.Entry.TargetWord, &item.Entry.FirstEncounter, &item.Quality.Score, &item.Quality.Reasons, &payload, &provider, &providerVersion, &sentenceHash, &candidateDigest); err != nil {
-			return snapshot, "", err
-		}
+		item.Ordinal = int(model.Ordinal)
+		item.Disposition = cardexport.ManifestDisposition(model.Disposition)
+		item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS = model.Language, model.CanonicalLemma, model.Upos
+		item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter = model.SourceSentence, model.TestedTarget, model.FirstEncounter
+		item.Quality.Score, item.Quality.Reasons = int(model.QualityScore), model.QualityReasons
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
 		var render preparedDeckRenderPayload
-		if err = json.Unmarshal(payload, &render); err != nil {
+		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {
 			return snapshot, "", fmt.Errorf("decode durable manifest render payload: %w", err)
 		}
 		item.Entry.Morphology, item.Entry.SourceDocument, item.Entry.Notes = render.Morphology, render.SourceDocument, render.Notes
+		provider := pgText(model.Provider)
 		if provider != "" {
-			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: targetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash}
+			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), SentenceHash: pgText(model.SentenceHash)}
 		}
 		calculated, digestErr := cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
-		if digestErr != nil || calculated != candidateDigest {
+		if digestErr != nil || calculated != model.CandidateDigest {
 			return snapshot, "", ErrPreparedDeckIdentity
 		}
 		snapshot.Items = append(snapshot.Items, item)
-	}
-	if err = rows.Err(); err != nil {
-		return snapshot, "", err
 	}
 	selected, accepted, omitted := snapshot.Counts()
 	if selected != selectedCount || accepted != acceptedCount || omitted != omittedCount {

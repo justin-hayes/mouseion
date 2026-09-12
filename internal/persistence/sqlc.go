@@ -382,6 +382,42 @@ func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) d
 	}
 }
 
+func preparedDeckRunFromModel(m sqlcgen.DeckPreparationRun) domain.PreparedDeckRun {
+	return preparedDeckRunFromFields(
+		m.ID, m.OwnerID, m.PreparationID, m.RunNumber, m.State, m.TranslationState,
+		m.ExecutionMode, m.TargetLanguage, m.ExternalTranslationConsent, m.ExternalTranslationConfigured,
+		m.ContextMode, m.Provider, m.ProviderVersion, m.Endpoint, m.Model,
+		m.ManifestSchemaVersion, m.RetryPolicyVersion, m.MaxProviderAttempts, m.MaxBatchGenerations,
+		m.BatchMaxRequests, m.BatchMaxBytes, m.CandidateCount, m.CompletedCount, m.FailedCount,
+		m.FinalizationDispatchGeneration, m.FinalizationDispatchCount, m.FinalizationJobID,
+		m.FinalizationClaimToken, m.ErrorClass, m.ErrorCode, m.CreatedAt, m.UpdatedAt,
+		m.FinalizationClaimedAt, m.FinalizationLeaseExpiresAt, m.TranslationCompletedAt, m.CompletedAt,
+	)
+}
+
+func preparedDeckBatchChunkFromModel(m sqlcgen.DeckPreparationBatchChunk) domain.PreparedDeckBatchChunk {
+	return domain.PreparedDeckBatchChunk{
+		ID: uuidString(m.ID), OwnerID: uuidString(m.OwnerID), PreparationID: uuidString(m.PreparationID), RunID: uuidString(m.RunID),
+		ChunkIndex: int(m.ChunkIndex), Generation: int(m.Generation), State: domain.PreparedDeckBatchChunkState(m.State),
+		ProviderStatus: pgText(m.ProviderStatus), Model: m.Model, Endpoint: m.Endpoint, SplitReason: m.SplitReason,
+		FirstOrdinal: int(m.FirstOrdinal), LastOrdinal: int(m.LastOrdinal), InputDigest: m.InputDigest,
+		RequestCount: int(m.RequestCount), InputBytes: m.InputBytes, EstimatedPromptTokens: m.EstimatedPromptTokens,
+		CompletedCount: int(m.CompletedCount), FailedCount: int(m.FailedCount), ExpiredCount: int(m.ExpiredCount),
+		InputFileID: pgText(m.InputFileID), BatchID: pgText(m.BatchID), OutputFileID: pgText(m.OutputFileID), ErrorFileID: pgText(m.ErrorFileID),
+		SubmissionJobID: pgInt8(m.SubmissionJobID), SubmissionGeneration: int(m.SubmissionGeneration), SubmissionClaimToken: uuidString(m.SubmissionClaimToken),
+		SubmissionClaimedAt: pgTimePtr(m.SubmissionClaimedAt), SubmissionLeaseExpiresAt: pgTimePtr(m.SubmissionLeaseExpiresAt),
+		ReconciliationJobID: pgInt8(m.ReconciliationJobID), ReconciliationGeneration: int(m.ReconciliationGeneration), ReconciliationClaimToken: uuidString(m.ReconciliationClaimToken),
+		ReconciliationClaimedAt: pgTimePtr(m.ReconciliationClaimedAt), ReconciliationLeaseExpiresAt: pgTimePtr(m.ReconciliationLeaseExpiresAt),
+		ErrorClass: m.ErrorClass, ErrorCode: m.ErrorCode, InputTokens: m.InputTokens, OutputTokens: m.OutputTokens, TotalTokens: m.TotalTokens,
+		CreatedAt: pgTime(m.CreatedAt), UpdatedAt: pgTime(m.UpdatedAt), SubmittedAt: pgTimePtr(m.SubmittedAt), LastPolledAt: pgTimePtr(m.LastPolledAt),
+		ProviderCompletedAt: pgTimePtr(m.ProviderCompletedAt), ReconciledAt: pgTimePtr(m.ReconciledAt),
+		InputFileCleanupState: m.InputFileCleanupState, OutputFileCleanupState: m.OutputFileCleanupState, ErrorFileCleanupState: m.ErrorFileCleanupState,
+		InputFileCleanupAttempts: int(m.InputFileCleanupAttempts), OutputFileCleanupAttempts: int(m.OutputFileCleanupAttempts), ErrorFileCleanupAttempts: int(m.ErrorFileCleanupAttempts),
+		CleanupErrorClass: m.CleanupErrorClass, CleanupErrorCode: m.CleanupErrorCode, CleanupClaimToken: uuidString(m.CleanupClaimToken),
+		CleanupClaimedAt: pgTimePtr(m.CleanupClaimedAt), CleanupLeaseExpiresAt: pgTimePtr(m.CleanupLeaseExpiresAt), CleanupCompletedAt: pgTimePtr(m.CleanupCompletedAt),
+	}
+}
+
 // preparedDeckRunFromFields maps the deck_preparation_runs row columns onto
 // the domain PreparedDeckRun. The two sqlc-generated transition row structs
 // have identical fields; the mapping takes the fields directly.
