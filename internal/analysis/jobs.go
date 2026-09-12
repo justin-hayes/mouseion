@@ -857,11 +857,14 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	return nil
 }
 
-const normalizedCorpusInsertBatchSize = 500
+const (
+	normalizedCorpusSentenceInsertBatchSize = 500
+	normalizedCorpusTokenInsertBatchSize    = 4_000
+)
 
 func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, result analyzer.Result) error {
-	for start := 0; start < len(result.Sentences); start += normalizedCorpusInsertBatchSize {
-		end := min(start+normalizedCorpusInsertBatchSize, len(result.Sentences))
+	for start := 0; start < len(result.Sentences); start += normalizedCorpusSentenceInsertBatchSize {
+		end := min(start+normalizedCorpusSentenceInsertBatchSize, len(result.Sentences))
 		var query strings.Builder
 		query.WriteString(`INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES `)
 		args := make([]any, 0, (end-start)*8)
@@ -879,43 +882,53 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 		}
 	}
 
-	for start := 0; start < len(result.Sentences); start += normalizedCorpusInsertBatchSize {
-		end := min(start+normalizedCorpusInsertBatchSize, len(result.Sentences))
-		var tokenCount int
-		for _, sentence := range result.Sentences[start:end] {
-			tokenCount += len(sentence.Tokens)
-		}
+	var query strings.Builder
+	var args []any
+	tokenCount := 0
+	flushTokens := func() error {
 		if tokenCount == 0 {
-			continue
-		}
-		var query strings.Builder
-		query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,named_entity,start_offset,end_offset) VALUES `)
-		args := make([]any, 0, tokenCount*14)
-		for sentenceOrdinal := start; sentenceOrdinal < end; sentenceOrdinal++ {
-			for tokenOrdinal, token := range result.Sentences[sentenceOrdinal].Tokens {
-				if len(args) > 0 {
-					query.WriteString(",")
-				}
-				morphology := token.Morphology
-				if morphology == nil {
-					morphology = map[string]string{}
-				}
-				morphologyJSON, err := json.Marshal(morphology)
-				if err != nil {
-					return err
-				}
-				arg := len(args) + 1
-				fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13)
-				var namedEntity any
-				if token.NamedEntity != nil {
-					namedEntity = *token.NamedEntity
-				}
-				args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, morphologyJSON, namedEntity, int64(token.Location.StartOffset), int64(token.Location.EndOffset))
-			}
+			return nil
 		}
 		if _, err := tx.Exec(ctx, query.String(), args...); err != nil {
 			return err
 		}
+		query.Reset()
+		args = args[:0]
+		tokenCount = 0
+		return nil
+	}
+	for sentenceOrdinal, sentence := range result.Sentences {
+		for tokenOrdinal, token := range sentence.Tokens {
+			if tokenCount == normalizedCorpusTokenInsertBatchSize {
+				if err := flushTokens(); err != nil {
+					return err
+				}
+			}
+			if tokenCount == 0 {
+				query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,named_entity,start_offset,end_offset) VALUES `)
+			} else {
+				query.WriteString(",")
+			}
+			morphology := token.Morphology
+			if morphology == nil {
+				morphology = map[string]string{}
+			}
+			morphologyJSON, err := json.Marshal(morphology)
+			if err != nil {
+				return err
+			}
+			arg := len(args) + 1
+			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13)
+			var namedEntity any
+			if token.NamedEntity != nil {
+				namedEntity = *token.NamedEntity
+			}
+			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, morphologyJSON, namedEntity, int64(token.Location.StartOffset), int64(token.Location.EndOffset))
+			tokenCount++
+		}
+	}
+	if err := flushTokens(); err != nil {
+		return err
 	}
 	return nil
 }

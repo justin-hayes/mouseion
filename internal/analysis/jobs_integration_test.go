@@ -54,6 +54,13 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	}
 	namedEntity := "LOC"
 	unitID := domain.EPUBUnitID(0, "corpus-source")
+	tokens := []analyzer.Token{
+		{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
+		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
+	}
+	for i := 0; i <= normalizedCorpusTokenInsertBatchSize; i++ {
+		tokens = append(tokens, analyzer.Token{Surface: "x", RawLemma: "x", CanonicalLemma: "x", UPOS: "X", Morphology: map[string]string{}, Location: analyzer.SourceLocation{SourceDocumentID: unitID}})
+	}
 	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{
 			SchemaVersion: "1.0.0",
@@ -62,10 +69,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 				{
 					Text:     "Hallo Berlin.",
 					Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 13},
-					Tokens: []analyzer.Token{
-						{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
-						{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
-					},
+					Tokens:   tokens,
 				},
 				{Text: "", Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 13, EndOffset: 13}},
 			},
@@ -114,8 +118,8 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpus.ID).Scan(&tokenCount); err != nil {
 		t.Fatal(err)
 	}
-	if tokenCount != 2 {
-		t.Fatalf("token count = %d, want 2", tokenCount)
+	if tokenCount != int64(len(tokens)) {
+		t.Fatalf("token count = %d, want %d", tokenCount, len(tokens))
 	}
 	if corpus.Statistics == nil || corpus.Statistics.TextProfile == nil || corpus.Statistics.TextProfile.SentenceCount != sentenceCount || corpus.Statistics.TextProfile.EmptySentenceCount != 1 {
 		t.Fatalf("text profile = %+v, want two sentences and one empty sentence", corpus.Statistics)
