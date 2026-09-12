@@ -264,7 +264,9 @@ type ConcordanceOccurrence struct {
 	SourceMaterialID, AnalysisRunID, CorpusID   string
 	UnitID, ChapterTitle                        string
 	UnitOrder, SentenceOrdinal, TokenOrdinal    int64
-	BookPosition                                *int
+	// BookPosition is the Reading Journey position, when the Book is a
+	// member; analyzed Books outside the Journey have no position.
+	BookPosition *int
 }
 
 // JourneyRouteBook is the derived, on-demand comparison view of one Journey
