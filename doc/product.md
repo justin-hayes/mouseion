@@ -52,6 +52,7 @@ language for import.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
 - [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — durable asynchronous Batch execution for optional prepared-deck translation.
+- [Concordance Foundation](features/concordance-foundation.md) — persists the normalized sentence/token corpus at analysis time so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
 
 ## Current pipeline
 
@@ -135,6 +136,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 56. [ADR 0056: Retire the Campaign learner surface](adr/0056-retire-campaign-learner-surface.md) — removes the Campaign queue, history, and operations from the learner-facing application and makes Book vocabulary-study state and history the canonical surface.
 57. [ADR 0057: Retire the Language view panel](adr/0057-retire-language-view-panel.md) — retires the proposed My Books language panel and its read model; per-Book and Journey surfaces remain the evidence contracts.
 58. [ADR 0058: Catalog maintenance is a principal destination](adr/0058-catalog-maintenance-principal-destination.md) — promotes learner-owned catalog connection maintenance to a fourth shell destination at `/catalogs`, retires "Add books" as a term, and standardizes the learner-facing spelling on "catalog".
+59. [ADR 0059: Persisted normalized corpus for future concordance](adr/0059-persisted-normalized-corpus-for-concordance.md) — persists the normalized sentence/token stream at analysis time in owner-scoped tables so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
 
 ## Deployment and operations
 
