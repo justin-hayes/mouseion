@@ -1189,6 +1189,28 @@ func TestExportCoverageUsesPersistedDependenciesForFiniteVerbGate(t *testing.T) 
 	assert.Equal(t, "haus", again.Omitted[0].CanonicalLemma, "the fragment remains eligible after omission")
 }
 
+func TestManifestRecordsPersistedGDEXDiagnostics(t *testing.T) {
+	manifest := NewManifest("alice", "Book", []Entry{{
+		Language: "de", CanonicalLemma: "see", UPOS: "NOUN", Sentence: "Anna steht heute hier am See.", TargetWord: "See", FirstEncounter: 10,
+		SentenceTokens: []analyzer.Token{
+			{Surface: "Anna", UPOS: "PROPN", Dependency: "nsubj", Head: 1},
+			{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "heute", UPOS: "ADV", Dependency: "advmod", Head: 1},
+			{Surface: "hier", UPOS: "ADV", Dependency: "advmod", Head: 1},
+			{Surface: "am", UPOS: "ADP", Dependency: "case", Head: 5},
+			{Surface: "See", UPOS: "NOUN", Dependency: "obl", Head: 1},
+		},
+	}})
+	snapshot := manifest.Snapshot()
+	require.Len(t, snapshot.Items, 1)
+	assert.True(t, snapshot.Items[0].Quality.Accepted)
+	assert.Greater(t, snapshot.Items[0].Quality.GDEXScore, float64(0))
+	assert.Contains(t, snapshot.Items[0].Quality.Reasons, "deictic context")
+	assert.Contains(t, snapshot.Items[0].Quality.Reasons, "named-entity density")
+	_, err := snapshot.Digest()
+	assert.NoError(t, err)
+}
+
 func contains(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {

@@ -326,9 +326,16 @@ func scoreSentenceQuality(language, sentence, target string, firstEncounter int6
 		}
 		gdexQuality := gdex.ScoreSentenceQuality(analyzer.Sentence{Text: text, Tokens: tokens}, targetIndices)
 		quality.GDEXScore = gdexQuality.Score
+		for _, reason := range gdexQuality.Reasons {
+			if !slices.Contains(quality.Reasons, reason) {
+				quality.Reasons = append(quality.Reasons, reason)
+			}
+		}
 		if !gdexQuality.Accepted {
 			quality.Score = 0
-			reject(reasonNoFiniteVerbAndSubject)
+			if !slices.Contains(quality.Reasons, reasonNoFiniteVerbAndSubject) {
+				reject(reasonNoFiniteVerbAndSubject)
+			}
 		}
 	}
 
@@ -933,7 +940,14 @@ func clearExternalFields(entry *Entry) {
 }
 
 func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
-	if evidence, ok := bestSentenceEvidence(candidate, persisted); ok {
+	var evidence SentenceEvidence
+	var ok bool
+	if persisted != nil {
+		evidence, ok = BestSentenceEvidenceFromCorpus(candidate, persisted)
+	} else {
+		evidence, ok = BestSentenceEvidence(candidate)
+	}
+	if ok {
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
@@ -984,6 +998,13 @@ func (s *Service) loadCorpusSentences(ctx context.Context, owner string, candida
 			return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", corpusID, err)
 		}
 		if len(sentences) > 0 {
+			for ordinal := range ordinalSet {
+				if _, ok := sentences[ordinal]; !ok {
+					return nil, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", corpusID, ordinal)
+				}
+			}
+		}
+		if len(sentences) > 0 {
 			result[corpusID] = sentences
 		}
 	}
@@ -1008,6 +1029,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		decisionEntry := entry
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
+		decisionEntry.SentenceTokens = nil
 		decisionEntry.SentenceTokens = nil
 		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
 		if !quality.Accepted {
