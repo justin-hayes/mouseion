@@ -135,6 +135,129 @@ func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOc
 	return items, nil
 }
 
+const listBookOccurrencesByLemmaAndDependency = `-- name: ListBookOccurrencesByLemmaAndDependency :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  WHERE o.owner_id = $1
+    AND o.language = $2
+    AND o.canonical_lemma = $3
+    AND o.upos = $4
+    AND o.dependency = $5
+    AND o.book_id = $6
+  ORDER BY o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListBookOccurrencesByLemmaAndDependencyParams struct {
+	Owner          string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+	Dependency     string
+	Book           string
+}
+
+type ListBookOccurrencesByLemmaAndDependencyRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListBookOccurrencesByLemmaAndDependency(ctx context.Context, arg ListBookOccurrencesByLemmaAndDependencyParams) ([]ListBookOccurrencesByLemmaAndDependencyRow, error) {
+	rows, err := q.db.Query(ctx, listBookOccurrencesByLemmaAndDependency,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Dependency,
+		arg.Book,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBookOccurrencesByLemmaAndDependencyRow{}
+	for rows.Next() {
+		var i ListBookOccurrencesByLemmaAndDependencyRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookOccurrencesBySurface = `-- name: ListBookOccurrencesBySurface :many
 SELECT o.surface,
        o.canonical_lemma,
@@ -216,6 +339,126 @@ func (q *Queries) ListBookOccurrencesBySurface(ctx context.Context, arg ListBook
 	items := []ListBookOccurrencesBySurfaceRow{}
 	for rows.Next() {
 		var i ListBookOccurrencesBySurfaceRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookOccurrencesBySurfaceAndDependency = `-- name: ListBookOccurrencesBySurfaceAndDependency :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  WHERE o.owner_id = $1
+    AND o.language = $2
+    AND o.surface = $3
+    AND o.dependency = $4
+    AND o.book_id = $5
+  ORDER BY o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListBookOccurrencesBySurfaceAndDependencyParams struct {
+	Owner      string
+	Language   string
+	Surface    string
+	Dependency string
+	Book       string
+}
+
+type ListBookOccurrencesBySurfaceAndDependencyRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListBookOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListBookOccurrencesBySurfaceAndDependencyParams) ([]ListBookOccurrencesBySurfaceAndDependencyRow, error) {
+	rows, err := q.db.Query(ctx, listBookOccurrencesBySurfaceAndDependency,
+		arg.Owner,
+		arg.Language,
+		arg.Surface,
+		arg.Dependency,
+		arg.Book,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBookOccurrencesBySurfaceAndDependencyRow{}
+	for rows.Next() {
+		var i ListBookOccurrencesBySurfaceAndDependencyRow
 		if err := rows.Scan(
 			&i.Surface,
 			&i.CanonicalLemma,
@@ -372,6 +615,129 @@ func (q *Queries) ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg L
 	return items, nil
 }
 
+const listStudyLanguageOccurrencesByLemmaAndDependency = `-- name: ListStudyLanguageOccurrencesByLemmaAndDependency :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  WHERE o.owner_id = $1
+    AND o.language = $2
+    AND o.canonical_lemma = $3
+    AND o.upos = $4
+    AND o.dependency = $5
+  ORDER BY o.book_position NULLS LAST,
+           o.book_position_created_at NULLS LAST,
+           lower(o.book_title), o.book_title, o.book_id,
+           o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListStudyLanguageOccurrencesByLemmaAndDependencyParams struct {
+	Owner          string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+	Dependency     string
+}
+
+type ListStudyLanguageOccurrencesByLemmaAndDependencyRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaAndDependencyParams) ([]ListStudyLanguageOccurrencesByLemmaAndDependencyRow, error) {
+	rows, err := q.db.Query(ctx, listStudyLanguageOccurrencesByLemmaAndDependency,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.Dependency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyLanguageOccurrencesByLemmaAndDependencyRow{}
+	for rows.Next() {
+		var i ListStudyLanguageOccurrencesByLemmaAndDependencyRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudyLanguageOccurrencesBySurface = `-- name: ListStudyLanguageOccurrencesBySurface :many
 SELECT o.surface,
        o.canonical_lemma,
@@ -449,6 +815,126 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg
 	items := []ListStudyLanguageOccurrencesBySurfaceRow{}
 	for rows.Next() {
 		var i ListStudyLanguageOccurrencesBySurfaceRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudyLanguageOccurrencesBySurfaceAndDependency = `-- name: ListStudyLanguageOccurrencesBySurfaceAndDependency :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  WHERE o.owner_id = $1
+    AND o.language = $2
+    AND o.surface = $3
+    AND o.dependency = $4
+  ORDER BY o.book_position NULLS LAST,
+           o.book_position_created_at NULLS LAST,
+           lower(o.book_title), o.book_title, o.book_id,
+           o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListStudyLanguageOccurrencesBySurfaceAndDependencyParams struct {
+	Owner      string
+	Language   string
+	Surface    string
+	Dependency string
+}
+
+type ListStudyLanguageOccurrencesBySurfaceAndDependencyRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceAndDependencyParams) ([]ListStudyLanguageOccurrencesBySurfaceAndDependencyRow, error) {
+	rows, err := q.db.Query(ctx, listStudyLanguageOccurrencesBySurfaceAndDependency,
+		arg.Owner,
+		arg.Language,
+		arg.Surface,
+		arg.Dependency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyLanguageOccurrencesBySurfaceAndDependencyRow{}
+	for rows.Next() {
+		var i ListStudyLanguageOccurrencesBySurfaceAndDependencyRow
 		if err := rows.Scan(
 			&i.Surface,
 			&i.CanonicalLemma,
