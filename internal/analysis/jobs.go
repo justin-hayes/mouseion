@@ -1018,7 +1018,7 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	values := map[string]entry{}
 	for _, sentence := range result.Sentences {
 		for _, token := range sentence.Tokens {
-			if !lexical.IsLemma(token.CanonicalLemma) {
+			if token.Dependency == "compound:prt" || !lexical.IsLemma(token.CanonicalLemma) {
 				continue
 			}
 			raw, _ := json.Marshal(token.Morphology)

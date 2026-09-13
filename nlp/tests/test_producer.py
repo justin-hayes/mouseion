@@ -299,7 +299,102 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
         "dass",
     ]
     assert artifact.normalization_profile.name == "german-standard-post-1996"
-    assert artifact.normalization_profile.version == "4"
+    assert artifact.normalization_profile.version == "5"
+
+
+def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="Er ist aufgestanden.",
+                tokens=[
+                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("ist", "sein", "AUX", None, 3, 6, id=2, head=0)]),
+                    SimpleNamespace(words=[word("aufgestanden", "aufstehen", "VERB", None, 7, 19, id=3, head=2, deprel="xcomp")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 19, 20, id=4, head=2, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Ich stehe auf.",
+                tokens=[
+                    SimpleNamespace(words=[word("Ich", "ich", "PRON", None, 0, 3, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("stehe", "stehen", "VERB", None, 4, 9, id=2, head=0)]),
+                    SimpleNamespace(words=[word("auf", "auf", "ADV", None, 10, 13, id=3, head=2, deprel="compound:prt")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 13, 14, id=4, head=2, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Er stellt das wieder her.",
+                tokens=[
+                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("stellt", "stellen", "VERB", None, 3, 9, id=2, head=0)]),
+                    SimpleNamespace(words=[word("das", "das", "DET", None, 10, 13, id=3, head=2, deprel="det")]),
+                    SimpleNamespace(words=[word("wieder", "wieder", "ADV", None, 14, 20, id=4, head=2, deprel="compound:prt")]),
+                    SimpleNamespace(words=[word("her", "her", "ADV", None, 21, 24, id=5, head=2, deprel="compound:prt")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 24, 25, id=6, head=2, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Die Tür ist auf.",
+                tokens=[
+                    SimpleNamespace(words=[word("Die", "die", "DET", None, 0, 3, id=1, head=2, deprel="det")]),
+                    SimpleNamespace(words=[word("Tür", "Tür", "NOUN", None, 4, 7, id=2, head=3, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("ist", "sein", "AUX", None, 8, 11, id=3, head=0)]),
+                    SimpleNamespace(words=[word("auf", "auf", "ADV", None, 12, 15, id=4, head=3, deprel="xcomp")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 15, 16, id=5, head=3, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Er steht auf dem Berg.",
+                tokens=[
+                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("steht", "stehen", "VERB", None, 3, 8, id=2, head=0)]),
+                    SimpleNamespace(words=[word("auf", "auf", "ADP", None, 9, 12, id=3, head=5, deprel="case")]),
+                    SimpleNamespace(words=[word("dem", "der", "DET", None, 13, 16, id=4, head=5, deprel="det")]),
+                    SimpleNamespace(words=[word("Berg", "Berg", "NOUN", None, 17, 21, id=5, head=2, deprel="obl")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 21, 22, id=6, head=2, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Es bleibt nach wie vor.",
+                tokens=[
+                    SimpleNamespace(words=[word("Es", "es", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("bleibt", "bleiben", "VERB", None, 3, 9, id=2, head=0)]),
+                    SimpleNamespace(words=[word("nach", "nach", "ADV", None, 10, 14, id=3, head=2, deprel="advmod")]),
+                    SimpleNamespace(words=[word("wie", "wie", "ADV", None, 15, 18, id=4, head=2, deprel="advmod")]),
+                    SimpleNamespace(words=[word("vor", "vor", "ADV", None, 19, 22, id=5, head=2, deprel="advmod")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 22, 23, id=6, head=2, deprel="punct")]),
+                ],
+            ),
+            SimpleNamespace(
+                text="Er geht zack.",
+                tokens=[
+                    SimpleNamespace(words=[word("Er", "er", "PRON", None, 0, 2, id=1, head=2, deprel="nsubj")]),
+                    SimpleNamespace(words=[word("geht", "gehen", "VERB", None, 3, 7, id=2, head=0)]),
+                    SimpleNamespace(words=[word("zack", "zack", "ADV", None, 8, 12, id=3, head=2, deprel="compound:prt")]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 12, 13, id=4, head=2, deprel="punct")]),
+                ],
+            ),
+        ]
+    )
+    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+
+    artifact = producer.analyze("fixture", "de")
+
+    attached, separated, multiple, predicative, prepositional, fixed, unknown = [
+        sentence.tokens for sentence in artifact.sentences
+    ]
+    assert attached[2].raw_lemma == "aufstehen"
+    assert attached[2].canonical_lemma == "aufstehen"
+    assert separated[1].raw_lemma == "stehen"
+    assert separated[1].canonical_lemma == "aufstehen"
+    assert separated[2].canonical_lemma == "auf"
+    assert multiple[1].canonical_lemma == "wiederherstellen"
+    assert predicative[2].canonical_lemma == "sein"
+    assert prepositional[1].canonical_lemma == "stehen"
+    assert fixed[1].canonical_lemma == "bleiben"
+    assert unknown[1].canonical_lemma == "gehen"
+    assert artifact.normalization_profile.version == "5"
 
 
 def test_normalized_corpus_round_trip() -> None:

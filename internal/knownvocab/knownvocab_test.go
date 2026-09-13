@@ -119,7 +119,7 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	assert.Equal(t, "geleiten|leiten", result.Entries[2].RawLemma)
 	assert.Equal(t, "geleiten", result.Entries[2].CanonicalLemma)
 	assert.Equal(t, "german-standard-post-1996", result.Entries[0].ProfileName)
-	assert.Equal(t, "4", result.Entries[0].ProfileVersion)
+	assert.Equal(t, "5", result.Entries[0].ProfileVersion)
 }
 
 func TestImportRejectsNonLexicalLemmasAndPreservesUnicodeWords(t *testing.T) {
