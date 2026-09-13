@@ -114,6 +114,79 @@ func (q *Queries) GetGeneratedVocabulary(ctx context.Context, arg GetGeneratedVo
 	return i, err
 }
 
+const listCorpusSentences = `-- name: ListCorpusSentences :many
+SELECT s.sentence_ordinal,
+       s.sentence_text,
+       COALESCE(t.token_ordinal, -1::bigint)::bigint AS token_ordinal,
+       COALESCE(t.surface, '')::text AS surface,
+       COALESCE(t.raw_lemma, '')::text AS raw_lemma,
+       COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
+       COALESCE(t.upos, '')::text AS upos,
+       COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
+       COALESCE(t.dependency, '')::text AS dependency,
+       COALESCE(t.head, 0::bigint)::bigint AS head
+FROM corpus_sentences s
+LEFT JOIN corpus_tokens t
+  ON t.owner_id = s.owner_id
+ AND t.corpus_id = s.corpus_id
+ AND t.analysis_run_id = s.analysis_run_id
+ AND t.sentence_ordinal = s.sentence_ordinal
+WHERE s.owner_id = $1
+  AND s.corpus_id = $2
+  AND s.sentence_ordinal = ANY($3::bigint[])
+ORDER BY s.sentence_ordinal, t.token_ordinal
+`
+
+type ListCorpusSentencesParams struct {
+	Owner            string
+	Corpus           string
+	SentenceOrdinals []int64
+}
+
+type ListCorpusSentencesRow struct {
+	SentenceOrdinal int64
+	SentenceText    string
+	TokenOrdinal    int64
+	Surface         string
+	RawLemma        string
+	CanonicalLemma  string
+	Upos            string
+	Morphology      []byte
+	Dependency      string
+	Head            int64
+}
+
+func (q *Queries) ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error) {
+	rows, err := q.db.Query(ctx, listCorpusSentences, arg.Owner, arg.Corpus, arg.SentenceOrdinals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCorpusSentencesRow{}
+	for rows.Next() {
+		var i ListCorpusSentencesRow
+		if err := rows.Scan(
+			&i.SentenceOrdinal,
+			&i.SentenceText,
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.RawLemma,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Morphology,
+			&i.Dependency,
+			&i.Head,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGeneratedVocabulary = `-- name: ListGeneratedVocabulary :many
 SELECT owner_id::text,
        language,
