@@ -55,6 +55,19 @@ exclusion set of the current study; only one book's vocabulary is reserved at a
 time per owner.
 _Avoid_: active-campaign vocabulary, known vocabulary.
 
+**Separable particle**:
+The prefix component of a separable verb that detaches from the finite form in
+some clauses (for example `auf` in `ich stehe auf`), identified by its
+dependency relation (`compound:prt`) to the verb. A particle is a component of
+the verb's full lemma, never its own vocabulary item.
+_Avoid_: prefix (ambiguous with derivational prefix), verb particle.
+
+**Separable verb**:
+A German verb whose particle separates from the finite form in some clause
+positions and rejoins in others (`aufstehen` → `ich stehe auf`, `aufgestanden`).
+Its vocabulary identity is the full lemma, not the analyzer's base lemma.
+_Avoid_: particle verb, prefix verb.
+
 **Prepared deck**:
 An Anki recognition deck built asynchronously from the recurring vocabulary of
 one exact completed analysis of a Book and that analysis's EPUB snapshot. The
@@ -196,6 +209,19 @@ _Avoid_: parent (implementation flavoured), controller.
 A token whose dependency relation attaches it to a head. A queried lemma's
 dependents in a specific relation are what a grammar query returns.
 _Avoid_: child, argument.
+
+**Full lemma** (compound lexeme):
+The reattached dictionary lemma of a separable verb — `aufstehen` rather than
+the analyzer's base `stehen` — formed by joining the separable particle to the
+verb's lemma. For German, the full lemma is the vocabulary identity; the
+analyzer's base form is preserved as the raw lemma.
+_Avoid_: compound lemma (ambiguous with lexical compounding), prefixed lemma.
+
+**Lemma**:
+The citation form an analyzer assigns to a token (for example `stehen`), the
+raw input from which a language-specific normalization profile derives the
+canonical lemma. Not to be confused with the full lemma of a separable verb.
+_Avoid_: root (morphology), base form (ambiguous).
 
 **Collocation**:
 Words that co-occur with a queried lemma within a limited span (typically the
