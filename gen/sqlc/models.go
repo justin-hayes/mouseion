@@ -120,6 +120,36 @@ type CatalogueSyncStatus struct {
 	UpdatedAt         time.Time
 }
 
+type ConcordanceOccurrence struct {
+	OwnerID               string
+	Language              string
+	Surface               string
+	CanonicalLemma        string
+	Upos                  string
+	Dependency            string
+	HeadOrdinal           int64
+	HeadSurface           pgtype.Text
+	SentenceText          string
+	SentenceStartOffset   int64
+	SentenceEndOffset     int64
+	UnitStartOffset       int64
+	UnitEndOffset         int64
+	BookStartOffset       int64
+	BookEndOffset         int64
+	BookID                string
+	BookTitle             string
+	SourceMaterialID      string
+	AnalysisRunID         string
+	CorpusID              string
+	UnitID                string
+	ChapterTitle          string
+	UnitOrder             int64
+	SentenceOrdinal       int64
+	TokenOrdinal          int64
+	BookPosition          pgtype.Int4
+	BookPositionCreatedAt pgtype.Timestamptz
+}
+
 type Corpora struct {
 	ID                       string
 	OwnerID                  string

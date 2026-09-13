@@ -13,57 +13,34 @@ import (
 
 const listBookOccurrencesByLemma = `-- name: ListBookOccurrencesByLemma :many
 
-SELECT t.surface,
-       t.canonical_lemma,
-       t.upos,
-       s.sentence_text,
-       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
-       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
-       t.start_offset AS unit_start_offset,
-       t.end_offset AS unit_end_offset,
-       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
-       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
-       ca.book_id::text AS book_id,
-       b.title AS book_title,
-       ca.source_material_id::text AS source_material_id,
-       ca.analysis_run_id::text AS analysis_run_id,
-       ca.corpus_id::text AS corpus_id,
-       u.unit_id,
-       u.title AS chapter_title,
-       u.unit_order,
-       s.sentence_ordinal,
-       t.token_ordinal,
-       jm.position AS book_position
-FROM corpus_tokens t
-JOIN corpus_sentences s
-  ON s.owner_id = t.owner_id
- AND s.analysis_run_id = t.analysis_run_id
- AND s.corpus_id = t.corpus_id
- AND s.sentence_ordinal = t.sentence_ordinal
-JOIN current_analysis_identity ca
-  ON ca.owner_id = t.owner_id
- AND ca.analysis_run_id = t.analysis_run_id
- AND ca.corpus_id = t.corpus_id
-JOIN books b
-  ON b.owner_id = ca.owner_id
- AND b.id = ca.book_id
- AND b.language_state = 'chosen'
- AND b.language_tag = t.language
-JOIN source_material_units u
-  ON u.owner_id = ca.owner_id
- AND u.source_material_id = ca.source_material_id
- AND u.snapshot_id = ca.snapshot_id
- AND u.unit_id = s.unit_id
-LEFT JOIN reading_journey_membership jm
-  ON jm.owner_id = ca.owner_id
- AND jm.language = t.language
- AND jm.book_id = ca.book_id
-WHERE t.owner_id = $1
-  AND t.language = $2
-  AND t.canonical_lemma = $3
-  AND t.upos = $4
-  AND ca.book_id = $5
-ORDER BY u.unit_order, s.sentence_ordinal, t.token_ordinal
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+ FROM concordance_occurrences o
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND o.canonical_lemma = $3
+   AND o.upos = $4
+   AND o.book_id = $5
+ ORDER BY o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
 type ListBookOccurrencesByLemmaParams struct {
@@ -98,7 +75,7 @@ type ListBookOccurrencesByLemmaRow struct {
 	BookPosition        pgtype.Int4
 }
 
-// Concordance occurrence queries read only the current analysis identity. Book
+// Concordance occurrence queries read from the shared occurrence model. Book
 // position is the learner's Reading Journey position; analyzed Books outside
 // the Journey remain in study-language results with no position.
 func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error) {
@@ -150,56 +127,33 @@ func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOc
 }
 
 const listBookOccurrencesBySurface = `-- name: ListBookOccurrencesBySurface :many
-SELECT t.surface,
-       t.canonical_lemma,
-       t.upos,
-       s.sentence_text,
-       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
-       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
-       t.start_offset AS unit_start_offset,
-       t.end_offset AS unit_end_offset,
-       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
-       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
-       ca.book_id::text AS book_id,
-       b.title AS book_title,
-       ca.source_material_id::text AS source_material_id,
-       ca.analysis_run_id::text AS analysis_run_id,
-       ca.corpus_id::text AS corpus_id,
-       u.unit_id,
-       u.title AS chapter_title,
-       u.unit_order,
-       s.sentence_ordinal,
-       t.token_ordinal,
-       jm.position AS book_position
-FROM corpus_tokens t
-JOIN corpus_sentences s
-  ON s.owner_id = t.owner_id
- AND s.analysis_run_id = t.analysis_run_id
- AND s.corpus_id = t.corpus_id
- AND s.sentence_ordinal = t.sentence_ordinal
-JOIN current_analysis_identity ca
-  ON ca.owner_id = t.owner_id
- AND ca.analysis_run_id = t.analysis_run_id
- AND ca.corpus_id = t.corpus_id
-JOIN books b
-  ON b.owner_id = ca.owner_id
- AND b.id = ca.book_id
- AND b.language_state = 'chosen'
- AND b.language_tag = t.language
-JOIN source_material_units u
-  ON u.owner_id = ca.owner_id
- AND u.source_material_id = ca.source_material_id
- AND u.snapshot_id = ca.snapshot_id
- AND u.unit_id = s.unit_id
-LEFT JOIN reading_journey_membership jm
-  ON jm.owner_id = ca.owner_id
- AND jm.language = t.language
- AND jm.book_id = ca.book_id
-WHERE t.owner_id = $1
-  AND t.language = $2
-  AND t.surface = $3
-  AND ca.book_id = $4
-ORDER BY u.unit_order, s.sentence_ordinal, t.token_ordinal
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+ FROM concordance_occurrences o
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND o.surface = $3
+   AND o.book_id = $4
+ ORDER BY o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
 type ListBookOccurrencesBySurfaceParams struct {
@@ -281,59 +235,36 @@ func (q *Queries) ListBookOccurrencesBySurface(ctx context.Context, arg ListBook
 }
 
 const listStudyLanguageOccurrencesByLemma = `-- name: ListStudyLanguageOccurrencesByLemma :many
-SELECT t.surface,
-       t.canonical_lemma,
-       t.upos,
-       s.sentence_text,
-       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
-       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
-       t.start_offset AS unit_start_offset,
-       t.end_offset AS unit_end_offset,
-       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
-       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
-       ca.book_id::text AS book_id,
-       b.title AS book_title,
-       ca.source_material_id::text AS source_material_id,
-       ca.analysis_run_id::text AS analysis_run_id,
-       ca.corpus_id::text AS corpus_id,
-       u.unit_id,
-       u.title AS chapter_title,
-       u.unit_order,
-       s.sentence_ordinal,
-       t.token_ordinal,
-       jm.position AS book_position
-FROM corpus_tokens t
-JOIN corpus_sentences s
-  ON s.owner_id = t.owner_id
- AND s.analysis_run_id = t.analysis_run_id
- AND s.corpus_id = t.corpus_id
- AND s.sentence_ordinal = t.sentence_ordinal
-JOIN current_analysis_identity ca
-  ON ca.owner_id = t.owner_id
- AND ca.analysis_run_id = t.analysis_run_id
- AND ca.corpus_id = t.corpus_id
-JOIN books b
-  ON b.owner_id = ca.owner_id
- AND b.id = ca.book_id
- AND b.language_state = 'chosen'
- AND b.language_tag = t.language
-JOIN source_material_units u
-  ON u.owner_id = ca.owner_id
- AND u.source_material_id = ca.source_material_id
- AND u.snapshot_id = ca.snapshot_id
- AND u.unit_id = s.unit_id
-LEFT JOIN reading_journey_membership jm
-  ON jm.owner_id = ca.owner_id
- AND jm.language = t.language
- AND jm.book_id = ca.book_id
-WHERE t.owner_id = $1
-  AND t.language = $2
-  AND t.canonical_lemma = $3
-  AND t.upos = $4
-ORDER BY jm.position NULLS LAST,
-         jm.created_at NULLS LAST,
-         lower(b.title), b.title, b.id,
-         u.unit_order, s.sentence_ordinal, t.token_ordinal
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+ FROM concordance_occurrences o
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND o.canonical_lemma = $3
+   AND o.upos = $4
+ ORDER BY o.book_position NULLS LAST,
+          o.book_position_created_at NULLS LAST,
+          lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
 type ListStudyLanguageOccurrencesByLemmaParams struct {
@@ -415,58 +346,35 @@ func (q *Queries) ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg L
 }
 
 const listStudyLanguageOccurrencesBySurface = `-- name: ListStudyLanguageOccurrencesBySurface :many
-SELECT t.surface,
-       t.canonical_lemma,
-       t.upos,
-       s.sentence_text,
-       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
-       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
-       t.start_offset AS unit_start_offset,
-       t.end_offset AS unit_end_offset,
-       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
-       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
-       ca.book_id::text AS book_id,
-       b.title AS book_title,
-       ca.source_material_id::text AS source_material_id,
-       ca.analysis_run_id::text AS analysis_run_id,
-       ca.corpus_id::text AS corpus_id,
-       u.unit_id,
-       u.title AS chapter_title,
-       u.unit_order,
-       s.sentence_ordinal,
-       t.token_ordinal,
-       jm.position AS book_position
-FROM corpus_tokens t
-JOIN corpus_sentences s
-  ON s.owner_id = t.owner_id
- AND s.analysis_run_id = t.analysis_run_id
- AND s.corpus_id = t.corpus_id
- AND s.sentence_ordinal = t.sentence_ordinal
-JOIN current_analysis_identity ca
-  ON ca.owner_id = t.owner_id
- AND ca.analysis_run_id = t.analysis_run_id
- AND ca.corpus_id = t.corpus_id
-JOIN books b
-  ON b.owner_id = ca.owner_id
- AND b.id = ca.book_id
- AND b.language_state = 'chosen'
- AND b.language_tag = t.language
-JOIN source_material_units u
-  ON u.owner_id = ca.owner_id
- AND u.source_material_id = ca.source_material_id
- AND u.snapshot_id = ca.snapshot_id
- AND u.unit_id = s.unit_id
-LEFT JOIN reading_journey_membership jm
-  ON jm.owner_id = ca.owner_id
- AND jm.language = t.language
- AND jm.book_id = ca.book_id
-WHERE t.owner_id = $1
-  AND t.language = $2
-  AND t.surface = $3
-ORDER BY jm.position NULLS LAST,
-         jm.created_at NULLS LAST,
-         lower(b.title), b.title, b.id,
-         u.unit_order, s.sentence_ordinal, t.token_ordinal
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+ FROM concordance_occurrences o
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND o.surface = $3
+ ORDER BY o.book_position NULLS LAST,
+          o.book_position_created_at NULLS LAST,
+          lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
 type ListStudyLanguageOccurrencesBySurfaceParams struct {
