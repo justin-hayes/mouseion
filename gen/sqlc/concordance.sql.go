@@ -16,6 +16,9 @@ const listBookOccurrencesByLemma = `-- name: ListBookOccurrencesByLemma :many
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
        o.sentence_text,
        o.sentence_start_offset,
        o.sentence_end_offset,
@@ -55,6 +58,9 @@ type ListBookOccurrencesByLemmaRow struct {
 	Surface             string
 	CanonicalLemma      string
 	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
 	SentenceText        string
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
@@ -97,6 +103,9 @@ func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOc
 			&i.Surface,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
 			&i.SentenceText,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
@@ -130,6 +139,9 @@ const listBookOccurrencesBySurface = `-- name: ListBookOccurrencesBySurface :man
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
        o.sentence_text,
        o.sentence_start_offset,
        o.sentence_end_offset,
@@ -167,6 +179,9 @@ type ListBookOccurrencesBySurfaceRow struct {
 	Surface             string
 	CanonicalLemma      string
 	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
 	SentenceText        string
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
@@ -205,6 +220,9 @@ func (q *Queries) ListBookOccurrencesBySurface(ctx context.Context, arg ListBook
 			&i.Surface,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
 			&i.SentenceText,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
@@ -238,6 +256,9 @@ const listStudyLanguageOccurrencesByLemma = `-- name: ListStudyLanguageOccurrenc
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
        o.sentence_text,
        o.sentence_start_offset,
        o.sentence_end_offset,
@@ -278,6 +299,9 @@ type ListStudyLanguageOccurrencesByLemmaRow struct {
 	Surface             string
 	CanonicalLemma      string
 	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
 	SentenceText        string
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
@@ -316,6 +340,9 @@ func (q *Queries) ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg L
 			&i.Surface,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
 			&i.SentenceText,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
@@ -349,6 +376,9 @@ const listStudyLanguageOccurrencesBySurface = `-- name: ListStudyLanguageOccurre
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
        o.sentence_text,
        o.sentence_start_offset,
        o.sentence_end_offset,
@@ -387,6 +417,9 @@ type ListStudyLanguageOccurrencesBySurfaceRow struct {
 	Surface             string
 	CanonicalLemma      string
 	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
 	SentenceText        string
 	SentenceStartOffset int64
 	SentenceEndOffset   int64
@@ -420,6 +453,9 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg
 			&i.Surface,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
 			&i.SentenceText,
 			&i.SentenceStartOffset,
 			&i.SentenceEndOffset,
