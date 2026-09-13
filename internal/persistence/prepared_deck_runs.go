@@ -387,7 +387,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		item.Disposition = cardexport.ManifestDisposition(model.Disposition)
 		item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS = model.Language, model.CanonicalLemma, model.Upos
 		item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter = model.SourceSentence, model.TestedTarget, model.FirstEncounter
-		item.Quality.Score, item.Quality.Reasons = int(model.QualityScore), model.QualityReasons
+		item.Quality.Score, item.Quality.GDEXScore, item.Quality.Reasons = int(model.QualityScore), model.QualityGdexScore, model.QualityReasons
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
 		var render preparedDeckRenderPayload
 		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {

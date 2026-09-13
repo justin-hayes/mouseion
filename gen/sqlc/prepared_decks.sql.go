@@ -2335,7 +2335,7 @@ WITH outcomes AS (
   SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3
 ), manifest AS (
-  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language FROM deck_preparation_manifest_items mi
+  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score FROM deck_preparation_manifest_items mi
   WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3
 ), chunks AS (
   SELECT c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at FROM deck_preparation_batch_chunks c
@@ -2684,30 +2684,31 @@ func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPrep
 }
 
 const insertPreparedDeckManifestItem = `-- name: InsertPreparedDeckManifestItem :exec
-INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 `
 
 type InsertPreparedDeckManifestItemParams struct {
-	OwnerID         string
-	PreparationID   string
-	RunID           string
-	Ordinal         int
-	Disposition     string
-	Language        string
-	TargetLanguage  string
-	CanonicalLemma  string
-	Upos            string
-	SourceSentence  string
-	TestedTarget    string
-	FirstEncounter  int64
-	QualityScore    int
-	QualityReasons  []string
-	RenderPayload   []byte
-	Provider        pgtype.Text
-	ProviderVersion pgtype.Text
-	SentenceHash    pgtype.Text
-	CandidateDigest string
+	OwnerID          string
+	PreparationID    string
+	RunID            string
+	Ordinal          int
+	Disposition      string
+	Language         string
+	TargetLanguage   string
+	CanonicalLemma   string
+	Upos             string
+	SourceSentence   string
+	TestedTarget     string
+	FirstEncounter   int64
+	QualityScore     int
+	QualityGdexScore float64
+	QualityReasons   []string
+	RenderPayload    []byte
+	Provider         pgtype.Text
+	ProviderVersion  pgtype.Text
+	SentenceHash     pgtype.Text
+	CandidateDigest  string
 }
 
 func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg InsertPreparedDeckManifestItemParams) error {
@@ -2725,6 +2726,7 @@ func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg Insert
 		arg.TestedTarget,
 		arg.FirstEncounter,
 		arg.QualityScore,
+		arg.QualityGdexScore,
 		arg.QualityReasons,
 		arg.RenderPayload,
 		arg.Provider,
@@ -3046,7 +3048,7 @@ func (q *Queries) ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPrep
 }
 
 const listPreparedDeckManifestItems = `-- name: ListPreparedDeckManifestItems :many
-SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language, quality_gdex_score FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
 `
 
 type ListPreparedDeckManifestItemsParams struct {
@@ -3085,6 +3087,7 @@ func (q *Queries) ListPreparedDeckManifestItems(ctx context.Context, arg ListPre
 			&i.CandidateDigest,
 			&i.CreatedAt,
 			&i.TargetLanguage,
+			&i.QualityGdexScore,
 		); err != nil {
 			return nil, err
 		}
