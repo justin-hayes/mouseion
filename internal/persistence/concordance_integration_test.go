@@ -164,8 +164,8 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 		for tokenOrdinal, token := range sentence.Tokens {
 			_, err = store.Pool().Exec(ctx, `
 				INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,
-					surface,raw_lemma,canonical_lemma,upos,start_offset,end_offset)
-				VALUES($1,'de',$2,$3,$4,$5,$6,$6,$7,$8,$9,$10)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, token.Start, token.End)
+					surface,raw_lemma,canonical_lemma,upos,dependency,head,start_offset,end_offset)
+				VALUES($1,'de',$2,$3,$4,$5,$6,$6,$7,$8,'root',$5,$9,$10)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, token.Start, token.End)
 			require.NoError(t, err)
 		}
 	}

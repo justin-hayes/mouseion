@@ -308,6 +308,7 @@ func completeLoopSentence(documentID string, start uint64) analyzer.Sentence {
 		Location: analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: start + uint64(len([]rune(text)))},
 		Tokens: []analyzer.Token{{
 			Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN",
+			Dependency: "root", Head: 0,
 			Morphology: map[string]string{"Gender": "Neut"},
 			Location:   analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: start + 4},
 		}},

@@ -164,6 +164,8 @@ type CorpusToken struct {
 	NamedEntity     pgtype.Text
 	StartOffset     int64
 	EndOffset       int64
+	Dependency      string
+	Head            int64
 }
 
 type CuratedSentence struct {
