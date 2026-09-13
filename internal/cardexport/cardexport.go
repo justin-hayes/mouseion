@@ -558,38 +558,40 @@ func targetIndex(sentence, target string) int {
 	return -1
 }
 
-func germanNounArticle(language, upos, morphology string) string {
+func nounArticle(language, upos, morphology string) string {
 	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
 	baseLanguage, _, _ := strings.Cut(language, "-")
-	if baseLanguage != "de" || !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
+	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
 		return ""
 	}
-	var variants []map[string]string
-	if err := json.Unmarshal([]byte(morphology), &variants); err != nil {
-		var single map[string]string
-		if json.Unmarshal([]byte(morphology), &single) != nil || single == nil {
-			return ""
-		}
-		variants = []map[string]string{single}
+	variants, ok := morphologyVariants(morphology)
+	if !ok {
+		return ""
+	}
+	var articles map[string]string
+	pluralArticle := ""
+	switch baseLanguage {
+	case "de":
+		articles = map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"}
+		pluralArticle = "die"
+	case "it":
+		articles = map[string]string{"masc": "il", "masculine": "il", "fem": "la", "feminine": "la"}
+	default:
+		return ""
 	}
 	if len(variants) == 0 {
 		return ""
 	}
-	genders := make(map[string]bool, 3)
+	genders := make(map[string]bool, len(articles))
 	allPlural := true
 	for _, variant := range variants {
 		gender := morphologyValue(variant, "Gender")
 		if gender != "" {
-			switch gender {
-			case "masc", "masculine":
-				genders["der"] = true
-			case "fem", "feminine":
-				genders["die"] = true
-			case "neut", "neuter":
-				genders["das"] = true
-			default:
+			article, ok := articles[gender]
+			if !ok {
 				return ""
 			}
+			genders[article] = true
 		}
 		number := morphologyValue(variant, "Number")
 		allPlural = allPlural && (number == "plur" || number == "plural")
@@ -600,9 +602,21 @@ func germanNounArticle(language, upos, morphology string) string {
 		}
 	}
 	if len(genders) == 0 && allPlural {
-		return "die"
+		return pluralArticle
 	}
 	return ""
+}
+
+func morphologyVariants(morphology string) ([]map[string]string, bool) {
+	var variants []map[string]string
+	if err := json.Unmarshal([]byte(morphology), &variants); err == nil {
+		return variants, true
+	}
+	var single map[string]string
+	if json.Unmarshal([]byte(morphology), &single) != nil || single == nil {
+		return nil, false
+	}
+	return []map[string]string{single}, true
 }
 
 func morphologyValue(morphology map[string]string, key string) string {
@@ -630,7 +644,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
 	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
-	article := germanNounArticle(entry.Language, entry.UPOS, entry.Morphology)
+	article := nounArticle(entry.Language, entry.UPOS, entry.Morphology)
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
