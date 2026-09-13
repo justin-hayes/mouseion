@@ -56,6 +56,8 @@ func ScoreSentenceQuality(sentence analyzer.Sentence, targetIndices []int) Sente
 	deicticCount := 0
 	entityCount := 0
 	for index, token := range sentence.Tokens {
+		// The selected target is the hit in GDEX's token-factor model. Its
+		// context should be scored, not the target itself.
 		if !targetIndicesSet[index] && isGermanDeixis(index, token) {
 			deicticCount++
 		}

@@ -87,6 +87,17 @@ func TestScoreSentenceQualityGradualCriteria(t *testing.T) {
 	})
 }
 
+func TestScoreSentenceQualityAcceptsAllSubjectRelations(t *testing.T) {
+	for _, relation := range []string{"nsubj", "nsubj:pass", "csubj"} {
+		t.Run(relation, func(t *testing.T) {
+			sentence := fixtureSentence(12)
+			sentence.Tokens[2].Dependency = relation
+			quality := ScoreSentenceQuality(sentence, []int{2})
+			assert.True(t, quality.Accepted)
+		})
+	}
+}
+
 func TestScoreSentenceQualityGermanDeixis(t *testing.T) {
 	sentence := fixtureSentence(12)
 	sentence.Tokens[0] = analyzer.Token{Surface: "ich", UPOS: "PRON", Dependency: "nsubj", Head: 1, Morphology: map[string]string{"PronType": "Prs"}}
