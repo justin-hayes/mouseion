@@ -28,7 +28,7 @@ class SourceDocument:
 PipelineFactory = Callable[[str, bool], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
-GERMAN_NORMALIZATION_VERSION = "4"
+GERMAN_NORMALIZATION_VERSION = "5"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
@@ -50,6 +50,62 @@ GERMAN_POST_1996_EQUIVALENCES = {
     "thür": "tür",
     "thüre": "türe",
 }
+
+# Keep this closed: the dependency relation alone is not sufficient to
+# distinguish separable particles from free adverbs and homographs.
+GERMAN_SEPARABLE_PREFIXES = frozenset(
+    {
+        "ab",
+        "an",
+        "auf",
+        "aus",
+        "auseinander",
+        "bei",
+        "durch",
+        "ein",
+        "empor",
+        "entgegen",
+        "fest",
+        "fort",
+        "frei",
+        "gegen",
+        "her",
+        "herab",
+        "herauf",
+        "heraus",
+        "herein",
+        "herum",
+        "herunter",
+        "hin",
+        "hinab",
+        "hinauf",
+        "hinaus",
+        "hinein",
+        "hinweg",
+        "hinunter",
+        "hinzu",
+        "hinter",
+        "heim",
+        "los",
+        "mit",
+        "nach",
+        "nieder",
+        "über",
+        "um",
+        "unter",
+        "vor",
+        "voran",
+        "vorbei",
+        "voraus",
+        "vorüber",
+        "weg",
+        "weiter",
+        "wieder",
+        "zu",
+        "zurück",
+        "zusammen",
+    }
+)
 
 
 @lru_cache(maxsize=None)
@@ -230,6 +286,9 @@ class Producer:
                 value.named_entity = ner
             tokens.append(value)
 
+        if self._is_german(language):
+            self._reattach_separable_verbs(tokens)
+
         start = tokens[0].location.start_offset if tokens else 0
         end = tokens[-1].location.end_offset if tokens else start
         return normalized_corpus_pb2.Sentence(
@@ -241,13 +300,34 @@ class Producer:
     def _normalization_profile(self, language: str) -> tuple[str, str]:
         if self.normalization_profile is not None:
             return self.normalization_profile, self.normalization_version or ""
-        if language.lower().replace("_", "-").split("-", 1)[0] == "de":
+        if self._is_german(language):
             return GERMAN_NORMALIZATION_PROFILE, GERMAN_NORMALIZATION_VERSION
         return DEFAULT_NORMALIZATION_PROFILE, DEFAULT_NORMALIZATION_VERSION
 
+    @classmethod
+    def _reattach_separable_verbs(cls, tokens: list[Any]) -> None:
+        for verb_ordinal, verb in enumerate(tokens):
+            if verb.pos != "VERB":
+                continue
+            particles = [
+                token
+                for token in tokens
+                if token.head == verb_ordinal
+                and token.dependency == "compound:prt"
+                and token.surface.casefold() in GERMAN_SEPARABLE_PREFIXES
+            ]
+            if particles:
+                verb.canonical_lemma = cls._canonical_lemma(
+                    "de", "".join(token.canonical_lemma for token in particles) + verb.canonical_lemma
+                )
+
+    @staticmethod
+    def _is_german(language: str) -> bool:
+        return language.lower().replace("_", "-").split("-", 1)[0] == "de"
+
     @staticmethod
     def _canonical_lemma(language: str, lemma: str) -> str:
-        if language.lower().replace("_", "-").split("-", 1)[0] != "de":
+        if not Producer._is_german(language):
             return lemma.casefold()
         lowered = lemma.lower()
         return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)

@@ -6,7 +6,7 @@ import (
 )
 
 // GermanPost1996Profile is the conservative German standard-orthography
-// profile. Version 4 removes analyzer-attached punctuation from lemma edges;
+// profile. Version 5 includes producer-level separable-verb reattachment;
 // older versions remain registered for reproducible historical normalization.
 type GermanPost1996Profile struct{ version string }
 
@@ -14,7 +14,7 @@ func GermanPost1996() Profile              { return GermanPost1996Profile{} }
 func (GermanPost1996Profile) Name() string { return "german-standard-post-1996" }
 func (p GermanPost1996Profile) Version() string {
 	if p.version == "" {
-		return "4"
+		return "5"
 	}
 	return p.version
 }
@@ -22,7 +22,7 @@ func (GermanPost1996Profile) Language() string { return "de" }
 func (p GermanPost1996Profile) Canonical(s string) string {
 	if p.Version() == "3" {
 		s = primaryAnalyzerLemma(s)
-	} else if p.Version() == "4" {
+	} else if p.Version() == "4" || p.Version() == "5" {
 		s = cleanLemmaEdges(primaryAnalyzerLemma(s))
 	}
 	s = Lemma(s)

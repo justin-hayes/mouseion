@@ -95,6 +95,8 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	tokens := []analyzer.Token{
 		{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "dep", Head: 1, Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
 		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Dependency: "root", Head: 1, Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
+		{Surface: "stehe", RawLemma: "stehen", CanonicalLemma: "aufstehen", UPOS: "VERB", Dependency: "root", Head: 2, Location: analyzer.SourceLocation{SourceDocumentID: unitID}},
+		{Surface: "auf", RawLemma: "auf", CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt", Head: 2, Location: analyzer.SourceLocation{SourceDocumentID: unitID}},
 	}
 	for i := 0; i <= normalizedCorpusTokenInsertBatchSize; i++ {
 		tokens = append(tokens, analyzer.Token{Surface: "x", RawLemma: "x", CanonicalLemma: "x", UPOS: "X", Dependency: "dep", Head: 1, Morphology: map[string]string{}, Location: analyzer.SourceLocation{SourceDocumentID: unitID}})
@@ -183,6 +185,20 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 		t.Fatalf("stored function token = surface=%q raw=%q canonical=%q upos=%q", functionSurface, functionRawLemma, functionCanonicalLemma, functionUPOS)
 	}
 	assert.JSONEq(t, `{"Polite":"No"}`, functionMorphology)
+	var separatedRawLemma, separatedCanonicalLemma, separatedDependency string
+	var separatedHead int64
+	if err = pool.QueryRow(ctx, `SELECT raw_lemma,canonical_lemma,dependency,head FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND canonical_lemma='aufstehen'`, owner.ID, corpus.ID).Scan(&separatedRawLemma, &separatedCanonicalLemma, &separatedDependency, &separatedHead); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "stehen", separatedRawLemma)
+	assert.Equal(t, "aufstehen", separatedCanonicalLemma)
+	assert.Equal(t, "root", separatedDependency)
+	assert.Equal(t, int64(2), separatedHead)
+	var particleCandidateCount int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND canonical_lemma='auf'`, owner.ID, corpus.ID).Scan(&particleCandidateCount); err != nil {
+		t.Fatal(err)
+	}
+	assert.Zero(t, particleCandidateCount)
 }
 
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {

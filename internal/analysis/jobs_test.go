@@ -45,6 +45,18 @@ func TestAggregateLemmasIsIdempotent(t *testing.T) {
 	assert.Equal(t, "sha256:x", lemmas[0].ContentHash)
 }
 
+func TestAggregateLemmasExcludesSeparableParticles(t *testing.T) {
+	result := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{
+		{CanonicalLemma: "aufstehen", UPOS: "VERB", Dependency: "root"},
+		{CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt"},
+	}}}}
+
+	lemmas := aggregateLemmas("sha256:x", result)
+
+	require.Len(t, lemmas, 1)
+	assert.Equal(t, "aufstehen", lemmas[0].CanonicalLemma)
+}
+
 func TestOffsetResultLocations(t *testing.T) {
 	result := analyzer.Result{Sentences: []analyzer.Sentence{{
 		Location: analyzer.SourceLocation{StartOffset: 0, EndOffset: 8},
