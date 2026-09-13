@@ -316,8 +316,8 @@ INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: InsertPreparedDeckManifestItem :exec
-INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
 
 -- name: InsertPreparedDeckTranslationOutcome :exec
 INSERT INTO deck_preparation_translation_outcomes(owner_id, preparation_id, run_id, ordinal, state, max_provider_attempts, terminal_at, cache_hit_count)

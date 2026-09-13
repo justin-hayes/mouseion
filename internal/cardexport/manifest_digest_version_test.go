@@ -8,9 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Verify that a v1 (legacy) snapshot still hashes to its historical digest and
-// that the v2 snapshot (with explicit target language in the digest) hashes to
-// a distinct value, so existing durable English manifests keep their identity.
+// Verify that v1 and v2 snapshots still hash to their historical digests while
+// the current v3 snapshot has a distinct identity for quality diagnostics.
 func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	entries := []Entry{
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
@@ -37,9 +36,14 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	const wantLegacyDigest = "1e8f4112b54cb863b2beba9e2a6be9715f3e9e468fecedee2165d8937cb2c50c"
 	assert.Equal(t, wantLegacyDigest, legacyDigest, "legacy v1 digest=%q want=%q", legacyDigest, wantLegacyDigest)
 
-	digest, err := snapshot.Digest()
+	v2 := snapshot
+	v2.SchemaVersion = PreviousManifestSchemaVersion
+	digest, err := v2.Digest()
 	require.NoError(t, err)
 	const wantV2Digest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
 	assert.Equal(t, wantV2Digest, digest, "v2 digest=%q want=%q", digest, wantV2Digest)
 	assert.NotEqual(t, digest, legacyDigest, "v1 and v2 digests must differ")
+	v3Digest, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, digest, v3Digest, "v2 and v3 digests must differ")
 }

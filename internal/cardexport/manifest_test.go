@@ -34,7 +34,7 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	}
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	const wantDigest = "bcb85683d3ac96c8bc645898d7e98b5bea39cdb058259c8310818bae5930bfa6"
+	const wantDigest = "10e4d36421fe95ae36544a30aafffd48c292eae3e886f5db400eeee306550f4e"
 	assert.Equal(t, wantDigest, digest, "digest=%q want=%q", digest, wantDigest)
 
 	rebuilt, err := ManifestFromSnapshot(snapshot)

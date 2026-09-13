@@ -51,6 +51,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	manifest, err = manifest.BindCacheKeys(keys)
 	require.NoError(t, err)
 	snapshot := manifest.Snapshot()
+	snapshot.Items[0].Quality.GDEXScore = 0.5
 	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)
 
@@ -131,6 +132,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 
 	loaded, loadedDigest, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
+	assert.Equal(t, 0.5, loaded.Items[0].Quality.GDEXScore)
 	wantDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, loadedDigest)

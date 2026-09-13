@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,17 @@ type memoryStore struct {
 type scopedMemoryStore struct {
 	*memoryStore
 	corpusID string
+}
+
+type persistedMemoryStore struct {
+	*memoryStore
+	sentences map[int64]analyzer.Sentence
+	listCalls int
+}
+
+func (s *persistedMemoryStore) ListCorpusSentences(_ context.Context, _ string, _ string, _ []int64) (map[int64]analyzer.Sentence, error) {
+	s.listCalls++
+	return s.sentences, nil
 }
 
 func (s *scopedMemoryStore) GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error) {
@@ -1119,6 +1131,84 @@ func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T)
 	assert.Empty(t, artifact.Omitted)
 	assert.Len(t, store.generated, 3)
 	assert.Contains(t, artifact.TSV, "Haus")
+}
+
+func TestExportCoverageUsesPersistedDependenciesForFiniteVerbGate(t *testing.T) {
+	const owner, bookID = "alice", "book"
+	store := &persistedMemoryStore{
+		memoryStore: &memoryStore{bookID: bookID},
+		sentences: map[int64]analyzer.Sentence{
+			0: {
+				Text: "Das Haus liegt am alten See.",
+				Tokens: []analyzer.Token{
+					{Surface: "Das", UPOS: "DET", Dependency: "det", Head: 1},
+					{Surface: "Haus", UPOS: "NOUN", Dependency: "root", Head: 1},
+					{Surface: "liegt", UPOS: "NOUN", Dependency: "flat", Head: 1},
+					{Surface: "am", UPOS: "ADP", Dependency: "case", Head: 5},
+					{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 5},
+					{Surface: "See", UPOS: "NOUN", Dependency: "obl", Head: 1},
+				},
+			},
+			1: {
+				Text: "Das Haus steht heute am alten See.",
+				Tokens: []analyzer.Token{
+					{Surface: "Das", UPOS: "DET", Dependency: "det", Head: 2},
+					{Surface: "Haus", UPOS: "NOUN", Dependency: "nsubj", Head: 2},
+					{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"VerbForm": "Fin"}},
+					{Surface: "heute", UPOS: "ADV", Dependency: "advmod", Head: 2},
+					{Surface: "am", UPOS: "ADP", Dependency: "case", Head: 6},
+					{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 6},
+					{Surface: "See", UPOS: "NOUN", Dependency: "obl", Head: 2},
+				},
+			},
+		},
+	}
+	store.candidates = []domain.SelectionCandidate{
+		{OwnerID: owner, CorpusID: "corpus", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3, FirstEncounter: 10, ObservedForms: []byte(`["Haus"]`), SentenceReferences: []byte(`[{"sentence_index":0,"text":"stale text","location":{"start_offset":10}}]`)},
+		{OwnerID: owner, CorpusID: "corpus", Language: "de", CanonicalLemma: "see", UPOS: "NOUN", OccurrenceCount: 3, FirstEncounter: 20, ObservedForms: []byte(`["See"]`), SentenceReferences: []byte(`[{"sentence_index":1,"text":"stale text","location":{"start_offset":20}}]`)},
+	}
+	store.entries = []Entry{
+		{OwnerID: owner, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", SourceDocument: "Book"},
+		{OwnerID: owner, Language: "de", CanonicalLemma: "see", UPOS: "NOUN", SourceDocument: "Book"},
+	}
+
+	artifact, err := NewService(store).ExportCoverage(context.Background(), owner, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, artifact.Count)
+	assert.Equal(t, 1, store.listCalls, "persisted sentence data should be fetched in one batch")
+	require.Len(t, artifact.Omitted, 1)
+	assert.Equal(t, "haus", artifact.Omitted[0].CanonicalLemma)
+	assert.Contains(t, artifact.Omitted[0].Reasons, reasonNoFiniteVerbAndSubject)
+	assert.Contains(t, artifact.TSV, "See")
+	assert.NotContains(t, artifact.TSV, "stale text")
+
+	again, err := NewService(store).ExportCoverage(context.Background(), owner, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, again.Count)
+	assert.Len(t, again.Omitted, 1)
+	assert.Equal(t, "haus", again.Omitted[0].CanonicalLemma, "the fragment remains eligible after omission")
+}
+
+func TestManifestRecordsPersistedGDEXDiagnostics(t *testing.T) {
+	manifest := NewManifest("alice", "Book", []Entry{{
+		Language: "de", CanonicalLemma: "see", UPOS: "NOUN", Sentence: "Anna steht heute hier am See.", TargetWord: "See", FirstEncounter: 10,
+		SentenceTokens: []analyzer.Token{
+			{Surface: "Anna", UPOS: "PROPN", Dependency: "nsubj", Head: 1},
+			{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "heute", UPOS: "ADV", Dependency: "advmod", Head: 1},
+			{Surface: "hier", UPOS: "ADV", Dependency: "advmod", Head: 1},
+			{Surface: "am", UPOS: "ADP", Dependency: "case", Head: 5},
+			{Surface: "See", UPOS: "NOUN", Dependency: "obl", Head: 1},
+		},
+	}})
+	snapshot := manifest.Snapshot()
+	require.Len(t, snapshot.Items, 1)
+	assert.True(t, snapshot.Items[0].Quality.Accepted)
+	assert.Greater(t, snapshot.Items[0].Quality.GDEXScore, float64(0))
+	assert.Contains(t, snapshot.Items[0].Quality.Reasons, "deictic context")
+	assert.Contains(t, snapshot.Items[0].Quality.Reasons, "named-entity density")
+	_, err := snapshot.Digest()
+	assert.NoError(t, err)
 }
 
 func contains(values []string, want string) bool {

@@ -361,7 +361,8 @@ type DeckPreparationManifestItem struct {
 	CandidateDigest string
 	CreatedAt       time.Time
 	// Frozen target language for this manifest item cache identity
-	TargetLanguage string
+	TargetLanguage   string
+	QualityGdexScore float64
 }
 
 type DeckPreparationRun struct {

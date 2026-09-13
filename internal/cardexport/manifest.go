@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -13,8 +14,9 @@ import (
 // ManifestSchemaVersion identifies the canonical durable manifest codec. A
 // new version is required for any change that alters digest inputs.
 const (
-	LegacyManifestSchemaVersion = 1
-	ManifestSchemaVersion       = 2
+	LegacyManifestSchemaVersion   = 1
+	PreviousManifestSchemaVersion = 2
+	ManifestSchemaVersion         = 3
 )
 
 type ManifestDisposition string
@@ -37,6 +39,12 @@ var manifestQualityReasons = map[string]struct{}{
 	"incomplete sentence boundaries":  {},
 	"structural noise or boilerplate": {},
 	"no obvious structural noise":     {},
+	"no finite verb and subject":      {},
+	"target in subordinate clause":    {},
+	"deictic context":                 {},
+	"named-entity density":            {},
+	"optimal length":                  {},
+	"outside optimal length":          {},
 }
 
 // ManifestItem is one frozen selection decision. Entry contains only
@@ -95,6 +103,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 	prefix := "mouseion-prepared-deck-manifest-v2\x00"
 	if s.SchemaVersion == LegacyManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-manifest-v1\x00"
+	} else if s.SchemaVersion == PreviousManifestSchemaVersion {
+		prefix = "mouseion-prepared-deck-manifest-v2\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-manifest-v3\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -105,8 +117,8 @@ func CandidateDigest(item ManifestItem) (string, error) {
 	return CandidateDigestVersion(item, ManifestSchemaVersion)
 }
 
-// CandidateDigestVersion preserves the v1 digest codec for durable manifests
-// written before target language became part of the frozen identity.
+// CandidateDigestVersion preserves the v1 and v2 digest codecs for durable
+// manifests written before the current quality diagnostics were added.
 func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error) {
 	canonical, err := canonicalizeManifestItem(item, schemaVersion)
 	if err != nil {
@@ -122,6 +134,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 	prefix := "mouseion-prepared-deck-candidate-v2\x00"
 	if schemaVersion == LegacyManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-candidate-v1\x00"
+	} else if schemaVersion == PreviousManifestSchemaVersion {
+		prefix = "mouseion-prepared-deck-candidate-v2\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-candidate-v3\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -193,9 +209,10 @@ type canonicalEntry struct {
 }
 
 type canonicalSentenceQuality struct {
-	Accepted bool     `json:"accepted"`
-	Score    int      `json:"score"`
-	Reasons  []string `json:"reasons"`
+	Accepted  bool     `json:"accepted"`
+	Score     int      `json:"score"`
+	GDEXScore float64  `json:"gdex_score,omitempty"`
+	Reasons   []string `json:"reasons"`
 }
 
 type canonicalCacheKey struct {
@@ -209,7 +226,7 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -260,7 +277,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if item.Quality.Accepted != (item.Disposition == ManifestAccepted) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: disposition contradicts quality decision", ErrInvalidInput)
 	}
-	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
+	if item.Quality.Score < 0 || item.Quality.Score > 110 || math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1 || len(item.Quality.Reasons) > 16 {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
 	}
 	for _, reason := range item.Quality.Reasons {
@@ -288,7 +305,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter},
-		Quality:  canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, Reasons: append([]string(nil), item.Quality.Reasons...)},
+		Quality:  canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, GDEXScore: item.Quality.GDEXScore, Reasons: append([]string(nil), item.Quality.Reasons...)},
 		CacheKey: key,
 	}, nil
 }
