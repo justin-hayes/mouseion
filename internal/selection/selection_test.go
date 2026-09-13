@@ -71,18 +71,20 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	assert.Len(t, got[0].SentenceReferences, 2)
 }
 
-func TestDefaultRulesExcludeSeparableParticles(t *testing.T) {
+func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
 	corpus := fixture(
 		analyzer.Token{Surface: "steht", CanonicalLemma: "aufstehen", UPOS: "VERB"},
 		analyzer.Token{Surface: "auf", CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt"},
+		analyzer.Token{Surface: "dort", CanonicalLemma: "dort", UPOS: "ADV", Dependency: "advmod"},
 	)
 
 	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus-1"))
 
 	require.NoError(t, err)
-	require.Len(t, got, 1)
+	require.Len(t, got, 2)
 	assert.Equal(t, "aufstehen", got[0].Identity.CanonicalLemma)
+	assert.Equal(t, "dort", got[1].Identity.CanonicalLemma)
 }
 
 func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testing.T) {
