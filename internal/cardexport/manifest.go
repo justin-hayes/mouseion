@@ -277,8 +277,11 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if item.Quality.Accepted != (item.Disposition == ManifestAccepted) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: disposition contradicts quality decision", ErrInvalidInput)
 	}
-	if item.Quality.Score < 0 || item.Quality.Score > 110 || math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1 || len(item.Quality.Reasons) > 16 {
+	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
+	}
+	if schemaVersion == ManifestSchemaVersion && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
+		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest GDEX score", ErrInvalidInput)
 	}
 	for _, reason := range item.Quality.Reasons {
 		if _, ok := manifestQualityReasons[reason]; !ok {
@@ -302,10 +305,14 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		}
 		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
 	}
+	quality := canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, Reasons: append([]string(nil), item.Quality.Reasons...)}
+	if schemaVersion == ManifestSchemaVersion {
+		quality.GDEXScore = item.Quality.GDEXScore
+	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter},
-		Quality:  canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, GDEXScore: item.Quality.GDEXScore, Reasons: append([]string(nil), item.Quality.Reasons...)},
+		Quality:  quality,
 		CacheKey: key,
 	}, nil
 }
