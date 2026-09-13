@@ -47,18 +47,15 @@ no database migration.
 
 ## Model cache and deployment
 
-`MOUSEION_NLP_WARM_LANGUAGES` selects the Stanza pipelines that the one-shot
-Compose init service provisions and that the NLP service loads and advertises.
-The standard deployment mounts the named `stanza-data` volume at
-`STANZA_RESOURCES_DIR=/opt/stanza_resources`; the image itself contains no model
-cache. Provisioning downloads the full
-`tokenize,pos,lemma,depparse,ner` bundle for each configured language. The
-marker in the volume makes unchanged restarts a no-op, while a grown language
-set downloads only the missing language. A missing marker also causes a partial
-or legacy volume to be wiped and provisioned fresh.
+`MOUSEION_NLP_WARM_LANGUAGES` selects which already-installed Stanza pipelines
+to load and advertise. It does not define or install a model-cache volume.
+The standard NLP image sets `STANZA_RESOURCES_DIR=/opt/stanza_resources` and
+downloads the German and Italian `tokenize,pos,lemma` resources while building
+the image. Consequently, Compose's default `de,it` setting works without a
+runtime download or writable model cache.
 
-To add a deployment language, include its code in
-`MOUSEION_NLP_WARM_LANGUAGES` and recreate the Compose stack; no image rebuild
-is required. For a manual launch, run the provisioner with the same environment
-before starting the service. Missing or incompatible resources make only that
-language unavailable.
+To add a deployment language, provision its processors in `nlp/Dockerfile`,
+rebuild the NLP image, and then include its code in
+`MOUSEION_NLP_WARM_LANGUAGES`. For a manual launch, download the same processors
+into the local Stanza resource directory before starting the service. Missing
+or incompatible resources make only that language unavailable.
