@@ -200,7 +200,9 @@ type Querier interface {
 	// position is the learner's Reading Journey position; analyzed Books outside
 	// the Journey remain in study-language results with no position.
 	ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error)
+	ListBookOccurrencesByLemmaAndDependency(ctx context.Context, arg ListBookOccurrencesByLemmaAndDependencyParams) ([]ListBookOccurrencesByLemmaAndDependencyRow, error)
 	ListBookOccurrencesBySurface(ctx context.Context, arg ListBookOccurrencesBySurfaceParams) ([]ListBookOccurrencesBySurfaceRow, error)
+	ListBookOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListBookOccurrencesBySurfaceAndDependencyParams) ([]ListBookOccurrencesBySurfaceAndDependencyRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
 	ListCurrentExtractedUnits(ctx context.Context, arg ListCurrentExtractedUnitsParams) ([]ListCurrentExtractedUnitsRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]DeckPreparationVocabulary, error)
@@ -233,7 +235,9 @@ type Querier interface {
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
 	ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaParams) ([]ListStudyLanguageOccurrencesByLemmaRow, error)
+	ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaAndDependencyParams) ([]ListStudyLanguageOccurrencesByLemmaAndDependencyRow, error)
 	ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceParams) ([]ListStudyLanguageOccurrencesBySurfaceRow, error)
+	ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceAndDependencyParams) ([]ListStudyLanguageOccurrencesBySurfaceAndDependencyRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)

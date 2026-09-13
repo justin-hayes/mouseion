@@ -78,6 +78,18 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, bookRows, surfaceRows)
 
+	bookRoleRows, err := store.ListBookOccurrencesByLemmaAndDependency(ctx, alice.ID, bookA.ID, "de-DE", "haus", "NOUN", "obj")
+	require.NoError(t, err)
+	assert.Equal(t, bookRows, bookRoleRows)
+
+	bookSurfaceRoleRows, err := store.ListBookOccurrencesBySurfaceAndDependency(ctx, alice.ID, bookA.ID, "de", "Haus", "obj")
+	require.NoError(t, err)
+	assert.Equal(t, bookRoleRows, bookSurfaceRoleRows)
+
+	bookRootRows, err := store.ListBookOccurrencesByLemmaAndDependency(ctx, alice.ID, bookA.ID, "de", "haus", "NOUN", "root")
+	require.NoError(t, err)
+	assert.Empty(t, bookRootRows)
+
 	languageRows, err := store.ListStudyLanguageOccurrencesByLemma(ctx, alice.ID, "de", "haus", "NOUN")
 	require.NoError(t, err)
 	require.Len(t, languageRows, 2)
@@ -88,10 +100,24 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, languageRows, languageSurfaceRows)
 
+	languageRoleRows, err := store.ListStudyLanguageOccurrencesByLemmaAndDependency(ctx, alice.ID, "de", "haus", "NOUN", "obj")
+	require.NoError(t, err)
+	require.Len(t, languageRoleRows, 1)
+	assert.Equal(t, languageRows[0], languageRoleRows[0])
+
+	languageSurfaceRoleRows, err := store.ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx, alice.ID, "de-DE", "Haus", "root")
+	require.NoError(t, err)
+	require.Len(t, languageSurfaceRoleRows, 1)
+	assert.Equal(t, languageRows[1], languageSurfaceRoleRows[0])
+
 	bobRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, bob.ID, "de", "Haus")
 	require.NoError(t, err)
 	require.Len(t, bobRows, 1)
 	assert.Equal(t, bookBob.ID, bobRows[0].BookID, "owner scoping")
+
+	bobRoleRows, err := store.ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx, bob.ID, "de", "Haus", "obj")
+	require.NoError(t, err)
+	assert.Empty(t, bobRoleRows, "role filter must remain owner-scoped")
 }
 
 type concordanceSentence struct {
