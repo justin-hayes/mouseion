@@ -110,6 +110,16 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	require.Len(t, languageSurfaceRoleRows, 1)
 	assert.Equal(t, languageRows[1], languageSurfaceRoleRows[0])
 
+	bookDependents, err := store.ListBookDependentsByGovernorLemma(ctx, alice.ID, bookA.ID, "de-DE", "das", "DET", "obj")
+	require.NoError(t, err)
+	require.Len(t, bookDependents, 1)
+	assert.Equal(t, bookRows[0], bookDependents[0])
+
+	languageDependents, err := store.ListStudyLanguageDependentsByGovernorLemma(ctx, alice.ID, "de", "das", "DET", "obj")
+	require.NoError(t, err)
+	require.Len(t, languageDependents, 1)
+	assert.Equal(t, bookRows[0], languageDependents[0])
+
 	bobRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, bob.ID, "de", "Haus")
 	require.NoError(t, err)
 	require.Len(t, bobRows, 1)
@@ -118,6 +128,10 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	bobRoleRows, err := store.ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx, bob.ID, "de", "Haus", "obj")
 	require.NoError(t, err)
 	assert.Empty(t, bobRoleRows, "role filter must remain owner-scoped")
+
+	bobDependents, err := store.ListStudyLanguageDependentsByGovernorLemma(ctx, bob.ID, "de", "das", "DET", "obj")
+	require.NoError(t, err)
+	assert.Empty(t, bobDependents, "dependents query must remain owner-scoped")
 }
 
 type concordanceSentence struct {

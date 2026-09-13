@@ -11,6 +11,136 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const listBookDependentsByGovernorLemma = `-- name: ListBookDependentsByGovernorLemma :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  JOIN corpus_tokens governor
+    ON governor.owner_id = o.owner_id
+   AND governor.language = o.language
+   AND governor.analysis_run_id::text = o.analysis_run_id
+   AND governor.corpus_id::text = o.corpus_id
+   AND governor.sentence_ordinal = o.sentence_ordinal
+   AND governor.token_ordinal = o.head_ordinal
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND o.book_id = $3
+   AND governor.canonical_lemma = $4
+   AND governor.upos = $5
+   AND o.dependency = $6
+ ORDER BY o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListBookDependentsByGovernorLemmaParams struct {
+	Owner                  string
+	Language               string
+	Book                   string
+	GovernorCanonicalLemma string
+	GovernorUpos           string
+	Dependency             string
+}
+
+type ListBookDependentsByGovernorLemmaRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error) {
+	rows, err := q.db.Query(ctx, listBookDependentsByGovernorLemma,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.GovernorCanonicalLemma,
+		arg.GovernorUpos,
+		arg.Dependency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBookDependentsByGovernorLemmaRow{}
+	for rows.Next() {
+		var i ListBookDependentsByGovernorLemmaRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookOccurrencesByLemma = `-- name: ListBookOccurrencesByLemma :many
 
 SELECT o.surface,
@@ -459,6 +589,136 @@ func (q *Queries) ListBookOccurrencesBySurfaceAndDependency(ctx context.Context,
 	items := []ListBookOccurrencesBySurfaceAndDependencyRow{}
 	for rows.Next() {
 		var i ListBookOccurrencesBySurfaceAndDependencyRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.BookPosition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudyLanguageDependentsByGovernorLemma = `-- name: ListStudyLanguageDependentsByGovernorLemma :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       o.book_position
+  FROM concordance_occurrences o
+  JOIN corpus_tokens governor
+    ON governor.owner_id = o.owner_id
+   AND governor.language = o.language
+   AND governor.analysis_run_id::text = o.analysis_run_id
+   AND governor.corpus_id::text = o.corpus_id
+   AND governor.sentence_ordinal = o.sentence_ordinal
+   AND governor.token_ordinal = o.head_ordinal
+ WHERE o.owner_id = $1
+   AND o.language = $2
+   AND governor.canonical_lemma = $3
+   AND governor.upos = $4
+   AND o.dependency = $5
+ ORDER BY o.book_position NULLS LAST,
+          o.book_position_created_at NULLS LAST,
+          lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
+`
+
+type ListStudyLanguageDependentsByGovernorLemmaParams struct {
+	Owner                  string
+	Language               string
+	GovernorCanonicalLemma string
+	GovernorUpos           string
+	Dependency             string
+}
+
+type ListStudyLanguageDependentsByGovernorLemmaRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	BookPosition        pgtype.Int4
+}
+
+func (q *Queries) ListStudyLanguageDependentsByGovernorLemma(ctx context.Context, arg ListStudyLanguageDependentsByGovernorLemmaParams) ([]ListStudyLanguageDependentsByGovernorLemmaRow, error) {
+	rows, err := q.db.Query(ctx, listStudyLanguageDependentsByGovernorLemma,
+		arg.Owner,
+		arg.Language,
+		arg.GovernorCanonicalLemma,
+		arg.GovernorUpos,
+		arg.Dependency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyLanguageDependentsByGovernorLemmaRow{}
+	for rows.Next() {
+		var i ListStudyLanguageDependentsByGovernorLemmaRow
 		if err := rows.Scan(
 			&i.Surface,
 			&i.CanonicalLemma,

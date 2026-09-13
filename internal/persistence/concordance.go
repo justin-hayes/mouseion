@@ -68,6 +68,21 @@ func (s *PostgresStore) ListBookOccurrencesBySurfaceAndDependency(ctx context.Co
 	}), nil
 }
 
+// ListBookDependentsByGovernorLemma returns Book occurrences attached to a
+// governor identified by canonical lemma and UPOS in one dependency relation.
+func (s *PostgresStore) ListBookDependentsByGovernorLemma(ctx context.Context, owner, book, language, governorLemma, governorUPOS, dependency string) ([]domain.ConcordanceOccurrence, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	rows, err := s.queries().ListBookDependentsByGovernorLemma(ctx, sqlcgen.ListBookDependentsByGovernorLemmaParams{
+		Owner: owner, Book: book, Language: language, GovernorCanonicalLemma: governorLemma, GovernorUpos: governorUPOS, Dependency: dependency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapConcordanceRows(rows, func(row sqlcgen.ListBookDependentsByGovernorLemmaRow) domain.ConcordanceOccurrence {
+		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
+	}), nil
+}
+
 // ListStudyLanguageOccurrencesByLemma returns occurrences across all active
 // chosen Books in a study language, restricted to current analyses.
 func (s *PostgresStore) ListStudyLanguageOccurrencesByLemma(ctx context.Context, owner, language, canonicalLemma, upos string) ([]domain.ConcordanceOccurrence, error) {
@@ -124,6 +139,21 @@ func (s *PostgresStore) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx c
 		return nil, err
 	}
 	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageOccurrencesBySurfaceAndDependencyRow) domain.ConcordanceOccurrence {
+		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
+	}), nil
+}
+
+// ListStudyLanguageDependentsByGovernorLemma returns occurrences across current
+// analyses attached to a governor identity in one dependency relation.
+func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.Context, owner, language, governorLemma, governorUPOS, dependency string) ([]domain.ConcordanceOccurrence, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	rows, err := s.queries().ListStudyLanguageDependentsByGovernorLemma(ctx, sqlcgen.ListStudyLanguageDependentsByGovernorLemmaParams{
+		Owner: owner, Language: language, GovernorCanonicalLemma: governorLemma, GovernorUpos: governorUPOS, Dependency: dependency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageDependentsByGovernorLemmaRow) domain.ConcordanceOccurrence {
 		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
 	}), nil
 }
