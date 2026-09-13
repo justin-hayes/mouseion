@@ -44,6 +44,11 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
     marker = read_marker(tmp_path)
     assert (marker.stanza_version, marker.languages) == (STANZA_VERSION, ("de", "it"))
 
+    assert json.loads((tmp_path / MARKER_FILENAME).read_text(encoding="utf-8")) == {
+        "languages": ["de", "it"],
+        "stanza_version": STANZA_VERSION,
+    }
+
 
 def test_second_run_against_the_same_directory_is_a_no_op(tmp_path) -> None:
     provision(

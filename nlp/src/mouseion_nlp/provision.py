@@ -34,7 +34,6 @@ from .server import configured_languages
 
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
-MARKER_VERSION = 1
 PROCESSORS = "tokenize,pos,lemma,depparse,ner"
 
 
@@ -76,7 +75,6 @@ def write_marker(resources_dir: Path, marker: Marker) -> None:
     """Persist the marker describing what the directory now holds."""
     resources_dir.mkdir(parents=True, exist_ok=True)
     payload = {
-        "marker_version": MARKER_VERSION,
         "stanza_version": marker.stanza_version,
         "languages": list(marker.languages),
     }
@@ -91,16 +89,13 @@ def plan_provisioning(
     """Decide whether to wipe and which languages to download.
 
     A missing marker or a changed Stanza version invalidates everything already
-    on disk. Otherwise only languages absent from the marker are downloaded, and
-    the marker retains previously provisioned languages so a shrunken configured
-    set never forces a re-download.
+    on disk. Otherwise only languages absent from the marker are downloaded.
     """
     configured = tuple(dict.fromkeys(languages))
     if marker is None or marker.stanza_version != stanza_version:
         return ProvisionPlan(wipe=True, downloads=configured, provisioned=configured)
     missing = tuple(language for language in configured if language not in marker.languages)
-    provisioned = tuple(sorted(set(marker.languages) | set(configured)))
-    return ProvisionPlan(wipe=False, downloads=missing, provisioned=provisioned)
+    return ProvisionPlan(wipe=False, downloads=missing, provisioned=configured)
 
 
 def wipe_resources(resources_dir: Path) -> None:
