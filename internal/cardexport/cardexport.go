@@ -466,12 +466,12 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 	var forms []string
 	_ = json.Unmarshal(candidate.ObservedForms, &forms)
 	forms = append(forms, candidate.CanonicalLemma)
-	ranked := make([]struct {
+	type rankedSentence struct {
 		evidence SentenceEvidence
-		index    int
 		sentence int
-	}, 0, len(refs))
-	for i, ref := range refs {
+	}
+	ranked := make([]rankedSentence, 0, len(refs))
+	for _, ref := range refs {
 		text := ref.Text
 		var tokens []analyzer.Token
 		if persisted != nil {
@@ -502,11 +502,7 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		if persisted != nil {
 			evidenceTokens = append([]analyzer.Token{}, tokens...)
 		}
-		ranked = append(ranked, struct {
-			evidence SentenceEvidence
-			index    int
-			sentence int
-		}{SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, i, ref.SentenceIndex})
+		ranked = append(ranked, rankedSentence{evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, sentence: ref.SentenceIndex})
 	}
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
@@ -518,11 +514,8 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		if ranked[i].evidence.Quality.GDEXScore != ranked[j].evidence.Quality.GDEXScore {
 			return ranked[i].evidence.Quality.GDEXScore > ranked[j].evidence.Quality.GDEXScore
 		}
-		if ranked[i].evidence.Quality.Score != ranked[j].evidence.Quality.Score {
-			return ranked[i].evidence.Quality.Score > ranked[j].evidence.Quality.Score
-		}
-		if ranked[i].index != ranked[j].index {
-			return ranked[i].index < ranked[j].index
+		if ranked[i].evidence.FirstEncounter != ranked[j].evidence.FirstEncounter {
+			return ranked[i].evidence.FirstEncounter < ranked[j].evidence.FirstEncounter
 		}
 		if ranked[i].sentence != ranked[j].sentence {
 			return ranked[i].sentence < ranked[j].sentence
