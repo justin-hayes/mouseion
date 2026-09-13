@@ -4,6 +4,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -134,6 +135,49 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Empty(t, bobDependents, "dependents query must remain owner-scoped")
 }
 
+func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	defer store.Close()
+
+	owner, err := store.CreateUser(ctx, "cardexport-sentence-owner", false)
+	require.NoError(t, err)
+	_, source := createConcordanceBook(t, ctx, store, owner.ID, "Export Book", "cardexport-sentence", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Das Haus steht.", 0, 15),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, false, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 4, Text: "Das Haus steht.", Start: 0, End: 15, Tokens: []concordanceToken{
+			{Surface: "Das", Lemma: "das", Upos: "DET", Dependency: "det", Head: 1, Start: 0, End: 3},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "nsubj", Head: 2, Morphology: map[string]string{"Case": "Nom", "Number": "Sing"}, Start: 4, End: 8},
+			{Surface: "steht", Lemma: "stehen", Upos: "VERB", Dependency: "root", Head: 2, Start: 9, End: 14},
+		}},
+	})
+
+	got, err := store.ListCorpusSentences(ctx, owner.ID, corpusIDForSource(t, ctx, store, owner.ID, source.ID), []int64{4, 99, 4})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	sentence, ok := got[4]
+	require.True(t, ok)
+	require.Len(t, sentence.Tokens, 3)
+	assert.Equal(t, "Das Haus steht.", sentence.Text)
+	assert.Equal(t, "Haus", sentence.Tokens[1].Surface)
+	assert.Equal(t, "haus", sentence.Tokens[1].RawLemma)
+	assert.Equal(t, "haus", sentence.Tokens[1].CanonicalLemma)
+	assert.Equal(t, "NOUN", sentence.Tokens[1].UPOS)
+	assert.Equal(t, "nsubj", sentence.Tokens[1].Dependency)
+	assert.Equal(t, uint32(2), sentence.Tokens[1].Head)
+	assert.Equal(t, map[string]string{"Case": "Nom", "Number": "Sing"}, sentence.Tokens[1].Morphology)
+}
+
+func corpusIDForSource(t *testing.T, ctx context.Context, store *PostgresStore, ownerID, sourceID string) string {
+	t.Helper()
+	var corpusID string
+	err := store.Pool().QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, ownerID, sourceID).Scan(&corpusID)
+	require.NoError(t, err)
+	return corpusID
+}
+
 type concordanceSentence struct {
 	UnitID              string
 	Ordinal, Start, End int64
@@ -144,6 +188,7 @@ type concordanceSentence struct {
 type concordanceToken struct {
 	Surface, Lemma, Upos, Dependency string
 	Head                             int64
+	Morphology                       map[string]string
 	Start, End                       int64
 }
 
@@ -222,10 +267,15 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 			if dependency == "" {
 				dependency = "root"
 			}
+			morphology, err := json.Marshal(token.Morphology)
+			require.NoError(t, err)
+			if string(morphology) == "null" {
+				morphology = []byte(`{}`)
+			}
 			_, err = store.Pool().Exec(ctx, `
 				INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,
-					surface,raw_lemma,canonical_lemma,upos,dependency,head,start_offset,end_offset)
-				VALUES($1,'de',$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, dependency, token.Head, token.Start, token.End)
+					surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
+				VALUES($1,'de',$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12,$13)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, dependency, token.Head, morphology, token.Start, token.End)
 			require.NoError(t, err)
 		}
 	}

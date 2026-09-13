@@ -10,10 +10,45 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
+
+// ListCorpusSentences loads the requested persisted sentences in one query.
+// The result is keyed by the sentence ordinal stored in selection references,
+// so callers can join candidate evidence to its complete dependency context.
+func (s *PostgresStore) ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
+	result := make(map[int64]analyzer.Sentence, len(ordinals))
+	if len(ordinals) == 0 {
+		return result, nil
+	}
+	rows, err := s.queries().ListCorpusSentences(ctx, sqlcgen.ListCorpusSentencesParams{
+		Owner: owner, Corpus: corpusID, SentenceOrdinals: ordinals,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		sentence, ok := result[row.SentenceOrdinal]
+		if !ok {
+			sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0)}
+		}
+		if row.TokenOrdinal >= 0 {
+			morphology := make(map[string]string)
+			if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
+				return nil, fmt.Errorf("decode morphology for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+			}
+			sentence.Tokens = append(sentence.Tokens, analyzer.Token{
+				Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+				UPOS: row.Upos, Dependency: row.Dependency, Head: uint32(row.Head), Morphology: morphology,
+			})
+		}
+		result[row.SentenceOrdinal] = sentence
+	}
+	return result, nil
+}
 
 func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
 	rows, err := s.queries().ListSelectionCandidatesForBook(ctx, sqlcgen.ListSelectionCandidatesForBookParams{
