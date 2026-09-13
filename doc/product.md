@@ -143,6 +143,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 60. [ADR 0060: Persist dependency parses in the normalized corpus](adr/0060-persist-dependency-parses.md) — adds always-on dependency parsing to the NLP boundary and persists each token's basic dependency relation and head, enabling grammar-aware concordance queries and deterministic sentence-quality scoring; amends ADR 0059's no-protobuf-change line.
 61. [ADR 0061: German separable-verb lemmatization from dependency data](adr/0061-german-separable-verb-lemmatization.md) — reattaches separated German verb particles to the verb's canonical lemma in the NLP producer, making the full lexeme the vocabulary identity; amends ADR 0005's normalization and identity interpretation.
 62. [ADR 0062: Sentence-quality scoring derived from the persisted corpus](adr/0062-derived-sentence-quality-scoring.md) — derives a GDEX-informed sentence-quality rubric at export time over the persisted corpus (a finite-verb-and-subject knock-out plus gradual ranking); amends ADR 0029's representative-sentence selection mechanism.
+63. [ADR 0063: Stanza model provisioning on a Docker volume instead of the image](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza bundle (including NER) into a named volume via a one-shot init container instead of baking models into the NLP image, decoupling the model bundle from the image lifecycle.
 
 ## Deployment and operations
 
