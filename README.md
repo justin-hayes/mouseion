@@ -52,17 +52,20 @@ docker compose up -d --build
 ```
 
 - `db` — PostgreSQL 17 with a named volume
-- `nlp` — the Stanza gRPC service on `:50051`, with German and Italian models
-  provisioned in the image and warmed before they are advertised as ready
+- `nlp-init` — a one-shot provisioner that fills the named Stanza model volume
+  with the configured languages before the NLP service starts
+- `nlp` — the Stanza gRPC service on `:50051`, with models loaded from that
+  volume and warmed before they are advertised as ready
 - `web` — the Go server on `http://localhost:8080`
 
-Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. Override the
-comma-separated value only with languages whose Stanza resources are already
-installed. The image sets `STANZA_RESOURCES_DIR=/opt/stanza_resources` and
-pre-populates that immutable model cache with `de` and `it`; adding another
-language requires adding its `stanza.download(...)` entry to `nlp/Dockerfile`
-and rebuilding the image. A configured language whose model is absent remains
-not ready and is not offered to learners.
+Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. The one-shot
+`nlp-init` service provisions the full Stanza bundle, including NER, into the
+named `stanza-data` volume. The image sets
+`STANZA_RESOURCES_DIR=/opt/stanza_resources` but contains no model cache. To
+add a language, change the comma-separated environment value and recreate the
+stack; the provisioner downloads only the missing language. A configured
+language whose model is absent remains not ready and is not offered to
+learners.
 
 Open `http://<host>:8080`. A fresh installation presents first-account
 onboarding; otherwise, sign in with an existing account. The app is meant to be
