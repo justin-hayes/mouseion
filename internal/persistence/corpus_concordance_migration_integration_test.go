@@ -96,12 +96,24 @@ func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T
 	assert.JSONEq(t, `{"Number":"Sing"}`, string(morphology))
 	assert.Equal(t, "S-PER", namedEntity)
 
+	var viewCount int
+	err = store.Pool().QueryRow(ctx, `
+		SELECT count(*) FROM information_schema.views
+		WHERE table_schema='public' AND table_name='concordance_occurrences'`).Scan(&viewCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, viewCount)
+
 	var indexCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='corpus_tokens' AND indexname IN ('corpus_tokens_owner_language_canonical_lemma_upos_idx','corpus_tokens_owner_language_surface_idx','corpus_tokens_owner_language_dependency_idx')`).Scan(&indexCount)
 	require.NoError(t, err)
 	assert.Equal(t, 3, indexCount)
 
-	down, err := migrations.FS.ReadFile("000070_persist_dependency_parses.down.sql")
+	down, err := migrations.FS.ReadFile("000071_concordance_occurrence_read_model.down.sql")
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, string(down))
+	require.NoError(t, err)
+
+	down, err = migrations.FS.ReadFile("000070_persist_dependency_parses.down.sql")
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, string(down))
 	require.NoError(t, err)
@@ -114,4 +126,7 @@ func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('corpus_sentences','corpus_tokens')`).Scan(&tableCount)
 	require.NoError(t, err)
 	assert.Zero(t, tableCount)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM information_schema.views WHERE table_schema='public' AND table_name='concordance_occurrences'`).Scan(&viewCount)
+	require.NoError(t, err)
+	assert.Zero(t, viewCount)
 }

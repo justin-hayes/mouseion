@@ -54,6 +54,18 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 		{UnitID: "epub-unit-v1:0:chapter-bob", Ordinal: 0, Text: "Haus", Start: 0, End: 4, Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}}},
 	})
 
+	var dependency, headSurface string
+	var headOrdinal int64
+	err = store.Pool().QueryRow(ctx, `
+		SELECT dependency,head_ordinal,head_surface
+		FROM concordance_occurrences
+		WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID).
+		Scan(&dependency, &headOrdinal, &headSurface)
+	require.NoError(t, err)
+	assert.Equal(t, "root", dependency)
+	assert.Equal(t, int64(0), headOrdinal)
+	assert.Equal(t, "Haus", headSurface)
+
 	bookRows, err := store.ListBookOccurrencesByLemma(ctx, alice.ID, bookA.ID, "de-DE", "haus", "NOUN")
 	require.NoError(t, err)
 	require.Len(t, bookRows, 1)

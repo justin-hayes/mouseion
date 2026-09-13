@@ -196,7 +196,7 @@ type Querier interface {
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
-	// Concordance occurrence queries read only the current analysis identity. Book
+	// Concordance occurrence queries read from the shared occurrence model. Book
 	// position is the learner's Reading Journey position; analyzed Books outside
 	// the Journey remain in study-language results with no position.
 	ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error)
