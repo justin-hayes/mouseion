@@ -162,6 +162,7 @@ func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
 	require.Len(t, sentence.Tokens, 3)
 	assert.Equal(t, "Das Haus steht.", sentence.Text)
 	assert.Equal(t, "Haus", sentence.Tokens[1].Surface)
+	assert.Equal(t, "haus", sentence.Tokens[1].RawLemma)
 	assert.Equal(t, "haus", sentence.Tokens[1].CanonicalLemma)
 	assert.Equal(t, "NOUN", sentence.Tokens[1].UPOS)
 	assert.Equal(t, "nsubj", sentence.Tokens[1].Dependency)
