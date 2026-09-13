@@ -24,16 +24,32 @@ services:
       timeout: 3s
       retries: 10
 
+  nlp-init:
+    build:
+      context: .
+      dockerfile: nlp/Dockerfile
+    entrypoint: ["python", "-m", "mouseion_nlp.provision"]
+    environment:
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it}
+      STANZA_RESOURCES_DIR: /opt/stanza_resources
+    volumes:
+      - stanza-data:/opt/stanza_resources
+
   nlp:
     build:
       context: .
       dockerfile: nlp/Dockerfile
     restart: unless-stopped
-    # German and Italian models are provisioned in the image's immutable
-    # /opt/stanza_resources cache. Rebuild the image to add another model.
+    # The init service populates this shared volume before NLP can start.
+    depends_on:
+      nlp-init:
+        condition: service_completed_successfully
     environment:
       MOUSEION_NLP_ADDR: "[::]:50051"
       MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it}
+      STANZA_RESOURCES_DIR: /opt/stanza_resources
+    volumes:
+      - stanza-data:/opt/stanza_resources
     expose:
       - "50051"
 
@@ -78,3 +94,4 @@ services:
 
 volumes:
   db-data:
+  stanza-data:
