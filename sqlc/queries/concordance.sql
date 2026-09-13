@@ -165,9 +165,9 @@ SELECT o.surface,
    AND o.canonical_lemma = sqlc.arg('canonical_lemma')
    AND o.upos = sqlc.arg('upos')
  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
-           o.unit_order, o.sentence_ordinal, o.token_ordinal;
+          o.book_position_created_at NULLS LAST,
+          lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal;
 
 -- name: ListBookDependentsByGovernorLemma :many
 SELECT o.surface,

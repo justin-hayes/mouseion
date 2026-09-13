@@ -786,9 +786,9 @@ SELECT o.surface,
    AND o.canonical_lemma = $3
    AND o.upos = $4
  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
-           o.unit_order, o.sentence_ordinal, o.token_ordinal
+          o.book_position_created_at NULLS LAST,
+          lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
 type ListStudyLanguageOccurrencesByLemmaParams struct {
