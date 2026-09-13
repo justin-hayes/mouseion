@@ -196,6 +196,7 @@ type Querier interface {
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
+	ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error)
 	// Concordance occurrence queries read from the shared occurrence model. Book
 	// position is the learner's Reading Journey position; analyzed Books outside
 	// the Journey remain in study-language results with no position.
@@ -234,6 +235,7 @@ type Querier interface {
 	// view (migration 000067); this query only selects from it, so the status
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	ListStudyLanguageDependentsByGovernorLemma(ctx context.Context, arg ListStudyLanguageDependentsByGovernorLemmaParams) ([]ListStudyLanguageDependentsByGovernorLemmaRow, error)
 	ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaParams) ([]ListStudyLanguageOccurrencesByLemmaRow, error)
 	ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaAndDependencyParams) ([]ListStudyLanguageOccurrencesByLemmaAndDependencyRow, error)
 	ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceParams) ([]ListStudyLanguageOccurrencesBySurfaceRow, error)
