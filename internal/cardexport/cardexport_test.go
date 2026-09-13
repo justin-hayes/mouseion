@@ -1128,7 +1128,7 @@ func TestBestSentenceEvidenceRanksAcceptedReferencesByGradualGDEXScore(t *testin
 				{Surface: "neben", UPOS: "ADP", Dependency: "case", Head: 6},
 				{Surface: "dem", UPOS: "DET", Dependency: "det", Head: 6},
 				{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 6},
-				{Surface: "Haus", UPOS: "obl", Dependency: "obl", Head: 2},
+				{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 2},
 			},
 		},
 	}

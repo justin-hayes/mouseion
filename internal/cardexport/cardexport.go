@@ -466,10 +466,11 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 	var forms []string
 	_ = json.Unmarshal(candidate.ObservedForms, &forms)
 	forms = append(forms, candidate.CanonicalLemma)
-	ranked := make([]struct {
+	type rankedSentence struct {
 		evidence SentenceEvidence
 		sentence int
-	}, 0, len(refs))
+	}
+	ranked := make([]rankedSentence, 0, len(refs))
 	for _, ref := range refs {
 		text := ref.Text
 		var tokens []analyzer.Token
@@ -501,10 +502,7 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		if persisted != nil {
 			evidenceTokens = append([]analyzer.Token{}, tokens...)
 		}
-		ranked = append(ranked, struct {
-			evidence SentenceEvidence
-			sentence int
-		}{SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, ref.SentenceIndex})
+		ranked = append(ranked, rankedSentence{evidence: SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, sentence: ref.SentenceIndex})
 	}
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
