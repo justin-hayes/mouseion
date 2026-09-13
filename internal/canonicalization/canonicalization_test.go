@@ -72,6 +72,17 @@ func TestNormalizePreservesRawLemmaAndRecordsProfile(t *testing.T) {
 	assert.Equal(t, "5", got.ProfileVersion)
 }
 
+func TestGermanNormalizationLeavesFullLexemesUnchanged(t *testing.T) {
+	for _, raw := range []string{"stehen", "aufstehen", "wiederherstellen"} {
+		got, err := Normalize("de", raw)
+		require.NoError(t, err)
+		assert.Equal(t, raw, got.RawLemma)
+		assert.Equal(t, raw, got.CanonicalLemma)
+		assert.Equal(t, "german-standard-post-1996", got.ProfileName)
+		assert.Equal(t, "5", got.ProfileVersion)
+	}
+}
+
 func TestGermanV5SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T) {
 	got, err := Normalize("de", "  | geleiten | leiten ")
 	require.NoError(t, err)
