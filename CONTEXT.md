@@ -229,3 +229,23 @@ same sentence), counted across an analyzed Book or study language. A
 concordance enhancement considered for a later milestone, not part of the
 persistence foundation.
 _Avoid_: co-occurrence (fine in prose), n-gram.
+
+**Knock-out criterion**:
+A sentence-quality rule whose failure rejects a candidate sentence outright,
+regardless of its gradual score — for example an incomplete boundary, or no
+finite verb and subject. Distinct from the gradual criteria that only rank.
+_Avoid_: hard rule, gate reason.
+
+**Representative sentence**:
+The sentence chosen for a lemma's recognition card: the highest-scoring accepted
+candidate sentence, with source order breaking ties. It is always the learner's
+complete source sentence, never truncated or paraphrased.
+_Avoid_: example sentence (ambiguous with the historical
+`example_sentences` store), best sentence.
+
+**Sentence quality**:
+The deterministic, explainable score a candidate sentence receives as a
+potential representative, computed at export time from its tokens and dependency
+structure (GDEX-informed). It has two parts: the knock-out gate (accept or
+reject) and the gradual score (ranking among accepted candidates).
+_Avoid_: sentence score (fine in prose), readability.
