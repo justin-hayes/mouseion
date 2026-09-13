@@ -47,3 +47,29 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, digest, v3Digest, "v2 and v3 digests must differ")
 }
+
+func TestQualityDiagnosticsOnlyAffectTheV3ManifestDigest(t *testing.T) {
+	manifest := NewManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
+	}})
+	snapshot := manifest.Snapshot()
+	snapshot.Items[0].Quality.GDEXScore = 0.9
+
+	v2 := snapshot
+	v2.Items = cloneManifestItems(snapshot.Items)
+	v2.SchemaVersion = PreviousManifestSchemaVersion
+	v2Before, err := v2.Digest()
+	require.NoError(t, err)
+	v2.Items[0].Quality.GDEXScore = 0.1
+	v2After, err := v2.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, v2Before, v2After, "v2 digest must ignore the additive GDEX field")
+
+	v3Before, err := snapshot.Digest()
+	require.NoError(t, err)
+	snapshot.Items[0].Quality.GDEXScore = 0.1
+	v3After, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, v3Before, v3After, "v3 digest must include the GDEX field")
+}

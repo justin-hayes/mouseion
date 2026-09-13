@@ -51,7 +51,10 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	manifest, err = manifest.BindCacheKeys(keys)
 	require.NoError(t, err)
 	snapshot := manifest.Snapshot()
+	snapshot.Items[0].Quality.Score = 94
 	snapshot.Items[0].Quality.GDEXScore = 0.5
+	snapshot.Items[0].Quality.Reasons = []string{"target present", "optimal length"}
+	snapshot.Items[2].Quality.Reasons = []string{"too short or fragmented"}
 	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)
 
@@ -132,7 +135,11 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 
 	loaded, loadedDigest, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
+	assert.Equal(t, 94, loaded.Items[0].Quality.Score)
 	assert.Equal(t, 0.5, loaded.Items[0].Quality.GDEXScore)
+	assert.Equal(t, []string{"target present", "optimal length"}, loaded.Items[0].Quality.Reasons)
+	assert.Equal(t, cardexport.ManifestQualityOmitted, loaded.Items[2].Disposition)
+	assert.Equal(t, []string{"too short or fragmented"}, loaded.Items[2].Quality.Reasons)
 	wantDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, loadedDigest)

@@ -75,3 +75,34 @@ func TestManifestSnapshotRejectsPartialIdentityAndNoncontiguousOrder(t *testing.
 	_, err = ManifestFromSnapshot(snapshot)
 	assert.ErrorIs(t, err, ErrInvalidInput, "noncontiguous ordinal error=%v", err)
 }
+
+func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t *testing.T) {
+	snapshot := ManifestSnapshot{
+		SchemaVersion: ManifestSchemaVersion,
+		Owner:         "owner-1",
+		DeckName:      "Buch",
+		Filename:      DownloadFilename("Buch"),
+		Items: []ManifestItem{
+			{
+				Ordinal: 0, Disposition: ManifestAccepted,
+				Entry:   Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht dort.", TargetWord: "Haus"},
+				Quality: SentenceQuality{Accepted: true, Score: 94, GDEXScore: 0.94, Reasons: []string{"target present", "optimal length"}},
+			},
+			{
+				Ordinal: 1, Disposition: ManifestQualityOmitted,
+				Entry:   Entry{Language: "de", CanonicalLemma: "fragment", UPOS: "NOUN", Sentence: "Fragment.", TargetWord: "Fragment"},
+				Quality: SentenceQuality{Score: 0, Reasons: []string{"too short or fragmented"}},
+			},
+		},
+	}
+
+	rebuilt, err := ManifestFromSnapshot(snapshot)
+	require.NoError(t, err)
+	require.Len(t, rebuilt.decisions, 2)
+	assert.Equal(t, snapshot.Items[0].Quality, rebuilt.decisions[0].Quality)
+	assert.Equal(t, snapshot.Items[1].Quality, rebuilt.decisions[1].Quality)
+	require.Len(t, rebuilt.omitted, 1)
+	assert.Equal(t, snapshot.Items[1].Entry.CanonicalLemma, rebuilt.omitted[0].CanonicalLemma)
+	assert.Equal(t, snapshot.Items[1].Quality.Score, rebuilt.omitted[0].Score)
+	assert.Equal(t, snapshot.Items[1].Quality.Reasons, rebuilt.omitted[0].Reasons)
+}
