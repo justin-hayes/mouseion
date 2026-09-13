@@ -558,7 +558,7 @@ func targetIndex(sentence, target string) int {
 	return -1
 }
 
-func nounArticle(language, upos, morphology string) string {
+func nounArticle(language, upos, lemma, morphology string) string {
 	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
 	baseLanguage, _, _ := strings.Cut(language, "-")
 	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
@@ -575,7 +575,7 @@ func nounArticle(language, upos, morphology string) string {
 		articles = map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"}
 		pluralArticle = "die"
 	case "it":
-		articles = map[string]string{"masc": "il", "masculine": "il", "fem": "la", "feminine": "la"}
+		articles = map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"}
 	default:
 		return ""
 	}
@@ -598,6 +598,9 @@ func nounArticle(language, upos, morphology string) string {
 	}
 	if len(genders) == 1 {
 		for article := range genders {
+			if baseLanguage == "it" {
+				return italianDefiniteArticle(article, lemma)
+			}
 			return article
 		}
 	}
@@ -605,6 +608,43 @@ func nounArticle(language, upos, morphology string) string {
 		return pluralArticle
 	}
 	return ""
+}
+
+func italianDefiniteArticle(gender, lemma string) string {
+	lemma = strings.ToLower(strings.TrimSpace(lemma))
+	if gender == "fem" {
+		if italianStartsWithVowel(lemma) {
+			return "l'"
+		}
+		return "la"
+	}
+	if italianStartsWithVowel(lemma) {
+		return "l'"
+	}
+	if italianTakesLo(lemma) {
+		return "lo"
+	}
+	return "il"
+}
+
+func italianStartsWithVowel(value string) bool {
+	runeValue, _ := utf8.DecodeRuneInString(value)
+	return strings.ContainsRune("aeiouàèéìòóù", runeValue)
+}
+
+func italianTakesLo(value string) bool {
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "z") || strings.HasPrefix(value, "x") || strings.HasPrefix(value, "y") || strings.HasPrefix(value, "gn") || strings.HasPrefix(value, "ps") || strings.HasPrefix(value, "pn") {
+		return true
+	}
+	if !strings.HasPrefix(value, "s") {
+		return false
+	}
+	_, size := utf8.DecodeRuneInString(value)
+	next, _ := utf8.DecodeRuneInString(value[size:])
+	return next != utf8.RuneError && !italianStartsWithVowel(string(next)) && unicode.IsLetter(next)
 }
 
 func morphologyVariants(morphology string) ([]map[string]string, bool) {
@@ -644,7 +684,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
 	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
-	article := nounArticle(entry.Language, entry.UPOS, entry.Morphology)
+	article := nounArticle(entry.Language, entry.UPOS, displayLemma, entry.Morphology)
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
@@ -653,7 +693,11 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
-		articleLemma = note.Article + " " + note.Lemma
+		separator := " "
+		if strings.HasSuffix(article, "'") {
+			separator = ""
+		}
+		articleLemma = note.Article + separator + note.Lemma
 	}
 	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.English, note.EnglishSentence}, "\n")
 	return note, nil
