@@ -55,6 +55,7 @@ language for import.
 - [Concordance Foundation](features/concordance-foundation.md) — persists the normalized sentence/token corpus at analysis time so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
 - [Dependency Parse Foundation](features/dependency-parse-foundation.md) — persists each token's dependency relation and head at analysis time and extends the concordance query layer with grammar-aware role and dependents queries; the data prerequisite for deterministic sentence-quality scoring.
 - [German separable-verb lemmatization](features/separable-verb-lemmatization.md) — reattaches German separable particles to verb lemmas in the NLP producer so vocabulary identity is the full lexeme, and excludes particles from content-word candidates.
+- [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
 
 ## Current pipeline
 
@@ -141,6 +142,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 59. [ADR 0059: Persisted normalized corpus for future concordance](adr/0059-persisted-normalized-corpus-for-concordance.md) — persists the normalized sentence/token stream at analysis time in owner-scoped tables so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
 60. [ADR 0060: Persist dependency parses in the normalized corpus](adr/0060-persist-dependency-parses.md) — adds always-on dependency parsing to the NLP boundary and persists each token's basic dependency relation and head, enabling grammar-aware concordance queries and deterministic sentence-quality scoring; amends ADR 0059's no-protobuf-change line.
 61. [ADR 0061: German separable-verb lemmatization from dependency data](adr/0061-german-separable-verb-lemmatization.md) — reattaches separated German verb particles to the verb's canonical lemma in the NLP producer, making the full lexeme the vocabulary identity; amends ADR 0005's normalization and identity interpretation.
+62. [ADR 0062: Sentence-quality scoring derived from the persisted corpus](adr/0062-derived-sentence-quality-scoring.md) — derives a GDEX-informed sentence-quality rubric at export time over the persisted corpus (a finite-verb-and-subject knock-out plus gradual ranking); amends ADR 0029's representative-sentence selection mechanism.
 
 ## Deployment and operations
 
