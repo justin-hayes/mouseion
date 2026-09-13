@@ -122,6 +122,23 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	assert.Equal(t, "5", result.Entries[0].ProfileVersion)
 }
 
+func TestImportFullGermanLexemeMatchesAnalysisCanonicalLemma(t *testing.T) {
+	store := newMemoryStore()
+	service := NewService(store)
+
+	first, err := service.Import(context.Background(), "alice", "de", strings.NewReader("aufstehen\n"))
+	require.NoError(t, err)
+	require.Len(t, first.Entries, 1)
+	assert.Equal(t, "aufstehen", first.Entries[0].RawLemma)
+	assert.Equal(t, "aufstehen", first.Entries[0].CanonicalLemma)
+	assert.Equal(t, "5", first.Entries[0].ProfileVersion)
+
+	second, err := service.Import(context.Background(), "alice", "de", strings.NewReader("aufstehen\n"))
+	require.NoError(t, err)
+	assert.Zero(t, second.Imported)
+	assert.Equal(t, 1, second.AlreadyKnown)
+}
+
 func TestImportRejectsNonLexicalLemmasAndPreservesUnicodeWords(t *testing.T) {
 	store := newMemoryStore()
 	got, err := NewService(store).Import(context.Background(), "alice", "de", strings.NewReader("5\n—\nl'acqua\nStraße\nB2\n"))

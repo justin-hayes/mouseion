@@ -114,7 +114,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 				{Text: "", Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 13, EndOffset: 13}},
 			},
 			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fixture", AnalyzerVersion: "1"},
-			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "german-standard-post-1996", Version: "5"},
 		}, nil
 	}}
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
@@ -164,6 +164,12 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if corpus.Statistics == nil || corpus.Statistics.TextProfile == nil || corpus.Statistics.TextProfile.SentenceCount != sentenceCount || corpus.Statistics.TextProfile.EmptySentenceCount != 1 {
 		t.Fatalf("text profile = %+v, want two sentences and one empty sentence", corpus.Statistics)
 	}
+	var normalizationProfile, normalizationVersion string
+	if err = pool.QueryRow(ctx, `SELECT normalization_profile,normalization_version FROM normalized_corpus_artifacts WHERE content_hash=$1`, corpus.ArtifactHash).Scan(&normalizationProfile, &normalizationVersion); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "german-standard-post-1996", normalizationProfile)
+	assert.Equal(t, "5", normalizationVersion)
 	var surface, rawLemma, canonicalLemma, upos, morphology, storedUnitID string
 	var namedEntityValue *string
 	var sentenceOrdinal, tokenOrdinal, startOffset, endOffset, head int64
