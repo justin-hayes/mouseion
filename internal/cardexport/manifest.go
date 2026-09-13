@@ -37,6 +37,7 @@ var manifestQualityReasons = map[string]struct{}{
 	"incomplete sentence boundaries":  {},
 	"structural noise or boilerplate": {},
 	"no obvious structural noise":     {},
+	"no finite verb and subject":      {},
 }
 
 // ManifestItem is one frozen selection decision. Entry contains only

@@ -18,8 +18,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/gdex"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
@@ -30,6 +32,7 @@ type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Morphology, SourceDocument, Notes                                                 string
+	SentenceTokens                                                                    []analyzer.Token
 	FirstEncounter                                                                    int64
 }
 
@@ -94,15 +97,17 @@ type Omission struct {
 }
 
 type SentenceQuality struct {
-	Accepted bool
-	Score    int
-	Reasons  []string
+	Accepted  bool
+	Score     int
+	Reasons   []string
+	GDEXScore float64
 }
 
 type SentenceEvidence struct {
 	Sentence, Target string
 	FirstEncounter   int64
 	Quality          SentenceQuality
+	Tokens           []analyzer.Token
 }
 
 type Store interface {
@@ -120,6 +125,10 @@ type analysisStore interface {
 	GetCorpusForAnalysis(context.Context, string, string) (domain.Corpus, error)
 	ListSelectionCandidatesForCorpus(context.Context, string, string) ([]domain.SelectionCandidate, error)
 	GetCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
+}
+
+type corpusSentenceStore interface {
+	ListCorpusSentences(context.Context, string, string, []int64) (map[int64]analyzer.Sentence, error)
 }
 
 // preparedEntryStore avoids the legacy cache lookup performed by the direct
@@ -252,15 +261,20 @@ func escapeField(value string) string {
 }
 
 const (
-	minimumSentenceWords      = 6
-	maximumSentenceWords      = 50
-	maximumSentenceCharacters = 400
-	minimumSentenceScore      = 70
+	minimumSentenceWords         = 6
+	maximumSentenceWords         = 50
+	maximumSentenceCharacters    = 400
+	minimumSentenceScore         = 70
+	reasonNoFiniteVerbAndSubject = "no finite verb and subject"
 )
 
 // ScoreSentenceQuality applies a deliberately small, explainable export gate
 // using only sentence text, the selected target form, and source location.
 func ScoreSentenceQuality(sentence, target string, firstEncounter int64) SentenceQuality {
+	return scoreSentenceQuality("", sentence, target, firstEncounter, nil)
+}
+
+func scoreSentenceQuality(language, sentence, target string, firstEncounter int64, tokens []analyzer.Token) SentenceQuality {
 	text := strings.TrimSpace(sentence)
 	words := strings.Fields(text)
 	quality := SentenceQuality{Reasons: make([]string, 0, 8)}
@@ -302,9 +316,29 @@ func ScoreSentenceQuality(sentence, target string, firstEncounter int64) Sentenc
 		quality.Score += 10
 		quality.Reasons = append(quality.Reasons, "no obvious structural noise")
 	}
+	if tokens != nil && isGerman(language) {
+		targetIndices := make([]int, 0, 1)
+		cleanTarget := textmatch.CleanLexicalSurface(target)
+		for index, token := range tokens {
+			if cleanTarget != "" && strings.EqualFold(textmatch.CleanLexicalSurface(token.Surface), cleanTarget) {
+				targetIndices = append(targetIndices, index)
+			}
+		}
+		gdexQuality := gdex.ScoreSentenceQuality(analyzer.Sentence{Text: text, Tokens: tokens}, targetIndices)
+		quality.GDEXScore = gdexQuality.Score
+		if !gdexQuality.Accepted {
+			quality.Score = 0
+			reject(reasonNoFiniteVerbAndSubject)
+		}
+	}
 
 	quality.Accepted = quality.Score >= minimumSentenceScore && !containsRejection(quality.Reasons)
 	return quality
+}
+
+func isGerman(language string) bool {
+	base, _, _ := strings.Cut(strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-")), "-")
+	return base == "de"
 }
 
 func sentenceTooLong(text string) bool {
@@ -315,7 +349,7 @@ func sentenceTooLong(text string) bool {
 func containsRejection(reasons []string) bool {
 	for _, reason := range reasons {
 		switch reason {
-		case "too short or fragmented", "too long", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate":
+		case "too short or fragmented", "too long", "target not present as a word", "invalid source location", "incomplete sentence boundaries", "structural noise or boilerplate", reasonNoFiniteVerbAndSubject:
 			return true
 		}
 	}
@@ -404,10 +438,20 @@ type sentenceReference struct {
 	Location      json.RawMessage `json:"location"`
 }
 
-// BestSentenceEvidence ranks every eligible source reference without changing
-// the candidate's first-encounter ordering. Ties prefer source order, then
-// sentence index and text, so repeated exports are stable.
+// BestSentenceEvidence ranks every text-only source reference without changing
+// the candidate's first-encounter ordering. Persisted exports use
+// BestSentenceEvidenceFromCorpus below.
 func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence, bool) {
+	return bestSentenceEvidence(candidate, nil)
+}
+
+// BestSentenceEvidenceFromCorpus ranks source references using the persisted
+// sentence text and dependency tokens for each sentence ordinal.
+func BestSentenceEvidenceFromCorpus(candidate domain.SelectionCandidate, sentences map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
+	return bestSentenceEvidence(candidate, sentences)
+}
+
+func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) (SentenceEvidence, bool) {
 	var refs []sentenceReference
 	if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
 		return SentenceEvidence{}, false
@@ -421,6 +465,19 @@ func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence
 		sentence int
 	}, 0, len(refs))
 	for i, ref := range refs {
+		text := ref.Text
+		var tokens []analyzer.Token
+		if persisted != nil {
+			sentence, ok := persisted[int64(ref.SentenceIndex)]
+			if !ok {
+				continue
+			}
+			text = sentence.Text
+			tokens = sentence.Tokens
+			if tokens == nil {
+				tokens = []analyzer.Token{}
+			}
+		}
 		location, valid := referenceStartOffset(ref.Location)
 		if !valid {
 			location = -1
@@ -428,17 +485,21 @@ func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence
 		target := ""
 		for _, form := range forms {
 			cleanForm := textmatch.CleanLexicalSurface(form)
-			if targetIndex(ref.Text, cleanForm) >= 0 {
+			if targetIndex(text, cleanForm) >= 0 {
 				target = cleanForm
 				break
 			}
 		}
-		quality := ScoreSentenceQuality(ref.Text, target, location)
+		quality := scoreSentenceQuality(candidate.Language, text, target, location, tokens)
+		var evidenceTokens []analyzer.Token
+		if persisted != nil {
+			evidenceTokens = append([]analyzer.Token{}, tokens...)
+		}
 		ranked = append(ranked, struct {
 			evidence SentenceEvidence
 			index    int
 			sentence int
-		}{SentenceEvidence{ref.Text, target, location, quality}, i, ref.SentenceIndex})
+		}{SentenceEvidence{Sentence: text, Target: target, FirstEncounter: location, Quality: quality, Tokens: evidenceTokens}, i, ref.SentenceIndex})
 	}
 	if len(ranked) == 0 {
 		return SentenceEvidence{}, false
@@ -446,6 +507,9 @@ func BestSentenceEvidence(candidate domain.SelectionCandidate) (SentenceEvidence
 	sort.SliceStable(ranked, func(i, j int) bool {
 		if ranked[i].evidence.Quality.Accepted != ranked[j].evidence.Quality.Accepted {
 			return ranked[i].evidence.Quality.Accepted
+		}
+		if ranked[i].evidence.Quality.GDEXScore != ranked[j].evidence.Quality.GDEXScore {
+			return ranked[i].evidence.Quality.GDEXScore > ranked[j].evidence.Quality.GDEXScore
 		}
 		if ranked[i].evidence.Quality.Score != ranked[j].evidence.Quality.Score {
 			return ranked[i].evidence.Quality.Score > ranked[j].evidence.Quality.Score
@@ -680,6 +744,10 @@ func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Arti
 	if err != nil {
 		return Artifact{}, err
 	}
+	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
+	if err != nil {
+		return Artifact{}, err
+	}
 	sort.SliceStable(selected, func(i, j int) bool {
 		if selected[i].FirstEncounter != selected[j].FirstEncounter {
 			return selected[i].FirstEncounter < selected[j].FirstEncounter
@@ -694,13 +762,7 @@ func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Arti
 		if err != nil {
 			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
-		if evidence, ok := BestSentenceEvidence(candidate); ok {
-			entry.Sentence = evidence.Sentence
-			entry.TargetWord = evidence.Target
-			entry.FirstEncounter = evidence.FirstEncounter
-		} else {
-			entry.TargetWord = targetWord(entry.Sentence, candidate)
-		}
+		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -733,6 +795,10 @@ func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisR
 	if err != nil {
 		return Artifact{}, err
 	}
+	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
+	if err != nil {
+		return Artifact{}, err
+	}
 	sort.SliceStable(selected, func(i, j int) bool {
 		if selected[i].FirstEncounter != selected[j].FirstEncounter {
 			return selected[i].FirstEncounter < selected[j].FirstEncounter
@@ -751,13 +817,7 @@ func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisR
 		if err != nil {
 			return Artifact{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
-		if evidence, ok := BestSentenceEvidence(candidate); ok {
-			entry.Sentence = evidence.Sentence
-			entry.TargetWord = evidence.Target
-			entry.FirstEncounter = evidence.FirstEncounter
-		} else {
-			entry.TargetWord = targetWord(entry.Sentence, candidate)
-		}
+		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -780,6 +840,10 @@ func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Ma
 	if err != nil {
 		return Manifest{}, err
 	}
+	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
+	if err != nil {
+		return Manifest{}, err
+	}
 	sortCandidatesByEncounter(selected)
 	entries := make([]Entry, 0, len(selected))
 	deckName := bookID
@@ -788,7 +852,7 @@ func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Ma
 		if err != nil {
 			return Manifest{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
-		applySentenceDecision(&entry, candidate)
+		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -819,6 +883,10 @@ func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysi
 	if err != nil {
 		return Manifest{}, err
 	}
+	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
+	if err != nil {
+		return Manifest{}, err
+	}
 	sortCandidatesByEncounter(selected)
 	source, err := store.GetSourceMaterial(ctx, owner, corpus.SourceMaterialID)
 	if err != nil {
@@ -831,7 +899,7 @@ func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysi
 		if err != nil {
 			return Manifest{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
-		applySentenceDecision(&entry, candidate)
+		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -864,14 +932,62 @@ func clearExternalFields(entry *Entry) {
 	entry.SentenceTranslationTarget = ""
 }
 
-func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate) {
-	if evidence, ok := BestSentenceEvidence(candidate); ok {
+func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
+	if evidence, ok := bestSentenceEvidence(candidate, persisted); ok {
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
+		entry.SentenceTokens = evidence.Tokens
 	} else {
 		entry.TargetWord = targetWord(entry.Sentence, candidate)
+		if persisted != nil {
+			// An unavailable persisted sentence is not eligible for syntax scoring.
+			entry.SentenceTokens = []analyzer.Token{}
+		}
 	}
+}
+
+func (s *Service) loadCorpusSentences(ctx context.Context, owner string, candidates []domain.SelectionCandidate) (map[string]map[int64]analyzer.Sentence, error) {
+	store, ok := s.store.(corpusSentenceStore)
+	if !ok {
+		return nil, nil
+	}
+	ordinalsByCorpus := make(map[string]map[int64]struct{})
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.CorpusID) == "" {
+			continue
+		}
+		var refs []sentenceReference
+		if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
+			continue
+		}
+		ordinals := ordinalsByCorpus[candidate.CorpusID]
+		if ordinals == nil {
+			ordinals = make(map[int64]struct{})
+			ordinalsByCorpus[candidate.CorpusID] = ordinals
+		}
+		for _, ref := range refs {
+			if ref.SentenceIndex >= 0 {
+				ordinals[int64(ref.SentenceIndex)] = struct{}{}
+			}
+		}
+	}
+	result := make(map[string]map[int64]analyzer.Sentence, len(ordinalsByCorpus))
+	for corpusID, ordinalSet := range ordinalsByCorpus {
+		ordinals := make([]int64, 0, len(ordinalSet))
+		for ordinal := range ordinalSet {
+			ordinals = append(ordinals, ordinal)
+		}
+		slices.Sort(ordinals)
+		sentences, err := store.ListCorpusSentences(ctx, owner, corpusID, ordinals)
+		if err != nil {
+			return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", corpusID, err)
+		}
+		if len(sentences) > 0 {
+			result[corpusID] = sentences
+		}
+	}
+	return result, nil
 }
 
 func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
@@ -892,7 +1008,8 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		decisionEntry := entry
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
-		quality := ScoreSentenceQuality(entry.Sentence, entry.TargetWord, entry.FirstEncounter)
+		decisionEntry.SentenceTokens = nil
+		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
 			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, Entry: decisionEntry, Quality: quality})
