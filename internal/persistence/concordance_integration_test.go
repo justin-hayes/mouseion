@@ -28,7 +28,10 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	})
 	insertConcordanceAnalysis(t, ctx, store, sourceA, true, []concordanceSentence{
 		{UnitID: "epub-unit-v1:0:intro", Ordinal: 0, Text: "Intro", Start: 0, End: 5},
-		{UnitID: "epub-unit-v1:1:chapter-a", Ordinal: 1, Text: "Das Haus", Start: 2, End: 10, Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 6, End: 10}}},
+		{UnitID: "epub-unit-v1:1:chapter-a", Ordinal: 1, Text: "Das Haus", Start: 2, End: 10, Tokens: []concordanceToken{
+			{Surface: "Das", Lemma: "das", Upos: "DET", Dependency: "det", Head: 1, Start: 2, End: 5},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "obj", Head: 0, Start: 6, End: 10},
+		}},
 	})
 
 	bookB, sourceB := createConcordanceBook(t, ctx, store, alice.ID, "Book B", "b", true, []domain.ExtractedUnit{
@@ -59,17 +62,17 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	err = store.Pool().QueryRow(ctx, `
 		SELECT dependency,head_ordinal,head_surface
 		FROM concordance_occurrences
-		WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID).
+		WHERE owner_id=$1 AND book_id=$2 AND language='de' AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID, bookA.ID).
 		Scan(&dependency, &headOrdinal, &headSurface)
 	require.NoError(t, err)
-	assert.Equal(t, "root", dependency)
+	assert.Equal(t, "obj", dependency)
 	assert.Equal(t, int64(0), headOrdinal)
-	assert.Equal(t, "Haus", headSurface)
+	assert.Equal(t, "Das", headSurface)
 
 	bookRows, err := store.ListBookOccurrencesByLemma(ctx, alice.ID, bookA.ID, "de-DE", "haus", "NOUN")
 	require.NoError(t, err)
 	require.Len(t, bookRows, 1)
-	assertOccurrence(t, bookRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1)
+	assertOccurrence(t, bookRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1, "obj", 0, "Das")
 
 	surfaceRows, err := store.ListBookOccurrencesBySurface(ctx, alice.ID, bookA.ID, "de", "Haus")
 	require.NoError(t, err)
@@ -78,8 +81,8 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	languageRows, err := store.ListStudyLanguageOccurrencesByLemma(ctx, alice.ID, "de", "haus", "NOUN")
 	require.NoError(t, err)
 	require.Len(t, languageRows, 2)
-	assertOccurrence(t, languageRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1)
-	assertOccurrence(t, languageRows[1], bookB.ID, "Book B", sourceB.ID, "epub-unit-v1:0:chapter-b", "Chapter 1", "Haus", 0, 4, 0, 4, 0, 4, 0, 2)
+	assertOccurrence(t, languageRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1, "obj", 0, "Das")
+	assertOccurrence(t, languageRows[1], bookB.ID, "Book B", sourceB.ID, "epub-unit-v1:0:chapter-b", "Chapter 1", "Haus", 0, 4, 0, 4, 0, 4, 0, 2, "root", 0, "Haus")
 
 	languageSurfaceRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, alice.ID, "de-DE", "Haus")
 	require.NoError(t, err)
@@ -99,8 +102,9 @@ type concordanceSentence struct {
 }
 
 type concordanceToken struct {
-	Surface, Lemma, Upos string
-	Start, End           int64
+	Surface, Lemma, Upos, Dependency string
+	Head                             int64
+	Start, End                       int64
 }
 
 func concordanceUnit(spine uint64, manifest, text string, start, end uint64) domain.ExtractedUnit {
@@ -174,16 +178,20 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, source.OwnerID, runID, corpus.ID, sentence.UnitID, sentence.Ordinal, sentence.Text, sentence.Start, sentence.End)
 		require.NoError(t, err)
 		for tokenOrdinal, token := range sentence.Tokens {
+			dependency := token.Dependency
+			if dependency == "" {
+				dependency = "root"
+			}
 			_, err = store.Pool().Exec(ctx, `
 				INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,
 					surface,raw_lemma,canonical_lemma,upos,dependency,head,start_offset,end_offset)
-				VALUES($1,'de',$2,$3,$4,$5,$6,$6,$7,$8,'root',$5,$9,$10)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, token.Start, token.End)
+				VALUES($1,'de',$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, source.OwnerID, runID, corpus.ID, sentence.Ordinal, tokenOrdinal, token.Surface, token.Lemma, token.Upos, dependency, token.Head, token.Start, token.End)
 			require.NoError(t, err)
 		}
 	}
 }
 
-func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, bookID, bookTitle, sourceID, unitID, chapterTitle, sentenceText string, sentenceStart, sentenceEnd, unitStart, unitEnd, bookStart, bookEnd, unitOrder int64, bookPosition int) {
+func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, bookID, bookTitle, sourceID, unitID, chapterTitle, sentenceText string, sentenceStart, sentenceEnd, unitStart, unitEnd, bookStart, bookEnd, unitOrder int64, bookPosition int, dependency string, headOrdinal int64, headSurface string) {
 	t.Helper()
 	assert.Equal(t, bookID, occurrence.BookID)
 	assert.Equal(t, bookTitle, occurrence.BookTitle)
@@ -194,6 +202,9 @@ func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, boo
 	assert.Equal(t, "Haus", occurrence.Surface)
 	assert.Equal(t, "haus", occurrence.CanonicalLemma)
 	assert.Equal(t, "NOUN", occurrence.UPOS)
+	assert.Equal(t, dependency, occurrence.Dependency)
+	assert.Equal(t, headOrdinal, occurrence.HeadOrdinal)
+	assert.Equal(t, headSurface, occurrence.HeadSurface)
 	assert.Equal(t, sentenceStart, occurrence.SentenceStartOffset)
 	assert.Equal(t, sentenceEnd, occurrence.SentenceEndOffset)
 	assert.Equal(t, unitStart, occurrence.UnitStartOffset)
