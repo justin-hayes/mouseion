@@ -395,7 +395,8 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.False(t, containsString(modelNames, "Morph"))
 	assert.False(t, containsString(modelNames, "SourceSentence"))
 	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
-	assert.Contains(t, template, "{{#Article}}{{Article}} {{/Article}}{{Lemma}}")
+	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}{{Lemma}}`)
+	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
 
@@ -548,7 +549,7 @@ func TestMakeNoteFormatsLemmaWithoutChangingTargetOrIdentity(t *testing.T) {
 	assert.Equal(t, DedupKey("de", "haus", "NOUN", "alice"), note.Key, "note key = %q, want canonical identity key %q", note.Key, DedupKey("de", "haus", "NOUN", "alice"))
 }
 
-func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
+func TestMakeNoteDerivesNounArticleFromMorphology(t *testing.T) {
 	for _, test := range []struct {
 		name, language, lemma, sentence, target, morphology, wantArticle, wantLemma string
 	}{
@@ -562,7 +563,13 @@ func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
 		{name: "consistent gender across number variants", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Neut","Number":"Plur"}]`, wantArticle: "das", wantLemma: "Haus"},
 		{name: "ambiguous gender variants", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Sing"}]`, wantLemma: "Haus"},
 		{name: "malformed morphology", language: "de", sentence: "Dieses Haus steht seit Jahren am See.", target: "Haus", morphology: `{`, wantLemma: "Haus"},
-		{name: "non German", language: "it", sentence: "La casa è ancora molto grande oggi.", target: "casa", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantLemma: "casa"},
+		{name: "Italian feminine", language: "it", sentence: "La casa è ancora molto grande oggi.", target: "casa", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "la", wantLemma: "casa"},
+		{name: "Italian masculine", language: "it", sentence: "Il pane è ancora fresco oggi.", target: "pane", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "il", wantLemma: "pane"},
+		{name: "Italian impure s masculine", language: "it", sentence: "Lo studente legge ancora oggi.", target: "studente", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "lo", wantLemma: "studente"},
+		{name: "Italian z masculine", language: "it", sentence: "Lo zaino è ancora pieno oggi.", target: "zaino", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "lo", wantLemma: "zaino"},
+		{name: "Italian masculine vowel", language: "it", sentence: "Uomo, vieni ancora qui oggi.", target: "uomo", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "l&#39;", wantLemma: "uomo"},
+		{name: "Italian feminine vowel", language: "it", sentence: "Amica, vieni ancora qui oggi.", target: "amica", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "l&#39;", wantLemma: "amica"},
+		{name: "Italian language tag with region", language: "it-IT", sentence: "La casa è ancora molto grande oggi.", target: "casa", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "la", wantLemma: "casa"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			lemma := test.lemma
@@ -575,6 +582,32 @@ func TestMakeNoteDerivesGermanArticleFromMorphology(t *testing.T) {
 			assert.Equal(t, test.wantLemma, note.Lemma)
 		})
 	}
+}
+
+func TestBuildCoverageAddsItalianDefiniteArticleToNoun(t *testing.T) {
+	store := &memoryStore{bookID: "libro"}
+	store.candidates = []domain.SelectionCandidate{{
+		Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", OccurrenceCount: 3,
+		ObservedForms:      []byte(`["casa"]`),
+		SentenceReferences: []byte(`[{"sentence_index":0,"text":"La casa è ancora molto grande oggi.","location":{"start_offset":0}}]`),
+	}}
+	store.entries = []Entry{{OwnerID: "alice", Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", Morphology: `{"Gender":"Fem","Number":"Sing"}`, SourceDocument: "Il viaggio"}}
+
+	artifact, err := NewService(store).BuildCoverage(context.Background(), "alice", "libro")
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "la", artifact.Generated[0].Note.Article)
+	assert.True(t, strings.HasPrefix(artifact.Generated[0].Note.BackExtra, "la casa\n"))
+}
+
+func TestMakeNoteJoinsItalianElidedArticleWithoutSpace(t *testing.T) {
+	note, err := makeNote("alice", Entry{
+		Language: "it", CanonicalLemma: "uomo", UPOS: "NOUN",
+		Sentence: "Uomo, vieni ancora qui oggi.", TargetWord: "uomo", Morphology: `{"Gender":"Masc","Number":"Sing"}`,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "l&#39;", note.Article)
+	assert.True(t, strings.HasPrefix(note.BackExtra, "l&#39;uomo\n"))
 }
 
 func TestBestSentenceEvidencePreservesCompleteSourceText(t *testing.T) {

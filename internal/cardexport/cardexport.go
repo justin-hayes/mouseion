@@ -558,51 +558,105 @@ func targetIndex(sentence, target string) int {
 	return -1
 }
 
-func germanNounArticle(language, upos, morphology string) string {
+func nounArticle(language, upos, lemma, morphology string) string {
 	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
 	baseLanguage, _, _ := strings.Cut(language, "-")
-	if baseLanguage != "de" || !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
+	if !strings.EqualFold(strings.TrimSpace(upos), "NOUN") {
 		return ""
 	}
-	var variants []map[string]string
-	if err := json.Unmarshal([]byte(morphology), &variants); err != nil {
-		var single map[string]string
-		if json.Unmarshal([]byte(morphology), &single) != nil || single == nil {
-			return ""
-		}
-		variants = []map[string]string{single}
+	variants, ok := morphologyVariants(morphology)
+	if !ok {
+		return ""
+	}
+	var articles map[string]string
+	pluralArticle := ""
+	switch baseLanguage {
+	case "de":
+		articles = map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"}
+		pluralArticle = "die"
+	case "it":
+		articles = map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"}
+	default:
+		return ""
 	}
 	if len(variants) == 0 {
 		return ""
 	}
-	genders := make(map[string]bool, 3)
+	genders := make(map[string]bool, len(articles))
 	allPlural := true
 	for _, variant := range variants {
 		gender := morphologyValue(variant, "Gender")
 		if gender != "" {
-			switch gender {
-			case "masc", "masculine":
-				genders["der"] = true
-			case "fem", "feminine":
-				genders["die"] = true
-			case "neut", "neuter":
-				genders["das"] = true
-			default:
+			article, ok := articles[gender]
+			if !ok {
 				return ""
 			}
+			genders[article] = true
 		}
 		number := morphologyValue(variant, "Number")
 		allPlural = allPlural && (number == "plur" || number == "plural")
 	}
 	if len(genders) == 1 {
 		for article := range genders {
+			if baseLanguage == "it" {
+				return italianDefiniteArticle(article, lemma)
+			}
 			return article
 		}
 	}
 	if len(genders) == 0 && allPlural {
-		return "die"
+		return pluralArticle
 	}
 	return ""
+}
+
+func italianDefiniteArticle(gender, lemma string) string {
+	lemma = strings.ToLower(strings.TrimSpace(lemma))
+	if gender == "fem" {
+		if italianStartsWithVowel(lemma) {
+			return "l'"
+		}
+		return "la"
+	}
+	if italianStartsWithVowel(lemma) {
+		return "l'"
+	}
+	if italianTakesLo(lemma) {
+		return "lo"
+	}
+	return "il"
+}
+
+func italianStartsWithVowel(value string) bool {
+	runeValue, _ := utf8.DecodeRuneInString(value)
+	return strings.ContainsRune("aeiouàèéìòóù", runeValue)
+}
+
+func italianTakesLo(value string) bool {
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "z") || strings.HasPrefix(value, "x") || strings.HasPrefix(value, "y") || strings.HasPrefix(value, "gn") || strings.HasPrefix(value, "ps") || strings.HasPrefix(value, "pn") {
+		return true
+	}
+	if !strings.HasPrefix(value, "s") {
+		return false
+	}
+	_, size := utf8.DecodeRuneInString(value)
+	next, _ := utf8.DecodeRuneInString(value[size:])
+	return next != utf8.RuneError && !italianStartsWithVowel(string(next)) && unicode.IsLetter(next)
+}
+
+func morphologyVariants(morphology string) ([]map[string]string, bool) {
+	var variants []map[string]string
+	if err := json.Unmarshal([]byte(morphology), &variants); err == nil {
+		return variants, true
+	}
+	var single map[string]string
+	if json.Unmarshal([]byte(morphology), &single) != nil || single == nil {
+		return nil, false
+	}
+	return []map[string]string{single}, true
 }
 
 func morphologyValue(morphology map[string]string, key string) string {
@@ -630,7 +684,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
 	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
-	article := germanNounArticle(entry.Language, entry.UPOS, entry.Morphology)
+	article := nounArticle(entry.Language, entry.UPOS, displayLemma, entry.Morphology)
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
@@ -639,7 +693,11 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
-		articleLemma = note.Article + " " + note.Lemma
+		separator := " "
+		if strings.HasSuffix(article, "'") {
+			separator = ""
+		}
+		articleLemma = note.Article + separator + note.Lemma
 	}
 	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.English, note.EnglishSentence}, "\n")
 	return note, nil
