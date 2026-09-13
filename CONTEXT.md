@@ -249,3 +249,28 @@ potential representative, computed at export time from its tokens and dependency
 structure (GDEX-informed). It has two parts: the knock-out gate (accept or
 reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
+
+**Dictionary index**:
+The build-time-derived, read-only lexical dataset, per language, that the
+dictionary enrichment provider reads in-process in Go. It is a static SQLite
+artifact extracted from Wiktextract/Kaikki raw JSONL (English glosses, forms,
+IPA), regenerated from the weekly dumps by a build step; it is not a database of
+application state, not a service, and not part of the NLP analysis service.
+_Avoid_: dictionary database, lexicon service.
+
+**Sense**:
+A distinct meaning of a lemma within a dictionary entry. A Wiktionary-derived
+entry carries an ordered list of senses, each with a concise English gloss and
+optional tags, topics, and examples. A recognition card renders a compact top-N
+set of a lemma's senses ordered by a deterministic context score; sense choice
+is never a separate card field.
+_Avoid_: definition (the full native-language explanation, a separate deferred
+field), translation.
+
+**Gloss**:
+The concise English sense explanation of a lemma rendered on the card back from
+the dictionary index — local, consent-free, deterministic enrichment. It is
+distinct from the contextual `English`/`EnglishSentence` translation, which
+renders the representative sentence in English and may come from the optional
+external LLM.
+_Avoid_: definition, translation (the contextual whole-sentence field).
