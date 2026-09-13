@@ -56,6 +56,7 @@ language for import.
 - [Dependency Parse Foundation](features/dependency-parse-foundation.md) — persists each token's dependency relation and head at analysis time and extends the concordance query layer with grammar-aware role and dependents queries; the data prerequisite for deterministic sentence-quality scoring.
 - [German separable-verb lemmatization](features/separable-verb-lemmatization.md) — reattaches German separable particles to verb lemmas in the NLP producer so vocabulary identity is the full lexeme, and excludes particles from content-word candidates.
 - [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
+- [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German and Italian.
 
 ## Current pipeline
 
@@ -144,6 +145,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 61. [ADR 0061: German separable-verb lemmatization from dependency data](adr/0061-german-separable-verb-lemmatization.md) — reattaches separated German verb particles to the verb's canonical lemma in the NLP producer, making the full lexeme the vocabulary identity; amends ADR 0005's normalization and identity interpretation.
 62. [ADR 0062: Sentence-quality scoring derived from the persisted corpus](adr/0062-derived-sentence-quality-scoring.md) — derives a GDEX-informed sentence-quality rubric at export time over the persisted corpus (a finite-verb-and-subject knock-out plus gradual ranking); amends ADR 0029's representative-sentence selection mechanism.
 63. [ADR 0063: Stanza model provisioning on a Docker volume instead of the image](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza bundle (including NER) into a named volume via a one-shot init container instead of baking models into the NLP image, decoupling the model bundle from the image lifecycle.
+64. [ADR 0064: Built-in dictionary enrichment provider](adr/0064-dictionary-enrichment-provider.md) — makes gloss local, default-on enrichment from a build-time-derived SQLite index (Wiktextract/Kaikki) with deterministic sense ordering and dictionary morphology; amends ADR 0007's gloss classification and ADR 0029's card contract.
 
 ## Deployment and operations
 
