@@ -228,13 +228,15 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 			return false, getErr.Error()
 		}
 		if preparation.State != domain.DeckPreparationReady {
+			if preparation.State == domain.DeckPreparationFailed {
+				return true, ""
+			}
 			return false, fmt.Sprintf("preparation=%+v", preparation)
 		}
 		return true, ""
 	})
 	if preparation.TotalCards != 1 || preparation.CurrentRunID == "" {
-		candidates, candidateErr := store.ListSelectionCandidatesForCorpus(ctx, owner.ID, detail.Acquired.CorpusID)
-		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q candidates=%+v candidate_err=%v", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error, candidates, candidateErr)
+		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
 
 	// Repeating the same request must reuse the current Book deck rather than
@@ -306,12 +308,13 @@ func completeLoopSentence(documentID string, start uint64) analyzer.Sentence {
 	return analyzer.Sentence{
 		Text:     text,
 		Location: analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: start + uint64(len([]rune(text)))},
-		Tokens: []analyzer.Token{{
-			Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN",
-			Dependency: "root", Head: 0,
-			Morphology: map[string]string{"Gender": "Neut"},
-			Location:   analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start, EndOffset: start + 4},
-		}},
+		Tokens: []analyzer.Token{
+			{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj", Head: 1,
+				Morphology: map[string]string{"Gender": "Neut"},
+				Location:   analyzer.SourceLocation{SourceDocumentID: documentID, StartOffset: start + 26, EndOffset: start + 30}},
+			{Surface: "liest", RawLemma: "lesen", CanonicalLemma: "lesen", UPOS: "AUX", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "Anna", RawLemma: "Anna", CanonicalLemma: "anna", UPOS: "PROPN", Dependency: "nsubj", Head: 1},
+		},
 	}
 }
 
