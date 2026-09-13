@@ -65,9 +65,9 @@ func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `
 		INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,
-			surface,raw_lemma,canonical_lemma,upos,morphology,named_entity,start_offset,end_offset)
-		VALUES($1,'de',$2,$3,1,0,'Hallo','Hallo','hallo','PROPN','{"Number":"Sing"}', 'S-PER',0,5),
-		      ($1,'de',$2,$3,1,1,'Welt','Welt','welt','NOUN','{}',NULL,6,10)`, owner.ID, runID, corpusID)
+			surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,named_entity,start_offset,end_offset)
+		VALUES($1,'de',$2,$3,1,0,'Hallo','Hallo','hallo','PROPN','dep',1,'{"Number":"Sing"}', 'S-PER',0,5),
+		      ($1,'de',$2,$3,1,1,'Welt','Welt','welt','NOUN','root',1,'{}',NULL,6,10)`, owner.ID, runID, corpusID)
 	require.NoError(t, err)
 
 	var sentenceCount, tokenCount, emptySentenceCount int
@@ -79,26 +79,34 @@ func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T
 	assert.Equal(t, 1, emptySentenceCount)
 	assert.Equal(t, 2, tokenCount)
 
-	var surface, rawLemma, canonicalLemma, upos, namedEntity string
+	var surface, rawLemma, canonicalLemma, upos, dependency, namedEntity string
+	var head int64
 	var morphology []byte
 	err = store.Pool().QueryRow(ctx, `
-		SELECT surface,raw_lemma,canonical_lemma,upos,morphology,named_entity
+		SELECT surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,named_entity
 		FROM corpus_tokens WHERE owner_id=$1 AND language='de' AND canonical_lemma='hallo' AND upos='PROPN'`, owner.ID).
-		Scan(&surface, &rawLemma, &canonicalLemma, &upos, &morphology, &namedEntity)
+		Scan(&surface, &rawLemma, &canonicalLemma, &upos, &dependency, &head, &morphology, &namedEntity)
 	require.NoError(t, err)
 	assert.Equal(t, "Hallo", surface)
 	assert.Equal(t, "Hallo", rawLemma)
 	assert.Equal(t, "hallo", canonicalLemma)
 	assert.Equal(t, "PROPN", upos)
+	assert.Equal(t, "dep", dependency)
+	assert.Equal(t, int64(1), head)
 	assert.JSONEq(t, `{"Number":"Sing"}`, string(morphology))
 	assert.Equal(t, "S-PER", namedEntity)
 
 	var indexCount int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='corpus_tokens' AND indexname IN ('corpus_tokens_owner_language_canonical_lemma_upos_idx','corpus_tokens_owner_language_surface_idx')`).Scan(&indexCount)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='corpus_tokens' AND indexname IN ('corpus_tokens_owner_language_canonical_lemma_upos_idx','corpus_tokens_owner_language_surface_idx','corpus_tokens_owner_language_dependency_idx')`).Scan(&indexCount)
 	require.NoError(t, err)
-	assert.Equal(t, 2, indexCount)
+	assert.Equal(t, 3, indexCount)
 
-	down, err := migrations.FS.ReadFile("000069_corpus_concordance.down.sql")
+	down, err := migrations.FS.ReadFile("000070_persist_dependency_parses.down.sql")
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, string(down))
+	require.NoError(t, err)
+
+	down, err = migrations.FS.ReadFile("000069_corpus_concordance.down.sql")
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, string(down))
 	require.NoError(t, err)

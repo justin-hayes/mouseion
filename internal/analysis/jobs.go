@@ -904,13 +904,22 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 	}
 	for sentenceOrdinal, sentence := range result.Sentences {
 		for tokenOrdinal, token := range sentence.Tokens {
+			if token.Dependency == "" {
+				return fmt.Errorf("persist normalized corpus token %d in sentence %d: dependency is required", tokenOrdinal, sentenceOrdinal)
+			}
+			if uint64(token.Head) >= uint64(len(sentence.Tokens)) {
+				return fmt.Errorf("persist normalized corpus token %d in sentence %d: head ordinal %d is out of range", tokenOrdinal, sentenceOrdinal, token.Head)
+			}
+			if token.Dependency == "root" && token.Head != uint32(tokenOrdinal) {
+				return fmt.Errorf("persist normalized corpus token %d in sentence %d: root must be self-headed", tokenOrdinal, sentenceOrdinal)
+			}
 			if tokenCount == normalizedCorpusTokenInsertBatchSize {
 				if err := flushTokens(); err != nil {
 					return err
 				}
 			}
 			if tokenCount == 0 {
-				query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,named_entity,start_offset,end_offset) VALUES `)
+				query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,named_entity,start_offset,end_offset) VALUES `)
 			} else {
 				query.WriteString(",")
 			}
@@ -923,12 +932,12 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 				return err
 			}
 			arg := len(args) + 1
-			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13)
+			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13, arg+14, arg+15)
 			var namedEntity any
 			if token.NamedEntity != nil {
 				namedEntity = *token.NamedEntity
 			}
-			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, morphologyJSON, namedEntity, int64(token.Location.StartOffset), int64(token.Location.EndOffset))
+			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, namedEntity, int64(token.Location.StartOffset), int64(token.Location.EndOffset))
 			tokenCount++
 		}
 	}

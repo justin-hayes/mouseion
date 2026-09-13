@@ -93,11 +93,11 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	namedEntity := "LOC"
 	unitID := domain.EPUBUnitID(0, "corpus-source")
 	tokens := []analyzer.Token{
-		{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
-		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
+		{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "dep", Head: 1, Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
+		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Dependency: "root", Head: 1, Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
 	}
 	for i := 0; i <= normalizedCorpusTokenInsertBatchSize; i++ {
-		tokens = append(tokens, analyzer.Token{Surface: "x", RawLemma: "x", CanonicalLemma: "x", UPOS: "X", Morphology: map[string]string{}, Location: analyzer.SourceLocation{SourceDocumentID: unitID}})
+		tokens = append(tokens, analyzer.Token{Surface: "x", RawLemma: "x", CanonicalLemma: "x", UPOS: "X", Dependency: "dep", Head: 1, Morphology: map[string]string{}, Location: analyzer.SourceLocation{SourceDocumentID: unitID}})
 	}
 	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{
@@ -164,14 +164,15 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	}
 	var surface, rawLemma, canonicalLemma, upos, morphology, storedUnitID string
 	var namedEntityValue *string
-	var sentenceOrdinal, tokenOrdinal, startOffset, endOffset int64
-	if err = pool.QueryRow(ctx, `SELECT s.unit_id,t.surface,t.raw_lemma,t.canonical_lemma,t.upos,t.morphology::text,t.named_entity,s.sentence_ordinal,t.token_ordinal,t.start_offset,t.end_offset
+	var sentenceOrdinal, tokenOrdinal, startOffset, endOffset, head int64
+	var dependency string
+	if err = pool.QueryRow(ctx, `SELECT s.unit_id,t.surface,t.raw_lemma,t.canonical_lemma,t.upos,t.dependency,t.head,t.morphology::text,t.named_entity,s.sentence_ordinal,t.token_ordinal,t.start_offset,t.end_offset
 		FROM corpus_tokens t JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
-		WHERE t.owner_id=$1 AND t.corpus_id=$2 AND t.canonical_lemma='berlin'`, owner.ID, corpus.ID).Scan(&storedUnitID, &surface, &rawLemma, &canonicalLemma, &upos, &morphology, &namedEntityValue, &sentenceOrdinal, &tokenOrdinal, &startOffset, &endOffset); err != nil {
+		WHERE t.owner_id=$1 AND t.corpus_id=$2 AND t.canonical_lemma='berlin'`, owner.ID, corpus.ID).Scan(&storedUnitID, &surface, &rawLemma, &canonicalLemma, &upos, &dependency, &head, &morphology, &namedEntityValue, &sentenceOrdinal, &tokenOrdinal, &startOffset, &endOffset); err != nil {
 		t.Fatal(err)
 	}
-	if storedUnitID != unitID || surface != "Berlin" || rawLemma != "Berlin" || canonicalLemma != "berlin" || upos != "PROPN" || namedEntityValue == nil || *namedEntityValue != namedEntity || sentenceOrdinal != 0 || tokenOrdinal != 1 || startOffset != 6 || endOffset != 12 {
-		t.Fatalf("stored token = unit=%q surface=%q raw=%q canonical=%q upos=%q morphology=%q entity=%v sentence=%d token=%d offsets=%d:%d", storedUnitID, surface, rawLemma, canonicalLemma, upos, morphology, namedEntityValue, sentenceOrdinal, tokenOrdinal, startOffset, endOffset)
+	if storedUnitID != unitID || surface != "Berlin" || rawLemma != "Berlin" || canonicalLemma != "berlin" || upos != "PROPN" || dependency != "root" || head != 1 || namedEntityValue == nil || *namedEntityValue != namedEntity || sentenceOrdinal != 0 || tokenOrdinal != 1 || startOffset != 6 || endOffset != 12 {
+		t.Fatalf("stored token = unit=%q surface=%q raw=%q canonical=%q upos=%q dependency=%q head=%d morphology=%q entity=%v sentence=%d token=%d offsets=%d:%d", storedUnitID, surface, rawLemma, canonicalLemma, upos, dependency, head, morphology, namedEntityValue, sentenceOrdinal, tokenOrdinal, startOffset, endOffset)
 	}
 	assert.JSONEq(t, `{"Case":"Nom"}`, morphology)
 	var functionSurface, functionRawLemma, functionCanonicalLemma, functionUPOS, functionMorphology string
@@ -214,7 +215,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 			analyzedChunks = append(analyzedChunks, req.Document.Text)
 			analyzedChunksMu.Unlock()
 		}
-		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Häuser", RawLemma: "Häuser", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Plur"}, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 6}}}}}}, nil
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Häuser", RawLemma: "Häuser", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "root", Head: 0, Morphology: map[string]string{"Number": "Plur"}, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 6}}}}}}, nil
 	}}
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
@@ -372,7 +373,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 		case <-analyzeCtx.Done():
 			return analyzer.Result{}, analyzeCtx.Err()
 		}
-		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 4}}}}}}, nil
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "root", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 4}}}}}}, nil
 	}}
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
