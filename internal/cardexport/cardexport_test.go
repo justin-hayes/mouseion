@@ -1074,7 +1074,7 @@ func TestBestSentenceEvidenceRanksAllReferences(t *testing.T) {
 	assert.True(t, strings.HasPrefix(got.Sentence, "Vor dem"))
 }
 
-func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
+func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceOrder(t *testing.T) {
 	candidate := domain.SelectionCandidate{
 		CanonicalLemma: "Haus",
 		ObservedForms:  []byte(`["Haus"]`),
@@ -1088,13 +1088,72 @@ func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceTie(t *testing.T) {
 	second, okAgain := BestSentenceEvidence(candidate)
 	assert.True(t, ok)
 	assert.True(t, okAgain)
-	assert.Equal(t, "Dieses Haus steht seit vielen Jahren ruhig am See.", first.Sentence)
+	assert.Equal(t, "Unser Haus steht seit vielen Jahren ruhig am See.", first.Sentence)
 	assert.Equal(t, second.Sentence, first.Sentence)
 	assert.Equal(t, second.Target, first.Target)
 	assert.Equal(t, second.FirstEncounter, first.FirstEncounter)
 	assert.Equal(t, second.Quality.Accepted, first.Quality.Accepted)
 	assert.Equal(t, second.Quality.Score, first.Quality.Score)
 	assert.Equal(t, strings.Join(second.Quality.Reasons, "\x00"), strings.Join(first.Quality.Reasons, "\x00"))
+}
+
+func TestBestSentenceEvidenceRanksAcceptedReferencesByGradualGDEXScore(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		Language:       "de",
+		CanonicalLemma: "see",
+		ObservedForms:  []byte(`["See"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":0,"text":"marginal","location":{"start_offset":10}},
+			{"sentence_index":1,"text":"good","location":{"start_offset":100}}
+		]`),
+	}
+	sentences := map[int64]analyzer.Sentence{
+		0: {
+			Text: "Anna steht heute am alten See.",
+			Tokens: []analyzer.Token{
+				{Surface: "Anna", UPOS: "PROPN", Dependency: "nsubj", Head: 1},
+				{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
+				{Surface: "heute", UPOS: "ADV", Dependency: "advmod", Head: 1},
+				{Surface: "am", UPOS: "ADP", Dependency: "case", Head: 5},
+				{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 5},
+				{Surface: "See", UPOS: "NOUN", Dependency: "obl", Head: 1},
+			},
+		},
+		1: {
+			Text: "Der See liegt neben dem alten Haus.",
+			Tokens: []analyzer.Token{
+				{Surface: "Der", UPOS: "DET", Dependency: "det", Head: 1},
+				{Surface: "See", UPOS: "NOUN", Dependency: "nsubj", Head: 2},
+				{Surface: "liegt", UPOS: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"VerbForm": "Fin"}},
+				{Surface: "neben", UPOS: "ADP", Dependency: "case", Head: 6},
+				{Surface: "dem", UPOS: "DET", Dependency: "det", Head: 6},
+				{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 6},
+				{Surface: "Haus", UPOS: "obl", Dependency: "obl", Head: 2},
+			},
+		},
+	}
+
+	got, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
+	require.True(t, ok)
+	assert.Equal(t, sentences[1].Text, got.Sentence)
+	assert.Equal(t, int64(100), got.FirstEncounter)
+	assert.Greater(t, got.Quality.GDEXScore, float64(0))
+}
+
+func TestBestSentenceEvidenceUsesSourceOrderWhenGradualScoresTie(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		CanonicalLemma: "haus",
+		ObservedForms:  []byte(`["Haus"]`),
+		SentenceReferences: []byte(`[
+			{"sentence_index":1,"text":"Das Haus steht heute noch am alten See.","location":{"start_offset":20}},
+			{"sentence_index":0,"text":"Das Haus steht heute am alten See.","location":{"start_offset":10}}
+		]`),
+	}
+
+	got, ok := BestSentenceEvidence(candidate)
+	require.True(t, ok)
+	assert.Equal(t, "Das Haus steht heute am alten See.", got.Sentence)
+	assert.Equal(t, int64(10), got.FirstEncounter)
 }
 
 func TestExportCoverageOmitsBadEvidenceAndRecordsOnlyAcceptedNotes(t *testing.T) {
