@@ -61,10 +61,10 @@ multiple accepted particles still counts as one event.
 ## Spot Checks
 
 Each row contains the complete Stanza sentence context. `debatable`
-flags prefixes with frequent non-particle uses; blank flags are not
-an assertion that the row is correct. Reviewers can determine the
-false-positive rate by judging these rows and counting any false
-positives against the reattachment-event count above.
+flags prefixes with frequent non-particle uses or long-distance
+attachments; blank flags are not an assertion that the row is correct.
+Reviewers can determine the false-positive rate by judging these rows
+and counting any false positives against the reattachment-event count.
 
 | Sentence | Particles | Base -> full lemma | Review flag | Full sentence context |
 | ---: | --- | --- | --- | --- |

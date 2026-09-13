@@ -30,7 +30,6 @@ class Reattachment:
     """One changed verb token and its complete sentence context."""
 
     sentence_number: int
-    token_number: int
     sentence: str
     particles: tuple[str, ...]
     raw_lemma: str
@@ -65,15 +64,15 @@ def measure(corpus: Any) -> Measurement:
     for sentence_number, sentence in enumerate(corpus.sentences, start=1):
         tokens = list(sentence.tokens)
         token_count += len(tokens)
-        for token_number, verb in enumerate(tokens, start=1):
+        for verb_index, verb in enumerate(tokens):
             if verb.pos != "VERB":
                 continue
             particles = [
                 token
                 for token_index, token in enumerate(tokens)
-                if token.head == token_number - 1
+                if token.head == verb_index
                 and token.dependency == "compound:prt"
-                and token_index != token_number - 1
+                and token_index != verb_index
             ]
             accepted = [
                 token
@@ -88,7 +87,6 @@ def measure(corpus: Any) -> Measurement:
             for particle in accepted:
                 prefix_counts[particle.surface.casefold()] += 1
 
-            verb_index = token_number - 1
             accepted_ids = {id(token) for token in accepted}
             particle_distance = {
                 id(token): abs(token_index - verb_index)
@@ -105,7 +103,6 @@ def measure(corpus: Any) -> Measurement:
             spot_checks.append(
                 Reattachment(
                     sentence_number=sentence_number,
-                    token_number=token_number,
                     sentence=" ".join(sentence.text.split()),
                     particles=tuple(token.surface for token in accepted),
                     raw_lemma=verb.raw_lemma,
@@ -210,10 +207,10 @@ def render_report(
             "## Spot Checks",
             "",
             "Each row contains the complete Stanza sentence context. `debatable`",
-            "flags prefixes with frequent non-particle uses; blank flags are not",
-            "an assertion that the row is correct. Reviewers can determine the",
-            "false-positive rate by judging these rows and counting any false",
-            "positives against the reattachment-event count above.",
+            "flags prefixes with frequent non-particle uses or long-distance",
+            "attachments; blank flags are not an assertion that the row is correct.",
+            "Reviewers can determine the false-positive rate by judging these rows",
+            "and counting any false positives against the reattachment-event count.",
             "",
             "| Sentence | Particles | Base -> full lemma | Review flag | Full sentence context |",
             "| ---: | --- | --- | --- | --- |",
