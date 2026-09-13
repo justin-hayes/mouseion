@@ -20,12 +20,13 @@ morphology deterministic, local, and consent-free, without an LLM.
 
 ## Goal
 
-A built-in dictionary enrichment provider: a Go `DictionaryLookup` over a
+A built-in dictionary enrichment provider: a local lexical lookup over a
 build-time-derived read-only SQLite index (the **dictionary index**) that
 supplies per-candidate (i) a compact, context-ordered set of English glosses
-and (ii) definitive morphology (gender, article, plural), resolved through the
-existing `enrichment_cache`. German and Italian symmetric. The external LLM
-remains an optional upgrade for contextual sentence translation only.
+and (ii) definitive morphology (gender, article, plural), resolved when the
+prepared-deck manifest is frozen and carried on the frozen entries. German and
+Italian symmetric. The external LLM remains an optional upgrade for contextual
+sentence translation only.
 
 ## Scope
 
@@ -35,9 +36,9 @@ remains an optional upgrade for contextual sentence translation only.
   extraction date as `provider_version`. Not the deprecated per-language
   downloads; not a Postgres import.
 - **In-process Go provider**: the index is read at startup via pure-Go
-  `modernc.org/sqlite` (no CGO); a `DictionaryLookup` implementation resolves
-  glosses and morphology from it. No new gRPC service; the NLP service is
-  untouched (ADR 0023 scope unchanged).
+  `modernc.org/sqlite` (no CGO); a local lexical-provider implementation
+  resolves glosses and morphology from it. No new gRPC service; the NLP service
+  is untouched (ADR 0023 scope unchanged).
 - **Gloss rendering**: a compact ordered sense set — top-N senses (default
   three), each gloss truncated to a token budget (≤ 10 tokens), joined with
   `·`. The set is the floor; context ranking only reorders display.
@@ -51,10 +52,11 @@ remains an optional upgrade for contextual sentence translation only.
   ranked top sense's forms; replaces the morphology heuristic.
 - **Card contract**: a new `Gloss` Anki note field on the back; `English` stays
   the contextual sentence translation (ADR 0021 distinction preserved).
-- **Cache**: resolved results flow into the existing `enrichment_cache`, keyed
-  `(language, target_language, canonical_lemma, upos, provider,
-  provider_version, sentence_hash)` — the sentence hash already makes gloss
-  ordering context-correct.
+- **Freeze and provenance**: gloss and morphology are resolved when the
+  prepared-deck manifest is frozen and carried on the frozen entries; the index
+  `provider_version` is recorded for provenance. The dictionary is local and
+  deterministic, so it does **not** use the consent-gated external
+  `enrichment_cache`; the immutable prepared `.apkg` provides reproducibility.
 
 ## Non-goals
 
@@ -106,11 +108,12 @@ remains an optional upgrade for contextual sentence translation only.
   and `English`; artifact fixtures and completeness tests are updated.
 - `English` and `EnglishSentence` keep their current semantics.
 
-### Cache
+### Freeze and provenance
 
-- Provider identity: `dictionary-index` + `provider_version` from the build.
-- `sentence_hash` is already part of the external cache key, so
-  context-ordered glosses cache correctly per sentence.
+- Resolved at manifest freeze and frozen onto the entries; the index
+  `provider_version` (dump/extraction date) is recorded.
+- The dictionary does not use the consent-gated external `enrichment_cache`,
+  which stays reserved for the external translation path.
 
 ## Acceptance criteria
 
@@ -123,8 +126,8 @@ remains an optional upgrade for contextual sentence translation only.
       ("zu Hause", "a casa")
 - [ ] German and Italian nouns resolve gender/article/plural from the index;
       unindexed lemmas keep the current heuristic
-- [ ] Cache key includes `provider_version`; a weekly index rebuild does not
-      reuse stale glosses
+- [ ] Gloss and morphology are frozen into the prepared-deck manifest with the
+      index `provider_version` recorded; the external cache is not used
 - [ ] No dictionary data in Postgres; no new service; NLP service unchanged
 - [ ] Attribution notice retained per CC BY-SA / GFDL
 

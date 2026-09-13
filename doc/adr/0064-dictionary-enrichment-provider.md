@@ -27,10 +27,13 @@ not belong in application-state Postgres.
 
 ## Decision
 
-1. **A built-in dictionary provider, in-process.** Implement
-   `DictionaryLookup` over a build-time-derived **read-only SQLite index** (the
-   dictionary index) consumed at startup by the Go web/River process via pure-Go
-   `modernc.org/sqlite`. No new gRPC service; the NLP service is unchanged.
+1. **A built-in dictionary provider, in-process.** Add a local lexical-provider
+   seam and implement it over a build-time-derived **read-only SQLite index**
+   (the dictionary index) consumed at startup by the Go web/River process via
+   pure-Go `modernc.org/sqlite`. The existing test-only `DictionaryLookup`
+   adapter is translation-shaped and external-gated, so it is repurposed to
+   this local seam rather than wired into the external translation slot. No new
+   gRPC service; the NLP service is unchanged.
 2. **The index is a build artifact, not database state.** A `make` target
    (Python + `kaikki-json`) derives a compact per-language SQLite file from the
    raw Wiktextract JSONL (enwiktionary `de`/`it` entries — English glosses),
@@ -49,10 +52,13 @@ not belong in application-state Postgres.
 5. **Card contract gains a `Gloss` field.** The Anki/TSV note adds `Gloss` on
    the back; `English` remains the contextual sentence translation (ADR 0021
    distinction preserved).
-6. **Caching unchanged.** Resolved results flow through the existing
-   `enrichment_cache` with `provider` = `dictionary-index` and
-   `provider_version` from the build; `sentence_hash` is already part of the
-   external cache key, so context-ordered glosses cache correctly.
+6. **Resolved at manifest freeze, not the external cache.** The dictionary
+   lookup is local and deterministic, so its resolved gloss and morphology are
+   computed when the prepared-deck manifest is frozen and carried on the frozen
+   entries, with the index `provider_version` recorded for provenance. It does
+   **not** flow through `enrichment_cache`, which is consent-gated and reserved
+   for the external translation path; the immutable prepared `.apkg` already
+   provides reproducibility.
 7. **German and Italian symmetric.** The index, provider, and card field are
    language-agnostic; both languages are built by the same derivation step.
 
@@ -67,8 +73,9 @@ not belong in application-state Postgres.
   black-box call.
 - The recognition-card note contract changes (new `Gloss` field), requiring
   updated artifact fixtures and import/export tests, per the ADR 0029 pattern.
-- The `DictionaryLookup` seam gains a real production implementation; a later
-  move to a gRPC service stays possible behind the same interface.
+- The local lexical-provider seam replaces the test-only, translation-shaped
+  `DictionaryLookup` types; a later move to a gRPC service stays possible behind
+  the same interface.
 - Wiktionary-derived gloss text (CC BY-SA 3.0 / GFDL) ships inside downloaded
   decks; the attribution notice is retained and the data portion stays
   share-alike.
