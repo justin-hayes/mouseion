@@ -112,7 +112,7 @@ func main() {
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
-	exportService := cardexport.NewServiceWithDictionary(store, dictionaryIndex)
+	exportService := cardexport.NewServiceWithLexicalProvider(store, dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		log.Fatal(err)

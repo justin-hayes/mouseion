@@ -19,7 +19,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/gdex"
@@ -142,14 +141,14 @@ type preparedEntryStore interface {
 }
 
 type Service struct {
-	store      Store
-	dictionary dictionary.Provider
+	store   Store
+	lexical enrichment.LexicalProvider
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
 
-func NewServiceWithDictionary(store Store, provider dictionary.Provider) *Service {
-	return &Service{store: store, dictionary: provider}
+func NewServiceWithLexicalProvider(store Store, provider enrichment.LexicalProvider) *Service {
+	return &Service{store: store, lexical: provider}
 }
 
 func DedupKey(language, lemma, upos, owner string) string {
@@ -835,8 +834,8 @@ func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Arti
 			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveDictionary(ctx, &entry); err != nil {
-			return Artifact{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
+			return Artifact{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
 		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
@@ -893,8 +892,8 @@ func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisR
 			return Artifact{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveDictionary(ctx, &entry); err != nil {
-			return Artifact{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
+			return Artifact{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
 		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
@@ -931,8 +930,8 @@ func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Ma
 			return Manifest{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveDictionary(ctx, &entry); err != nil {
-			return Manifest{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
+			return Manifest{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
 		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
@@ -981,8 +980,8 @@ func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysi
 			return Manifest{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveDictionary(ctx, &entry); err != nil {
-			return Manifest{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
+			return Manifest{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
 		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
@@ -1016,37 +1015,41 @@ func clearExternalFields(entry *Entry) {
 	entry.SentenceTranslationTarget = ""
 }
 
-func (s *Service) resolveDictionary(ctx context.Context, entry *Entry) error {
-	if s == nil || s.dictionary == nil || entry == nil {
+func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
+	if s == nil || s.lexical == nil || entry == nil {
 		return nil
 	}
-	result, found, err := s.dictionary.Lookup(ctx, dictionary.LookupRequest{
+	result, found, err := s.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
-		TargetWord: testedTarget(*entry), ExampleSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
+		TargetWord: testedTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
 	})
 	if err != nil || !found {
 		return err
 	}
-	if strings.TrimSpace(result.Gloss) == "" {
-		result.Gloss = dictionary.RenderGloss(result.Senses, dictionary.DefaultMaxSenses, dictionary.DefaultMaxTokens)
-	}
-	if strings.TrimSpace(result.Plural) != "" && !strings.Contains(result.Gloss, result.Plural) {
-		if result.Gloss != "" {
-			result.Gloss += " "
+	gloss := enrichment.RenderGloss(result.Senses, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens)
+	if strings.TrimSpace(result.Plural) != "" && !strings.Contains(gloss, result.Plural) {
+		if gloss != "" {
+			gloss += " "
 		}
-		result.Gloss += "(Pl. " + result.Plural + ")"
+		gloss += "(Pl. " + result.Plural + ")"
 	}
-	entry.Gloss = result.Gloss
-	entry.DictionaryProviderVersion = s.dictionary.Version()
-	if len(result.Morphology) == 0 {
+	entry.Gloss = gloss
+	entry.DictionaryProviderVersion = s.lexical.Version()
+	if result.Gender == "" && result.Article == "" && result.Plural == "" {
 		return nil
 	}
 	morphology := map[string]string{}
 	if err := json.Unmarshal([]byte(entry.Morphology), &morphology); err != nil {
 		morphology = map[string]string{}
 	}
-	for key, value := range result.Morphology {
-		morphology[key] = value
+	if result.Gender != "" {
+		morphology["Gender"] = result.Gender
+	}
+	if result.Article != "" {
+		morphology["Article"] = result.Article
+	}
+	if result.Plural != "" {
+		morphology["Plural"] = result.Plural
 	}
 	encoded, err := json.Marshal(morphology)
 	if err != nil {
