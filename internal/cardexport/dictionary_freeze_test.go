@@ -4,30 +4,31 @@ import (
 	"context"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/dictionary"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type dictionaryStub struct {
-	result dictionary.Result
+type lexicalStub struct {
+	result enrichment.LexicalEntry
 	found  bool
 }
 
-func (d dictionaryStub) Name() string    { return "fixture" }
-func (d dictionaryStub) Version() string { return "fixture-v1" }
-func (d dictionaryStub) Lookup(context.Context, dictionary.LookupRequest) (dictionary.Result, bool, error) {
+func (d lexicalStub) Name() string    { return "fixture" }
+func (d lexicalStub) Version() string { return "fixture-v1" }
+func (d lexicalStub) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return d.result, d.found, nil
 }
 
-func TestDictionaryFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
-	service := NewServiceWithDictionary(nil, dictionaryStub{found: true, result: dictionary.Result{
-		Gloss:      "building",
-		Morphology: map[string]string{"Gender": "Neut", "Article": "das", "Plural": "Häuser"},
-		Plural:     "Häuser",
+func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
+	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+		Gender:  "Neut",
+		Article: "das",
+		Plural:  "Häuser",
+		Senses:  []enrichment.LexicalSense{{Gloss: "building"}},
 	}})
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
-	require.NoError(t, service.resolveDictionary(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	assert.Equal(t, "building (Pl. Häuser)", entry.Gloss)
 	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 
@@ -42,10 +43,10 @@ func TestDictionaryFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	assert.Contains(t, note.BackExtra, "building (Pl. Häuser)")
 }
 
-func TestMissingDictionaryEntryKeepsMorphologyFallback(t *testing.T) {
-	service := NewServiceWithDictionary(nil, dictionaryStub{})
+func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
+	service := NewServiceWithLexicalProvider(nil, lexicalStub{})
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: `{"Gender":"Neut"}`}
-	require.NoError(t, service.resolveDictionary(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	note, err := makeNote("owner", Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`})
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)

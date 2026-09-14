@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -24,11 +25,11 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	defer index.Close()
 	assert.Equal(t, "kaikki", index.Name())
 	assert.Equal(t, "fixture-v1", index.Version())
-	result, found, err := index.Lookup(context.Background(), LookupRequest{Language: "de-DE", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."})
+	result, found, err := index.Lookup(context.Background(), enrichment.LexicalLookupRequest{Language: "de-DE", CanonicalLemma: "Haus", UPOS: "NOUN", RepresentativeSentence: "Das Haus ist groß."})
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, "house", result.Gloss)
-	assert.Equal(t, "Neut", result.Morphology["Gender"])
-	assert.Equal(t, "das", result.Morphology["Article"])
-	assert.Equal(t, "Häuser", result.Morphology["Plural"])
+	assert.Equal(t, "house", result.Senses[0].Gloss)
+	assert.Equal(t, "Neut", result.Gender)
+	assert.Equal(t, "das", result.Article)
+	assert.Equal(t, "Häuser", result.Plural)
 }

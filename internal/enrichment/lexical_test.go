@@ -1,4 +1,4 @@
-package dictionary
+package enrichment
 
 import (
 	"testing"
@@ -8,22 +8,22 @@ import (
 )
 
 func TestOrderSensesBoostsPhraseAndFallsBackToPrimary(t *testing.T) {
-	senses := []Sense{
+	senses := []LexicalSense{
 		{Gloss: "home", Examples: []string{"The house is quiet."}},
 		{Gloss: "at home", Phrase: "zu Hause", Examples: []string{"She stayed at home."}},
 	}
-	request := LookupRequest{ExampleSentence: "Er bleibt zu Hause und liest."}
+	request := LexicalLookupRequest{RepresentativeSentence: "Er bleibt zu Hause und liest."}
 	ordered := OrderSenses(request, senses)
 	assert.Equal(t, "at home", ordered[0].Gloss)
 	assert.Equal(t, "home", ordered[1].Gloss)
 
-	ordered = OrderSenses(LookupRequest{ExampleSentence: "Das Wort steht hier."}, senses)
+	ordered = OrderSenses(LexicalLookupRequest{RepresentativeSentence: "Das Wort steht hier."}, senses)
 	assert.Equal(t, "home", ordered[0].Gloss)
 	assert.Equal(t, "at home", ordered[1].Gloss)
 }
 
 func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
-	request := LookupRequest{
+	request := LexicalLookupRequest{
 		TargetWord: "Haus",
 		SentenceTokens: []analyzer.Token{
 			{Surface: "Das", CanonicalLemma: "der", UPOS: "DET"},
@@ -31,7 +31,7 @@ func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 			{Surface: "schwimmt", CanonicalLemma: "schwimmen", UPOS: "VERB", Dependency: "root"},
 		},
 	}
-	senses := []Sense{{Gloss: "building"}, {Gloss: "household", Topics: []string{"schwimmen"}}}
+	senses := []LexicalSense{{Gloss: "building"}, {Gloss: "household", Topics: []string{"schwimmen"}}}
 	first := OrderSenses(request, senses)
 	second := OrderSenses(request, senses)
 	assert.Equal(t, first, second)
@@ -39,6 +39,6 @@ func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 }
 
 func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
-	got := RenderGloss([]Sense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
+	got := RenderGloss([]LexicalSense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
 	assert.Equal(t, "one two three · second meaning", got)
 }

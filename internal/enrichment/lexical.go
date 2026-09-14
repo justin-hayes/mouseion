@@ -1,6 +1,4 @@
-// Package dictionary provides the local, consent-free lexical lookup used by
-// recognition card export.
-package dictionary
+package enrichment
 
 import (
 	"context"
@@ -10,20 +8,18 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 )
 
-// LookupRequest contains only the lexical context needed to resolve one
-// candidate. Sentence tokens are optional for providers that do not have NLP
-// context available.
-type LookupRequest struct {
-	Language        string
-	CanonicalLemma  string
-	UPOS            string
-	TargetWord      string
-	ExampleSentence string
-	SentenceTokens  []analyzer.Token
+// LexicalLookupRequest contains the lexical context needed to resolve one
+// candidate. Sentence tokens are optional for providers without NLP context.
+type LexicalLookupRequest struct {
+	Language, CanonicalLemma, UPOS string
+	TargetWord                     string
+	RepresentativeSentence         string
+	SentenceTokens                 []analyzer.Token
 }
 
-// Sense is the compact subset of a Wiktionary sense retained by the index.
-type Sense struct {
+// LexicalSense is one ordered gloss sense with the context metadata retained
+// by the local dictionary index.
+type LexicalSense struct {
 	Gloss    string
 	Examples []string
 	Topics   []string
@@ -35,21 +31,21 @@ type Sense struct {
 	IPA      string
 }
 
-type Result struct {
-	Senses     []Sense
-	Gloss      string
-	Morphology map[string]string
-	Gender     string
-	Article    string
-	Plural     string
+// LexicalEntry is the structured result of a local lexical lookup. Senses are
+// ordered for display; the leading sense supplies the preferred morphology.
+type LexicalEntry struct {
+	Senses  []LexicalSense
+	Gender  string
+	Article string
+	Plural  string
 }
 
-// Provider is the single lexical-provider seam. found=false is a normal
-// result for an unindexed lemma and must not prevent card export.
-type Provider interface {
+// LexicalProvider is the consent-free local lexical-provider seam. found=false
+// is a normal result for an unindexed lemma and must not prevent card export.
+type LexicalProvider interface {
 	Name() string
 	Version() string
-	Lookup(context.Context, LookupRequest) (Result, bool, error)
+	Lookup(context.Context, LexicalLookupRequest) (LexicalEntry, bool, error)
 }
 
 const (
@@ -60,14 +56,14 @@ const (
 // OrderSenses applies a deterministic, small Lesk-style context score. The
 // original order is retained for ties, which makes the primary Wiktionary
 // sense the fallback when the sentence provides no useful signal.
-func OrderSenses(request LookupRequest, senses []Sense) []Sense {
+func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalSense {
 	ordered := cloneSenses(senses)
 	if len(ordered) < 2 {
 		return ordered
 	}
 	contextWords := sentenceContext(request)
 	type scoredSense struct {
-		sense Sense
+		sense LexicalSense
 		score int
 	}
 	scored := make([]scoredSense, len(ordered))
@@ -78,7 +74,7 @@ func OrderSenses(request LookupRequest, senses []Sense) []Sense {
 				score++
 			}
 		}
-		if phrase := normalizePhrase(sense.Phrase); phrase != "" && containsFolded(request.ExampleSentence, phrase) {
+		if phrase := normalizePhrase(sense.Phrase); phrase != "" && containsFolded(request.RepresentativeSentence, phrase) {
 			score += 100
 		}
 		scored[i] = scoredSense{sense: sense, score: score}
@@ -109,7 +105,7 @@ func OrderSenses(request LookupRequest, senses []Sense) []Sense {
 }
 
 // RenderGloss renders the compact, stable field used on the card back.
-func RenderGloss(senses []Sense, maxSenses, maxTokens int) string {
+func RenderGloss(senses []LexicalSense, maxSenses, maxTokens int) string {
 	if maxSenses <= 0 {
 		maxSenses = DefaultMaxSenses
 	} else if maxSenses > DefaultMaxSenses {
@@ -137,10 +133,10 @@ func RenderGloss(senses []Sense, maxSenses, maxTokens int) string {
 	return strings.Join(parts, " · ")
 }
 
-func sentenceContext(request LookupRequest) map[string]bool {
+func sentenceContext(request LexicalLookupRequest) map[string]bool {
 	words := make(map[string]bool)
 	if len(request.SentenceTokens) == 0 {
-		fields := strings.Fields(request.ExampleSentence)
+		fields := strings.Fields(request.RepresentativeSentence)
 		target := normalizeWord(request.TargetWord)
 		for i, field := range fields {
 			if normalizeWord(field) != target {
@@ -196,7 +192,7 @@ func sentenceContext(request LookupRequest) map[string]bool {
 	return words
 }
 
-func senseWords(sense Sense) []string {
+func senseWords(sense LexicalSense) []string {
 	values := append([]string{sense.Gloss}, sense.Examples...)
 	values = append(values, sense.Topics...)
 	values = append(values, sense.Tags...)
@@ -237,8 +233,8 @@ func containsFolded(haystack, needle string) bool {
 	return strings.Contains(strings.ToLower(strings.Join(strings.Fields(haystack), " ")), needle)
 }
 
-func cloneSenses(senses []Sense) []Sense {
-	result := make([]Sense, len(senses))
+func cloneSenses(senses []LexicalSense) []LexicalSense {
+	result := make([]LexicalSense, len(senses))
 	for i, sense := range senses {
 		result[i] = sense
 		result[i].Examples = append([]string(nil), sense.Examples...)

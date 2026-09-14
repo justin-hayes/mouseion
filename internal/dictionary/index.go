@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	_ "modernc.org/sqlite"
 )
 
@@ -23,6 +24,8 @@ type Index struct {
 	name    string
 	version string
 }
+
+var _ enrichment.LexicalProvider = (*Index)(nil)
 
 func OpenIndex(path string) (*Index, error) {
 	path = strings.TrimSpace(path)
@@ -81,27 +84,27 @@ func (i *Index) Close() error {
 	return i.db.Close()
 }
 
-func (i *Index) Lookup(ctx context.Context, request LookupRequest) (Result, bool, error) {
+func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	if i == nil || i.db == nil {
-		return Result{}, false, nil
+		return enrichment.LexicalEntry{}, false, nil
 	}
 	language := canonicalization.NormalizeLanguage(request.Language)
 	lemma := normalizeLemma(language, request.CanonicalLemma)
 	upos := strings.ToUpper(strings.TrimSpace(request.UPOS))
 	if language == "" || lemma == "" || upos == "" {
-		return Result{}, false, nil
+		return enrichment.LexicalEntry{}, false, nil
 	}
 	var sensesJSON, gender, article, plural, ipa string
 	err := i.db.QueryRowContext(ctx, `SELECT senses_json, gender, article, plural, ipa FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON, &gender, &article, &plural, &ipa)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Result{}, false, nil
+		return enrichment.LexicalEntry{}, false, nil
 	}
 	if err != nil {
-		return Result{}, false, fmt.Errorf("dictionary lookup: %w", err)
+		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup: %w", err)
 	}
-	var senses []Sense
+	var senses []enrichment.LexicalSense
 	if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
-		return Result{}, false, fmt.Errorf("dictionary senses: %w", err)
+		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
 	}
 	for index := range senses {
 		if senses[index].Gender == "" {
@@ -117,8 +120,8 @@ func (i *Index) Lookup(ctx context.Context, request LookupRequest) (Result, bool
 			senses[index].IPA = ipa
 		}
 	}
-	ordered := OrderSenses(request, senses)
-	result := Result{Senses: ordered, Gloss: RenderGloss(ordered, DefaultMaxSenses, DefaultMaxTokens), Article: article, Plural: plural}
+	ordered := enrichment.OrderSenses(request, senses)
+	result := enrichment.LexicalEntry{Senses: ordered, Article: article, Plural: plural}
 	if len(ordered) > 0 {
 		result.Gender = ordered[0].Gender
 		if ordered[0].Article != "" {
@@ -127,16 +130,6 @@ func (i *Index) Lookup(ctx context.Context, request LookupRequest) (Result, bool
 		if ordered[0].Plural != "" {
 			result.Plural = ordered[0].Plural
 		}
-	}
-	result.Morphology = map[string]string{}
-	if result.Gender != "" {
-		result.Morphology["Gender"] = result.Gender
-	}
-	if result.Article != "" {
-		result.Morphology["Article"] = result.Article
-	}
-	if result.Plural != "" {
-		result.Morphology["Plural"] = result.Plural
 	}
 	return result, true, nil
 }
