@@ -27,27 +27,37 @@ func (d lexicalStub) Lookup(context.Context, enrichment.LexicalLookupRequest) (e
 
 func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
-		Gender:  "Neut",
-		Article: "das",
-		Plural:  "Häuser",
-		Senses:  []enrichment.LexicalSense{{Gloss: "building"}},
+		Gender:         "Neut",
+		Article:        "das",
+		Plural:         "Häuser",
+		IPA:            "/haʊ̯s/",
+		PrincipalParts: "geht · ging · gegangen",
+		Senses:         []enrichment.LexicalSense{{Gloss: "building"}},
 	}})
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	assert.Equal(t, "building", entry.Gloss)
 	assert.Equal(t, "Häuser", entry.Plural)
+	assert.Equal(t, "/haʊ̯s/", entry.IPA)
+	assert.Equal(t, "geht · ging · gegangen", entry.PrincipalParts)
 	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 
 	manifest := NewManifest("owner", "Book", []Entry{entry})
 	snapshot := manifest.Snapshot()
 	assert.Equal(t, entry.Gloss, snapshot.Items[0].Entry.Gloss)
+	assert.Equal(t, entry.IPA, snapshot.Items[0].Entry.IPA)
+	assert.Equal(t, entry.PrincipalParts, snapshot.Items[0].Entry.PrincipalParts)
 	assert.Equal(t, entry.DictionaryProviderVersion, snapshot.Items[0].Entry.DictionaryProviderVersion)
 	note, err := makeNote("owner", snapshot.Items[0].Entry)
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
 	assert.Equal(t, "Häuser", note.Plural)
+	assert.Equal(t, "/haʊ̯s/", note.IPA)
+	assert.Equal(t, "geht · ging · gegangen", note.PrincipalParts)
 	assert.Equal(t, entry.Gloss, note.Gloss)
 	assert.Contains(t, note.BackExtra, "das Haus (Pl. Häuser)")
+	assert.Contains(t, note.BackExtra, "/haʊ̯s/")
+	assert.Contains(t, note.BackExtra, "geht · ging · gegangen")
 }
 
 func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {

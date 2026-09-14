@@ -95,7 +95,7 @@ func TestBoldTargetEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", Plural: "Häuser", POS: "NOUN", Gloss: "home", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", POS: "NOUN", Gloss: "home", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
 	missingSentenceTranslation := note
 	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
 	missingSentenceTranslation.Identity = strings.Repeat("b", 64)
@@ -164,17 +164,19 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
 	assert.Equal(t, stableID("note|"+note.Key), noteID)
-	require.Len(t, serializedFields, 10)
+	require.Len(t, serializedFields, 12)
 	assert.Equal(t, note.Identity, serializedFields[0])
 	assert.Equal(t, note.Text, serializedFields[1])
 	assert.Equal(t, note.Article, serializedFields[2])
 	assert.Equal(t, note.Lemma, serializedFields[3])
 	assert.Equal(t, note.Plural, serializedFields[4])
-	assert.Equal(t, note.POS, serializedFields[5])
-	assert.Equal(t, note.Gloss, serializedFields[6])
-	assert.Equal(t, note.English, serializedFields[7])
-	assert.Equal(t, note.EnglishSentence, serializedFields[8])
-	assert.Equal(t, note.BookTitle, serializedFields[9])
+	assert.Equal(t, note.IPA, serializedFields[5])
+	assert.Equal(t, note.PrincipalParts, serializedFields[6])
+	assert.Equal(t, note.POS, serializedFields[7])
+	assert.Equal(t, note.Gloss, serializedFields[8])
+	assert.Equal(t, note.English, serializedFields[9])
+	assert.Equal(t, note.EnglishSentence, serializedFields[10])
+	assert.Equal(t, note.BookTitle, serializedFields[11])
 	assert.Equal(t, note.Identity, sortField)
 	assert.Equal(t, fieldChecksum(note.Identity), checksum)
 	assert.Contains(t, tags, " Mouseion ")
@@ -182,8 +184,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	require.Len(t, serializedFields, 10)
-	assert.Equal(t, "", serializedFields[8])
+	require.Len(t, serializedFields, 12)
+	assert.Equal(t, "", serializedFields[10])
 	var distinctSortFields int64
 	err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
 	require.NoError(t, err)
@@ -393,7 +395,7 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 }
 
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
-	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}, fieldNames)
+	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}, fieldNames)
 	model := modelMetadata(1, 2)
 	modelFields := model["flds"].([]map[string]any)
 	modelNames := make([]string, len(modelFields))
@@ -406,8 +408,11 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
 	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}{{Lemma}}`)
 	assert.Contains(t, template, `{{#Plural}} (Pl. {{Plural}}){{/Plural}}`)
+	assert.Contains(t, template, `{{#IPA}} <span class="ipa">{{IPA}}</span>{{/IPA}}`)
+	assert.Contains(t, template, `{{#PrincipalParts}} <span class="principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
 	assert.Contains(t, template, `<div class="gloss">{{Gloss}}</div>`)
 	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
+	assert.Contains(t, model["css"].(string), `.ipa, .principal-parts { font-size: .9em; font-weight: 400; }`)
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
 
@@ -442,7 +447,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 		err := rows.Scan(&fields, &sortField, &checksum)
 		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		require.Len(t, serialized, 10)
+		require.Len(t, serialized, 12)
 		assert.Equal(t, sortField, serialized[0])
 		assert.Equal(t, fieldChecksum(sortField), checksum)
 		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
@@ -527,7 +532,7 @@ func containsString(values []string, want string) bool {
 }
 
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
-	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", POS: "NOUN", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
+	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", IPA: "/vɛlt/", PrincipalParts: "geht · ging · gegangen", POS: "NOUN", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
 	got, err := RenderTSV([]Note{n}, "")
 	require.NoError(t, err)
 	r := csv.NewReader(strings.NewReader(got))
@@ -535,9 +540,9 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
-	require.Len(t, rows[0], 11)
-	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:10], "\x1f"))
-	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][10])
+	require.Len(t, rows[0], 13)
+	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:12], "\x1f"))
+	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][12])
 }
 
 func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
@@ -550,7 +555,7 @@ func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
 	r.Comment = '#'
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
-	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", ""}}, rows)
+	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", "", "", ""}}, rows)
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
@@ -681,17 +686,17 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	longSentence := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 12) + "."
 	punctuationSentence := "Heute sah sie ‹die Besten› und lächelte freundlich."
 	fixtures := []struct {
-		lemma, upos, target, sentence, morphology, plural, translation, sentenceTranslation string
-		firstEncounter                                                                      int64
+		lemma, upos, target, sentence, morphology, plural, ipa, principalParts, translation, sentenceTranslation string
+		firstEncounter                                                                                           int64
 	}{
 		{lemma: "die", upos: "DET", target: "‹die", sentence: punctuationSentence, translation: "the", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 10},
 		{lemma: "gut", upos: "ADJ", target: "die Besten›", sentence: punctuationSentence, translation: "good", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 20},
 		{lemma: "souveränität", upos: "NOUN", target: "Souveränität›", sentence: "Über Souveränität› sprach die Professorin gestern sehr ausführlich.", morphology: `{"Gender":"Fem","Number":"Sing"}`, translation: "sovereignty", sentenceTranslation: "The professor spoke about sovereignty in detail yesterday.", firstEncounter: 25},
-		{lemma: "geleiten", upos: "VERB", target: "geleitet", sentence: "Nausikaa hat ihn geleitet und danach den Weg beschrieben.", translation: "to guide", sentenceTranslation: "Nausikaa guided him and then described the path.", firstEncounter: 30},
+		{lemma: "geleiten", upos: "VERB", target: "geleitet", sentence: "Nausikaa hat ihn geleitet und danach den Weg beschrieben.", ipa: "/ɡəˈlaɪ̯tən/", principalParts: "geleitet · geleitete · geleitet", translation: "to guide", sentenceTranslation: "Nausikaa guided him and then described the path.", firstEncounter: 30},
 		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", morphology: `{"Gender":"Neut","Number":"Sing"}`, plural: "Bücher", translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
 		{lemma: "iteration", upos: "NOUN", target: "Iteration", sentence: "Bei der Iteration wurde das Ergebnis erneut sorgfältig geprüft.", morphology: `{"Case":"Dat","Gender":"Fem","Number":"Sing"}`, translation: "iteration", sentenceTranslation: "The result was carefully checked again during the iteration.", firstEncounter: 42},
 		{lemma: "ruderblatt", upos: "NOUN", target: "Ruderblatt", sentence: "Dieses Ruderblatt wurde gestern in der Werkstatt sorgfältig ausgetauscht.", morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "rudder blade", sentenceTranslation: "This rudder blade was carefully replaced in the workshop yesterday.", firstEncounter: 44},
-		{lemma: "besuchen", upos: "VERB", target: "besucht", sentence: "Morgen besucht Anna ihre Klasse im Museum und lernt viel.", translation: "to visit", sentenceTranslation: "Tomorrow Anna visits her class at the museum and learns a lot.", firstEncounter: 50},
+		{lemma: "besuchen", upos: "VERB", target: "besucht", sentence: "Morgen besucht Anna ihre Klasse im Museum und lernt viel.", ipa: "/bəˈzuːχən/", translation: "to visit", sentenceTranslation: "Tomorrow Anna visits her class at the museum and learns a lot.", firstEncounter: 50},
 		{lemma: "haus", upos: "NOUN", target: "Haus", sentence: longSentence, morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "house", sentenceTranslation: "The house stands at the edge while the children play in the garden.", firstEncounter: 60},
 	}
 	store := &memoryStore{bookID: bookID}
@@ -703,7 +708,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 		})
 		store.entries = append(store.entries, Entry{
 			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, Sentence: fixture.sentence,
-			TargetWord: fixture.target, Plural: fixture.plural, Translation: fixture.translation,
+			TargetWord: fixture.target, Plural: fixture.plural, IPA: fixture.ipa, PrincipalParts: fixture.principalParts, Translation: fixture.translation,
 			SentenceTranslation: fixture.sentenceTranslation, Morphology: fixture.morphology, SourceDocument: sourceDocument, FirstEncounter: fixture.firstEncounter,
 		})
 	}
@@ -734,6 +739,10 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	assert.Equal(t, "das", notesByLemma["buch"].Article)
 	assert.Equal(t, "Buch", notesByLemma["buch"].Lemma)
 	assert.Equal(t, "Bücher", notesByLemma["buch"].Plural)
+	assert.Equal(t, "/ɡəˈlaɪ̯tən/", notesByLemma["geleiten"].IPA)
+	assert.Equal(t, "geleitet · geleitete · geleitet", notesByLemma["geleiten"].PrincipalParts)
+	assert.Equal(t, "/bəˈzuːχən/", notesByLemma["besuchen"].IPA)
+	assert.Empty(t, notesByLemma["besuchen"].PrincipalParts)
 	assert.Equal(t, DedupKey("de", "buch", "NOUN", owner), notesByLemma["buch"].Key)
 	assert.Equal(t, "die", notesByLemma["iteration"].Article)
 	assert.Equal(t, "Iteration", notesByLemma["iteration"].Lemma)
@@ -752,12 +761,12 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	rows, err := readTSV(first.TSV)
 	require.NoError(t, err)
 	require.Len(t, rows, len(fixtures)-1)
-	require.Len(t, rows[0], 11)
+	require.Len(t, rows[0], 13)
 	assert.NotContains(t, first.TSV, longSentence)
 	assert.Contains(t, first.TSV, "\tNOUN\t")
 	assert.NotContains(t, first.TSV, "{{c1::")
 	for i, generated := range first.Generated {
-		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(rows[i][:10], "\x1f"), "TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
+		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(rows[i][:12], "\x1f"), "TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
 	}
 	modelsJSON, apkgRows := readAPKGNotes(t, first.APKG)
 	assert.Len(t, apkgRows, len(fixtures)-1)
@@ -766,7 +775,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		require.Len(t, row, 10)
+		require.Len(t, row, 12)
 		assert.NotContains(t, row[1], "{{c1::")
 		assert.NotContains(t, row[3], "geleiten|leiten")
 		assert.NotContains(t, row[3], `"Case"`)

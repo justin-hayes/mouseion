@@ -33,16 +33,16 @@ var ErrInvalidInput = errors.New("cardexport: invalid input")
 type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
-	Gloss, Plural, DictionaryProviderVersion                                          string
+	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
 	Morphology, SourceDocument, Notes                                                 string
 	SentenceTokens                                                                    []analyzer.Token
 	FirstEncounter                                                                    int64
 }
 
 type Note struct {
-	Key, Identity, Text, Article, Lemma, Plural, POS, Gloss, English, EnglishSentence, BookTitle string
-	BackExtra                                                                                    string
-	Tags                                                                                         []string
+	Key, Identity, Text, Article, Lemma, Plural, IPA, PrincipalParts, POS, Gloss, English, EnglishSentence, BookTitle string
+	BackExtra                                                                                                         string
+	Tags                                                                                                              []string
 }
 
 type Artifact struct {
@@ -791,8 +791,10 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
-		Plural: escapeField(nounPlural(entry.UPOS, entry.Plural)),
-		Gloss:  escapeField(entry.Gloss), English: escapeField(entry.Translation),
+		Plural:         escapeField(nounPlural(entry.UPOS, entry.Plural)),
+		IPA:            escapeField(strings.TrimSpace(entry.IPA)),
+		PrincipalParts: escapeField(strings.TrimSpace(entry.PrincipalParts)),
+		Gloss:          escapeField(entry.Gloss), English: escapeField(entry.Translation),
 		EnglishSentence: HighlightEnglishTarget(entry.SentenceTranslation, entry.SentenceTranslationTarget), BookTitle: escapeField(entry.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
@@ -806,7 +808,15 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	if note.Plural != "" {
 		articleLemma += " (Pl. " + note.Plural + ")"
 	}
-	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.Gloss, note.English, note.EnglishSentence}, "\n")
+	back := []string{articleLemma}
+	if note.IPA != "" {
+		back = append(back, note.IPA)
+	}
+	if note.PrincipalParts != "" {
+		back = append(back, note.PrincipalParts)
+	}
+	back = append(back, note.POS, note.Gloss, note.English, note.EnglishSentence)
+	note.BackExtra = strings.Join(back, "\n")
 	return note, nil
 }
 
@@ -853,12 +863,12 @@ func RenderTSV(notes []Note, attribution string) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.Plural, n.IPA, n.PrincipalParts, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -1136,6 +1146,8 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	plural := nounPlural(entry.UPOS, result.Plural)
 	entry.Gloss = gloss
 	entry.Plural = plural
+	entry.IPA = strings.TrimSpace(result.IPA)
+	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
 	entry.DictionaryProviderVersion = s.lexical.Version()
 	if result.Gender == "" && result.Article == "" && plural == "" {
 		return nil
