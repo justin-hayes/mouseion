@@ -79,6 +79,7 @@ sqlc: go-tmp
 
 dictionary-index:
 	test -n "$(DICTIONARY_DUMP_DATE)" || (printf '%s\n' 'DICTIONARY_DUMP_DATE is required (for example, 2026-09-14)' >&2; exit 1)
+	test -z "$(strip $(KAIKKI_INPUT))" || test -z "$(filter 1 true yes,$(DICTIONARY_REFRESH))" || (printf '%s\n' 'DICTIONARY_REFRESH cannot be used with KAIKKI_INPUT' >&2; exit 1)
 	test -x $(VENV_BIN)/python
 	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)"
 

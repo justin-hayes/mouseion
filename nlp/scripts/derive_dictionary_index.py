@@ -8,12 +8,16 @@ from collections import OrderedDict
 from datetime import date
 import gzip
 import json
+import os
 from pathlib import Path
+import shutil
 import sqlite3
 import tempfile
+from urllib.request import urlopen
 
 
 LANGUAGES = {"de", "it"}
+KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
     "adjective": "ADJ",
@@ -164,6 +168,26 @@ def open_input(path: Path):
     return path.open(encoding="utf-8")
 
 
+def download_input(force: bool) -> Path:
+    try:
+        from kaikki_json import config
+    except ImportError as error:
+        raise RuntimeError(f"--download requires kaikki-json: {error}") from error
+    output = Path(config.gz_file_path)
+    if output.exists() and not force:
+        return output
+    output.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(dir=output.parent, prefix=output.name + ".", suffix=".tmp")
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as destination, urlopen(KAIKKI_DOWNLOAD_URL) as source:
+            shutil.copyfileobj(source, destination)
+        temporary_path.replace(output)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+    return output
+
+
 def derive(input_path: Path, output_path: Path, provider_version: str, dump_date: str = "", extraction_date: str = "", wiktextract_commit: str = "") -> None:
     entries: dict[tuple[str, str, str], dict] = {}
     with open_input(input_path) as source:
@@ -260,11 +284,9 @@ def main(argv: list[str] | None = None) -> int:
     input_path = args.input
     if args.download:
         try:
-            from kaikki_json import config, download_kaikki
-        except ImportError as error:
-            parser.error(f"--download requires kaikki-json: {error}")
-        download_kaikki(force=args.force_download)
-        input_path = Path(config.gz_file_path)
+            input_path = download_input(args.force_download)
+        except (OSError, RuntimeError) as error:
+            parser.error(f"could not download Kaikki dump: {error}")
     provider_version = args.provider_version or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
     derive(input_path, args.output, provider_version, args.dump_date, args.extraction_date, args.wiktextract_commit)
     print(f"Wrote {args.output}")

@@ -126,6 +126,11 @@ and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
 generated metadata and attribution when shipping or sharing the index; derived
 dictionary data remains subject to the applicable share-alike requirements.
 
+For an already downloaded JSONL or JSONL.GZ file, use
+`KAIKKI_INPUT=/path/to/raw-wiktextract-data.jsonl.gz` instead of the downloader.
+This is useful for an offline rebuild; do not combine it with
+`DICTIONARY_REFRESH=1`.
+
 ## Language validation
 
 German and Italian are the deployment-supported analysis languages. The
