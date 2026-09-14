@@ -4,6 +4,7 @@ package analysis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -284,6 +285,19 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	require.NotNil(t, corpus.Statistics.TextProfile)
 	assert.Equal(t, int64(1), corpus.Statistics.TextProfile.SentenceCount)
 
+	var details []byte
+	require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='analysis' AND status='complete'`, owner.ID, corpus.ID).Scan(&details))
+	var provenance map[string]any
+	require.NoError(t, json.Unmarshal(details, &provenance))
+	assert.Equal(t, mainTextConfigIdentity, provenance["selection_algorithm"])
+	assert.Equal(t, true, provenance["selection_identified"])
+	assert.Equal(t, true, provenance["selection_applied"])
+	assert.Equal(t, float64(1), provenance["body_matter_start"])
+	assert.Equal(t, float64(2), provenance["back_matter_start"])
+	assert.Equal(t, float64(1), provenance["selected_unit_count"])
+	assert.Equal(t, float64(3), provenance["total_unit_count"])
+	assert.Equal(t, []any{selectedUnits[0].ID, selectedUnits[2].ID}, provenance["excluded_unit_ids"])
+
 	gotSnapshotID, afterSnapshot, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, selectedSource.ID)
 	require.NoError(t, err)
 	assert.Equal(t, snapshotID, gotSnapshotID)
@@ -305,6 +319,16 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	assert.Equal(t, []string{"Kapitel Inhalt.", "Erster Inhalt.", "Zweiter Inhalt."}, analyzed)
 	require.NoError(t, pool.QueryRow(ctx, `SELECT config_identity FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, wholeHandle.RunID).Scan(&configIdentity))
 	assert.Equal(t, snapshotConfigIdentity, configIdentity)
+	var wholeDetails []byte
+	require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND corpus_id=(SELECT corpus_id FROM analysis_runs WHERE owner_id=$1 AND id=$2) AND operation='analysis' AND status='complete'`, owner.ID, wholeHandle.RunID).Scan(&wholeDetails))
+	var wholeProvenance map[string]any
+	require.NoError(t, json.Unmarshal(wholeDetails, &wholeProvenance))
+	assert.Equal(t, snapshotConfigIdentity, wholeProvenance["selection_algorithm"])
+	assert.Equal(t, false, wholeProvenance["selection_identified"])
+	assert.Equal(t, false, wholeProvenance["selection_applied"])
+	assert.Equal(t, float64(2), wholeProvenance["selected_unit_count"])
+	assert.Equal(t, float64(2), wholeProvenance["total_unit_count"])
+	assert.Equal(t, []any{}, wholeProvenance["excluded_unit_ids"])
 
 	noOpText, noOpUnits := makeSourceUnits("noop", []string{"Main Inhalt.", "Weiterer Inhalt."}, [][]string{{"bodymatter"}, nil})
 	noOpSource, err := putAnalysisSourceWithUnits(ctx, store, owner.ID, "noop", "No-op", noOpText, "sha256:noop", noOpUnits)
