@@ -49,8 +49,9 @@ type LexicalProvider interface {
 }
 
 const (
-	DefaultMaxSenses = 3
-	DefaultMaxTokens = 10
+	DefaultMaxSenses    = 3
+	DefaultMaxTokens    = 10
+	minimumContextScore = 2
 )
 
 // OrderSenses applies a deterministic, small Lesk-style context score. The
@@ -87,7 +88,7 @@ func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalS
 	}
 	// Stable insertion order is intentional. In particular, a low-signal
 	// sentence must not displace the dictionary's primary sense.
-	if maxScore > 0 {
+	if maxScore >= minimumContextScore {
 		for i := 1; i < len(scored); i++ {
 			item := scored[i]
 			j := i
@@ -228,7 +229,7 @@ func normalizeWord(value string) string {
 
 var contextStopWords = map[string]struct{}{
 	// German, Italian, and English function words are not useful Lesk signal.
-	"a": {}, "an": {}, "and": {}, "auf": {}, "aus": {}, "bei": {}, "bin": {}, "bis": {}, "da": {}, "das": {}, "de": {}, "dei": {}, "del": {}, "der": {}, "des": {}, "die": {}, "di": {}, "ein": {}, "eine": {}, "einer": {}, "eines": {}, "el": {}, "en": {}, "es": {}, "for": {}, "from": {}, "haben": {}, "hat": {}, "he": {}, "i": {}, "ich": {}, "il": {}, "im": {}, "in": {}, "is": {}, "ist": {}, "la": {}, "le": {}, "lo": {}, "mit": {}, "nach": {}, "nicht": {}, "of": {}, "on": {}, "oder": {}, "per": {}, "she": {}, "sie": {}, "so": {}, "su": {}, "the": {}, "to": {}, "und": {}, "was": {}, "we": {}, "with": {}, "zu": {},
+	"a": {}, "ai": {}, "al": {}, "alla": {}, "alle": {}, "agli": {}, "an": {}, "and": {}, "auf": {}, "aus": {}, "auch": {}, "bei": {}, "bin": {}, "bis": {}, "con": {}, "come": {}, "da": {}, "dal": {}, "dalle": {}, "dass": {}, "das": {}, "de": {}, "dei": {}, "degli": {}, "del": {}, "della": {}, "delle": {}, "der": {}, "des": {}, "die": {}, "di": {}, "e": {}, "ein": {}, "eine": {}, "einer": {}, "eines": {}, "el": {}, "en": {}, "er": {}, "es": {}, "è": {}, "for": {}, "from": {}, "gli": {}, "haben": {}, "hat": {}, "he": {}, "i": {}, "ich": {}, "il": {}, "im": {}, "in": {}, "is": {}, "ist": {}, "la": {}, "le": {}, "lo": {}, "ma": {}, "man": {}, "mein": {}, "mit": {}, "nach": {}, "nei": {}, "nel": {}, "nella": {}, "nelle": {}, "nicht": {}, "non": {}, "o": {}, "of": {}, "on": {}, "oder": {}, "per": {}, "she": {}, "si": {}, "sie": {}, "sind": {}, "so": {}, "sono": {}, "su": {}, "sugli": {}, "sui": {}, "sul": {}, "the": {}, "to": {}, "tra": {}, "tu": {}, "und": {}, "un": {}, "una": {}, "uno": {}, "was": {}, "we": {}, "wie": {}, "wir": {}, "with": {}, "wo": {}, "wird": {}, "zu": {},
 }
 
 func isContextWord(word string) bool {

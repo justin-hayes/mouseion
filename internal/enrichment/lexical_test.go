@@ -46,6 +46,28 @@ func TestOrderSensesCountsDistinctContextWords(t *testing.T) {
 	assert.Equal(t, "kalt rot", ordered[0].Gloss)
 }
 
+func TestOrderSensesKeepsPrimaryForLowSignal(t *testing.T) {
+	request := LexicalLookupRequest{RepresentativeSentence: "Das Wort ist schnell.", TargetWord: "Wort"}
+	senses := []LexicalSense{
+		{Gloss: "primary"},
+		{Gloss: "schnell"},
+	}
+
+	ordered := OrderSenses(request, senses)
+	assert.Equal(t, "primary", ordered[0].Gloss)
+}
+
+func TestOrderSensesOnlyReorders(t *testing.T) {
+	senses := []LexicalSense{
+		{Gloss: "primary"},
+		{Gloss: "second"},
+		{Gloss: "third"},
+	}
+
+	ordered := OrderSenses(LexicalLookupRequest{RepresentativeSentence: "A second third target.", TargetWord: "target"}, senses)
+	assert.Len(t, ordered, len(senses))
+}
+
 func TestOrderSensesKeepsPrimaryWhenTargetIsAbsent(t *testing.T) {
 	request := LexicalLookupRequest{RepresentativeSentence: "Der Fluss ist schnell.", TargetWord: "Haus"}
 	senses := []LexicalSense{
@@ -66,7 +88,7 @@ func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 			{Surface: "schwimmt", CanonicalLemma: "schwimmen", UPOS: "VERB", Dependency: "root"},
 		},
 	}
-	senses := []LexicalSense{{Gloss: "building"}, {Gloss: "household", Topics: []string{"schwimmen"}}}
+	senses := []LexicalSense{{Gloss: "building"}, {Gloss: "household", Topics: []string{"schwimmen", "nsubj"}}}
 	first := OrderSenses(request, senses)
 	second := OrderSenses(request, senses)
 	assert.Equal(t, first, second)
