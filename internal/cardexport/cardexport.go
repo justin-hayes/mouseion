@@ -578,13 +578,16 @@ func nounArticle(language, upos, lemma, morphology string) string {
 		return ""
 	}
 	var articles map[string]string
+	var validArticles map[string]bool
 	pluralArticle := ""
 	switch baseLanguage {
 	case "de":
 		articles = map[string]string{"masc": "der", "masculine": "der", "fem": "die", "feminine": "die", "neut": "das", "neuter": "das"}
+		validArticles = map[string]bool{"der": true, "die": true, "das": true}
 		pluralArticle = "die"
 	case "it":
 		articles = map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"}
+		validArticles = map[string]bool{"il": true, "lo": true, "la": true, "l'": true}
 	default:
 		return ""
 	}
@@ -593,7 +596,9 @@ func nounArticle(language, upos, lemma, morphology string) string {
 	}
 	for _, variant := range variants {
 		if article := morphologyValue(variant, "Article"); article != "" {
-			return article
+			if validArticles[article] {
+				return article
+			}
 		}
 	}
 	genders := make(map[string]bool, len(articles))
