@@ -18,19 +18,22 @@ Long sentences are handled by deterministic quality policy and presentation:
 The back repeats the recognition front as appropriate and supplies the answer
 information:
 
-- lemma and morphology/POS;
-- concise English lemma translation;
-- complete English contextual translation;
+- the headword line: article, lemma, noun plural, pronunciation, principal
+  parts, and part of speech;
+- one meaning block — the dictionary gloss;
+- the complete English contextual translation;
 - source/book metadata where useful.
 
 The back does **not** show a second `SourceSentence` block. The card contract
 has one learner-facing German source sentence, not two copies of it.
 
 The generated note fields are `Identity`, `Text`, `Article`, `Lemma`, `Plural`,
-`POS`, `Gloss`, `English`, `EnglishSentence`, and `BookTitle`, in that order,
-followed by TSV tags. `Identity` is the Anki sort/deduplication field. `Text` is
-the complete source sentence with Mouseion-owned `<b>` markup around the target;
-`SourceSentence` is not a field in either export.
+`IPA`, `PrincipalParts`, `POS`, `Gloss`, `English`, `EnglishSentence`, and
+`BookTitle`, in that order, followed by TSV tags. `Identity` is the Anki
+sort/deduplication field. `Text` is the complete source sentence with
+Mouseion-owned `<b>` markup around the target; `SourceSentence` is not a field
+in either export. `English` is retained in the contract but is not rendered: the
+card's meaning is the gloss.
 
 ## Target form and bolding
 
@@ -43,7 +46,8 @@ available, only the observed form is bolded.
 
 ## Morphology presentation
 
-The back renders `Article Lemma (Pl. Plural) · POS`, then the gloss:
+The noun morphology renders in the headword line as
+`Article Lemma (Pl. Plural) · POS`:
 
 - `Article` is the noun's nominative definite article (`der`/`die`/`das`;
   `il`/`lo`/`la`/`l'`), or empty when the dictionary gives no unambiguous
@@ -55,6 +59,37 @@ The back renders `Article Lemma (Pl. Plural) · POS`, then the gloss:
 - The plural is not part of `Gloss`.
 
 See [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
+
+## Pronunciation and principal parts
+
+The headword line carries two further dictionary-derived forms, each rendered
+only when the index supplies it:
+
+- `IPA` is the entry's pronunciation, normalized in the derivation step toward a
+  standard phonemic `/…/` form (optional segments and regional variants
+  discarded). It self-suppresses when the index has no usable pronunciation.
+- `PrincipalParts` shows a verb's inflectional forms beside the infinitive
+  headword: third-person singular present, preterite, and past participle
+  (`geht · ging · gegangen`). It is German-first; the extraction is
+  language-agnostic so Italian can follow as a data-only change. It
+  self-suppresses when no forms are available. Auxiliary and mood are out of
+  scope.
+
+Both fields are frozen onto the prepared-deck manifest like gloss and
+morphology. Coverage is partial, so an absent value must leave a valid card
+unchanged.
+
+## Meaning block
+
+The back has one meaning block, sourced from the dictionary `Gloss`: a compact,
+context-ordered sense set. The separate `English` lemma translation is retained
+in the note contract but no longer rendered; the contextual `EnglishSentence`
+translation remains distinct. See
+[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+
+When external translation is consented, the LLM may reselect and reorder the
+dictionary senses, or supply a fallback gloss when no dictionary sense fits. See
+[llm-sense-selection.md](llm-sense-selection.md).
 
 ## English target highlighting
 
