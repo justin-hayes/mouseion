@@ -293,7 +293,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if item.Quality.Score < 0 || item.Quality.Score > 110 || len(item.Quality.Reasons) > 16 {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest quality result", ErrInvalidInput)
 	}
-	if schemaVersion == ManifestSchemaVersion && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
+	if schemaVersion >= ManifestSchemaVersionV4 && (math.IsNaN(item.Quality.GDEXScore) || math.IsInf(item.Quality.GDEXScore, 0) || item.Quality.GDEXScore < 0 || item.Quality.GDEXScore > 1) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: invalid manifest GDEX score", ErrInvalidInput)
 	}
 	for _, reason := range item.Quality.Reasons {

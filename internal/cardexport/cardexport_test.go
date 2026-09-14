@@ -681,14 +681,14 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	longSentence := "Das Haus steht am Rand," + strings.Repeat(" während die Kinder im großen Garten spielen", 12) + "."
 	punctuationSentence := "Heute sah sie ‹die Besten› und lächelte freundlich."
 	fixtures := []struct {
-		lemma, upos, target, sentence, morphology, translation, sentenceTranslation string
-		firstEncounter                                                              int64
+		lemma, upos, target, sentence, morphology, plural, translation, sentenceTranslation string
+		firstEncounter                                                                      int64
 	}{
 		{lemma: "die", upos: "DET", target: "‹die", sentence: punctuationSentence, translation: "the", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 10},
 		{lemma: "gut", upos: "ADJ", target: "die Besten›", sentence: punctuationSentence, translation: "good", sentenceTranslation: "Today she saw the best and smiled kindly.", firstEncounter: 20},
 		{lemma: "souveränität", upos: "NOUN", target: "Souveränität›", sentence: "Über Souveränität› sprach die Professorin gestern sehr ausführlich.", morphology: `{"Gender":"Fem","Number":"Sing"}`, translation: "sovereignty", sentenceTranslation: "The professor spoke about sovereignty in detail yesterday.", firstEncounter: 25},
 		{lemma: "geleiten", upos: "VERB", target: "geleitet", sentence: "Nausikaa hat ihn geleitet und danach den Weg beschrieben.", translation: "to guide", sentenceTranslation: "Nausikaa guided him and then described the path.", firstEncounter: 30},
-		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
+		{lemma: "buch", upos: "NOUN", target: "Buch", sentence: "Ich lese heute das Buch und lerne daraus viel.", morphology: `{"Gender":"Neut","Number":"Sing"}`, plural: "Bücher", translation: "book", sentenceTranslation: "Today I read the book and learn a lot from it.", firstEncounter: 40},
 		{lemma: "iteration", upos: "NOUN", target: "Iteration", sentence: "Bei der Iteration wurde das Ergebnis erneut sorgfältig geprüft.", morphology: `{"Case":"Dat","Gender":"Fem","Number":"Sing"}`, translation: "iteration", sentenceTranslation: "The result was carefully checked again during the iteration.", firstEncounter: 42},
 		{lemma: "ruderblatt", upos: "NOUN", target: "Ruderblatt", sentence: "Dieses Ruderblatt wurde gestern in der Werkstatt sorgfältig ausgetauscht.", morphology: `{"Gender":"Neut","Number":"Sing"}`, translation: "rudder blade", sentenceTranslation: "This rudder blade was carefully replaced in the workshop yesterday.", firstEncounter: 44},
 		{lemma: "besuchen", upos: "VERB", target: "besucht", sentence: "Morgen besucht Anna ihre Klasse im Museum und lernt viel.", translation: "to visit", sentenceTranslation: "Tomorrow Anna visits her class at the museum and learns a lot.", firstEncounter: 50},
@@ -703,7 +703,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 		})
 		store.entries = append(store.entries, Entry{
 			OwnerID: owner, Language: "de", CanonicalLemma: fixture.lemma, UPOS: fixture.upos, Sentence: fixture.sentence,
-			TargetWord: fixture.target, Translation: fixture.translation,
+			TargetWord: fixture.target, Plural: fixture.plural, Translation: fixture.translation,
 			SentenceTranslation: fixture.sentenceTranslation, Morphology: fixture.morphology, SourceDocument: sourceDocument, FirstEncounter: fixture.firstEncounter,
 		})
 	}
@@ -733,6 +733,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	assert.Equal(t, "geleiten", notesByLemma["geleiten"].Lemma, "pipe lemma leaked or was not normalized")
 	assert.Equal(t, "das", notesByLemma["buch"].Article)
 	assert.Equal(t, "Buch", notesByLemma["buch"].Lemma)
+	assert.Equal(t, "Bücher", notesByLemma["buch"].Plural)
 	assert.Equal(t, DedupKey("de", "buch", "NOUN", owner), notesByLemma["buch"].Key)
 	assert.Equal(t, "die", notesByLemma["iteration"].Article)
 	assert.Equal(t, "Iteration", notesByLemma["iteration"].Lemma)
