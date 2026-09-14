@@ -147,6 +147,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 63. [ADR 0063: Stanza model provisioning on a Docker volume instead of the image](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza bundle (including NER) into a named volume via a one-shot init container instead of baking models into the NLP image, decoupling the model bundle from the image lifecycle.
 64. [ADR 0064: Built-in dictionary enrichment provider](adr/0064-dictionary-enrichment-provider.md) — makes gloss local, default-on enrichment from a build-time-derived SQLite index (Wiktextract/Kaikki) with deterministic sense ordering and dictionary morphology; amends ADR 0007's gloss classification and ADR 0029's card contract.
 65. [ADR 0065: Canonicalize pre-1996 German ß spellings](adr/0065-german-pre-1996-sharp-s-canonicalization.md) — maps explicitly documented pre-reform German spellings to post-1996 canonical lemmas, preserves modern ß and distinct lexemes, and defines the idempotent vocabulary backfill before profile activation.
+66. [ADR 0066: Identify a Book's main text for analysis from declared EPUB structure](adr/0066-main-text-selection-from-epub-structure.md) — derives a Book's main text from EPUB 3 landmark declarations, analyzes that run with a fail-safe whole-snapshot fallback, versions the selection in the configuration identity, and supersedes ADR 0047's always-complete-scope clause.
 
 ## Deployment and operations
 

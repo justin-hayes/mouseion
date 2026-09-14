@@ -2,7 +2,7 @@
 
 Status: Implemented; learner-facing simplification proposed in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) · Date: 2026-08-24 ·
-Updated: 2026-09-02
+Updated: 2026-09-14
 
 ## Problem
 
@@ -182,17 +182,20 @@ deck changes without persisting derived mastery claims.
 
 ## EPUB analysis and reanalysis
 
-The current analysis processes the entire acquired EPUB. Its coverage,
-thresholds, and top unknowns use the resulting corpus; the one-line coverage
-qualifier states that the headline applies to the analyzed book without
+The current analysis processes the Book's identified main text when declared
+EPUB structure provides one, and the entire acquired EPUB otherwise
+([ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md)). Its
+coverage, thresholds, and top unknowns use the resulting corpus; the one-line
+coverage qualifier states that the headline applies to the analyzed book without
 exposing a separate scope-detail section.
 
 Deck preparation starts on the Journey entry but remains bound internally to the
 exact immutable completed analysis that owns the corpus. It is not available
 for queued, running, failed, cancelled, or legacy-only analysis state.
 
-Reanalysis explicitly submits a new whole-book run for the current source
-revision. When the run completes, it replaces the book's
+Reanalysis explicitly submits a new run for the current source revision; it is
+the point at which a Book with an older whole-book result adopts main-text
+selection. When the run completes, it replaces the book's
 single current learner-facing analysis. Earlier immutable analyses and corpora
 remain owner- and source-material-scoped operational audit records available
 through `/jobs`, not learner-facing result history. Internal source and

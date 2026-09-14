@@ -60,7 +60,7 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Current analysis input** | The complete current extracted EPUB snapshot analyzed for the Book. Source revision and extracted-unit provenance remain durable internal facts. | Unscoped text, inferred content |
+| **Current analysis input** | The analyzed portion of the current extracted EPUB snapshot: its identified main text when declared EPUB structure provides one, otherwise the complete snapshot. Source revision and extracted-unit provenance remain durable internal facts. | Unscoped text, inferred content |
 | **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
 | **Analysis trigger** | Adding a Book to Reading Journey submits asynchronous analysis or re-analysis as needed. | Start analysis, continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |

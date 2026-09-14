@@ -1,6 +1,12 @@
 # Phase 1: Preserve EPUB analysis structure
 
-Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-01
+Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-14
+
+> Analysis no longer always processes the complete snapshot. Declared-structure
+> main-text selection is defined by
+> [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md) and the
+> [main text selection feature](main-text-selection.md); the Phase 1 statements
+> below about analysis scope are historical.
 
 ## Problem
 
@@ -36,7 +42,9 @@ The extracted book should retain the ordered unit list while continuing to provi
 
 ## Non-goals
 
-- automatic front/main/back-matter classification or recommendation;
+- automatic front/main/back-matter *classification* or *recommendation*
+  (declared-structure main-text selection is defined by
+  [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md));
 - the user-facing scope-review controls (defined by the scope-review feature);
 - changing the NLP request payload or analysis scope;
 - changing coverage, deck selection, or sentence scoring;
