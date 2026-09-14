@@ -34,7 +34,8 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	}})
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
-	assert.Equal(t, "building (Pl. Häuser)", entry.Gloss)
+	assert.Equal(t, "building", entry.Gloss)
+	assert.Equal(t, "Häuser", entry.Plural)
 	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 
 	manifest := NewManifest("owner", "Book", []Entry{entry})
@@ -44,8 +45,33 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	note, err := makeNote("owner", snapshot.Items[0].Entry)
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
+	assert.Equal(t, "Häuser", note.Plural)
 	assert.Equal(t, entry.Gloss, note.Gloss)
-	assert.Contains(t, note.BackExtra, "building (Pl. Häuser)")
+	assert.Contains(t, note.BackExtra, "das Haus (Pl. Häuser)")
+}
+
+func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
+	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+		Gender: "Masc", Article: "der", Plural: "Gauner",
+		Senses: []enrichment.LexicalSense{{Gloss: "rogue"}},
+	}})
+	entry := Entry{Language: "de", CanonicalLemma: "gauner", UPOS: "NOUN", Sentence: "Viele Gauner wurden gestern verhaftet.", TargetWord: "Gauner"}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	note, err := makeNote("owner", entry)
+	require.NoError(t, err)
+	assert.Equal(t, "Gauner", note.Plural)
+	assert.Contains(t, note.BackExtra, "der Gauner (Pl. Gauner)")
+
+	service = NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+		Gender: "", Article: "", Plural: "",
+		Senses: []enrichment.LexicalSense{{Gloss: "parents"}},
+	}})
+	entry = Entry{Language: "de", CanonicalLemma: "eltern", UPOS: "NOUN", Sentence: "Meine Eltern wohnen seit Jahren am See.", TargetWord: "Eltern"}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	note, err = makeNote("owner", entry)
+	require.NoError(t, err)
+	assert.Empty(t, note.Plural)
+	assert.NotContains(t, note.BackExtra, "(Pl.")
 }
 
 func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
@@ -104,7 +130,8 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
 	assert.Contains(t, note.Gloss, "house")
-	assert.Contains(t, note.Gloss, "(Pl. Häuser)")
+	assert.Equal(t, "Häuser", note.Plural)
+	assert.NotContains(t, note.Gloss, "(Pl.")
 	assert.Contains(t, note.BackExtra, "das Haus")
 	assert.Contains(t, note.BackExtra, "(Pl. Häuser)")
 
@@ -115,7 +142,8 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &sharpS))
 	assert.Equal(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
-	assert.Equal(t, "street (Pl. Straßen)", sharpS.Gloss)
+	assert.Equal(t, "street", sharpS.Gloss)
+	assert.Equal(t, "Straßen", sharpS.Plural)
 
 	manifest := NewManifest("owner", "Book", []Entry{sharpS})
 	snapshot := manifest.Snapshot()
@@ -123,7 +151,8 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	note, err = makeNote("owner", snapshot.Items[0].Entry)
 	require.NoError(t, err)
 	assert.Equal(t, "die", note.Article)
-	assert.Equal(t, "street (Pl. Straßen)", note.Gloss)
+	assert.Equal(t, "street", note.Gloss)
+	assert.Equal(t, "Straßen", note.Plural)
 	assert.Contains(t, note.BackExtra, "die Straße")
 
 	ranked := Entry{
@@ -136,7 +165,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "die", note.Article)
 	assert.True(t, strings.HasPrefix(note.Gloss, "sea · lake"), "ranked gloss = %q", note.Gloss)
-	assert.Contains(t, note.Gloss, "(Pl. Meere)")
+	assert.Equal(t, "Meere", note.Plural)
 
 	unindexed := Entry{
 		Language: "de", CanonicalLemma: "baum", UPOS: "NOUN",
@@ -183,7 +212,8 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 			note, err := makeNote("owner", entry)
 			require.NoError(t, err)
 			assert.Equal(t, strings.ReplaceAll(test.article, "'", "&#39;"), note.Article)
-			assert.Equal(t, test.gloss+" (Pl. "+test.plural+")", note.Gloss)
+			assert.Equal(t, test.gloss, note.Gloss)
+			assert.Equal(t, test.plural, note.Plural)
 			escapedArticle := strings.ReplaceAll(test.article, "'", "&#39;")
 			articleLemma := escapedArticle + " " + test.lemma
 			if strings.HasSuffix(test.article, "'") {

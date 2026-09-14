@@ -69,6 +69,7 @@ type PreparedDeckRunJobInserter func(context.Context, pgx.Tx, domain.PreparedDec
 type preparedDeckRenderPayload struct {
 	Morphology                string `json:"morphology"`
 	Gloss                     string `json:"gloss"`
+	Plural                    string `json:"plural,omitempty"`
 	DictionaryProviderVersion string `json:"dictionary_provider_version,omitempty"`
 	SourceDocument            string `json:"source_document"`
 	Notes                     string `json:"notes"`
@@ -199,7 +200,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		if digestErr != nil {
 			return FreezePreparedDeckRunResult{}, digestErr
 		}
-		renderPayload, marshalErr := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
+		renderPayload, marshalErr := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
 		if marshalErr != nil {
 			return FreezePreparedDeckRunResult{}, marshalErr
 		}
@@ -395,7 +396,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {
 			return snapshot, "", fmt.Errorf("decode durable manifest render payload: %w", err)
 		}
-		item.Entry.Morphology, item.Entry.Gloss, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.DictionaryProviderVersion
+		item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.Plural, render.DictionaryProviderVersion
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		provider := pgText(model.Provider)
 		if provider != "" {

@@ -95,7 +95,7 @@ func TestBoldTargetEscapesHTMLAndClozeSyntax(t *testing.T) {
 }
 
 func TestAnkiPackageContractAndStableIDs(t *testing.T) {
-	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", POS: "NOUN", Gloss: "home", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
+	note := Note{Key: DedupKey("de", "haus", "NOUN", "alice"), Identity: strings.Repeat("a", 64), Text: "Das <b>Haus</b> ist heute sehr ruhig.", Article: "das", Lemma: "Haus", Plural: "Häuser", POS: "NOUN", Gloss: "home", English: "house", EnglishSentence: "The house is very quiet today.", BookTitle: "Das archaische Griechenland", Tags: []string{"Mouseion", "lang::de", "pos::NOUN", "source::Das_archaische_Griechenland"}}
 	missingSentenceTranslation := note
 	missingSentenceTranslation.Key = DedupKey("de", "baum", "NOUN", "alice")
 	missingSentenceTranslation.Identity = strings.Repeat("b", 64)
@@ -164,16 +164,17 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	serializedFields := strings.Split(fields, "\x1f")
 	assert.Equal(t, stableID("note|"+note.Key), noteID)
-	require.Len(t, serializedFields, 9)
+	require.Len(t, serializedFields, 10)
 	assert.Equal(t, note.Identity, serializedFields[0])
 	assert.Equal(t, note.Text, serializedFields[1])
 	assert.Equal(t, note.Article, serializedFields[2])
 	assert.Equal(t, note.Lemma, serializedFields[3])
-	assert.Equal(t, note.POS, serializedFields[4])
-	assert.Equal(t, note.Gloss, serializedFields[5])
-	assert.Equal(t, note.English, serializedFields[6])
-	assert.Equal(t, note.EnglishSentence, serializedFields[7])
-	assert.Equal(t, note.BookTitle, serializedFields[8])
+	assert.Equal(t, note.Plural, serializedFields[4])
+	assert.Equal(t, note.POS, serializedFields[5])
+	assert.Equal(t, note.Gloss, serializedFields[6])
+	assert.Equal(t, note.English, serializedFields[7])
+	assert.Equal(t, note.EnglishSentence, serializedFields[8])
+	assert.Equal(t, note.BookTitle, serializedFields[9])
 	assert.Equal(t, note.Identity, sortField)
 	assert.Equal(t, fieldChecksum(note.Identity), checksum)
 	assert.Contains(t, tags, " Mouseion ")
@@ -181,8 +182,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRow(`SELECT flds FROM notes WHERE guid=?`, missingSentenceTranslation.Key[:20]).Scan(&fields)
 	require.NoError(t, err)
 	serializedFields = strings.Split(fields, "\x1f")
-	require.Len(t, serializedFields, 9)
-	assert.Equal(t, "", serializedFields[7])
+	require.Len(t, serializedFields, 10)
+	assert.Equal(t, "", serializedFields[8])
 	var distinctSortFields int64
 	err = db.QueryRow(`SELECT count(DISTINCT sfld) FROM notes`).Scan(&distinctSortFields)
 	require.NoError(t, err)
@@ -392,7 +393,7 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 }
 
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
-	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}, fieldNames)
+	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}, fieldNames)
 	model := modelMetadata(1, 2)
 	modelFields := model["flds"].([]map[string]any)
 	modelNames := make([]string, len(modelFields))
@@ -404,6 +405,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.False(t, containsString(modelNames, "SourceSentence"))
 	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
 	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}{{Lemma}}`)
+	assert.Contains(t, template, `{{#Plural}} (Pl. {{Plural}}){{/Plural}}`)
 	assert.Contains(t, template, `<div class="gloss">{{Gloss}}</div>`)
 	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
 	assert.NotContains(t, template, "{{Morph}}")
@@ -440,7 +442,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 		err := rows.Scan(&fields, &sortField, &checksum)
 		require.NoError(t, err)
 		serialized := strings.Split(fields, "\x1f")
-		require.Len(t, serialized, 9)
+		require.Len(t, serialized, 10)
 		assert.Equal(t, sortField, serialized[0])
 		assert.Equal(t, fieldChecksum(sortField), checksum)
 		assert.True(t, sortField == first.Identity || sortField == second.Identity, "fields=%q sfld=%q csum=%d", fields, sortField, checksum)
@@ -533,9 +535,9 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
-	require.Len(t, rows[0], 10)
-	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:9], "\x1f"))
-	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][9])
+	require.Len(t, rows[0], 11)
+	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:10], "\x1f"))
+	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][10])
 }
 
 func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
@@ -548,7 +550,7 @@ func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
 	r.Comment = '#'
 	rows, err := r.ReadAll()
 	require.NoError(t, err)
-	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", ""}}, rows)
+	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", "", ""}}, rows)
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {
@@ -749,12 +751,12 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	rows, err := readTSV(first.TSV)
 	require.NoError(t, err)
 	require.Len(t, rows, len(fixtures)-1)
-	require.Len(t, rows[0], 10)
+	require.Len(t, rows[0], 11)
 	assert.NotContains(t, first.TSV, longSentence)
 	assert.Contains(t, first.TSV, "\tNOUN\t")
 	assert.NotContains(t, first.TSV, "{{c1::")
 	for i, generated := range first.Generated {
-		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(rows[i][:9], "\x1f"), "TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
+		assert.Equal(t, strings.Join(noteFields(generated.Note), "\x1f"), strings.Join(rows[i][:10], "\x1f"), "TSV row %d=%#v note=%#v", i, rows[i], generated.Note)
 	}
 	modelsJSON, apkgRows := readAPKGNotes(t, first.APKG)
 	assert.Len(t, apkgRows, len(fixtures)-1)
@@ -763,7 +765,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	apkgByLemma := make(map[string][]string, len(apkgRows))
 	for _, row := range apkgRows {
-		require.Len(t, row, 9)
+		require.Len(t, row, 10)
 		assert.NotContains(t, row[1], "{{c1::")
 		assert.NotContains(t, row[3], "geleiten|leiten")
 		assert.NotContains(t, row[3], `"Case"`)

@@ -12,7 +12,7 @@ import (
 
 func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	entries := []Entry{
-		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
+		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: "Buch", FirstEncounter: 20},
 	}
 	manifest := NewManifest("owner-1", "Buch", entries)
@@ -32,9 +32,10 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 		assert.Equal(t, "", item.Entry.SentenceTranslationTarget, "snapshot retained noncanonical fields: %+v", item.Entry)
 		assert.Equal(t, "NOUN", item.Entry.UPOS, "snapshot retained noncanonical fields: %+v", item.Entry)
 	}
+	assert.Equal(t, "Häuser", snapshot.Items[0].Entry.Plural, "snapshot lost canonical plural")
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	const wantDigest = "97922a2243d53f2f4cade128c8d523913403174533436d5b17f4f204a48e9583"
+	const wantDigest = "797d2bd8a0a1b11c058f536df19ef49445805180d04960191e1e3c97cc4ee7d9"
 	assert.Equal(t, wantDigest, digest, "digest=%q want=%q", digest, wantDigest)
 
 	rebuilt, err := ManifestFromSnapshot(snapshot)
@@ -85,7 +86,7 @@ func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t
 		Items: []ManifestItem{
 			{
 				Ordinal: 0, Disposition: ManifestAccepted,
-			Entry:   Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Gloss: "house", DictionaryProviderVersion: "fixture-v1", Sentence: "Das Haus steht dort.", TargetWord: "Haus"},
+				Entry:   Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Gloss: "house", DictionaryProviderVersion: "fixture-v1", Sentence: "Das Haus steht dort.", TargetWord: "Haus"},
 				Quality: SentenceQuality{Accepted: true, Score: 94, GDEXScore: 0.94, Reasons: []string{"target present", "optimal length"}},
 			},
 			{
@@ -101,6 +102,7 @@ func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t
 	require.Len(t, rebuilt.decisions, 2)
 	assert.Equal(t, snapshot.Items[0].Quality, rebuilt.decisions[0].Quality)
 	assert.Equal(t, snapshot.Items[0].Entry.Gloss, rebuilt.decisions[0].Entry.Gloss)
+	assert.Equal(t, snapshot.Items[0].Entry.Plural, rebuilt.decisions[0].Entry.Plural)
 	assert.Equal(t, snapshot.Items[0].Entry.DictionaryProviderVersion, rebuilt.decisions[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, snapshot.Items[1].Quality, rebuilt.decisions[1].Quality)
 	require.Len(t, rebuilt.omitted, 1)

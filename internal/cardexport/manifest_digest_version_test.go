@@ -9,7 +9,7 @@ import (
 )
 
 // Verify that v1 and v2 snapshots still hash to their historical digests while
-// v3 and the current v4 snapshot retain distinct identities.
+// later manifest versions retain distinct identities.
 func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	entries := []Entry{
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
@@ -53,7 +53,7 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	assert.NotEqual(t, historicalV3Digest, v3Digest, "v3 and v4 digests must differ")
 }
 
-func TestQualityDiagnosticsOnlyAffectTheV3ManifestDigest(t *testing.T) {
+func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {
 	manifest := NewManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
@@ -77,4 +77,30 @@ func TestQualityDiagnosticsOnlyAffectTheV3ManifestDigest(t *testing.T) {
 	v3After, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.NotEqual(t, v3Before, v3After, "v3 digest must include the GDEX field")
+}
+
+func TestPluralIsAV5ManifestDigestInput(t *testing.T) {
+	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser",
+	}}).Snapshot()
+	withoutPlural := snapshot
+	withoutPlural.Items = cloneManifestItems(snapshot.Items)
+	withoutPlural.Items[0].Entry.Plural = ""
+	withoutPlural.SchemaVersion = ManifestSchemaVersionV4
+	withPluralV4 := snapshot
+	withPluralV4.Items = cloneManifestItems(snapshot.Items)
+	withPluralV4.SchemaVersion = ManifestSchemaVersionV4
+	withoutPluralV4Digest, err := withoutPlural.Digest()
+	require.NoError(t, err)
+	withPluralV4Digest, err := withPluralV4.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, withoutPluralV4Digest, withPluralV4Digest, "v4 must ignore the new plural field")
+
+	withoutPlural.SchemaVersion = ManifestSchemaVersion
+	withoutPluralCurrentDigest, err := withoutPlural.Digest()
+	require.NoError(t, err)
+	withPluralCurrentDigest, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, withoutPluralCurrentDigest, withPluralCurrentDigest, "v5 must include the plural field")
 }
