@@ -107,7 +107,9 @@ def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
         "\n".join(
             json.dumps({"word": word, "lang_code": "de", "pos": pos, "senses": [{"glosses": [word], "tags": tags}]})
             for word, pos, tags in [
-                ("obwohl", "conj", ["subordinating"]),
+                ("obwohl", "conj", []),
+                ("dass", "conj", ["subordinating"]),
+                ("und", "conj", ["coordinating"]),
                 ("dies", "det", []),
                 ("zwei", "num", []),
                 ("ach", "intj", []),
@@ -120,7 +122,10 @@ def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
 
     connection = sqlite3.connect(output)
     assert set(connection.execute("SELECT lemma, upos FROM entries").fetchall()) == {
+        ("obwohl", "CCONJ"),
         ("obwohl", "SCONJ"),
+        ("dass", "SCONJ"),
+        ("und", "CCONJ"),
         ("dies", "DET"),
         ("zwei", "NUM"),
         ("ach", "INTJ"),

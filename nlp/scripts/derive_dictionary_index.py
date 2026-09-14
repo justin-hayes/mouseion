@@ -173,12 +173,19 @@ def ipa_for(item: dict) -> str:
     return ""
 
 
-def upos_for(item: dict, sense: dict) -> str | None:
+def upos_for(item: dict, sense: dict) -> list[str]:
     raw_pos = str(item.get("pos", "")).casefold()
+    if raw_pos in {"conj", "conjunction"}:
+        tags = {tag.casefold() for tag in tags_for(item, sense)}
+        if "subordinating" in tags:
+            return ["SCONJ"]
+        if "coordinating" in tags:
+            return ["CCONJ"]
+        # Raw conjunction entries do not always carry a qualifier. Keep both
+        # analyzer identities available rather than dropping one.
+        return ["CCONJ", "SCONJ"]
     upos = POS.get(raw_pos)
-    if upos == "CCONJ" and any(tag.casefold() == "subordinating" for tag in tags_for(item, sense)):
-        return "SCONJ"
-    return upos
+    return [upos] if upos else []
 
 
 def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
@@ -252,21 +259,19 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
                     continue
-                upos = upos_for(item, raw_sense)
-                if not upos:
-                    continue
-                sense = sense_from(item, raw_sense, upos)
-                if sense is None:
-                    continue
-                key = (language, lemma, upos)
-                entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
-                identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
-                if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
-                    entry["senses"].append(sense)
-                entry["gender"] = entry["gender"] or sense["Gender"]
-                entry["article"] = entry["article"] or sense["Article"]
-                entry["plural"] = entry["plural"] or sense["Plural"]
-                entry["ipa"] = entry["ipa"] or ipa_for(item)
+                for upos in upos_for(item, raw_sense):
+                    sense = sense_from(item, raw_sense, upos)
+                    if sense is None:
+                        continue
+                    key = (language, lemma, upos)
+                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
+                    identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
+                    if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
+                        entry["senses"].append(sense)
+                    entry["gender"] = entry["gender"] or sense["Gender"]
+                    entry["article"] = entry["article"] or sense["Article"]
+                    entry["plural"] = entry["plural"] or sense["Plural"]
+                    entry["ipa"] = entry["ipa"] or ipa_for(item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:
