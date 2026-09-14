@@ -203,9 +203,9 @@ records its source, license, and attribution; see the [refresh
 instructions](../README.md#refreshing-the-dictionary-index).
 
 The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
-and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
-generated metadata and attribution when shipping or sharing the index; derived
-dictionary data remains subject to the applicable share-alike requirements.
+under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve its generated
+metadata and attribution when shipping or sharing it; see the [refresh
+instructions](../README.md#refreshing-the-dictionary-index) for the full notice.
 
 Prepared-deck translation uses durable standard execution by default when
 external translation is enabled. Batch remains available for explicit
