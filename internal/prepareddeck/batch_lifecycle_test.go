@@ -171,8 +171,8 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	candidates := manifest.EnrichmentCandidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	responses := []enrichment.TranslationResponse{
-		{Translation: "house", Gloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
-		{Translation: "tree", Gloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
+		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
+		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
 	}
 	serial := make([]cardexport.ExactEnrichment, len(candidates))
 	for i, candidate := range candidates {
@@ -192,7 +192,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	var output strings.Builder
 	for _, ordinal := range []int{1, 0} {
 		customID, _ := enrichment.BatchCustomID(runID, ordinal, 1)
-		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].Gloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
+		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"fallback_gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].FallbackGloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)
 	require.NoError(t, err)

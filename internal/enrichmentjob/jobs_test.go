@@ -26,7 +26,12 @@ func (p *fakeProvider) Translate(_ context.Context, request enrichment.Translati
 	if len(p.requests) <= p.failures {
 		return enrichment.TranslationResponse{}, errors.New("temporary provider failure")
 	}
-	return enrichment.TranslationResponse{Translation: "house", Gloss: "building"}, nil
+	response := enrichment.TranslationResponse{Translation: "house", FallbackGloss: "building"}
+	if request.ExampleSentence != "" {
+		response.SentenceTranslation = "The house is large."
+		response.SentenceTranslationTarget = "house"
+	}
+	return response, nil
 }
 
 type fakeCache struct {
@@ -70,7 +75,7 @@ func TestJobArgsAndWorkerProgressRetryPrivacy(t *testing.T) {
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	entry := cache.values[key]
 	assert.Equal(t, "house", entry.Translation)
-	assert.Equal(t, "building", entry.Gloss)
+	assert.Equal(t, "building", entry.FallbackGloss)
 	assert.False(t, entry.CachedAt.IsZero(), "cache/provenance = %+v", entry)
 }
 

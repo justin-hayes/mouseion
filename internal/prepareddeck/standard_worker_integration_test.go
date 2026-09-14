@@ -73,7 +73,7 @@ func (p *barrierTranslationProvider) Translate(ctx context.Context, request enri
 func validTranslationResponse(request enrichment.TranslationRequest) enrichment.TranslationResponse {
 	return enrichment.TranslationResponse{
 		Translation:               request.CanonicalLemma + "-translated",
-		Gloss:                     "integration gloss",
+		FallbackGloss:             "integration gloss",
 		SentenceTranslation:       "The translated sentence.",
 		SentenceTranslationTarget: "translated",
 	}

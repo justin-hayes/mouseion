@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
@@ -10,14 +11,19 @@ import (
 
 func (s *PostgresStore) Get(ctx context.Context, key enrichment.CacheKey) (entry enrichment.CacheEntry, found bool, err error) {
 	entry.CacheKey = key
-	row, err := s.queries().GetEnrichmentCache(ctx, sqlcgen.GetEnrichmentCacheParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash})
+	row, err := s.queries().GetEnrichmentCache(ctx, sqlcgen.GetEnrichmentCacheParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion})
 	if err == pgx.ErrNoRows {
 		return enrichment.CacheEntry{}, false, nil
 	}
 	if err != nil {
 		return entry, false, err
 	}
-	entry.Translation, entry.Gloss = row.Translation, row.Gloss
+	entry.Translation, entry.FallbackGloss = row.Translation, row.FallbackGloss
+	if len(row.SenseSelection) > 0 {
+		if err := json.Unmarshal(row.SenseSelection, &entry.SenseSelection); err != nil {
+			return entry, false, err
+		}
+	}
 	entry.SentenceTranslation, entry.SentenceTranslationTarget = row.SentenceTranslation, row.SentenceTranslationTarget
 	entry.CachedAt = row.CachedAt
 	return entry, true, nil
@@ -25,7 +31,11 @@ func (s *PostgresStore) Get(ctx context.Context, key enrichment.CacheKey) (entry
 
 // Put is immutable. On a racing insert, the first stored value is returned.
 func (s *PostgresStore) Put(ctx context.Context, entry enrichment.CacheEntry) (enrichment.CacheEntry, error) {
-	if err := s.queries().UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, Translation: entry.Translation, Gloss: entry.Gloss, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
+	selection, err := marshalSenseSelection(entry.SenseSelection)
+	if err != nil {
+		return enrichment.CacheEntry{}, err
+	}
+	if err := s.queries().UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
 		return enrichment.CacheEntry{}, err
 	}
 	stored, found, err := s.Get(ctx, entry.CacheKey)
@@ -36,4 +46,11 @@ func (s *PostgresStore) Put(ctx context.Context, entry enrichment.CacheEntry) (e
 		return enrichment.CacheEntry{}, ErrNotFound
 	}
 	return stored, nil
+}
+
+func marshalSenseSelection(selection []int) ([]byte, error) {
+	if selection == nil {
+		selection = []int{}
+	}
+	return json.Marshal(selection)
 }

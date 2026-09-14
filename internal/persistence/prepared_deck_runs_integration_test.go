@@ -46,7 +46,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	candidates := manifest.EnrichmentCandidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", DictionaryProviderVersion: candidate.DictionaryProviderVersion, SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	}
 	manifest, err = manifest.BindCacheKeys(keys)
 	require.NoError(t, err)
@@ -381,10 +381,10 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	// A different run may populate the exact key after this Batch was submitted.
 	// The immutable first writer remains authoritative even when the provider
 	// later returns different valid text.
-	firstWriter := enrichment.CacheEntry{CacheKey: keys[0], Translation: "first house", Gloss: "first writer", SentenceTranslation: "First cached sentence.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC().Add(-time.Minute)}
+	firstWriter := enrichment.CacheEntry{CacheKey: keys[0], Translation: "first house", FallbackGloss: "first writer", SentenceTranslation: "First cached sentence.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC().Add(-time.Minute)}
 	firstWriter, err = store.Put(ctx, firstWriter)
 	require.NoError(t, err)
-	cacheEntry := enrichment.CacheEntry{CacheKey: keys[0], Translation: "provider house", Gloss: "provider result", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()}
+	cacheEntry := enrichment.CacheEntry{CacheKey: keys[0], Translation: "provider house", FallbackGloss: "provider result", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()}
 	firstResult, err := store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{
 		OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: frozen.Chunks[0].ID, ClaimToken: firstToken,
 		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "expired", OutputFileID: "output-one", CompletedCount: 1, ExpiredCount: 1},

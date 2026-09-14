@@ -86,7 +86,7 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 		SourceLanguage string `json:"source_language"`
 		TargetLanguage string `json:"target_language"`
 		TranslationResponse
-	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}}
+	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}}
 	contentBytes, _ := json.Marshal(content)
 	body, _ := json.Marshal(struct {
 		Choices []struct {

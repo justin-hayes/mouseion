@@ -80,7 +80,7 @@ func TestPlanBatchChunksSplitsBeforeBytesAndTokens(t *testing.T) {
 	require.Len(t, plans, 3)
 	assert.Equal(t, "byte_limit", plans[1].SplitReason)
 	assert.Equal(t, "byte_limit", plans[2].SplitReason)
-	plans, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 50, MaxBytes: 100000, MaxPromptTokens: 300})
+	plans, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 50, MaxBytes: 100000, MaxPromptTokens: 500})
 	require.NoError(t, err)
 	require.Len(t, plans, 3)
 	assert.Equal(t, "token_limit", plans[1].SplitReason)

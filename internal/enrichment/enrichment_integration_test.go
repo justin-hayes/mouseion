@@ -22,7 +22,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	defer store.Close()
 	when := time.Date(2026, 8, 21, 2, 3, 4, 0, time.UTC)
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
-	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", Gloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", CachedAt: when})
+	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", CachedAt: when})
 	require.NoError(t, err)
 	// No owner is part of the API or schema: all users read the same entry.
 	for range 2 {

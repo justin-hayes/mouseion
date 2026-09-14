@@ -172,9 +172,10 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 		case ManifestAccepted:
 			manifest.accepted = append(manifest.accepted, item.Entry)
 			manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
-				Identity:        enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS},
-				TargetWord:      item.Entry.TargetWord,
-				ExampleSentence: strings.TrimSpace(item.Entry.Sentence),
+				Identity:                  enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS},
+				TargetWord:                item.Entry.TargetWord,
+				ExampleSentence:           strings.TrimSpace(item.Entry.Sentence),
+				DictionaryProviderVersion: item.Entry.DictionaryProviderVersion,
 			})
 			if item.CacheKey == nil {
 				allAcceptedHaveCacheKeys = false

@@ -959,7 +959,7 @@ WITH hit AS (
   FROM deck_preparation_batch_chunk_items ci
   JOIN deck_preparation_batch_chunks c ON c.owner_id = ci.owner_id AND c.preparation_id = ci.preparation_id AND c.run_id = ci.run_id AND c.id = ci.chunk_id AND c.generation = ci.generation
   JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
-  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '')
+  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3 AND o.ordinal = ci.ordinal AND o.state = 'pending'
     AND c.id = $4 AND c.generation = $5 AND c.state = 'submitting' AND c.submission_claim_token = $6
   RETURNING o.ordinal
@@ -1194,17 +1194,18 @@ func (q *Queries) CountPreparedDeckRunOutcomeStates(ctx context.Context, arg Cou
 const enrichmentCacheLookup = `-- name: EnrichmentCacheLookup :one
 SELECT 1 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8
 `
 
 type EnrichmentCacheLookupParams struct {
-	Language        string
-	TargetLanguage  string
-	CanonicalLemma  string
-	Upos            string
-	Provider        string
-	ProviderVersion string
-	SentenceHash    string
+	Language                  string
+	TargetLanguage            string
+	CanonicalLemma            string
+	Upos                      string
+	Provider                  string
+	ProviderVersion           string
+	SentenceHash              string
+	DictionaryProviderVersion string
 }
 
 func (q *Queries) EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error) {
@@ -1216,6 +1217,7 @@ func (q *Queries) EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCache
 		arg.Provider,
 		arg.ProviderVersion,
 		arg.SentenceHash,
+		arg.DictionaryProviderVersion,
 	)
 	var column_1 int32
 	err := row.Scan(&column_1)
@@ -2431,7 +2433,7 @@ SELECT count(*) FILTER (WHERE COALESCE(ec.translation, '') <> '') AS cards_with_
        count(*) FILTER (WHERE COALESCE(ec.sentence_translation, '') <> '') AS cards_with_contextual_sentence_translations
 FROM deck_preparation_manifest_items mi
 JOIN deck_preparation_translation_outcomes o ON o.owner_id = mi.owner_id AND o.preparation_id = mi.preparation_id AND o.run_id = mi.run_id AND o.ordinal = mi.ordinal AND o.state = 'completed'
-LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '')
+LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
 WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3 AND mi.disposition = 'accepted'
 `
 
@@ -2831,7 +2833,8 @@ func (q *Queries) InsertPreparedDeckTranslationOutcome(ctx context.Context, arg 
 
 const listPreparedDeckBatchChunkMembers = `-- name: ListPreparedDeckBatchChunkMembers :many
 SELECT ci.ordinal, mi.language, mi.target_language, mi.canonical_lemma, mi.upos,
-       COALESCE(mi.provider, ''), COALESCE(mi.provider_version, ''), COALESCE(mi.sentence_hash, '')
+       COALESCE(mi.provider, ''), COALESCE(mi.provider_version, ''), COALESCE(mi.sentence_hash, ''),
+       CAST(COALESCE(mi.render_payload->>'dictionary_provider_version', '') AS text) AS dictionary_provider_version
 FROM deck_preparation_batch_chunk_items ci
 JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
 WHERE ci.owner_id = $1 AND ci.preparation_id = $2 AND ci.run_id = $3 AND ci.chunk_id = $4
@@ -2846,14 +2849,15 @@ type ListPreparedDeckBatchChunkMembersParams struct {
 }
 
 type ListPreparedDeckBatchChunkMembersRow struct {
-	Ordinal         int
-	Language        string
-	TargetLanguage  string
-	CanonicalLemma  string
-	Upos            string
-	Provider        string
-	ProviderVersion string
-	SentenceHash    string
+	Ordinal                   int
+	Language                  string
+	TargetLanguage            string
+	CanonicalLemma            string
+	Upos                      string
+	Provider                  string
+	ProviderVersion           string
+	SentenceHash              string
+	DictionaryProviderVersion string
 }
 
 func (q *Queries) ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error) {
@@ -2879,6 +2883,7 @@ func (q *Queries) ListPreparedDeckBatchChunkMembers(ctx context.Context, arg Lis
 			&i.Provider,
 			&i.ProviderVersion,
 			&i.SentenceHash,
+			&i.DictionaryProviderVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -3361,17 +3366,19 @@ SELECT EXISTS(
   SELECT 1 FROM enrichment_cache
   WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
     AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+    AND dictionary_provider_version = $8
 )
 `
 
 type PreparedDeckCacheExistsParams struct {
-	Language        string
-	TargetLanguage  string
-	CanonicalLemma  string
-	Upos            string
-	Provider        string
-	ProviderVersion string
-	SentenceHash    string
+	Language                  string
+	TargetLanguage            string
+	CanonicalLemma            string
+	Upos                      string
+	Provider                  string
+	ProviderVersion           string
+	SentenceHash              string
+	DictionaryProviderVersion string
 }
 
 func (q *Queries) PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckCacheExistsParams) (bool, error) {
@@ -3383,6 +3390,7 @@ func (q *Queries) PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckC
 		arg.Provider,
 		arg.ProviderVersion,
 		arg.SentenceHash,
+		arg.DictionaryProviderVersion,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -4042,8 +4050,8 @@ func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, a
 }
 
 const upsertEnrichmentCache = `-- name: UpsertEnrichmentCache :exec
-INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, translation, gloss, sentence_translation, sentence_translation_target, cached_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 ON CONFLICT DO NOTHING
 `
 
@@ -4055,8 +4063,10 @@ type UpsertEnrichmentCacheParams struct {
 	Provider                  string
 	ProviderVersion           string
 	SentenceHash              string
+	DictionaryProviderVersion string
 	Translation               string
-	Gloss                     string
+	FallbackGloss             string
+	SenseSelection            []byte
 	SentenceTranslation       string
 	SentenceTranslationTarget string
 	CachedAt                  time.Time
@@ -4071,8 +4081,10 @@ func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmen
 		arg.Provider,
 		arg.ProviderVersion,
 		arg.SentenceHash,
+		arg.DictionaryProviderVersion,
 		arg.Translation,
-		arg.Gloss,
+		arg.FallbackGloss,
+		arg.SenseSelection,
 		arg.SentenceTranslation,
 		arg.SentenceTranslationTarget,
 		arg.CachedAt,

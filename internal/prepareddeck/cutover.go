@@ -126,13 +126,14 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{
-			Language:        candidate.Language,
-			TargetLanguage:  config.TargetLanguage,
-			CanonicalLemma:  candidate.CanonicalLemma,
-			UPOS:            strings.ToUpper(candidate.UPOS),
-			Provider:        config.Provider,
-			ProviderVersion: config.ProviderVersion,
-			SentenceHash:    enrichment.SentenceHash(candidate.ExampleSentence),
+			Language:                  candidate.Language,
+			TargetLanguage:            config.TargetLanguage,
+			CanonicalLemma:            candidate.CanonicalLemma,
+			UPOS:                      strings.ToUpper(candidate.UPOS),
+			Provider:                  config.Provider,
+			ProviderVersion:           config.ProviderVersion,
+			DictionaryProviderVersion: candidate.DictionaryProviderVersion,
+			SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
 		}
 	}
 	manifest, err = manifest.BindCacheKeys(keys)
@@ -162,7 +163,7 @@ func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnap
 		if tx != nil {
 			var found bool
 			key := item.CacheKey
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7)`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash).Scan(&found); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7 AND dictionary_provider_version=$8)`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash, key.DictionaryProviderVersion).Scan(&found); err != nil {
 				return nil, err
 			}
 			if found {

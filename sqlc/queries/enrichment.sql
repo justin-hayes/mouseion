@@ -2,10 +2,10 @@
 -- prepared-deck enrichment is resolved separately from its manifest keys.
 
 -- name: GetEnrichmentCache :one
-SELECT translation, gloss, sentence_translation, sentence_translation_target, cached_at
+SELECT translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at
 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7;
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8;
 
 -- name: GetLegacyEnrichmentForSentence :one
 SELECT translation, sentence_translation, sentence_translation_target
