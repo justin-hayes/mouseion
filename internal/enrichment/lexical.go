@@ -34,10 +34,12 @@ type LexicalSense struct {
 // LexicalEntry is the structured result of a local lexical lookup. Senses are
 // ordered for display; the leading sense supplies the preferred morphology.
 type LexicalEntry struct {
-	Senses  []LexicalSense
-	Gender  string
-	Article string
-	Plural  string
+	Senses         []LexicalSense
+	Gender         string
+	Article        string
+	Plural         string
+	IPA            string
+	PrincipalParts string
 }
 
 // LexicalProvider is the consent-free local lexical-provider seam. found=false

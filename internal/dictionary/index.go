@@ -60,7 +60,7 @@ func OpenIndex(path string) (*Index, error) {
 		}
 		return nil, fmt.Errorf("%w: metadata: %v", ErrInvalidIndex, err)
 	}
-	if _, err = db.Exec(`SELECT language, lemma, upos, senses_json, gender, article, plural, ipa FROM entries LIMIT 0`); err != nil {
+	if _, err = db.Exec(`SELECT language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries LIMIT 0`); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("%w: schema: %v", ErrInvalidIndex, err)
 	}
@@ -98,8 +98,8 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" || upos == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	var sensesJSON string
-	err := i.db.QueryRowContext(ctx, `SELECT senses_json FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON)
+	var sensesJSON, ipa, principalParts string
+	err := i.db.QueryRowContext(ctx, `SELECT senses_json, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON, &ipa, &principalParts)
 	if errors.Is(err, sql.ErrNoRows) {
 		return enrichment.LexicalEntry{}, false, nil
 	}
@@ -111,7 +111,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
 	}
 	ordered := enrichment.OrderSenses(request, senses)
-	result := enrichment.LexicalEntry{Senses: ordered}
+	result := enrichment.LexicalEntry{Senses: ordered, IPA: ipa, PrincipalParts: principalParts}
 	if len(ordered) > 0 {
 		result.Gender = ordered[0].Gender
 		result.Article = ordered[0].Article
