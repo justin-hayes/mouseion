@@ -216,6 +216,8 @@ type canonicalEntry struct {
 	Morphology                string `json:"morphology"`
 	Gloss                     string `json:"gloss,omitempty"`
 	Plural                    string `json:"plural,omitempty"`
+	IPA                       string `json:"ipa,omitempty"`
+	PrincipalParts            string `json:"principal_parts,omitempty"`
 	DictionaryProviderVersion string `json:"dictionary_provider_version,omitempty"`
 	SourceDocument            string `json:"source_document"`
 	Notes                     string `json:"notes"`
@@ -330,6 +332,8 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	}
 	if schemaVersion >= ManifestSchemaVersionV5 {
 		entryCanonical.Plural = entry.Plural
+		entryCanonical.IPA = entry.IPA
+		entryCanonical.PrincipalParts = entry.PrincipalParts
 	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,

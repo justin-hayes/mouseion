@@ -39,7 +39,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	}
 
 	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{
-		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", Plural: "Häuser", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
+		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: source.Title, FirstEncounter: 30},
 	})
@@ -141,6 +141,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, "house", loaded.Items[0].Entry.Gloss)
 	assert.Equal(t, "fixture-v1", loaded.Items[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, "Häuser", loaded.Items[0].Entry.Plural)
+	assert.Equal(t, "/haʊ̯s/", loaded.Items[0].Entry.IPA)
+	assert.Equal(t, "geht · ging · gegangen", loaded.Items[0].Entry.PrincipalParts)
 	assert.Equal(t, cardexport.ManifestQualityOmitted, loaded.Items[2].Disposition)
 	assert.Equal(t, []string{"too short or fragmented"}, loaded.Items[2].Quality.Reasons)
 	wantDigest, err := snapshot.Digest()

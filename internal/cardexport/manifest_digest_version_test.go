@@ -104,3 +104,31 @@ func TestPluralIsAV5ManifestDigestInput(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, withoutPluralCurrentDigest, withPluralCurrentDigest, "v5 must include the plural field")
 }
+
+func TestPronunciationAndPrincipalPartsAreV5ManifestDigestInputs(t *testing.T) {
+	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "gehen", UPOS: "VERB",
+		Sentence: "Wir gehen heute gemeinsam zum Bahnhof.", TargetWord: "gehen",
+		IPA: "/ˈɡeːən/", PrincipalParts: "geht · ging · gegangen",
+	}}).Snapshot()
+	withoutForms := snapshot
+	withoutForms.Items = cloneManifestItems(snapshot.Items)
+	withoutForms.Items[0].Entry.IPA = ""
+	withoutForms.Items[0].Entry.PrincipalParts = ""
+	withoutForms.SchemaVersion = ManifestSchemaVersionV4
+	withFormsV4 := snapshot
+	withFormsV4.Items = cloneManifestItems(snapshot.Items)
+	withFormsV4.SchemaVersion = ManifestSchemaVersionV4
+	withoutFormsV4Digest, err := withoutForms.Digest()
+	require.NoError(t, err)
+	withFormsV4Digest, err := withFormsV4.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, withoutFormsV4Digest, withFormsV4Digest, "v4 must ignore pronunciation and principal parts")
+
+	withoutForms.SchemaVersion = ManifestSchemaVersion
+	withoutFormsCurrentDigest, err := withoutForms.Digest()
+	require.NoError(t, err)
+	withFormsCurrentDigest, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, withoutFormsCurrentDigest, withFormsCurrentDigest, "v5 must include pronunciation and principal parts")
+}
