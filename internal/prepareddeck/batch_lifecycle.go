@@ -179,7 +179,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		if found && providerOutcome.Successful() {
 			manifestItem := byOrdinal[item.Ordinal]
 			response := providerOutcome.Response
-			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: *manifestItem.CacheKey, Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
+			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: *manifestItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int(nil), response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
 			continue
 		}
 		class := enrichment.ProviderErrorExpired

@@ -1309,9 +1309,10 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		manifest.accepted = append(manifest.accepted, entry)
 		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
-			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
-			TargetWord:      entry.TargetWord,
-			ExampleSentence: strings.TrimSpace(entry.Sentence),
+			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			TargetWord:                entry.TargetWord,
+			ExampleSentence:           strings.TrimSpace(entry.Sentence),
+			DictionaryProviderVersion: entry.DictionaryProviderVersion,
 		})
 	}
 	return manifest
@@ -1356,6 +1357,9 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 		candidate := bound.enrichmentCandidates[i]
 		if key.Language != candidate.Language || key.CanonicalLemma != candidate.CanonicalLemma || key.UPOS != strings.ToUpper(candidate.UPOS) || strings.TrimSpace(key.Provider) == "" || strings.TrimSpace(key.ProviderVersion) == "" {
 			return Manifest{}, fmt.Errorf("%w: cache identity does not match manifest candidate %d", ErrInvalidInput, i)
+		}
+		if key.DictionaryProviderVersion != candidate.DictionaryProviderVersion {
+			return Manifest{}, fmt.Errorf("%w: dictionary identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
 		exactSentenceHash := enrichment.SentenceHash(candidate.ExampleSentence)
 		if key.SentenceHash != "" && key.SentenceHash != exactSentenceHash {
@@ -1411,6 +1415,7 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 		provenance enrichment.Provenance
 	}{
 		{result.Translation.Available, result.Translation.Provenance},
+		{result.FallbackGloss.Available, result.FallbackGloss.Provenance},
 		{result.SentenceTranslation.Available, result.SentenceTranslation.Provenance},
 		{result.SentenceTranslationTarget.Available, result.SentenceTranslationTarget.Provenance},
 	}
@@ -1423,7 +1428,7 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	if available {
 		candidate := result.Candidate
-		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || testedTarget(*entry) != testedTarget(Entry{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
+		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedTarget(*entry) != testedTarget(Entry{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
 		if outcome.CacheKey.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != outcome.CacheKey.SentenceHash {
@@ -1438,6 +1443,12 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	if result.SentenceTranslationTarget.Available {
 		entry.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
+	}
+	if result.FallbackGloss.Available && strings.TrimSpace(entry.Gloss) == "" {
+		fallback := strings.TrimSpace(result.FallbackGloss.Value)
+		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= 200 {
+			entry.Gloss = fallback
+		}
 	}
 	return nil
 }

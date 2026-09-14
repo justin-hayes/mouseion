@@ -23,7 +23,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&received))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, testChatResponse(input, TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
+		_, _ = io.WriteString(w, testChatResponse(input, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
 	}))
 	defer server.Close()
 
@@ -31,7 +31,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	require.NoError(t, err)
 	got, err := client.Translate(context.Background(), input)
 	require.NoError(t, err)
-	assert.Equal(t, TranslationResponse{Translation: "house", Gloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, got)
+	assert.Equal(t, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, got)
 	body, _ := json.Marshal(received)
 	for _, forbidden := range []string{"user_id", "owner", "document", "reading", "corpus", "metadata"} {
 		assert.NotContains(t, strings.ToLower(string(body)), forbidden, "request leaked %q: %s", forbidden, body)
@@ -39,7 +39,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	messages := received["messages"].([]any)
 	system := messages[0].(map[string]any)["content"].(string)
 	assert.True(t, strings.Contains(system, "exactly one JSON object"), "prompt does not enforce concise strict JSON output: %q", system)
-	assert.True(t, strings.Contains(system, "exactly these seven string fields"), "prompt does not enforce concise strict JSON output: %q", system)
+	assert.True(t, strings.Contains(system, "exactly these eight fields"), "prompt does not enforce concise strict JSON output: %q", system)
 	assert.False(t, strings.Contains(strings.ToLower(system), "verbosity"), "prompt does not enforce concise strict JSON output: %q", system)
 	user := messages[1].(map[string]any)["content"].(string)
 	var externalInput map[string]any
@@ -60,7 +60,7 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&received))
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
 
@@ -82,7 +82,7 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T) {
 	requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
 	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
@@ -116,7 +116,7 @@ func TestOpenAITranslationClientLemmaOnlyOmitsSentence(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		userContent = body.Messages[1].Content
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
+		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
 	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
@@ -170,7 +170,7 @@ func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
 					}
 					return
 				}
-				_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", Gloss: "dwelling"}))
+				_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 			}))
 			defer server.Close()
 			client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
@@ -199,7 +199,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	provider, err := NewConfiguredLLMProvider(cfg, &http.Client{})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-compatible", provider.Name())
-	assert.Equal(t, "gpt-test/translation-v7-item-correlated-json-reasoning-medium", provider.Version())
+	assert.Equal(t, "gpt-test/translation-v8-fallback-gloss-json-reasoning-medium", provider.Version())
 	assert.Equal(t, 4*time.Second, cfg.Timeout)
 	assert.Equal(t, "medium", cfg.ReasoningEffort)
 	assert.True(t, cfg.SupportsReasoningEffort)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"strings"
@@ -107,11 +108,15 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
 	}
-	if strings.TrimSpace(response.Translation) == "" || strings.TrimSpace(response.Gloss) == "" || (request.ExampleSentence != "" && strings.TrimSpace(response.SentenceTranslation) == "") || strings.ContainsAny(response.Translation+response.Gloss+response.SentenceTranslation+response.SentenceTranslationTarget, "<>") {
+	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
+	if callErr != nil {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
+	for _, warning := range response.Warnings {
+		log.Printf("prepared deck translation: %s", warning)
+	}
+	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int(nil), response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
 	stored, err := w.Store.Put(ctx, entry)
 	if err != nil {
 		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)

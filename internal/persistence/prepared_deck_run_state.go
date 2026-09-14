@@ -210,7 +210,7 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 		if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && outcome.State != domain.PreparedDeckOutcomeCompleted {
 			return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
 		}
-		result := enrichment.Result{Candidate: enrichment.Candidate{Identity: enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS}, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}}
+		result := enrichment.Result{Candidate: enrichment.Candidate{Identity: enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS}, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion}}
 		if outcome.State == domain.PreparedDeckOutcomeCompleted {
 			entry, found, cacheErr := s.Get(ctx, *item.CacheKey)
 			if cacheErr != nil {
@@ -226,11 +226,17 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 			if entry.Translation != "" {
 				result.Translation = enrichment.Field[string]{Value: entry.Translation, Available: true, Provenance: provenance}
 			}
+			if entry.FallbackGloss != "" {
+				result.FallbackGloss = enrichment.Field[string]{Value: entry.FallbackGloss, Available: true, Provenance: provenance}
+			}
 			if entry.SentenceTranslation != "" {
 				result.SentenceTranslation = enrichment.Field[string]{Value: entry.SentenceTranslation, Available: true, Provenance: provenance}
 			}
 			if entry.SentenceTranslationTarget != "" {
 				result.SentenceTranslationTarget = enrichment.Field[string]{Value: entry.SentenceTranslationTarget, Available: true, Provenance: provenance}
+			}
+			if len(entry.SenseSelection) > 0 {
+				result.SenseSelection = enrichment.Field[[]int]{Value: append([]int(nil), entry.SenseSelection...), Available: true, Provenance: provenance}
 			}
 		}
 		exact = append(exact, cardexport.ExactEnrichment{CacheKey: *item.CacheKey, Result: result})

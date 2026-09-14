@@ -20,9 +20,10 @@ import (
 type Identity struct{ Language, CanonicalLemma, UPOS string }
 type Candidate struct {
 	Identity
-	Morphology      map[string]string
-	TargetWord      string
-	ExampleSentence string
+	Morphology                map[string]string
+	TargetWord                string
+	ExampleSentence           string
+	DictionaryProviderVersion string
 }
 type Provenance struct {
 	Provider, ProviderVersion string
@@ -38,8 +39,9 @@ type Result struct {
 	Candidate                                      Candidate
 	Frequency                                      Field[float64]
 	Morphology                                     Field[map[string]string]
-	Pronunciation, Translation, Gloss              Field[string]
+	Pronunciation, Translation, FallbackGloss      Field[string]
 	SentenceTranslation, SentenceTranslationTarget Field[string]
+	SenseSelection                                 Field[[]int]
 	Warnings                                       []string
 }
 
@@ -63,10 +65,12 @@ type PronunciationProvider interface {
 // Adding user, document, corpus, or reading metadata to it is prohibited.
 type TranslationRequest struct{ Language, TargetLanguage, CanonicalLemma, UPOS, TargetWord, ExampleSentence string }
 type TranslationResponse struct {
-	Translation               string `json:"translation"`
-	Gloss                     string `json:"gloss"`
-	SentenceTranslation       string `json:"sentence_translation"`
-	SentenceTranslationTarget string `json:"sentence_translation_target"`
+	Translation               string   `json:"translation"`
+	SentenceTranslation       string   `json:"sentence_translation"`
+	SentenceTranslationTarget string   `json:"sentence_translation_target"`
+	SenseOrder                []int    `json:"sense_order"`
+	FallbackGloss             string   `json:"fallback_gloss"`
+	Warnings                  []string `json:"-"`
 }
 
 // TranslationUsage is the bounded usage portion of a provider response. It
@@ -85,19 +89,21 @@ type TranslationProvider interface {
 
 type CacheKey struct {
 	Language, TargetLanguage, CanonicalLemma, UPOS, Provider, ProviderVersion string
+	DictionaryProviderVersion                                                 string
 	SentenceHash                                                              string
 }
 type CacheEntry struct {
 	CacheKey
-	Translation, Gloss, SentenceTranslation, SentenceTranslationTarget string
-	CachedAt                                                           time.Time
+	Translation, FallbackGloss, SentenceTranslation, SentenceTranslationTarget string
+	SenseSelection                                                             []int
+	CachedAt                                                                   time.Time
 }
 
 // HasRequiredTranslationFields reports whether a cached result satisfies the
 // frozen prepared-deck translation contract. The target phrase is optional:
 // the codec permits it to be empty when there is no reliable literal match.
 func HasRequiredTranslationFields(entry CacheEntry, sourceSentence string) bool {
-	if strings.TrimSpace(entry.Translation) == "" || strings.TrimSpace(entry.Gloss) == "" {
+	if strings.TrimSpace(entry.Translation) == "" {
 		return false
 	}
 	return strings.TrimSpace(sourceSentence) == "" || strings.TrimSpace(entry.SentenceTranslation) != ""
@@ -258,8 +264,9 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 		r.Warnings = append(r.Warnings, "translation: "+err.Error())
 		return r
 	}
-	r.Translation, r.Gloss, r.SentenceTranslation = external.Translation, external.Gloss, external.SentenceTranslation
+	r.Translation, r.FallbackGloss, r.SentenceTranslation = external.Translation, external.FallbackGloss, external.SentenceTranslation
 	r.SentenceTranslationTarget = external.SentenceTranslationTarget
+	r.SenseSelection = external.SenseSelection
 	r.Warnings = append(r.Warnings, external.Warnings...)
 	return r
 }
@@ -285,7 +292,7 @@ func (s *Service) ExternalCacheKey(c Candidate) (CacheKey, bool) {
 	}
 	return CacheKey{
 		Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
-		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), SentenceHash: SentenceHash(sentence),
+		Provider: s.translation.Name(), ProviderVersion: s.translation.Version(), DictionaryProviderVersion: c.DictionaryProviderVersion, SentenceHash: SentenceHash(sentence),
 	}, true
 }
 
@@ -380,12 +387,19 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		metrics.addError(ClassifyExternalError(err))
 		return r, metrics, err
 	}
+	response, err = NormalizeTranslationResponse(req, response)
+	if err != nil {
+		metrics.addError(ExternalErrorOther)
+		return r, metrics, err
+	}
+	r.Warnings = append(r.Warnings, response.Warnings...)
 	entry := CacheEntry{
 		CacheKey:                  key,
 		Translation:               response.Translation,
-		Gloss:                     response.Gloss,
+		FallbackGloss:             response.FallbackGloss,
 		SentenceTranslation:       response.SentenceTranslation,
 		SentenceTranslationTarget: response.SentenceTranslationTarget,
+		SenseSelection:            append([]int(nil), response.SenseOrder...),
 		CachedAt:                  s.now().UTC(),
 	}
 	if s.cache != nil {
@@ -411,14 +425,17 @@ func (s *Service) setExternal(r *Result, e CacheEntry) {
 	if e.Translation != "" {
 		r.Translation = Field[string]{e.Translation, true, p}
 	}
-	if e.Gloss != "" {
-		r.Gloss = Field[string]{e.Gloss, true, p}
+	if e.FallbackGloss != "" {
+		r.FallbackGloss = Field[string]{e.FallbackGloss, true, p}
 	}
 	if e.SentenceTranslation != "" {
 		r.SentenceTranslation = Field[string]{e.SentenceTranslation, true, p}
 	}
 	if e.SentenceTranslation != "" && e.SentenceTranslationTarget != "" {
 		r.SentenceTranslationTarget = Field[string]{e.SentenceTranslationTarget, true, p}
+	}
+	if len(e.SenseSelection) > 0 {
+		r.SenseSelection = Field[[]int]{append([]int(nil), e.SenseSelection...), true, p}
 	}
 }
 

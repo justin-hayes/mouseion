@@ -12,12 +12,13 @@ import (
 )
 
 func TestHasRequiredTranslationFields(t *testing.T) {
-	complete := CacheEntry{Translation: "house", Gloss: "dwelling", SentenceTranslation: "The house."}
+	complete := CacheEntry{Translation: "house", FallbackGloss: "dwelling", SentenceTranslation: "The house."}
 	assert.True(t, HasRequiredTranslationFields(complete, "Das Haus."), "complete cache entry was rejected")
-	for _, entry := range []CacheEntry{{Gloss: "dwelling", SentenceTranslation: "The house."}, {Translation: "house", SentenceTranslation: "The house."}, {Translation: "house", Gloss: "dwelling"}} {
+	for _, entry := range []CacheEntry{{FallbackGloss: "dwelling", SentenceTranslation: "The house."}, {Translation: "house", FallbackGloss: "dwelling"}} {
 		assert.False(t, HasRequiredTranslationFields(entry, "Das Haus."), "incomplete cache entry accepted: %+v", entry)
 	}
-	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house", Gloss: "dwelling"}, ""), "lemma-only cache entry was rejected")
+	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house", SentenceTranslation: "The house."}, "Das Haus."), "translation with sentence was rejected")
+	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house"}, ""), "lemma-only cache entry was rejected")
 }
 
 type memoryCache struct {
@@ -52,7 +53,7 @@ func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (Tr
 	if len(s.requests) <= s.failures {
 		return TranslationResponse{}, errors.New("unavailable")
 	}
-	return TranslationResponse{Translation: "house", Gloss: "a building for people", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, nil
+	return TranslationResponse{Translation: "house", FallbackGloss: "a building for people", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, nil
 }
 
 type frequencyStub struct{}
@@ -101,6 +102,30 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	assert.True(t, second.SentenceTranslation.Available)
 	assert.True(t, second.SentenceTranslationTarget.Available)
 	assert.False(t, first.Translation.Provenance.CachedAt.IsZero(), "first=%+v second=%+v cache=%+v", first, second, cache)
+}
+
+func TestExternalFallbackGlossIsCachedAndUsesDictionaryIdentity(t *testing.T) {
+	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
+	provider := &translationStub{name: "llm", version: "model-1"}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
+	candidate := Candidate{Identity: Identity{"de", "seltenes-wort", "NOUN"}, TargetWord: "Seltenes", ExampleSentence: "Das Seltene ist heute wichtig."}
+	// The dictionary version is part of the frozen candidate identity, not the
+	// provider's version.
+	candidate.DictionaryProviderVersion = "dictionary-v4"
+
+	result, err := service.EnrichExternal(context.Background(), candidate)
+	require.NoError(t, err)
+	assert.Equal(t, "a building for people", result.FallbackGloss.Value)
+	key, ok := service.ExternalCacheKey(candidate)
+	require.True(t, ok)
+	assert.Equal(t, "dictionary-v4", key.DictionaryProviderVersion)
+	assert.Equal(t, "a building for people", cache.values[key].FallbackGloss)
+
+	otherDictionary := candidate
+	otherDictionary.DictionaryProviderVersion = "dictionary-v5"
+	_, err = service.EnrichExternal(context.Background(), otherDictionary)
+	require.NoError(t, err)
+	assert.Len(t, provider.requests, 2, "regenerated dictionary must not reuse the old selection")
 }
 
 func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testing.T) {

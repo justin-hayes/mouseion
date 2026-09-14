@@ -12,25 +12,27 @@ import (
 
 const getEnrichmentCache = `-- name: GetEnrichmentCache :one
 
-SELECT translation, gloss, sentence_translation, sentence_translation_target, cached_at
+SELECT translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at
 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8
 `
 
 type GetEnrichmentCacheParams struct {
-	Language        string
-	TargetLanguage  string
-	CanonicalLemma  string
-	Upos            string
-	Provider        string
-	ProviderVersion string
-	SentenceHash    string
+	Language                  string
+	TargetLanguage            string
+	CanonicalLemma            string
+	Upos                      string
+	Provider                  string
+	ProviderVersion           string
+	SentenceHash              string
+	DictionaryProviderVersion string
 }
 
 type GetEnrichmentCacheRow struct {
 	Translation               string
-	Gloss                     string
+	FallbackGloss             string
+	SenseSelection            []byte
 	SentenceTranslation       string
 	SentenceTranslationTarget string
 	CachedAt                  time.Time
@@ -47,11 +49,13 @@ func (q *Queries) GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCache
 		arg.Provider,
 		arg.ProviderVersion,
 		arg.SentenceHash,
+		arg.DictionaryProviderVersion,
 	)
 	var i GetEnrichmentCacheRow
 	err := row.Scan(
 		&i.Translation,
-		&i.Gloss,
+		&i.FallbackGloss,
+		&i.SenseSelection,
 		&i.SentenceTranslation,
 		&i.SentenceTranslationTarget,
 		&i.CachedAt,

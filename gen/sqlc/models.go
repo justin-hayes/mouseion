@@ -449,7 +449,6 @@ type EnrichmentCache struct {
 	Provider        string
 	ProviderVersion string
 	Translation     string
-	Gloss           string
 	CachedAt        time.Time
 	// Lowercase hex SHA-256 of conservatively normalized approved sentence text; empty for lemma-only legacy entries
 	SentenceHash string
@@ -459,6 +458,12 @@ type EnrichmentCache struct {
 	SentenceTranslationTarget string
 	// Explicit target language component of the immutable shared enrichment identity
 	TargetLanguage string
+	// Dictionary index identity used to produce the frozen card meaning candidates
+	DictionaryProviderVersion string
+	// Consent-gated external gloss used only when the frozen dictionary meaning is unavailable
+	FallbackGloss string
+	// Reserved durable ordered dictionary sense indices for the consented selection phase
+	SenseSelection []byte
 }
 
 type ExampleSentence struct {

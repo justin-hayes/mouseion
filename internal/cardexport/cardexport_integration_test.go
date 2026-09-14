@@ -88,7 +88,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	bobBook := seedBook(bob, "export-bob", "Bob's Book", fixtureCandidate{"Haus", "Bobs neues Haus steht nah am Fluss.", 1, 10})
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Welt", "NOUN")
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','This translation belongs to another sentence.')`, enrichment.SentenceHash("Dieses alte Haus steht noch am Stadtrand."))
+	_, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,fallback_gloss,sentence_translation) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','This translation belongs to another sentence.')`, enrichment.SentenceHash("Dieses alte Haus steht noch am Stadtrand."))
 	require.NoError(t, err)
 
 	artifact, err := cardexport.NewService(store).ExportCoverage(ctx, alice.ID, aliceBookA)
@@ -99,7 +99,7 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	assert.True(t, contains(artifact.TSV, "Haus"))
 	assert.False(t, contains(artifact.TSV, "Baum"))
 	assert.False(t, contains(artifact.TSV, "Inhaltsverzeichnis"), "lower-quality first reference was selected")
-	_, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','The old house is surprisingly large.','old house')`, enrichment.SentenceHash("Das alte Haus ist überraschend groß."))
+	_, err = pool.Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,fallback_gloss,sentence_translation,sentence_translation_target) VALUES('de','Haus','NOUN','test','1',$1,'house','a dwelling','The old house is surprisingly large.','old house')`, enrichment.SentenceHash("Das alte Haus ist überraschend groß."))
 	require.NoError(t, err)
 	var cards, decks, audits, generated, known int
 	var state string

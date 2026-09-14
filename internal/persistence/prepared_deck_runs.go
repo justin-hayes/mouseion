@@ -142,7 +142,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		}
 		key := item.CacheKey
 		var found bool
-		if found, err = sqlcgen.New(tx).PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash}); err != nil {
+		if found, err = sqlcgen.New(tx).PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion}); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 		if found {
@@ -402,7 +402,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		provider := pgText(model.Provider)
 		if provider != "" {
-			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), SentenceHash: pgText(model.SentenceHash)}
+			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash)}
 		}
 		calculated, digestErr := cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
 		if digestErr != nil || calculated != model.CandidateDigest {

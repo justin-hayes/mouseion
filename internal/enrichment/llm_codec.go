@@ -11,9 +11,11 @@ import (
 	"strings"
 )
 
-const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object with exactly these seven string fields and no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), gloss (a brief sense explanation), sentence_translation (a natural translation of the complete example sentence), and sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
+const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object with exactly these eight fields and no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct non-negative dictionary sense indices, in best-fit order), and fallback_gloss (an optional concise English gloss only when no supplied dictionary sense fits). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
 
 const maxTranslationResponseBytes = 1 << 20
+const maxFallbackGlossRunes = 200
+const maxSenseOrder = 3
 
 // TranslationCodec owns the provider request and response semantics shared by
 // synchronous and Batch transports. It deliberately contains no credentials,
@@ -205,10 +207,14 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: no choices")
 	}
 	var result struct {
-		ItemID         string `json:"item_id"`
-		SourceLanguage string `json:"source_language"`
-		TargetLanguage string `json:"target_language"`
-		TranslationResponse
+		ItemID                    string          `json:"item_id"`
+		SourceLanguage            string          `json:"source_language"`
+		TargetLanguage            string          `json:"target_language"`
+		Translation               string          `json:"translation"`
+		SentenceTranslation       string          `json:"sentence_translation"`
+		SentenceTranslationTarget string          `json:"sentence_translation_target"`
+		SenseOrder                json.RawMessage `json:"sense_order"`
+		FallbackGloss             json.RawMessage `json:"fallback_gloss"`
 	}
 	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
 	if duplicate, err := hasDuplicateObjectKey(decoded.Choices[0].Message.Content); err != nil {
@@ -227,7 +233,6 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	result.SourceLanguage = strings.TrimSpace(result.SourceLanguage)
 	result.TargetLanguage = strings.TrimSpace(result.TargetLanguage)
 	result.Translation = strings.TrimSpace(result.Translation)
-	result.Gloss = strings.TrimSpace(result.Gloss)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
 	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
 	if result.ItemID == "" || result.ItemID != expectedItemID {
@@ -239,7 +244,7 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if result.TargetLanguage == "" || result.TargetLanguage != translationTargetLanguage(input) {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: target_language mismatch")
 	}
-	if result.Translation == "" || result.Gloss == "" {
+	if result.Translation == "" {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.ExampleSentence != "" && result.SentenceTranslation == "" {
@@ -248,10 +253,110 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if decoded.Usage.PromptTokens < 0 || decoded.Usage.CompletionTokens < 0 || decoded.Usage.TotalTokens < 0 {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: invalid usage")
 	}
-	if hasMarkup(result.Translation) || hasMarkup(result.Gloss) || hasMarkup(result.SentenceTranslation) || hasMarkup(result.SentenceTranslationTarget) {
+	if hasMarkup(result.Translation) || hasMarkup(result.SentenceTranslation) || hasMarkup(result.SentenceTranslationTarget) {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
-	return result.TranslationResponse, decoded.Usage, nil
+	response := TranslationResponse{Translation: result.Translation, SentenceTranslation: result.SentenceTranslation, SentenceTranslationTarget: result.SentenceTranslationTarget}
+	if order, warning := decodeSenseOrder(result.SenseOrder); warning != "" {
+		response.Warnings = append(response.Warnings, warning)
+	} else {
+		response.SenseOrder = order
+	}
+	if fallback, warning := decodeFallbackGloss(result.FallbackGloss); warning != "" {
+		response.Warnings = append(response.Warnings, warning)
+	} else {
+		response.FallbackGloss = fallback
+	}
+	response, normalizeErr := NormalizeTranslationResponse(input, response)
+	if normalizeErr != nil {
+		return TranslationResponse{}, TranslationUsage{}, normalizeErr
+	}
+	return response, decoded.Usage, nil
+}
+
+// NormalizeTranslationResponse keeps malformed optional meaning fields from
+// failing a translation run while still enforcing the required translation
+// contract. The selection phase supplies range validation once candidate senses
+// are frozen; this phase enforces the durable display bounds.
+func NormalizeTranslationResponse(input TranslationRequest, response TranslationResponse) (TranslationResponse, error) {
+	response.Translation = strings.TrimSpace(response.Translation)
+	response.SentenceTranslation = strings.TrimSpace(response.SentenceTranslation)
+	response.SentenceTranslationTarget = strings.TrimSpace(response.SentenceTranslationTarget)
+	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
+	if response.Translation == "" {
+		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
+	}
+	if input.ExampleSentence != "" && response.SentenceTranslation == "" {
+		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
+	}
+	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) || hasMarkup(response.SentenceTranslationTarget) {
+		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
+	}
+	if len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) {
+		response.SenseOrder = nil
+		response.Warnings = append(response.Warnings, "invalid sense selection; using deterministic order")
+	}
+	if response.FallbackGloss != "" && (hasMarkup(response.FallbackGloss) || len([]rune(response.FallbackGloss)) > maxFallbackGlossRunes) {
+		response.FallbackGloss = ""
+		response.Warnings = append(response.Warnings, "invalid fallback gloss; ignoring it")
+	}
+	return response, nil
+}
+
+func validSenseOrder(order []int) bool {
+	seen := make(map[int]struct{}, len(order))
+	for _, index := range order {
+		if index < 0 {
+			return false
+		}
+		if _, exists := seen[index]; exists {
+			return false
+		}
+		seen[index] = struct{}{}
+	}
+	return true
+}
+
+func decodeSenseOrder(raw json.RawMessage) ([]int, string) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, ""
+	}
+	var order []int
+	if err := json.Unmarshal(raw, &order); err != nil {
+		return nil, "invalid sense selection; using deterministic order"
+	}
+	if len(order) > maxSenseOrder {
+		return nil, "sense selection exceeds display limit; using deterministic order"
+	}
+	seen := make(map[int]struct{}, len(order))
+	for _, index := range order {
+		if index < 0 {
+			return nil, "sense selection contains an invalid index; using deterministic order"
+		}
+		if _, duplicate := seen[index]; duplicate {
+			return nil, "sense selection contains a duplicate index; using deterministic order"
+		}
+		seen[index] = struct{}{}
+	}
+	return order, ""
+}
+
+func decodeFallbackGloss(raw json.RawMessage) (string, string) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", ""
+	}
+	var fallback string
+	if err := json.Unmarshal(raw, &fallback); err != nil {
+		return "", "invalid fallback gloss; ignoring it"
+	}
+	fallback = strings.TrimSpace(fallback)
+	if fallback == "" {
+		return "", ""
+	}
+	if hasMarkup(fallback) || len([]rune(fallback)) > maxFallbackGlossRunes {
+		return "", "invalid fallback gloss; ignoring it"
+	}
+	return fallback, ""
 }
 
 func hasMarkup(value string) bool { return strings.ContainsAny(value, "<>") }

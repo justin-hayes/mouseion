@@ -977,6 +977,24 @@ func TestManifestRejectsProviderVersionAndSentenceIdentityMismatch(t *testing.T)
 	assert.ErrorIs(t, err, ErrInvalidInput, "sentence mismatch")
 }
 
+func TestManifestFallbackGlossFillsMissingDictionaryMeaning(t *testing.T) {
+	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", DictionaryProviderVersion: "dictionary-v4", SourceDocument: "Book", FirstEncounter: 10}
+	manifest := NewManifest("alice", "Book", []Entry{entry})
+	candidate := manifest.EnrichmentCandidates()[0]
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", DictionaryProviderVersion: "dictionary-v4", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	require.NoError(t, err)
+	provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "model-1"}
+	artifact, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: key, Result: enrichment.Result{
+		Candidate:     candidate,
+		Translation:   enrichment.Field[string]{Value: "rare word", Available: true, Provenance: provenance},
+		FallbackGloss: enrichment.Field[string]{Value: "something uncommon", Available: true, Provenance: provenance},
+	}}})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
+}
+
 func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(t *testing.T) {
 	const owner, bookID = "alice", "book"
 	fixtures := []struct {

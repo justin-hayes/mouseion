@@ -70,7 +70,7 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	}})
 	candidate.ObservedForms = []byte(`["Haus"]`)
 	when := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,cached_at) VALUES
+	_, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,fallback_gloss,sentence_translation,cached_at) VALUES
 		('de','Haus','NOUN','test','1',$1,'home','dwelling','She has called this house her home for many years.',$3),
 		('de','Haus','NOUN','test','1',$2,'publisher','publishing house','The publisher is releasing a new children''s book today.',$4)`, enrichment.SentenceHash(exactSentence), enrichment.SentenceHash(otherSentence), when, when.Add(time.Hour))
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 	assert.Equal(t, "She has called this house her home for many years.", entry.SentenceTranslation)
 	assert.Empty(t, entry.SentenceTranslationTarget)
 
-	_, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,gloss,sentence_translation,sentence_translation_target,cached_at) VALUES
+	_, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,fallback_gloss,sentence_translation,sentence_translation_target,cached_at) VALUES
 		('de','Haus','NOUN','chosen','1',$1,'wrong version','','Wrong version sentence.','version',$3),
 		('de','Haus','NOUN','other','9',$1,'wrong provider','','Wrong provider sentence.','provider',$4),
 		('de','Haus','NOUN','chosen','2',$1,'correct','','This exact house translation is correct.','house',$3),
