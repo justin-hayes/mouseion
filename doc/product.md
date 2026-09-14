@@ -154,11 +154,13 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 - `MOUSEION_DATABASE_URL` — PostgreSQL connection string.
 - `MOUSEION_NLP_ADDR` — address of the Python gRPC service.
 - `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
-  advertise from the NLP service. The Compose deployment defaults to `de,it`, whose
-  Stanza models are provisioned in the NLP image; manually launched services retain
-  the application default of `de`. Models must exist in `STANZA_RESOURCES_DIR`
-  before startup; the Compose image's immutable cache contains `de` and `it`, and
-  another language requires an image rebuild that provisions its model. The singular
+  advertise from the NLP service and provision into its model cache. Compose
+  defaults to `de,it` and provisions the full Stanza processor bundle into the
+  named `stanza-data` volume before starting NLP; manually launched services
+  retain the application default of `de` and should run the provisioner first.
+  Models are stored under `STANZA_RESOURCES_DIR`. Changing this value adds
+  languages without an image rebuild, while a Stanza version change causes the
+  marker-driven provisioner to refresh the bundle. The singular
   `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 - `MOUSEION_LLM_ENABLED` — set to `true` to enable optional external translation;
