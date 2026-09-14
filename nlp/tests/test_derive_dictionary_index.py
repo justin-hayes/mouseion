@@ -136,6 +136,7 @@ def test_derivation_normalizes_ipa_and_extracts_principal_parts(tmp_path: Path):
     assert rows == {
         "gehen": ("/ˈɡeːən/", "geht · ging · gegangen"),
         "regnen": ("", ""),
+        "wasser": ("/ˈvasɐ/", ""),
         "föhn": ("", ""),
         "andare": ("/anˈda.re/", ""),
     }

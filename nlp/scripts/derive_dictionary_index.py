@@ -58,22 +58,7 @@ GENDERS = {
     "neuter": "Neut",
     "neut": "Neut",
 }
-IPA_REGIONAL_TAGS = frozenset(
-    {
-        "austria",
-        "austrian",
-        "bavaria",
-        "bavarian",
-        "berlin",
-        "dialectal",
-        "germany",
-        "liechtenstein",
-        "regional",
-        "swiss",
-        "switzerland",
-        "vienna",
-    }
-)
+IPA_ACCEPTED_TAGS = frozenset({"standard"})
 OPTIONAL_SEGMENT_PATTERN = re.compile(r"\([^()]*\)")
 PRINCIPAL_PARTS_PATTERN = re.compile(
     r"third-person singular present\s+(?P<present>[^,]+),\s*"
@@ -208,7 +193,7 @@ def ipa_for(item: dict) -> str:
         if sound.get("note"):
             continue
         tags = {tag.casefold() for tag in values(sound.get("tags"))}
-        if tags.intersection(IPA_REGIONAL_TAGS):
+        if not tags.issubset(IPA_ACCEPTED_TAGS):
             continue
         candidate = OPTIONAL_SEGMENT_PATTERN.sub("", raw.strip()).strip()
         if not candidate:
