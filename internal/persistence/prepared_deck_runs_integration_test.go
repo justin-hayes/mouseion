@@ -55,7 +55,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	snapshot.Items[0].Quality.GDEXScore = 0.5
 	snapshot.Items[0].Quality.Reasons = []string{"target present", "optimal length"}
 	snapshot.Items[2].Quality.Reasons = []string{"too short or fragmented"}
-	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()})
+	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", FallbackGloss: "operate", SenseSelection: []int{}, SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)
 
 	params := FreezePreparedDeckRunParams{
@@ -219,6 +219,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, keys[1], exact[1].CacheKey, "finalization inputs")
 	artifact, err := cardexport.NewService(store).RenderManifest(ctx, frozenManifest, exact)
 	require.NoError(t, err)
+	assert.Equal(t, "operate", artifact.Generated[0].Note.Gloss, "cached none-fit selection was not applied")
+	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss, "cached fallback gloss was not counted")
 	finalizationToken := uuid.NewString()
 	claimed, err := store.ClaimPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID, 0, finalizationToken, time.Now().UTC().Add(time.Minute))
 	require.NoError(t, err)

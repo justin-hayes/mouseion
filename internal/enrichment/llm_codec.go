@@ -293,7 +293,8 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) || hasMarkup(response.SentenceTranslationTarget) {
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
-	selectionInvalid := len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) || !senseOrderInRange(response.SenseOrder, len(input.CandidateSenses))
+	selectionInvalid := len(input.CandidateSenses) > 0 && response.SenseOrder == nil
+	selectionInvalid = selectionInvalid || len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) || !senseOrderInRange(response.SenseOrder, len(input.CandidateSenses))
 	for _, warning := range response.Warnings {
 		selectionInvalid = selectionInvalid || strings.HasPrefix(warning, "sense selection") || strings.HasPrefix(warning, "invalid sense selection")
 	}

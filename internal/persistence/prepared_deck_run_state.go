@@ -235,7 +235,7 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 			if entry.SentenceTranslationTarget != "" {
 				result.SentenceTranslationTarget = enrichment.Field[string]{Value: entry.SentenceTranslationTarget, Available: true, Provenance: provenance}
 			}
-			if len(entry.SenseSelection) > 0 {
+			if entry.SenseSelection != nil {
 				result.SenseSelection = enrichment.Field[[]int]{Value: append([]int(nil), entry.SenseSelection...), Available: true, Provenance: provenance}
 			}
 		}
