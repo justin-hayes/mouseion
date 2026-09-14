@@ -173,3 +173,28 @@ func TestManifestUsesFallbackGlossForAnExplicitNoneFitSelection(t *testing.T) {
 	assert.Equal(t, "operate", artifact.Generated[0].Note.Gloss)
 	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
 }
+
+func TestManifestIgnoresFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "laufen", UPOS: "VERB",
+		Sentence: "Die Maschine läuft heute überraschend schnell.", TargetWord: "läuft", Gloss: "run · walk",
+		DictionaryProviderVersion: "dictionary-v1",
+		CandidateSenses:           []enrichment.LexicalSense{{Gloss: "run"}, {Gloss: "walk"}},
+	}
+	manifest := NewManifest("owner-1", "Buch", []Entry{entry})
+	candidate := manifest.EnrichmentCandidates()[0]
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "laufen", UPOS: "VERB", Provider: "llm", ProviderVersion: "model-v1", DictionaryProviderVersion: "dictionary-v1", SentenceHash: enrichment.SentenceHash(entry.Sentence)}
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	require.NoError(t, err)
+	provenance := enrichment.Provenance{Provider: key.Provider, ProviderVersion: key.ProviderVersion}
+	artifact, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{
+		CacheKey: key,
+		Result: enrichment.Result{
+			Candidate:     candidate,
+			FallbackGloss: enrichment.Field[string]{Value: "operate", Available: true, Provenance: provenance},
+		},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "run · walk", artifact.Generated[0].Note.Gloss)
+	assert.Zero(t, artifact.Completeness.CardsWithFallbackGloss)
+}
