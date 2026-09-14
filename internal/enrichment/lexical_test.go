@@ -22,6 +22,41 @@ func TestOrderSensesBoostsPhraseAndFallsBackToPrimary(t *testing.T) {
 	assert.Equal(t, "at home", ordered[1].Gloss)
 }
 
+func TestOrderSensesMatchesFixedPhrasesByWord(t *testing.T) {
+	senses := []LexicalSense{
+		{Gloss: "primary"},
+		{Gloss: "phrase", Phrase: "zu Hause"},
+	}
+
+	ordered := OrderSenses(LexicalLookupRequest{RepresentativeSentence: "Er bleibt zu Hause."}, senses)
+	assert.Equal(t, "phrase", ordered[0].Gloss)
+
+	ordered = OrderSenses(LexicalLookupRequest{RepresentativeSentence: "Er bleibt zu Hausen."}, senses)
+	assert.Equal(t, "primary", ordered[0].Gloss)
+}
+
+func TestOrderSensesCountsDistinctContextWords(t *testing.T) {
+	request := LexicalLookupRequest{RepresentativeSentence: "Das Wort ist schnell, kalt und rot.", TargetWord: "Wort"}
+	senses := []LexicalSense{
+		{Gloss: "schnell schnell schnell"},
+		{Gloss: "kalt rot"},
+	}
+
+	ordered := OrderSenses(request, senses)
+	assert.Equal(t, "kalt rot", ordered[0].Gloss)
+}
+
+func TestOrderSensesKeepsPrimaryWhenTargetIsAbsent(t *testing.T) {
+	request := LexicalLookupRequest{RepresentativeSentence: "Der Fluss ist schnell.", TargetWord: "Haus"}
+	senses := []LexicalSense{
+		{Gloss: "primary"},
+		{Gloss: "fast"},
+	}
+
+	ordered := OrderSenses(request, senses)
+	assert.Equal(t, "primary", ordered[0].Gloss)
+}
+
 func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 	request := LexicalLookupRequest{
 		TargetWord: "Haus",
