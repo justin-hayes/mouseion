@@ -81,7 +81,7 @@ def clean_lemma_edges(value: str) -> str:
 
 def normalize(language: str, value: str) -> str:
     if language == "de":
-        value = clean_lemma_edges(primary_lemma(value)).strip().lower()
+        value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().casefold().split())
         return GERMAN_NORMALIZATION_POLICY["equivalences"].get(value, value)
     return " ".join(value.strip().casefold().split())
 
