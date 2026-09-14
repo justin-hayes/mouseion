@@ -47,15 +47,27 @@ no database migration.
 
 ## Model cache and deployment
 
-`MOUSEION_NLP_WARM_LANGUAGES` selects which already-installed Stanza pipelines
-to load and advertise. It does not define or install a model-cache volume.
-The standard NLP image sets `STANZA_RESOURCES_DIR=/opt/stanza_resources` and
-downloads the German and Italian `tokenize,pos,lemma` resources while building
-the image. Consequently, Compose's default `de,it` setting works without a
-runtime download or writable model cache.
+`MOUSEION_NLP_WARM_LANGUAGES` selects which Stanza pipelines to provision, load,
+and advertise, and is the single setting that drives all three operations.
+The Compose `nlp-init` service reuses the NLP image and provisions each
+configured language into the named `stanza-data` volume mounted at
+`STANZA_RESOURCES_DIR=/opt/stanza_resources`. It downloads the full runtime
+processor set: `tokenize,pos,lemma,depparse,ner`. The `nlp` service mounts the
+same volume and starts only after the init service completes successfully.
 
-To add a deployment language, provision its processors in `nlp/Dockerfile`,
-rebuild the NLP image, and then include its code in
-`MOUSEION_NLP_WARM_LANGUAGES`. For a manual launch, download the same processors
-into the local Stanza resource directory before starting the service. Missing
-or incompatible resources make only that language unavailable.
+Provisioning writes a marker containing the Stanza version and configured
+language set. An unchanged restart completes without a download. If the
+language set grows, the init step downloads only the missing language; update
+`MOUSEION_NLP_WARM_LANGUAGES` in `.env` and run `docker compose up -d`, without
+rebuilding the image. When the Stanza dependency version changes, the marker
+causes the volume to be wiped and the complete configured bundle to be
+provisioned again. A missing marker, including on an existing volume containing
+only the old partially-baked model set, has the same full-reprovision behavior.
+Provisioning failure is fatal, so the NLP service does not start with an
+incomplete cache.
+
+For a manual launch, set `STANZA_RESOURCES_DIR` to the local Stanza resource
+directory, set `MOUSEION_NLP_WARM_LANGUAGES`, and run
+`python -m mouseion_nlp.provision` before `python -m mouseion_nlp.server`.
+Rerun the provisioner after adding a language or upgrading Stanza. Missing or
+incompatible resources make only that language unavailable after startup.

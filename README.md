@@ -52,17 +52,24 @@ docker compose up -d --build
 ```
 
 - `db` — PostgreSQL 17 with a named volume
-- `nlp` — the Stanza gRPC service on `:50051`, with German and Italian models
-  provisioned in the image and warmed before they are advertised as ready
+- `nlp-init` — a one-shot provisioner that downloads the configured Stanza
+  models into the named `stanza-data` volume
+- `nlp` — the Stanza gRPC service on `:50051`, started only after provisioning
+  succeeds and its configured pipelines are warmed
 - `web` — the Go server on `http://localhost:8080`
 
-Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. Override the
-comma-separated value only with languages whose Stanza resources are already
-installed. The image sets `STANZA_RESOURCES_DIR=/opt/stanza_resources` and
-pre-populates that immutable model cache with `de` and `it`; adding another
-language requires adding its `stanza.download(...)` entry to `nlp/Dockerfile`
-and rebuilding the image. A configured language whose model is absent remains
-not ready and is not offered to learners.
+Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. The init
+container provisions the full runtime processor set (`tokenize,pos,lemma,
+depparse,ner`) into `stanza-data`, mounted at
+`STANZA_RESOURCES_DIR=/opt/stanza_resources`. A marker in that volume makes
+unchanged restarts a no-op, downloads only a newly added language, and
+re-provisions everything automatically when the Stanza version changes.
+
+To add a language, set the comma-separated `MOUSEION_NLP_WARM_LANGUAGES` value
+in `.env` and run `docker compose up -d`; no image rebuild is needed. The init
+container must be able to reach Stanza's model source. If provisioning fails,
+Compose does not start the NLP service and a language whose resources are not
+available is not offered to learners.
 
 Open `http://<host>:8080`. A fresh installation presents first-account
 onboarding; otherwise, sign in with an existing account. The app is meant to be
@@ -78,10 +85,12 @@ export MOUSEION_DATABASE_URL="postgres://postgres@localhost:5432/mouseion?sslmod
 
 # 2. Python NLP gRPC service (separate terminal)
 export PYTHONPATH=nlp/src:gen/python
-# Provision de and it in the local Stanza cache once if they are not installed.
-.venv/bin/python -c "import stanza; [stanza.download(code, processors='tokenize,pos,lemma') for code in ('de', 'it')]"
-# Warm both deployment languages (the manual-launch default is de only).
+# Provision the configured languages and full processor set into a persistent
+# local directory. The marker makes reruns idempotent and refreshes on upgrades.
+export STANZA_RESOURCES_DIR="$PWD/.stanza_resources"
 export MOUSEION_NLP_WARM_LANGUAGES=de,it
+.venv/bin/python -m mouseion_nlp.provision
+# Start only after provisioning succeeds.
 .venv/bin/python -m mouseion_nlp.server
 
 # 3. Go web server (separate terminal) — runs migrations, starts River
