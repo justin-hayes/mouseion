@@ -178,7 +178,7 @@ sentence translation only.
       explicit non-article `Article` value falls back to gender
 - [ ] German and Italian nouns render their dictionary plural beside the lemma
       in a dedicated `Plural` field, not inside `Gloss`
-- [ ] Deck freeze emits a per-language/POS `gloss_coverage` summary
+- [x] Deck freeze emits a per-language/POS `gloss_coverage` summary
 - [ ] IPA is normalized in the derivation and rendered as a dedicated `IPA`
       field; an absent IPA leaves the card valid
 - [ ] German verbs render principal parts as a dedicated `PrincipalParts` field;
