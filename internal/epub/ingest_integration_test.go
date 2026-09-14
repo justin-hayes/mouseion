@@ -93,3 +93,31 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	assert.Equal(t, 0, remainingHistory)
 	assert.Equal(t, 0, remainingUnits)
 }
+
+func TestImportMainTextFixturePreservesAllDeclaredUnits(t *testing.T) {
+	ctx := context.Background()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	defer store.Close()
+	owner, err := store.CreateUser(ctx, "main-text-import", false)
+	require.NoError(t, err)
+
+	result, err := NewService(store).Import(ctx, owner.ID, "de", fixtureDirectory(t, "testfixtures/epub3-main-text"))
+	require.NoError(t, err)
+	assert.Equal(t, "Vorwort\n\nDies ist Vorwort.\n\nKapitel eins\n\nDies ist Haupttext eins.\n\nKapitel zwei\n\nDies ist Haupttext zwei.\n\nBibliographie\n\nDies ist Zusatztext.", result.Book.FullText)
+	assert.Equal(t, result.Book.ExtractedUnits, mustExtractedUnits(t, store, owner.ID, result.Source.ID))
+	assert.Equal(t, []string{"front", "chapter-one", "chapter-two", "bibliography"}, []string{
+		result.Book.ExtractedUnits.Units[0].ManifestID,
+		result.Book.ExtractedUnits.Units[1].ManifestID,
+		result.Book.ExtractedUnits.Units[2].ManifestID,
+		result.Book.ExtractedUnits.Units[3].ManifestID,
+	})
+}
+
+func mustExtractedUnits(t *testing.T, store *persistence.PostgresStore, owner, source string) ExtractedUnits {
+	t.Helper()
+	units, err := store.GetExtractedUnits(context.Background(), owner, source)
+	require.NoError(t, err)
+	return units
+}
