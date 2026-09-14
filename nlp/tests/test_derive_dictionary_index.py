@@ -27,6 +27,7 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     assert json.loads(row[3])[0]["Gloss"] == "house"
     assert row[4:] == ("Neut", "das", "Häuser")
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
+    assert set(connection.execute("SELECT DISTINCT language FROM entries").fetchall()) == {("de",), ("it",)}
     assert connection.execute("SELECT senses_json FROM entries WHERE lemma = 'aufstehen'").fetchone() == ('[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]',)
     italian = connection.execute("SELECT lemma, gender, article, plural FROM entries WHERE language = 'it' ORDER BY lemma").fetchall()
     assert italian == [

@@ -113,7 +113,7 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""}]', 'Fem', 'la', 'case', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""},{"Gloss":"home","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""}]', 'Fem', 'la', 'case', ''); INSERT INTO entries VALUES ('it', 'libro', 'NOUN', '[{"Gloss":"book","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"il","Plural":"libri","IPA":""}]', 'Masc', 'il', 'libri', ''); INSERT INTO entries VALUES ('it', 'zaino', 'NOUN', '[{"Gloss":"backpack","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"lo","Plural":"zaini","IPA":""}]', 'Masc', 'lo', 'zaini', ''); INSERT INTO entries VALUES ('it', 'albero', 'NOUN', '[{"Gloss":"tree","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"l''","Plural":"alberi","IPA":""}]', 'Masc', 'l''', 'alberi', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -121,17 +121,32 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	require.NoError(t, err)
 	defer index.Close()
 	service := NewServiceWithLexicalProvider(nil, index)
-	entry := Entry{
-		Language: "it", CanonicalLemma: "casa", UPOS: "NOUN",
-		Sentence: "La casa è grande.", TargetWord: "casa",
-		Morphology: `{"Gender":"Masc","Article":"il"}`,
-	}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	for _, test := range []struct {
+		lemma, target, sentence, article, plural, gloss string
+	}{
+		{lemma: "casa", target: "casa", sentence: "La casa è grande.", article: "la", plural: "case", gloss: "house · home"},
+		{lemma: "libro", target: "libro", sentence: "Il libro è nuovo.", article: "il", plural: "libri", gloss: "book"},
+		{lemma: "zaino", target: "zaino", sentence: "Lo zaino è pieno.", article: "lo", plural: "zaini", gloss: "backpack"},
+		{lemma: "albero", target: "L'albero", sentence: "L'albero è alto.", article: "l'", plural: "alberi", gloss: "tree"},
+	} {
+		t.Run(test.lemma, func(t *testing.T) {
+			entry := Entry{
+				Language: "it", CanonicalLemma: test.lemma, UPOS: "NOUN",
+				Sentence: test.sentence, TargetWord: test.target,
+				Morphology: `{"Gender":"Masc","Article":"il"}`,
+			}
+			require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 
-	note, err := makeNote("owner", entry)
-	require.NoError(t, err)
-	assert.Equal(t, "la", note.Article)
-	assert.Contains(t, note.Gloss, "house")
-	assert.Contains(t, note.Gloss, "(Pl. case)")
-	assert.Contains(t, note.BackExtra, "la casa")
+			note, err := makeNote("owner", entry)
+			require.NoError(t, err)
+			assert.Equal(t, strings.ReplaceAll(test.article, "'", "&#39;"), note.Article)
+			assert.Equal(t, test.gloss+" (Pl. "+test.plural+")", note.Gloss)
+			escapedArticle := strings.ReplaceAll(test.article, "'", "&#39;")
+			articleLemma := escapedArticle + " " + test.lemma
+			if strings.HasSuffix(test.article, "'") {
+				articleLemma = escapedArticle + test.lemma
+			}
+			assert.Contains(t, note.BackExtra, articleLemma)
+		})
+	}
 }
