@@ -1,6 +1,7 @@
 # Dictionary gloss and morphology enrichment (Wiktextract/Kaikki)
 
-Status: **Implemented** · Date: 2026-09-14
+Status: **Implemented** · Extended by ADR 0068 (pronunciation, principal parts)
+and ADR 0069 (LLM sense selection and fallback gloss) · Date: 2026-09-14
 
 ## Motivation
 
@@ -51,8 +52,20 @@ sentence translation only.
   Tie or low score → Wiktionary primary sense (sense #1).
 - **Morphology**: gender/article (der/die/das; il/lo/la) and plural from the
   ranked top sense's forms; replaces the morphology heuristic.
-- **Card contract**: a new `Gloss` Anki note field on the back; `English` stays
-  the contextual sentence translation (ADR 0021 distinction preserved).
+- **Pronunciation**: the entry's IPA, normalized in the derivation step toward a
+  standard phonemic `/…/` form (optional segments and regional variants
+  discarded), surfaced as a dedicated `IPA` note field that self-suppresses when
+  absent. See [ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+- **Principal parts**: a verb's third-person singular present, preterite, and
+  past participle (`geht · ging · gegangen`) from the Wiktextract headword
+  summary, surfaced as a dedicated `PrincipalParts` note field. German-first; the
+  extraction is language-agnostic so Italian can follow as a data-only change.
+  Self-suppressing, since form coverage is partial. See
+  [ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+- **Card contract**: the `Gloss` note field is the card's single meaning block;
+  `English` is retained but no longer rendered, and `EnglishSentence` remains the
+  contextual sentence translation (ADR 0021 distinction preserved). See
+  [ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
 - **Freeze and provenance**: gloss and morphology are resolved when the
   prepared-deck manifest is frozen and carried on the frozen entries; the index
   `provider_version` is recorded for provenance. The dictionary is local and
@@ -64,8 +77,10 @@ sentence translation only.
 - Frequency data — absent from Kaikki; ADR 0018 removed global frequency.
 - Native-language definitions (de/it *edition* extracts) — a separate later
   phase.
-- Pronunciation/IPA and audio on cards — the index carries IPA, but wiring a
-  pronunciation field/audio is a later phase.
+- Audio on cards — the index carries no media. IPA pronunciation is now in scope
+  ([ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md)).
+- LLM sense selection and fallback gloss — a separate feature
+  ([llm-sense-selection.md](llm-sense-selection.md), ADR 0069).
 - Example-sentence backfill for lemmas whose best sentence fails the quality
   gate.
 - A dictionary gRPC service, or Postgres storage of raw dictionary data (ADR
@@ -93,9 +108,11 @@ sentence translation only.
   gloss, `·`-joined); the set is never empty when the index has the lemma.
 - Ordering is the deterministic context score above; primary-sense fallback on
   tie/low score; stable across repeated exports.
-- When external translation is enabled, the LLM's context-aware selection may
-  reorder the display or act as tiebreaker; the dictionary remains the
-  consent-free default.
+- When external translation is enabled, the context-aware LLM may reselect and
+  reorder the display over a frozen candidate sense set, or supply a fallback
+  gloss; the dictionary remains the consent-free default. See
+  [llm-sense-selection.md](llm-sense-selection.md) and
+  [ADR 0069](../adr/0069-llm-sense-selection-and-fallback-gloss.md).
 
 ### Morphology
 
@@ -111,9 +128,10 @@ sentence translation only.
 ### Coverage
 
 - Deck freeze emits a structured `gloss_coverage` log line: per language and
-  POS, the count of selected lemmas with and without a resolved gloss. The
-  metric drives the decision to broaden dictionary sources or add a
-  consent-gated LLM gloss fallback; neither is chosen here.
+  POS, the count of selected lemmas with and without a resolved gloss. It drives
+  the decision to broaden dictionary sources; the consent-gated LLM fallback is
+  specified separately in [llm-sense-selection.md](llm-sense-selection.md)
+  (ADR 0069), where fallback usage is also counted.
 
 ### Card contract
 
@@ -124,7 +142,13 @@ sentence translation only.
   from `Gloss`; it renders whenever the index supplies a non-empty plural,
   including when it equals the lemma. See
   [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
-- `English` and `EnglishSentence` keep their current semantics.
+- The generated note gains an `IPA` field and a `PrincipalParts` field after
+  `Plural`; the resulting field order is `Identity`, `Text`, `Article`, `Lemma`,
+  `Plural`, `IPA`, `PrincipalParts`, `POS`, `Gloss`, `English`,
+  `EnglishSentence`, `BookTitle`. See
+  [ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+- `English` is retained in the contract but is no longer rendered on the card;
+  `EnglishSentence` keeps its contextual-translation semantics.
 - TSV artifacts retain the dictionary attribution as an Anki-compatible comment
   when dictionary data is present.
 
@@ -155,6 +179,12 @@ sentence translation only.
 - [ ] German and Italian nouns render their dictionary plural beside the lemma
       in a dedicated `Plural` field, not inside `Gloss`
 - [ ] Deck freeze emits a per-language/POS `gloss_coverage` summary
+- [ ] IPA is normalized in the derivation and rendered as a dedicated `IPA`
+      field; an absent IPA leaves the card valid
+- [ ] German verbs render principal parts as a dedicated `PrincipalParts` field;
+      an absent value leaves the card valid
+- [ ] The card back renders one meaning block; the `English` field is retained
+      but not rendered
 
 ## References
 

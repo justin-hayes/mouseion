@@ -275,16 +275,29 @@ _Avoid_: dictionary database, lexicon service.
 **Sense**:
 A distinct meaning of a lemma within a dictionary entry. A Wiktionary-derived
 entry carries an ordered list of senses, each with a concise English gloss and
-optional tags, topics, and examples. A recognition card renders a compact top-N
-set of a lemma's senses ordered by a deterministic context score; sense choice
-is never a separate card field.
+optional tags, topics, and examples. A recognition card renders a compact set of
+a lemma's senses ordered by context — deterministic by default, optionally
+reselected by the external LLM when the learner consents.
 _Avoid_: definition (the full native-language explanation, a separate deferred
 field), translation.
 
 **Gloss**:
-The concise English sense explanation of a lemma rendered on the card back from
-the dictionary index — local, consent-free, deterministic enrichment. It is
-distinct from the contextual `English`/`EnglishSentence` translation, which
-renders the representative sentence in English and may come from the optional
-external LLM.
+The concise English sense explanation of a lemma rendered on the card back. A
+gloss is dictionary-sourced by default; when the dictionary has no gloss for the
+lemma, or none of its senses fit the representative sentence, it may be supplied
+by the consent-gated external LLM. It is distinct from the contextual
+`EnglishSentence` translation, which renders the representative sentence in
+English.
 _Avoid_: definition, translation (the contextual whole-sentence field).
+
+**Dictionary gloss**:
+A gloss authored by the dictionary index — local, consent-free, deterministic
+enrichment; the default source of the card's meaning block.
+_Avoid_: local gloss, definition.
+
+**Fallback gloss**:
+A gloss authored by the external LLM when the dictionary supplies no gloss or
+none of its senses fit the representative sentence. Consent-gated; distinct from
+the contextual sentence translation.
+_Avoid_: LLM gloss (ambiguous with the discarded provider gloss field),
+definition.
