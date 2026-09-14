@@ -43,7 +43,7 @@ func (completeLoopTranslationProvider) Version() string { return "complete-loop"
 func (completeLoopTranslationProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	return enrichment.TranslationResponse{
 		Translation:               "house",
-		Gloss:                     "a building",
+		FallbackGloss:             "a building",
 		SentenceTranslation:       "The house.",
 		SentenceTranslationTarget: "house",
 	}, nil
