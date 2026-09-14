@@ -137,6 +137,9 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, modelsJSON, `"name":"Mouseion Vocab Recognition"`)
 	assert.Contains(t, modelsJSON, `"qfmt":"{{Text}}"`)
+	assert.Contains(t, modelsJSON, `\u003cdiv class=\"gloss\"\u003e{{Gloss}}\u003c/div\u003e`)
+	assert.Contains(t, modelsJSON, `\u003cdiv class=\"sentence\"\u003e{{EnglishSentence}}\u003c/div\u003e`)
+	assert.NotContains(t, modelsJSON, `\u003cdiv class=\"english\"\u003e{{English}}\u003c/div\u003e`)
 	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	assert.NotContains(t, modelsJSON, `{{SourceSentence}}`)
 	assert.NotContains(t, strings.ToLower(modelsJSON), "cloze")
@@ -411,8 +414,11 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.Contains(t, template, `{{#IPA}} <span class="ipa">{{IPA}}</span>{{/IPA}}`)
 	assert.Contains(t, template, `{{#PrincipalParts}} <span class="principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
 	assert.Contains(t, template, `<div class="gloss">{{Gloss}}</div>`)
+	assert.Contains(t, template, `<div class="sentence">{{EnglishSentence}}</div>`)
+	assert.NotContains(t, template, `<div class="english">{{English}}</div>`)
 	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
 	assert.Contains(t, model["css"].(string), `.ipa, .principal-parts { font-size: .9em; font-weight: 400; }`)
+	assert.NotContains(t, model["css"].(string), ".english")
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
 
@@ -455,6 +461,18 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	}
 	require.NoError(t, rows.Err())
 	assert.Len(t, seen, 2, "distinct identity sort fields = %v", seen)
+}
+
+func TestMakeNoteRetainsEnglishFieldButOmitsItFromPersistedBack(t *testing.T) {
+	note, err := makeNote("alice", Entry{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Dieses Haus steht heute neben dem Bahnhof.", TargetWord: "Haus",
+		Gloss: "dwelling", Translation: "lemma translation",
+		SentenceTranslation: "This house stands beside the station.",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "lemma translation", note.English)
+	assert.Equal(t, "Haus\nNOUN\ndwelling\nThis house stands beside the station.", note.BackExtra)
 }
 
 // TestAnkiNewCardOrderFollowsTextPosition pins the deck configuration so new
