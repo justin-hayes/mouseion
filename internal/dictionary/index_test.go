@@ -46,3 +46,27 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.False(t, found)
 	assert.Empty(t, result.Senses)
 }
+
+func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"","Plural":"","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := OpenIndex(path)
+	require.NoError(t, err)
+	defer index.Close()
+	result, found, err := index.Lookup(context.Background(), enrichment.LexicalLookupRequest{
+		Language: "de", CanonicalLemma: "See", UPOS: "NOUN", TargetWord: "See",
+		RepresentativeSentence: "Die See ist tief und salzig.",
+	})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.Senses, 2)
+	assert.Equal(t, "sea", result.Senses[0].Gloss)
+	assert.Equal(t, "Fem", result.Gender)
+	assert.Empty(t, result.Article)
+	assert.Empty(t, result.Plural)
+}

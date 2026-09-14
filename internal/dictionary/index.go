@@ -106,32 +106,28 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
 	}
-	for index := range senses {
-		if senses[index].Gender == "" {
-			senses[index].Gender = gender
-		}
-		if senses[index].Article == "" {
-			senses[index].Article = article
-		}
-		if senses[index].Plural == "" {
-			senses[index].Plural = plural
-		}
-		if senses[index].IPA == "" {
-			senses[index].IPA = ipa
-		}
-	}
 	ordered := enrichment.OrderSenses(request, senses)
-	result := enrichment.LexicalEntry{Senses: ordered, Article: article, Plural: plural}
+	result := enrichment.LexicalEntry{Senses: ordered}
 	if len(ordered) > 0 {
-		result.Gender = ordered[0].Gender
-		if ordered[0].Article != "" {
-			result.Article = ordered[0].Article
-		}
-		if ordered[0].Plural != "" {
-			result.Plural = ordered[0].Plural
-		}
+		result.Gender = rankedMorphology(ordered, gender, func(sense enrichment.LexicalSense) string { return sense.Gender })
+		result.Article = rankedMorphology(ordered, article, func(sense enrichment.LexicalSense) string { return sense.Article })
+		result.Plural = rankedMorphology(ordered, plural, func(sense enrichment.LexicalSense) string { return sense.Plural })
+	} else {
+		result.Gender, result.Article, result.Plural = gender, article, plural
 	}
 	return result, true, nil
+}
+
+// rankedMorphology keeps a legacy row-level value only for indexes that do not
+// carry that field on any sense. Once a sense has the field, the ranked sense
+// is authoritative, including an empty value on the leading sense.
+func rankedMorphology(senses []enrichment.LexicalSense, fallback string, value func(enrichment.LexicalSense) string) string {
+	for _, sense := range senses {
+		if strings.TrimSpace(value(sense)) != "" {
+			return strings.TrimSpace(value(senses[0]))
+		}
+	}
+	return fallback
 }
 
 func normalizeLemma(language, lemma string) string {
