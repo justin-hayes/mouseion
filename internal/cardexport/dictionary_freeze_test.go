@@ -145,9 +145,11 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &unindexed))
 	assert.Empty(t, unindexed.Gloss)
+	assert.Empty(t, unindexed.DictionaryProviderVersion)
 	note, err = makeNote("owner", unindexed)
 	require.NoError(t, err)
 	assert.Equal(t, "der", note.Article)
+	assert.NotContains(t, deckDescription([]Entry{unindexed}), dictionary.AttributionNotice)
 }
 
 func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {

@@ -31,7 +31,13 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     assert json.loads(row[3])[0]["Gloss"] == "house"
     assert row[4:] == ("Neut", "das", "Häuser")
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (7,)
+    assert connection.execute("SELECT count(*) FROM entries WHERE lemma = 'unbekannt'").fetchone() == (0,)
+    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'albero'").fetchone() == ("",)
     assert set(connection.execute("SELECT DISTINCT language FROM entries").fetchall()) == {("de",), ("it",)}
+    for (senses_json,) in connection.execute("SELECT senses_json FROM entries"):
+        senses = json.loads(senses_json)
+        assert senses
+        assert all(sense["Gloss"].strip() for sense in senses)
     assert connection.execute("SELECT upos, plural, senses_json FROM entries WHERE lemma IN ('aufstehen', 'gut') ORDER BY lemma").fetchall() == [
         ("VERB", "", '[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
         ("ADJ", "", '[{"Gloss":"good","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
