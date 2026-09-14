@@ -1,4 +1,8 @@
 {"word":"Masse","lang_code":"de","pos":"noun","senses":[{"glosses":["mass"]}],"runtime_lookup_key":"masse"}
+{"word":"Maße","lang_code":"de","pos":"noun","senses":[{"glosses":["measures"]}],"runtime_lookup_key":"maße"}
+{"word":"Straße","lang_code":"de","pos":"noun","senses":[{"glosses":["street"]}],"runtime_lookup_key":"straße"}
+{"word":"Fuß","lang_code":"de","pos":"noun","senses":[{"glosses":["foot"]}],"runtime_lookup_key":"fuß"}
+{"word":"groß","lang_code":"de","pos":"adjective","senses":[{"glosses":["big"]}],"runtime_lookup_key":"groß"}
 {"word":"daß","lang_code":"de","pos":"conjunction","senses":[{"glosses":["that"]}],"runtime_lookup_key":"dass"}
 {"word":"Thür","lang_code":"de","pos":"noun","senses":[{"glosses":["door"]}],"runtime_lookup_key":"tür"}
 {"word":"Souveränität›","lang_code":"de","pos":"noun","senses":[{"glosses":["sovereignty"]}],"runtime_lookup_key":"souveränität"}
