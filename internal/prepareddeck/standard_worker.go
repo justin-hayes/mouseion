@@ -77,7 +77,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		_ = entry
 	}
 
-	request := enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: snapshotTarget(item), CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}
+	request := enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: snapshotTarget(item), CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}
 	started := w.now()
 	timeout := w.AttemptTimeout
 	if timeout <= 0 {
@@ -116,7 +116,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	for _, warning := range response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int(nil), response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
+	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
 	stored, err := w.Store.Put(ctx, entry)
 	if err != nil {
 		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)

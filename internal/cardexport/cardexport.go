@@ -35,8 +35,10 @@ type Entry struct {
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
 	Morphology, SourceDocument, Notes                                                 string
+	CandidateSenses                                                                   []enrichment.LexicalSense
 	SentenceTokens                                                                    []analyzer.Token
 	FirstEncounter                                                                    int64
+	fallbackGlossApplied                                                              bool
 }
 
 type Note struct {
@@ -90,6 +92,7 @@ type Completeness struct {
 	TotalCards               int
 	CardsWithEnglish         int
 	CardsWithEnglishSentence int
+	CardsWithFallbackGloss   int
 	QualityOmitted           int
 }
 
@@ -163,6 +166,12 @@ type glossCoverageKey struct {
 type glossCoverageEvent struct {
 	Event  string               `json:"event"`
 	Groups []glossCoverageGroup `json:"groups"`
+}
+
+type fallbackGlossEvent struct {
+	Event        string `json:"event"`
+	Selected     int    `json:"selected"`
+	FallbackUsed int    `json:"fallback_used"`
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -1145,6 +1154,14 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	gloss := enrichment.RenderGloss(result.Senses, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens)
 	plural := nounPlural(entry.UPOS, result.Plural)
 	entry.Gloss = gloss
+	senses := result.CandidateSenses
+	if len(senses) == 0 {
+		senses = result.Senses
+	}
+	if len(senses) > enrichment.DefaultMaxCandidateSenses {
+		senses = senses[:enrichment.DefaultMaxCandidateSenses]
+	}
+	entry.CandidateSenses = cloneLexicalSenses(senses)
 	entry.Plural = plural
 	entry.IPA = strings.TrimSpace(result.IPA)
 	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
@@ -1296,6 +1313,9 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 	for ordinal, entry := range entries {
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
 		entry.TargetWord = testedTarget(entry)
+		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
+			entry.CandidateSenses = cloneLexicalSenses(entry.CandidateSenses[:enrichment.DefaultMaxCandidateSenses])
+		}
 		decisionEntry := entry
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
@@ -1313,6 +1333,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 			TargetWord:                entry.TargetWord,
 			ExampleSentence:           strings.TrimSpace(entry.Sentence),
 			DictionaryProviderVersion: entry.DictionaryProviderVersion,
+			CandidateSenses:           cloneLexicalSenses(entry.CandidateSenses),
 		})
 	}
 	return manifest
@@ -1320,7 +1341,11 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 
 // EnrichmentCandidates returns the frozen candidates in final render order.
 func (m Manifest) EnrichmentCandidates() []enrichment.Candidate {
-	return append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
+	result := append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
+	for i := range result {
+		result[i].CandidateSenses = cloneLexicalSenses(result[i].CandidateSenses)
+	}
+	return result
 }
 
 // Completeness reports the manifest's pre-enrichment accepted and omitted
@@ -1333,6 +1358,9 @@ func (m Manifest) Completeness() Completeness {
 		}
 		if strings.TrimSpace(entry.SentenceTranslation) != "" {
 			result.CardsWithEnglishSentence++
+		}
+		if entry.fallbackGlossApplied {
+			result.CardsWithFallbackGloss++
 		}
 	}
 	return result
@@ -1409,6 +1437,7 @@ func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcome
 }
 
 func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
+	entry.fallbackGlossApplied = false
 	result := outcome.Result
 	fields := []struct {
 		available  bool
@@ -1418,6 +1447,7 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 		{result.FallbackGloss.Available, result.FallbackGloss.Provenance},
 		{result.SentenceTranslation.Available, result.SentenceTranslation.Provenance},
 		{result.SentenceTranslationTarget.Available, result.SentenceTranslationTarget.Provenance},
+		{result.SenseSelection.Available, result.SenseSelection.Provenance},
 	}
 	available := false
 	for _, field := range fields {
@@ -1444,13 +1474,46 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	if result.SentenceTranslationTarget.Available {
 		entry.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
 	}
-	if result.FallbackGloss.Available && strings.TrimSpace(entry.Gloss) == "" {
+	selectionValid := false
+	selectionMalformed := false
+	if result.SenseSelection.Available {
+		selection := result.SenseSelection.Value
+		if len(selection) > enrichment.DefaultMaxSenses || !validSenseSelection(selection, len(entry.CandidateSenses)) {
+			selectionMalformed = true
+			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
+		} else if len(selection) > 0 {
+			selected := make([]enrichment.LexicalSense, 0, len(selection))
+			for _, index := range selection {
+				selected = append(selected, entry.CandidateSenses[index])
+			}
+			if gloss := enrichment.RenderGloss(selected, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens); gloss != "" {
+				entry.Gloss = gloss
+				selectionValid = true
+			}
+		}
+	}
+	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
 		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= 200 {
 			entry.Gloss = fallback
+			entry.fallbackGlossApplied = true
 		}
 	}
 	return nil
+}
+
+func validSenseSelection(selection []int, candidateCount int) bool {
+	seen := make(map[int]struct{}, len(selection))
+	for _, index := range selection {
+		if index < 0 || index >= candidateCount {
+			return false
+		}
+		if _, exists := seen[index]; exists {
+			return false
+		}
+		seen[index] = struct{}{}
+	}
+	return true
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
@@ -1555,11 +1618,20 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 		if strings.TrimSpace(entry.SentenceTranslation) != "" {
 			completeness.CardsWithEnglishSentence++
 		}
+		if entry.fallbackGlossApplied {
+			completeness.CardsWithFallbackGloss++
+		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
-			Identity:        enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
-			TargetWord:      testedTarget(entry),
-			ExampleSentence: strings.TrimSpace(entry.Sentence),
+			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			TargetWord:                testedTarget(entry),
+			ExampleSentence:           strings.TrimSpace(entry.Sentence),
+			DictionaryProviderVersion: entry.DictionaryProviderVersion,
+			CandidateSenses:           cloneLexicalSenses(entry.CandidateSenses),
 		})
+	}
+	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss})
+	if marshalErr == nil {
+		log.Printf("fallback_gloss_usage %s", fallbackEvent)
 	}
 	notes := make([]Note, len(accepted))
 	for i := range accepted {

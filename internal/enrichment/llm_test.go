@@ -199,7 +199,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	provider, err := NewConfiguredLLMProvider(cfg, &http.Client{})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-compatible", provider.Name())
-	assert.Equal(t, "gpt-test/translation-v8-fallback-gloss-json-reasoning-medium", provider.Version())
+	assert.Equal(t, "gpt-test/translation-v9-sense-selection-json-reasoning-medium", provider.Version())
 	assert.Equal(t, 4*time.Second, cfg.Timeout)
 	assert.Equal(t, "medium", cfg.ReasoningEffort)
 	assert.True(t, cfg.SupportsReasoningEffort)

@@ -294,7 +294,7 @@ func submissionBatchItems(snapshot cardexport.ManifestSnapshot, ordinals []int, 
 		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeCompleted {
 			return nil, errors.New("invalid durable Batch outcome state")
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}})
 	}
 	return items, nil
 }

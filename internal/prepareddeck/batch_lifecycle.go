@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -179,7 +180,10 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		if found && providerOutcome.Successful() {
 			manifestItem := byOrdinal[item.Ordinal]
 			response := providerOutcome.Response
-			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: *manifestItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int(nil), response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
+			for _, warning := range response.Warnings {
+				log.Printf("prepared deck translation: %s", warning)
+			}
+			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: *manifestItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
 			continue
 		}
 		class := enrichment.ProviderErrorExpired
@@ -404,7 +408,7 @@ func batchResultItems(snapshot cardexport.ManifestSnapshot, ordinals []int) ([]e
 			return nil, nil, errors.New("invalid Batch manifest item")
 		}
 		selected[ordinal] = item
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}})
 	}
 	return items, selected, nil
 }

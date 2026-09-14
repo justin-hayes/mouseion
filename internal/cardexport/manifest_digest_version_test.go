@@ -132,3 +132,30 @@ func TestPronunciationAndPrincipalPartsAreV5ManifestDigestInputs(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, withoutFormsCurrentDigest, withFormsCurrentDigest, "v5 must include pronunciation and principal parts")
 }
+
+func TestCandidateSensesAreV6ManifestDigestInputs(t *testing.T) {
+	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+		Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "building",
+		CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}},
+	}}).Snapshot()
+	withoutCandidates := snapshot
+	withoutCandidates.Items = cloneManifestItems(snapshot.Items)
+	withoutCandidates.Items[0].Entry.CandidateSenses = nil
+	withoutCandidates.SchemaVersion = ManifestSchemaVersionV5
+	withCandidatesV5 := snapshot
+	withCandidatesV5.Items = cloneManifestItems(snapshot.Items)
+	withCandidatesV5.SchemaVersion = ManifestSchemaVersionV5
+	withoutV5, err := withoutCandidates.Digest()
+	require.NoError(t, err)
+	withV5, err := withCandidatesV5.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, withoutV5, withV5, "v5 must ignore candidate senses")
+
+	withoutCandidates.SchemaVersion = ManifestSchemaVersion
+	withoutV6, err := withoutCandidates.Digest()
+	require.NoError(t, err)
+	withV6, err := snapshot.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, withoutV6, withV6, "v6 must include candidate senses")
+}

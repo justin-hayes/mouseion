@@ -19,7 +19,8 @@ const (
 	ManifestSchemaVersionV3       = 3
 	ManifestSchemaVersionV4       = 4
 	ManifestSchemaVersionV5       = 5
-	ManifestSchemaVersion         = ManifestSchemaVersionV5
+	ManifestSchemaVersionV6       = 6
+	ManifestSchemaVersion         = ManifestSchemaVersionV6
 )
 
 type ManifestDisposition string
@@ -112,8 +113,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v3\x00"
 	} else if s.SchemaVersion == ManifestSchemaVersionV4 {
 		prefix = "mouseion-prepared-deck-manifest-v4\x00"
-	} else {
+	} else if s.SchemaVersion == ManifestSchemaVersionV5 {
 		prefix = "mouseion-prepared-deck-manifest-v5\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-manifest-v6\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -147,8 +150,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v3\x00"
 	} else if schemaVersion == ManifestSchemaVersionV4 {
 		prefix = "mouseion-prepared-deck-candidate-v4\x00"
-	} else {
+	} else if schemaVersion == ManifestSchemaVersionV5 {
 		prefix = "mouseion-prepared-deck-candidate-v5\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-candidate-v6\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -176,6 +181,7 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 				TargetWord:                item.Entry.TargetWord,
 				ExampleSentence:           strings.TrimSpace(item.Entry.Sentence),
 				DictionaryProviderVersion: item.Entry.DictionaryProviderVersion,
+				CandidateSenses:           cloneLexicalSenses(item.Entry.CandidateSenses),
 			})
 			if item.CacheKey == nil {
 				allAcceptedHaveCacheKeys = false
@@ -209,20 +215,21 @@ type canonicalManifestItem struct {
 }
 
 type canonicalEntry struct {
-	Language                  string `json:"language"`
-	CanonicalLemma            string `json:"canonical_lemma"`
-	UPOS                      string `json:"upos"`
-	Sentence                  string `json:"sentence"`
-	TargetWord                string `json:"target_word"`
-	Morphology                string `json:"morphology"`
-	Gloss                     string `json:"gloss,omitempty"`
-	Plural                    string `json:"plural,omitempty"`
-	IPA                       string `json:"ipa,omitempty"`
-	PrincipalParts            string `json:"principal_parts,omitempty"`
-	DictionaryProviderVersion string `json:"dictionary_provider_version,omitempty"`
-	SourceDocument            string `json:"source_document"`
-	Notes                     string `json:"notes"`
-	FirstEncounter            int64  `json:"first_encounter"`
+	Language                  string                    `json:"language"`
+	CanonicalLemma            string                    `json:"canonical_lemma"`
+	UPOS                      string                    `json:"upos"`
+	Sentence                  string                    `json:"sentence"`
+	TargetWord                string                    `json:"target_word"`
+	Morphology                string                    `json:"morphology"`
+	Gloss                     string                    `json:"gloss,omitempty"`
+	Plural                    string                    `json:"plural,omitempty"`
+	IPA                       string                    `json:"ipa,omitempty"`
+	PrincipalParts            string                    `json:"principal_parts,omitempty"`
+	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
+	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
+	SourceDocument            string                    `json:"source_document"`
+	Notes                     string                    `json:"notes"`
+	FirstEncounter            int64                     `json:"first_encounter"`
 }
 
 type canonicalSentenceQuality struct {
@@ -243,7 +250,7 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -336,6 +343,12 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		entryCanonical.IPA = entry.IPA
 		entryCanonical.PrincipalParts = entry.PrincipalParts
 	}
+	if schemaVersion >= ManifestSchemaVersionV6 {
+		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
+			return canonicalManifestItem{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
+		}
+		entryCanonical.CandidateSenses = cloneLexicalSenses(entry.CandidateSenses)
+	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
 		Entry:    entryCanonical,
@@ -349,10 +362,25 @@ func cloneManifestItems(items []ManifestItem) []ManifestItem {
 	for i, item := range items {
 		result[i] = item
 		result[i].Quality.Reasons = append([]string(nil), item.Quality.Reasons...)
+		result[i].Entry.CandidateSenses = cloneLexicalSenses(item.Entry.CandidateSenses)
 		if item.CacheKey != nil {
 			key := *item.CacheKey
 			result[i].CacheKey = &key
 		}
+	}
+	return result
+}
+
+func cloneLexicalSenses(senses []enrichment.LexicalSense) []enrichment.LexicalSense {
+	if senses == nil {
+		return nil
+	}
+	result := make([]enrichment.LexicalSense, len(senses))
+	for i, sense := range senses {
+		result[i] = sense
+		result[i].Examples = append([]string(nil), sense.Examples...)
+		result[i].Topics = append([]string(nil), sense.Topics...)
+		result[i].Tags = append([]string(nil), sense.Tags...)
 	}
 	return result
 }

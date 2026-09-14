@@ -128,3 +128,44 @@ func TestTranslationCodecRejectsIdentityAndLanguageDrift(t *testing.T) {
 		})
 	}
 }
+
+func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{
+		Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN",
+		CandidateSenses: []LexicalSense{{Gloss: "building"}, {Gloss: "house"}},
+	}
+	body, err := codec.EncodeRequest(input)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `candidate_senses`)
+	assert.Contains(t, string(body), `building`)
+	assert.Contains(t, string(body), `house`)
+
+	content := struct {
+		ItemID         string `json:"item_id"`
+		SourceLanguage string `json:"source_language"`
+		TargetLanguage string `json:"target_language"`
+		TranslationResponse
+	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", SenseOrder: []int{2}}}
+	contentBytes, marshalErr := json.Marshal(content)
+	require.NoError(t, marshalErr)
+	responseBody, marshalErr := json.Marshal(struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}{Choices: []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	}{{Message: struct {
+		Content string `json:"content"`
+	}{string(contentBytes)}}}})
+	require.NoError(t, marshalErr)
+	response, err := codec.DecodeResponse(input, responseBody)
+	require.NoError(t, err)
+	assert.Empty(t, response.SenseOrder)
+	assert.Contains(t, response.Warnings, "invalid sense selection; using deterministic order")
+}
