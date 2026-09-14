@@ -41,7 +41,7 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', ''); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Gender":"Fem","Article":"la","Plural":"case"}]', 'Fem', 'la', 'case', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', '/haʊ̯s/', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '', 'steht auf · stand auf · aufgestanden'); INSERT INTO entries VALUES ('de', 'regnen', 'VERB', '[{"Gloss":"to rain"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Gender":"Fem","Article":"la","Plural":"case"}]', 'Fem', 'la', 'case', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -57,11 +57,21 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "Neut", result.Gender)
 	assert.Equal(t, "das", result.Article)
 	assert.Equal(t, "Häuser", result.Plural)
+	assert.Equal(t, "/haʊ̯s/", result.IPA)
+	assert.Empty(t, result.PrincipalParts)
 
 	result, found, err = index.Lookup(context.Background(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Aufstehen", UPOS: "VERB"})
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "to get up", result.Senses[0].Gloss)
+	assert.Empty(t, result.IPA)
+	assert.Equal(t, "steht auf · stand auf · aufgestanden", result.PrincipalParts)
+
+	result, found, err = index.Lookup(context.Background(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Regnen", UPOS: "VERB"})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Empty(t, result.IPA)
+	assert.Empty(t, result.PrincipalParts)
 
 	result, found, err = index.Lookup(context.Background(), enrichment.LexicalLookupRequest{Language: "it-IT", CanonicalLemma: "Casa", UPOS: "NOUN"})
 	require.NoError(t, err)
@@ -84,7 +94,7 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
