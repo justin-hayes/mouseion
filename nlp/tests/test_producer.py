@@ -278,7 +278,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
     result = SimpleNamespace(
         sentences=[
             SimpleNamespace(
-        text="Straße, Maße, Masse, daß, Haß, Eßzimmer",
+                    text="Straße, Maße, Masse, daß, Haß, Eßzimmer",
                 tokens=[
                     SimpleNamespace(words=[word("Straße", "Straße", "NOUN", None, 0, 6)]),
                     SimpleNamespace(words=[word("Maße", "Maße", "NOUN", None, 8, 12)]),
@@ -292,7 +292,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
     )
     producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
 
-    artifact = producer.analyze("Straße, Maße, Masse, daß", "de-DE")
+    artifact = producer.analyze("Straße, Maße, Masse, daß, Haß, Eßzimmer", "de-DE")
 
     assert [token.canonical_lemma for token in artifact.sentences[0].tokens] == [
         "straße",

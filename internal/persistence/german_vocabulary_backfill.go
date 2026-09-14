@@ -269,7 +269,7 @@ func backfillVocabularyStates(ctx context.Context, tx pgx.Tx, owner string, prof
 				}
 				merged++
 			}
-			if winner.lemma != target || winner.state != group[0].state {
+			if winner.lemma != target {
 				if _, err = tx.Exec(ctx, `UPDATE vocabulary_states SET canonical_lemma=$3, state=$4, updated_at=$5 WHERE owner_id=$1 AND id=$2`, owner, winner.id, target, winner.state, winner.updatedAt); err != nil {
 					return updated, merged, err
 				}
@@ -428,7 +428,7 @@ func queryDeckVocabulary(ctx context.Context, tx pgx.Tx, owner string, group []g
 	for _, row := range group {
 		lemmas = append(lemmas, row.lemma)
 	}
-	rows, err := tx.Query(ctx, `SELECT deck_preparation_id::text, generated_at, graduated_at FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=ANY($2::text[]) AND upos=$3`, owner, lemmas, upos)
+	rows, err := tx.Query(ctx, `SELECT deck_preparation_id::text, generated_at, graduated_at FROM deck_preparation_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma=ANY($2::text[]) AND upos=$3 ORDER BY deck_preparation_id, generated_at, graduated_at NULLS LAST`, owner, lemmas, upos)
 	if err != nil {
 		return nil, err
 	}
@@ -448,12 +448,19 @@ func mergeDeckVocabulary(rows []deckVocabularyRow) []deckVocabularyRow {
 	byPreparation := make(map[string]deckVocabularyRow)
 	for _, row := range rows {
 		current, ok := byPreparation[row.preparationID]
-		if !ok || row.generatedAt.Before(current.generatedAt) {
+		if !ok {
+			byPreparation[row.preparationID] = row
+			continue
+		}
+		if row.generatedAt.Before(current.generatedAt) {
+			row.graduatedAt = current.graduatedAt
 			current = row
 		}
-		if row.graduatedAt != nil && (current.graduatedAt == nil || row.graduatedAt.Before(*current.graduatedAt)) {
-			value := *row.graduatedAt
-			current.graduatedAt = &value
+		if current.graduatedAt == nil || (row.graduatedAt != nil && row.graduatedAt.Before(*current.graduatedAt)) {
+			if row.graduatedAt != nil {
+				value := *row.graduatedAt
+				current.graduatedAt = &value
+			}
 		}
 		byPreparation[row.preparationID] = current
 	}
@@ -608,11 +615,12 @@ func mergeJSONArray(left, right []byte) ([]byte, error) {
 }
 
 type selectedSentenceRow struct {
-	id, corpusID, lemma, upos, sentenceKey, sentenceText string
-	sourceLocation, selectionReasons                     []byte
-	selectionRank, selectionScore                        int
-	isChosen                                             bool
-	createdAt                                            time.Time
+	id, corpusID, lemma, upos string
+	selectionReasons          []byte
+	selectionRank             int
+	selectionScore            int
+	isChosen                  bool
+	createdAt                 time.Time
 }
 
 func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (*GermanVocabularyBackfillConflict, error) {
@@ -742,7 +750,7 @@ func backfillExampleSentences(ctx context.Context, tx pgx.Tx, owner string, prof
 }
 
 func querySelectedSentences(ctx context.Context, tx pgx.Tx, owner string) ([]selectedSentenceRow, error) {
-	rows, err := tx.Query(ctx, `SELECT id::text, corpus_id::text, canonical_lemma, upos, sentence_key, sentence_text, source_location, selection_rank, selection_score, selection_reasons, is_chosen, created_at FROM example_sentences WHERE owner_id=$1 AND language='de'`, owner)
+	rows, err := tx.Query(ctx, `SELECT id::text, corpus_id::text, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen, created_at FROM example_sentences WHERE owner_id=$1 AND language='de'`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -750,7 +758,7 @@ func querySelectedSentences(ctx context.Context, tx pgx.Tx, owner string) ([]sel
 	var result []selectedSentenceRow
 	for rows.Next() {
 		var row selectedSentenceRow
-		if err = rows.Scan(&row.id, &row.corpusID, &row.lemma, &row.upos, &row.sentenceKey, &row.sentenceText, &row.sourceLocation, &row.selectionRank, &row.selectionScore, &row.selectionReasons, &row.isChosen, &row.createdAt); err != nil {
+		if err = rows.Scan(&row.id, &row.corpusID, &row.lemma, &row.upos, &row.selectionRank, &row.selectionScore, &row.selectionReasons, &row.isChosen, &row.createdAt); err != nil {
 			return nil, err
 		}
 		result = append(result, row)

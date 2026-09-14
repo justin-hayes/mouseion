@@ -4,6 +4,7 @@ WORKDIR /src
 ENV STANZA_RESOURCES_DIR=/opt/stanza_resources
 # Install the package + its runtime deps (grpcio, protobuf, stanza, torch)
 COPY nlp/ ./nlp/
+COPY internal/canonicalization/german_post1996.json ./internal/canonicalization/german_post1996.json
 COPY proto/ ./proto/
 COPY gen/python/ ./gen/python/
 # Copy the shared protobuf bindings so `from mouseion.v1 import ...` resolves.

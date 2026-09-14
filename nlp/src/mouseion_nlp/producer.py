@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
+import json
 import logging
+from pathlib import Path
 from typing import Any, Callable
 import unicodedata
 from uuid import uuid4
@@ -34,23 +36,19 @@ DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
 logger = logging.getLogger(__name__)
 
-# Exact lexical rules avoid collapsing modern, distinct lemmas such as Maße
-# and Masse. Keep this table in sync with internal/canonicalization/german.go.
+def load_german_normalization_policy() -> dict[str, dict[str, str]]:
+    """Load the same reviewed policy consumed by the Go runtime and index."""
+    repository_policy = Path(__file__).resolve().parents[3] / "internal" / "canonicalization" / "german_post1996.json"
+    container_policy = Path("/src/internal/canonicalization/german_post1996.json")
+    policy_path = repository_policy if repository_policy.exists() else container_policy
+    with policy_path.open(encoding="utf-8") as source:
+        return json.load(source)
+
+
+GERMAN_NORMALIZATION_POLICY = load_german_normalization_policy()
 GERMAN_POST_1996_EQUIVALENCES = {
-    "daß": "dass",
-    "muß": "muss",
-    "mußt": "musst",
-    "müßt": "müsst",
-    "fluß": "fluss",
-    "kuß": "kuss",
-    "nuß": "nuss",
-    "naß": "nass",
-    "schluß": "schluss",
-    "schloß": "schloss",
-    "thür": "tür",
-    "thüre": "türe",
-    "haß": "hass",
-    "eßzimmer": "esszimmer",
+    **GERMAN_NORMALIZATION_POLICY["equivalences"],
+    **GERMAN_NORMALIZATION_POLICY.get("v6_equivalences", {}),
 }
 
 # Keep this closed: the dependency relation alone is not sufficient to
