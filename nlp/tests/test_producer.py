@@ -278,28 +278,32 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
     result = SimpleNamespace(
         sentences=[
             SimpleNamespace(
-                text="Straße, Maße, Masse, daß",
+                    text="Straße, Maße, Masse, daß, Haß, Eßzimmer",
                 tokens=[
                     SimpleNamespace(words=[word("Straße", "Straße", "NOUN", None, 0, 6)]),
                     SimpleNamespace(words=[word("Maße", "Maße", "NOUN", None, 8, 12)]),
                     SimpleNamespace(words=[word("Masse", "Masse", "NOUN", None, 14, 19)]),
                     SimpleNamespace(words=[word("daß", "daß", "SCONJ", None, 21, 24)]),
+                    SimpleNamespace(words=[word("Haß", "Haß", "NOUN", None, 26, 29)]),
+                    SimpleNamespace(words=[word("Eßzimmer", "Eßzimmer", "NOUN", None, 31, 39)]),
                 ],
             )
         ]
     )
     producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
 
-    artifact = producer.analyze("Straße, Maße, Masse, daß", "de-DE")
+    artifact = producer.analyze("Straße, Maße, Masse, daß, Haß, Eßzimmer", "de-DE")
 
     assert [token.canonical_lemma for token in artifact.sentences[0].tokens] == [
         "straße",
         "maße",
         "masse",
         "dass",
+        "hass",
+        "esszimmer",
     ]
     assert artifact.normalization_profile.name == "german-standard-post-1996"
-    assert artifact.normalization_profile.version == "5"
+    assert artifact.normalization_profile.version == "6"
 
 
 def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
@@ -394,7 +398,7 @@ def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
     assert prepositional[1].canonical_lemma == "stehen"
     assert fixed[1].canonical_lemma == "bleiben"
     assert unknown[1].canonical_lemma == "gehen"
-    assert artifact.normalization_profile.version == "5"
+    assert artifact.normalization_profile.version == "6"
 
 
 def test_normalized_corpus_round_trip() -> None:

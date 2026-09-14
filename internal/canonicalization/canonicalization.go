@@ -106,6 +106,9 @@ var defaultRegistry = func() *Registry {
 	if err := r.Register(GermanPost1996Profile{version: "4"}, false); err != nil {
 		panic(err)
 	}
+	if err := r.Register(GermanPost1996Profile{version: "5"}, false); err != nil {
+		panic(err)
+	}
 	if err := r.Register(GermanPost1996(), true); err != nil {
 		panic(err)
 	}

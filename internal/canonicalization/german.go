@@ -15,8 +15,9 @@ import (
 var germanPost1996Data []byte
 
 type germanPost1996Policy struct {
-	Equivalences map[string]string       `json:"equivalences"`
-	EdgeCleanup  germanEdgeCleanupPolicy `json:"edge_cleanup"`
+	Equivalences   map[string]string       `json:"equivalences"`
+	V6Equivalences map[string]string       `json:"v6_equivalences"`
+	EdgeCleanup    germanEdgeCleanupPolicy `json:"edge_cleanup"`
 }
 
 type germanEdgeCleanupPolicy struct {
@@ -33,15 +34,15 @@ var germanPost1996PolicyData = func() germanPost1996Policy {
 }()
 
 // GermanPost1996Profile is the conservative German standard-orthography
-// profile. Version 5 includes producer-level separable-verb reattachment;
-// older versions remain registered for reproducible historical normalization.
+// profile. Version 6 adds explicit pre-1996 spelling equivalences; older
+// versions remain registered for reproducible historical normalization.
 type GermanPost1996Profile struct{ version string }
 
 func GermanPost1996() Profile              { return GermanPost1996Profile{} }
 func (GermanPost1996Profile) Name() string { return "german-standard-post-1996" }
 func (p GermanPost1996Profile) Version() string {
 	if p.version == "" {
-		return "5"
+		return "6"
 	}
 	return p.version
 }
@@ -49,12 +50,17 @@ func (GermanPost1996Profile) Language() string { return "de" }
 func (p GermanPost1996Profile) Canonical(s string) string {
 	if p.Version() == "3" {
 		s = primaryAnalyzerLemma(s)
-	} else if p.Version() == "4" || p.Version() == "5" {
+	} else if p.Version() == "4" || p.Version() == "5" || p.Version() == "6" {
 		s = cleanLemmaEdges(primaryAnalyzerLemma(s))
 	}
 	s = Lemma(s)
 	if modern, ok := germanPost1996PolicyData.Equivalences[s]; ok {
 		return modern
+	}
+	if p.Version() == "6" {
+		if modern, ok := germanPost1996PolicyData.V6Equivalences[s]; ok {
+			return modern
+		}
 	}
 	return s
 }

@@ -4,6 +4,8 @@
 {"word":"Fuß","lang_code":"de","pos":"noun","senses":[{"glosses":["foot"]}],"runtime_lookup_key":"fuß"}
 {"word":"groß","lang_code":"de","pos":"adjective","senses":[{"glosses":["big"]}],"runtime_lookup_key":"groß"}
 {"word":"daß","lang_code":"de","pos":"conjunction","senses":[{"glosses":["that"]}],"runtime_lookup_key":"dass"}
+{"word":"Haß","lang_code":"de","pos":"noun","senses":[{"glosses":["hate"]}],"runtime_lookup_key":"hass"}
+{"word":"Eßzimmer","lang_code":"de","pos":"noun","senses":[{"glosses":["dining room"]}],"runtime_lookup_key":"esszimmer"}
 {"word":"Thür","lang_code":"de","pos":"noun","senses":[{"glosses":["door"]}],"runtime_lookup_key":"tür"}
 {"word":"Souveränität›","lang_code":"de","pos":"noun","senses":[{"glosses":["sovereignty"]}],"runtime_lookup_key":"souveränität"}
 {"word":"/oder","lang_code":"de","pos":"conjunction","senses":[{"glosses":["or"]}],"runtime_lookup_key":"oder"}

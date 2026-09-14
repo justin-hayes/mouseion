@@ -142,6 +142,19 @@ For an already downloaded JSONL or JSONL.GZ file, use
 This is useful for an offline rebuild; do not combine it with
 `DICTIONARY_REFRESH=1`.
 
+## Re-normalizing German vocabulary
+
+Stop the web server and other vocabulary writers, then run the owner-
+transactional backfill with the same database environment:
+
+```sh
+go run ./cmd/vocabularybackfill
+```
+
+The command is idempotent and exits non-zero for curated-sentence conflicts.
+Resolve reported conflicts before starting the v6 server; immutable
+normalized-corpus runs and prepared-deck manifests are not rewritten.
+
 ## Language validation
 
 German and Italian are the deployment-supported analysis languages. The

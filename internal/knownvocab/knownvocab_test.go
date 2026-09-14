@@ -119,7 +119,7 @@ func TestImportPreservesModernGermanSharpS(t *testing.T) {
 	assert.Equal(t, "geleiten|leiten", result.Entries[2].RawLemma)
 	assert.Equal(t, "geleiten", result.Entries[2].CanonicalLemma)
 	assert.Equal(t, "german-standard-post-1996", result.Entries[0].ProfileName)
-	assert.Equal(t, "5", result.Entries[0].ProfileVersion)
+	assert.Equal(t, "6", result.Entries[0].ProfileVersion)
 }
 
 func TestImportFullGermanLexemeMatchesAnalysisCanonicalLemma(t *testing.T) {
@@ -131,7 +131,7 @@ func TestImportFullGermanLexemeMatchesAnalysisCanonicalLemma(t *testing.T) {
 	require.Len(t, first.Entries, 1)
 	assert.Equal(t, "aufstehen", first.Entries[0].RawLemma)
 	assert.Equal(t, "aufstehen", first.Entries[0].CanonicalLemma)
-	assert.Equal(t, "5", first.Entries[0].ProfileVersion)
+	assert.Equal(t, "6", first.Entries[0].ProfileVersion)
 
 	second, err := service.Import(context.Background(), "alice", "de", strings.NewReader("aufstehen\n"))
 	require.NoError(t, err)
