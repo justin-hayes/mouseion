@@ -108,6 +108,8 @@ sentence translation only.
 - The generated Anki/TSV note gains a `Gloss` field on the back between `POS`
   and `English`; artifact fixtures and completeness tests are updated.
 - `English` and `EnglishSentence` keep their current semantics.
+- TSV artifacts retain the dictionary attribution as an Anki-compatible comment
+  when dictionary data is present.
 
 ### Freeze and provenance
 
