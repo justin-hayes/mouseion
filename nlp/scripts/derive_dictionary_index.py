@@ -32,12 +32,21 @@ POS = {
     "pronoun": "PRON",
     "prep": "ADP",
     "preposition": "ADP",
+    "art": "DET",
+    "article": "DET",
+    "det": "DET",
+    "determiner": "DET",
     "conj": "CCONJ",
     "conjunction": "CCONJ",
     "subordinating conjunction": "SCONJ",
-    "determiner": "DET",
-    "numeral": "NUM",
+    "int": "INTJ",
+    "intj": "INTJ",
+    "interj": "INTJ",
     "interjection": "INTJ",
+    "num": "NUM",
+    "numeral": "NUM",
+    "number": "NUM",
+    "cardinal number": "NUM",
     "particle": "PART",
 }
 GENDERS = {
@@ -164,6 +173,14 @@ def ipa_for(item: dict) -> str:
     return ""
 
 
+def upos_for(item: dict, sense: dict) -> str | None:
+    raw_pos = str(item.get("pos", "")).casefold()
+    upos = POS.get(raw_pos)
+    if upos == "CCONJ" and any(tag.casefold() == "subordinating" for tag in tags_for(item, sense)):
+        return "SCONJ"
+    return upos
+
+
 def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
     glosses = [gloss.strip() for gloss in values(raw.get("glosses")) if gloss.strip()]
     if not glosses:
@@ -228,19 +245,20 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
             language = item.get("lang_code")
             if language not in LANGUAGES:
                 continue
-            upos = POS.get(str(item.get("pos", "")).casefold())
             word = item.get("word")
-            if not upos or not isinstance(word, str) or not word.strip():
+            if not isinstance(word, str) or not word.strip():
                 continue
             lemma = normalize(language, word)
-            key = (language, lemma, upos)
-            entry = None
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
+                    continue
+                upos = upos_for(item, raw_sense)
+                if not upos:
                     continue
                 sense = sense_from(item, raw_sense, upos)
                 if sense is None:
                     continue
+                key = (language, lemma, upos)
                 entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
                 identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
                 if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
@@ -248,7 +266,6 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                 entry["gender"] = entry["gender"] or sense["Gender"]
                 entry["article"] = entry["article"] or sense["Article"]
                 entry["plural"] = entry["plural"] or sense["Plural"]
-            if entry is not None:
                 entry["ipa"] = entry["ipa"] or ipa_for(item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -105,12 +105,12 @@ def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
     source = tmp_path / "pos.jsonl"
     source.write_text(
         "\n".join(
-            json.dumps({"word": word, "lang_code": "de", "pos": pos, "senses": [{"glosses": [word]}]})
-            for word, pos in [
-                ("obwohl", "subordinating conjunction"),
-                ("dies", "determiner"),
-                ("zwei", "numeral"),
-                ("ach", "interjection"),
+            json.dumps({"word": word, "lang_code": "de", "pos": pos, "senses": [{"glosses": [word], "tags": tags}]})
+            for word, pos, tags in [
+                ("obwohl", "conj", ["subordinating"]),
+                ("dies", "det", []),
+                ("zwei", "num", []),
+                ("ach", "intj", []),
             ]
         ),
         encoding="utf-8",
