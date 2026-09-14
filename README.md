@@ -115,10 +115,16 @@ make dictionary-index \
 
 `DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
 omit it when rebuilding from the cached dump. The command writes
-`dictionary/dictionary-index.sqlite` atomically. Set `DICTIONARY_OUTPUT` to
-choose another path, then point `MOUSEION_DICTIONARY_INDEX` and the Compose
-`MOUSEION_DICTIONARY_HOST_DIR` variable at that file and restart the web
-process. `MOUSEION_DICTIONARY_HOST_DIR` mounts a directory, not a single file,
+`dictionary/dictionary-index.sqlite` atomically, mode `0644` — the web
+container runs as an unprivileged user, so the artifact must be world-readable
+(an index built before this was fixed needs a one-time
+`chmod 644 dictionary/dictionary-index.sqlite`). The `dictionary/` directory is
+tracked (via `dictionary/.gitkeep`) so a fresh clone has it operator-owned; if
+Compose ever created it as root, run
+`sudo chown "$(id -u):$(id -g)" dictionary` once before rebuilding. Set
+`DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to choose another path, then point
+`MOUSEION_DICTIONARY_INDEX` and the Compose `MOUSEION_DICTIONARY_HOST_DIR`
+variable at that file and restart the web process. `MOUSEION_DICTIONARY_HOST_DIR` mounts a directory, not a single file,
 so a missing index stays missing instead of being created as an empty
 directory; the server then falls back to the morphology heuristic with a
 warning. A configured index that exists but is unreadable is a fatal startup

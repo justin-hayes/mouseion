@@ -4,6 +4,7 @@ import importlib.util
 import gzip
 import json
 import sqlite3
+import stat
 from pathlib import Path
 
 
@@ -55,6 +56,14 @@ def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
     connection = sqlite3.connect(index)
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
     connection.close()
+
+
+def test_derived_index_is_readable_by_the_nonroot_container(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl", output, "dump-2026-09-14")
+
+    assert stat.S_IMODE(output.stat().st_mode) == 0o644
 
 
 def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):

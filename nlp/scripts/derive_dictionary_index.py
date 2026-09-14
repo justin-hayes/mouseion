@@ -285,6 +285,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
         connection.commit()
         connection.execute("PRAGMA journal_mode = OFF")
         connection.close()
+        temporary_path.chmod(0o644)
         temporary_path.replace(output_path)
     finally:
         temporary_path.unlink(missing_ok=True)
