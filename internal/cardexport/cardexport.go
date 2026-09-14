@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/gdex"
@@ -31,15 +32,16 @@ var ErrInvalidInput = errors.New("cardexport: invalid input")
 type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
+	Gloss, DictionaryProviderVersion                                                  string
 	Morphology, SourceDocument, Notes                                                 string
 	SentenceTokens                                                                    []analyzer.Token
 	FirstEncounter                                                                    int64
 }
 
 type Note struct {
-	Key, Identity, Text, Article, Lemma, POS, English, EnglishSentence, BookTitle string
-	BackExtra                                                                     string
-	Tags                                                                          []string
+	Key, Identity, Text, Article, Lemma, POS, Gloss, English, EnglishSentence, BookTitle string
+	BackExtra                                                                            string
+	Tags                                                                                 []string
 }
 
 type Artifact struct {
@@ -139,9 +141,16 @@ type preparedEntryStore interface {
 	GetPreparedCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
 }
 
-type Service struct{ store Store }
+type Service struct {
+	store      Store
+	dictionary dictionary.Provider
+}
 
 func NewService(store Store) *Service { return &Service{store: store} }
+
+func NewServiceWithDictionary(store Store, provider dictionary.Provider) *Service {
+	return &Service{store: store, dictionary: provider}
+}
 
 func DedupKey(language, lemma, upos, owner string) string {
 	sum := sha256.Sum256([]byte(language + " | " + lemma + " | " + upos + " | " + owner))
@@ -582,6 +591,11 @@ func nounArticle(language, upos, lemma, morphology string) string {
 	if len(variants) == 0 {
 		return ""
 	}
+	for _, variant := range variants {
+		if article := morphologyValue(variant, "Article"); article != "" {
+			return article
+		}
+	}
 	genders := make(map[string]bool, len(articles))
 	allPlural := true
 	for _, variant := range variants {
@@ -688,7 +702,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	note := Note{
 		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
-		English:         escapeField(entry.Translation),
+		Gloss: escapeField(entry.Gloss), English: escapeField(entry.Translation),
 		EnglishSentence: HighlightEnglishTarget(entry.SentenceTranslation, entry.SentenceTranslationTarget), BookTitle: escapeField(entry.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
@@ -699,7 +713,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 		}
 		articleLemma = note.Article + separator + note.Lemma
 	}
-	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.English, note.EnglishSentence}, "\n")
+	note.BackExtra = strings.Join([]string{articleLemma, note.POS, note.Gloss, note.English, note.EnglishSentence}, "\n")
 	return note, nil
 }
 
@@ -736,12 +750,12 @@ func RenderTSV(notes []Note) (string, error) {
 }
 
 func noteFields(n Note) []string {
-	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.POS, n.English, n.EnglishSentence, n.BookTitle}
+	return []string{n.Identity, n.Text, n.Article, n.Lemma, n.POS, n.Gloss, n.English, n.EnglishSentence, n.BookTitle}
 }
 
 const noteTypeName = "Mouseion Vocab Recognition"
 
-var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "POS", "English", "EnglishSentence", "BookTitle"}
+var fieldNames = []string{"Identity", "Text", "Article", "Lemma", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}
 
 func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
@@ -821,6 +835,9 @@ func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Arti
 			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
+		if err := s.resolveDictionary(ctx, &entry); err != nil {
+			return Artifact{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -876,6 +893,9 @@ func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisR
 			return Artifact{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
+		if err := s.resolveDictionary(ctx, &entry); err != nil {
+			return Artifact{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -911,6 +931,9 @@ func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Ma
 			return Manifest{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
+		if err := s.resolveDictionary(ctx, &entry); err != nil {
+			return Manifest{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -958,6 +981,9 @@ func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysi
 			return Manifest{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
 		}
 		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
+		if err := s.resolveDictionary(ctx, &entry); err != nil {
+			return Manifest{}, fmt.Errorf("resolve dictionary entry %s: %w", candidateKey(candidate), err)
+		}
 		entries = append(entries, entry)
 		if strings.TrimSpace(entry.SourceDocument) != "" {
 			deckName = entry.SourceDocument
@@ -988,6 +1014,46 @@ func clearExternalFields(entry *Entry) {
 	entry.Translation = ""
 	entry.SentenceTranslation = ""
 	entry.SentenceTranslationTarget = ""
+}
+
+func (s *Service) resolveDictionary(ctx context.Context, entry *Entry) error {
+	if s == nil || s.dictionary == nil || entry == nil {
+		return nil
+	}
+	result, found, err := s.dictionary.Lookup(ctx, dictionary.LookupRequest{
+		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+		TargetWord: testedTarget(*entry), ExampleSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
+	})
+	if err != nil || !found {
+		return err
+	}
+	if strings.TrimSpace(result.Gloss) == "" {
+		result.Gloss = dictionary.RenderGloss(result.Senses, dictionary.DefaultMaxSenses, dictionary.DefaultMaxTokens)
+	}
+	if strings.TrimSpace(result.Plural) != "" && !strings.Contains(result.Gloss, result.Plural) {
+		if result.Gloss != "" {
+			result.Gloss += " "
+		}
+		result.Gloss += "(Pl. " + result.Plural + ")"
+	}
+	entry.Gloss = result.Gloss
+	entry.DictionaryProviderVersion = s.dictionary.Version()
+	if len(result.Morphology) == 0 {
+		return nil
+	}
+	morphology := map[string]string{}
+	if err := json.Unmarshal([]byte(entry.Morphology), &morphology); err != nil {
+		morphology = map[string]string{}
+	}
+	for key, value := range result.Morphology {
+		morphology[key] = value
+	}
+	encoded, err := json.Marshal(morphology)
+	if err != nil {
+		return fmt.Errorf("encode dictionary morphology: %w", err)
+	}
+	entry.Morphology = string(encoded)
+	return nil
 }
 
 func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {

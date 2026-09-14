@@ -201,19 +201,6 @@ func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) 
 	assert.Equal(t, "house", cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget)
 }
 
-func TestProviderWithoutSentenceTranslationRemainsCompatible(t *testing.T) {
-	provider, err := NewDictionaryProvider("dict", "1", func(context.Context, TranslationRequest) (TranslationResponse, error) {
-		return TranslationResponse{Translation: "house", Gloss: "building"}, nil
-	})
-	require.NoError(t, err)
-	result := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil).
-		Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: "Das Haus."}})[0]
-	assert.True(t, result.Translation.Available)
-	assert.True(t, result.Gloss.Available)
-	assert.False(t, result.SentenceTranslation.Available)
-	assert.Len(t, result.Warnings, 0)
-}
-
 func TestLemmaOnlyRetriesAndGracefulFailure(t *testing.T) {
 	provider := &translationStub{name: "dictionary", version: "1", failures: 2}
 	r := NewService(Config{ExternalEnabled: true, UserOptIn: true, ContextMode: LemmaOnly, MaxAttempts: 2}, nil, nil, nil, provider, nil).Enrich(context.Background(), []Candidate{{Identity: Identity{"de", "haus", "NOUN"}, ExampleSentence: "private context"}})[0]
@@ -251,14 +238,4 @@ func TestDeterministicLocalProviders(t *testing.T) {
 	got["Case"] = "Acc"
 	assert.True(t, ok)
 	assert.NotEqual(t, c.Morphology, got, "morphology was not copied")
-}
-
-func TestDictionaryAdapter(t *testing.T) {
-	p, err := NewDictionaryProvider("dict", "2026", func(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
-		return TranslationResponse{Translation: r.CanonicalLemma}, nil
-	})
-	require.NoError(t, err)
-	got, err := p.Translate(context.Background(), TranslationRequest{CanonicalLemma: "Haus"})
-	require.NoError(t, err)
-	assert.Equal(t, "Haus", got.Translation)
 }

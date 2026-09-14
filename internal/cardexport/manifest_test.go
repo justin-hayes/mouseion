@@ -34,7 +34,7 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	}
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	const wantDigest = "10e4d36421fe95ae36544a30aafffd48c292eae3e886f5db400eeee306550f4e"
+	const wantDigest = "97922a2243d53f2f4cade128c8d523913403174533436d5b17f4f204a48e9583"
 	assert.Equal(t, wantDigest, digest, "digest=%q want=%q", digest, wantDigest)
 
 	rebuilt, err := ManifestFromSnapshot(snapshot)
@@ -85,7 +85,7 @@ func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t
 		Items: []ManifestItem{
 			{
 				Ordinal: 0, Disposition: ManifestAccepted,
-				Entry:   Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht dort.", TargetWord: "Haus"},
+			Entry:   Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Gloss: "house", DictionaryProviderVersion: "fixture-v1", Sentence: "Das Haus steht dort.", TargetWord: "Haus"},
 				Quality: SentenceQuality{Accepted: true, Score: 94, GDEXScore: 0.94, Reasons: []string{"target present", "optimal length"}},
 			},
 			{
@@ -100,6 +100,8 @@ func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t
 	require.NoError(t, err)
 	require.Len(t, rebuilt.decisions, 2)
 	assert.Equal(t, snapshot.Items[0].Quality, rebuilt.decisions[0].Quality)
+	assert.Equal(t, snapshot.Items[0].Entry.Gloss, rebuilt.decisions[0].Entry.Gloss)
+	assert.Equal(t, snapshot.Items[0].Entry.DictionaryProviderVersion, rebuilt.decisions[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, snapshot.Items[1].Quality, rebuilt.decisions[1].Quality)
 	require.Len(t, rebuilt.omitted, 1)
 	assert.Equal(t, snapshot.Items[1].Entry.CanonicalLemma, rebuilt.omitted[0].CanonicalLemma)

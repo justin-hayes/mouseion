@@ -9,7 +9,7 @@ import (
 )
 
 // Verify that v1 and v2 snapshots still hash to their historical digests while
-// the current v3 snapshot has a distinct identity for quality diagnostics.
+// v3 and the current v4 snapshot retain distinct identities.
 func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	entries := []Entry{
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
@@ -45,7 +45,12 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	assert.NotEqual(t, digest, legacyDigest, "v1 and v2 digests must differ")
 	v3Digest, err := snapshot.Digest()
 	require.NoError(t, err)
-	assert.NotEqual(t, digest, v3Digest, "v2 and v3 digests must differ")
+	assert.NotEqual(t, digest, v3Digest, "v2 and v4 digests must differ")
+	v3 := snapshot
+	v3.SchemaVersion = ManifestSchemaVersionV3
+	historicalV3Digest, err := v3.Digest()
+	require.NoError(t, err)
+	assert.NotEqual(t, historicalV3Digest, v3Digest, "v3 and v4 digests must differ")
 }
 
 func TestQualityDiagnosticsOnlyAffectTheV3ManifestDigest(t *testing.T) {

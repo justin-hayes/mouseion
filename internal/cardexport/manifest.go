@@ -16,7 +16,8 @@ import (
 const (
 	LegacyManifestSchemaVersion   = 1
 	PreviousManifestSchemaVersion = 2
-	ManifestSchemaVersion         = 3
+	ManifestSchemaVersionV3       = 3
+	ManifestSchemaVersion         = 4
 )
 
 type ManifestDisposition string
@@ -105,8 +106,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v1\x00"
 	} else if s.SchemaVersion == PreviousManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-manifest-v2\x00"
-	} else {
+	} else if s.SchemaVersion == ManifestSchemaVersionV3 {
 		prefix = "mouseion-prepared-deck-manifest-v3\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-manifest-v4\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -136,8 +139,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v1\x00"
 	} else if schemaVersion == PreviousManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-candidate-v2\x00"
-	} else {
+	} else if schemaVersion == ManifestSchemaVersionV3 {
 		prefix = "mouseion-prepared-deck-candidate-v3\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-candidate-v4\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -197,15 +202,17 @@ type canonicalManifestItem struct {
 }
 
 type canonicalEntry struct {
-	Language       string `json:"language"`
-	CanonicalLemma string `json:"canonical_lemma"`
-	UPOS           string `json:"upos"`
-	Sentence       string `json:"sentence"`
-	TargetWord     string `json:"target_word"`
-	Morphology     string `json:"morphology"`
-	SourceDocument string `json:"source_document"`
-	Notes          string `json:"notes"`
-	FirstEncounter int64  `json:"first_encounter"`
+	Language                  string `json:"language"`
+	CanonicalLemma            string `json:"canonical_lemma"`
+	UPOS                      string `json:"upos"`
+	Sentence                  string `json:"sentence"`
+	TargetWord                string `json:"target_word"`
+	Morphology                string `json:"morphology"`
+	Gloss                     string `json:"gloss,omitempty"`
+	DictionaryProviderVersion string `json:"dictionary_provider_version,omitempty"`
+	SourceDocument            string `json:"source_document"`
+	Notes                     string `json:"notes"`
+	FirstEncounter            int64  `json:"first_encounter"`
 }
 
 type canonicalSentenceQuality struct {
@@ -226,7 +233,7 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersion) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -309,9 +316,14 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	if schemaVersion == ManifestSchemaVersion {
 		quality.GDEXScore = item.Quality.GDEXScore
 	}
+	entryCanonical := canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter}
+	if schemaVersion == ManifestSchemaVersion {
+		entryCanonical.Gloss = entry.Gloss
+		entryCanonical.DictionaryProviderVersion = entry.DictionaryProviderVersion
+	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
-		Entry:    canonicalEntry{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Sentence: entry.Sentence, TargetWord: entry.TargetWord, Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes, FirstEncounter: entry.FirstEncounter},
+		Entry:    entryCanonical,
 		Quality:  quality,
 		CacheKey: key,
 	}, nil
