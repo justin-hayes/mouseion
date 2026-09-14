@@ -1,6 +1,6 @@
 # ADR 0047: Content acquisition is folded into analysis, and the library is catalogue-derived
 
-Status: **Accepted** · Date: 2026-09-06 · Author: Justin + opencode
+Status: **Accepted; the "Always the complete scope" clause is partially superseded by [ADR 0066](0066-main-text-selection-from-epub-structure.md)** · Date: 2026-09-06 · Author: Justin + opencode
 
 ## Context
 

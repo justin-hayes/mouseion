@@ -272,8 +272,8 @@ deletion. A source written through the legacy import path still returns
 continue to store the source EPUB and use the unchanged full text as the NLP
 compatibility input. Bibliography-, index-, navigation-, or landmark-like
 metadata is preserved as provenance for review projection. Main-text analysis
-consumes the declared landmarks when the selection feature is enabled, while
-the stored snapshot and compatibility full text remain complete.
+consumes the declared landmarks when declared structure identifies a main text,
+while the stored snapshot and compatibility full text remain complete.
 
 ## Deferred decisions
 
