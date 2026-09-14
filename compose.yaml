@@ -90,7 +90,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      test: ["CMD", "/mouseion-server", "healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 5
