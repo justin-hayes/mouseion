@@ -1,0 +1,20 @@
+{
+  "equivalences": {
+    "daß": "dass",
+    "muß": "muss",
+    "mußt": "musst",
+    "müßt": "müsst",
+    "fluß": "fluss",
+    "kuß": "kuss",
+    "nuß": "nuss",
+    "naß": "nass",
+    "schluß": "schluss",
+    "schloß": "schloss",
+    "thür": "tür",
+    "thüre": "türe"
+  },
+  "edge_cleanup": {
+    "strip_unicode_categories": ["P", "S"],
+    "preserve_characters": ["'", "’"]
+  }
+}

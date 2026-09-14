@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import unicodedata
 from urllib.request import urlopen
 
 
@@ -45,24 +46,44 @@ GENDERS = {
 }
 
 
+def load_german_normalization_policy() -> dict:
+    path = Path(__file__).resolve().parents[2] / "internal" / "canonicalization" / "german_post1996.json"
+    with path.open(encoding="utf-8") as source:
+        return json.load(source)
+
+
+GERMAN_NORMALIZATION_POLICY = load_german_normalization_policy()
+
+
+def primary_lemma(value: str) -> str:
+    for alternative in value.split("|"):
+        alternative = alternative.strip()
+        if alternative:
+            return alternative
+    return ""
+
+
+def clean_lemma_edges(value: str) -> str:
+    edge_cleanup = GERMAN_NORMALIZATION_POLICY["edge_cleanup"]
+    preserved = set(edge_cleanup["preserve_characters"])
+    categories = set(edge_cleanup["strip_unicode_categories"])
+
+    def is_edge_decoration(character: str) -> bool:
+        return character not in preserved and unicodedata.category(character)[0] in categories
+
+    start, end = 0, len(value)
+    while start < end and is_edge_decoration(value[start]):
+        start += 1
+    while end > start and is_edge_decoration(value[end - 1]):
+        end -= 1
+    return value[start:end] or value
+
+
 def normalize(language: str, value: str) -> str:
-    value = " ".join(value.strip().casefold().split())
     if language == "de":
-        value = {
-            "daß": "dass",
-            "muß": "muss",
-            "mußt": "musst",
-            "müßt": "müsst",
-            "fluß": "fluss",
-            "kuß": "kuss",
-            "nuß": "nuss",
-            "naß": "nass",
-            "schluß": "schluss",
-            "schloß": "schloss",
-            "thür": "tür",
-            "thüre": "türe",
-        }.get(value, value)
-    return value
+        value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().casefold().split())
+        return GERMAN_NORMALIZATION_POLICY["equivalences"].get(value, value)
+    return " ".join(value.strip().casefold().split())
 
 
 def values(value: object) -> list[str]:
