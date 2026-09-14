@@ -526,7 +526,7 @@ func containsString(values []string, want string) bool {
 
 func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	n := Note{Key: "key", Identity: "identity", Text: "Grüße <b>Welt</b>", Article: "die", Lemma: "Welt", POS: "NOUN", English: "world", EnglishSentence: "Hello world.", BookTitle: "My Book", Tags: []string{"Mouseion", "lang::de", "source::My_Book"}}
-	got, err := RenderTSV([]Note{n})
+	got, err := RenderTSV([]Note{n}, "")
 	require.NoError(t, err)
 	r := csv.NewReader(strings.NewReader(got))
 	r.Comma = '\t'
@@ -536,6 +536,19 @@ func TestRenderTSVEscapesAndOrdersFields(t *testing.T) {
 	require.Len(t, rows[0], 10)
 	assert.Equal(t, strings.Join(noteFields(n), "\x1f"), strings.Join(rows[0][:9], "\x1f"))
 	assert.Equal(t, "Mouseion lang::de source::My_Book", rows[0][9])
+}
+
+func TestRenderTSVIncludesDictionaryAttributionAsComment(t *testing.T) {
+	got, err := RenderTSV([]Note{{Identity: "identity"}}, dictionary.AttributionNotice)
+	require.NoError(t, err)
+	assert.Contains(t, got, "# "+dictionary.AttributionNotice+"\n")
+
+	r := csv.NewReader(strings.NewReader(got))
+	r.Comma = '\t'
+	r.Comment = '#'
+	rows, err := r.ReadAll()
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"identity", "", "", "", "", "", "", "", "", ""}}, rows)
 }
 
 func TestEscapeFieldCannotInjectAnkiFieldSeparator(t *testing.T) {

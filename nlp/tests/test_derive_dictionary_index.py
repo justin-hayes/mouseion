@@ -67,6 +67,13 @@ def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
     connection.close()
 
 
+def test_downloader_uses_mouseion_cache_without_external_dependency(monkeypatch, tmp_path: Path):
+    module = load_script()
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+
+    assert module.download_cache_path() == tmp_path / "mouseion" / "raw-wiktextract-data.jsonl.gz"
+
+
 def test_derived_index_is_readable_by_the_nonroot_container(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
@@ -91,3 +98,31 @@ def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):
     actual = dict(connection.execute("SELECT lemma, senses_json FROM entries").fetchall())
     connection.close()
     assert set(actual) == set(expected.values())
+
+
+def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "pos.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps({"word": word, "lang_code": "de", "pos": pos, "senses": [{"glosses": [word]}]})
+            for word, pos in [
+                ("obwohl", "subordinating conjunction"),
+                ("dies", "determiner"),
+                ("zwei", "numeral"),
+                ("ach", "interjection"),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert set(connection.execute("SELECT lemma, upos FROM entries").fetchall()) == {
+        ("obwohl", "SCONJ"),
+        ("dies", "DET"),
+        ("zwei", "NUM"),
+        ("ach", "INTJ"),
+    }
+    connection.close()

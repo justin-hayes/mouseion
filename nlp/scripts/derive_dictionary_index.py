@@ -34,6 +34,10 @@ POS = {
     "preposition": "ADP",
     "conj": "CCONJ",
     "conjunction": "CCONJ",
+    "subordinating conjunction": "SCONJ",
+    "determiner": "DET",
+    "numeral": "NUM",
+    "interjection": "INTJ",
     "particle": "PART",
 }
 GENDERS = {
@@ -193,12 +197,13 @@ def open_input(path: Path):
     return path.open(encoding="utf-8")
 
 
+def download_cache_path() -> Path:
+    cache_root = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(cache_root) / "mouseion" / "raw-wiktextract-data.jsonl.gz"
+
+
 def download_input(force: bool) -> Path:
-    try:
-        from kaikki_json import config
-    except ImportError as error:
-        raise RuntimeError(f"--download requires kaikki-json: {error}") from error
-    output = Path(config.gz_file_path)
+    output = download_cache_path()
     if output.exists() and not force:
         return output
     output.parent.mkdir(parents=True, exist_ok=True)

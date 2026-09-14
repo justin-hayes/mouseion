@@ -113,7 +113,7 @@ make dictionary-index \
   DICTIONARY_REFRESH=1
 ```
 
-`DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
+`DICTIONARY_REFRESH=1` forces the downloader to fetch the weekly dump again;
 omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
 at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild. The
 input is the raw Wiktextract dump; the script filters it to the German and

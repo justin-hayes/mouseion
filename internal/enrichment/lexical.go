@@ -51,6 +51,7 @@ type LexicalProvider interface {
 const (
 	DefaultMaxSenses    = 3
 	DefaultMaxTokens    = 10
+	glossSeparator      = " · "
 	minimumContextScore = 2
 )
 
@@ -131,7 +132,7 @@ func RenderGloss(senses []LexicalSense, maxSenses, maxTokens int) string {
 			break
 		}
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, glossSeparator)
 }
 
 func sentenceContext(request LexicalLookupRequest) map[string]bool {

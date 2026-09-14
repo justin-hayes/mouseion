@@ -1,6 +1,6 @@
 # Dictionary gloss and morphology enrichment (Wiktextract/Kaikki)
 
-Status: Proposed · Date: 2026-09-13
+Status: **Implemented** · Date: 2026-09-14
 
 ## Motivation
 
@@ -30,7 +30,8 @@ sentence translation only.
 
 ## Scope
 
-- **Index as a build artifact**: a `make` target (Python + `kaikki-json`)
+- **Index as a build artifact**: a `make` target using the Python standard
+  library downloader
   derives a compact per-language SQLite file from the raw Wiktextract JSONL
   (enwiktionary `de`/`it` entries — English glosses), capturing the dump and
   extraction date as `provider_version`. Not the deprecated per-language
@@ -117,19 +118,19 @@ sentence translation only.
 
 ## Acceptance criteria
 
-- [ ] A lemma with no LLM configured exports a populated `Gloss` field,
+- [x] A lemma with no LLM configured exports a populated `Gloss` field,
       deterministically, from the index
-- [ ] The gloss is a compact ordered sense set; the set is never empty for an
+- [x] The gloss is a compact ordered sense set; the set is never empty for an
       indexed lemma
-- [ ] Sense ordering is deterministic and stable across repeated exports
-- [ ] A fixed-phrase sense ranks first when the sentence contains the phrase
+- [x] Sense ordering is deterministic and stable across repeated exports
+- [x] A fixed-phrase sense ranks first when the sentence contains the phrase
       ("zu Hause", "a casa")
-- [ ] German and Italian nouns resolve gender/article/plural from the index;
+- [x] German and Italian nouns resolve gender/article/plural from the index;
       unindexed lemmas keep the current heuristic
-- [ ] Gloss and morphology are frozen into the prepared-deck manifest with the
+- [x] Gloss and morphology are frozen into the prepared-deck manifest with the
       index `provider_version` recorded; the external cache is not used
-- [ ] No dictionary data in Postgres; no new service; NLP service unchanged
-- [ ] Attribution notice retained per CC BY-SA / GFDL
+- [x] No dictionary data in Postgres; no new service; NLP service unchanged
+- [x] Attribution notice retained per CC BY-SA / GFDL
 
 ## References
 
@@ -141,4 +142,3 @@ sentence translation only.
 - [Recognition-card sentence presentation](recognition-card-sentence-presentation.md)
 - [Kaikki.org](https://kaikki.org/) — Wiktextract extraction of Wiktionary, JSONL dumps
 - [Wiktextract](https://github.com/tatuylonen/wiktextract) — the extractor
-- [kaikki-json](https://github.com/mdhoffman271/KaikkiJson) — Python download/read tooling
