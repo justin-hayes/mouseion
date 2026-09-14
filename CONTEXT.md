@@ -109,6 +109,20 @@ acquired-but-unassessed (current content present, analysis not yet complete).
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness.
 
+**Main text**:
+The contiguous run of a Book's readable units that the EPUB structure declares to
+be the body of the work: from a declared body-matter start to a declared
+back-matter start, or to the end when none is declared. Absent a declared
+body-matter start, the Book has no identified main text and its whole snapshot is
+treated as main text.
+_Avoid_: body text, main matter (the retired classifier category).
+
+**Ancillary text**:
+The readable units of a Book that the EPUB structure declares to lie outside the
+main text — front matter, and back matter such as a bibliography, index, or
+glossary.
+_Avoid_: boilerplate, main_matter.
+
 **Book language**:
 A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`
