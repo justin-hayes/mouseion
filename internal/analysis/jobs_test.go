@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -94,4 +95,44 @@ func TestOrdinaryAnalysisIdentityDoesNotReuseLegacyContentHash(t *testing.T) {
 	currentIdentity := ordinaryAnalysisIdentity(contentHash)
 	assert.NotEqual(t, legacyIdentity, currentIdentity, "current ordinary identity reused legacy key %q", legacyIdentity)
 	assert.Equal(t, currentIdentity, ordinaryAnalysisIdentity(contentHash), "ordinary analysis identity is not deterministic")
+}
+
+func TestSnapshotAnalysisUsesDeclaredMainTextSelection(t *testing.T) {
+	units := []snapshotUnit{
+		{UnitID: "front", Order: 0, LandmarkTypes: []string{"titlepage"}},
+		{UnitID: "main", Order: 1, LandmarkTypes: []string{"BODYMATTER"}},
+		{UnitID: "back", Order: 2, LandmarkTypes: []string{"bibliography"}},
+	}
+
+	decision := identifyMainText(units)
+	assert.Equal(t, mainTextConfigIdentity, snapshotConfigIdentityFor(decision))
+	assert.Equal(t, []string{"main"}, decision.SelectedUnitIDs)
+	assert.Equal(t, []string{"front", "back"}, decision.ExcludedUnitIDs)
+	assert.Equal(t, []snapshotUnit{units[1]}, selectedSnapshotUnits(units, decision.SelectedUnitIDs))
+
+	noOp := identifyMainText([]snapshotUnit{
+		{UnitID: "first", Order: 0, LandmarkTypes: []string{"bodymatter"}},
+		{UnitID: "second", Order: 1},
+	})
+	assert.Equal(t, snapshotConfigIdentity, snapshotConfigIdentityFor(noOp))
+	assert.False(t, noOp.Applies)
+}
+
+func TestAnalysisHistoryDetailsRecordSelectionProvenance(t *testing.T) {
+	decision := identifyMainText([]snapshotUnit{
+		{UnitID: "front", Order: 0},
+		{UnitID: "main", Order: 1, LandmarkTypes: []string{"bodymatter"}},
+		{UnitID: "back", Order: 2, LandmarkTypes: []string{"index"}},
+	})
+	details := analysisHistoryDetails(JobArgs{RunID: "run-1", Attempt: 2, ConfigIdentity: mainTextConfigIdentity}, decision, 3, 1)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(details, &got))
+	assert.Equal(t, "run-1", got["run_id"])
+	assert.Equal(t, float64(2), got["attempt"])
+	assert.Equal(t, mainTextConfigIdentity, got["selection_algorithm"])
+	assert.Equal(t, float64(1), got["body_matter_start"])
+	assert.Equal(t, float64(2), got["back_matter_start"])
+	assert.Equal(t, float64(1), got["selected_unit_count"])
+	assert.Equal(t, float64(3), got["total_unit_count"])
+	assert.Equal(t, []any{"front", "back"}, got["excluded_unit_ids"])
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river"
@@ -103,6 +104,7 @@ const (
 	// is not silently reused after normalization.
 	snapshotAnalyzerVersion = "3"
 	snapshotConfigIdentity  = "selection-default-v1"
+	mainTextConfigIdentity  = "selection-maintext-landmarks-v1"
 	// Version 2 identifies the current ordinary analysis contract, including
 	// lemma-boundary cleanup. Bump it whenever ordinary normalization or
 	// analyzer output semantics change.
@@ -201,14 +203,13 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	}
 	args.RunID = ""
 	args.ContentRevisionID, args.SnapshotID = revisionID, snapshotID
-	args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity = snapshotAnalyzerName, snapshotAnalyzerVersion, snapshotConfigIdentity
-	var readable int
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM source_material_units WHERE owner_id=$1 AND source_material_id=$2 AND snapshot_id=$3 AND btrim(text)<>''`, owner, sourceID, snapshotID).Scan(&readable); err != nil {
-		return Handle{}, fmt.Errorf("check extracted EPUB units: %w", err)
+	allUnits, err := loadSnapshotUnits(ctx, tx, owner, sourceID, revisionID, snapshotID)
+	if err != nil {
+		return Handle{}, fmt.Errorf("load extracted EPUB units: %w", err)
 	}
-	if readable == 0 {
-		return Handle{}, domain.ErrExtractedUnitsUnavailable
-	}
+	decision := identifyMainText(allUnits)
+	args.AnalyzerName, args.AnalyzerVersion = snapshotAnalyzerName, snapshotAnalyzerVersion
+	args.ConfigIdentity = snapshotConfigIdentityFor(decision)
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 191))`, owner); err != nil {
 		return Handle{}, fmt.Errorf("lock analysis submission: %w", err)
 	}
@@ -602,11 +603,14 @@ func (s *Service) liveJobIDTx(ctx context.Context, q analysisQueryer, owner, run
 func snapshotArgsTx(ctx context.Context, q analysisQueryer, owner, runID string) (JobArgs, error) {
 	var args JobArgs
 	err := q.QueryRow(ctx, `SELECT r.id::text,r.attempt_count,r.owner_id::text,r.source_material_id::text,
-		s.language,s.source_identifier,s.title,rev.content_digest,rev.revision_id::text,r.snapshot_id::text
+		s.language,s.source_identifier,s.title,rev.content_digest,rev.revision_id::text,r.snapshot_id::text,r.config_identity
 		FROM analysis_runs r JOIN source_materials s ON s.owner_id=r.owner_id AND s.id=r.source_material_id
 		JOIN source_content_revisions rev ON rev.owner_id=r.owner_id AND rev.source_material_id=r.source_material_id AND rev.revision_id=r.content_revision_id
-		WHERE r.owner_id=$1 AND r.id=$2`, owner, runID).Scan(&args.RunID, &args.Attempt, &args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &args.ContentHash, &args.ContentRevisionID, &args.SnapshotID)
-	args.AnalyzerName, args.AnalyzerVersion, args.ConfigIdentity = snapshotAnalyzerName, snapshotAnalyzerVersion, snapshotConfigIdentity
+		WHERE r.owner_id=$1 AND r.id=$2`, owner, runID).Scan(&args.RunID, &args.Attempt, &args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &args.ContentHash, &args.ContentRevisionID, &args.SnapshotID, &args.ConfigIdentity)
+	args.AnalyzerName, args.AnalyzerVersion = snapshotAnalyzerName, snapshotAnalyzerVersion
+	if args.ConfigIdentity == "" {
+		args.ConfigIdentity = snapshotConfigIdentity
+	}
 	return args, err
 }
 
@@ -643,6 +647,7 @@ type snapshotUnit struct {
 	SnapshotID, UnitID, Title, SourceHref, ResolvedHref, Text string
 	Order                                                     int
 	StartOffset, EndOffset                                    uint64
+	LandmarkTypes                                             []string
 }
 
 type queryRower interface {
@@ -650,7 +655,7 @@ type queryRower interface {
 }
 
 func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revisionID, snapshotID string) ([]snapshotUnit, error) {
-	rows, err := q.Query(ctx, `SELECT u.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset
+	rows, err := q.Query(ctx, `SELECT u.snapshot_id,u.unit_id,u.unit_order,u.title,u.source_href,u.resolved_href,u.text,u.start_offset,u.end_offset,u.landmark_types
 		FROM source_material_units u
 		JOIN source_material_unit_snapshots snap ON snap.owner_id=u.owner_id AND snap.source_material_id=u.source_material_id AND snap.snapshot_id=u.snapshot_id AND snap.content_revision_id=$4
 		JOIN source_materials source ON source.owner_id=u.owner_id AND source.id=u.source_material_id AND source.current_content_revision_id=$4 AND source.current_snapshot_id=u.snapshot_id
@@ -664,8 +669,12 @@ func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revis
 	lastOrder := -1
 	for rows.Next() {
 		var unit snapshotUnit
-		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset); err != nil {
+		var landmarkTypes []byte
+		if err = rows.Scan(&unit.SnapshotID, &unit.UnitID, &unit.Order, &unit.Title, &unit.SourceHref, &unit.ResolvedHref, &unit.Text, &unit.StartOffset, &unit.EndOffset, &landmarkTypes); err != nil {
 			return nil, fmt.Errorf("load extracted snapshot unit: %w", err)
+		}
+		if err = json.Unmarshal(landmarkTypes, &unit.LandmarkTypes); err != nil {
+			return nil, fmt.Errorf("load extracted snapshot landmark provenance: %w", err)
 		}
 		if unit.UnitID == "" || unit.Order <= lastOrder || unit.EndOffset < unit.StartOffset {
 			return nil, errors.New("extracted snapshot is invalid")
@@ -680,6 +689,51 @@ func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revis
 		return nil, domain.ErrExtractedUnitsUnavailable
 	}
 	return units, nil
+}
+
+func identifyMainText(units []snapshotUnit) epub.MainTextSelection {
+	provenance := make([]epub.ExtractedUnit, len(units))
+	for i, unit := range units {
+		provenance[i] = epub.ExtractedUnit{ID: unit.UnitID, Order: uint64(unit.Order), LandmarkTypes: unit.LandmarkTypes}
+	}
+	return epub.IdentifyMainText(provenance)
+}
+
+func snapshotConfigIdentityFor(decision epub.MainTextSelection) string {
+	if decision.Applies {
+		return mainTextConfigIdentity
+	}
+	return snapshotConfigIdentity
+}
+
+func selectedSnapshotUnits(units []snapshotUnit, selectedIDs []string) []snapshotUnit {
+	selected := make(map[string]struct{}, len(selectedIDs))
+	for _, id := range selectedIDs {
+		selected[id] = struct{}{}
+	}
+	out := make([]snapshotUnit, 0, len(selectedIDs))
+	for _, unit := range units {
+		if _, ok := selected[unit.UnitID]; ok {
+			out = append(out, unit)
+		}
+	}
+	return out
+}
+
+func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) []byte {
+	details, _ := json.Marshal(map[string]any{
+		"run_id":               args.RunID,
+		"attempt":              args.Attempt,
+		"selection_algorithm":  args.ConfigIdentity,
+		"selection_identified": decision.Identified,
+		"selection_applied":    decision.Applies,
+		"body_matter_start":    decision.BodyMatterStart,
+		"back_matter_start":    decision.BackMatterStart,
+		"excluded_unit_ids":    decision.ExcludedUnitIDs,
+		"selected_unit_count":  selected,
+		"total_unit_count":     total,
+	})
+	return details
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
@@ -729,11 +783,14 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err := requireDependencyParsing(ctx, w.Capabilities, a.Language); err != nil {
 		return err
 	}
-	var selectedUnits []snapshotUnit
-	var err error
-	selectedUnits, err = loadSnapshotUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID)
+	allUnits, err := loadSnapshotUnits(ctx, w.Pool, a.OwnerID, a.SourceMaterialID, a.ContentRevisionID, a.SnapshotID)
 	if err != nil {
 		return err
+	}
+	decision := identifyMainText(allUnits)
+	selectedUnits := allUnits
+	if a.ConfigIdentity == mainTextConfigIdentity {
+		selectedUnits = selectedSnapshotUnits(allUnits, decision.SelectedUnitIDs)
 	}
 	inputs := make([]struct{ id, identifier, title, text string }, 0, len(selectedUnits))
 	for _, unit := range selectedUnits {
@@ -813,7 +870,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err = persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
 		return err
 	}
-	details, _ := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt})
+	details := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
 		return err
 	}
