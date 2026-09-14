@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"database/sql"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,12 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+//go:embed templates/recognition_card_back.html
+var recognitionCardBackTemplate string
+
+//go:embed templates/recognition_card.css
+var recognitionCardCSS string
 
 // renderAPKG writes Anki's documented legacy schema version 11. Anki imports
 // collection.anki2 from a ZIP package and upgrades it to the current schema.
@@ -176,8 +183,9 @@ func modelMetadata(modelID, deckID int64) map[string]any {
 		fields[i] = map[string]any{"name": name, "ord": i, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}}
 	}
 	qfmt := `{{Text}}`
-	afmt := `{{Text}}<hr id="answer"><div class="meta"><b>{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}{{Lemma}}{{#Plural}} (Pl. {{Plural}}){{/Plural}}{{#IPA}} <span class="ipa">{{IPA}}</span>{{/IPA}}{{#PrincipalParts}} <span class="principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}</b> · {{POS}}</div><div class="gloss">{{Gloss}}</div><div class="sentence">{{EnglishSentence}}</div>`
-	return map[string]any{"id": modelID, "name": noteTypeName, "type": 0, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Recognition", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": `.card { font-family: Arial; font-size: 20px; text-align: left; color: #222; background: #fff; line-height: 1.45; } .meta { margin-top: 1em; } .article-space[data-article="l'"] { display: none; } .ipa, .principal-parts { font-size: .9em; font-weight: 400; } .gloss { max-width: 42em; margin: .65em auto 0; font-weight: 600; } .sentence { max-width: 42em; margin: .65em auto 0; text-align: left; }`, "latexPre": "", "latexPost": "", "req": []any{[]any{0, "all", []any{0}}}, "vers": []any{}, "tags": []any{}}
+	afmt := strings.TrimSpace(recognitionCardBackTemplate)
+	css := strings.TrimSpace(recognitionCardCSS)
+	return map[string]any{"id": modelID, "name": noteTypeName, "type": 0, "mod": 0, "usn": -1, "sortf": 0, "did": deckID, "tmpls": []any{map[string]any{"name": "Recognition", "ord": 0, "qfmt": qfmt, "afmt": afmt, "bqfmt": "", "bafmt": "", "did": nil}}, "flds": fields, "css": css, "latexPre": "", "latexPost": "", "req": []any{[]any{0, "all", []any{0}}}, "vers": []any{}, "tags": []any{}}
 }
 
 func stableID(value string) int64 {

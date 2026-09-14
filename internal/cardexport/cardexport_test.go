@@ -137,8 +137,8 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, modelsJSON, `"name":"Mouseion Vocab Recognition"`)
 	assert.Contains(t, modelsJSON, `"qfmt":"{{Text}}"`)
-	assert.Contains(t, modelsJSON, `\u003cdiv class=\"gloss\"\u003e{{Gloss}}\u003c/div\u003e`)
-	assert.Contains(t, modelsJSON, `\u003cdiv class=\"sentence\"\u003e{{EnglishSentence}}\u003c/div\u003e`)
+	assert.Contains(t, modelsJSON, `\u003cdiv class=\"gloss meaning-block\"\u003e{{Gloss}}\u003c/div\u003e`)
+	assert.Contains(t, modelsJSON, `\u003cdiv class=\"sentence contextual-translation\"\u003e{{EnglishSentence}}\u003c/div\u003e`)
 	assert.NotContains(t, modelsJSON, `\u003cdiv class=\"english\"\u003e{{English}}\u003c/div\u003e`)
 	assert.NotContains(t, modelsJSON, `{{Morph}}`)
 	assert.NotContains(t, modelsJSON, `{{SourceSentence}}`)
@@ -196,6 +196,104 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	err = db.QueryRow(`SELECT count(*) FROM cards`).Scan(&cardCount)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), cardCount)
+}
+
+func TestAnkiCardPresentationHierarchy(t *testing.T) {
+	note := Note{Key: strings.Repeat("a", 64), Identity: strings.Repeat("b", 64), Text: "Das <b>Haus</b> ist ruhig.", Lemma: "Haus", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", POS: "NOUN", Gloss: "house", EnglishSentence: "The house is quiet."}
+	apkg, err := renderAPKG("Mouseion::de::Preview", []Note{note}, "")
+	require.NoError(t, err)
+
+	modelsJSON := collectionColumn(t, apkg, "models")
+	var models map[string]struct {
+		Templates []struct {
+			Answer string `json:"afmt"`
+		} `json:"tmpls"`
+		CSS string `json:"css"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(modelsJSON), &models))
+	require.Len(t, models, 1)
+	var model struct {
+		Templates []struct {
+			Answer string `json:"afmt"`
+		} `json:"tmpls"`
+		CSS string `json:"css"`
+	}
+	for _, candidate := range models {
+		model = candidate
+	}
+	require.Len(t, model.Templates, 1)
+	answer := model.Templates[0].Answer
+	assert.Contains(t, answer, `<div class="card-back">`)
+	assert.Contains(t, answer, `<div class="headword-line">`)
+	assert.Contains(t, answer, `<strong class="headword">{{Lemma}}</strong>`)
+	assert.Contains(t, answer, `<div class="gloss meaning-block">{{Gloss}}</div>`)
+	assert.Contains(t, answer, `<div class="sentence contextual-translation">{{EnglishSentence}}</div>`)
+	assert.NotContains(t, answer, `{{English}}`)
+	assert.Less(t, strings.Index(answer, `class="headword-line"`), strings.Index(answer, `class="gloss meaning-block"`))
+	assert.Less(t, strings.Index(answer, `class="gloss meaning-block"`), strings.Index(answer, `class="sentence contextual-translation"`))
+
+	for _, token := range []string{
+		"--mouseion-color-surface",
+		"--mouseion-color-surface-raised",
+		"--mouseion-color-text",
+		"--mouseion-color-text-muted",
+		"--mouseion-color-border",
+		"--mouseion-font-reading",
+		".headword",
+		".inflection",
+		".nightMode",
+		"--mouseion-space-5",
+		"--mouseion-width-reading",
+	} {
+		assert.Contains(t, model.CSS, token)
+	}
+	for _, token := range []string{
+		"--mouseion-color-border: #b8c5cc",
+		"--mouseion-color-accent-hover: #173f87",
+		"--mouseion-color-text-muted: #aebdc5",
+		"--mouseion-font-application: \"Avenir Next\", Avenir, \"Gill Sans\", \"Segoe UI\", sans-serif",
+		"--mouseion-font-reading: \"Palatino Linotype\", Palatino, \"Book Antiqua\", Georgia, serif",
+	} {
+		assert.Contains(t, model.CSS, token)
+	}
+}
+
+func TestCardPresentationPreviewIsFrozen(t *testing.T) {
+	preview, err := os.ReadFile("testdata/recognition_card_preview.html")
+	require.NoError(t, err)
+	previewHTML := string(preview)
+	assert.Contains(t, previewHTML, `href="../templates/recognition_card.css"`)
+	assert.Contains(t, previewHTML, `content="../templates/recognition_card_back.html"`)
+	assert.Contains(t, previewHTML, `class="card-back"`)
+	assert.Contains(t, previewHTML, `class="card nightMode"`)
+	assert.Contains(t, previewHTML, `class="gloss meaning-block"`)
+	assert.NotContains(t, previewHTML, `class="english"`)
+}
+
+func collectionColumn(t *testing.T, apkg []byte, column string) string {
+	t.Helper()
+	zr, err := zip.NewReader(bytes.NewReader(apkg), int64(len(apkg)))
+	require.NoError(t, err)
+	for _, member := range zr.File {
+		if member.Name != "collection.anki2" {
+			continue
+		}
+		reader, openErr := member.Open()
+		require.NoError(t, openErr)
+		dbBytes, readErr := io.ReadAll(reader)
+		require.NoError(t, readErr)
+		require.NoError(t, reader.Close())
+		dbPath := t.TempDir() + "/collection.anki2"
+		require.NoError(t, os.WriteFile(dbPath, dbBytes, 0o600))
+		db, openErr := sql.Open("sqlite", dbPath)
+		require.NoError(t, openErr)
+		defer db.Close()
+		var value string
+		require.NoError(t, db.QueryRow("SELECT "+column+" FROM col").Scan(&value))
+		return value
+	}
+	t.Fatalf("missing collection.anki2")
+	return ""
 }
 
 func assertLegacyCollectionContract(t *testing.T, modelsJSON, decksJSON, dconfJSON, deckName string) {
@@ -409,15 +507,16 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.False(t, containsString(modelNames, "Morph"))
 	assert.False(t, containsString(modelNames, "SourceSentence"))
 	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
-	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}{{Lemma}}`)
-	assert.Contains(t, template, `{{#Plural}} (Pl. {{Plural}}){{/Plural}}`)
-	assert.Contains(t, template, `{{#IPA}} <span class="ipa">{{IPA}}</span>{{/IPA}}`)
-	assert.Contains(t, template, `{{#PrincipalParts}} <span class="principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
-	assert.Contains(t, template, `<div class="gloss">{{Gloss}}</div>`)
-	assert.Contains(t, template, `<div class="sentence">{{EnglishSentence}}</div>`)
+	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}<strong class="headword">{{Lemma}}</strong>`)
+	assert.Contains(t, template, `{{#Plural}} <span class="inflection plural">(Pl. {{Plural}})</span>{{/Plural}}`)
+	assert.Contains(t, template, `{{#IPA}} <span class="inflection pronunciation">{{IPA}}</span>{{/IPA}}`)
+	assert.Contains(t, template, `{{#PrincipalParts}} <span class="inflection principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
+	assert.Contains(t, template, `<div class="gloss meaning-block">{{Gloss}}</div>`)
+	assert.Contains(t, template, `<div class="sentence contextual-translation">{{EnglishSentence}}</div>`)
 	assert.NotContains(t, template, `<div class="english">{{English}}</div>`)
-	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
-	assert.Contains(t, model["css"].(string), `.ipa, .principal-parts { font-size: .9em; font-weight: 400; }`)
+	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"]`)
+	assert.Contains(t, model["css"].(string), `.inflection`)
+	assert.Contains(t, model["css"].(string), `--mouseion-color-text-muted`)
 	assert.NotContains(t, model["css"].(string), ".english")
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
