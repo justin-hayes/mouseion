@@ -60,12 +60,14 @@ func TestOrderSensesKeepsPrimaryForLowSignal(t *testing.T) {
 func TestOrderSensesOnlyReorders(t *testing.T) {
 	senses := []LexicalSense{
 		{Gloss: "primary"},
-		{Gloss: "second"},
+		{Gloss: "second", Phrase: "second target"},
 		{Gloss: "third"},
 	}
 
-	ordered := OrderSenses(LexicalLookupRequest{RepresentativeSentence: "A second third target.", TargetWord: "target"}, senses)
+	ordered := OrderSenses(LexicalLookupRequest{RepresentativeSentence: "The second target.", TargetWord: "target"}, senses)
 	assert.Len(t, ordered, len(senses))
+	assert.Equal(t, "second", ordered[0].Gloss)
+	assert.ElementsMatch(t, []string{"primary", "second", "third"}, []string{ordered[0].Gloss, ordered[1].Gloss, ordered[2].Gloss})
 }
 
 func TestOrderSensesKeepsPrimaryWhenTargetIsAbsent(t *testing.T) {
