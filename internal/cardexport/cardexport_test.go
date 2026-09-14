@@ -412,6 +412,7 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.Contains(t, template, `{{#PrincipalParts}} <span class="principal-parts">{{PrincipalParts}}</span>{{/PrincipalParts}}`)
 	assert.Contains(t, template, `<div class="gloss">{{Gloss}}</div>`)
 	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"] { display: none; }`)
+	assert.Contains(t, model["css"].(string), `.ipa, .principal-parts { font-size: .9em; font-weight: 400; }`)
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
 
