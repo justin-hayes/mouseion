@@ -22,10 +22,6 @@ type LookupRequest struct {
 	SentenceTokens  []analyzer.Token
 }
 
-// LexicalRequest is the descriptive name used by callers that do not need to
-// know that the built-in implementation is an index lookup.
-type LexicalRequest = LookupRequest
-
 // Sense is the compact subset of a Wiktionary sense retained by the index.
 type Sense struct {
 	Gloss    string
@@ -48,10 +44,6 @@ type Result struct {
 	Plural     string
 }
 
-// LexicalResult is an alias that makes the provider contract self-documenting
-// at call sites.
-type LexicalResult = Result
-
 // Provider is the single lexical-provider seam. found=false is a normal
 // result for an unindexed lemma and must not prevent card export.
 type Provider interface {
@@ -59,8 +51,6 @@ type Provider interface {
 	Version() string
 	Lookup(context.Context, LookupRequest) (Result, bool, error)
 }
-
-type LexicalProvider = Provider
 
 const (
 	DefaultMaxSenses = 3
@@ -79,7 +69,6 @@ func OrderSenses(request LookupRequest, senses []Sense) []Sense {
 	type scoredSense struct {
 		sense Sense
 		score int
-		index int
 	}
 	scored := make([]scoredSense, len(ordered))
 	for i, sense := range ordered {
@@ -92,7 +81,7 @@ func OrderSenses(request LookupRequest, senses []Sense) []Sense {
 		if phrase := normalizePhrase(sense.Phrase); phrase != "" && containsFolded(request.ExampleSentence, phrase) {
 			score += 100
 		}
-		scored[i] = scoredSense{sense: sense, score: score, index: i}
+		scored[i] = scoredSense{sense: sense, score: score}
 	}
 	maxScore := scored[0].score
 	for _, item := range scored[1:] {
@@ -257,11 +246,4 @@ func cloneSenses(senses []Sense) []Sense {
 		result[i].Tags = append([]string(nil), sense.Tags...)
 	}
 	return result
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

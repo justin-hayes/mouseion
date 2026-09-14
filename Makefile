@@ -9,7 +9,9 @@ SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
 DICTIONARY_OUTPUT ?= dictionary-index.sqlite
-DICTIONARY_VERSION ?= $(shell date -u +%Y-%m-%d)
+DICTIONARY_DUMP_DATE ?= unknown
+DICTIONARY_WIKTEXTRACT_COMMIT ?= unknown
+DICTIONARY_VERSION ?= dump=$(DICTIONARY_DUMP_DATE);extraction=$(shell date -u +%Y-%m-%d);wiktextract=$(DICTIONARY_WIKTEXTRACT_COMMIT)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
 .PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke sqlc dictionary-index
@@ -74,7 +76,7 @@ sqlc: go-tmp
 
 dictionary-index:
 	test -n "$(KAIKKI_INPUT)"
-	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py --input "$(KAIKKI_INPUT)" --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)"
+	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py --input "$(KAIKKI_INPUT)" --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)"
 
 gen:
 	mkdir -p gen/go gen/python $(GOTMPDIR)

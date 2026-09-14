@@ -22,9 +22,9 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
 
     connection = sqlite3.connect(output)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'provider_version'").fetchone() == ("dump-2026-09-14",)
-    row = connection.execute("SELECT language, lemma, upos, senses_json, gender, plural FROM entries WHERE lemma = 'haus'").fetchone()
+    row = connection.execute("SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'").fetchone()
     assert row[:3] == ("de", "haus", "NOUN")
     assert json.loads(row[3])[0]["Gloss"] == "house"
-    assert row[4:] == ("Neut", "Häuser")
+    assert row[4:] == ("Neut", "das", "Häuser")
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (2,)
     connection.close()
