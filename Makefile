@@ -8,9 +8,11 @@ SQLC := $(shell go env GOPATH)/bin/sqlc
 SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
+DICTIONARY_OUTPUT ?= dictionary-index.sqlite
+DICTIONARY_VERSION ?= $(shell date -u +%Y-%m-%d)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke sqlc
+.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke sqlc dictionary-index
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -69,6 +71,10 @@ templ:
 sqlc: go-tmp
 	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)" || go install github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION)
 	$(SQLC) generate
+
+dictionary-index:
+	test -n "$(KAIKKI_INPUT)"
+	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py --input "$(KAIKKI_INPUT)" --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)"
 
 gen:
 	mkdir -p gen/go gen/python $(GOTMPDIR)

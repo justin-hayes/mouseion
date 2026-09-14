@@ -461,25 +461,3 @@ func (p *LLMProvider) Version() string { return p.version }
 func (p *LLMProvider) Translate(ctx context.Context, r TranslationRequest) (TranslationResponse, error) {
 	return p.client.Translate(ctx, r)
 }
-
-type DictionaryLookup func(context.Context, TranslationRequest) (TranslationResponse, error)
-type DictionaryProvider struct {
-	name, version string
-	lookup        DictionaryLookup
-}
-
-func NewDictionaryProvider(name, version string, lookup DictionaryLookup) (*DictionaryProvider, error) {
-	if strings.TrimSpace(name) == "" || strings.TrimSpace(version) == "" || lookup == nil {
-		return nil, ErrInvalidProvider
-	}
-	return &DictionaryProvider{name, version, lookup}, nil
-}
-func (p *DictionaryProvider) Name() string    { return p.name }
-func (p *DictionaryProvider) Version() string { return p.version }
-func (p *DictionaryProvider) Translate(ctx context.Context, r TranslationRequest) (TranslationResponse, error) {
-	v, err := p.lookup(ctx, r)
-	if err != nil {
-		return TranslationResponse{}, fmt.Errorf("dictionary %s: %w", p.name, err)
-	}
-	return v, nil
-}

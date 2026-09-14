@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
@@ -70,6 +71,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	var dictionaryIndex *dictionary.Index
+	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
+		dictionaryIndex, err = dictionary.OpenIndex(path)
+		if err != nil {
+			log.Printf("dictionary index unavailable, continuing without local glosses: %v", err)
+		}
+	}
+	if dictionaryIndex != nil {
+		defer dictionaryIndex.Close()
+	}
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -101,7 +112,7 @@ func main() {
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
-	exportService := cardexport.NewService(store)
+	exportService := cardexport.NewServiceWithDictionary(store, dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		log.Fatal(err)
