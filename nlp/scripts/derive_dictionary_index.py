@@ -160,7 +160,7 @@ def ipa_for(item: dict) -> str:
     return ""
 
 
-def sense_from(item: dict, raw: dict) -> dict | None:
+def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
     glosses = values(raw.get("glosses"))
     if not glosses:
         return None
@@ -182,7 +182,7 @@ def sense_from(item: dict, raw: dict) -> dict | None:
         "Phrase": phrase.strip(),
         "Gender": gender_for(item, raw),
         "Article": article_for(item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")),
-        "Plural": plural_for(item),
+        "Plural": plural_for(item) if upos == "NOUN" else "",
         "IPA": ipa_for(item),
     }
 
@@ -233,7 +233,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
                     continue
-                sense = sense_from(item, raw_sense)
+                sense = sense_from(item, raw_sense, upos)
                 if sense is None:
                     continue
                 identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
