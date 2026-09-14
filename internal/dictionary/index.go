@@ -94,8 +94,8 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" || upos == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	var sensesJSON, gender, article, plural, ipa string
-	err := i.db.QueryRowContext(ctx, `SELECT senses_json, gender, article, plural, ipa FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON, &gender, &article, &plural, &ipa)
+	var sensesJSON string
+	err := i.db.QueryRowContext(ctx, `SELECT senses_json FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return enrichment.LexicalEntry{}, false, nil
 	}
@@ -106,30 +106,12 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
 	}
-	for index := range senses {
-		if senses[index].Gender == "" {
-			senses[index].Gender = gender
-		}
-		if senses[index].Article == "" {
-			senses[index].Article = article
-		}
-		if senses[index].Plural == "" {
-			senses[index].Plural = plural
-		}
-		if senses[index].IPA == "" {
-			senses[index].IPA = ipa
-		}
-	}
 	ordered := enrichment.OrderSenses(request, senses)
-	result := enrichment.LexicalEntry{Senses: ordered, Article: article, Plural: plural}
+	result := enrichment.LexicalEntry{Senses: ordered}
 	if len(ordered) > 0 {
 		result.Gender = ordered[0].Gender
-		if ordered[0].Article != "" {
-			result.Article = ordered[0].Article
-		}
-		if ordered[0].Plural != "" {
-			result.Plural = ordered[0].Plural
-		}
+		result.Article = ordered[0].Article
+		result.Plural = ordered[0].Plural
 	}
 	return result, true, nil
 }

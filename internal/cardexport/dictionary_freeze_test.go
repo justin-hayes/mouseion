@@ -2,11 +2,16 @@ package cardexport
 
 import (
 	"context"
+	"database/sql"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 type lexicalStub struct {
@@ -51,4 +56,55 @@ func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
 	assert.Empty(t, note.Gloss)
+}
+
+func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := dictionary.OpenIndex(path)
+	require.NoError(t, err)
+	defer index.Close()
+	service := NewServiceWithLexicalProvider(nil, index)
+	entry := Entry{
+		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
+		Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus",
+		Morphology: `{"Gender":"Masc","Article":"der"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+
+	note, err := makeNote("owner", entry)
+	require.NoError(t, err)
+	assert.Equal(t, "das", note.Article)
+	assert.Contains(t, note.Gloss, "house")
+	assert.Contains(t, note.Gloss, "(Pl. Häuser)")
+	assert.Contains(t, note.BackExtra, "das Haus")
+	assert.Contains(t, note.BackExtra, "(Pl. Häuser)")
+
+	ranked := Entry{
+		Language: "de", CanonicalLemma: "see", UPOS: "NOUN",
+		Sentence: "Die See ist tief und salzig.", TargetWord: "See",
+		Morphology: `{"Gender":"Masc","Article":"der"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &ranked))
+	note, err = makeNote("owner", ranked)
+	require.NoError(t, err)
+	assert.Equal(t, "die", note.Article)
+	assert.True(t, strings.HasPrefix(note.Gloss, "sea · lake"), "ranked gloss = %q", note.Gloss)
+	assert.Contains(t, note.Gloss, "(Pl. Meere)")
+
+	unindexed := Entry{
+		Language: "de", CanonicalLemma: "baum", UPOS: "NOUN",
+		Sentence: "Der Baum steht dort.", TargetWord: "Baum",
+		Morphology: `{"Gender":"Masc"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &unindexed))
+	assert.Empty(t, unindexed.Gloss)
+	note, err = makeNote("owner", unindexed)
+	require.NoError(t, err)
+	assert.Equal(t, "der", note.Article)
 }
