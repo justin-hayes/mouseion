@@ -161,6 +161,7 @@ func main() {
 func openDictionaryIndex(path string) (*dictionary.Index, error) {
 	index, err := dictionary.OpenIndex(path)
 	if err == nil {
+		log.Printf("dictionary index loaded: %s (%s)", index.Name(), index.Version())
 		return index, nil
 	}
 	if errors.Is(err, os.ErrNotExist) {

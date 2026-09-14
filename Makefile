@@ -8,7 +8,8 @@ SQLC := $(shell go env GOPATH)/bin/sqlc
 SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
-DICTIONARY_OUTPUT ?= dictionary/dictionary-index.sqlite
+DICTIONARY_HOST_DIR ?= dictionary
+DICTIONARY_OUTPUT ?= $(DICTIONARY_HOST_DIR)/dictionary-index.sqlite
 DICTIONARY_DUMP_DATE ?=
 DICTIONARY_EXTRACTION_DATE ?= $(shell date -u +%Y-%m-%d)
 DICTIONARY_WIKTEXTRACT_COMMIT ?= unknown
@@ -81,6 +82,8 @@ dictionary-index:
 	test -n "$(DICTIONARY_DUMP_DATE)" || (printf '%s\n' 'DICTIONARY_DUMP_DATE is required (for example, 2026-09-14)' >&2; exit 1)
 	test -z "$(strip $(KAIKKI_INPUT))" || test -z "$(filter 1 true yes,$(DICTIONARY_REFRESH))" || (printf '%s\n' 'DICTIONARY_REFRESH cannot be used with KAIKKI_INPUT' >&2; exit 1)
 	test -x $(VENV_BIN)/python
+	mkdir -p "$(dir $(DICTIONARY_OUTPUT))"
+	test -w "$(dir $(DICTIONARY_OUTPUT))" && test -x "$(dir $(DICTIONARY_OUTPUT))" || (printf '%s\n' "dictionary output directory '$(dir $(DICTIONARY_OUTPUT))' is not writable." "If Docker created it as root, run: sudo chown \"$$(id -u):$$(id -g)\" '$(dir $(DICTIONARY_OUTPUT))'" >&2; exit 1)
 	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)"
 
 gen:
