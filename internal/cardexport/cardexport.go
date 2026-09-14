@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"math"
 	"slices"
 	"sort"
@@ -144,6 +145,24 @@ type preparedEntryStore interface {
 type Service struct {
 	store   Store
 	lexical enrichment.LexicalProvider
+}
+
+type glossCoverageGroup struct {
+	Language     string `json:"language"`
+	POS          string `json:"pos"`
+	Selected     int    `json:"selected"`
+	WithGloss    int    `json:"with_gloss"`
+	WithoutGloss int    `json:"without_gloss"`
+}
+
+type glossCoverageKey struct {
+	language string
+	pos      string
+}
+
+type glossCoverageEvent struct {
+	Event  string               `json:"event"`
+	Groups []glossCoverageGroup `json:"groups"`
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -1023,6 +1042,7 @@ func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Ma
 			deckName = entry.SourceDocument
 		}
 	}
+	logGlossCoverage(entries)
 	return NewManifest(owner, deckName, entries), nil
 }
 
@@ -1073,6 +1093,7 @@ func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysi
 			deckName = entry.SourceDocument
 		}
 	}
+	logGlossCoverage(entries)
 	return NewManifest(owner, deckName, entries), nil
 }
 
@@ -1138,6 +1159,42 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	}
 	entry.Morphology = string(encoded)
 	return nil
+}
+
+func logGlossCoverage(entries []Entry) {
+	grouped := make(map[glossCoverageKey]*glossCoverageGroup)
+	for _, entry := range entries {
+		language := strings.ToLower(strings.TrimSpace(entry.Language))
+		pos := strings.ToUpper(strings.TrimSpace(entry.UPOS))
+		key := glossCoverageKey{language: language, pos: pos}
+		group := grouped[key]
+		if group == nil {
+			group = &glossCoverageGroup{Language: language, POS: pos}
+			grouped[key] = group
+		}
+		group.Selected++
+		if strings.TrimSpace(entry.Gloss) == "" {
+			group.WithoutGloss++
+		} else {
+			group.WithGloss++
+		}
+	}
+
+	groups := make([]glossCoverageGroup, 0, len(grouped))
+	for _, group := range grouped {
+		groups = append(groups, *group)
+	}
+	slices.SortFunc(groups, func(a, b glossCoverageGroup) int {
+		if a.Language != b.Language {
+			return strings.Compare(a.Language, b.Language)
+		}
+		return strings.Compare(a.POS, b.POS)
+	})
+	payload, err := json.Marshal(glossCoverageEvent{Event: "gloss_coverage", Groups: groups})
+	if err != nil {
+		return
+	}
+	log.Printf("gloss_coverage %s", payload)
 }
 
 func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
