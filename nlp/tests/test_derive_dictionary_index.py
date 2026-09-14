@@ -55,3 +55,21 @@ def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
     connection = sqlite3.connect(index)
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
     connection.close()
+
+
+def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):
+    module = load_script()
+    fixture = Path(__file__).parents[1] / "testdata" / "german_normalization_parity.jsonl"
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(fixture, output, "dump-2026-09-14")
+
+    expected = {}
+    for line in fixture.read_text(encoding="utf-8").splitlines():
+        item = json.loads(line)
+        expected[item["word"]] = item["runtime_lookup_key"]
+        assert module.normalize("de", item["word"]) == item["runtime_lookup_key"]
+
+    connection = sqlite3.connect(output)
+    actual = dict(connection.execute("SELECT lemma, senses_json FROM entries").fetchall())
+    connection.close()
+    assert set(actual) == set(expected.values())
