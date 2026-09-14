@@ -117,15 +117,17 @@ make dictionary-index \
 omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
 at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild. The
 input is the raw Wiktextract dump; the script filters it to the German and
-Italian entries needed by Mouseion.
+Italian entries needed by Mouseion. Do not combine `KAIKKI_INPUT` with
+`DICTIONARY_REFRESH=1`.
 
 The command writes `dictionary/dictionary-index.sqlite` atomically, mode `0644`.
 The web container runs as an unprivileged user, so the artifact must be
-world-readable. The `dictionary/` directory is tracked (via
-`dictionary/.gitkeep`) so a fresh clone has it operator-owned; if Compose ever
-created it as root, run `sudo chown "$(id -u):$(id -g)" dictionary` once before
-rebuilding. Set `DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to choose another
-output path.
+world-readable; an index built before this was fixed needs a one-time
+`chmod 644 dictionary/dictionary-index.sqlite`. The `dictionary/` directory is
+tracked (via `dictionary/.gitkeep`) so a fresh clone has it operator-owned; if
+Compose ever created it as root, run `sudo chown "$(id -u):$(id -g)" dictionary`
+once before rebuilding. Set `DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to
+choose another output path.
 
 For Compose deployment, `MOUSEION_DICTIONARY_HOST_DIR` is the host directory
 bind-mounted read-only at `/opt/mouseion/dictionary`; it is a directory rather
