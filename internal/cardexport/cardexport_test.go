@@ -203,7 +203,7 @@ func TestAnkiCardPresentationHierarchy(t *testing.T) {
 	apkg, err := renderAPKG("Mouseion::de::Preview", []Note{note}, "")
 	require.NoError(t, err)
 
-	modelsJSON := collectionMember(t, apkg, "models")
+	modelsJSON := collectionColumn(t, apkg, "models")
 	var models map[string]struct {
 		Templates []struct {
 			Answer string `json:"afmt"`
@@ -242,7 +242,17 @@ func TestAnkiCardPresentationHierarchy(t *testing.T) {
 		".headword",
 		".inflection",
 		".nightMode",
-		"prefers-color-scheme: dark",
+		"--mouseion-space-5",
+		"--mouseion-width-reading",
+	} {
+		assert.Contains(t, model.CSS, token)
+	}
+	for _, token := range []string{
+		"--mouseion-color-border: #b8c5cc",
+		"--mouseion-color-accent-hover: #173f87",
+		"--mouseion-color-text-muted: #aebdc5",
+		"--mouseion-font-application: \"Avenir Next\", Avenir, \"Gill Sans\", \"Segoe UI\", sans-serif",
+		"--mouseion-font-reading: \"Palatino Linotype\", Palatino, \"Book Antiqua\", Georgia, serif",
 	} {
 		assert.Contains(t, model.CSS, token)
 	}
@@ -253,13 +263,14 @@ func TestCardPresentationPreviewIsFrozen(t *testing.T) {
 	require.NoError(t, err)
 	previewHTML := string(preview)
 	assert.Contains(t, previewHTML, `href="../templates/recognition_card.css"`)
+	assert.Contains(t, previewHTML, `content="../templates/recognition_card_back.html"`)
 	assert.Contains(t, previewHTML, `class="card-back"`)
 	assert.Contains(t, previewHTML, `class="card nightMode"`)
 	assert.Contains(t, previewHTML, `class="gloss meaning-block"`)
 	assert.NotContains(t, previewHTML, `class="english"`)
 }
 
-func collectionMember(t *testing.T, apkg []byte, name string) string {
+func collectionColumn(t *testing.T, apkg []byte, column string) string {
 	t.Helper()
 	zr, err := zip.NewReader(bytes.NewReader(apkg), int64(len(apkg)))
 	require.NoError(t, err)
@@ -278,7 +289,7 @@ func collectionMember(t *testing.T, apkg []byte, name string) string {
 		require.NoError(t, openErr)
 		defer db.Close()
 		var value string
-		require.NoError(t, db.QueryRow("SELECT "+name+" FROM col").Scan(&value))
+		require.NoError(t, db.QueryRow("SELECT "+column+" FROM col").Scan(&value))
 		return value
 	}
 	t.Fatalf("missing collection.anki2")
