@@ -161,7 +161,7 @@ def ipa_for(item: dict) -> str:
 
 
 def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
-    glosses = values(raw.get("glosses"))
+    glosses = [gloss.strip() for gloss in values(raw.get("glosses")) if gloss.strip()]
     if not glosses:
         return None
     examples = []
@@ -229,13 +229,13 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                 continue
             lemma = normalize(language, word)
             key = (language, lemma, upos)
-            entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
                     continue
                 sense = sense_from(item, raw_sense, upos)
                 if sense is None:
                     continue
+                entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
                 identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
                 if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
                     entry["senses"].append(sense)

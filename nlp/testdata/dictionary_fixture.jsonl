@@ -5,4 +5,5 @@
 {"word":"libro","lang_code":"it","pos":"noun","tags":["masculine"],"senses":[{"glosses":["book"]}],"forms":[{"form":"libri","tags":["plural"]}]}
 {"word":"zaino","lang_code":"it","pos":"noun","tags":["masculine"],"senses":[{"glosses":["backpack"]}],"forms":[{"form":"zaini","tags":["plural"]}]}
 {"word":"albero","lang_code":"it","pos":"noun","tags":["masculine"],"senses":[{"glosses":["tree"]}],"forms":[{"form":"alberi","tags":["plural"]}]}
+{"word":"unbekannt","lang_code":"de","pos":"noun","senses":[{"examples":[{"text":"Das Wort ist unbekannt."}]}]}
 {"word":"house","lang_code":"en","pos":"noun","senses":[{"glosses":["building"]}]}
