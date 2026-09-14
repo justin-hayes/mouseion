@@ -58,6 +58,27 @@ func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 	assert.Empty(t, note.Gloss)
 }
 
+func TestNonNounPluralIsNotRenderedOnCard(t *testing.T) {
+	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+		Plural: "stehen auf",
+		Senses: []enrichment.LexicalSense{{Gloss: "to get up"}},
+	}})
+	for _, test := range []struct {
+		name string
+		upos string
+	}{
+		{name: "verb", upos: "VERB"},
+		{name: "adjective", upos: "ADJ"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry := Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: test.upos, Sentence: "Wir stehen auf.", TargetWord: "stehen auf"}
+			require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+			assert.Equal(t, "to get up", entry.Gloss)
+			assert.Empty(t, entry.Morphology)
+		})
+	}
+}
+
 func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)

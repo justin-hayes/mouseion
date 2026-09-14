@@ -30,9 +30,12 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     assert row[:3] == ("de", "haus", "NOUN")
     assert json.loads(row[3])[0]["Gloss"] == "house"
     assert row[4:] == ("Neut", "das", "Häuser")
-    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (7,)
     assert set(connection.execute("SELECT DISTINCT language FROM entries").fetchall()) == {("de",), ("it",)}
-    assert connection.execute("SELECT senses_json FROM entries WHERE lemma = 'aufstehen'").fetchone() == ('[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]',)
+    assert connection.execute("SELECT upos, plural, senses_json FROM entries WHERE lemma IN ('aufstehen', 'gut') ORDER BY lemma").fetchall() == [
+        ("VERB", "", '[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
+        ("ADJ", "", '[{"Gloss":"good","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
+    ]
     italian = connection.execute("SELECT lemma, gender, article, plural FROM entries WHERE language = 'it' ORDER BY lemma").fetchall()
     assert italian == [
         ("albero", "Masc", "l'", "alberi"),
@@ -54,7 +57,7 @@ def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
     module.derive(compressed, index, "dump-2026-09-14")
 
     connection = sqlite3.connect(index)
-    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (7,)
     connection.close()
 
 

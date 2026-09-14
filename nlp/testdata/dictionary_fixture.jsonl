@@ -1,5 +1,6 @@
 {"word":"Haus","lang_code":"de","pos":"noun","tags":["neuter"],"senses":[{"glosses":["house","home"],"examples":[{"text":"Das Haus ist groß."}],"topics":["building"]}],"forms":[{"form":"Häuser","tags":["plural"]}]}
-{"word":"aufstehen","lang_code":"de","pos":"verb","senses":[{"glosses":["to get up"]}]}
+{"word":"aufstehen","lang_code":"de","pos":"verb","senses":[{"glosses":["to get up"]}],"forms":[{"form":"stehen auf","tags":["plural"]}]}
+{"word":"gut","lang_code":"de","pos":"adjective","senses":[{"glosses":["good"]}],"forms":[{"form":"gute","tags":["plural"]}]}
 {"word":"casa","lang_code":"it","pos":"noun","tags":["feminine"],"senses":[{"glosses":["house"],"examples":[{"text":"La casa è grande."}]},{"glosses":["home"]}],"forms":[{"form":"case","tags":["plural"]}]}
 {"word":"libro","lang_code":"it","pos":"noun","tags":["masculine"],"senses":[{"glosses":["book"]}],"forms":[{"form":"libri","tags":["plural"]}]}
 {"word":"zaino","lang_code":"it","pos":"noun","tags":["masculine"],"senses":[{"glosses":["backpack"]}],"forms":[{"form":"zaini","tags":["plural"]}]}

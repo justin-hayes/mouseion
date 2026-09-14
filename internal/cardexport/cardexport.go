@@ -1028,15 +1028,19 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 		return err
 	}
 	gloss := enrichment.RenderGloss(result.Senses, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens)
-	if strings.TrimSpace(result.Plural) != "" && !strings.Contains(gloss, result.Plural) {
+	plural := result.Plural
+	if !strings.EqualFold(strings.TrimSpace(entry.UPOS), "NOUN") {
+		plural = ""
+	}
+	if strings.TrimSpace(plural) != "" && !strings.Contains(gloss, plural) {
 		if gloss != "" {
 			gloss += " "
 		}
-		gloss += "(Pl. " + result.Plural + ")"
+		gloss += "(Pl. " + plural + ")"
 	}
 	entry.Gloss = gloss
 	entry.DictionaryProviderVersion = s.lexical.Version()
-	if result.Gender == "" && result.Article == "" && result.Plural == "" {
+	if result.Gender == "" && result.Article == "" && plural == "" {
 		return nil
 	}
 	morphology := map[string]string{}
@@ -1049,8 +1053,8 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	if result.Article != "" {
 		morphology["Article"] = result.Article
 	}
-	if result.Plural != "" {
-		morphology["Plural"] = result.Plural
+	if plural != "" {
+		morphology["Plural"] = plural
 	}
 	encoded, err := json.Marshal(morphology)
 	if err != nil {
