@@ -452,15 +452,17 @@ func mergeDeckVocabulary(rows []deckVocabularyRow) []deckVocabularyRow {
 			byPreparation[row.preparationID] = row
 			continue
 		}
+		previousGraduatedAt := current.graduatedAt
 		if row.generatedAt.Before(current.generatedAt) {
-			row.graduatedAt = current.graduatedAt
 			current = row
 		}
-		if current.graduatedAt == nil || (row.graduatedAt != nil && row.graduatedAt.Before(*current.graduatedAt)) {
-			if row.graduatedAt != nil {
-				value := *row.graduatedAt
-				current.graduatedAt = &value
-			}
+		graduatedAt := previousGraduatedAt
+		if row.graduatedAt != nil && (graduatedAt == nil || row.graduatedAt.Before(*graduatedAt)) {
+			graduatedAt = row.graduatedAt
+		}
+		if graduatedAt != nil {
+			value := *graduatedAt
+			current.graduatedAt = &value
 		}
 		byPreparation[row.preparationID] = current
 	}
