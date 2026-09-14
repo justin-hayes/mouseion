@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -73,9 +74,9 @@ func main() {
 	}
 	var dictionaryIndex *dictionary.Index
 	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
-		dictionaryIndex, err = dictionary.OpenIndex(path)
+		dictionaryIndex, err = openDictionaryIndex(path)
 		if err != nil {
-			log.Printf("dictionary index unavailable, continuing without local glosses: %v", err)
+			log.Fatal(err)
 		}
 	}
 	if dictionaryIndex != nil {
@@ -151,6 +152,22 @@ func main() {
 	mux.Handle("/", webHandler)
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+// openDictionaryIndex loads the optional local dictionary index. An absent file
+// means the operator has not derived the index, so glosses fall back to the
+// morphology heuristic. A path that exists but is not a usable index is a
+// misconfiguration and must not silently degrade card output.
+func openDictionaryIndex(path string) (*dictionary.Index, error) {
+	index, err := dictionary.OpenIndex(path)
+	if err == nil {
+		return index, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		log.Printf("dictionary index not found at %s; continuing without local glosses", path)
+		return nil, nil
+	}
+	return nil, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
 }
 
 func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
