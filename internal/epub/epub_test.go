@@ -82,6 +82,24 @@ func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {
 	})
 }
 
+func TestMainTextFixtureExtractsLinearAncillaryUnitsAndLandmarks(t *testing.T) {
+	book, err := Extract(fixtureDirectory(t, "testfixtures/epub3-main-text"))
+	require.NoError(t, err)
+	assert.Equal(t, "Main Text Fixture", book.Title)
+	assert.Equal(t, "urn:mouseion:main-text-fixture", book.SourceIdentifier)
+	assert.Equal(t, "Vorwort\n\nDies ist Vorwort.\n\nKapitel eins\n\nDies ist Haupttext eins.\n\nKapitel zwei\n\nDies ist Haupttext zwei.\n\nBibliographie\n\nDies ist Zusatztext.", book.FullText)
+	require.Len(t, book.ExtractedUnits.Units, 4)
+
+	units := book.ExtractedUnits.Units
+	assert.Equal(t, []string{"front", "chapter-one", "chapter-two", "bibliography"}, []string{units[0].ManifestID, units[1].ManifestID, units[2].ManifestID, units[3].ManifestID})
+	assert.True(t, units[0].Linear)
+	assert.Equal(t, []string{"titlepage"}, units[0].LandmarkTypes)
+	assert.Equal(t, []string{"bodymatter", "chapter"}, units[1].LandmarkTypes)
+	assert.Empty(t, units[2].LandmarkTypes)
+	assert.Equal(t, []string{"bibliography"}, units[3].LandmarkTypes)
+	require.NoError(t, book.ExtractedUnits.ValidateOffsets(book.FullText))
+}
+
 func TestPhaseOneInvalidFixture(t *testing.T) {
 	_, err := Extract(fixtureDirectory(t, "testfixtures/invalid-missing-spine-reference"))
 	require.Error(t, err)

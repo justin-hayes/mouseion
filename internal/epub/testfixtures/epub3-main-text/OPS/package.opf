@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:mouseion:main-text-fixture</dc:identifier>
+    <dc:title>Main Text Fixture</dc:title>
+  </metadata>
+  <manifest>
+    <item id="nav" href="Navigation/nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="front" href="Text/front.xhtml" media-type="application/xhtml+xml"/>
+    <item id="chapter-one" href="Text/chapter-one.xhtml" media-type="application/xhtml+xml"/>
+    <item id="chapter-two" href="Text/chapter-two.xhtml" media-type="application/xhtml+xml"/>
+    <item id="bibliography" href="Text/back/bibliography.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="front" linear="yes"/>
+    <itemref idref="chapter-one"/>
+    <itemref idref="chapter-two"/>
+    <itemref idref="bibliography"/>
+    <itemref idref="nav"/>
+  </spine>
+</package>
