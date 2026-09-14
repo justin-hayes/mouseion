@@ -146,6 +146,7 @@ Generated-deck history and known vocabulary are deliberately separate. Generatin
 62. [ADR 0062: Sentence-quality scoring derived from the persisted corpus](adr/0062-derived-sentence-quality-scoring.md) — derives a GDEX-informed sentence-quality rubric at export time over the persisted corpus (a finite-verb-and-subject knock-out plus gradual ranking); amends ADR 0029's representative-sentence selection mechanism.
 63. [ADR 0063: Stanza model provisioning on a Docker volume instead of the image](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza bundle (including NER) into a named volume via a one-shot init container instead of baking models into the NLP image, decoupling the model bundle from the image lifecycle.
 64. [ADR 0064: Built-in dictionary enrichment provider](adr/0064-dictionary-enrichment-provider.md) — makes gloss local, default-on enrichment from a build-time-derived SQLite index (Wiktextract/Kaikki) with deterministic sense ordering and dictionary morphology; amends ADR 0007's gloss classification and ADR 0029's card contract.
+65. [ADR 0065: Canonicalize pre-1996 German ß spellings](adr/0065-german-pre-1996-sharp-s-canonicalization.md) — maps explicitly documented pre-reform German spellings to post-1996 canonical lemmas, preserves modern ß and distinct lexemes, and defines the idempotent vocabulary backfill before profile activation.
 
 ## Deployment and operations
 
