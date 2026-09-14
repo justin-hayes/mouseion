@@ -115,11 +115,16 @@ make dictionary-index \
 
 `DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
 omit it when rebuilding from the cached dump. The command writes
-`dictionary-index.sqlite` atomically. Set `DICTIONARY_OUTPUT` to choose another
-path, then point `MOUSEION_DICTIONARY_INDEX` and the Compose host-path variable
-at that file and restart the web process. No migration or additional service is
-needed. The generated SQLite metadata records the dump date, UTC extraction
-date, Wiktextract commit, source, license, and attribution.
+`dictionary/dictionary-index.sqlite` atomically. Set `DICTIONARY_OUTPUT` to
+choose another path, then point `MOUSEION_DICTIONARY_INDEX` and the Compose
+`MOUSEION_DICTIONARY_HOST_DIR` variable at that file and restart the web
+process. `MOUSEION_DICTIONARY_HOST_DIR` mounts a directory, not a single file,
+so a missing index stays missing instead of being created as an empty
+directory; the server then falls back to the morphology heuristic with a
+warning. A configured index that exists but is unreadable is a fatal startup
+error. No migration or additional service is needed. The generated SQLite
+metadata records the dump date, UTC extraction date, Wiktextract commit, source,
+license, and attribution.
 
 The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
 and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
