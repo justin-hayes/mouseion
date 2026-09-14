@@ -54,7 +54,10 @@ real-corpus measurement before shipping.
   dependency structure alone.
 - Lexicon-based validation — no external lexicon (ADR 0018).
 - Changing the raw analyzer lemma.
-- Any learner-facing surface.
+- Reworking learner-facing surfaces: this producer change only fixes
+  `canonical_lemma` and candidate exclusion. Card presentation of the full
+  lemma (bolding every component) is defined by
+  [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
 
 ## Requirements
 

@@ -26,10 +26,35 @@ information:
 The back does **not** show a second `SourceSentence` block. The card contract
 has one learner-facing German source sentence, not two copies of it.
 
-The generated note fields are `Text`, `Lemma`, `POS`, `Morph`, `English`,
-`EnglishSentence`, and `BookTitle`, in that order, followed by TSV tags. `Text`
-is the complete source sentence with Mouseion-owned `<b>` markup around the
-target form; `SourceSentence` is not a field in either export.
+The generated note fields are `Identity`, `Text`, `Article`, `Lemma`, `Plural`,
+`POS`, `Gloss`, `English`, `EnglishSentence`, and `BookTitle`, in that order,
+followed by TSV tags. `Identity` is the Anki sort/deduplication field. `Text` is
+the complete source sentence with Mouseion-owned `<b>` markup around the target;
+`SourceSentence` is not a field in either export.
+
+## Target form and bolding
+
+The bolded target is the full vocabulary identity, not only the finite surface.
+For a separable verb whose particle detaches (`rief … entgegen`, lemma
+`entgegenrufen`), every component is bolded: the observed verb form and each
+`compound:prt` particle whose head is that verb token, resolved from the
+persisted dependency parse. Attached forms are unchanged; when no parse is
+available, only the observed form is bolded.
+
+## Morphology presentation
+
+The back renders `Article Lemma (Pl. Plural) · POS`, then the gloss:
+
+- `Article` is the noun's nominative definite article (`der`/`die`/`das`;
+  `il`/`lo`/`la`/`l'`), or empty when the dictionary gives no unambiguous
+  article. A derived value that is not a genuine article is ignored and the
+  gender fallback applies.
+- `Plural` is the noun's dictionary plural, rendered beside the singular it
+  inflects whenever the index supplies one — including when it equals the lemma
+  (`der Gauner (Pl. Gauner)`). It is empty for non-nouns and plural-only lemmas.
+- The plural is not part of `Gloss`.
+
+See [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
 
 ## English target highlighting
 

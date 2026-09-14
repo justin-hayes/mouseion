@@ -101,12 +101,29 @@ sentence translation only.
 
 - Gender/article and plural for nouns resolved from the ranked top sense's
   forms; the `nounArticle` heuristic is replaced for indexed lemmas.
+- The article is a genuine nominative definite article (`der`/`die`/`das`;
+  `il`/`lo`/`la`/`l'`) or empty: `article_for` must not accept a form that is
+  also tagged plural or otherwise inflected, and a render-time whitelist in
+  `nounArticle` ignores any explicit `Article` value outside the set and falls
+  back to gender. See [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
 - Unknown-in-index lemmas fall back to the existing behavior.
+
+### Coverage
+
+- Deck freeze emits a structured `gloss_coverage` log line: per language and
+  POS, the count of selected lemmas with and without a resolved gloss. The
+  metric drives the decision to broaden dictionary sources or add a
+  consent-gated LLM gloss fallback; neither is chosen here.
 
 ### Card contract
 
 - The generated Anki/TSV note gains a `Gloss` field on the back between `POS`
   and `English`; artifact fixtures and completeness tests are updated.
+- The generated note also gains a `Plural` field immediately after `Lemma`,
+  rendered by the template as `Article Lemma (Pl. …)`. The plural is removed
+  from `Gloss`; it renders whenever the index supplies a non-empty plural,
+  including when it equals the lemma. See
+  [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
 - `English` and `EnglishSentence` keep their current semantics.
 - TSV artifacts retain the dictionary attribution as an Anki-compatible comment
   when dictionary data is present.
@@ -133,6 +150,11 @@ sentence translation only.
       index `provider_version` recorded; the external cache is not used
 - [x] No dictionary data in Postgres; no new service; NLP service unchanged
 - [x] Attribution notice retained per CC BY-SA / GFDL
+- [ ] A form tagged plural is never accepted as a noun's article, and an
+      explicit non-article `Article` value falls back to gender
+- [ ] German and Italian nouns render their dictionary plural beside the lemma
+      in a dedicated `Plural` field, not inside `Gloss`
+- [ ] Deck freeze emits a per-language/POS `gloss_coverage` summary
 
 ## References
 
