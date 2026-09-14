@@ -49,8 +49,9 @@ type LexicalProvider interface {
 }
 
 const (
-	DefaultMaxSenses = 3
-	DefaultMaxTokens = 10
+	DefaultMaxSenses    = 3
+	DefaultMaxTokens    = 10
+	minimumContextScore = 2
 )
 
 // OrderSenses applies a deterministic, small Lesk-style context score. The
@@ -69,12 +70,12 @@ func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalS
 	scored := make([]scoredSense, len(ordered))
 	for i, sense := range ordered {
 		score := 0
-		for _, word := range senseWords(sense) {
+		for word := range senseWords(sense) {
 			if contextWords[word] {
 				score++
 			}
 		}
-		if phrase := normalizePhrase(sense.Phrase); phrase != "" && containsFolded(request.RepresentativeSentence, phrase) {
+		if phrase := sensePhrase(sense.Phrase); len(phrase) > 0 && containsPhrase(request.RepresentativeSentence, phrase) {
 			score += 100
 		}
 		scored[i] = scoredSense{sense: sense, score: score}
@@ -87,7 +88,7 @@ func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalS
 	}
 	// Stable insertion order is intentional. In particular, a low-signal
 	// sentence must not displace the dictionary's primary sense.
-	if maxScore > 0 {
+	if maxScore >= minimumContextScore {
 		for i := 1; i < len(scored); i++ {
 			item := scored[i]
 			j := i
@@ -138,6 +139,9 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 	if len(request.SentenceTokens) == 0 {
 		fields := strings.Fields(request.RepresentativeSentence)
 		target := normalizeWord(request.TargetWord)
+		if target == "" {
+			return words
+		}
 		for i, field := range fields {
 			if normalizeWord(field) != target {
 				continue
@@ -150,20 +154,18 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 				end = len(fields)
 			}
 			for _, candidate := range fields[start:end] {
-				if word := normalizeWord(candidate); word != "" {
+				if word := normalizeWord(candidate); isContextWord(word) && word != target {
 					words[word] = true
 				}
 			}
 			return words
 		}
-		for _, field := range fields {
-			if word := normalizeWord(field); word != "" {
-				words[word] = true
-			}
-		}
 		return words
 	}
 	target := normalizeWord(request.TargetWord)
+	if target == "" {
+		return words
+	}
 	index := -1
 	for i, token := range request.SentenceTokens {
 		if normalizeWord(token.Surface) == target || normalizeWord(token.CanonicalLemma) == target {
@@ -172,7 +174,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 		}
 	}
 	if index < 0 {
-		index = len(request.SentenceTokens) / 2
+		return words
 	}
 	start, end := index-5, index+6
 	if start < 0 {
@@ -182,7 +184,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 		end = len(request.SentenceTokens)
 	}
 	for _, token := range request.SentenceTokens[start:end] {
-		if word := normalizeWord(token.CanonicalLemma); word != "" && contentPOS(token.UPOS) {
+		if word := normalizeWord(token.CanonicalLemma); isContextWord(word) && word != target && contentPOS(token.UPOS) {
 			words[word] = true
 		}
 		if relation := normalizeWord(token.Dependency); relation != "" {
@@ -192,18 +194,18 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 	return words
 }
 
-func senseWords(sense LexicalSense) []string {
+func senseWords(sense LexicalSense) map[string]bool {
 	values := append([]string{sense.Gloss}, sense.Examples...)
 	values = append(values, sense.Topics...)
 	values = append(values, sense.Tags...)
 	if sense.Phrase != "" {
 		values = append(values, sense.Phrase)
 	}
-	var words []string
+	words := make(map[string]bool)
 	for _, value := range values {
 		for _, field := range strings.Fields(value) {
 			if word := normalizeWord(field); word != "" {
-				words = append(words, word)
+				words[word] = true
 			}
 		}
 	}
@@ -225,12 +227,52 @@ func normalizeWord(value string) string {
 	return value
 }
 
-func normalizePhrase(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(value), " "))
+var contextStopWords = map[string]struct{}{
+	// German, Italian, and English function words are not useful Lesk signal.
+	"a": {}, "ai": {}, "al": {}, "alla": {}, "alle": {}, "agli": {}, "an": {}, "and": {}, "auf": {}, "aus": {}, "auch": {}, "bei": {}, "bin": {}, "bis": {}, "con": {}, "come": {}, "da": {}, "dal": {}, "dalle": {}, "dass": {}, "das": {}, "de": {}, "dei": {}, "degli": {}, "del": {}, "della": {}, "delle": {}, "der": {}, "des": {}, "die": {}, "di": {}, "e": {}, "ein": {}, "eine": {}, "einer": {}, "eines": {}, "el": {}, "en": {}, "er": {}, "es": {}, "è": {}, "for": {}, "from": {}, "gli": {}, "haben": {}, "hat": {}, "he": {}, "i": {}, "ich": {}, "il": {}, "im": {}, "in": {}, "is": {}, "ist": {}, "la": {}, "le": {}, "lo": {}, "ma": {}, "man": {}, "mein": {}, "mit": {}, "nach": {}, "nei": {}, "nel": {}, "nella": {}, "nelle": {}, "nicht": {}, "non": {}, "o": {}, "of": {}, "on": {}, "oder": {}, "per": {}, "she": {}, "si": {}, "sie": {}, "sind": {}, "so": {}, "sono": {}, "su": {}, "sugli": {}, "sui": {}, "sul": {}, "the": {}, "to": {}, "tra": {}, "tu": {}, "und": {}, "un": {}, "una": {}, "uno": {}, "was": {}, "we": {}, "wie": {}, "wir": {}, "with": {}, "wo": {}, "wird": {}, "zu": {},
 }
 
-func containsFolded(haystack, needle string) bool {
-	return strings.Contains(strings.ToLower(strings.Join(strings.Fields(haystack), " ")), needle)
+func isContextWord(word string) bool {
+	if word == "" {
+		return false
+	}
+	_, stop := contextStopWords[word]
+	return !stop
+}
+
+func sensePhrase(value string) []string {
+	var words []string
+	for _, field := range strings.Fields(value) {
+		if word := normalizeWord(field); word != "" {
+			words = append(words, word)
+		}
+	}
+	return words
+}
+
+func containsPhrase(sentence string, phrase []string) bool {
+	if len(phrase) == 0 {
+		return false
+	}
+	var words []string
+	for _, field := range strings.Fields(sentence) {
+		if word := normalizeWord(field); word != "" {
+			words = append(words, word)
+		}
+	}
+	for start := 0; start+len(phrase) <= len(words); start++ {
+		matched := true
+		for offset, word := range phrase {
+			if words[start+offset] != word {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneSenses(senses []LexicalSense) []LexicalSense {
