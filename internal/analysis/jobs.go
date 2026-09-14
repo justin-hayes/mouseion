@@ -720,22 +720,6 @@ func selectedSnapshotUnits(units []snapshotUnit, selectedIDs []string) []snapsho
 	return out
 }
 
-func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) []byte {
-	details, _ := json.Marshal(map[string]any{
-		"run_id":               args.RunID,
-		"attempt":              args.Attempt,
-		"selection_algorithm":  args.ConfigIdentity,
-		"selection_identified": decision.Identified,
-		"selection_applied":    decision.Applies,
-		"body_matter_start":    decision.BodyMatterStart,
-		"back_matter_start":    decision.BackMatterStart,
-		"excluded_unit_ids":    decision.ExcludedUnitIDs,
-		"selected_unit_count":  selected,
-		"total_unit_count":     total,
-	})
-	return details
-}
-
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
 	return w.workSnapshot(ctx, job)
 }
@@ -870,7 +854,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err = persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
 		return err
 	}
-	details := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	details, _ := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt})
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
 		return err
 	}

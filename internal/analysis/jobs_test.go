@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -116,23 +115,4 @@ func TestSnapshotAnalysisUsesDeclaredMainTextSelection(t *testing.T) {
 	})
 	assert.Equal(t, snapshotConfigIdentity, snapshotConfigIdentityFor(noOp))
 	assert.False(t, noOp.Applies)
-}
-
-func TestAnalysisHistoryDetailsRecordSelectionProvenance(t *testing.T) {
-	decision := identifyMainText([]snapshotUnit{
-		{UnitID: "front", Order: 0},
-		{UnitID: "main", Order: 1, LandmarkTypes: []string{"bodymatter"}},
-		{UnitID: "back", Order: 2, LandmarkTypes: []string{"index"}},
-	})
-	details := analysisHistoryDetails(JobArgs{RunID: "run-1", Attempt: 2, ConfigIdentity: mainTextConfigIdentity}, decision, 3, 1)
-	var got map[string]any
-	require.NoError(t, json.Unmarshal(details, &got))
-	assert.Equal(t, "run-1", got["run_id"])
-	assert.Equal(t, float64(2), got["attempt"])
-	assert.Equal(t, mainTextConfigIdentity, got["selection_algorithm"])
-	assert.Equal(t, float64(1), got["body_matter_start"])
-	assert.Equal(t, float64(2), got["back_matter_start"])
-	assert.Equal(t, float64(1), got["selected_unit_count"])
-	assert.Equal(t, float64(3), got["total_unit_count"])
-	assert.Equal(t, []any{"front", "back"}, got["excluded_unit_ids"])
 }

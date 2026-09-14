@@ -4,7 +4,6 @@ package analysis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -284,17 +283,6 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	assert.Equal(t, int64(1), corpus.Statistics.AnalyzableTokenCount)
 	require.NotNil(t, corpus.Statistics.TextProfile)
 	assert.Equal(t, int64(1), corpus.Statistics.TextProfile.SentenceCount)
-
-	var details []byte
-	require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='analysis' AND status='complete'`, owner.ID, corpus.ID).Scan(&details))
-	var provenance map[string]any
-	require.NoError(t, json.Unmarshal(details, &provenance))
-	assert.Equal(t, mainTextConfigIdentity, provenance["selection_algorithm"])
-	assert.Equal(t, float64(1), provenance["body_matter_start"])
-	assert.Equal(t, float64(2), provenance["back_matter_start"])
-	assert.Equal(t, float64(1), provenance["selected_unit_count"])
-	assert.Equal(t, float64(3), provenance["total_unit_count"])
-	assert.Equal(t, []any{selectedUnits[0].ID, selectedUnits[2].ID}, provenance["excluded_unit_ids"])
 
 	gotSnapshotID, afterSnapshot, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, selectedSource.ID)
 	require.NoError(t, err)
