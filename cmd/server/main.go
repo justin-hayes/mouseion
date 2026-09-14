@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -33,6 +34,12 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := runHealthcheck(); err != nil {
+			log.Fatalf("healthcheck failed: %v", err)
+		}
+		return
+	}
 	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		log.Fatalf("invalid MOUSEION_SECRET: %v", err)
 	}
@@ -152,6 +159,44 @@ func main() {
 	mux.Handle("/", webHandler)
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+// runHealthcheck probes the server's own /healthz endpoint. It runs as the
+// image entrypoint's `healthcheck` subcommand, since the distroless image has
+// no shell or network utility for a Compose CMD-SHELL check.
+func runHealthcheck() error {
+	target, err := healthcheckURL(os.Getenv("MOUSEION_HTTP_ADDR"))
+	if err != nil {
+		return err
+	}
+	return probeHealth(target, &http.Client{Timeout: 5 * time.Second})
+}
+
+func healthcheckURL(addr string) (string, error) {
+	if strings.TrimSpace(addr) == "" {
+		addr = ":8080"
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("invalid MOUSEION_HTTP_ADDR %q: %w", addr, err)
+	}
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
+}
+
+func probeHealth(target string, client *http.Client) error {
+	resp, err := client.Get(target)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health endpoint %s returned %s", target, resp.Status)
+	}
+	return nil
 }
 
 // openDictionaryIndex loads the optional local dictionary index. An absent file

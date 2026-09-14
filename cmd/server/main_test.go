@@ -2,8 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/riverqueue/river"
@@ -11,6 +15,51 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
+
+func TestHealthcheckURL(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		addr    string
+		want    string
+		wantErr bool
+	}{
+		{name: "empty defaults to loopback 8080", addr: "", want: "http://127.0.0.1:8080/healthz"},
+		{name: "wildcard host", addr: "0.0.0.0:9090", want: "http://127.0.0.1:9090/healthz"},
+		{name: "explicit host", addr: "127.0.0.1:1234", want: "http://127.0.0.1:1234/healthz"},
+		{name: "missing port", addr: "notaport", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := healthcheckURL(test.addr)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestProbeHealth(t *testing.T) {
+	client := &http.Client{Timeout: time.Second}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprintln(w, "ok")
+	}))
+	defer server.Close()
+	require.NoError(t, probeHealth(server.URL+"/healthz", client))
+
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusInternalServerError)
+	}))
+	defer failing.Close()
+	require.Error(t, probeHealth(failing.URL+"/healthz", client))
+
+	require.Error(t, probeHealth("http://127.0.0.1:1/healthz", client))
+}
 
 func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
 	index, err := openDictionaryIndex(filepath.Join(t.TempDir(), "absent.sqlite"))
