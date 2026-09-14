@@ -105,12 +105,11 @@ consequence, not normalized away.
 
 ## Verification
 
-Fixtures to add alongside the existing extraction fixtures:
+Fixtures and tests alongside the existing extraction fixtures:
 
-- a linear front-matter unit before the `bodymatter` target, proving `[0, S)` is
-  excluded;
-- a `bibliography` landmark after the body, proving `[S, E)` excludes it; the
-  existing `epub3-edge-cases` fixture already has this shape and its analysis
-  expectation flips;
+- `epub3-main-text` provides a real imported EPUB with a linear front-matter
+  unit before the `bodymatter` target and a terminal `bibliography` landmark,
+  proving `[0, S)` and `[S, E)` are excluded from the analysis corpus while the
+  extraction snapshot remains complete;
 - no `bodymatter`, duplicate `bodymatter`, and a back-matter token on the
   body-start unit, each asserting the whole snapshot is analyzed.

@@ -3,12 +3,10 @@ package epub
 import (
 	"archive/zip"
 	"bytes"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,31 +21,7 @@ func fixture(t *testing.T) []byte {
 }
 
 func fixtureDirectory(t *testing.T, directory string) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	err := filepath.WalkDir(directory, func(name string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
-			return err
-		}
-		rel, err := filepath.Rel(directory, name)
-		if err != nil {
-			return err
-		}
-		w, err := zw.Create(filepath.ToSlash(rel))
-		if err != nil {
-			return err
-		}
-		data, err := os.ReadFile(name)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(data)
-		return err
-	})
-	require.NoError(t, err)
-	require.NoError(t, zw.Close())
-	return buf.Bytes()
+	return testutil.ZipDirectory(t, directory)
 }
 
 func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {

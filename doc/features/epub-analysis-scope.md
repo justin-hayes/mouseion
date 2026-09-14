@@ -253,6 +253,9 @@ into deterministic EPUB byte streams by the tests. They lock down these cases:
   properties, navigation labels and landmarks, missing-heading fallback,
   duplicate display titles, bibliography-like content, unmatched navigation
   targets, and rune-based offsets across German, Japanese, and emoji text;
+- `epub3-main-text` proves that linear front matter, a declared `bodymatter`
+  start, and a terminal `bibliography` landmark survive extraction and import
+  before analysis selects only the declared main-text units;
 - `invalid-missing-spine-reference` proves a missing manifest target remains an
   invalid EPUB rather than being silently omitted; table-driven extraction
   tests retain coverage for malformed XML, blank and duplicate manifest IDs,
@@ -268,8 +271,9 @@ deletion. A source written through the legacy import path still returns
 `ErrExtractedUnitsUnavailable` while retaining its `FullText`; fresh imports
 continue to store the source EPUB and use the unchanged full text as the NLP
 compatibility input. Bibliography-, index-, navigation-, or landmark-like
-metadata is preserved as provenance for review projection only. Phase 1 does
-not classify it or alter which preserved readable units are analyzed.
+metadata is preserved as provenance for review projection. Main-text analysis
+consumes the declared landmarks when the selection feature is enabled, while
+the stored snapshot and compatibility full text remain complete.
 
 ## Deferred decisions
 
