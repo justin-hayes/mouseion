@@ -27,14 +27,15 @@ created by an older profile.
 The source authority is the **Amtliches Regelwerk der deutschen
 Rechtschreibung** and its Wörterverzeichnis, published by the Rat für deutsche
 Rechtschreibung. The current online edition and the historical 2004 edition
-(the latter is substantively the 1996 reform edition) are the reference for
-the reform boundary and exceptional word spellings.
+are the reference for the reform boundary and exceptional word spellings. The
+2004 edition is the first edition published by the Rat and is substantively
+aligned with the 1996 reform, but it is not treated as an identical edition.
 
 The repository's `internal/canonicalization/german_post1996.json` is the
 versioned, reviewable projection of that authority. It is the normative data
 consumed by both the embedded Go profile and the Python dictionary-index
 derivation; neither consumer invents additional mappings. The v6 table must
-include the documented forms such as:
+retain existing entries and add the documented forms such as:
 
 | Pre-1996 form | Canonical form |
 | --- | --- |
@@ -58,6 +59,11 @@ historical artifacts. For a new German lemma, the profile:
 2. removes only configured edge punctuation/symbol decoration;
 3. lowercases without Unicode case folding, preserving `ß`; and
 4. applies the exact-equivalence table to the resulting string.
+
+The producer-level separable-verb reattachment from ADR 0061 remains in force
+before these steps: a separated verb is first reconstructed as its full lexeme,
+then the full lexeme is normalized here. This ADR does not alter that rule or
+the exclusion of separable particles from vocabulary candidates.
 
 The fallback for a word absent from the table is the result after steps 1–3.
 There is no dictionary lookup, heuristic spelling conversion, or blanket
@@ -101,6 +107,14 @@ idempotent and the deterministic merge rules produce the same result; a
 successful rerun is a no-op. Profile version 6 becomes the active profile only
 after the backfill verification reports no unresolved conflicts.
 
+The expected impact is proportional to the number of German identity rows, not
+the size of the corpus or source files. Most installations will have no rows
+to change. During an owner transaction, writes to the affected identity rows
+may wait briefly; there is no application-wide downtime and immutable corpus
+or deck artifacts are not rewritten. Any required current-book re-analysis is
+the existing asynchronous analysis flow and can temporarily leave the old run
+visible until it completes.
+
 ## Consequences
 
 - Newly analyzed historical German spellings resolve to modern dictionary keys
@@ -132,6 +146,7 @@ after the backfill verification reports no unresolved conflicts.
 
 - [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](0005-vocabulary-identity-normalization-ranking.md)
 - [ADR 0038: Schema-change governance and migration review policy](0038-schema-change-governance.md)
+- [ADR 0061: German separable-verb lemmatization from dependency data](0061-german-separable-verb-lemmatization.md)
 - [ADR 0064: Built-in dictionary enrichment provider](0064-dictionary-enrichment-provider.md)
 - [Issue #847: German ß lemmas resolve from the dictionary index](https://github.com/justin-hayes/mouseion/issues/847)
 - [Issue #849: Pre-1996 German ß spellings canonicalize to post-1996 lemmas](https://github.com/justin-hayes/mouseion/issues/849)
