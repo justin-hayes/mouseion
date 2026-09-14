@@ -108,3 +108,30 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "der", note.Article)
 }
+
+func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""}]', 'Fem', 'la', 'case', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := dictionary.OpenIndex(path)
+	require.NoError(t, err)
+	defer index.Close()
+	service := NewServiceWithLexicalProvider(nil, index)
+	entry := Entry{
+		Language: "it", CanonicalLemma: "casa", UPOS: "NOUN",
+		Sentence: "La casa è grande.", TargetWord: "casa",
+		Morphology: `{"Gender":"Masc","Article":"il"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+
+	note, err := makeNote("owner", entry)
+	require.NoError(t, err)
+	assert.Equal(t, "la", note.Article)
+	assert.Contains(t, note.Gloss, "house")
+	assert.Contains(t, note.Gloss, "(Pl. case)")
+	assert.Contains(t, note.BackExtra, "la casa")
+}
