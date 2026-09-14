@@ -138,14 +138,15 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
 	}
 	privateInput, err := json.Marshal(struct {
-		ItemID          string `json:"item_id"`
-		Language        string `json:"language"`
-		TargetLanguage  string `json:"target_language"`
-		CanonicalLemma  string `json:"canonical_lemma"`
-		UPOS            string `json:"upos"`
-		TargetWord      string `json:"target_word,omitempty"`
-		ExampleSentence string `json:"example_sentence,omitempty"`
-	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence})
+		ItemID          string         `json:"item_id"`
+		Language        string         `json:"language"`
+		TargetLanguage  string         `json:"target_language"`
+		CanonicalLemma  string         `json:"canonical_lemma"`
+		UPOS            string         `json:"upos"`
+		TargetWord      string         `json:"target_word,omitempty"`
+		ExampleSentence string         `json:"example_sentence,omitempty"`
+		CandidateSenses []LexicalSense `json:"candidate_senses,omitempty"`
+	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, cloneSenses(input.CandidateSenses)})
 	if err != nil {
 		return nil, fmt.Errorf("encode LLM translation input: %w", err)
 	}
@@ -292,15 +293,35 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) || hasMarkup(response.SentenceTranslationTarget) {
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
-	if len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) {
+	selectionInvalid := len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) || !senseOrderInRange(response.SenseOrder, len(input.CandidateSenses))
+	for _, warning := range response.Warnings {
+		selectionInvalid = selectionInvalid || strings.HasPrefix(warning, "sense selection") || strings.HasPrefix(warning, "invalid sense selection")
+	}
+	if selectionInvalid {
 		response.SenseOrder = nil
-		response.Warnings = append(response.Warnings, "invalid sense selection; using deterministic order")
+		response.FallbackGloss = ""
+		if !hasWarning(response.Warnings, "invalid sense selection; using deterministic order") {
+			response.Warnings = append(response.Warnings, "invalid sense selection; using deterministic order")
+		}
 	}
 	if response.FallbackGloss != "" && (hasMarkup(response.FallbackGloss) || len([]rune(response.FallbackGloss)) > maxFallbackGlossRunes) {
 		response.FallbackGloss = ""
 		response.Warnings = append(response.Warnings, "invalid fallback gloss; ignoring it")
 	}
+	if len(response.SenseOrder) > 0 && response.FallbackGloss != "" {
+		response.FallbackGloss = ""
+		response.Warnings = append(response.Warnings, "fallback gloss supplied with a sense selection; ignoring it")
+	}
 	return response, nil
+}
+
+func hasWarning(warnings []string, want string) bool {
+	for _, warning := range warnings {
+		if warning == want {
+			return true
+		}
+	}
+	return false
 }
 
 func validSenseOrder(order []int) bool {
@@ -313,6 +334,15 @@ func validSenseOrder(order []int) bool {
 			return false
 		}
 		seen[index] = struct{}{}
+	}
+	return true
+}
+
+func senseOrderInRange(order []int, candidateCount int) bool {
+	for _, index := range order {
+		if index >= candidateCount {
+			return false
+		}
 	}
 	return true
 }

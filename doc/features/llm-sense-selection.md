@@ -1,6 +1,6 @@
 # LLM sense selection and fallback gloss
 
-Status: **Proposed** · Date: 2026-09-14 · Decision:
+Status: **Implemented** · Date: 2026-09-14 · Decision:
 [ADR 0069](../adr/0069-llm-sense-selection-and-fallback-gloss.md)
 
 ## Motivation
@@ -100,16 +100,16 @@ fallback.
 
 ## Acceptance criteria
 
-- [ ] A consented run selects over the frozen candidate set and renders senses in
+- [x] A consented run selects over the frozen candidate set and renders senses in
       the model's order; the dictionary remains the text source
-- [ ] A fallback gloss is rendered when the dictionary has no gloss or no
+- [x] A fallback gloss is rendered when the dictionary has no gloss or no
       candidate fits, and only then
-- [ ] Without consent, no provider, or malformed selection, the deterministic
+- [x] Without consent, no provider, or malformed selection, the deterministic
       frozen gloss renders unchanged
-- [ ] Out-of-range/duplicate indices and invalid fallback text are rejected
-- [ ] The selection is cached under a key that includes the dictionary identity
-- [ ] A selection failure logs a warning and does not fail the run
-- [ ] Deck completeness reports the fallback-gloss count; freeze/finalize record
+- [x] Out-of-range/duplicate indices and invalid fallback text are rejected
+- [x] The selection is cached under a key that includes the dictionary identity
+- [x] A selection failure logs a warning and does not fail the run
+- [x] Deck completeness reports the fallback-gloss count; freeze/finalize record
       coverage and fallback-rate metrics
 
 ## References

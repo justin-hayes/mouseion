@@ -20,26 +20,27 @@ type LexicalLookupRequest struct {
 // LexicalSense is one ordered gloss sense with the context metadata retained
 // by the local dictionary index.
 type LexicalSense struct {
-	Gloss    string
-	Examples []string
-	Topics   []string
-	Tags     []string
-	Phrase   string
-	Gender   string
-	Article  string
-	Plural   string
-	IPA      string
+	Gloss    string   `json:"gloss"`
+	Examples []string `json:"examples,omitempty"`
+	Topics   []string `json:"topics,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+	Phrase   string   `json:"phrase,omitempty"`
+	Gender   string   `json:"gender,omitempty"`
+	Article  string   `json:"article,omitempty"`
+	Plural   string   `json:"plural,omitempty"`
+	IPA      string   `json:"ipa,omitempty"`
 }
 
 // LexicalEntry is the structured result of a local lexical lookup. Senses are
 // ordered for display; the leading sense supplies the preferred morphology.
 type LexicalEntry struct {
-	Senses         []LexicalSense
-	Gender         string
-	Article        string
-	Plural         string
-	IPA            string
-	PrincipalParts string
+	Senses          []LexicalSense
+	CandidateSenses []LexicalSense
+	Gender          string
+	Article         string
+	Plural          string
+	IPA             string
+	PrincipalParts  string
 }
 
 // LexicalProvider is the consent-free local lexical-provider seam. found=false
@@ -51,10 +52,11 @@ type LexicalProvider interface {
 }
 
 const (
-	DefaultMaxSenses    = 3
-	DefaultMaxTokens    = 10
-	glossSeparator      = " · "
-	minimumContextScore = 2
+	DefaultMaxSenses          = 3
+	DefaultMaxTokens          = 10
+	DefaultMaxCandidateSenses = 8
+	glossSeparator            = " · "
+	minimumContextScore       = 2
 )
 
 // OrderSenses applies a deterministic, small Lesk-style context score. The
@@ -279,6 +281,9 @@ func containsPhrase(sentence string, phrase []string) bool {
 }
 
 func cloneSenses(senses []LexicalSense) []LexicalSense {
+	if senses == nil {
+		return nil
+	}
 	result := make([]LexicalSense, len(senses))
 	for i, sense := range senses {
 		result[i] = sense

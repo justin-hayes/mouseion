@@ -111,7 +111,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
 	}
 	ordered := enrichment.OrderSenses(request, senses)
-	result := enrichment.LexicalEntry{Senses: ordered, IPA: ipa, PrincipalParts: principalParts}
+	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: ipa, PrincipalParts: principalParts}
 	if len(ordered) > 0 {
 		result.Gender = ordered[0].Gender
 		result.Article = ordered[0].Article
