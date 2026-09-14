@@ -81,7 +81,9 @@ def clean_lemma_edges(value: str) -> str:
 
 def normalize(language: str, value: str) -> str:
     if language == "de":
-        value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().casefold().split())
+        # German orthography treats ß as a distinct letter; casefold would
+        # collapse it to ss and diverge from the runtime lookup key.
+        value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().lower().split())
         return GERMAN_NORMALIZATION_POLICY["equivalences"].get(value, value)
     return " ".join(value.strip().casefold().split())
 

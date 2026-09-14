@@ -64,6 +64,8 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
 	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO entries VALUES ('de', 'straße', 'NOUN', '[{"Gloss":"street","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Straßen","IPA":""}]', 'Fem', 'die', 'Straßen', '')`)
+	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
 	index, err := dictionary.OpenIndex(path)
@@ -84,6 +86,24 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	assert.Contains(t, note.Gloss, "(Pl. Häuser)")
 	assert.Contains(t, note.BackExtra, "das Haus")
 	assert.Contains(t, note.BackExtra, "(Pl. Häuser)")
+
+	sharpS := Entry{
+		Language: "de", CanonicalLemma: "straße", UPOS: "NOUN",
+		Sentence: "Die Straße führt zum Bahnhof.", TargetWord: "Straße",
+		Morphology: `{"Gender":"Masc"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &sharpS))
+	assert.Equal(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
+	assert.Equal(t, "street (Pl. Straßen)", sharpS.Gloss)
+
+	manifest := NewManifest("owner", "Book", []Entry{sharpS})
+	snapshot := manifest.Snapshot()
+	assert.Equal(t, sharpS.Gloss, snapshot.Items[0].Entry.Gloss)
+	note, err = makeNote("owner", snapshot.Items[0].Entry)
+	require.NoError(t, err)
+	assert.Equal(t, "die", note.Article)
+	assert.Equal(t, "street (Pl. Straßen)", note.Gloss)
+	assert.Contains(t, note.BackExtra, "die Straße")
 
 	ranked := Entry{
 		Language: "de", CanonicalLemma: "see", UPOS: "NOUN",
