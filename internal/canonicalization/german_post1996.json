@@ -13,6 +13,10 @@
     "thür": "tür",
     "thüre": "türe"
   },
+  "v6_equivalences": {
+    "haß": "hass",
+    "eßzimmer": "esszimmer"
+  },
   "edge_cleanup": {
     "strip_unicode_categories": ["P", "S"],
     "preserve_characters": ["'", "’"]

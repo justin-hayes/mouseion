@@ -28,6 +28,7 @@ func TestNormalizeLanguageUsesCanonicalBaseForm(t *testing.T) {
 func TestGermanPost1996Fixtures(t *testing.T) {
 	tests := []struct{ name, raw, want string }{
 		{"historical dass", "daß", "dass"}, {"historical muss casing", "  MUẞ  ", "muss"},
+		{"historical hass", "Haß", "hass"}, {"historical esszimmer", "Eßzimmer", "esszimmer"},
 		{"historical th", "Thür", "tür"}, {"modern spelling", "Schluss", "schluss"},
 		{"diacritic retained", "Grüßen", "grüßen"}, {"modern sharp s retained", "Straße", "straße"},
 		{"ambiguous form", "Maße", "maße"}, {"regional form unchanged", "Bub", "bub"},
@@ -56,9 +57,9 @@ func TestRegistryActiveAndVersionedLookup(t *testing.T) {
 	got, err := registry.For("de-DE")
 	require.NoError(t, err)
 	assert.Equal(t, "german-standard-post-1996", got.Name())
-	assert.Equal(t, "5", got.Version())
+	assert.Equal(t, "6", got.Version())
 	assert.Equal(t, "de", got.Language())
-	versioned, err := registry.Lookup("de_DE", "5")
+	versioned, err := registry.Lookup("de_DE", "6")
 	require.NoError(t, err)
 	assert.Equal(t, got, versioned)
 }
@@ -69,7 +70,7 @@ func TestNormalizePreservesRawLemmaAndRecordsProfile(t *testing.T) {
 	assert.Equal(t, "  Daß  ", got.RawLemma)
 	assert.Equal(t, "dass", got.CanonicalLemma)
 	assert.Equal(t, "german-standard-post-1996", got.ProfileName)
-	assert.Equal(t, "5", got.ProfileVersion)
+	assert.Equal(t, "6", got.ProfileVersion)
 }
 
 func TestGermanNormalizationLeavesFullLexemesUnchanged(t *testing.T) {
@@ -79,16 +80,16 @@ func TestGermanNormalizationLeavesFullLexemesUnchanged(t *testing.T) {
 		assert.Equal(t, raw, got.RawLemma)
 		assert.Equal(t, raw, got.CanonicalLemma)
 		assert.Equal(t, "german-standard-post-1996", got.ProfileName)
-		assert.Equal(t, "5", got.ProfileVersion)
+		assert.Equal(t, "6", got.ProfileVersion)
 	}
 }
 
-func TestGermanV5SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T) {
+func TestGermanV6SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T) {
 	got, err := Normalize("de", "  | geleiten | leiten ")
 	require.NoError(t, err)
 	assert.Equal(t, "  | geleiten | leiten ", got.RawLemma)
 	assert.Equal(t, "geleiten", got.CanonicalLemma)
-	assert.Equal(t, "5", got.ProfileVersion)
+	assert.Equal(t, "6", got.ProfileVersion)
 	historical, err := Lookup("de", "2")
 	require.NoError(t, err)
 	assert.Equal(t, "geleiten|leiten", historical.Canonical("geleiten|leiten"))
@@ -99,6 +100,10 @@ func TestGermanV5SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T
 	historical, err = Lookup("de", "4")
 	require.NoError(t, err)
 	assert.Equal(t, "souveränität", historical.Canonical("Souveränität›"))
+	historical, err = Lookup("de", "5")
+	require.NoError(t, err)
+	assert.Equal(t, "haß", historical.Canonical("Haß"))
+	assert.Equal(t, "hass", GermanPost1996().Canonical("Haß"))
 }
 
 func TestActivatingNewVersionDoesNotMutatePriorResult(t *testing.T) {

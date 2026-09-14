@@ -28,7 +28,7 @@ class SourceDocument:
 PipelineFactory = Callable[[str, bool], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
-GERMAN_NORMALIZATION_VERSION = "5"
+GERMAN_NORMALIZATION_VERSION = "6"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
@@ -49,6 +49,8 @@ GERMAN_POST_1996_EQUIVALENCES = {
     "schloß": "schloss",
     "thür": "tür",
     "thüre": "türe",
+    "haß": "hass",
+    "eßzimmer": "esszimmer",
 }
 
 # Keep this closed: the dependency relation alone is not sufficient to
