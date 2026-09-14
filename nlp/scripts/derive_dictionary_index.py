@@ -229,6 +229,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                 continue
             lemma = normalize(language, word)
             key = (language, lemma, upos)
+            entry = None
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
                     continue
@@ -242,7 +243,8 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                 entry["gender"] = entry["gender"] or sense["Gender"]
                 entry["article"] = entry["article"] or sense["Article"]
                 entry["plural"] = entry["plural"] or sense["Plural"]
-            entry["ipa"] = entry["ipa"] or ipa_for(item)
+            if entry is not None:
+                entry["ipa"] = entry["ipa"] or ipa_for(item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:
