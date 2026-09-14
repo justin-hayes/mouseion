@@ -520,7 +520,7 @@ func backfillSelectionCandidates(ctx context.Context, tx pgx.Tx, owner string, p
 }
 
 func querySelectionCandidates(ctx context.Context, tx pgx.Tx, owner string) ([]selectionCandidateRow, error) {
-	rows, err := tx.Query(ctx, `SELECT corpus_id, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance, selected_at FROM selection_candidates WHERE owner_id=$1 AND language='de'`, owner)
+	rows, err := tx.Query(ctx, `SELECT corpus_id, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance, selected_at FROM selection_candidates WHERE owner_id=$1 AND language='de' ORDER BY corpus_id, canonical_lemma, upos`, owner)
 	if err != nil {
 		return nil, err
 	}

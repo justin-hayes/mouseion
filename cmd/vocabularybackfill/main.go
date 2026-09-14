@@ -13,9 +13,6 @@ import (
 )
 
 func main() {
-	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
-		log.Fatal(err)
-	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("MOUSEION_DATABASE_URL is required")

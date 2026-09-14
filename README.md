@@ -144,16 +144,16 @@ This is useful for an offline rebuild; do not combine it with
 
 ## Re-normalizing German vocabulary
 
-After deploying the v6 German sharp-s policy, run the owner-transactional
-backfill once with the same database environment as the server:
+Stop the web server and other vocabulary writers, then run the owner-
+transactional backfill with the same database environment:
 
 ```sh
 go run ./cmd/vocabularybackfill
 ```
 
 The command is idempotent and exits non-zero for curated-sentence conflicts.
-Resolve reported conflicts before retrying; immutable normalized-corpus runs and
-prepared-deck manifests are not rewritten.
+Resolve reported conflicts before starting the v6 server; immutable
+normalized-corpus runs and prepared-deck manifests are not rewritten.
 
 ## Language validation
 
