@@ -95,3 +95,24 @@ func TestOrdinaryAnalysisIdentityDoesNotReuseLegacyContentHash(t *testing.T) {
 	assert.NotEqual(t, legacyIdentity, currentIdentity, "current ordinary identity reused legacy key %q", legacyIdentity)
 	assert.Equal(t, currentIdentity, ordinaryAnalysisIdentity(contentHash), "ordinary analysis identity is not deterministic")
 }
+
+func TestSnapshotAnalysisUsesDeclaredMainTextSelection(t *testing.T) {
+	units := []snapshotUnit{
+		{UnitID: "front", Order: 0, LandmarkTypes: []string{"titlepage"}},
+		{UnitID: "main", Order: 1, LandmarkTypes: []string{"BODYMATTER"}},
+		{UnitID: "back", Order: 2, LandmarkTypes: []string{"bibliography"}},
+	}
+
+	decision := identifyMainText(units)
+	assert.Equal(t, mainTextConfigIdentity, snapshotConfigIdentityFor(decision))
+	assert.Equal(t, []string{"main"}, decision.SelectedUnitIDs)
+	assert.Equal(t, []string{"front", "back"}, decision.ExcludedUnitIDs)
+	assert.Equal(t, []snapshotUnit{units[1]}, selectedSnapshotUnits(units, decision.SelectedUnitIDs))
+
+	noOp := identifyMainText([]snapshotUnit{
+		{UnitID: "first", Order: 0, LandmarkTypes: []string{"bodymatter"}},
+		{UnitID: "second", Order: 1},
+	})
+	assert.Equal(t, snapshotConfigIdentity, snapshotConfigIdentityFor(noOp))
+	assert.False(t, noOp.Applies)
+}

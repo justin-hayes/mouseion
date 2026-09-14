@@ -22,14 +22,18 @@ import (
 )
 
 func putAnalysisSource(ctx context.Context, store *persistence.PostgresStore, owner, identifier, title, text, hash string) (domain.SourceMaterial, error) {
-	return store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
-		OwnerID: owner, Language: "de", SourceIdentifier: identifier, Title: title,
-		MediaType: "application/epub+zip", ContentHash: hash, Content: []byte(text), FullText: text,
-	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{
+	return putAnalysisSourceWithUnits(ctx, store, owner, identifier, title, text, hash, []domain.ExtractedUnit{{
 		ID: domain.EPUBUnitID(0, identifier), Order: 0, SpineIndex: 0, ManifestID: identifier,
 		SourceHref: identifier, ResolvedHref: identifier, Text: text,
 		EndOffset: uint64(len([]rune(text))), MediaType: "application/xhtml+xml", Linear: true,
-	}}})
+	}})
+}
+
+func putAnalysisSourceWithUnits(ctx context.Context, store *persistence.PostgresStore, owner, identifier, title, text, hash string, units []domain.ExtractedUnit) (domain.SourceMaterial, error) {
+	return store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
+		OwnerID: owner, Language: "de", SourceIdentifier: identifier, Title: title,
+		MediaType: "application/epub+zip", ContentHash: hash, Content: []byte(text), FullText: text,
+	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
 }
 
 func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) {
@@ -205,6 +209,118 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Zero(t, particleCandidateCount)
+}
+
+func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	defer store.Close()
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "main-text-analysis", false)
+	require.NoError(t, err)
+
+	makeSourceUnits := func(identifier string, texts []string, landmarks [][]string) (string, []domain.ExtractedUnit) {
+		fullText := strings.Join(texts, "\n\n")
+		units := make([]domain.ExtractedUnit, len(texts))
+		var start uint64
+		for i, text := range texts {
+			end := start + uint64(len([]rune(text)))
+			manifestID := fmt.Sprintf("%s-%d", identifier, i)
+			units[i] = domain.ExtractedUnit{
+				ID: domain.EPUBUnitID(uint64(i), manifestID), Order: uint64(i), SpineIndex: uint64(i),
+				ManifestID: manifestID, SourceHref: manifestID, ResolvedHref: manifestID,
+				Text: text, StartOffset: start, EndOffset: end, MediaType: "application/xhtml+xml", Linear: true,
+				LandmarkTypes: landmarks[i],
+			}
+			start = end + 2
+		}
+		return fullText, units
+	}
+
+	selectedText, selectedUnits := makeSourceUnits("selected", []string{"Vorwort.", "Kapitel Inhalt.", "Quellen."}, [][]string{{"titlepage"}, {"bodymatter"}, {"bibliography"}})
+	selectedSource, err := putAnalysisSourceWithUnits(ctx, store, owner.ID, "selected", "Selected", selectedText, "sha256:selected", selectedUnits)
+	require.NoError(t, err)
+	snapshotID, beforeSnapshot, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, selectedSource.ID)
+	require.NoError(t, err)
+
+	var analyzed []string
+	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		analyzed = append(analyzed, req.Document.Text)
+		length := uint64(len([]rune(req.Document.Text)))
+		return analyzer.Result{
+			SchemaVersion: "1.0.0", Language: req.Language,
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+			Sentences: []analyzer.Sentence{{
+				Text:     req.Document.Text,
+				Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: length},
+				Tokens:   []analyzer.Token{{Surface: "content", RawLemma: "content", CanonicalLemma: "content", UPOS: "NOUN", Dependency: "root", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: length}}},
+			}},
+		}, nil
+	}}
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	defer client.Stop(context.Background())
+	service := NewService(store.Pool(), client)
+
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, selectedSource.ID)
+	require.NoError(t, err)
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, status.State)
+	assert.Equal(t, []string{"Kapitel Inhalt."}, analyzed)
+
+	var configIdentity string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT config_identity FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&configIdentity))
+	assert.Equal(t, mainTextConfigIdentity, configIdentity)
+	corpus, err := service.Result(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	require.NotNil(t, corpus.Statistics)
+	assert.Equal(t, int64(1), corpus.Statistics.AnalyzableTokenCount)
+	require.NotNil(t, corpus.Statistics.TextProfile)
+	assert.Equal(t, int64(1), corpus.Statistics.TextProfile.SentenceCount)
+
+	gotSnapshotID, afterSnapshot, err := store.GetExtractedUnitSnapshot(ctx, owner.ID, selectedSource.ID)
+	require.NoError(t, err)
+	assert.Equal(t, snapshotID, gotSnapshotID)
+	assert.Equal(t, beforeSnapshot, afterSnapshot)
+
+	duplicate, err := service.SubmitAnalysis(ctx, owner.ID, selectedSource.ID)
+	require.NoError(t, err)
+	assert.Equal(t, handle.ID, duplicate.ID)
+	assert.Len(t, analyzed, 1, "duplicate submission created another analysis")
+
+	wholeText, wholeUnits := makeSourceUnits("whole", []string{"Erster Inhalt.", "Zweiter Inhalt."}, [][]string{nil, nil})
+	wholeSource, err := putAnalysisSourceWithUnits(ctx, store, owner.ID, "whole", "Whole", wholeText, "sha256:whole", wholeUnits)
+	require.NoError(t, err)
+	wholeHandle, err := service.SubmitAnalysis(ctx, owner.ID, wholeSource.ID)
+	require.NoError(t, err)
+	wholeStatus, err := service.Wait(ctx, owner.ID, wholeHandle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, wholeStatus.State)
+	assert.Equal(t, []string{"Kapitel Inhalt.", "Erster Inhalt.", "Zweiter Inhalt."}, analyzed)
+	require.NoError(t, pool.QueryRow(ctx, `SELECT config_identity FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, wholeHandle.RunID).Scan(&configIdentity))
+	assert.Equal(t, snapshotConfigIdentity, configIdentity)
+
+	noOpText, noOpUnits := makeSourceUnits("noop", []string{"Main Inhalt.", "Weiterer Inhalt."}, [][]string{{"bodymatter"}, nil})
+	noOpSource, err := putAnalysisSourceWithUnits(ctx, store, owner.ID, "noop", "No-op", noOpText, "sha256:noop", noOpUnits)
+	require.NoError(t, err)
+	noOpHandle, err := service.SubmitAnalysis(ctx, owner.ID, noOpSource.ID)
+	require.NoError(t, err)
+	noOpStatus, err := service.Wait(ctx, owner.ID, noOpHandle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, noOpStatus.State)
+	assert.Equal(t, []string{"Kapitel Inhalt.", "Erster Inhalt.", "Zweiter Inhalt.", "Main Inhalt.", "Weiterer Inhalt."}, analyzed)
+	require.NoError(t, pool.QueryRow(ctx, `SELECT config_identity FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, noOpHandle.RunID).Scan(&configIdentity))
+	assert.Equal(t, snapshotConfigIdentity, configIdentity)
+	noOpDuplicate, err := service.SubmitAnalysis(ctx, owner.ID, noOpSource.ID)
+	require.NoError(t, err)
+	assert.Equal(t, noOpHandle.ID, noOpDuplicate.ID)
+	assert.Len(t, analyzed, 5, "no-op duplicate submission created another analysis")
 }
 
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
