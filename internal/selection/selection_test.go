@@ -40,13 +40,8 @@ func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.Selectio
 	return true, nil
 }
 
-func tok(surface, lemma, upos string, ner bool) analyzer.Token {
-	var entity *string
-	if ner {
-		v := "PERSON"
-		entity = &v
-	}
-	return analyzer.Token{Surface: surface, CanonicalLemma: lemma, UPOS: upos, NamedEntity: entity}
+func tok(surface, lemma, upos string) analyzer.Token {
+	return analyzer.Token{Surface: surface, CanonicalLemma: lemma, UPOS: upos}
 }
 func fixture(tokens ...analyzer.Token) analyzer.Result {
 	sentences := make([]analyzer.Sentence, len(tokens))
@@ -60,7 +55,7 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
 	svc := NewService(store)
 	cfg := DefaultConfig("corpus-1")
-	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "noun", false), tok("selten", "selten", "ADJ", false), tok("der", "der", "DET", false), tok("Berlin", "Berlin", "PROPN", false), tok("Anna", "Anna", "NOUN", true))
+	corpus := fixture(tok("Häuser", "Haus", "NOUN"), tok("Haus", "Haus", "noun"), tok("selten", "selten", "ADJ"), tok("der", "der", "DET"), tok("Berlin", "Berlin", "PROPN"))
 	got, err := svc.Select(context.Background(), "alice", corpus, cfg)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
@@ -89,22 +84,20 @@ func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 
 func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testing.T) {
 	corpus := fixture(
-		tok("Häuser", "Haus", "NOUN", false),
-		tok("Haus", "Haus", "noun", false),
-		tok("laufen", "laufen", "VERB", false),
-		tok("der", "der", "DET", false),
-		tok("Anna", "Anna", "NOUN", true),
-		tok("leer", " ", "ADJ", false),
-		tok("5", "5", "NOUN", false),
-		tok("B2", "B2", "NOUN", false),
+		tok("Häuser", "Haus", "NOUN"),
+		tok("Haus", "Haus", "noun"),
+		tok("laufen", "laufen", "VERB"),
+		tok("der", "der", "DET"),
+		tok("leer", " ", "ADJ"),
+		tok("5", "5", "NOUN"),
+		tok("B2", "B2", "NOUN"),
 	)
 	got := AnalyzableStatistics(corpus, DefaultConfig("corpus-1"))
-	want := domain.AnalysisStatistics{AnalyzableTokenCount: 4, DistinctLemmaCount: 3, TextProfile: &domain.TextProfile{SentenceCount: 8, NormalizedTokenCount: 8, MedianSentenceTokenCount: 1, P90SentenceTokenCount: 1}}
+	want := domain.AnalysisStatistics{AnalyzableTokenCount: 4, DistinctLemmaCount: 3, TextProfile: &domain.TextProfile{SentenceCount: 7, NormalizedTokenCount: 7, MedianSentenceTokenCount: 1, P90SentenceTokenCount: 1}}
 	assert.Equal(t, want, got)
 }
 
 func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
-	person := "S-PER"
 	corpus := analyzer.Result{Language: "it", Sentences: []analyzer.Sentence{{
 		Text: "L'uomo e gli uomini bevono dell'acqua; Maria berrà e dammelo!",
 		Tokens: []analyzer.Token{
@@ -115,7 +108,7 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 			{Surface: "dell'", CanonicalLemma: "di", UPOS: "ADP"},
 			{Surface: "acqua", CanonicalLemma: "acqua", UPOS: "NOUN"},
 			{Surface: ";", CanonicalLemma: ";", UPOS: "PUNCT"},
-			{Surface: "Maria", CanonicalLemma: "maria", UPOS: "PROPN", NamedEntity: &person},
+			{Surface: "Maria", CanonicalLemma: "maria", UPOS: "PROPN"},
 			{Surface: "berrà", CanonicalLemma: "bere", UPOS: "VERB"},
 			{Surface: "damme", CanonicalLemma: "dare", UPOS: "VERB"},
 			{Surface: "lo", CanonicalLemma: "lo", UPOS: "PRON"},
@@ -155,8 +148,7 @@ func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
 	cfg := DefaultConfig("c")
 	assert.Equal(t, 1, cfg.MinOccurrences, "MinOccurrences=%d, want 1", cfg.MinOccurrences)
 	cfg.AllowedPOS["PROPN"] = true
-	cfg.IncludeNamedEntities = true
-	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Berlin", "Berlin", "PROPN", true)), cfg)
+	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Berlin", "Berlin", "PROPN")), cfg)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, 1, got[0].OccurrenceCount)
@@ -169,7 +161,7 @@ func TestOwnerScopedExclusions(t *testing.T) {
 		store.states[store.key("alice", "de", state, "NOUN")] = state
 	}
 	store.known[store.key("alice", "de", "importiert", "NOUN")] = true
-	corpus := fixture(tok("known", "known", "NOUN", false), tok("known", "known", "NOUN", false), tok("ignored", "ignored", "NOUN", false), tok("ignored", "ignored", "NOUN", false), tok("generated", "generated", "NOUN", false), tok("generated", "generated", "NOUN", false), tok("importiert", "importiert", "NOUN", false), tok("importiert", "importiert", "NOUN", false))
+	corpus := fixture(tok("known", "known", "NOUN"), tok("known", "known", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("generated", "generated", "NOUN"), tok("generated", "generated", "NOUN"), tok("importiert", "importiert", "NOUN"), tok("importiert", "importiert", "NOUN"))
 	svc := NewService(store)
 	alice, err := svc.Select(context.Background(), "alice", corpus, DefaultConfig("a"))
 	require.NoError(t, err)
@@ -184,7 +176,7 @@ func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
 	store.states[store.key("alice", "de", "Haus", "NOUN")] = "generated"
 
-	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Haus", "Haus", "NOUN", false)), DefaultConfig("book"))
+	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Haus", "Haus", "NOUN")), DefaultConfig("book"))
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Len(t, store.saved, 1)
@@ -193,7 +185,7 @@ func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
 func TestReservedVocabularyIsOwnerScoped(t *testing.T) {
 	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
 	store.reserved[store.key("alice", "de", "Haus", "NOUN")] = true
-	corpus := fixture(tok("Haus", "Haus", "NOUN", false))
+	corpus := fixture(tok("Haus", "Haus", "NOUN"))
 
 	alice, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("next-book"))
 	require.NoError(t, err)

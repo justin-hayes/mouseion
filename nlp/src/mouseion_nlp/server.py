@@ -85,10 +85,7 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
                     language=descriptor.language,
                     display_name=descriptor.display_name,
                     model_version=descriptor.model_version,
-                    supported_features=[
-                        *descriptor.supported_features,
-                        *(["ner"] if self._producer.enable_ner else []),
-                    ],
+                    supported_features=list(descriptor.supported_features),
                     ready=descriptor.ready,
                 )
                 for descriptor in self._languages

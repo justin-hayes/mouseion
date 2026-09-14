@@ -42,10 +42,9 @@ type Candidate struct {
 }
 
 type SelectionConfig struct {
-	CorpusID             string
-	MinOccurrences       int
-	AllowedPOS           map[string]bool
-	IncludeNamedEntities bool
+	CorpusID       string
+	MinOccurrences int
+	AllowedPOS     map[string]bool
 }
 
 func DefaultConfig(corpusID string) SelectionConfig {
@@ -102,7 +101,7 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig) map[Identity]*
 	for si, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
 			id := Identity{corpus.Language, strings.TrimSpace(token.CanonicalLemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
-			if token.Dependency == "compound:prt" || !lexical.IsLemma(id.CanonicalLemma) || !cfg.AllowedPOS[id.UPOS] || (token.NamedEntity != nil && !cfg.IncludeNamedEntities) {
+			if token.Dependency == "compound:prt" || !lexical.IsLemma(id.CanonicalLemma) || !cfg.AllowedPOS[id.UPOS] {
 				continue
 			}
 			a := aggs[id]

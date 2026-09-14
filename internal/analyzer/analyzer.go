@@ -62,7 +62,6 @@ type Token struct {
 	Dependency     string
 	Head           uint32
 	Morphology     map[string]string
-	NamedEntity    *string
 	Location       SourceLocation
 }
 

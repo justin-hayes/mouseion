@@ -60,7 +60,7 @@ docker compose up -d --build
 
 Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. The init
 container provisions the full runtime processor set (`tokenize,pos,lemma,
-depparse,ner`) into `stanza-data`, mounted at
+depparse`) into `stanza-data`, mounted at
 `STANZA_RESOURCES_DIR=/opt/stanza_resources`. A marker in that volume makes
 unchanged restarts a no-op, downloads only a newly added language, and
 re-provisions everything automatically when the Stanza version changes.

@@ -40,22 +40,19 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
         sentences=[
             SimpleNamespace(
                 text="Goethe schrieb.",
-                ents=[],
                 tokens=[
                     SimpleNamespace(
-                        words=[word("Goethe", "Goethe", "PROPN", "Case=Nom", 0, 6)], ner="B-PER"
+                        words=[word("Goethe", "Goethe", "PROPN", "Case=Nom", 0, 6)]
                     ),
-                    SimpleNamespace(
-                        words=[word("schrieb", "schreiben", "VERB", "Tense=Past", 7, 14)], ner="O"
-                    ),
-                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 14, 15)], ner="O"),
+                    SimpleNamespace(words=[word("schrieb", "schreiben", "VERB", "Tense=Past", 7, 14)]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 14, 15)]),
                 ],
             )
         ]
     )
 
-    def factory(language: str, enable_ner: bool):
-        assert (language, enable_ner) == ("de", True)
+    def factory(language: str):
+        assert language == "de"
 
         def pipeline(text: str):
             calls.append(text)
@@ -63,7 +60,7 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
 
         return pipeline
 
-    artifact = Producer(enable_ner=True, pipeline_factory=factory).analyze(
+    artifact = Producer(pipeline_factory=factory).analyze(
         "Goethe schrieb.",
         "de",
         SourceDocument("book-1", "opds:42", "Das Buch", "1", "opening"),
@@ -82,8 +79,6 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
     assert artifact.sentences[0].tokens[1].morphology == {"Tense": "Past"}
     assert artifact.sentences[0].tokens[0].dependency == "root"
     assert artifact.sentences[0].tokens[0].head == 0
-    assert artifact.sentences[0].tokens[0].named_entity == "B-PER"
-    assert not artifact.sentences[0].tokens[1].HasField("named_entity")
     assert artifact.sentences[0].tokens[1].location.start_offset == 7
     assert artifact.sentences[0].location.end_offset == 15
     assert artifact.sentences[0].location.chapter == "1"
@@ -128,30 +123,12 @@ def test_maps_dependency_heads_through_multiword_tokens() -> None:
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     tokens = producer.analyze("L'uomo mangia dell'acqua.", "it").sentences[0].tokens
 
     assert [token.dependency for token in tokens] == ["det", "nsubj", "root", "case", "det", "obj", "punct"]
     assert [token.head for token in tokens] == [1, 2, 2, 5, 5, 2, 2]
-
-
-def test_ner_is_not_emitted_when_disabled() -> None:
-    result = SimpleNamespace(
-        sentences=[
-            SimpleNamespace(
-                text="Berlin",
-                tokens=[
-                    SimpleNamespace(
-                        words=[word("Berlin", "Berlin", "PROPN", None, 0, 6)], ner="S-LOC"
-                    )
-                ],
-            )
-        ]
-    )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
-    token = producer.analyze("Berlin", "de").sentences[0].tokens[0]
-    assert not token.HasField("named_entity")
 
 
 def test_cleans_edge_punctuation_without_changing_offsets_or_internal_punctuation() -> None:
@@ -167,7 +144,7 @@ def test_cleans_edge_punctuation_without_changing_offsets_or_internal_punctuatio
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     artifact = producer.analyze("‹die Besten› O'Neill-like", "de")
     tokens = artifact.sentences[0].tokens
@@ -190,7 +167,7 @@ def test_cleans_all_unicode_punctuation_and_symbol_edges() -> None:
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     tokens = producer.analyze(" ".join(surfaces), "de").sentences[0].tokens
 
@@ -219,7 +196,7 @@ def test_cleans_reported_lemma_boundaries_and_preserves_internal_punctuation() -
             ),
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     artifact = producer.analyze(first_text + " " + second_text, "de")
     first_token = artifact.sentences[0].tokens[0]
@@ -246,7 +223,7 @@ def test_pipe_separated_lemma_uses_first_alternative_and_preserves_raw_lemma(cap
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     with caplog.at_level(logging.WARNING, logger="mouseion_nlp.producer"):
         token = producer.analyze("Nausikaa geleitet ihn.", "de").sentences[0].tokens[0]
@@ -265,7 +242,7 @@ def test_rejects_token_with_no_usable_pipe_lemma(caplog) -> None:
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     with caplog.at_level(logging.WARNING, logger="mouseion_nlp.producer"):
         sentence = producer.analyze("Wort", "de").sentences[0]
@@ -290,7 +267,7 @@ def test_german_normalization_preserves_modern_sharp_s_and_maps_historical_forms
             )
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     artifact = producer.analyze("Straße, Maße, Masse, daß, Haß, Eßzimmer", "de-DE")
 
@@ -381,7 +358,7 @@ def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
             ),
         ]
     )
-    producer = Producer(pipeline_factory=lambda language, enable_ner: lambda text: result)
+    producer = Producer(pipeline_factory=lambda language: lambda text: result)
 
     artifact = producer.analyze("fixture", "de")
 
@@ -418,7 +395,7 @@ def test_normalized_corpus_round_trip() -> None:
 def test_warmup_loads_the_pipeline_for_a_language() -> None:
     loaded: list[str] = []
 
-    def factory(language: str, enable_ner: bool):
+    def factory(language: str):
         loaded.append(language)
 
         def pipeline(text: str):
@@ -452,8 +429,8 @@ def test_italian_warmup_and_analyze_use_the_injected_pipeline() -> None:
         ]
     )
 
-    def factory(language: str, enable_ner: bool):
-        assert (language, enable_ner) == ("it", False)
+    def factory(language: str):
+        assert language == "it"
         loaded.append(language)
 
         def pipeline(text: str):
@@ -479,35 +456,35 @@ def test_italian_linguistic_regression_fixture() -> None:
         SimpleNamespace(
             text="L'uomo e le ragazze bevono dell'acqua.",
             tokens=[
-                SimpleNamespace(words=[word("L'", "il", "DET", "Definite=Def|Gender=Masc|Number=Sing|PronType=Art", 0, 2)], ner="O"),
-                SimpleNamespace(words=[word("uomo", "uomo", "NOUN", "Gender=Masc|Number=Sing", 2, 6)], ner="O"),
-                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 7, 8)], ner="O"),
-                SimpleNamespace(words=[word("le", "il", "DET", "Definite=Def|Gender=Fem|Number=Plur|PronType=Art", 9, 11)], ner="O"),
-                SimpleNamespace(words=[word("ragazze", "ragazza", "NOUN", "Gender=Fem|Number=Plur", 12, 19)], ner="O"),
-                SimpleNamespace(words=[word("bevono", "bere", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 20, 26)], ner="O"),
-                SimpleNamespace(words=[word("dell'", "di", "ADP", None, 27, 32), word("dell'", "il", "DET", "Definite=Def|Gender=Fem|Number=Sing|PronType=Art", 27, 32)], ner="O"),
-                SimpleNamespace(words=[word("acqua", "acqua", "NOUN", "Gender=Fem|Number=Sing", 32, 37)], ner="O"),
-                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 37, 38)], ner="O"),
+                SimpleNamespace(words=[word("L'", "il", "DET", "Definite=Def|Gender=Masc|Number=Sing|PronType=Art", 0, 2)]),
+                SimpleNamespace(words=[word("uomo", "uomo", "NOUN", "Gender=Masc|Number=Sing", 2, 6)]),
+                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 7, 8)]),
+                SimpleNamespace(words=[word("le", "il", "DET", "Definite=Def|Gender=Fem|Number=Plur|PronType=Art", 9, 11)]),
+                SimpleNamespace(words=[word("ragazze", "ragazza", "NOUN", "Gender=Fem|Number=Plur", 12, 19)]),
+                SimpleNamespace(words=[word("bevono", "bere", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 20, 26)]),
+                SimpleNamespace(words=[word("dell'", "di", "ADP", None, 27, 32), word("dell'", "il", "DET", "Definite=Def|Gender=Fem|Number=Sing|PronType=Art", 27, 32)]),
+                SimpleNamespace(words=[word("acqua", "acqua", "NOUN", "Gender=Fem|Number=Sing", 32, 37)]),
+                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 37, 38)]),
             ],
         ),
         SimpleNamespace(
             text="Maria portera`? No, porterà pane e dammelo!",
             tokens=[
-                SimpleNamespace(words=[word("Maria", "Maria", "PROPN", "Gender=Fem|Number=Sing", 39, 44)], ner="S-PER"),
-                SimpleNamespace(words=[word("portera`", "portera`", "X", None, 45, 53)], ner="O"),
-                SimpleNamespace(words=[word("?", "?", "PUNCT", None, 53, 54)], ner="O"),
-                SimpleNamespace(words=[word("No", "no", "ADV", None, 55, 57)], ner="O"),
-                SimpleNamespace(words=[word(",", ",", "PUNCT", None, 57, 58)], ner="O"),
-                SimpleNamespace(words=[word("porterà", "portare", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin", 59, 66)], ner="O"),
-                SimpleNamespace(words=[word("pane", "pane", "NOUN", "Gender=Masc|Number=Sing", 67, 71)], ner="O"),
-                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 72, 73)], ner="O"),
-                SimpleNamespace(words=[word("damme", "dare", "VERB", "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin", 74, 79), word("lo", "lo", "PRON", "Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs", 79, 81)], ner="O"),
-                SimpleNamespace(words=[word("!", "!", "PUNCT", None, 81, 82)], ner="O"),
+                SimpleNamespace(words=[word("Maria", "Maria", "PROPN", "Gender=Fem|Number=Sing", 39, 44)]),
+                SimpleNamespace(words=[word("portera`", "portera`", "X", None, 45, 53)]),
+                SimpleNamespace(words=[word("?", "?", "PUNCT", None, 53, 54)]),
+                SimpleNamespace(words=[word("No", "no", "ADV", None, 55, 57)]),
+                SimpleNamespace(words=[word(",", ",", "PUNCT", None, 57, 58)]),
+                SimpleNamespace(words=[word("porterà", "portare", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Fut|VerbForm=Fin", 59, 66)]),
+                SimpleNamespace(words=[word("pane", "pane", "NOUN", "Gender=Masc|Number=Sing", 67, 71)]),
+                SimpleNamespace(words=[word("e", "e", "CCONJ", None, 72, 73)]),
+                SimpleNamespace(words=[word("damme", "dare", "VERB", "Mood=Imp|Number=Sing|Person=2|VerbForm=Fin", 74, 79), word("lo", "lo", "PRON", "Clitic=Yes|Gender=Masc|Number=Sing|Person=3|PronType=Prs", 79, 81)]),
+                SimpleNamespace(words=[word("!", "!", "PUNCT", None, 81, 82)]),
             ],
         ),
     ]
     result = SimpleNamespace(sentences=sentences)
-    producer = Producer(enable_ner=True, pipeline_factory=lambda language, enable_ner: lambda value: result)
+    producer = Producer(pipeline_factory=lambda language: lambda value: result)
 
     artifact = producer.analyze(
         text,

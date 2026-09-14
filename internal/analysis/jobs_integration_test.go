@@ -95,11 +95,10 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	namedEntity := "LOC"
 	unitID := domain.EPUBUnitID(0, "corpus-source")
 	tokens := []analyzer.Token{
 		{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "dep", Head: 1, Morphology: map[string]string{"Polite": "No"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 0, EndOffset: 5}},
-		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Dependency: "root", Head: 1, Morphology: map[string]string{"Case": "Nom"}, NamedEntity: &namedEntity, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
+		{Surface: "Berlin", RawLemma: "Berlin", CanonicalLemma: "berlin", UPOS: "PROPN", Dependency: "root", Head: 1, Morphology: map[string]string{"Case": "Nom"}, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 12}},
 		{Surface: "stehe", RawLemma: "stehen", CanonicalLemma: "aufstehen", UPOS: "VERB", Dependency: "root", Head: 2, Location: analyzer.SourceLocation{SourceDocumentID: unitID}},
 		{Surface: "auf", RawLemma: "auf", CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt", Head: 2, Location: analyzer.SourceLocation{SourceDocumentID: unitID}},
 	}
@@ -176,16 +175,15 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	assert.Equal(t, "german-standard-post-1996", normalizationProfile)
 	assert.Equal(t, "6", normalizationVersion)
 	var surface, rawLemma, canonicalLemma, upos, morphology, storedUnitID string
-	var namedEntityValue *string
 	var sentenceOrdinal, tokenOrdinal, startOffset, endOffset, head int64
 	var dependency string
-	if err = pool.QueryRow(ctx, `SELECT s.unit_id,t.surface,t.raw_lemma,t.canonical_lemma,t.upos,t.dependency,t.head,t.morphology::text,t.named_entity,s.sentence_ordinal,t.token_ordinal,t.start_offset,t.end_offset
+	if err = pool.QueryRow(ctx, `SELECT s.unit_id,t.surface,t.raw_lemma,t.canonical_lemma,t.upos,t.dependency,t.head,t.morphology::text,s.sentence_ordinal,t.token_ordinal,t.start_offset,t.end_offset
 		FROM corpus_tokens t JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
-		WHERE t.owner_id=$1 AND t.corpus_id=$2 AND t.canonical_lemma='berlin'`, owner.ID, corpus.ID).Scan(&storedUnitID, &surface, &rawLemma, &canonicalLemma, &upos, &dependency, &head, &morphology, &namedEntityValue, &sentenceOrdinal, &tokenOrdinal, &startOffset, &endOffset); err != nil {
+		WHERE t.owner_id=$1 AND t.corpus_id=$2 AND t.canonical_lemma='berlin'`, owner.ID, corpus.ID).Scan(&storedUnitID, &surface, &rawLemma, &canonicalLemma, &upos, &dependency, &head, &morphology, &sentenceOrdinal, &tokenOrdinal, &startOffset, &endOffset); err != nil {
 		t.Fatal(err)
 	}
-	if storedUnitID != unitID || surface != "Berlin" || rawLemma != "Berlin" || canonicalLemma != "berlin" || upos != "PROPN" || dependency != "root" || head != 1 || namedEntityValue == nil || *namedEntityValue != namedEntity || sentenceOrdinal != 0 || tokenOrdinal != 1 || startOffset != 6 || endOffset != 12 {
-		t.Fatalf("stored token = unit=%q surface=%q raw=%q canonical=%q upos=%q dependency=%q head=%d morphology=%q entity=%v sentence=%d token=%d offsets=%d:%d", storedUnitID, surface, rawLemma, canonicalLemma, upos, dependency, head, morphology, namedEntityValue, sentenceOrdinal, tokenOrdinal, startOffset, endOffset)
+	if storedUnitID != unitID || surface != "Berlin" || rawLemma != "Berlin" || canonicalLemma != "berlin" || upos != "PROPN" || dependency != "root" || head != 1 || sentenceOrdinal != 0 || tokenOrdinal != 1 || startOffset != 6 || endOffset != 12 {
+		t.Fatalf("stored token = unit=%q surface=%q raw=%q canonical=%q upos=%q dependency=%q head=%d morphology=%q sentence=%d token=%d offsets=%d:%d", storedUnitID, surface, rawLemma, canonicalLemma, upos, dependency, head, morphology, sentenceOrdinal, tokenOrdinal, startOffset, endOffset)
 	}
 	assert.JSONEq(t, `{"Case":"Nom"}`, morphology)
 	var functionSurface, functionRawLemma, functionCanonicalLemma, functionUPOS, functionMorphology string

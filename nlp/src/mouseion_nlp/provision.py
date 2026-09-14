@@ -2,7 +2,7 @@
 
 The NLP service owns the configured language set (ADR 0023) and advertises the
 full runtime processor set; this entrypoint fills ``STANZA_RESOURCES_DIR`` with
-``tokenize``, ``pos``, ``lemma``, ``depparse``, and ``ner`` for every configured
+``tokenize``, ``pos``, ``lemma``, and ``depparse`` for every configured
 language so the serving container never downloads at startup.
 
 Provisioning is idempotent and refresh-aware via a marker file written into the
@@ -34,7 +34,7 @@ from .server import configured_languages
 
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
-PROCESSORS = "tokenize,pos,lemma,depparse,ner"
+PROCESSORS = "tokenize,pos,lemma,depparse"
 
 
 @dataclass(frozen=True)
