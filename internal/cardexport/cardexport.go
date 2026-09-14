@@ -815,7 +815,7 @@ func makeNote(owner string, entry Entry) (Note, error) {
 	if note.PrincipalParts != "" {
 		back = append(back, note.PrincipalParts)
 	}
-	back = append(back, note.POS, note.Gloss, note.English, note.EnglishSentence)
+	back = append(back, note.POS, note.Gloss, note.EnglishSentence)
 	note.BackExtra = strings.Join(back, "\n")
 	return note, nil
 }
