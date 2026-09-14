@@ -174,16 +174,16 @@ sentence translation only.
       index `provider_version` recorded; the external cache is not used
 - [x] No dictionary data in Postgres; no new service; NLP service unchanged
 - [x] Attribution notice retained per CC BY-SA / GFDL
-- [ ] A form tagged plural is never accepted as a noun's article, and an
+- [x] A form tagged plural is never accepted as a noun's article, and an
       explicit non-article `Article` value falls back to gender
-- [ ] German and Italian nouns render their dictionary plural beside the lemma
+- [x] German and Italian nouns render their dictionary plural beside the lemma
       in a dedicated `Plural` field, not inside `Gloss`
 - [x] Deck freeze emits a per-language/POS `gloss_coverage` summary
-- [ ] IPA is normalized in the derivation and rendered as a dedicated `IPA`
+- [x] IPA is normalized in the derivation and rendered as a dedicated `IPA`
       field; an absent IPA leaves the card valid
-- [ ] German verbs render principal parts as a dedicated `PrincipalParts` field;
+- [x] German verbs render principal parts as a dedicated `PrincipalParts` field;
       an absent value leaves the card valid
-- [ ] The card back renders one meaning block; the `English` field is retained
+- [x] The card back renders one meaning block; the `English` field is retained
       but not rendered
 
 ## References

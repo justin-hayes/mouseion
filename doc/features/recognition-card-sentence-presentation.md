@@ -91,6 +91,17 @@ When external translation is consented, the LLM may reselect and reorder the
 dictionary senses, or supply a fallback gloss when no dictionary sense fits. See
 [llm-sense-selection.md](llm-sense-selection.md).
 
+## Presentation preview
+
+The frozen Anki template and stylesheet
+(`internal/cardexport/templates/recognition_card_back.html` and
+`recognition_card.css`) are produced from the static preview at
+`internal/cardexport/testdata/recognition_card_preview.html`. The preview uses
+the design-system semantic tokens, supports Anki dark mode, keeps the headword
+dominant over its inflectional forms, and collapses absent fields cleanly. It
+was reviewed and signed off (PR #906) before the exporter changes landed; see
+[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+
 ## English target highlighting
 
 The contextual English translation may bold the English word or phrase that
