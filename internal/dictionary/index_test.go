@@ -3,6 +3,8 @@ package dictionary
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"io/fs"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +13,29 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 )
+
+func TestOpenIndexRejectsDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	index, err := OpenIndex(dir)
+
+	require.Error(t, err)
+	assert.Nil(t, index)
+	assert.ErrorIs(t, err, ErrInvalidIndex)
+	assert.False(t, errors.Is(err, fs.ErrNotExist), "a directory is a misconfiguration, not an absent index")
+	assert.Contains(t, err.Error(), "directory")
+}
+
+func TestOpenIndexMissingPathIsNotExist(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "absent.sqlite")
+
+	index, err := OpenIndex(path)
+
+	require.Error(t, err)
+	assert.Nil(t, index)
+	assert.ErrorIs(t, err, ErrInvalidIndex)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
 
 func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")

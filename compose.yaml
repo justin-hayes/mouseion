@@ -67,7 +67,7 @@ services:
       MOUSEION_HTTP_ADDR: ":8080"
       # Set to "true" only when serving HTTPS (e.g. tailscale cert / TLS reverse proxy); ADR 0009.
       MOUSEION_COOKIE_SECURE: ${MOUSEION_COOKIE_SECURE:-false}
-      MOUSEION_DICTIONARY_INDEX: ${MOUSEION_DICTIONARY_INDEX:-/opt/mouseion/dictionary-index.sqlite}
+      MOUSEION_DICTIONARY_INDEX: ${MOUSEION_DICTIONARY_INDEX:-/opt/mouseion/dictionary/dictionary-index.sqlite}
       MOUSEION_SECRET: ${MOUSEION_SECRET:-change-me-in-prod}
       MOUSEION_LLM_ENABLED: ${MOUSEION_LLM_ENABLED:-false}
       MOUSEION_LLM_API_KEY: ${MOUSEION_LLM_API_KEY:-}
@@ -86,7 +86,7 @@ services:
       MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS: ${MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS:-5000}
       MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL: ${MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL:-30s}
     volumes:
-      - ${MOUSEION_DICTIONARY_HOST_PATH:-./dictionary-index.sqlite}:/opt/mouseion/dictionary-index.sqlite:ro
+      - ${MOUSEION_DICTIONARY_HOST_DIR:-./dictionary}:/opt/mouseion/dictionary:ro
     ports:
       - "8080:8080"
     healthcheck:

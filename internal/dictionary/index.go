@@ -36,8 +36,12 @@ func OpenIndex(path string) (*Index, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: resolve path: %v", ErrInvalidIndex, err)
 	}
-	if _, err = os.Stat(absolute); err != nil {
-		return nil, fmt.Errorf("%w: stat index: %v", ErrInvalidIndex, err)
+	info, err := os.Stat(absolute)
+	if err != nil {
+		return nil, fmt.Errorf("%w: stat index: %w", ErrInvalidIndex, err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("%w: %s is a directory, not a SQLite file (a missing Docker bind-mount source is created as a directory)", ErrInvalidIndex, absolute)
 	}
 	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(absolute)+"?mode=ro&_query_only=1")
 	if err != nil {
