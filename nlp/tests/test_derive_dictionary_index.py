@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import gzip
 import json
 import sqlite3
 from pathlib import Path
@@ -22,6 +23,8 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
 
     connection = sqlite3.connect(output)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'provider_version'").fetchone() == ("dump-2026-09-14",)
+    assert connection.execute("SELECT value FROM metadata WHERE key = 'license'").fetchone() == ("Wiktionary-derived data: CC BY-SA 3.0 / GFDL",)
+    assert connection.execute("SELECT value FROM metadata WHERE key = 'attribution'").fetchone() == ("Wiktionary contributors; CC BY-SA 3.0 / GFDL",)
     row = connection.execute("SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'").fetchone()
     assert row[:3] == ("de", "haus", "NOUN")
     assert json.loads(row[3])[0]["Gloss"] == "house"
@@ -36,4 +39,19 @@ def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
         ("libro", "Masc", "il", "libri"),
         ("zaino", "Masc", "lo", "zaini"),
     ]
+    connection.close()
+
+
+def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
+    module = load_script()
+    source = Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl"
+    compressed = tmp_path / "kaikki.json.gz"
+    with gzip.open(compressed, "wt", encoding="utf-8") as output:
+        output.write(source.read_text(encoding="utf-8"))
+
+    index = tmp_path / "dictionary.sqlite"
+    module.derive(compressed, index, "dump-2026-09-14")
+
+    connection = sqlite3.connect(index)
+    assert connection.execute("SELECT count(*) FROM entries").fetchone() == (6,)
     connection.close()

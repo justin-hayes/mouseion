@@ -100,6 +100,37 @@ make dev
 
 Then open `http://localhost:8080`.
 
+## Refreshing the dictionary index
+
+The optional dictionary index is a build artifact, not Postgres state and not a
+service. After running `make setup`, derive the combined German and Italian
+index from the current Kaikki raw Wiktextract dump with:
+
+```sh
+make dictionary-index \
+  DICTIONARY_DUMP_DATE=YYYY-MM-DD \
+  DICTIONARY_WIKTEXTRACT_COMMIT=<wiktextract-commit> \
+  DICTIONARY_REFRESH=1
+```
+
+`DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
+omit it when rebuilding from the cached dump. The command writes
+`dictionary-index.sqlite` atomically. Set `DICTIONARY_OUTPUT` to choose another
+path, then point `MOUSEION_DICTIONARY_INDEX` and the Compose host-path variable
+at that file and restart the web process. No migration or additional service is
+needed. The generated SQLite metadata records the dump date, UTC extraction
+date, Wiktextract commit, source, license, and attribution.
+
+The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
+and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
+generated metadata and attribution when shipping or sharing the index; derived
+dictionary data remains subject to the applicable share-alike requirements.
+
+For an already downloaded JSONL or JSONL.GZ file, use
+`KAIKKI_INPUT=/path/to/raw-wiktextract-data.jsonl.gz` instead of the downloader.
+This is useful for an offline rebuild; do not combine it with
+`DICTIONARY_REFRESH=1`.
+
 ## Language validation
 
 German and Italian are the deployment-supported analysis languages. The

@@ -34,7 +34,7 @@ sentence translation only.
   derives a compact per-language SQLite file from the raw Wiktextract JSONL
   (enwiktionary `de`/`it` entries — English glosses), capturing the dump and
   extraction date as `provider_version`. Not the deprecated per-language
-  downloads; not a Postgres import.
+  downloads; not a Postgres import. See the [operator refresh instructions](../../README.md#refreshing-the-dictionary-index).
 - **In-process Go provider**: the index is read at startup via pure-Go
   `modernc.org/sqlite` (no CGO); a local lexical-provider implementation
   resolves glosses and morphology from it. No new gRPC service; the NLP service
