@@ -18,7 +18,8 @@ const (
 	PreviousManifestSchemaVersion = 2
 	ManifestSchemaVersionV3       = 3
 	ManifestSchemaVersionV4       = 4
-	ManifestSchemaVersion         = 5
+	ManifestSchemaVersionV5       = 5
+	ManifestSchemaVersion         = ManifestSchemaVersionV5
 )
 
 type ManifestDisposition string
@@ -327,7 +328,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		entryCanonical.Gloss = entry.Gloss
 		entryCanonical.DictionaryProviderVersion = entry.DictionaryProviderVersion
 	}
-	if schemaVersion == ManifestSchemaVersion {
+	if schemaVersion >= ManifestSchemaVersionV5 {
 		entryCanonical.Plural = entry.Plural
 	}
 	return canonicalManifestItem{
