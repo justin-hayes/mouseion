@@ -32,8 +32,21 @@ POS = {
     "pronoun": "PRON",
     "prep": "ADP",
     "preposition": "ADP",
+    "art": "DET",
+    "article": "DET",
+    "det": "DET",
+    "determiner": "DET",
     "conj": "CCONJ",
     "conjunction": "CCONJ",
+    "subordinating conjunction": "SCONJ",
+    "int": "INTJ",
+    "intj": "INTJ",
+    "interj": "INTJ",
+    "interjection": "INTJ",
+    "num": "NUM",
+    "numeral": "NUM",
+    "number": "NUM",
+    "cardinal number": "NUM",
     "particle": "PART",
 }
 GENDERS = {
@@ -160,6 +173,21 @@ def ipa_for(item: dict) -> str:
     return ""
 
 
+def upos_for(item: dict, sense: dict) -> list[str]:
+    raw_pos = str(item.get("pos", "")).casefold()
+    if raw_pos in {"conj", "conjunction"}:
+        tags = {tag.casefold() for tag in tags_for(item, sense)}
+        if "subordinating" in tags:
+            return ["SCONJ"]
+        if "coordinating" in tags:
+            return ["CCONJ"]
+        # Raw conjunction entries do not always carry a qualifier. Keep both
+        # analyzer identities available rather than dropping one.
+        return ["CCONJ", "SCONJ"]
+    upos = POS.get(raw_pos)
+    return [upos] if upos else []
+
+
 def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
     glosses = [gloss.strip() for gloss in values(raw.get("glosses")) if gloss.strip()]
     if not glosses:
@@ -193,12 +221,13 @@ def open_input(path: Path):
     return path.open(encoding="utf-8")
 
 
+def download_cache_path() -> Path:
+    cache_root = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(cache_root) / "mouseion" / "raw-wiktextract-data.jsonl.gz"
+
+
 def download_input(force: bool) -> Path:
-    try:
-        from kaikki_json import config
-    except ImportError as error:
-        raise RuntimeError(f"--download requires kaikki-json: {error}") from error
-    output = Path(config.gz_file_path)
+    output = download_cache_path()
     if output.exists() and not force:
         return output
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -223,28 +252,26 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
             language = item.get("lang_code")
             if language not in LANGUAGES:
                 continue
-            upos = POS.get(str(item.get("pos", "")).casefold())
             word = item.get("word")
-            if not upos or not isinstance(word, str) or not word.strip():
+            if not isinstance(word, str) or not word.strip():
                 continue
             lemma = normalize(language, word)
-            key = (language, lemma, upos)
-            entry = None
             for raw_sense in item.get("senses", []):
                 if not isinstance(raw_sense, dict):
                     continue
-                sense = sense_from(item, raw_sense, upos)
-                if sense is None:
-                    continue
-                entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
-                identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
-                if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
-                    entry["senses"].append(sense)
-                entry["gender"] = entry["gender"] or sense["Gender"]
-                entry["article"] = entry["article"] or sense["Article"]
-                entry["plural"] = entry["plural"] or sense["Plural"]
-            if entry is not None:
-                entry["ipa"] = entry["ipa"] or ipa_for(item)
+                for upos in upos_for(item, raw_sense):
+                    sense = sense_from(item, raw_sense, upos)
+                    if sense is None:
+                        continue
+                    key = (language, lemma, upos)
+                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
+                    identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
+                    if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
+                        entry["senses"].append(sense)
+                    entry["gender"] = entry["gender"] or sense["Gender"]
+                    entry["article"] = entry["article"] or sense["Article"]
+                    entry["plural"] = entry["plural"] or sense["Plural"]
+                    entry["ipa"] = entry["ipa"] or ipa_for(item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:

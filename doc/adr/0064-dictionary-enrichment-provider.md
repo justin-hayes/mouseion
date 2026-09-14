@@ -34,9 +34,9 @@ not belong in application-state Postgres.
    adapter is translation-shaped and external-gated, so it is repurposed to
    this local seam rather than wired into the external translation slot. No new
    gRPC service; the NLP service is unchanged.
-2. **The index is a build artifact, not database state.** A `make` target
-   (Python + `kaikki-json`) derives a compact per-language SQLite file from the
-   raw Wiktextract JSONL (enwiktionary `de`/`it` entries — English glosses),
+2. **The index is a build artifact, not database state.** A `make` target and a
+   Python standard library downloader derive a compact per-language SQLite file
+   from the raw Wiktextract JSONL (enwiktionary `de`/`it` entries — English glosses),
    recording dump/extraction date as `provider_version`. Not the deprecated
    per-language downloads; not a Postgres import.
 3. **Gloss becomes local, default-on enrichment.** The dictionary supplies a
@@ -77,7 +77,8 @@ not belong in application-state Postgres.
   `DictionaryLookup` types; a later move to a gRPC service stays possible behind
   the same interface.
 - Wiktionary-derived gloss text (CC BY-SA 3.0 / GFDL) ships inside downloaded
-  decks; the attribution notice is retained and the data portion stays
+  decks; the attribution notice is retained in the APKG description and as an
+  Anki-compatible comment in TSV exports, and the data portion stays
   share-alike.
 
 ## Alternatives considered
@@ -106,4 +107,3 @@ not belong in application-state Postgres.
 - [ADR 0021: Contextual sentence translation cache and privacy](0021-contextual-translation-cache.md)
 - [ADR 0029: Recognition-card sentence presentation](0029-recognition-card-sentence-presentation.md)
 - [Kaikki.org](https://kaikki.org/) — Wiktextract extraction of Wiktionary, JSONL dumps
-- [kaikki-json](https://github.com/mdhoffman271/KaikkiJson) — Python download/read tooling
