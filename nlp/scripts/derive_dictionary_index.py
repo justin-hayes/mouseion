@@ -10,6 +10,7 @@ import gzip
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -57,6 +58,13 @@ GENDERS = {
     "neuter": "Neut",
     "neut": "Neut",
 }
+IPA_ACCEPTED_TAGS = frozenset({"standard"})
+OPTIONAL_SEGMENT_PATTERN = re.compile(r"\([^()]*\)")
+PRINCIPAL_PARTS_PATTERN = re.compile(
+    r"third-person singular present\s+(?P<present>[^,]+),\s*"
+    r"past tense\s+(?P<preterite>[^,]+),\s*"
+    r"past participle\s+(?P<participle>[^,)]+)"
+)
 
 
 def load_german_normalization_policy() -> dict:
@@ -174,9 +182,48 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
 
 
 def ipa_for(item: dict) -> str:
+    best = ""
+    best_rank = None
     for sound in item.get("sounds", []):
-        if isinstance(sound, dict) and isinstance(sound.get("ipa"), str) and sound["ipa"].strip():
-            return sound["ipa"].strip()
+        if not isinstance(sound, dict):
+            continue
+        raw = sound.get("ipa")
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        if sound.get("note"):
+            continue
+        tags = {tag.casefold() for tag in values(sound.get("tags"))}
+        if not tags.issubset(IPA_ACCEPTED_TAGS):
+            continue
+        candidate = OPTIONAL_SEGMENT_PATTERN.sub("", raw.strip()).strip()
+        if not candidate:
+            continue
+        rank = 0 if candidate.startswith("/") and candidate.endswith("/") else 1
+        if best_rank is None or rank < best_rank:
+            best = candidate
+            best_rank = rank
+    return best
+
+
+def principal_parts_for(upos: str, item: dict) -> str:
+    if upos != "VERB":
+        return ""
+    for template in item.get("head_templates", []):
+        if not isinstance(template, dict):
+            continue
+        expansion = template.get("expansion")
+        if not isinstance(expansion, str):
+            continue
+        match = PRINCIPAL_PARTS_PATTERN.search(expansion)
+        if not match:
+            continue
+        parts = [
+            match.group("present").strip(),
+            match.group("preterite").strip(),
+            match.group("participle").strip(),
+        ]
+        if all(parts):
+            return " · ".join(parts)
     return ""
 
 
@@ -271,7 +318,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     if sense is None:
                         continue
                     key = (language, lemma, upos)
-                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": ""})
+                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": "", "principal_parts": ""})
                     identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
                     if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
                         entry["senses"].append(sense)
@@ -279,6 +326,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     entry["article"] = entry["article"] or sense["Article"]
                     entry["plural"] = entry["plural"] or sense["Plural"]
                     entry["ipa"] = entry["ipa"] or ipa_for(item)
+                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(upos, item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:
@@ -298,6 +346,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                 article TEXT NOT NULL,
                 plural TEXT NOT NULL,
                 ipa TEXT NOT NULL,
+                principal_parts TEXT NOT NULL,
                 PRIMARY KEY (language, lemma, upos)
             );
             """
@@ -314,9 +363,9 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
         }
         connection.executemany("INSERT INTO metadata(key, value) VALUES (?, ?)", metadata.items())
         connection.executemany(
-            "INSERT INTO entries(language, lemma, upos, senses_json, gender, article, plural, ipa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO entries(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                (language, lemma, upos, json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")), entry["gender"], entry["article"], entry["plural"], entry["ipa"])
+                (language, lemma, upos, json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")), entry["gender"], entry["article"], entry["plural"], entry["ipa"], entry["principal_parts"])
                 for (language, lemma, upos), entry in sorted(entries.items())
             ),
         )

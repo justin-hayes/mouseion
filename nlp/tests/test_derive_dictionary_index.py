@@ -110,6 +110,39 @@ def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
     connection.close()
 
 
+def test_captured_kaikki_ipa_is_normalized(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl", output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'feigheit'").fetchone() == ("/ˈfaɪ̯kaɪ̯t/",)
+    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'gauner'").fetchone() == ("/ˈɡaʊ̯nər/",)
+    connection.close()
+
+
+def test_derivation_normalizes_ipa_and_extracts_principal_parts(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_form_presentation.jsonl", output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    rows = {
+        lemma: (ipa, principal_parts)
+        for lemma, ipa, principal_parts in connection.execute("SELECT lemma, ipa, principal_parts FROM entries")
+    }
+    gehen_senses = json.loads(connection.execute("SELECT senses_json FROM entries WHERE lemma = 'gehen'").fetchone()[0])
+    connection.close()
+    assert rows == {
+        "gehen": ("/ˈɡeːən/", "geht · ging · gegangen"),
+        "regnen": ("", ""),
+        "wasser": ("/ˈvasɐ/", ""),
+        "föhn": ("", ""),
+        "andare": ("/anˈda.re/", ""),
+    }
+    assert gehen_senses[0]["IPA"] == "/ˈɡeːən/"
+
+
 def test_downloader_uses_mouseion_cache_without_external_dependency(monkeypatch, tmp_path: Path):
     module = load_script()
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
