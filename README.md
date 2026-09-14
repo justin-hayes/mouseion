@@ -114,33 +114,34 @@ make dictionary-index \
 ```
 
 `DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
-omit it when rebuilding from the cached dump. The command writes
-`dictionary/dictionary-index.sqlite` atomically, mode `0644` — the web
-container runs as an unprivileged user, so the artifact must be world-readable
-(an index built before this was fixed needs a one-time
-`chmod 644 dictionary/dictionary-index.sqlite`). The `dictionary/` directory is
-tracked (via `dictionary/.gitkeep`) so a fresh clone has it operator-owned; if
-Compose ever created it as root, run
-`sudo chown "$(id -u):$(id -g)" dictionary` once before rebuilding. Set
-`DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to choose another path, then point
-`MOUSEION_DICTIONARY_INDEX` and the Compose `MOUSEION_DICTIONARY_HOST_DIR`
-variable at that file and restart the web process. `MOUSEION_DICTIONARY_HOST_DIR` mounts a directory, not a single file,
-so a missing index stays missing instead of being created as an empty
-directory; the server then falls back to the morphology heuristic with a
-warning. A configured index that exists but is unreadable is a fatal startup
-error. No migration or additional service is needed. The generated SQLite
-metadata records the dump date, UTC extraction date, Wiktextract commit, source,
-license, and attribution.
+omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
+at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild. The
+input is the raw Wiktextract dump; the script filters it to the German and
+Italian entries needed by Mouseion.
+
+The command writes `dictionary/dictionary-index.sqlite` atomically, mode `0644`.
+The web container runs as an unprivileged user, so the artifact must be
+world-readable. The `dictionary/` directory is tracked (via
+`dictionary/.gitkeep`) so a fresh clone has it operator-owned; if Compose ever
+created it as root, run `sudo chown "$(id -u):$(id -g)" dictionary` once before
+rebuilding. Set `DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to choose another
+output path.
+
+For Compose deployment, `MOUSEION_DICTIONARY_HOST_DIR` is the host directory
+bind-mounted read-only at `/opt/mouseion/dictionary`; it is a directory rather
+than a single-file mount so a missing index remains missing. Set
+`MOUSEION_DICTIONARY_INDEX` to the corresponding path inside that mount, then
+restart the web process after replacing the artifact. With no index, the server
+falls back to the morphology heuristic with a warning. A configured index that
+exists but is unreadable is a fatal startup error. Refreshing the index changes
+only this build artifact: it requires no database migration and no additional
+service. Its SQLite metadata records the dump date, UTC extraction date,
+Wiktextract commit, source, license, and attribution.
 
 The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
 and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
 generated metadata and attribution when shipping or sharing the index; derived
 dictionary data remains subject to the applicable share-alike requirements.
-
-For an already downloaded JSONL or JSONL.GZ file, use
-`KAIKKI_INPUT=/path/to/raw-wiktextract-data.jsonl.gz` instead of the downloader.
-This is useful for an offline rebuild; do not combine it with
-`DICTIONARY_REFRESH=1`.
 
 ## Re-normalizing German vocabulary
 
