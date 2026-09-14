@@ -115,7 +115,10 @@ make dictionary-index \
 
 `DICTIONARY_REFRESH=1` forces `kaikki-json` to download the weekly dump again;
 omit it when rebuilding from the cached dump. The command writes
-`dictionary/dictionary-index.sqlite` atomically. The `dictionary/` directory is
+`dictionary/dictionary-index.sqlite` atomically, mode `0644` — the web
+container runs as an unprivileged user, so the artifact must be world-readable
+(an index built before this was fixed needs a one-time
+`chmod 644 dictionary/dictionary-index.sqlite`). The `dictionary/` directory is
 tracked (via `dictionary/.gitkeep`) so a fresh clone has it operator-owned; if
 Compose ever created it as root, run
 `sudo chown "$(id -u):$(id -g)" dictionary` once before rebuilding. Set
