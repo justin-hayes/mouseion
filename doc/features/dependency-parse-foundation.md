@@ -68,7 +68,7 @@ sentence-quality (GDEX) scoring work.
 
 ### NLP pipeline
 
-- Processors become `tokenize,pos,lemma,depparse` (plus optional `ner`),
+- Processors become `tokenize,pos,lemma,depparse`,
   unchanged in order; `depparse` requires `pos`, which is already core.
 - The producer maps Stanza's 1-based `word.head` (`0` = root) to the 0-based
   convention above. Because tokens are already flattened from

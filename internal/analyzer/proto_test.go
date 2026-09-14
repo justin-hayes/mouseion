@@ -11,7 +11,6 @@ import (
 )
 
 func TestProtoRoundTrip(t *testing.T) {
-	namedEntity := "PERSON"
 	want := analyzer.Result{
 		SchemaVersion: "1.1.0",
 		Language:      "de",
@@ -36,7 +35,6 @@ func TestProtoRoundTrip(t *testing.T) {
 					Dependency:     "root",
 					Head:           1,
 					Morphology:     map[string]string{"Tense": "Past"},
-					NamedEntity:    &namedEntity,
 					Location:       analyzer.SourceLocation{SourceDocumentID: "doc-1", Chapter: "1", Section: "opening", StartOffset: 3, EndOffset: 9},
 				},
 			},

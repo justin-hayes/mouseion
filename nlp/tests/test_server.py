@@ -12,8 +12,6 @@ from mouseion_nlp.server import (
 
 
 class StubProducer:
-    enable_ner = False
-
     def model_version(self, language):
         return {"de": "de-fixture-1", "it": "it-fixture-2"}[language]
 

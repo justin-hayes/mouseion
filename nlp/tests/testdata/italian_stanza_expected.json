@@ -21,7 +21,7 @@
     {
       "text":"Maria portera`? No, porterà pane e dammelo!",
       "tokens":[
-        {"surface":"Maria","raw_lemma":"Maria","pos":"PROPN","canonical_lemma":"maria","dependency":"root","morphology":{"Gender":"Fem","Number":"Sing"},"named_entity":"S-PER","location":{"source_document_id":"italian-book","start_offset":"39","end_offset":"44"}},
+        {"surface":"Maria","raw_lemma":"Maria","pos":"PROPN","canonical_lemma":"maria","dependency":"root","morphology":{"Gender":"Fem","Number":"Sing"},"location":{"source_document_id":"italian-book","start_offset":"39","end_offset":"44"}},
         {"surface":"portera","raw_lemma":"portera`","pos":"X","canonical_lemma":"portera","dependency":"root","head":1,"location":{"source_document_id":"italian-book","start_offset":"45","end_offset":"53"}},
         {"surface":"?","raw_lemma":"?","pos":"PUNCT","canonical_lemma":"?","dependency":"root","head":2,"location":{"source_document_id":"italian-book","start_offset":"53","end_offset":"54"}},
         {"surface":"No","raw_lemma":"no","pos":"ADV","canonical_lemma":"no","dependency":"root","head":3,"location":{"source_document_id":"italian-book","start_offset":"55","end_offset":"57"}},

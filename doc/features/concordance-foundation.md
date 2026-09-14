@@ -8,7 +8,7 @@ A future KWIC (key-word-in-context) concordancer — at the scope of a Book or o
 a study language's analyzed library — needs per-occurrence context that the
 analysis pipeline currently discards. The NLP boundary produces the full
 normalized corpus (sentences plus tokens, each with surface, lemma, POS,
-morphology, named entity, and character offsets), but after analysis only lemma
+morphology, and character offsets), but after analysis only lemma
 aggregates, corpus statistics, and a filtered content-word subset with embedded
 sentence refs survive ([ADR 0001](adr/0001-go-core-python-nlp-service.md) and
 [ADR 0003](adr/0003-postgresql-persistence.md) already name concordance as the
@@ -61,7 +61,7 @@ run after this ships.
   consistent with `corpora`.
 - `corpus_tokens` holds one row per token: corpus reference, sentence
   reference, token ordinal, surface, raw lemma, canonical lemma, UPOS,
-  morphology JSONB, named entity (nullable), and unit-relative start/end
+  morphology JSONB, and unit-relative start/end
   offsets. `owner_id` and `language` are denormalized onto tokens so corpus-
   level queries are single-table scans.
 - Offsets are unit-relative Unicode code points, matching the analyzer
@@ -94,8 +94,8 @@ run after this ships.
 ## Acceptance criteria
 
 - A completed analysis persists one `corpus_sentences` row per emitted sentence
-  and one `corpus_tokens` row per emitted token, including function words,
-  named entities, and zero-token sentences.
+  and one `corpus_tokens` row per emitted token, including function words
+  and zero-token sentences.
 - Occurrence queries by canonical lemma + UPOS and by surface return
   deterministic, owner-scoped results at Book and study-language scope with
   sentence text, target offsets, and structural provenance.

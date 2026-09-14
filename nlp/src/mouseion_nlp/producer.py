@@ -27,7 +27,7 @@ class SourceDocument:
     section: str = ""
 
 
-PipelineFactory = Callable[[str, bool], Any]
+PipelineFactory = Callable[[str], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
@@ -109,15 +109,14 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 
 
 @lru_cache(maxsize=None)
-def _stanza_pipeline(language: str, enable_ner: bool) -> Any:
-    processors = "tokenize,pos,lemma,depparse"
-    if enable_ner:
-        processors += ",ner"
-    return stanza.Pipeline(lang=language, processors=processors, verbose=False)
+def _stanza_pipeline(language: str) -> Any:
+    return stanza.Pipeline(
+        lang=language, processors="tokenize,pos,lemma,depparse", verbose=False
+    )
 
 
-def _default_pipeline_factory(language: str, enable_ner: bool) -> Any:
-    return _stanza_pipeline(language, enable_ner)
+def _default_pipeline_factory(language: str) -> Any:
+    return _stanza_pipeline(language)
 
 
 def _morphology(feats: str | None) -> dict[str, str]:
@@ -158,12 +157,10 @@ class Producer:
     def __init__(
         self,
         *,
-        enable_ner: bool = False,
         normalization_profile: str | None = None,
         normalization_version: str | None = None,
         pipeline_factory: PipelineFactory = _default_pipeline_factory,
     ) -> None:
-        self.enable_ner = enable_ner
         self.normalization_profile = normalization_profile
         self.normalization_version = normalization_version
         self._pipeline_factory = pipeline_factory
@@ -174,7 +171,7 @@ class Producer:
         Delegates to the (lru-cached) pipeline factory so a subsequent analyze()
         for the same language reuses the warmed pipeline.
         """
-        self._pipeline_factory(language, self.enable_ner)
+        self._pipeline_factory(language)
 
     def model_version(self, language: str) -> str:  # noqa: ARG002
         """Return the Stanza model release used by the configured pipeline."""
@@ -196,7 +193,7 @@ class Producer:
         """
         source = document or SourceDocument()
         analyzed = analyzed_at or datetime.now(timezone.utc)
-        stanza_document = self._pipeline_factory(language, self.enable_ner)(text)
+        stanza_document = self._pipeline_factory(language)(text)
         sentences = [
             self._map_sentence(sentence, source, language)
             for sentence in stanza_document.sentences
@@ -224,7 +221,6 @@ class Producer:
         )
 
     def _map_sentence(self, sentence: Any, source: SourceDocument, language: str) -> Any:
-        entities = getattr(sentence, "ents", ()) if self.enable_ner else ()
         words = []
         for token in sentence.tokens:
             for word in token.words:
@@ -234,16 +230,6 @@ class Producer:
                     start = getattr(token, "start_char", 0)
                 if end is None:
                     end = getattr(token, "end_char", start + len(word.text))
-                ner = getattr(token, "ner", None) if self.enable_ner else None
-                if not ner:
-                    ner = next(
-                        (
-                            entity.type
-                            for entity in entities
-                            if entity.start_char <= start and end <= entity.end_char
-                        ),
-                        None,
-                    )
                 surface = _clean_surface(word.text)
                 lemma = word.lemma or word.text
                 primary_lemma = _primary_lemma(lemma)
@@ -253,14 +239,14 @@ class Producer:
                         extra={"raw_lemma": lemma},
                     )
                     continue
-                words.append((word, token, start, end, ner, surface, lemma, primary_lemma))
+                words.append((word, token, start, end, surface, lemma, primary_lemma))
 
         word_ordinals = {
             getattr(word, "id", None) or ordinal + 1: ordinal
             for ordinal, (word, *_rest) in enumerate(words)
         }
         tokens = []
-        for ordinal, (word, _token, start, end, ner, surface, lemma, primary_lemma) in enumerate(words):
+        for ordinal, (word, _token, start, end, surface, lemma, primary_lemma) in enumerate(words):
             head_id = getattr(word, "head", 0)
             if head_id == 0:
                 dependency = "root"
@@ -282,8 +268,6 @@ class Producer:
                 dependency=dependency,
                 head=head,
             )
-            if ner and ner != "O":
-                value.named_entity = ner
             tokens.append(value)
 
         if self._is_german(language):

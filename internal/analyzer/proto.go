@@ -46,7 +46,6 @@ func ToProto(result Result) *mouseionv1.NormalizedCorpus {
 				Dependency:     token.Dependency,
 				Head:           token.Head,
 				Morphology:     cloneMap(token.Morphology),
-				NamedEntity:    cloneString(token.NamedEntity),
 				Location:       locationToProto(token.Location),
 			})
 		}
@@ -88,10 +87,6 @@ func FromProto(corpus *mouseionv1.NormalizedCorpus) (Result, error) {
 	for _, sentence := range corpus.GetSentences() {
 		converted := Sentence{Text: sentence.GetText(), Location: locationFromProto(sentence.GetLocation())}
 		for _, token := range sentence.GetTokens() {
-			var namedEntity *string
-			if token != nil {
-				namedEntity = cloneString(token.NamedEntity)
-			}
 			converted.Tokens = append(converted.Tokens, Token{
 				Surface:        token.GetSurface(),
 				RawLemma:       token.GetRawLemma(),
@@ -100,7 +95,6 @@ func FromProto(corpus *mouseionv1.NormalizedCorpus) (Result, error) {
 				Dependency:     token.GetDependency(),
 				Head:           token.GetHead(),
 				Morphology:     cloneMap(token.GetMorphology()),
-				NamedEntity:    namedEntity,
 				Location:       locationFromProto(token.GetLocation()),
 			})
 		}
@@ -155,12 +149,4 @@ func cloneMap(values map[string]string) map[string]string {
 		clone[key] = value
 	}
 	return clone
-}
-
-func cloneString(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	clone := *value
-	return &clone
 }

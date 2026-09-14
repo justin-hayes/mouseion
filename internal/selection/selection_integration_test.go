@@ -41,7 +41,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.PutVocabularyState(ctx, alice.ID, "de", "legacy", "NOUN", "generated")
 	require.NoError(t, err)
-	corpus := fixture(tok("Häuser", "Haus", "NOUN", false), tok("Haus", "Haus", "NOUN", false), tok("alt", "alt", "ADJ", false), tok("alt", "alt", "ADJ", false), tok("legacy", "legacy", "NOUN", false), tok("reserviert", "reserviert", "ADJ", false))
+	corpus := fixture(tok("Häuser", "Haus", "NOUN"), tok("Haus", "Haus", "NOUN"), tok("alt", "alt", "ADJ"), tok("alt", "alt", "ADJ"), tok("legacy", "legacy", "NOUN"), tok("reserviert", "reserviert", "ADJ"))
 	svc := NewService(store)
 	got, err := svc.Select(ctx, alice.ID, corpus, DefaultConfig("book-a"))
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	assert.Equal(t, "candidate", state.State)
 	_, err = store.ReleaseDeckVocabularyStudy(ctx, alice.ID, prep.ID)
 	require.NoError(t, err)
-	got, err = svc.Select(ctx, alice.ID, fixture(tok("reserviert", "reserviert", "ADJ", false)), DefaultConfig("book-after-abandonment"))
+	got, err = svc.Select(ctx, alice.ID, fixture(tok("reserviert", "reserviert", "ADJ")), DefaultConfig("book-after-abandonment"))
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
 	var generated int

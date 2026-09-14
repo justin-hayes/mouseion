@@ -30,7 +30,7 @@ contract where a live model or database is unavailable:
 2. the ready Italian capability is used by catalog sync and Italian Books
    become the learner's derived study language;
 3. Go consumes the Python/Stanza fixture with Italian contractions, accents,
-   morphology, clitics, and named entities intact;
+   morphology, and clitics intact;
 4. selection aggregates canonical content-word lemmas while filtering
    punctuation, determiners, adpositions, pronouns, conjunctions, and proper
    names under the same rules used for German;
@@ -52,7 +52,7 @@ and advertise, and is the single setting that drives all three operations.
 The Compose `nlp-init` service reuses the NLP image and provisions each
 configured language into the named `stanza-data` volume mounted at
 `STANZA_RESOURCES_DIR=/opt/stanza_resources`. It downloads the full runtime
-processor set: `tokenize,pos,lemma,depparse,ner`. The `nlp` service mounts the
+processor set: `tokenize,pos,lemma,depparse`. The `nlp` service mounts the
 same volume and starts only after the init service completes successfully.
 
 Provisioning writes a marker containing the Stanza version and configured

@@ -24,7 +24,6 @@ func TestGoConsumesPythonProducedCorpus(t *testing.T) {
 	assert.Equal(t, "de", corpus.GetLanguage())
 	token := corpus.GetSentences()[0].GetTokens()[0]
 	assert.Equal(t, "Goethe", token.GetSurface())
-	assert.Equal(t, "B-PER", token.GetNamedEntity())
 }
 
 func TestGoConsumesItalianStanzaRegressionFixture(t *testing.T) {
@@ -44,7 +43,6 @@ func TestGoConsumesItalianStanzaRegressionFixture(t *testing.T) {
 	assert.Equal(t, "dell'", tokens[7].GetSurface())
 	assert.Equal(t, "il", tokens[7].GetRawLemma())
 	second := corpus.GetSentences()[1].GetTokens()
-	assert.Equal(t, "S-PER", second[0].GetNamedEntity())
 	assert.Equal(t, "porterà", second[5].GetSurface())
 	assert.Equal(t, "portare", second[5].GetRawLemma())
 	assert.Equal(t, "Yes", second[9].GetMorphology()["Clitic"])

@@ -36,6 +36,6 @@ wiring passes a `GRPCAnalyzer` to `analysis.NewClient`.
 Run the long-lived Python service with
 `PYTHONPATH=nlp/src:gen/python python -m mouseion_nlp.server`. It binds to
 `MOUSEION_NLP_ADDR` (default `[::]:50051`) and owns one `Producer`; Stanza
-pipelines are cached by language and NER configuration, so models stay warm
+pipelines are cached by language, so models stay warm
 across jobs. The service returns the same `NormalizedCorpus` protobuf used for
 persisted artifacts.

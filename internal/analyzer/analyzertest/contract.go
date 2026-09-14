@@ -18,7 +18,6 @@ func RunContract(
 ) {
 	t.Helper()
 
-	namedEntity := "ORG"
 	request := analyzer.AnalyzeRequest{
 		Language: "de",
 		Document: analyzer.SourceDocument{
@@ -47,7 +46,6 @@ func RunContract(
 					Dependency:     "nsubj",
 					Head:           1,
 					Morphology:     map[string]string{"Case": "Nom"},
-					NamedEntity:    &namedEntity,
 					Location:       analyzer.SourceLocation{SourceDocumentID: "document-1", StartOffset: 0, EndOffset: 6},
 				},
 				{
