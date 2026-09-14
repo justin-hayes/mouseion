@@ -81,8 +81,8 @@ sentence translation only.
   records the dump date, extraction date, and wiktextract commit as
   `provider_version`.
 - Read-only SQLite, mmap-friendly, loadable at startup; lookups keyed by
-  normalized lemma (casefold + German post-1996 canonicalization, matching the
-  vocabulary identity).
+  normalized lemma (Unicode lowercase + German post-1996 canonicalization,
+  matching the vocabulary identity).
 - License: CC BY-SA 3.0 / GFDL dual; attribution notice retained with the
   index.
 
