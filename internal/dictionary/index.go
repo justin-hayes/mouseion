@@ -94,8 +94,8 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	if language == "" || lemma == "" || upos == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	var sensesJSON, gender, article, plural, ipa string
-	err := i.db.QueryRowContext(ctx, `SELECT senses_json, gender, article, plural, ipa FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON, &gender, &article, &plural, &ipa)
+	var sensesJSON string
+	err := i.db.QueryRowContext(ctx, `SELECT senses_json FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return enrichment.LexicalEntry{}, false, nil
 	}
@@ -109,25 +109,11 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	ordered := enrichment.OrderSenses(request, senses)
 	result := enrichment.LexicalEntry{Senses: ordered}
 	if len(ordered) > 0 {
-		result.Gender = rankedMorphology(ordered, gender, func(sense enrichment.LexicalSense) string { return sense.Gender })
-		result.Article = rankedMorphology(ordered, article, func(sense enrichment.LexicalSense) string { return sense.Article })
-		result.Plural = rankedMorphology(ordered, plural, func(sense enrichment.LexicalSense) string { return sense.Plural })
-	} else {
-		result.Gender, result.Article, result.Plural = gender, article, plural
+		result.Gender = ordered[0].Gender
+		result.Article = ordered[0].Article
+		result.Plural = ordered[0].Plural
 	}
 	return result, true, nil
-}
-
-// rankedMorphology keeps a legacy row-level value only for indexes that do not
-// carry that field on any sense. Once a sense has the field, the ranked sense
-// is authoritative, including an empty value on the leading sense.
-func rankedMorphology(senses []enrichment.LexicalSense, fallback string, value func(enrichment.LexicalSense) string) string {
-	for _, sense := range senses {
-		if strings.TrimSpace(value(sense)) != "" {
-			return strings.TrimSpace(value(senses[0]))
-		}
-	}
-	return fallback
 }
 
 func normalizeLemma(language, lemma string) string {

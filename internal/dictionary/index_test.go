@@ -16,7 +16,7 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -51,7 +51,7 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"","Plural":"","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -67,6 +67,6 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 	require.Len(t, result.Senses, 2)
 	assert.Equal(t, "sea", result.Senses[0].Gloss)
 	assert.Equal(t, "Fem", result.Gender)
-	assert.Empty(t, result.Article)
-	assert.Empty(t, result.Plural)
+	assert.Equal(t, "die", result.Article)
+	assert.Equal(t, "Meere", result.Plural)
 }

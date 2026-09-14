@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/dictionary"
@@ -61,7 +62,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', '')`)
+	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', ''); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -83,6 +84,18 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	assert.Contains(t, note.Gloss, "(Pl. Häuser)")
 	assert.Contains(t, note.BackExtra, "das Haus")
 	assert.Contains(t, note.BackExtra, "(Pl. Häuser)")
+
+	ranked := Entry{
+		Language: "de", CanonicalLemma: "see", UPOS: "NOUN",
+		Sentence: "Die See ist tief und salzig.", TargetWord: "See",
+		Morphology: `{"Gender":"Masc","Article":"der"}`,
+	}
+	require.NoError(t, service.resolveLexicalEntry(context.Background(), &ranked))
+	note, err = makeNote("owner", ranked)
+	require.NoError(t, err)
+	assert.Equal(t, "die", note.Article)
+	assert.True(t, strings.HasPrefix(note.Gloss, "sea · lake"), "ranked gloss = %q", note.Gloss)
+	assert.Contains(t, note.Gloss, "(Pl. Meere)")
 
 	unindexed := Entry{
 		Language: "de", CanonicalLemma: "baum", UPOS: "NOUN",
