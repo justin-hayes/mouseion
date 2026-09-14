@@ -185,15 +185,80 @@ func CardIdentity(owner string, entry Entry) string {
 }
 
 func BoldTarget(sentence, target string) (string, error) {
-	target = textmatch.CleanLexicalSurface(target)
-	if target == "" || strings.TrimSpace(sentence) == "" {
+	return boldTargets(sentence, []string{target})
+}
+
+// boldTargets renders sentence with each target bolded at its first
+// case-insensitive, word-bounded occurrence. Targets that do not occur in the
+// sentence, or that overlap an earlier matched span, are ignored. At least one
+// target must match or ErrInvalidInput is returned.
+func boldTargets(sentence string, targets []string) (string, error) {
+	if strings.TrimSpace(sentence) == "" {
 		return "", ErrInvalidInput
 	}
-	start, end, ok := textmatch.FoldedWordSpan(sentence, target)
-	if !ok {
-		return "", fmt.Errorf("%w: target %q not found in sentence", ErrInvalidInput, target)
+	type span struct{ start, end int }
+	spans := make([]span, 0, len(targets))
+	for _, target := range targets {
+		target = textmatch.CleanLexicalSurface(target)
+		if target == "" {
+			continue
+		}
+		start, end, ok := textmatch.FoldedWordSpan(sentence, target)
+		if !ok {
+			continue
+		}
+		spans = append(spans, span{start, end})
 	}
-	return escapeField(sentence[:start]) + "<b>" + escapeField(sentence[start:end]) + "</b>" + escapeField(sentence[end:]), nil
+	if len(spans) == 0 {
+		return "", fmt.Errorf("%w: target not found in sentence", ErrInvalidInput)
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	var out strings.Builder
+	last := 0
+	for _, s := range spans {
+		if s.start < last {
+			continue
+		}
+		out.WriteString(escapeField(sentence[last:s.start]))
+		out.WriteString("<b>")
+		out.WriteString(escapeField(sentence[s.start:s.end]))
+		out.WriteString("</b>")
+		last = s.end
+	}
+	out.WriteString(escapeField(sentence[last:]))
+	return out.String(), nil
+}
+
+// targetSurfaces resolves the surfaces to bold for a card. It returns the
+// observed target followed by each compound:prt particle token whose head is the
+// token matching the observed target, resolved from the persisted dependency
+// parse. Without a parse, or when no token matches the target, only the observed
+// target is returned. Duplicate surfaces are collapsed so repeated exports are
+// stable.
+func targetSurfaces(target string, tokens []analyzer.Token) []string {
+	target = textmatch.CleanLexicalSurface(target)
+	if target == "" {
+		return nil
+	}
+	spans := []string{target}
+	seen := map[string]bool{strings.ToLower(target): true}
+	for index, token := range tokens {
+		if !strings.EqualFold(textmatch.CleanLexicalSurface(token.Surface), target) {
+			continue
+		}
+		for _, dependent := range tokens {
+			if dependent.Dependency != "compound:prt" || int(dependent.Head) != index {
+				continue
+			}
+			surface := textmatch.CleanLexicalSurface(dependent.Surface)
+			if surface == "" || seen[strings.ToLower(surface)] {
+				continue
+			}
+			seen[strings.ToLower(surface)] = true
+			spans = append(spans, surface)
+		}
+	}
+	return spans
 }
 
 // HighlightEnglishTarget renders an optional provider alignment only when it
@@ -697,7 +762,7 @@ func testedTarget(entry Entry) string {
 
 func makeNote(owner string, entry Entry) (Note, error) {
 	target := testedTarget(entry)
-	front, err := BoldTarget(entry.Sentence, target)
+	front, err := boldTargets(entry.Sentence, targetSurfaces(target, entry.SentenceTokens))
 	if err != nil {
 		return Note{}, err
 	}
