@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mouseion recognition card preview</title>
+  <link rel="stylesheet" href="../templates/recognition_card.css">
+  <style>
+    body {
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+      gap: 1rem;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      background: var(--mouseion-color-surface);
+    }
+
+    .preview-panel {
+      display: grid;
+      align-content: start;
+      gap: 0.5rem;
+    }
+
+    .preview-label {
+      margin: 0;
+      color: var(--mouseion-color-text-muted);
+      font: 0.85rem/1.3 "Avenir Next", "Gill Sans", sans-serif;
+    }
+
+    .preview-panel > .card {
+      min-height: 24rem;
+    }
+  </style>
+</head>
+<body>
+  <section class="preview-panel">
+    <p class="preview-label">Complete dictionary data</p>
+    <article class="card">
+      Das <b>Haus</b> ist heute sehr ruhig.
+      <hr id="answer">
+      <div class="card-back">
+        <div class="headword-line"><span class="article">das</span><span class="article-space" data-article="das"> </span><strong class="headword">Haus</strong> <span class="inflection plural">(Pl. Häuser)</span> <span class="inflection pronunciation">/haʊ̯s/</span> <span class="inflection principal-parts">geht · ging · gegangen</span> <span class="part-of-speech">&middot; NOUN</span></div>
+        <div class="gloss meaning-block">house; dwelling</div>
+        <div class="sentence contextual-translation">The house is very quiet today.</div>
+      </div>
+    </article>
+  </section>
+  <section class="preview-panel">
+    <p class="preview-label">Sparse data in dark mode</p>
+    <article class="card nightMode">
+      Die <b>Straße</b> ist leer.
+      <hr id="answer">
+      <div class="card-back">
+        <div class="headword-line"><span class="article">die</span><span class="article-space" data-article="die"> </span><strong class="headword">Straße</strong> <span class="part-of-speech">&middot; NOUN</span></div>
+        <div class="gloss meaning-block">street</div>
+        <div class="sentence contextual-translation">The street is empty.</div>
+      </div>
+    </article>
+  </section>
+</body>
+</html>
