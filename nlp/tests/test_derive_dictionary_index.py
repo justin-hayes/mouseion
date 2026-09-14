@@ -67,6 +67,49 @@ def test_gzipped_dump_is_a_supported_input(tmp_path: Path):
     connection.close()
 
 
+def test_definite_plural_forms_fall_back_to_noun_gender(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "articles.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "word": word,
+                    "lang_code": "de",
+                    "pos": "noun",
+                    "tags": [gender],
+                    "senses": [{"glosses": [word]}],
+                    "forms": [{"form": form, "tags": ["definite", "nominative", "plural"]}],
+                }
+            )
+            for word, gender, form in [("Gauner", "masculine", "Gauner"), ("Feigheit", "feminine", "Feigheiten")]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT lemma, article FROM entries ORDER BY lemma").fetchall() == [
+        ("feigheit", "die"),
+        ("gauner", "der"),
+    ]
+    connection.close()
+
+
+def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl", output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT lemma, article FROM entries ORDER BY lemma").fetchall() == [
+        ("feigheit", "die"),
+        ("gauner", "der"),
+    ]
+    connection.close()
+
+
 def test_downloader_uses_mouseion_cache_without_external_dependency(monkeypatch, tmp_path: Path):
     module = load_script()
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))

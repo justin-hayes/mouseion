@@ -142,14 +142,21 @@ def plural_for(item: dict) -> str:
 
 
 def article_for(language: str, word: str, gender: str, forms: object) -> str:
+    article_values = {
+        "de": {"der", "die", "das"},
+        "it": {"il", "lo", "la", "l'"},
+    }.get(language, set())
     for form in forms if isinstance(forms, list) else []:
         if not isinstance(form, dict):
             continue
         tags = {tag.casefold() for tag in values(form.get("tags"))}
-        if tags.intersection({"article", "definite", "definite article"}):
-            value = form.get("form")
-            if isinstance(value, str) and value.strip():
-                return value.strip()
+        if not tags.intersection({"article", "definite", "definite article"}):
+            continue
+        if "nominative" not in tags or tags.intersection({"plural", "inflected", "inflected form"}):
+            continue
+        value = form.get("form")
+        if isinstance(value, str) and value.strip() and value.casefold().strip() in article_values:
+            return value.casefold().strip()
     if language == "de":
         return {"Masc": "der", "Fem": "die", "Neut": "das"}.get(gender, "")
     if language != "it":
