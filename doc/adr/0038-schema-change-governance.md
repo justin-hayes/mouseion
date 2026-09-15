@@ -1,6 +1,6 @@
 # ADR 0038: Schema-change governance and migration review policy
 
-Status: **Accepted** · Date: 2026-09-01 · Author: Justin + Hermes
+Status: **Partially superseded by [ADR 0070](0070-migration-and-documentation-reboot.md)** (immutability clause only) · Date: 2026-09-01 · Author: Justin + Hermes
 
 Records the schema-change decision and review gates for issue #449, part of the
 Experience architecture migration (#480). This ADR governs readiness and
