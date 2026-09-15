@@ -1,6 +1,6 @@
 # ADR 0070: Reboot migration history and consolidate superseded documentation
 
-Status: **Proposed** · Date: 2026-09-15 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-09-15 · Author: Justin + opencode
 
 ## Context
 
