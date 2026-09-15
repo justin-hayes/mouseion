@@ -355,7 +355,7 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 	if target == "" {
 		target = textmatch.CleanLexicalSurface(c.CanonicalLemma)
 	}
-	req := TranslationRequest{Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS), CandidateSenses: cloneSenses(c.CandidateSenses)}
+	req := TranslationRequest{Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS), CandidateSenses: CloneLexicalSenses(c.CandidateSenses)}
 	if sentence != "" {
 		req.TargetWord = target
 	}

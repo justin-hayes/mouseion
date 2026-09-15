@@ -101,3 +101,24 @@ func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
 	got := RenderGloss([]LexicalSense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
 	assert.Equal(t, "one two three · second meaning", got)
 }
+
+func TestValidateSenseSelectionUsesDisplayLimitAndCandidateRange(t *testing.T) {
+	valid := []int{1, 0}
+	assert.True(t, ValidateSenseSelection(valid, 2))
+	assert.False(t, ValidateSenseSelection([]int{0, 0}, 2))
+	assert.False(t, ValidateSenseSelection([]int{-1}, 2))
+	assert.False(t, ValidateSenseSelection([]int{2}, 2))
+	assert.False(t, ValidateSenseSelection([]int{0, 1, 2, 3}, 4))
+}
+
+func TestCloneLexicalSensesDeepCopiesDictionaryMetadata(t *testing.T) {
+	original := []LexicalSense{{Examples: []string{"example"}, Topics: []string{"topic"}, Tags: []string{"tag"}}}
+	clone := CloneLexicalSenses(original)
+	clone[0].Examples[0] = "changed"
+	clone[0].Topics[0] = "changed"
+	clone[0].Tags[0] = "changed"
+
+	assert.Equal(t, "example", original[0].Examples[0])
+	assert.Equal(t, "topic", original[0].Topics[0])
+	assert.Equal(t, "tag", original[0].Tags[0])
+}

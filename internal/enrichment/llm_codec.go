@@ -14,8 +14,6 @@ import (
 const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object with exactly these eight fields and no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct non-negative dictionary sense indices, in best-fit order), and fallback_gloss (an optional concise English gloss only when no supplied dictionary sense fits). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
 
 const maxTranslationResponseBytes = 1 << 20
-const maxFallbackGlossRunes = 200
-const maxSenseOrder = 3
 
 // TranslationCodec owns the provider request and response semantics shared by
 // synchronous and Batch transports. It deliberately contains no credentials,
@@ -146,7 +144,7 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		TargetWord      string         `json:"target_word,omitempty"`
 		ExampleSentence string         `json:"example_sentence,omitempty"`
 		CandidateSenses []LexicalSense `json:"candidate_senses,omitempty"`
-	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, cloneSenses(input.CandidateSenses)})
+	}{itemID, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, CloneLexicalSenses(input.CandidateSenses)})
 	if err != nil {
 		return nil, fmt.Errorf("encode LLM translation input: %w", err)
 	}
@@ -294,7 +292,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
 	selectionInvalid := len(input.CandidateSenses) > 0 && response.SenseOrder == nil
-	selectionInvalid = selectionInvalid || len(response.SenseOrder) > maxSenseOrder || !validSenseOrder(response.SenseOrder) || !senseOrderInRange(response.SenseOrder, len(input.CandidateSenses))
+	selectionInvalid = selectionInvalid || !ValidateSenseSelection(response.SenseOrder, len(input.CandidateSenses))
 	for _, warning := range response.Warnings {
 		selectionInvalid = selectionInvalid || strings.HasPrefix(warning, "sense selection") || strings.HasPrefix(warning, "invalid sense selection")
 	}
@@ -305,7 +303,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 			response.Warnings = append(response.Warnings, "invalid sense selection; using deterministic order")
 		}
 	}
-	if response.FallbackGloss != "" && (hasMarkup(response.FallbackGloss) || len([]rune(response.FallbackGloss)) > maxFallbackGlossRunes) {
+	if response.FallbackGloss != "" && (hasMarkup(response.FallbackGloss) || len([]rune(response.FallbackGloss)) > MaxFallbackGlossRunes) {
 		response.FallbackGloss = ""
 		response.Warnings = append(response.Warnings, "invalid fallback gloss; ignoring it")
 	}
@@ -325,29 +323,6 @@ func hasWarning(warnings []string, want string) bool {
 	return false
 }
 
-func validSenseOrder(order []int) bool {
-	seen := make(map[int]struct{}, len(order))
-	for _, index := range order {
-		if index < 0 {
-			return false
-		}
-		if _, exists := seen[index]; exists {
-			return false
-		}
-		seen[index] = struct{}{}
-	}
-	return true
-}
-
-func senseOrderInRange(order []int, candidateCount int) bool {
-	for _, index := range order {
-		if index >= candidateCount {
-			return false
-		}
-	}
-	return true
-}
-
 func decodeSenseOrder(raw json.RawMessage) ([]int, string) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, ""
@@ -355,19 +330,6 @@ func decodeSenseOrder(raw json.RawMessage) ([]int, string) {
 	var order []int
 	if err := json.Unmarshal(raw, &order); err != nil {
 		return nil, "invalid sense selection; using deterministic order"
-	}
-	if len(order) > maxSenseOrder {
-		return nil, "sense selection exceeds display limit; using deterministic order"
-	}
-	seen := make(map[int]struct{}, len(order))
-	for _, index := range order {
-		if index < 0 {
-			return nil, "sense selection contains an invalid index; using deterministic order"
-		}
-		if _, duplicate := seen[index]; duplicate {
-			return nil, "sense selection contains a duplicate index; using deterministic order"
-		}
-		seen[index] = struct{}{}
 	}
 	return order, ""
 }
@@ -384,7 +346,7 @@ func decodeFallbackGloss(raw json.RawMessage) (string, string) {
 	if fallback == "" {
 		return "", ""
 	}
-	if hasMarkup(fallback) || len([]rune(fallback)) > maxFallbackGlossRunes {
+	if hasMarkup(fallback) || len([]rune(fallback)) > MaxFallbackGlossRunes {
 		return "", "invalid fallback gloss; ignoring it"
 	}
 	return fallback, ""
