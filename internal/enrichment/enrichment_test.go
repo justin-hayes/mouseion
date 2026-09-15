@@ -57,6 +57,8 @@ func (s *emptyCandidateFallbackStub) Translate(_ context.Context, r TranslationR
 	response := TranslationResponse{Translation: "rare word", SentenceTranslation: "The rare thing is important today.", SentenceTranslationTarget: "rare"}
 	if len(r.CandidateSenses) == 0 {
 		response.FallbackGloss = "something uncommon"
+	} else {
+		response.SenseOrder = []int{0}
 	}
 	return response, nil
 }

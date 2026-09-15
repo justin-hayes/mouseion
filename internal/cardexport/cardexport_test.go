@@ -998,6 +998,7 @@ func TestManifestFallbackGlossFillsMissingDictionaryMeaning(t *testing.T) {
 
 	withoutExternal, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: key, Result: enrichment.Result{Candidate: candidate}}})
 	require.NoError(t, err)
+	require.Len(t, withoutExternal.Generated, 1)
 	assert.Empty(t, withoutExternal.Generated[0].Note.Gloss)
 	assert.Zero(t, withoutExternal.Completeness.CardsWithFallbackGloss)
 }
