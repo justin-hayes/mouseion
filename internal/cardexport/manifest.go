@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
@@ -363,10 +364,29 @@ func cloneManifestItems(items []ManifestItem) []ManifestItem {
 		result[i] = item
 		result[i].Quality.Reasons = append([]string(nil), item.Quality.Reasons...)
 		result[i].Entry.CandidateSenses = enrichment.CloneLexicalSenses(item.Entry.CandidateSenses)
+		result[i].Entry.SentenceTokens = cloneTokens(item.Entry.SentenceTokens)
 		if item.CacheKey != nil {
 			key := *item.CacheKey
 			result[i].CacheKey = &key
 		}
 	}
 	return result
+}
+
+func cloneTokens(tokens []analyzer.Token) []analyzer.Token {
+	if tokens == nil {
+		return nil
+	}
+	cloned := make([]analyzer.Token, len(tokens))
+	for i, token := range tokens {
+		cloned[i] = token
+		if token.Morphology != nil {
+			morphology := make(map[string]string, len(token.Morphology))
+			for key, value := range token.Morphology {
+				morphology[key] = value
+			}
+			cloned[i].Morphology = morphology
+		}
+	}
+	return cloned
 }
