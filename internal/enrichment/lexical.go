@@ -60,8 +60,8 @@ const (
 	minimumContextScore       = 2
 )
 
-// ValidateSenseSelection validates the ordered sense indices accepted by the
-// translation contract against the frozen candidate senses.
+// ValidateSenseSelection validates ordered sense indices against the frozen
+// candidate senses. The display limit is applied separately after validation.
 func ValidateSenseSelection(selection []int, candidateCount int) bool {
 	seen := make(map[int]struct{}, len(selection))
 	for _, index := range selection {
