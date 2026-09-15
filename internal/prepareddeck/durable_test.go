@@ -159,7 +159,7 @@ func TestDurableFinalizerLogsFallbackGlossUsageOnlyForConsentedRuns(t *testing.T
 func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 	store := &finalizerStoreStub{
 		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
-		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, DeckRevision: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
 	}
 	renderer := &finalizerRendererStub{artifact: cardexport.Artifact{APKG: []byte("rerendered")}}
 	rerenderer := &DurableRerenderer{Store: store, Renderer: renderer}

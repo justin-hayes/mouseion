@@ -248,7 +248,7 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	if preparation.RetiredAt != nil {
+	if preparation.State != domain.DeckPreparationReady || preparation.CurrentRunID != runID || preparation.RetiredAt != nil {
 		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
 	}
 	if run.PresentationVersion >= presentationVersion {
