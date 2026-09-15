@@ -216,6 +216,33 @@ func TestManifestUsesFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
 	assert.Zero(t, deterministic.Completeness.CardsWithFallbackGloss)
 }
 
+func TestManifestCapsOverLimitSenseSelectionInModelOrder(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN",
+		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "building · house · home",
+		DictionaryProviderVersion: "dictionary-v1",
+		CandidateSenses: []enrichment.LexicalSense{
+			{Gloss: "building"}, {Gloss: "house"}, {Gloss: "home"}, {Gloss: "dwelling"},
+		},
+	}
+	manifest := NewManifest("owner-1", "Buch", []Entry{entry})
+	candidate := manifest.EnrichmentCandidates()[0]
+	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-v1", DictionaryProviderVersion: "dictionary-v1", SentenceHash: enrichment.SentenceHash(entry.Sentence)}
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	require.NoError(t, err)
+	provenance := enrichment.Provenance{Provider: key.Provider, ProviderVersion: key.ProviderVersion}
+
+	artifact, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{
+		CacheKey: key,
+		Result: enrichment.Result{
+			Candidate:      candidate,
+			SenseSelection: enrichment.Field[[]int]{Value: []int{3, 1, 0, 2}, Available: true, Provenance: provenance},
+		},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "dwelling · house · building", artifact.Generated[0].Note.Gloss)
+}
+
 func TestManifestRenderKeepsFallbackGlossCompletenessWithoutUsageSignal(t *testing.T) {
 	entry := Entry{
 		Language: "de", CanonicalLemma: "laufen", UPOS: "VERB",

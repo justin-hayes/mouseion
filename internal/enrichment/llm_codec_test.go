@@ -142,6 +142,7 @@ func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(
 	assert.Contains(t, string(body), `building`)
 	assert.Contains(t, string(body), `house`)
 	assert.Contains(t, string(body), `0-based`)
+	assert.Contains(t, string(body), `display limit of 3`)
 	assert.Contains(t, string(body), `omit it, or return an empty array`)
 
 	content := struct {
@@ -171,6 +172,22 @@ func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(
 	assert.Empty(t, response.SenseOrder)
 	assert.Empty(t, response.FallbackGloss)
 	assert.Contains(t, response.Warnings, "invalid sense selection; using deterministic order")
+}
+
+func TestTranslationCodecCapsOverLimitSenseSelectionInModelOrder(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{
+		Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN",
+		CandidateSenses: []LexicalSense{{Gloss: "building"}, {Gloss: "house"}, {Gloss: "home"}, {Gloss: "dwelling"}},
+	}
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","sense_order":[3,1,0,2],"sentence_translation":"","sentence_translation_target":""}`
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+
+	response, err := codec.DecodeResponse(input, []byte(body))
+	require.NoError(t, err)
+	assert.Equal(t, []int{3, 1, 0}, response.SenseOrder)
+	assert.Empty(t, response.Warnings)
 }
 
 func TestTranslationCodecAcceptsFallbackWhenSenseSelectionIsOmitted(t *testing.T) {
