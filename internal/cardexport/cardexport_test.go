@@ -419,6 +419,16 @@ func (m *memoryStore) RecordGeneratedForBook(_ context.Context, owner, bookID, _
 	if owner == "" || e.Language == "" {
 		return ErrInvalidInput
 	}
+	ownerMatchesEntry := false
+	for _, entry := range m.entries {
+		if entry.Language == e.Language && entry.CanonicalLemma == e.CanonicalLemma && entry.UPOS == e.UPOS {
+			ownerMatchesEntry = entry.OwnerID == owner
+			break
+		}
+	}
+	if !ownerMatchesEntry {
+		return ErrInvalidInput
+	}
 	if bookID != m.bookID {
 		return ErrInvalidInput
 	}

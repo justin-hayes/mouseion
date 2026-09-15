@@ -1456,8 +1456,8 @@ func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcome
 	return s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
 }
 
-func applyExactEnrichment(entry *RenderInput, outcome ExactEnrichment) error {
-	entry.fallbackGlossApplied = false
+func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
+	input.fallbackGlossApplied = false
 	result := outcome.Result
 	fields := []struct {
 		available  bool
@@ -1478,7 +1478,7 @@ func applyExactEnrichment(entry *RenderInput, outcome ExactEnrichment) error {
 	}
 	if available {
 		candidate := result.Candidate
-		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*entry) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
+		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*input) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
 		if outcome.CacheKey.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != outcome.CacheKey.SentenceHash {
@@ -1486,28 +1486,28 @@ func applyExactEnrichment(entry *RenderInput, outcome ExactEnrichment) error {
 		}
 	}
 	if result.Translation.Available {
-		entry.Translation = result.Translation.Value
+		input.Translation = result.Translation.Value
 	}
 	if result.SentenceTranslation.Available {
-		entry.SentenceTranslation = result.SentenceTranslation.Value
+		input.SentenceTranslation = result.SentenceTranslation.Value
 	}
 	if result.SentenceTranslationTarget.Available {
-		entry.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
+		input.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
 	}
 	selectionValid := false
 	selectionMalformed := false
 	if result.SenseSelection.Available {
 		selection := result.SenseSelection.Value
-		if !enrichment.ValidateSenseSelection(selection, len(entry.CandidateSenses)) {
+		if !enrichment.ValidateSenseSelection(selection, len(input.CandidateSenses)) {
 			selectionMalformed = true
 			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
 		} else if len(selection) > 0 {
 			selected := make([]enrichment.LexicalSense, 0, len(selection))
 			for _, index := range selection {
-				selected = append(selected, entry.CandidateSenses[index])
+				selected = append(selected, input.CandidateSenses[index])
 			}
 			if gloss := enrichment.RenderGloss(selected, enrichment.DefaultMaxSenses, enrichment.DefaultMaxTokens); gloss != "" {
-				entry.Gloss = gloss
+				input.Gloss = gloss
 				selectionValid = true
 			}
 		}
@@ -1515,8 +1515,8 @@ func applyExactEnrichment(entry *RenderInput, outcome ExactEnrichment) error {
 	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
 		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= enrichment.MaxFallbackGlossRunes {
-			entry.Gloss = fallback
-			entry.fallbackGlossApplied = true
+			input.Gloss = fallback
+			input.fallbackGlossApplied = true
 		}
 	}
 	return nil
