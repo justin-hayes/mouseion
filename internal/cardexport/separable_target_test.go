@@ -133,6 +133,42 @@ func TestExportCoverageBoldsSeparableVerbFromPersistedParse(t *testing.T) {
 	assert.NotContains(t, artifact.TSV, "stale text")
 }
 
+func TestRenderManifestBoldsSeparableVerbFromFrozenParse(t *testing.T) {
+	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
+	snapshot := ManifestSnapshot{
+		SchemaVersion: ManifestSchemaVersion,
+		Owner:         "owner", DeckName: "Buch", Filename: DownloadFilename("Buch"),
+		Items: []ManifestItem{{
+			Ordinal: 0, Disposition: ManifestAccepted,
+			Entry: Entry{
+				Language: "de", CanonicalLemma: "anstrahlen", UPOS: "VERB",
+				Sentence: sentence, TargetWord: "strahlten", SourceDocument: "Book",
+				SentenceTokens: []analyzer.Token{
+					{Surface: "Im", UPOS: "ADP", Dependency: "case", Head: 1},
+					{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 4},
+					{Surface: "des", UPOS: "DET", Dependency: "det", Head: 3},
+					{Surface: "Erpressers", UPOS: "NOUN", Dependency: "nmod", Head: 1},
+					{Surface: "strahlten", UPOS: "VERB", Dependency: "root", Head: 4},
+					{Surface: "ihre", UPOS: "DET", Dependency: "det", Head: 6},
+					{Surface: "Schwestern", UPOS: "NOUN", Dependency: "nsubj", Head: 4},
+					{Surface: "sie", UPOS: "PRON", Dependency: "obj", Head: 4},
+					{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
+				},
+			},
+			Quality: SentenceQuality{Accepted: true, Score: 94, Reasons: []string{"target present"}},
+		}},
+	}
+
+	rebuilt, err := ManifestFromSnapshot(snapshot)
+	require.NoError(t, err)
+	require.Len(t, rebuilt.accepted, 1)
+	assert.Equal(t, snapshot.Items[0].Entry.SentenceTokens, rebuilt.accepted[0].SentenceTokens, "frozen parse lost in snapshot round trip")
+
+	artifact, err := (&Service{}).RenderManifest(context.Background(), rebuilt, nil)
+	require.NoError(t, err)
+	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
+}
+
 func TestMakeNoteTargetBoldingIsDeterministic(t *testing.T) {
 	entry := Entry{
 		Language: "de", CanonicalLemma: "entgegenrufen", UPOS: "VERB",

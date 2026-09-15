@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -74,6 +75,7 @@ type preparedDeckRenderPayload struct {
 	PrincipalParts            string                    `json:"principal_parts,omitempty"`
 	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
+	SentenceTokens            []analyzer.Token          `json:"sentence_tokens,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
 	Notes                     string                    `json:"notes"`
 }
@@ -203,7 +205,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		if digestErr != nil {
 			return FreezePreparedDeckRunResult{}, digestErr
 		}
-		renderPayload, marshalErr := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, CandidateSenses: item.Entry.CandidateSenses, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
+		renderPayload, marshalErr := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
 		if marshalErr != nil {
 			return FreezePreparedDeckRunResult{}, marshalErr
 		}
@@ -401,6 +403,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		}
 		item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.Plural, render.IPA, render.PrincipalParts, render.DictionaryProviderVersion
 		item.Entry.CandidateSenses = render.CandidateSenses
+		item.Entry.SentenceTokens = render.SentenceTokens
 		item.Entry.SourceDocument, item.Entry.Notes = render.SourceDocument, render.Notes
 		provider := pgText(model.Provider)
 		if provider != "" {
