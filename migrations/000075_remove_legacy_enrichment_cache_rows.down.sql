@@ -1,0 +1,3 @@
+-- The legacy rows removed by 000075 cannot be reconstructed by a down
+-- migration. Restore production data from backup or use a reviewed forward fix.
+SELECT 1;
