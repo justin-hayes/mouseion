@@ -275,8 +275,7 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 
 // NormalizeTranslationResponse keeps malformed optional meaning fields from
 // failing a translation run while still enforcing the required translation
-// contract. The selection phase supplies range validation once candidate senses
-// are frozen; this phase enforces the durable display bounds.
+// contract against the frozen candidate senses.
 func NormalizeTranslationResponse(input TranslationRequest, response TranslationResponse) (TranslationResponse, error) {
 	response.Translation = strings.TrimSpace(response.Translation)
 	response.SentenceTranslation = strings.TrimSpace(response.SentenceTranslation)

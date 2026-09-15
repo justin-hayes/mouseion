@@ -68,7 +68,7 @@ func ValidateSenseSelection(selection []int, candidateCount int) bool {
 	}
 	seen := make(map[int]struct{}, len(selection))
 	for _, index := range selection {
-		if index < 0 || (candidateCount >= 0 && index >= candidateCount) {
+		if index < 0 || index >= candidateCount {
 			return false
 		}
 		if _, exists := seen[index]; exists {
