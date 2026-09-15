@@ -230,7 +230,7 @@ SET artifact = sqlc.arg('artifact'), total_cards = sqlc.arg('total_cards'),
     deck_revision = deck_revision + 1, error = '', updated_at = now()
 FROM advanced_run
 WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('preparation')
-  AND p.current_run_id = advanced_run.run_id AND p.state = 'ready'
+  AND p.current_run_id = advanced_run.run_id AND p.state = 'ready' AND p.retired_at IS NULL
 RETURNING p.id, p.owner_id, p.source_material_id, p.state, p.artifact, p.filename,
           p.deck_name, p.content_hash, p.total_cards, p.cards_with_english,
           p.cards_with_contextual_sentence_translations, p.quality_omissions, p.error,
