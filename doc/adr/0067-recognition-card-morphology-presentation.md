@@ -1,6 +1,6 @@
 # ADR 0067: Recognition-card morphology and multi-span target presentation
 
-Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode · Amended by [ADR 0071](0071-decouple-deck-data-from-presentation.md)
 
 Amends the card contract of **ADR 0029** and **ADR 0064**, and the
 "no learner-facing surface" non-goal of **ADR 0061**.

@@ -1,6 +1,6 @@
 # ADR 0068: Recognition-card meaning and form presentation
 
-Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode
+Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode · Amended by [ADR 0071](0071-decouple-deck-data-from-presentation.md)
 
 Amends the card contract of **ADR 0029** and **ADR 0064**, and extends the
 presentation decisions of **ADR 0067**.

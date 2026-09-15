@@ -1,6 +1,6 @@
 # ADR 0030: Durable prepared-deck translation runs
 
-Status: **Accepted** · Date: 2026-08-28 · Author: Justin + Codex
+Status: **Accepted** · Date: 2026-08-28 · Author: Justin + Codex · Amended by [ADR 0071](0071-decouple-deck-data-from-presentation.md)
 
 > **Amendment:** [ADR 0031](0031-openai-batch-prepared-deck-translation.md)
 > supersedes this ADR's scalar per-item provider
