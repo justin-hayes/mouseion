@@ -30,7 +30,16 @@ func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing
 	assert.Equal(t, int64(7200), response.Batch.AgeSeconds)
 	assert.Equal(t, 1, response.Translation.Retrying)
 	assert.Equal(t, 1, response.Batch.Expired)
-	assert.Equal(t, 1, response.Completeness.CardsWithFallbackGloss)
+	assert.Nil(t, response.Completeness.CardsWithFallbackGloss)
+	assert.NotContains(t, string(encoded), `"cards_with_fallback_gloss"`)
+}
+
+func TestReadyPreparationResponseExposesFallbackGlossCount(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationReady, CardsWithFallbackGloss: 1})
+
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	assert.Equal(t, 1, *response.Completeness.CardsWithFallbackGloss)
 	assert.Contains(t, string(encoded), `"cards_with_fallback_gloss":1`)
 }
 

@@ -44,11 +44,11 @@ UPDATE deck_preparations
 SET state = 'cancelled', error = '', completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND id = $2
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type CancelDeckPreparationParams struct {
@@ -95,11 +95,11 @@ UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
 WHERE owner_id = $1 AND id = $2 AND state = 'queued'
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type ClaimDeckPreparationParams struct {
@@ -144,19 +144,19 @@ func (q *Queries) ClaimDeckPreparation(ctx context.Context, arg ClaimDeckPrepara
 const completeDeckPreparation = `-- name: CompleteDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'ready', artifact = $1, filename = $2,
-     deck_name = $3, total_cards = $4,
-     cards_with_english = $5,
-     cards_with_contextual_sentence_translations = $6,
-     cards_with_fallback_gloss = $7,
-     quality_omissions = $8, error = '',
+    deck_name = $3, total_cards = $4,
+    cards_with_english = $5,
+    cards_with_contextual_sentence_translations = $6,
+    cards_with_fallback_gloss = $7,
+    quality_omissions = $8, error = '',
     completed_at = now(), updated_at = now()
 WHERE owner_id = $9 AND id = $10 AND state = 'preparing'
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type CompleteDeckPreparationParams struct {
@@ -223,11 +223,11 @@ SET studying_at = NULL, reviewed_at = COALESCE(reviewed_at, now()),
     graduated_at = COALESCE(graduated_at, now()), released_at = NULL, updated_at = now()
 WHERE owner_id = $1 AND id = $2
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type ConfirmDeckVocabularyReviewParams struct {
@@ -1161,11 +1161,11 @@ UPDATE deck_preparations
 SET studying_at = NULL, released_at = now(), updated_at = now()
 WHERE owner_id = $1 AND id = $2 AND studying_at IS NOT NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type ReleaseDeckVocabularyStudyParams struct {
@@ -1271,11 +1271,11 @@ UPDATE deck_preparations
 SET studying_at = now(), released_at = NULL, updated_at = now()
 WHERE owner_id = $1 AND id = $2 AND studying_at IS NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type StartDeckVocabularyStudyParams struct {
@@ -1327,11 +1327,11 @@ SET state = $1, error = $2,
 WHERE owner_id = $3 AND id = $4
   AND state = ANY($5::text[])
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type TransitionDeckPreparationParams struct {

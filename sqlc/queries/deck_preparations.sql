@@ -143,39 +143,39 @@ UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'queued'
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: CancelDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'cancelled', error = '', completed_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: CompleteDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'ready', artifact = sqlc.arg('artifact'), filename = sqlc.arg('filename'),
-     deck_name = sqlc.arg('deck_name'), total_cards = sqlc.arg('total_cards'),
-     cards_with_english = sqlc.arg('cards_with_english'),
-     cards_with_contextual_sentence_translations = sqlc.arg('cards_with_contextual_sentence_translations'),
-     cards_with_fallback_gloss = sqlc.arg('cards_with_fallback_gloss'),
-     quality_omissions = sqlc.arg('quality_omissions'), error = '',
+    deck_name = sqlc.arg('deck_name'), total_cards = sqlc.arg('total_cards'),
+    cards_with_english = sqlc.arg('cards_with_english'),
+    cards_with_contextual_sentence_translations = sqlc.arg('cards_with_contextual_sentence_translations'),
+    cards_with_fallback_gloss = sqlc.arg('cards_with_fallback_gloss'),
+    quality_omissions = sqlc.arg('quality_omissions'), error = '',
     completed_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'preparing'
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: TransitionDeckPreparation :one
 UPDATE deck_preparations
@@ -187,11 +187,11 @@ SET state = sqlc.arg('next_state'), error = sqlc.arg('message'),
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
   AND state = ANY(sqlc.arg('from_states')::text[])
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: DeckPreparationExists :one
 SELECT EXISTS(SELECT 1 FROM deck_preparations WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id'));
@@ -243,11 +243,11 @@ UPDATE deck_preparations
 SET studying_at = now(), released_at = NULL, updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation') AND studying_at IS NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: GraduateDeckPreparationVocabularyStates :exec
 INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
@@ -287,22 +287,22 @@ SET studying_at = NULL, reviewed_at = COALESCE(reviewed_at, now()),
     graduated_at = COALESCE(graduated_at, now()), released_at = NULL, updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation')
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: ReleaseDeckVocabularyStudy :one
 UPDATE deck_preparations
 SET studying_at = NULL, released_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation') AND studying_at IS NOT NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: InsertGeneratedVocabulary :exec
 INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)
