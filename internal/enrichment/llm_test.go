@@ -39,7 +39,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	messages := received["messages"].([]any)
 	system := messages[0].(map[string]any)["content"].(string)
 	assert.True(t, strings.Contains(system, "exactly one JSON object"), "prompt does not enforce concise strict JSON output: %q", system)
-	assert.True(t, strings.Contains(system, "exactly these eight fields"), "prompt does not enforce concise strict JSON output: %q", system)
+	assert.True(t, strings.Contains(system, "these fields"), "prompt does not enumerate the response fields: %q", system)
 	assert.False(t, strings.Contains(strings.ToLower(system), "verbosity"), "prompt does not enforce concise strict JSON output: %q", system)
 	user := messages[1].(map[string]any)["content"].(string)
 	var externalInput map[string]any
@@ -199,7 +199,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	provider, err := NewConfiguredLLMProvider(cfg, &http.Client{})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-compatible", provider.Name())
-	assert.Equal(t, "gpt-test/translation-v9-sense-selection-json-reasoning-medium", provider.Version())
+	assert.Equal(t, "gpt-test/translation-v10-sense-selection-json-reasoning-medium", provider.Version())
 	assert.Equal(t, 4*time.Second, cfg.Timeout)
 	assert.Equal(t, "medium", cfg.ReasoningEffort)
 	assert.True(t, cfg.SupportsReasoningEffort)

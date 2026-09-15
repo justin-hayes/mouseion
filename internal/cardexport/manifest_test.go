@@ -137,6 +137,11 @@ func TestManifestAppliesValidatedSenseOrderAndDeterministicFallback(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, "house · building", selected.Generated[0].Note.Gloss)
 
+	var output bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
 	malformed, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{
 		CacheKey: key,
 		Result: enrichment.Result{
@@ -145,8 +150,11 @@ func TestManifestAppliesValidatedSenseOrderAndDeterministicFallback(t *testing.T
 			FallbackGloss:  enrichment.Field[string]{Value: "wrong", Available: true, Provenance: provenance},
 		},
 	}})
+	log.SetOutput(previousWriter)
+	log.SetFlags(previousFlags)
 	require.NoError(t, err)
 	assert.Equal(t, "building · house", malformed.Generated[0].Note.Gloss)
+	assert.Contains(t, output.String(), "invalid sense selection; using deterministic order")
 }
 
 func TestManifestUsesFallbackGlossForAnExplicitNoneFitSelection(t *testing.T) {

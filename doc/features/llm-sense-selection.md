@@ -67,8 +67,9 @@ fallback.
 
 - The request carries the representative sentence and the frozen candidate sense
   list (index-correlated), in addition to the existing translation fields.
-- The response adds `sense_order` — ordered integer indices into the candidate
-  list, a subset, deduplicated, capped at the display limit — and
+- The response adds `sense_order` — ordered 0-based integer indices into the
+  frozen candidate list, a subset, deduplicated, capped at the display limit;
+  omit it or return an empty array when no candidate applies — and
   `fallback_gloss` — an English gloss, non-empty only when no candidate applies
   or none exist.
 - The general LLM `gloss` field is retired; required-field validation no longer
@@ -81,15 +82,16 @@ fallback.
 
 - Out-of-range or duplicate indices invalidate the selection response; markup and
   over-length fallback text are rejected.
-- A malformed or missing selection falls back to the deterministic order and
-  logs a warning. Selection never fails a run; only translation fails a
-  consented standard run closed.
+- A malformed selection falls back to the deterministic order and logs a
+  warning. An omitted or empty selection means no candidate applies; a valid
+  fallback gloss is rendered in that case. Selection never fails a run; only
+  translation fails a consented standard run closed.
 
 ### Rendering
 
-- With a valid selection, the meaning block renders the chosen senses in the
-  model's order; without one, it renders the frozen deterministic gloss. A
-  fallback gloss renders as the meaning block when no dictionary sense applies.
+- With a valid non-empty selection, the meaning block renders the chosen senses
+  in the model's order; without one, it renders the frozen deterministic gloss
+  unless a valid fallback gloss says that no dictionary sense applies.
 - The meaning block is unchanged in kind — a compact sense set — and the card
   does not mark fallback provenance.
 
