@@ -105,7 +105,7 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID)
 	require.NoError(t, err)
 	record := func(lemma string) cardexport.GeneratedRecord {
-		return cardexport.GeneratedRecord{Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}, Note: cardexport.Note{Key: lemma, Text: lemma + " front", BackExtra: lemma + " back", BookTitle: "Atomic Book"}}
+		return cardexport.GeneratedRecord{Input: cardexport.RenderInput{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}, Note: cardexport.Note{Key: lemma, Text: lemma + " front", BackExtra: lemma + " back", BookTitle: "Atomic Book"}}
 	}
 	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Missing")}, Completeness: cardexport.Completeness{TotalCards: 2}}
 	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)

@@ -170,17 +170,17 @@ func (s *PostgresStore) GetCorpusForAnalysis(ctx context.Context, owner, analysi
 	return domain.Corpus{ID: row.CID, OwnerID: row.COwnerID, SourceMaterialID: row.CSourceMaterialID, ArtifactHash: row.ArtifactHash, AnalysisRunID: row.AnalysisRunID, Status: row.Status, CreatedAt: row.CreatedAt}, nil
 }
 
-func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.Entry, note cardexport.Note) error {
+func (s *PostgresStore) RecordGenerated(ctx context.Context, owner, deckName string, entry cardexport.RenderInput, note cardexport.Note) error {
 	return s.recordGenerated(ctx, owner, "", deckName, entry, note)
 }
 
 // RecordGeneratedForBook atomically persists the exported card and its first
 // generated-vocabulary provenance for the source material that produced it.
-func (s *PostgresStore) RecordGeneratedForBook(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
+func (s *PostgresStore) RecordGeneratedForBook(ctx context.Context, owner, bookID, deckName string, entry cardexport.RenderInput, note cardexport.Note) error {
 	return s.recordGenerated(ctx, owner, bookID, deckName, entry, note)
 }
 
-func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deckName string, entry cardexport.Entry, note cardexport.Note) error {
+func (s *PostgresStore) recordGenerated(ctx context.Context, owner, bookID, deckName string, entry cardexport.RenderInput, note cardexport.Note) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
