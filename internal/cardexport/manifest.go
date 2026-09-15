@@ -168,7 +168,7 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 	}
 	manifest := Manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
-		accepted: make([]Entry, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
+		accepted: make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
 		enrichmentCandidates: make([]enrichment.Candidate, 0, len(snapshot.Items)),
 		decisions:            cloneManifestItems(snapshot.Items),
 	}
@@ -176,7 +176,7 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 	for _, item := range snapshot.Items {
 		switch item.Disposition {
 		case ManifestAccepted:
-			manifest.accepted = append(manifest.accepted, item.Entry)
+			manifest.accepted = append(manifest.accepted, renderInputFromEntry(item.Entry))
 			manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 				Identity:                  enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS},
 				TargetWord:                item.Entry.TargetWord,
@@ -313,7 +313,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 			return canonicalManifestItem{}, fmt.Errorf("%w: unknown manifest quality reason", ErrInvalidInput)
 		}
 	}
-	if entry.TargetWord != testedTarget(entry) {
+	if entry.TargetWord != testedEntryTarget(entry) {
 		return canonicalManifestItem{}, fmt.Errorf("%w: manifest target is not canonical", ErrInvalidInput)
 	}
 	var key *canonicalCacheKey

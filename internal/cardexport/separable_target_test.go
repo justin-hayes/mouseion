@@ -24,7 +24,7 @@ func TestMakeNoteBoldsEveryComponentOfSeparableVerb(t *testing.T) {
 		},
 	}
 
-	note, err := makeNote("owner", entry)
+	note, err := makeNote("owner", renderInputFromEntry(entry))
 
 	require.NoError(t, err)
 	assert.Equal(t, "Karam <b>rief</b> dem jungen Scheich <b>entgegen</b>.", note.Text)
@@ -42,7 +42,7 @@ func TestMakeNoteBoldsAttachedSeparableVerbOnce(t *testing.T) {
 		},
 	}
 
-	note, err := makeNote("owner", entry)
+	note, err := makeNote("owner", renderInputFromEntry(entry))
 
 	require.NoError(t, err)
 	assert.Equal(t, "Sie ist gestern <b>aufgestanden</b>.", note.Text)
@@ -62,7 +62,7 @@ func TestMakeNoteBoldsEverySeparableParticle(t *testing.T) {
 		},
 	}
 
-	note, err := makeNote("owner", entry)
+	note, err := makeNote("owner", renderInputFromEntry(entry))
 
 	require.NoError(t, err)
 	assert.Equal(t, "Er <b>rief</b> ihr <b>entgegen</b> und <b>zurück</b>.", note.Text)
@@ -82,7 +82,7 @@ func TestMakeNoteIgnoresParticlesOfOtherVerbs(t *testing.T) {
 		},
 	}
 
-	note, err := makeNote("owner", entry)
+	note, err := makeNote("owner", renderInputFromEntry(entry))
 
 	require.NoError(t, err)
 	assert.Equal(t, "Karam <b>rief</b> <b>entgegen</b> und stand auf.", note.Text)
@@ -94,7 +94,7 @@ func TestMakeNoteWithoutParseBoldsObservedFormOnly(t *testing.T) {
 		Sentence: "Karam rief dem jungen Scheich entgegen.", TargetWord: "rief",
 	}
 
-	note, err := makeNote("owner", entry)
+	note, err := makeNote("owner", renderInputFromEntry(entry))
 
 	require.NoError(t, err)
 	assert.Equal(t, "Karam <b>rief</b> dem jungen Scheich entgegen.", note.Text)
@@ -211,10 +211,10 @@ func TestMakeNoteTargetBoldingIsDeterministic(t *testing.T) {
 		},
 	}
 
-	first, err := makeNote("owner", entry)
+	first, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	for range 5 {
-		again, err := makeNote("owner", entry)
+		again, err := makeNote("owner", renderInputFromEntry(entry))
 		require.NoError(t, err)
 		assert.Equal(t, first.Text, again.Text)
 	}

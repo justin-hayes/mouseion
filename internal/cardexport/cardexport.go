@@ -64,7 +64,7 @@ type Artifact struct {
 type Manifest struct {
 	owner                string
 	deckName             string
-	accepted             []Entry
+	accepted             []RenderInput
 	omitted              []Omission
 	enrichmentCandidates []enrichment.Candidate
 	cacheKeys            []enrichment.CacheKey
@@ -204,7 +204,11 @@ func DedupKey(language, lemma, upos, owner string) string {
 // Key preserves the existing lemma-level note GUID and persistence semantics,
 // while Identity distinguishes the concrete target and source occurrence.
 func CardIdentity(owner string, entry Entry) string {
-	target := testedTarget(entry)
+	return renderCardIdentity(owner, renderInputFromEntry(entry))
+}
+
+func renderCardIdentity(owner string, input RenderInput) string {
+	target := testedRenderTarget(input)
 	inputs := struct {
 		Version        int    `json:"version"`
 		Owner          string `json:"owner"`
@@ -216,10 +220,10 @@ func CardIdentity(owner string, entry Entry) string {
 		SourceDocument string `json:"source_document"`
 		FirstEncounter int64  `json:"first_encounter"`
 	}{
-		Version: 1, Owner: owner, Language: entry.Language,
-		CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Target: target,
-		SourceSentence: entry.Sentence, SourceDocument: entry.SourceDocument,
-		FirstEncounter: entry.FirstEncounter,
+		Version: 1, Owner: owner, Language: input.Language,
+		CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS, Target: target,
+		SourceSentence: input.Sentence, SourceDocument: input.SourceDocument,
+		FirstEncounter: input.FirstEncounter,
 	}
 	payload, _ := json.Marshal(inputs)
 	sum := sha256.Sum256(append([]byte("mouseion-card-identity-v1\x00"), payload...))
@@ -794,7 +798,7 @@ func morphologyValue(morphology map[string]string, key string) string {
 	return ""
 }
 
-func testedTarget(entry Entry) string {
+func testedEntryTarget(entry Entry) string {
 	target := textmatch.CleanLexicalSurface(entry.TargetWord)
 	if target == "" {
 		target = textmatch.CleanLexicalSurface(entry.CanonicalLemma)
@@ -802,23 +806,31 @@ func testedTarget(entry Entry) string {
 	return target
 }
 
-func makeNote(owner string, entry Entry) (Note, error) {
-	target := testedTarget(entry)
-	front, err := boldTargets(entry.Sentence, targetSurfaces(target, entry.SentenceTokens))
+func testedRenderTarget(input RenderInput) string {
+	target := textmatch.CleanLexicalSurface(input.TargetWord)
+	if target == "" {
+		target = textmatch.CleanLexicalSurface(input.CanonicalLemma)
+	}
+	return target
+}
+
+func makeNote(owner string, input RenderInput) (Note, error) {
+	target := testedRenderTarget(input)
+	front, err := boldTargets(input.Sentence, targetSurfaces(target, input.SentenceTokens))
 	if err != nil {
 		return Note{}, err
 	}
-	tags := uniqueTags("Mouseion", prefixedTag("lang", entry.Language), prefixedTag("pos", entry.UPOS), prefixedTag("source", entry.SourceDocument))
-	displayLemma := lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS)
-	article := nounArticle(entry.Language, entry.UPOS, displayLemma, entry.Morphology)
+	tags := uniqueTags("Mouseion", prefixedTag("lang", input.Language), prefixedTag("pos", input.UPOS), prefixedTag("source", input.SourceDocument))
+	displayLemma := lemmadisplay.Format(input.Language, input.CanonicalLemma, input.UPOS)
+	article := nounArticle(input.Language, input.UPOS, displayLemma, input.Morphology)
 	note := Note{
-		Key: DedupKey(entry.Language, entry.CanonicalLemma, entry.UPOS, owner), Identity: CardIdentity(owner, entry),
-		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(entry.UPOS),
-		Plural:         escapeField(nounPlural(entry.UPOS, entry.Plural)),
-		IPA:            escapeField(strings.TrimSpace(entry.IPA)),
-		PrincipalParts: escapeField(strings.TrimSpace(entry.PrincipalParts)),
-		Gloss:          escapeField(entry.Gloss), English: escapeField(entry.Translation),
-		EnglishSentence: HighlightEnglishTarget(entry.SentenceTranslation, entry.SentenceTranslationTarget), BookTitle: escapeField(entry.SourceDocument), Tags: tags,
+		Key: DedupKey(input.Language, input.CanonicalLemma, input.UPOS, owner), Identity: renderCardIdentity(owner, input),
+		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(input.UPOS),
+		Plural:         escapeField(nounPlural(input.UPOS, input.Plural)),
+		IPA:            escapeField(strings.TrimSpace(input.IPA)),
+		PrincipalParts: escapeField(strings.TrimSpace(input.PrincipalParts)),
+		Gloss:          escapeField(input.Gloss), English: escapeField(input.Translation),
+		EnglishSentence: HighlightEnglishTarget(input.SentenceTranslation, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
@@ -1160,7 +1172,7 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	}
 	result, found, err := s.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
-		TargetWord: testedTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
+		TargetWord: testedEntryTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
 	})
 	if err != nil || !found {
 		return err
@@ -1323,10 +1335,10 @@ func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
 
 // NewManifest quality-gates entries once and returns an immutable render plan.
 func NewManifest(owner, deckName string, entries []Entry) Manifest {
-	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]Entry, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
+	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
 	for ordinal, entry := range entries {
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
-		entry.TargetWord = testedTarget(entry)
+		entry.TargetWord = testedEntryTarget(entry)
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
 			entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses[:enrichment.DefaultMaxCandidateSenses])
 		}
@@ -1339,7 +1351,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, Entry: decisionEntry, Quality: quality})
 			continue
 		}
-		manifest.accepted = append(manifest.accepted, entry)
+		manifest.accepted = append(manifest.accepted, renderInputFromEntry(entry))
 		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
@@ -1406,7 +1418,7 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 		if key.SentenceHash != "" && key.SentenceHash != exactSentenceHash {
 			return Manifest{}, fmt.Errorf("%w: sentence cache identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
-		clearExternalFields(&bound.accepted[i])
+		clearExternalRenderInputFields(&bound.accepted[i])
 		bound.decisions[decisionIndex].CacheKey = &key
 		acceptedIndex++
 	}
@@ -1414,7 +1426,7 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 }
 
 func (m Manifest) clone() Manifest {
-	m.accepted = append([]Entry(nil), m.accepted...)
+	m.accepted = cloneRenderInputs(m.accepted)
 	m.omitted = append([]Omission(nil), m.omitted...)
 	for i := range m.omitted {
 		m.omitted[i].Reasons = append([]string(nil), m.omitted[i].Reasons...)
@@ -1428,7 +1440,7 @@ func (m Manifest) clone() Manifest {
 // RenderManifest applies exact enrichment outcomes and renders the frozen plan
 // once. Outcomes are positional so duplicate or missing assignment is rejected.
 func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, error) {
-	entries := append([]Entry(nil), manifest.accepted...)
+	entries := cloneRenderInputs(manifest.accepted)
 	omitted := append([]Omission(nil), manifest.omitted...)
 	for i := range omitted {
 		omitted[i].Reasons = append([]string(nil), omitted[i].Reasons...)
@@ -1449,7 +1461,7 @@ func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcome
 	return s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
 }
 
-func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
+func applyExactEnrichment(entry *RenderInput, outcome ExactEnrichment) error {
 	entry.fallbackGlossApplied = false
 	result := outcome.Result
 	fields := []struct {
@@ -1471,7 +1483,7 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	if available {
 		candidate := result.Candidate
-		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedTarget(*entry) != testedTarget(Entry{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
+		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*entry) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
 		if outcome.CacheKey.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != outcome.CacheKey.SentenceHash {
@@ -1596,36 +1608,36 @@ func (s *Service) render(ctx context.Context, owner, deckName string, entries []
 	return s.RenderManifest(ctx, NewManifest(owner, deckName, entries), nil)
 }
 
-func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, entries []Entry, omitted []Omission) (Artifact, error) {
+func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, entries []RenderInput, omitted []Omission) (Artifact, error) {
 	type acceptedNote struct {
-		entry Entry
+		input RenderInput
 		note  Note
 	}
 	accepted := make([]acceptedNote, 0, len(entries))
 	enrichmentCandidates := make([]enrichment.Candidate, 0, len(entries))
 	completeness := Completeness{QualityOmitted: len(omitted)}
-	for _, entry := range entries {
-		n, err := makeNote(owner, entry)
+	for _, input := range entries {
+		n, err := makeNote(owner, input)
 		if err != nil {
-			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+			return Artifact{}, fmt.Errorf("render %s/%s/%s: %w", input.Language, input.CanonicalLemma, input.UPOS, err)
 		}
-		accepted = append(accepted, acceptedNote{entry: entry, note: n})
+		accepted = append(accepted, acceptedNote{input: input, note: n})
 		completeness.TotalCards++
-		if strings.TrimSpace(entry.Translation) != "" {
+		if strings.TrimSpace(input.Translation) != "" {
 			completeness.CardsWithEnglish++
 		}
-		if strings.TrimSpace(entry.SentenceTranslation) != "" {
+		if strings.TrimSpace(input.SentenceTranslation) != "" {
 			completeness.CardsWithEnglishSentence++
 		}
-		if entry.fallbackGlossApplied {
+		if input.fallbackGlossApplied {
 			completeness.CardsWithFallbackGloss++
 		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
-			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
-			TargetWord:                testedTarget(entry),
-			ExampleSentence:           strings.TrimSpace(entry.Sentence),
-			DictionaryProviderVersion: entry.DictionaryProviderVersion,
-			CandidateSenses:           enrichment.CloneLexicalSenses(entry.CandidateSenses),
+			Identity:                  enrichment.Identity{Language: input.Language, CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS},
+			TargetWord:                testedRenderTarget(input),
+			ExampleSentence:           strings.TrimSpace(input.Sentence),
+			DictionaryProviderVersion: input.DictionaryProviderVersion,
+			CandidateSenses:           enrichment.CloneLexicalSenses(input.CandidateSenses),
 		})
 	}
 	notes := make([]Note, len(accepted))
@@ -1647,12 +1659,14 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 	}
 	generated := make([]GeneratedRecord, len(accepted))
 	for i, item := range accepted {
-		generated[i] = GeneratedRecord{Entry: item.entry, Note: item.note}
+		entry := item.input.entry()
+		entry.OwnerID = owner
+		generated[i] = GeneratedRecord{Entry: entry, Note: item.note}
 	}
 	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates, Generated: generated}, nil
 }
 
-func deckDescription(entries []Entry) string {
+func deckDescription(entries []RenderInput) string {
 	description := "Generated by Mouseion"
 	if attribution := dictionaryAttribution(entries); attribution != "" {
 		return description + "\n\n" + attribution
@@ -1660,7 +1674,7 @@ func deckDescription(entries []Entry) string {
 	return description
 }
 
-func dictionaryAttribution(entries []Entry) string {
+func dictionaryAttribution(entries []RenderInput) string {
 	for _, entry := range entries {
 		if strings.TrimSpace(entry.DictionaryProviderVersion) != "" {
 			return dictionary.AttributionNotice
