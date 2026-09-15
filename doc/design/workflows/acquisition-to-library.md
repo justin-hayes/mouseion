@@ -16,7 +16,7 @@ evidence by expressing reading intent through Reading Journey membership.
 
 The product behavior is defined primarily by:
 
-- [Explicit Scoped-Analysis Workflow](../../features/explicit-scoped-analysis-workflow.md)
+- [Explicit Scoped-Analysis Workflow](../../archive/features/explicit-scoped-analysis-workflow.md)
 - [Language Support](../../features/language-support.md)
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
 - [ADR 0035: My Books membership and source provenance](../../adr/0035-my-books-membership-and-source-provenance.md)

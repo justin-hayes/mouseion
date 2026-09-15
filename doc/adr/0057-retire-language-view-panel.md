@@ -58,5 +58,5 @@ place to interpret evidence as apparent current architecture.
 - [ADR 0042: Derive a per-language corpus view without a persisted corpus object](0042-derived-language-corpus-view.md)
 - [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](0045-book-detail-book-id.md)
 - [ADR 0050: The app works in one active study language at a time](0050-active-study-language.md)
-- [Language Corpus View feature](../features/language-corpus-view.md)
+- [Language Corpus View feature](../archive/features/language-corpus-view.md)
 - [Information architecture](../design/information-architecture.md)

@@ -4,7 +4,7 @@ Status: Accepted · Date: 2026-08-28 · Issue: #338
 
 This document is the implementation contract for making prepared-deck
 translation durable and resumable. It refines the longer-term recommendation in
-[Prepared-deck LLM translation performance](llm-translation-performance.md)
+[Prepared-deck LLM translation performance](../archive/features/llm-translation-performance.md)
 and [ADR 0030](../adr/0030-durable-prepared-deck-translation.md).
 
 The implementation uses the accepted ADR 0032 standard-first execution:

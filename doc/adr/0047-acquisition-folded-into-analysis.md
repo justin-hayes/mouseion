@@ -95,5 +95,5 @@ deck preparation and coverage currently read scope IDs. Legacy scope rows and
 - [ADR 0041: Catalogue sync is metadata-first and non-destructive](0041-catalog-sync-metadata-first.md)
 - [ADR 0040: One current analysis per book](0040-one-current-analysis-per-book.md)
 - [ADR 0038: Schema-change governance and migration review policy](0038-schema-change-governance.md)
-- [EPUB analysis scope review feature (retired)](../features/epub-analysis-scope-review.md)
+- [EPUB analysis scope review feature (retired)](../archive/features/epub-analysis-scope-review.md)
 - [Catalogue sync feature](../features/catalog-sync.md)

@@ -110,5 +110,5 @@ not implied by this decision.
 - [ADR 0035: Separate My Books membership from acquired source provenance](0035-my-books-membership-and-source-provenance.md)
 - [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](0037-cross-book-projection-advisory-ordering.md)
 - [ADR 0040: One current analysis per book](0040-one-current-analysis-per-book.md)
-- [Language corpus view feature](../features/language-corpus-view.md)
+- [Language corpus view feature](../archive/features/language-corpus-view.md)
 - [Superseded discovery evidence](../design/corpus-campaign-horizon-discovery.md)

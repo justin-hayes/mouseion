@@ -106,5 +106,5 @@ and implementation sequence are specified in the
 - [ADR 0012: External translation through River](0012-enrichment-execution-via-river.md)
 - [ADR 0021: Contextual translation cache](0021-contextual-translation-cache.md)
 - [ADR 0022: Asynchronous prepared decks](0022-prepared-decks.md)
-- [Prepared-deck LLM translation performance](../features/llm-translation-performance.md)
+- [Prepared-deck LLM translation performance](../archive/features/llm-translation-performance.md)
 - [ADR 0031: OpenAI Batch prepared-deck translation](0031-openai-batch-prepared-deck-translation.md)

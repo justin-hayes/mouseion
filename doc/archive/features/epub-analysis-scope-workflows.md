@@ -2,6 +2,9 @@
 
 Status: Superseded historical record · Implemented 2026-08-25 · Superseded 2026-09-01
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 This document preserves the former Phase 4 workflow for repository history. It
 is not a current product specification. New implementations must follow the
 [canonical EPUB scope-review contract](epub-analysis-scope-review.md).

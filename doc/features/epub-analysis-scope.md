@@ -2,11 +2,11 @@
 
 Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-14
 
-> Analysis no longer always processes the complete snapshot. Declared-structure
-> main-text selection is defined by
-> [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md) and the
-> [main text selection feature](main-text-selection.md); the Phase 1 statements
-> below about analysis scope are historical.
+> Analysis uses declared-structure main-text selection when the EPUB identifies a
+> single safe body-matter run, and otherwise analyzes the complete snapshot. The
+> selection is defined by [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md)
+> and the [main text selection feature](main-text-selection.md). The former
+> learner-facing scope-review workflow is archived.
 
 ## Problem
 
@@ -19,7 +19,8 @@ is not safe.
 ## Phase 1 goal
 
 Preserve the EPUB reading-order units, their provenance, and the optional
-navigation data used by the [canonical scope-review contract](epub-analysis-scope-review.md).
+navigation data used by analysis-time structure selection. The former
+scope-review contract is preserved in the [archived scope-review record](../archive/features/epub-analysis-scope-review.md).
 This phase does not classify units or change the stable extracted-unit
 identity, text, offsets, or provenance. It creates the foundation for the
 classifier-free selection workflow.
@@ -45,7 +46,7 @@ The extracted book should retain the ordered unit list while continuing to provi
 - automatic front/main/back-matter *classification* or *recommendation*
   (declared-structure main-text selection is defined by
   [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md));
-- the user-facing scope-review controls (defined by the scope-review feature);
+- learner-facing scope-review controls (the former workflow is archived);
 - changing the NLP request payload or analysis scope;
 - changing coverage, deck selection, or sentence scoring;
 - adding an ML classifier;
@@ -80,8 +81,8 @@ The extracted book should retain the ordered unit list while continuing to provi
 
 - classifier-free scope review using reliable top-level EPUB 3 TOC projection;
 - flat readable-unit fallback when projection is unreliable; and
-- selected-unit NLP analysis and scope-aware coverage/decks after explicit
-  confirmation.
+- analysis over the declared main-text run, with a whole-snapshot fallback when
+  structure is absent or ambiguous.
 
 ## Extracted-unit contract (version 1)
 

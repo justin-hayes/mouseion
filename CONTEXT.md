@@ -2,8 +2,8 @@
 
 Mouseion is a self-hosted reading environment for learning foreign languages.
 A learner connects their own OPDS catalog, syncs books into a personal
-library, analyzes confirmed scopes, and prepares Anki recognition decks from
-unknown vocabulary.
+library, analyzes Books according to their declared EPUB structure, and prepares
+Anki recognition decks from unknown vocabulary.
 
 ## Language
 
@@ -200,8 +200,8 @@ _Avoid_: active campaign, target destination, current project.
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
 at the scope of a Book or of a study language's analyzed library. Context
-covers both the linear text around each occurrence and, where dependency
-analysis has been persisted, the occurrence's syntactic role. A future
+covers both the linear text around each occurrence and the occurrence's
+persisted syntactic role. A future
 learner-facing surface; its persistence foundation is the per-analysis
 normalized corpus.
 _Avoid_: KWIC (a rendering style, not the feature), occurrence list.

@@ -2,6 +2,9 @@
 
 Status: Superseded by accepted standard-first cutover · Date: 2026-08-28
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 This investigation recorded the latency and scheduling concerns that led to
 durable prepared-deck translation and OpenAI Batch. Its former per-deck
 translation scheduling is no longer a prepared-deck runtime path.
@@ -34,6 +37,6 @@ The durable Batch design preserves the contracts established by the original
 investigation: exact cache identity, deterministic artifact order and
 completeness, owner isolation, cancellation fencing, and pure downloads.
 Provider files are temporary and are deleted best-effort after reconciliation
-or cancellation. See [OpenAI Batch API for prepared-deck translation](openai-batch-translation.md)
-and [ADR 0031](../adr/0031-openai-batch-prepared-deck-translation.md) for the
+or cancellation. See [OpenAI Batch API for prepared-deck translation](../../features/openai-batch-translation.md)
+and [ADR 0031](../../adr/0031-openai-batch-prepared-deck-translation.md) for the
 current implementation and operational decisions.

@@ -2,20 +2,23 @@
 
 Status: Historical · Date: 2026-08-26 · Updated: 2026-09-09
 
-Issue #691, recorded in [ADR 0054](../adr/0054-retire-standalone-analysis-action.md),
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
+Issue #691, recorded in [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md),
 retired the standalone learner-facing analysis action described in this document.
 The current trigger is Add to Reading Journey; the details below are retained as
 historical context for the analysis contract and compatibility behavior.
 
 > Historical warning: the learner-facing action and submission paths described
-> below are not current behavior. Use [ADR 0054](../adr/0054-retire-standalone-analysis-action.md)
+> below are not current behavior. Use [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md)
 > and the canonical workflow documents for current routing and controls.
 
 Shipped collection language is **My Books**. Historical **My Library** / **Add to
 My Books** / **Add to library** copy is retained only as a compatibility note;
 each catalog entry maps to an owner-scoped Book with active My Books
 membership under
-[ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md). That
+[ADR 0035](../../adr/0035-my-books-membership-and-source-provenance.md). That
 compatibility mapping does not mean every My Books Book has an EPUB. Historically,
 a metadata-only Book entered analysis through explicit **Start analysis** or
 through the learner's **Add to Reading Journey** intent action; current learners
@@ -47,7 +50,7 @@ distinct, durable, reproducible steps.
 8. Observe preparation status and download the immutable ready APKG.
 
 The identity and state contracts for these resources are normative in
-[ADR 0028](../adr/0028-explicit-scoped-analysis-lifecycle.md).
+[ADR 0028](../../adr/0028-explicit-scoped-analysis-lifecycle.md).
 
 ## My Books and content acquisition
 
@@ -56,7 +59,7 @@ The identity and state contracts for these resources are normative in
   analyzes in one explicit flow. **Add to Reading Journey** is the separate
   reading-intent action that performs the same work ensure-once.
 - My Books owns active-language-scoped browse, search, paging, and Book
-  selection ([ADR 0050](../adr/0050-active-study-language.md)).
+  selection ([ADR 0050](../../adr/0050-active-study-language.md)).
 - A metadata-only Book offers **Start analysis** and **Add to Reading Journey**
   from its detail page. There is no separate learner-facing acquisition-only
   action in the shipped flow.
@@ -98,7 +101,7 @@ The identity and state contracts for these resources are normative in
 - Completion publishes one immutable analysis artifact with source and extracted
   unit provenance. A newly completed rerun replaces the Book's current
   learner-facing analysis; earlier artifacts remain operational audit records
-  under [ADR 0040](../adr/0040-one-current-analysis-per-book.md).
+  under [ADR 0040](../../adr/0040-one-current-analysis-per-book.md).
 
 ## Deck preparation prerequisite
 
@@ -109,7 +112,7 @@ The identity and state contracts for these resources are normative in
   and rejects incomplete, failed, stale, legacy-only, or cross-owner input.
 - Preparation retry and reconciliation follow ADR 0028 and preserve ADR 0022's
   immutable ready-artifact and pure-download guarantees.
-- Deck preparation does not mark vocabulary known. Vocabulary graduation uses the single justified transition of [ADR 0036](../adr/0036-primary-goal-justified-graduation.md); reading-finished alone graduates nothing. Campaign operations remain secondary/history only.
+- Deck preparation does not mark vocabulary known. Vocabulary graduation uses the single justified transition of [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md); reading-finished alone graduates nothing. Campaign operations remain secondary/history only.
 
 ## Compatibility and rollout
 
