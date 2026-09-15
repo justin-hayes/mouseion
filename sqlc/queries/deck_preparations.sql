@@ -127,11 +127,11 @@ WHERE owner_id = sqlc.arg('owner')
 INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, filename, deck_name, content_hash)
 VALUES (sqlc.arg('owner'), sqlc.arg('source_material'), sqlc.arg('book_id'), sqlc.arg('analysis_run'), sqlc.arg('filename'), sqlc.arg('deck_name'), sqlc.arg('content_hash'))
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss;
+          book_id, retired_at, cards_with_fallback_gloss;
 
 -- name: RetireDeckPreparationsForBook :exec
 UPDATE deck_preparations

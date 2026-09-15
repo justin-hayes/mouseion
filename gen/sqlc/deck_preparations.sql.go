@@ -316,11 +316,11 @@ const createDeckPreparation = `-- name: CreateDeckPreparation :one
 INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, filename, deck_name, content_hash)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-           content_hash, total_cards, cards_with_english,
-           cards_with_contextual_sentence_translations, quality_omissions, error,
+          content_hash, total_cards, cards_with_english,
+          cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss
+          book_id, retired_at, cards_with_fallback_gloss
 `
 
 type CreateDeckPreparationParams struct {
