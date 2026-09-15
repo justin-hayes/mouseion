@@ -777,6 +777,7 @@ func TestMakeNoteJoinsItalianElidedArticleWithoutSpace(t *testing.T) {
 func TestBestSentenceEvidencePreservesCompleteSourceText(t *testing.T) {
 	const source = "  Vor dem alten Haus spielen heute mehrere fröhliche Kinder.  "
 	candidate := domain.SelectionCandidate{
+		CorpusID:           "corpus-1",
 		CanonicalLemma:     "haus",
 		ObservedForms:      []byte(`["Haus"]`),
 		SentenceReferences: []byte(`[{"text":"  Vor dem alten Haus spielen heute mehrere fröhliche Kinder.  ","location":{"start_offset":10}}]`),
@@ -1287,6 +1288,7 @@ func TestScoreSentenceQuality(t *testing.T) {
 
 func TestBestSentenceEvidenceRanksAllReferences(t *testing.T) {
 	candidate := domain.SelectionCandidate{
+		CorpusID:       "corpus-1",
 		CanonicalLemma: "haus",
 		ObservedForms:  []byte(`["Haus"]`),
 		SentenceReferences: []byte(`[
@@ -1297,7 +1299,9 @@ func TestBestSentenceEvidenceRanksAllReferences(t *testing.T) {
 	got, ok := BestSentenceEvidence(candidate)
 	assert.True(t, ok)
 	assert.True(t, got.Quality.Accepted)
+	assert.Equal(t, "corpus-1", got.CorpusID)
 	assert.Equal(t, int64(80), got.FirstEncounter)
+	assert.Equal(t, int64(2), got.SentenceOrdinal)
 	assert.Equal(t, "Haus", got.Target)
 	assert.True(t, strings.HasPrefix(got.Sentence, "Vor dem"))
 }
@@ -1327,6 +1331,7 @@ func TestBestSentenceEvidenceUsesWordTargetsAndStableSourceOrder(t *testing.T) {
 
 func TestBestSentenceEvidenceRanksAcceptedReferencesByGradualGDEXScore(t *testing.T) {
 	candidate := domain.SelectionCandidate{
+		CorpusID:       "corpus-1",
 		Language:       "de",
 		CanonicalLemma: "see",
 		ObservedForms:  []byte(`["See"]`),
@@ -1363,8 +1368,10 @@ func TestBestSentenceEvidenceRanksAcceptedReferencesByGradualGDEXScore(t *testin
 
 	got, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
 	require.True(t, ok)
+	assert.Equal(t, "corpus-1", got.CorpusID)
 	assert.Equal(t, sentences[1].Text, got.Sentence)
 	assert.Equal(t, int64(100), got.FirstEncounter)
+	assert.Equal(t, int64(1), got.SentenceOrdinal)
 	assert.Greater(t, got.Quality.GDEXScore, float64(0))
 }
 
