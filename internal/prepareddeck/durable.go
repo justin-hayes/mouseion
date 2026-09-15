@@ -244,8 +244,15 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if run.State != domain.PreparedDeckRunCompleted {
 		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
 	}
+	preparation, err := r.Store.GetDeckPreparation(ctx, owner, preparationID)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if preparation.RetiredAt != nil {
+		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
+	}
 	if run.PresentationVersion >= presentationVersion {
-		return r.Store.GetDeckPreparation(ctx, owner, preparationID)
+		return preparation, nil
 	}
 	manifest, exact, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {

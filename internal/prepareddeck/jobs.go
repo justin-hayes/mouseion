@@ -301,7 +301,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 	if err != nil {
 		return Handle{}, err
 	}
-	if p.State != domain.DeckPreparationReady || p.CurrentRunID == "" {
+	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil || p.CurrentRunID == "" {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
 	if p.PresentationVersion >= cardexport.PresentationVersion {

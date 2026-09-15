@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -161,9 +162,9 @@ func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, DeckRevision: 1},
 	}
 	renderer := &finalizerRendererStub{artifact: cardexport.Artifact{APKG: []byte("rerendered")}}
-	rererenderer := &DurableRerenderer{Store: store, Renderer: renderer}
+	rerenderer := &DurableRerenderer{Store: store, Renderer: renderer}
 
-	updated, err := rererenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
+	updated, err := rerenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.PresentationVersion)
 	assert.Equal(t, 2, updated.DeckRevision)
@@ -172,9 +173,25 @@ func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 	assert.Equal(t, 1, store.supersedeCalls)
 	assert.Equal(t, 2, store.supersedeVersion)
 
-	updated, err = rererenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
+	updated, err = rerenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.DeckRevision)
 	assert.Equal(t, 1, renderer.calls, "same run and presentation version must not render twice")
 	assert.Equal(t, 1, store.supersedeCalls)
+}
+
+func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
+	retiredAt := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, RetiredAt: &retiredAt},
+	}
+	renderer := &finalizerRendererStub{}
+
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 2)
+
+	assert.ErrorIs(t, err, persistence.ErrInvalidTransition)
+	assert.Zero(t, renderer.calls)
+	assert.Zero(t, store.loadCalls)
+	assert.Zero(t, store.supersedeCalls)
 }
