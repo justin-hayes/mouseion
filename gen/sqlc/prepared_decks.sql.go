@@ -3216,50 +3216,6 @@ func (q *Queries) ListPreparedDeckRecoveryWork(ctx context.Context, limit int32)
 	return items, nil
 }
 
-const listPreparedDeckRerenderCandidates = `-- name: ListPreparedDeckRerenderCandidates :many
-SELECT p.owner_id::text AS owner_id, p.id::text AS preparation_id,
-       p.current_run_id::text AS run_id, p.presentation_version
-FROM deck_preparations p
-JOIN deck_preparation_runs r
-  ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
-WHERE p.state = 'ready' AND p.retired_at IS NULL
-  AND r.state = 'completed'
-  AND r.presentation_version < $1
-ORDER BY p.updated_at, p.id
-`
-
-type ListPreparedDeckRerenderCandidatesRow struct {
-	OwnerID             string
-	PreparationID       string
-	RunID               string
-	PresentationVersion int
-}
-
-func (q *Queries) ListPreparedDeckRerenderCandidates(ctx context.Context, presentationVersion int) ([]ListPreparedDeckRerenderCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, listPreparedDeckRerenderCandidates, presentationVersion)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListPreparedDeckRerenderCandidatesRow{}
-	for rows.Next() {
-		var i ListPreparedDeckRerenderCandidatesRow
-		if err := rows.Scan(
-			&i.OwnerID,
-			&i.PreparationID,
-			&i.RunID,
-			&i.PresentationVersion,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listPreparedDeckStuckBatches = `-- name: ListPreparedDeckStuckBatches :many
 SELECT owner_id::text, preparation_id::text, run_id::text, id::text, state,
        COALESCE(provider_status, ''), error_class, request_count,
