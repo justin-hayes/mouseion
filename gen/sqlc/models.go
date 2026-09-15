@@ -253,6 +253,7 @@ type DeckPreparation struct {
 	ReleasedAt                              pgtype.Timestamptz
 	BookID                                  pgtype.UUID
 	RetiredAt                               pgtype.Timestamptz
+	CardsWithFallbackGloss                  int
 }
 
 type DeckPreparationBatchChunk struct {

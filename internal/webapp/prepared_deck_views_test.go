@@ -82,7 +82,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, QualityOmissions: 1}
+			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, CardsWithFallbackGloss: 2, QualityOmissions: 1}
 			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/journey/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
 			html := output.String()
 			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
@@ -215,6 +215,17 @@ func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
 	for _, want := range []string{"Completeness", "0 cards", "Download deck"} {
 		assert.True(t, strings.Contains(html, want), "quality omission state missing %q: %s", want, html)
 	}
+}
+
+func TestReadyDeckShowsFallbackGlossCountInCompleteness(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-fallback", SourceMaterialID: "book-fallback", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", TotalCards: 3,
+		CardsWithEnglish: 3, CardsWithFallbackGloss: 1,
+	}
+	var output bytes.Buffer
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	assert.Contains(t, output.String(), "1 with fallback gloss")
 }
 
 func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {

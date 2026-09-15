@@ -97,7 +97,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 		if getErr != nil {
 			return p, getErr
 		}
-		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.QualityOmissions != artifact.Completeness.QualityOmitted {
+		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.CardsWithFallbackGloss != artifact.Completeness.CardsWithFallbackGloss || p.QualityOmissions != artifact.Completeness.QualityOmitted {
 			return p, ErrImmutable
 		}
 		return p, nil
@@ -142,7 +142,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 			}
 		}
 	}
-	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, QualityOmissions: artifact.Completeness.QualityOmitted, Owner: owner, ID: id})
+	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, CardsWithFallbackGloss: artifact.Completeness.CardsWithFallbackGloss, QualityOmissions: artifact.Completeness.QualityOmitted, Owner: owner, ID: id})
 	err = missing(err)
 	ready := deckPreparationFromModel(readyModel)
 	if err != nil {
@@ -409,7 +409,7 @@ func (s *PostgresStore) ClaimDeckPreparation(ctx context.Context, owner, id stri
 // CompleteDeckPreparation stores the final artifact exactly once. Repeating
 // the identical completion is idempotent; any different ready value is rejected.
 func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id string, ready domain.DeckPreparation) (domain.DeckPreparation, error) {
-	model, err := s.queries().CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: ready.Artifact, Filename: ready.Filename, DeckName: ready.DeckName, TotalCards: ready.TotalCards, CardsWithEnglish: ready.CardsWithEnglish, CardsWithContextualSentenceTranslations: ready.CardsWithContextualSentenceTranslations, QualityOmissions: ready.QualityOmissions, Owner: owner, ID: id})
+	model, err := s.queries().CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: ready.Artifact, Filename: ready.Filename, DeckName: ready.DeckName, TotalCards: ready.TotalCards, CardsWithEnglish: ready.CardsWithEnglish, CardsWithContextualSentenceTranslations: ready.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: ready.CardsWithFallbackGloss, QualityOmissions: ready.QualityOmissions, Owner: owner, ID: id})
 	err = missing(err)
 	p := deckPreparationFromModel(model)
 	if !errors.Is(err, ErrNotFound) {
@@ -422,7 +422,7 @@ func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id s
 	if existing.State != domain.DeckPreparationReady {
 		return p, ErrInvalidTransition
 	}
-	if bytes.Equal(existing.Artifact, ready.Artifact) && existing.Filename == ready.Filename && existing.DeckName == ready.DeckName && existing.TotalCards == ready.TotalCards && existing.CardsWithEnglish == ready.CardsWithEnglish && existing.CardsWithContextualSentenceTranslations == ready.CardsWithContextualSentenceTranslations && existing.QualityOmissions == ready.QualityOmissions {
+	if bytes.Equal(existing.Artifact, ready.Artifact) && existing.Filename == ready.Filename && existing.DeckName == ready.DeckName && existing.TotalCards == ready.TotalCards && existing.CardsWithEnglish == ready.CardsWithEnglish && existing.CardsWithContextualSentenceTranslations == ready.CardsWithContextualSentenceTranslations && existing.CardsWithFallbackGloss == ready.CardsWithFallbackGloss && existing.QualityOmissions == ready.QualityOmissions {
 		return existing, nil
 	}
 	return p, ErrImmutable
