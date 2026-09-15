@@ -110,7 +110,10 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
 		return domain.DeckPreparation{}, ErrInvalidTransition
 	}
-	if run.PresentationVersion >= presentationVersion {
+	if run.PresentationVersion > presentationVersion {
+		presentationVersion = run.PresentationVersion
+	}
+	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
 		if err = tx.Commit(ctx); err != nil {
 			return domain.DeckPreparation{}, err
 		}

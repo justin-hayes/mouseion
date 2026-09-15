@@ -8,7 +8,7 @@ import (
 
 type DeckPreparationState string
 
-const DeckPreparationRequiresRepreparationError = "This deck requires re-preparation before its presentation can be updated."
+const DeckPreparationRequiresRepreparationError = "This deck's frozen render inputs are unavailable, so its presentation cannot be updated. Re-prepare the deck from the book's current analysis."
 
 const (
 	DeckPreparationQueued    DeckPreparationState = "queued"
