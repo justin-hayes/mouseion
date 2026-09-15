@@ -147,9 +147,6 @@ func main() {
 	} else {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
-	if err = preparedDeckService.EnsureRerenderJobs(context.Background()); err != nil {
-		log.Fatal(err)
-	}
 	catalogueSyncService := cataloguesync.NewService(store, riverClient, opdsService, capabilities)
 	if err = catalogueSyncService.RegisterAll(context.Background()); err != nil {
 		log.Fatal(err)
