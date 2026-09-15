@@ -66,3 +66,60 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	_, err = pool.Exec(ctx, `UPDATE enrichment_cache SET translation='changed' WHERE language='de'`)
 	assert.Error(t, err, "direct update unexpectedly succeeded")
 }
+
+type postgresFallbackProvider struct {
+	calls int
+}
+
+func (*postgresFallbackProvider) Name() string    { return "llm" }
+func (*postgresFallbackProvider) Version() string { return "model-1" }
+func (p *postgresFallbackProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	p.calls++
+	return enrichment.TranslationResponse{
+		Translation:         "rare word",
+		FallbackGloss:       "something uncommon",
+		SentenceTranslation: "The rare thing is important today.",
+	}, nil
+}
+
+func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *testing.T) {
+	ctx := context.Background()
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	defer store.Close()
+
+	provider := &postgresFallbackProvider{}
+	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, provider, store)
+	candidate := enrichment.Candidate{
+		Identity:                  enrichment.Identity{Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN"},
+		TargetWord:                "Seltenes",
+		ExampleSentence:           "Das Seltene ist heute wichtig.",
+		DictionaryProviderVersion: "dictionary-v4",
+	}
+
+	first, err := service.EnrichExternal(ctx, candidate)
+	require.NoError(t, err)
+	assert.Equal(t, "something uncommon", first.FallbackGloss.Value)
+	assert.Equal(t, 1, provider.calls)
+
+	second, err := service.EnrichExternal(ctx, candidate)
+	require.NoError(t, err)
+	assert.Equal(t, "something uncommon", second.FallbackGloss.Value)
+	assert.Equal(t, 1, provider.calls, "durable cache miss for unchanged dictionary identity")
+
+	key, ok := service.ExternalCacheKey(candidate)
+	require.True(t, ok)
+	stored, found, err := store.Get(ctx, key)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "something uncommon", stored.FallbackGloss)
+	assert.Equal(t, "dictionary-v4", stored.CacheKey.DictionaryProviderVersion)
+	assert.Empty(t, stored.SenseSelection)
+
+	otherDictionary := candidate
+	otherDictionary.DictionaryProviderVersion = "dictionary-v5"
+	_, err = service.EnrichExternal(ctx, otherDictionary)
+	require.NoError(t, err)
+	assert.Equal(t, 2, provider.calls, "dictionary identity did not invalidate the durable fallback")
+}

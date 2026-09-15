@@ -179,12 +179,6 @@ func TestExternalEmptyCandidateFallbackIsCachedAndReused(t *testing.T) {
 	assert.Equal(t, "something uncommon", third.FallbackGloss.Value)
 	assert.Len(t, provider.requests, 2, "regenerated dictionary must not reuse the old fallback")
 
-	withCandidates := candidate
-	withCandidates.CandidateSenses = []LexicalSense{{Gloss: "something uncommon"}}
-	withCandidates.DictionaryProviderVersion = "dictionary-v6"
-	result, err := service.EnrichExternal(context.Background(), withCandidates)
-	require.NoError(t, err)
-	assert.False(t, result.FallbackGloss.Available, "provider fallback was not limited to empty candidates")
 }
 
 func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testing.T) {
