@@ -16,12 +16,12 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	_, pool := testutil.Postgres(t, ctx, Migrate)
 
-	contractDown, err := migrations.FS.ReadFile("000076_llm_fallback_gloss_contract.down.sql")
+	contractDown, err := migrations.FS.ReadFile("000073_llm_fallback_gloss.down.sql")
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, string(contractDown))
-	require.NoError(t, err, "restore the pre-contract cache shape")
+	require.NoError(t, err, "restore the pre-000073 cache shape")
 	t.Cleanup(func() {
-		contractUp, readErr := migrations.FS.ReadFile("000076_llm_fallback_gloss_contract.up.sql")
+		contractUp, readErr := migrations.FS.ReadFile("000073_llm_fallback_gloss.up.sql")
 		if readErr == nil {
 			_, _ = pool.Exec(context.Background(), string(contractUp))
 		}
@@ -30,20 +30,18 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 	_, err = pool.Exec(ctx, `
 		INSERT INTO enrichment_cache(
 			language, canonical_lemma, upos, provider, provider_version,
-			sentence_hash, target_language, dictionary_provider_version,
-			translation, gloss, fallback_gloss, sense_selection,
+			sentence_hash, target_language, translation, gloss,
 			sentence_translation, sentence_translation_target
 		) VALUES ('de', 'legacy-cleanup', 'NOUN', 'migration-test', '1',
-			'', 'en', 'migration-index', '', 'legacy gloss', '', '[]', '', '')`)
+			'', 'en', '', 'legacy gloss', '', '')`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `
 		INSERT INTO enrichment_cache(
 			language, canonical_lemma, upos, provider, provider_version,
-			sentence_hash, target_language, dictionary_provider_version,
-			translation, gloss, fallback_gloss, sense_selection,
+			sentence_hash, target_language, translation, gloss,
 			sentence_translation, sentence_translation_target
 		) VALUES ('de', 'retained-translation', 'NOUN', 'migration-test', '1',
-			'', 'en', 'migration-index', 'retained', '', '', '[]', '', '')`)
+			'', 'en', 'retained', '', '', '')`)
 	require.NoError(t, err)
 
 	cleanup, err := migrations.FS.ReadFile("000075_remove_legacy_enrichment_cache_rows.up.sql")
@@ -61,8 +59,8 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 	assert.Zero(t, legacyCount)
 	assert.Equal(t, 1, retainedCount)
 
-	contractUp, err := migrations.FS.ReadFile("000076_llm_fallback_gloss_contract.up.sql")
+	contractUp, err := migrations.FS.ReadFile("000073_llm_fallback_gloss.up.sql")
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, string(contractUp))
-	require.NoError(t, err, "reapply the final cache contract")
+	require.NoError(t, err, "restore the final cache contract")
 }
