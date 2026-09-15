@@ -167,17 +167,6 @@ SELECT EXISTS(
   WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') AND id = sqlc.arg('run')
 );
 
--- name: ListPreparedDeckRerenderCandidates :many
-SELECT p.owner_id::text AS owner_id, p.id::text AS preparation_id,
-       p.current_run_id::text AS run_id, p.presentation_version
-FROM deck_preparations p
-JOIN deck_preparation_runs r
-  ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
-WHERE p.state = 'ready' AND p.retired_at IS NULL
-  AND r.state = 'completed'
-  AND r.presentation_version < sqlc.arg('presentation_version')
-ORDER BY p.updated_at, p.id;
-
 -- name: GetPreparedDeckRunProgress :one
 WITH outcomes AS (
   SELECT o.* FROM deck_preparation_translation_outcomes o
