@@ -39,7 +39,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	messages := received["messages"].([]any)
 	system := messages[0].(map[string]any)["content"].(string)
 	assert.True(t, strings.Contains(system, "exactly one JSON object"), "prompt does not enforce concise strict JSON output: %q", system)
-	assert.True(t, strings.Contains(system, "these fields"), "prompt does not enumerate the response fields: %q", system)
+	assert.True(t, strings.Contains(system, "using only these eight field names"), "prompt does not enumerate the response fields: %q", system)
 	assert.False(t, strings.Contains(strings.ToLower(system), "verbosity"), "prompt does not enforce concise strict JSON output: %q", system)
 	user := messages[1].(map[string]any)["content"].(string)
 	var externalInput map[string]any
