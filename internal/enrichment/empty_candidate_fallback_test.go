@@ -53,6 +53,10 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			TargetWord:      receivedUser.TargetWord,
 			ExampleSentence: receivedUser.ExampleSentence,
 		}
+		fallbackGloss := ""
+		if receivedUser.CandidateSenses == nil {
+			fallbackGloss = "something uncommon"
+		}
 		content, err := json.Marshal(struct {
 			ItemID                    string `json:"item_id"`
 			SourceLanguage            string `json:"source_language"`
@@ -68,7 +72,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			Translation:               "rare word",
 			SentenceTranslation:       "The rare thing is important today.",
 			SentenceTranslationTarget: "rare",
-			FallbackGloss:             "something uncommon",
+			FallbackGloss:             fallbackGloss,
 		})
 		if err != nil {
 			http.Error(w, "invalid response", http.StatusInternalServerError)
@@ -107,4 +111,24 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
 	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
+
+	for _, test := range []struct {
+		name     string
+		config   enrichment.Config
+		provider enrichment.TranslationProvider
+	}{
+		{name: "without consent", config: enrichment.Config{ExternalEnabled: true, UserOptIn: false, ContextMode: enrichment.SentenceContext}, provider: provider},
+		{name: "without provider", config: enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			gated := enrichment.NewService(test.config, nil, nil, nil, test.provider, nil)
+			gatedResult := gated.Enrich(context.Background(), []enrichment.Candidate{candidate})[0]
+			assert.False(t, gatedResult.FallbackGloss.Available)
+			noExternal, err := cardexport.NewService(nil).RenderManifest(context.Background(), bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: gatedResult}})
+			require.NoError(t, err)
+			require.Len(t, noExternal.Generated, 1)
+			assert.Empty(t, noExternal.Generated[0].Note.Gloss)
+			assert.Zero(t, noExternal.Completeness.CardsWithFallbackGloss)
+		})
+	}
 }
