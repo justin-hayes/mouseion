@@ -94,7 +94,7 @@ without returning to one long, in-memory preparation attempt.
 - `internal/enrichment/enrichment.go` defines translation requests, responses,
   immutable cache identity, retry classification, and observed cache/provider
   metrics.
-- Migration `000033_durable_prepared_deck_runs` already supplies scalar outcome
+- The current-state baseline already supplies scalar outcome
   claims, leases, generations, attempts, next-attempt time, cache/provider counters,
   and recovery indexes.
 - `internal/persistence/prepared_deck_run_transitions.go` already supplies claim,
