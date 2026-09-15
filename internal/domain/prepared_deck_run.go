@@ -68,7 +68,8 @@ type PreparedDeckRun struct {
 	ExternalTranslationConfigured                     bool
 	ContextMode, Provider, ProviderVersion            string
 	Endpoint, Model                                   string
-	ManifestSchemaVersion, RetryPolicyVersion         int
+	ManifestSchemaVersion, RenderInputVersion         int
+	PresentationVersion, RetryPolicyVersion           int
 	MaxProviderAttempts, MaxBatchGenerations          int
 	BatchMaxRequests                                  int
 	BatchMaxBytes                                     int64

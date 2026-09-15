@@ -40,7 +40,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	}
 
 	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{
-		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
+		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: source.Title, FirstEncounter: 30},
 	})
@@ -78,6 +78,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, 1, result.Run.RunNumber, "freeze result")
 	assert.Equal(t, 2, result.Run.CandidateCount, "freeze result")
 	assert.Equal(t, 1, result.Run.CompletedCount, "freeze result")
+	assert.Equal(t, cardexport.RenderInputVersion, result.Run.RenderInputVersion)
+	assert.Equal(t, cardexport.PresentationVersion, result.Run.PresentationVersion)
 	require.Len(t, result.Chunks, 1, "freeze result")
 	assert.Equal(t, domain.PreparedDeckRunTranslating, result.Run.State)
 	assert.Equal(t, domain.PreparedDeckTranslationPending, result.Run.TranslationState)
@@ -145,6 +147,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, "Häuser", loaded.Items[0].Entry.Plural)
 	assert.Equal(t, "/haʊ̯s/", loaded.Items[0].Entry.IPA)
 	assert.Equal(t, "geht · ging · gegangen", loaded.Items[0].Entry.PrincipalParts)
+	assert.Equal(t, snapshot.Items[0].CorpusID, loaded.Items[0].CorpusID)
+	assert.Equal(t, int64(7), loaded.Items[0].SentenceOrdinal)
 	assert.Equal(t, cardexport.ManifestQualityOmitted, loaded.Items[2].Disposition)
 	assert.Equal(t, []string{"too short or fragmented"}, loaded.Items[2].Quality.Reasons)
 	wantDigest, err := snapshot.Digest()
@@ -233,10 +237,14 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, 2, ready.TotalCards)
 	assert.Equal(t, 1, ready.CardsWithFallbackGloss, "fallback gloss count was not durable")
 	assert.Equal(t, 1, ready.QualityOmissions)
+	assert.Equal(t, cardexport.RenderInputVersion, ready.RenderInputVersion)
+	assert.Equal(t, cardexport.PresentationVersion, ready.PresentationVersion)
 	completed, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.PreparedDeckRunCompleted, completed.State)
 	assert.NotNil(t, completed.CompletedAt)
+	assert.Equal(t, cardexport.RenderInputVersion, completed.RenderInputVersion)
+	assert.Equal(t, cardexport.PresentationVersion, completed.PresentationVersion)
 	_, err = store.CompletePreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID, finalizationToken, artifact)
 	require.NoError(t, err, "idempotent completion")
 	retried, retryErr := store.ClaimPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID, 0, uuid.NewString(), time.Now().UTC().Add(time.Minute))

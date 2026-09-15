@@ -24,7 +24,7 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 		return domain.DeckPreparation{}, err
 	}
 	defer tx.Rollback(ctx)
-	ready, err := completePreparedDeckTx(ctx, tx, owner, id, artifact)
+	ready, err := completePreparedDeckTx(ctx, tx, owner, id, artifact, cardexport.RenderInputVersion, cardexport.PresentationVersion)
 	if err != nil {
 		return ready, err
 	}
@@ -55,7 +55,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	}
 	run := preparedDeckRunFromModel(runModel)
 	if preparationState == domain.DeckPreparationReady && run.State == domain.PreparedDeckRunCompleted && currentRunID == runID {
-		ready, completeErr := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact)
+		ready, completeErr := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact, run.RenderInputVersion, run.PresentationVersion)
 		if completeErr != nil {
 			return ready, completeErr
 		}
@@ -68,7 +68,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	if currentRunID != runID || run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted || run.FinalizationClaimToken == "" || run.FinalizationClaimToken != claimToken || !leaseActive {
 		return domain.DeckPreparation{}, ErrFenced
 	}
-	ready, err := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact)
+	ready, err := completePreparedDeckTx(ctx, tx, owner, preparationID, artifact, run.RenderInputVersion, run.PresentationVersion)
 	if err != nil {
 		return ready, err
 	}
@@ -84,7 +84,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	return ready, nil
 }
 
-func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
 	q := sqlcgen.New(tx)
 	current, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: id})
 	if err != nil {
@@ -97,7 +97,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 		if getErr != nil {
 			return p, getErr
 		}
-		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.CardsWithFallbackGloss != artifact.Completeness.CardsWithFallbackGloss || p.QualityOmissions != artifact.Completeness.QualityOmitted {
+		if !bytes.Equal(p.Artifact, artifact.APKG) || p.Filename != artifact.Filename || p.DeckName != artifact.DeckName || p.TotalCards != artifact.Completeness.TotalCards || p.CardsWithEnglish != artifact.Completeness.CardsWithEnglish || p.CardsWithContextualSentenceTranslations != artifact.Completeness.CardsWithEnglishSentence || p.CardsWithFallbackGloss != artifact.Completeness.CardsWithFallbackGloss || p.QualityOmissions != artifact.Completeness.QualityOmitted || p.RenderInputVersion != renderInputVersion || p.PresentationVersion != presentationVersion {
 			return p, ErrImmutable
 		}
 		return p, nil
@@ -142,7 +142,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 			}
 		}
 	}
-	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, CardsWithFallbackGloss: artifact.Completeness.CardsWithFallbackGloss, QualityOmissions: artifact.Completeness.QualityOmitted, Owner: owner, ID: id})
+	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, CardsWithFallbackGloss: artifact.Completeness.CardsWithFallbackGloss, QualityOmissions: artifact.Completeness.QualityOmitted, RenderInputVersion: renderInputVersion, PresentationVersion: presentationVersion, Owner: owner, ID: id})
 	err = missing(err)
 	ready := deckPreparationFromModel(readyModel)
 	if err != nil {
@@ -409,7 +409,14 @@ func (s *PostgresStore) ClaimDeckPreparation(ctx context.Context, owner, id stri
 // CompleteDeckPreparation stores the final artifact exactly once. Repeating
 // the identical completion is idempotent; any different ready value is rejected.
 func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id string, ready domain.DeckPreparation) (domain.DeckPreparation, error) {
-	model, err := s.queries().CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: ready.Artifact, Filename: ready.Filename, DeckName: ready.DeckName, TotalCards: ready.TotalCards, CardsWithEnglish: ready.CardsWithEnglish, CardsWithContextualSentenceTranslations: ready.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: ready.CardsWithFallbackGloss, QualityOmissions: ready.QualityOmissions, Owner: owner, ID: id})
+	legacyVersionRequest := ready.RenderInputVersion == 0 && ready.PresentationVersion == 0
+	if ready.RenderInputVersion == 0 {
+		ready.RenderInputVersion = cardexport.RenderInputVersion
+	}
+	if ready.PresentationVersion == 0 {
+		ready.PresentationVersion = cardexport.PresentationVersion
+	}
+	model, err := s.queries().CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: ready.Artifact, Filename: ready.Filename, DeckName: ready.DeckName, TotalCards: ready.TotalCards, CardsWithEnglish: ready.CardsWithEnglish, CardsWithContextualSentenceTranslations: ready.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: ready.CardsWithFallbackGloss, QualityOmissions: ready.QualityOmissions, RenderInputVersion: ready.RenderInputVersion, PresentationVersion: ready.PresentationVersion, Owner: owner, ID: id})
 	err = missing(err)
 	p := deckPreparationFromModel(model)
 	if !errors.Is(err, ErrNotFound) {
@@ -422,7 +429,11 @@ func (s *PostgresStore) CompleteDeckPreparation(ctx context.Context, owner, id s
 	if existing.State != domain.DeckPreparationReady {
 		return p, ErrInvalidTransition
 	}
-	if bytes.Equal(existing.Artifact, ready.Artifact) && existing.Filename == ready.Filename && existing.DeckName == ready.DeckName && existing.TotalCards == ready.TotalCards && existing.CardsWithEnglish == ready.CardsWithEnglish && existing.CardsWithContextualSentenceTranslations == ready.CardsWithContextualSentenceTranslations && existing.CardsWithFallbackGloss == ready.CardsWithFallbackGloss && existing.QualityOmissions == ready.QualityOmissions {
+	versionsMatch := existing.RenderInputVersion == ready.RenderInputVersion && existing.PresentationVersion == ready.PresentationVersion
+	if legacyVersionRequest {
+		versionsMatch = versionsMatch || (existing.RenderInputVersion == 0 && existing.PresentationVersion == 0)
+	}
+	if bytes.Equal(existing.Artifact, ready.Artifact) && existing.Filename == ready.Filename && existing.DeckName == ready.DeckName && existing.TotalCards == ready.TotalCards && existing.CardsWithEnglish == ready.CardsWithEnglish && existing.CardsWithContextualSentenceTranslations == ready.CardsWithContextualSentenceTranslations && existing.CardsWithFallbackGloss == ready.CardsWithFallbackGloss && existing.QualityOmissions == ready.QualityOmissions && versionsMatch {
 		return existing, nil
 	}
 	return p, ErrImmutable

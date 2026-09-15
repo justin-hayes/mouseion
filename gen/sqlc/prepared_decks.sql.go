@@ -209,7 +209,7 @@ WHERE owner_id = $1
   AND finalization_dispatch_generation = $4
   AND state = 'finalizing'
   AND translation_state = 'completed'
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, execution_mode, target_language, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, execution_mode, target_language, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, render_input_version, presentation_version
 `
 
 type AssignPreparedDeckFinalizationJobParams struct {
@@ -257,6 +257,8 @@ type AssignPreparedDeckFinalizationJobRow struct {
 	UpdatedAt                      time.Time
 	TranslationCompletedAt         pgtype.Timestamptz
 	CompletedAt                    pgtype.Timestamptz
+	RenderInputVersion             int
+	PresentationVersion            int
 }
 
 func (q *Queries) AssignPreparedDeckFinalizationJob(ctx context.Context, arg AssignPreparedDeckFinalizationJobParams) (AssignPreparedDeckFinalizationJobRow, error) {
@@ -305,6 +307,8 @@ func (q *Queries) AssignPreparedDeckFinalizationJob(ctx context.Context, arg Ass
 		&i.UpdatedAt,
 		&i.TranslationCompletedAt,
 		&i.CompletedAt,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -775,7 +779,7 @@ WHERE r.owner_id = $1
   AND p.id = r.preparation_id
   AND p.current_run_id = r.id
   AND p.state = 'preparing'
-RETURNING r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translation_state, r.execution_mode, r.target_language, r.external_translation_consent, r.external_translation_configured, r.context_mode, r.provider, r.provider_version, r.endpoint, r.model, r.manifest_schema_version, r.retry_policy_version, r.max_provider_attempts, r.max_batch_generations, r.batch_max_requests, r.batch_max_bytes, r.candidate_count, r.completed_count, r.failed_count, r.finalization_dispatch_generation, r.finalization_dispatch_count, r.finalization_job_id, r.finalization_claim_token, r.finalization_claimed_at, r.finalization_lease_expires_at, r.error_class, r.error_code, r.created_at, r.updated_at, r.translation_completed_at, r.completed_at
+RETURNING r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translation_state, r.execution_mode, r.target_language, r.external_translation_consent, r.external_translation_configured, r.context_mode, r.provider, r.provider_version, r.endpoint, r.model, r.manifest_schema_version, r.retry_policy_version, r.max_provider_attempts, r.max_batch_generations, r.batch_max_requests, r.batch_max_bytes, r.candidate_count, r.completed_count, r.failed_count, r.finalization_dispatch_generation, r.finalization_dispatch_count, r.finalization_job_id, r.finalization_claim_token, r.finalization_claimed_at, r.finalization_lease_expires_at, r.error_class, r.error_code, r.created_at, r.updated_at, r.translation_completed_at, r.completed_at, r.render_input_version, r.presentation_version
 `
 
 type ClaimPreparedDeckFinalizationParams struct {
@@ -824,6 +828,8 @@ type ClaimPreparedDeckFinalizationRow struct {
 	UpdatedAt                      time.Time
 	TranslationCompletedAt         pgtype.Timestamptz
 	CompletedAt                    pgtype.Timestamptz
+	RenderInputVersion             int
+	PresentationVersion            int
 }
 
 func (q *Queries) ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPreparedDeckFinalizationParams) (ClaimPreparedDeckFinalizationRow, error) {
@@ -873,6 +879,8 @@ func (q *Queries) ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPr
 		&i.UpdatedAt,
 		&i.TranslationCompletedAt,
 		&i.CompletedAt,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -1105,7 +1113,7 @@ SET state = 'completed', finalization_claim_token = NULL, finalization_claimed_a
     completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
   AND state = 'finalizing' AND finalization_claim_token = $4
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version
 `
 
 type CompletePreparedDeckRunParams struct {
@@ -1160,6 +1168,8 @@ func (q *Queries) CompletePreparedDeckRun(ctx context.Context, arg CompletePrepa
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -1394,7 +1404,7 @@ UPDATE deck_preparation_runs
 SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
     error_class = 'translation', error_code = 'incomplete', completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version
 `
 
 type FailPreparedDeckRunIncompleteParams struct {
@@ -1451,6 +1461,8 @@ func (q *Queries) FailPreparedDeckRunIncomplete(ctx context.Context, arg FailPre
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -1460,7 +1472,7 @@ UPDATE deck_preparation_runs
 SET state = 'failed', translation_state = 'failed', completed_count = $4, failed_count = $5,
     error_class = $6, error_code = $7, completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version
 `
 
 type FailPreparedDeckRunWithCountsParams struct {
@@ -1521,6 +1533,8 @@ func (q *Queries) FailPreparedDeckRunWithCounts(ctx context.Context, arg FailPre
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -1530,7 +1544,7 @@ UPDATE deck_preparation_runs
 SET state = 'finalizing', translation_state = 'completed', completed_count = $4, failed_count = $5,
     translation_completed_at = COALESCE(translation_completed_at, now()), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version
 `
 
 type FinalizePreparedDeckRunParams struct {
@@ -1587,6 +1601,8 @@ func (q *Queries) FinalizePreparedDeckRun(ctx context.Context, arg FinalizePrepa
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -2005,7 +2021,7 @@ func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg 
 }
 
 const getCurrentPreparedDeckRun = `-- name: GetCurrentPreparedDeckRun :one
-SELECT r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translation_state, r.external_translation_consent, r.external_translation_configured, r.context_mode, r.provider, r.provider_version, r.endpoint, r.model, r.manifest_schema_version, r.retry_policy_version, r.max_provider_attempts, r.max_batch_generations, r.batch_max_requests, r.batch_max_bytes, r.candidate_count, r.completed_count, r.failed_count, r.finalization_dispatch_generation, r.finalization_dispatch_count, r.finalization_job_id, r.finalization_claim_token, r.finalization_claimed_at, r.finalization_lease_expires_at, r.error_class, r.error_code, r.created_at, r.updated_at, r.translation_completed_at, r.completed_at, r.execution_mode, r.target_language FROM deck_preparation_runs r
+SELECT r.id, r.owner_id, r.preparation_id, r.run_number, r.state, r.translation_state, r.external_translation_consent, r.external_translation_configured, r.context_mode, r.provider, r.provider_version, r.endpoint, r.model, r.manifest_schema_version, r.retry_policy_version, r.max_provider_attempts, r.max_batch_generations, r.batch_max_requests, r.batch_max_bytes, r.candidate_count, r.completed_count, r.failed_count, r.finalization_dispatch_generation, r.finalization_dispatch_count, r.finalization_job_id, r.finalization_claim_token, r.finalization_claimed_at, r.finalization_lease_expires_at, r.error_class, r.error_code, r.created_at, r.updated_at, r.translation_completed_at, r.completed_at, r.execution_mode, r.target_language, r.render_input_version, r.presentation_version FROM deck_preparation_runs r
 WHERE r.owner_id = $1 AND r.preparation_id = $2 AND r.id = (SELECT p.current_run_id FROM deck_preparations p WHERE p.owner_id = $1 AND p.id = $2)
 `
 
@@ -2054,6 +2070,8 @@ func (q *Queries) GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentP
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -2225,7 +2243,7 @@ func (q *Queries) GetPreparedDeckManifestDigest(ctx context.Context, arg GetPrep
 }
 
 const getPreparedDeckRun = `-- name: GetPreparedDeckRun :one
-SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
+SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
 `
 
 type GetPreparedDeckRunParams struct {
@@ -2274,12 +2292,14 @@ func (q *Queries) GetPreparedDeckRun(ctx context.Context, arg GetPreparedDeckRun
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
 
 const getPreparedDeckRunForUpdate = `-- name: GetPreparedDeckRunForUpdate :one
-SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 FOR UPDATE
+SELECT id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version FROM deck_preparation_runs WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 FOR UPDATE
 `
 
 type GetPreparedDeckRunForUpdateParams struct {
@@ -2328,6 +2348,8 @@ func (q *Queries) GetPreparedDeckRunForUpdate(ctx context.Context, arg GetPrepar
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }
@@ -2337,7 +2359,7 @@ WITH outcomes AS (
   SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3
 ), manifest AS (
-  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score FROM deck_preparation_manifest_items mi
+  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score, mi.corpus_id, mi.sentence_ordinal FROM deck_preparation_manifest_items mi
   WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3
 ), chunks AS (
   SELECT c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at FROM deck_preparation_batch_chunks c
@@ -2686,8 +2708,8 @@ func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPrep
 }
 
 const insertPreparedDeckManifestItem = `-- name: InsertPreparedDeckManifestItem :exec
-INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 `
 
 type InsertPreparedDeckManifestItemParams struct {
@@ -2711,6 +2733,8 @@ type InsertPreparedDeckManifestItemParams struct {
 	ProviderVersion  pgtype.Text
 	SentenceHash     pgtype.Text
 	CandidateDigest  string
+	CorpusID         pgtype.UUID
+	SentenceOrdinal  pgtype.Int8
 }
 
 func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg InsertPreparedDeckManifestItemParams) error {
@@ -2735,13 +2759,15 @@ func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg Insert
 		arg.ProviderVersion,
 		arg.SentenceHash,
 		arg.CandidateDigest,
+		arg.CorpusID,
+		arg.SentenceOrdinal,
 	)
 	return err
 }
 
 const insertPreparedDeckRun = `-- name: InsertPreparedDeckRun :exec
-INSERT INTO deck_preparation_runs(id, owner_id, preparation_id, run_number, state, translation_state, execution_mode, target_language, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, translation_completed_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+INSERT INTO deck_preparation_runs(id, owner_id, preparation_id, run_number, state, translation_state, execution_mode, target_language, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, translation_completed_at, render_input_version, presentation_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 `
 
 type InsertPreparedDeckRunParams struct {
@@ -2769,6 +2795,8 @@ type InsertPreparedDeckRunParams struct {
 	CandidateCount                int
 	CompletedCount                int
 	TranslationCompletedAt        pgtype.Timestamptz
+	RenderInputVersion            int
+	PresentationVersion           int
 }
 
 func (q *Queries) InsertPreparedDeckRun(ctx context.Context, arg InsertPreparedDeckRunParams) error {
@@ -2797,6 +2825,8 @@ func (q *Queries) InsertPreparedDeckRun(ctx context.Context, arg InsertPreparedD
 		arg.CandidateCount,
 		arg.CompletedCount,
 		arg.TranslationCompletedAt,
+		arg.RenderInputVersion,
+		arg.PresentationVersion,
 	)
 	return err
 }
@@ -3053,7 +3083,7 @@ func (q *Queries) ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPrep
 }
 
 const listPreparedDeckManifestItems = `-- name: ListPreparedDeckManifestItems :many
-SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language, quality_gdex_score FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language, quality_gdex_score, corpus_id, sentence_ordinal FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
 `
 
 type ListPreparedDeckManifestItemsParams struct {
@@ -3093,6 +3123,8 @@ func (q *Queries) ListPreparedDeckManifestItems(ctx context.Context, arg ListPre
 			&i.CreatedAt,
 			&i.TargetLanguage,
 			&i.QualityGdexScore,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
 		); err != nil {
 			return nil, err
 		}
@@ -3988,7 +4020,7 @@ const updatePreparedDeckRunTranslationRunning = `-- name: UpdatePreparedDeckRunT
 UPDATE deck_preparation_runs
 SET translation_state = 'running', completed_count = $4, failed_count = $5, updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3 AND state = 'translating'
-RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language
+RETURNING id, owner_id, preparation_id, run_number, state, translation_state, external_translation_consent, external_translation_configured, context_mode, provider, provider_version, endpoint, model, manifest_schema_version, retry_policy_version, max_provider_attempts, max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count, completed_count, failed_count, finalization_dispatch_generation, finalization_dispatch_count, finalization_job_id, finalization_claim_token, finalization_claimed_at, finalization_lease_expires_at, error_class, error_code, created_at, updated_at, translation_completed_at, completed_at, execution_mode, target_language, render_input_version, presentation_version
 `
 
 type UpdatePreparedDeckRunTranslationRunningParams struct {
@@ -4045,6 +4077,8 @@ func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, a
 		&i.CompletedAt,
 		&i.ExecutionMode,
 		&i.TargetLanguage,
+		&i.RenderInputVersion,
+		&i.PresentationVersion,
 	)
 	return i, err
 }

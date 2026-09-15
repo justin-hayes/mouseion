@@ -55,11 +55,13 @@ var manifestQualityReasons = map[string]struct{}{
 // ManifestItem is one frozen selection decision. Entry contains only
 // provider-independent render inputs; external result fields must be empty.
 type ManifestItem struct {
-	Ordinal     int
-	Disposition ManifestDisposition
-	Entry       Entry
-	Quality     SentenceQuality
-	CacheKey    *enrichment.CacheKey
+	Ordinal         int
+	Disposition     ManifestDisposition
+	CorpusID        string
+	SentenceOrdinal int64
+	Entry           Entry
+	Quality         SentenceQuality
+	CacheKey        *enrichment.CacheKey
 }
 
 // ManifestSnapshot is the versioned, immutable representation persisted for a
