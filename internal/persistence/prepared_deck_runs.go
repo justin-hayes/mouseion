@@ -373,6 +373,18 @@ func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, pr
 	return preparedDeckRunFromModel(model), nil
 }
 
+func (s *PostgresStore) ListPreparedDeckRerenderCandidates(ctx context.Context, presentationVersion int) ([]domain.PreparedDeckRerenderCandidate, error) {
+	rows, err := s.queries().ListPreparedDeckRerenderCandidates(ctx, presentationVersion)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.PreparedDeckRerenderCandidate, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, domain.PreparedDeckRerenderCandidate{OwnerID: row.OwnerID, PreparationID: row.PreparationID, RunID: row.RunID, PresentationVersion: row.PresentationVersion})
+	}
+	return result, nil
+}
+
 func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, preparationID, runID string) (cardexport.ManifestSnapshot, string, error) {
 	var snapshot cardexport.ManifestSnapshot
 	manifest, err := sqlcgen.New(s.pool).GetPreparedDeckManifest(ctx, sqlcgen.GetPreparedDeckManifestParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
