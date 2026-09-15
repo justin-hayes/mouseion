@@ -177,6 +177,19 @@ type fallbackGlossEvent struct {
 
 func NewService(store Store) *Service { return &Service{store: store} }
 
+// LogFallbackGlossUsage records fallback usage for a consented finalization.
+// Callers decide whether the render was eligible for this signal.
+func LogFallbackGlossUsage(completeness Completeness) {
+	fallbackRate := 0.0
+	if completeness.TotalCards > 0 {
+		fallbackRate = float64(completeness.CardsWithFallbackGloss) / float64(completeness.TotalCards)
+	}
+	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss, FallbackRate: fallbackRate})
+	if marshalErr == nil {
+		log.Printf("fallback_gloss_usage %s", fallbackEvent)
+	}
+}
+
 func NewServiceWithLexicalProvider(store Store, provider enrichment.LexicalProvider) *Service {
 	return &Service{store: store, lexical: provider}
 }
@@ -1619,14 +1632,6 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 			DictionaryProviderVersion: entry.DictionaryProviderVersion,
 			CandidateSenses:           enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		})
-	}
-	fallbackRate := 0.0
-	if completeness.TotalCards > 0 {
-		fallbackRate = float64(completeness.CardsWithFallbackGloss) / float64(completeness.TotalCards)
-	}
-	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss, FallbackRate: fallbackRate})
-	if marshalErr == nil {
-		log.Printf("fallback_gloss_usage %s", fallbackEvent)
 	}
 	notes := make([]Note, len(accepted))
 	for i := range accepted {

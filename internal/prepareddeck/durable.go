@@ -263,6 +263,9 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, err
 	}
+	if run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
+		cardexport.LogFallbackGlossUsage(artifact.Completeness)
+	}
 	observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
 	return result, nil
 }

@@ -1,8 +1,10 @@
 package prepareddeck
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"testing"
 	"time"
 
@@ -97,4 +99,44 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 	assert.ErrorIs(t, err, renderErr)
 	assert.Zero(t, store.completeCalls)
+}
+
+func TestDurableFinalizerLogsFallbackGlossUsageOnlyForConsentedRuns(t *testing.T) {
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+	log.SetFlags(0)
+
+	for _, test := range []struct {
+		name                  string
+		consented, configured bool
+	}{
+		{name: "consented", consented: true, configured: true},
+		{name: "non-consented", consented: false, configured: false},
+		{name: "provider disabled", consented: true, configured: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			log.SetOutput(&output)
+			store := &finalizerStoreStub{run: domain.PreparedDeckRun{
+				State:                         domain.PreparedDeckRunFinalizing,
+				ExternalTranslationConsent:    test.consented,
+				ExternalTranslationConfigured: test.configured,
+			}, preparation: domain.DeckPreparation{State: domain.DeckPreparationReady}}
+			renderer := &finalizerRendererStub{artifact: cardexport.Artifact{Completeness: cardexport.Completeness{
+				TotalCards: 2, CardsWithFallbackGloss: 1,
+			}}}
+
+			_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+			require.NoError(t, err)
+			if test.consented && test.configured {
+				assert.Contains(t, output.String(), `fallback_gloss_usage {"event":"fallback_gloss_usage","selected":2,"fallback_used":1,"fallback_rate":0.5}`)
+			} else {
+				assert.NotContains(t, output.String(), "fallback_gloss_usage")
+			}
+		})
+	}
 }

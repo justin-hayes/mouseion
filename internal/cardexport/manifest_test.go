@@ -200,7 +200,7 @@ func TestManifestIgnoresFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
 	assert.Zero(t, artifact.Completeness.CardsWithFallbackGloss)
 }
 
-func TestManifestLogsFallbackGlossRate(t *testing.T) {
+func TestManifestRenderKeepsFallbackGlossCompletenessWithoutUsageSignal(t *testing.T) {
 	entry := Entry{
 		Language: "de", CanonicalLemma: "laufen", UPOS: "VERB",
 		Sentence: "Die Maschine läuft heute überraschend schnell.", TargetWord: "läuft", Gloss: "run",
@@ -231,10 +231,11 @@ func TestManifestLogsFallbackGlossRate(t *testing.T) {
 		log.SetFlags(previousFlags)
 	}()
 
-	_, err = (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{
+	artifact, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{
 		{CacheKey: key, Result: enrichment.Result{Candidate: candidate, SenseSelection: enrichment.Field[[]int]{Value: []int{}, Available: true, Provenance: provenance}, FallbackGloss: enrichment.Field[string]{Value: "operate", Available: true, Provenance: provenance}}},
 		{CacheKey: secondKey, Result: enrichment.Result{Candidate: secondCandidate, SenseSelection: enrichment.Field[[]int]{Value: []int{0}, Available: true, Provenance: provenance}}},
 	})
 	require.NoError(t, err)
-	assert.Contains(t, output.String(), `fallback_gloss_usage {"event":"fallback_gloss_usage","selected":2,"fallback_used":1,"fallback_rate":0.5}`)
+	assert.NotContains(t, output.String(), "fallback_gloss_usage")
+	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
 }
