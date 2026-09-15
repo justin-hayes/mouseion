@@ -75,6 +75,37 @@ ready deck is downloaded and studied in the learner's own Anki; preparation
 itself never starts vocabulary study and never marks vocabulary known.
 _Avoid_: study plan, in-app review deck.
 
+**Deck specification**:
+The frozen, presentation-independent data of a prepared deck: the selected
+vocabulary, its representative sentence and target, and the syntax, morphology,
+and dictionary forms needed to present it, together with the identity of any
+exact translation. A deck is a presentation of one specification; changing how
+a deck is presented does not change its specification.
+_Avoid_: manifest (the storage of it), deck content.
+
+**Card presentation**:
+The rules that turn a deck specification into learner-facing Anki notes: which
+components of the target are emphasised, the headword line, the note's field
+order, and the Anki model, template, and styling.
+_Avoid_: rendering, formatting.
+
+**Presentation version**:
+Identifies the card-presentation rules a deck was built with, so a deck that
+presents an older version can be recognised and rebuilt.
+_Avoid_: template version, model version.
+
+**Render-input version**:
+Identifies the set of inputs a deck specification froze, so presentation can
+tell whether a specification carries everything it needs or must be prepared
+again.
+_Avoid_: schema version, manifest version.
+
+**Deck revision**:
+A built artifact of one deck specification at one presentation version. A newer
+presentation version produces a newer revision of the same specification
+without re-selecting, re-analyzing, or re-translating.
+_Avoid_: version (ambiguous with presentation version), regeneration.
+
 **Book-anchored vocabulary study**:
 The vocabulary facet of a Book: a Book's vocabulary is reserved while its
 prepared deck is being studied, and graduates into known vocabulary on
