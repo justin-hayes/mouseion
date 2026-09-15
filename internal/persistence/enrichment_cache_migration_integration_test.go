@@ -23,7 +23,11 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 	// normal ordered upgrade has already removed those rows in 000073.
 	_, err = pool.Exec(ctx, string(contractDown))
 	require.NoError(t, err, "restore the pre-000073 cache shape")
+	contractRestored := false
 	t.Cleanup(func() {
+		if contractRestored {
+			return
+		}
 		contractUp, readErr := migrations.FS.ReadFile("000073_llm_fallback_gloss.up.sql")
 		if readErr == nil {
 			_, _ = pool.Exec(context.Background(), string(contractUp))
@@ -66,4 +70,5 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, string(contractUp))
 	require.NoError(t, err, "restore the final cache contract")
+	contractRestored = true
 }
