@@ -844,7 +844,7 @@ func TestPreparedArtifactCoversRecognitionContractAcrossAPKGAndTSV(t *testing.T)
 
 	notesByLemma := make(map[string]Note, len(first.Generated))
 	for _, generated := range first.Generated {
-		notesByLemma[generated.Entry.CanonicalLemma] = generated.Note
+		notesByLemma[generated.Input.CanonicalLemma] = generated.Note
 		for _, value := range []string{generated.Note.Identity, generated.Note.Text, generated.Note.Article, generated.Note.Lemma, generated.Note.POS, generated.Note.English, generated.Note.EnglishSentence, generated.Note.BookTitle, generated.Note.BackExtra} {
 			assert.False(t, strings.Contains(value, "{{c1::") || strings.Contains(value, "geleiten|leiten") || strings.Contains(value, `"Case"`), "legacy or raw analyzer content in note %q: %+v", value, generated.Note)
 		}
@@ -1123,7 +1123,7 @@ func TestBuildCoverageForAnalysisUsesOnlyItsCorpus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
 	require.Len(t, artifact.Generated, 1)
-	assert.Equal(t, "portare", artifact.Generated[0].Entry.CanonicalLemma)
+	assert.Equal(t, "portare", artifact.Generated[0].Input.CanonicalLemma)
 }
 
 func assertAPKGDeckAndCard(t *testing.T, payload []byte, deckName, lemma, tag string) {

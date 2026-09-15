@@ -106,7 +106,7 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 		return domain.DeckPreparation{}, ErrInvalidTransition
 	}
 	for _, item := range artifact.Generated {
-		entry, note := item.Entry, item.Note
+		entry, note := item.Input, item.Note
 		var vocabularyState string
 		vocabularyState, err = q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
 		if errors.Is(err, pgx.ErrNoRows) {

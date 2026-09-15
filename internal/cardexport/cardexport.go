@@ -81,7 +81,7 @@ type ExactEnrichment struct {
 // GeneratedRecord is the card provenance to persist only after an artifact is
 // successfully rendered. Prepared-deck completion persists these atomically.
 type GeneratedRecord struct {
-	Entry Entry
+	Input RenderInput
 	Note  Note
 }
 
@@ -942,8 +942,9 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 		return Artifact{}, err
 	}
 	for _, item := range artifact.Generated {
-		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, item.Entry, item.Note); err != nil {
-			entry := item.Entry
+		entry := item.Input.entry()
+		entry.OwnerID = owner
+		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, entry, item.Note); err != nil {
 			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
 		}
 	}
@@ -1659,9 +1660,7 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 	}
 	generated := make([]GeneratedRecord, len(accepted))
 	for i, item := range accepted {
-		entry := item.input.entry()
-		entry.OwnerID = owner
-		generated[i] = GeneratedRecord{Entry: entry, Note: item.note}
+		generated[i] = GeneratedRecord{Input: item.input, Note: item.note}
 	}
 	return Artifact{APKG: apkg, Filename: DownloadFilename(deckName), DeckName: ankiDeckName, TSV: tsv, Count: len(notes), Completeness: completeness, Omitted: omitted, EnrichmentCandidates: enrichmentCandidates, Generated: generated}, nil
 }
