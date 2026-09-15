@@ -1,6 +1,6 @@
 # Language Mode
 
-Status: Proposed · Date: 2026-09-07
+Status: Implemented · Date: 2026-09-07
 
 ## Motivation
 
@@ -8,7 +8,7 @@ The learner thinks "I am reading German now," but the app does not: My Books
 defaults to an "All languages" browse nobody wants, Vocabulary re-selects a
 language per visit, and Reading Journey mixes languages silently. Downstream
 artifacts are already per-language (known vocabulary, decks, analysis, and
-campaigns), so the organizing surfaces are the odd ones out.
+vocabulary study), so the organizing surfaces are the odd ones out.
 Treating language as the app's organizing mode — one **active study language**
 scoping every surface — aligns the surfaces with the artifacts.
 

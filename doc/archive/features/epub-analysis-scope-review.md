@@ -2,6 +2,9 @@
 
 Status: RETIRED / superseded by issue #551 · Updated: 2026-09-04
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 This document is retained as historical implementation context. The learner-facing scope review was removed by issue #551; analysis now always processes the entire acquired EPUB. Immutable reviewed-scope persistence remains internal provenance. The former
 classifier-led review described in [the historical classification record](epub-analysis-classification.md),
 [the historical scope-workflow record](epub-analysis-scope-workflows.md), and
@@ -48,7 +51,7 @@ Each top-level entry expands to the existing persisted extracted-unit IDs it
 covers. The expansion follows spine order. A TOC entry is only a view-level
 grouping; it does not create a second durable unit identity or replace the
 stable extracted-unit ID, text, offsets, title, or provenance contract in
-[EPUB analysis scope](epub-analysis-scope.md).
+[EPUB analysis scope](../../features/epub-analysis-scope.md).
 
 Every rendered checkbox is checked on initial load. **Check all** checks every
 rendered choice and **Uncheck all** clears every rendered choice. The learner
@@ -116,7 +119,7 @@ to that revision. Each confirmation has its own scope identity, including when
 the selected units are equivalent to an earlier confirmation. Existing scopes,
 analyses, corpora, and selected-unit provenance remain immutable and readable
 to backend and operational audit paths. Under
-[ADR 0040](../adr/0040-one-current-analysis-per-book.md), completing analysis
+[ADR 0040](../../adr/0040-one-current-analysis-per-book.md), completing analysis
 for a newer confirmed scope replaces the book's current learner-facing
 analysis rather than creating parallel learner result history.
 
@@ -141,7 +144,7 @@ identifiable to operations, but do not claim the new reviewed-unit provenance.
 
 The stable extracted-unit identity, text, Unicode offsets, title fallback,
 source hrefs, resolved paths, and source-location provenance remain defined by
-[EPUB analysis scope](epub-analysis-scope.md). This review contract changes how
+[EPUB analysis scope](../../features/epub-analysis-scope.md). This review contract changes how
 choices are presented and persisted, not what an extracted unit is.
 
 ## Non-goals

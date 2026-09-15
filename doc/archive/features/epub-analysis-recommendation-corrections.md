@@ -2,6 +2,9 @@
 
 Status: Superseded historical record · Implemented 2026-08-25 · Superseded 2026-09-01
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 This document records the former Phase 5 effort to correct classifier
 recommendations. It is retained as implementation history and rationale; it is
 not a current product requirement.

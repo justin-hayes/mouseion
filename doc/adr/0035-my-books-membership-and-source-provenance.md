@@ -282,7 +282,7 @@ and irreversible operations in the implementation issue and migration review.
 
 - [Information architecture](../design/information-architecture.md)
 - [Acquisition to My Books workflow](../design/workflows/acquisition-to-library.md)
-- [Explicit scoped-analysis workflow](../features/explicit-scoped-analysis-workflow.md)
+- [Explicit scoped-analysis workflow](../archive/features/explicit-scoped-analysis-workflow.md)
 - [ADR 0027: Single-active learning campaigns and vocabulary graduation](0027-learning-campaigns.md)
 - [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](0028-explicit-scoped-analysis-lifecycle.md)
 - Issues #449 and #460.

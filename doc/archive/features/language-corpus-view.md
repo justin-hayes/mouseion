@@ -2,9 +2,12 @@
 
 Status: Historical / retired · Date: 2026-09-02 · Superseded by ADR 0057
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 This document records the proposed Language view panel and is retained as
 historical context. The panel and its read model were retired by
-[ADR 0057](../adr/0057-retire-language-view-panel.md); the requirements below
+[ADR 0057](../../adr/0057-retire-language-view-panel.md); the requirements below
 are not current product behavior.
 
 ## Motivation
@@ -24,7 +27,7 @@ canonical evidence and actions.
 ## Scope
 
 This feature defines the read model and learner-facing panel proposed by
-[ADR 0042](../adr/0042-derived-language-corpus-view.md). **Language corpus view**
+[ADR 0042](../../adr/0042-derived-language-corpus-view.md). **Language corpus view**
 is the internal feature name; learner-facing labels use **Language view**,
 **Analyzed books**, or **Coverage across &lt;language&gt;**, never **Corpus**.
 
@@ -67,7 +70,7 @@ status may remain visible so the lens does not hide collection membership.
 ### Placement and zoom
 
 - The initial surface is a per-language panel inside My Books, associated with
-  the active study language ([ADR 0050](../adr/0050-active-study-language.md)).
+  the active study language ([ADR 0050](../../adr/0050-active-study-language.md)).
 - The panel remains subordinate to the searchable bibliographic collection; it
   is not a dashboard hero or a new navigation destination.
 - Each analyzed Journey-member row links to `/journey/{bookID}`; Books without a

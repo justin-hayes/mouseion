@@ -2,27 +2,27 @@
 
 Status: Implemented · Date: 2026-08-25 · Updated: 2026-09-14
 
-> Analysis no longer always processes the complete snapshot. Declared-structure
-> main-text selection is defined by
-> [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md) and the
-> [main text selection feature](main-text-selection.md); the Phase 1 statements
-> below about analysis scope are historical.
+> Analysis uses declared-structure main-text selection when the EPUB identifies a
+> single safe body-matter run, and otherwise analyzes the complete snapshot. The
+> selection is defined by [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md)
+> and the [main text selection feature](main-text-selection.md). The former
+> learner-facing scope-review workflow is archived.
 
 ## Problem
 
 Mouseion extracts linear EPUB XHTML resources into one concatenated text
 stream. It must also preserve enough ordered structure and navigation
-provenance for scope review to present reliable top-level EPUB 3 table-of-
-contents entries, while retaining a readable-unit fallback when that mapping
-is not safe.
+provenance for analysis-time main-text selection, while retaining the complete
+snapshot when that structure is not safe to use.
 
 ## Phase 1 goal
 
 Preserve the EPUB reading-order units, their provenance, and the optional
-navigation data used by the [canonical scope-review contract](epub-analysis-scope-review.md).
+navigation data used by analysis-time structure selection. The former
+scope-review contract is preserved in the [archived scope-review record](../archive/features/epub-analysis-scope-review.md).
 This phase does not classify units or change the stable extracted-unit
-identity, text, offsets, or provenance. It creates the foundation for the
-classifier-free selection workflow.
+identity, text, offsets, or provenance. It creates the foundation for
+analysis-time main-text selection.
 
 ## Scope
 
@@ -34,7 +34,7 @@ Each extracted unit should preserve:
 - title/heading when available;
 - extracted text;
 - character offsets within the assembled book text, if the existing offset model remains appropriate;
-- EPUB metadata useful for review projection (`linear`, `properties`, and
+- EPUB metadata useful for structure selection (`linear`, `properties`, and
   navigation/landmark information when available);
 - deterministic serialization suitable for persistence and reanalysis.
 
@@ -45,7 +45,7 @@ The extracted book should retain the ordered unit list while continuing to provi
 - automatic front/main/back-matter *classification* or *recommendation*
   (declared-structure main-text selection is defined by
   [ADR 0066](../adr/0066-main-text-selection-from-epub-structure.md));
-- the user-facing scope-review controls (defined by the scope-review feature);
+- learner-facing scope-review controls (the former workflow is archived);
 - changing the NLP request payload or analysis scope;
 - changing coverage, deck selection, or sentence scoring;
 - adding an ML classifier;
@@ -76,12 +76,11 @@ The extracted book should retain the ordered unit list while continuing to provi
 - The serialized representation has explicit schema/version semantics.
 - Tests cover ordinary books, missing titles, duplicate-looking titles, nested EPUB paths, and mixed linear/non-linear spine entries.
 
-## Later workflow enabled
+## Current analysis behavior
 
-- classifier-free scope review using reliable top-level EPUB 3 TOC projection;
-- flat readable-unit fallback when projection is unreliable; and
-- selected-unit NLP analysis and scope-aware coverage/decks after explicit
-  confirmation.
+- extraction keeps the complete ordered unit snapshot; and
+- analysis over the declared main-text run, with a whole-snapshot fallback when
+  structure is absent or ambiguous.
 
 ## Extracted-unit contract (version 1)
 
@@ -231,15 +230,15 @@ legacy chapter titles remain display/location labels only.
 
 Fresh EPUB imports store a normalized, owner-scoped snapshot linked to
 `source_materials`. The snapshot records the envelope schema version and its
-rows record every v1 unit field plus a `selected` flag that defaults to true
-for the all-on initial review state. Composite foreign keys include
+rows record every v1 unit field and retain historical selection metadata for
+provenance. Composite foreign keys include
 both owner and source-material identity, and unit identity and order are unique
 within a snapshot. Reimport replaces the snapshot transactionally while
 leaving existing corpora untouched. Sources imported before this persistence
 was introduced have no snapshot and therefore report extracted units as
 unavailable. Their retained `full_text` remains compatible with current NLP.
-Scope review uses a newly persisted snapshot when available and never changes
-the identity of its units.
+Analysis uses the persisted snapshot when available and never changes the
+identity of its units.
 
 ## Phase 1 fixture and compatibility guarantees
 
@@ -271,7 +270,7 @@ deletion. A source written through the legacy import path still returns
 `ErrExtractedUnitsUnavailable` while retaining its `FullText`; fresh imports
 continue to store the source EPUB and use the unchanged full text as the NLP
 compatibility input. Bibliography-, index-, navigation-, or landmark-like
-metadata is preserved as provenance for review projection. Main-text analysis
+metadata is preserved as provenance for structure selection. Main-text analysis
 consumes the declared landmarks when declared structure identifies a main text,
 while the stored snapshot and compatibility full text remain complete.
 

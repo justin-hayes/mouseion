@@ -15,8 +15,8 @@ analysis refresh, insights, and deck preparation distinct.
 
 The product behavior is defined primarily by:
 
-- [Explicit Scoped-Analysis Workflow](../../features/explicit-scoped-analysis-workflow.md)
-- [EPUB Analysis Scope Review](../../features/epub-analysis-scope-review.md)
+- [Explicit Scoped-Analysis Workflow](../../archive/features/explicit-scoped-analysis-workflow.md)
+- [EPUB Analysis Scope Review](../../archive/features/epub-analysis-scope-review.md)
 - [Analysis Insights](../../features/analysis-insights.md)
 - [ADR 0028: Explicit scoped-analysis lifecycle](../../adr/0028-explicit-scoped-analysis-lifecycle.md)
 - [ADR 0022: Prepared decks](../../adr/0022-prepared-decks.md)

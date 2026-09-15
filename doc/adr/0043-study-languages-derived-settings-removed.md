@@ -108,4 +108,4 @@ and removes the Settings destination.
 - [Screen inventory](../design/screen-inventory.md)
 - [Feature: Catalogue Sync](../features/catalog-sync.md)
 - [Feature: Language Support](../features/language-support.md)
-- [Feature: Language Corpus View](../features/language-corpus-view.md)
+- [Feature: Language Corpus View](../archive/features/language-corpus-view.md)

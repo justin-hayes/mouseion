@@ -2,9 +2,12 @@
 
 Status: **Superseded by ADR 0029** · Date: 2026-08-27
 
+> **Historical archive.** This document is retained for implementation history
+> and is not part of the current product contract.
+
 The recognition-card contract is defined by [Recognition-card sentence
-presentation](recognition-card-sentence-presentation.md) and
-[ADR 0029](../adr/0029-recognition-card-sentence-presentation.md).
+presentation](../../features/recognition-card-sentence-presentation.md) and
+[ADR 0029](../../adr/0029-recognition-card-sentence-presentation.md).
 
 New exports use the complete selected source sentence in `Text`, with the
 tested German target visibly bolded. The note fields are `Identity`, `Text`,

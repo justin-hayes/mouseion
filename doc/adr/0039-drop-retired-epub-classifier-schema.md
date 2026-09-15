@@ -35,4 +35,4 @@ classifier or confirmation data removed by the up migration.
 ## Related decisions and specifications
 
 - [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](0028-explicit-scoped-analysis-lifecycle.md)
-- [EPUB analysis scope review](../features/epub-analysis-scope-review.md)
+- [EPUB analysis scope review](../archive/features/epub-analysis-scope-review.md)

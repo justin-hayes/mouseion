@@ -193,6 +193,6 @@ River job.
 - [ADR 0010: Adopt River as the background-job queue](0010-river-job-queue.md)
 - [ADR 0022: Asynchronous deck preparation and durable APKG artifacts](0022-prepared-decks.md)
 - [ADR 0025: Analysis coverage and threshold metric contract](0025-analysis-coverage-threshold-metrics.md)
-- [Explicit scoped-analysis workflow](../features/explicit-scoped-analysis-workflow.md)
-- [EPUB Analysis Scope Review](../features/epub-analysis-scope-review.md)
+- [Explicit scoped-analysis workflow](../archive/features/explicit-scoped-analysis-workflow.md)
+- [EPUB Analysis Scope Review](../archive/features/epub-analysis-scope-review.md)
 - [Analysis Insights](../features/analysis-insights.md)

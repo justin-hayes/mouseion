@@ -335,7 +335,7 @@ The implementation dependency waves were `#348 + #349` in parallel, then
 ## Related documents and code
 
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
-- [Prepared-deck LLM translation performance](llm-translation-performance.md)
+- [Prepared-deck LLM translation performance](../archive/features/llm-translation-performance.md)
 - [ADR 0030: Durable prepared-deck translation runs](../adr/0030-durable-prepared-deck-translation.md)
 - [ADR 0031: OpenAI Batch prepared-deck translation](../adr/0031-openai-batch-prepared-deck-translation.md)
 - [ADR 0021: Contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
