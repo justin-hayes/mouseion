@@ -1,14 +1,14 @@
 # Sentence-quality scoring (GDEX-informed)
 
-Status: Proposed · Date: 2026-09-12
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
-The recognition-card export gate (`ScoreSentenceQuality` in card export)
-scores a candidate sentence from its text, target surface, and source location
-only. It cannot tell a genuine clause from a well-formed fragment, nor rank a
-good standalone example above a deictic, entity-dense, or subordinate-clause-bound
-one. ADR 0020 deferred sentence-quality scoring; this feature takes it up.
+The recognition-card export gate (`ScoreSentenceQuality` in card export) scores
+a candidate sentence from its text, target surface, source location, and, for
+German candidates, persisted dependency data. It can reject fragments without a
+finite verb and subject and rank accepted examples by a deterministic GDEX-style
+score. ADR 0020 deferred sentence-quality scoring; this feature implements it.
 
 The GDEX (Good Dictionary Examples) rubric
 ([zentrum-lexikographie/gdex](https://github.com/zentrum-lexikographie/gdex))
@@ -100,14 +100,14 @@ stable across repeated exports.
 
 ## Acceptance criteria
 
-- [ ] A sentence without a finite verb and subject is rejected by the export gate
-- [ ] Among accepted candidates, main-clause targets rank above
+- [x] A sentence without a finite verb and subject is rejected by the export gate
+- [x] Among accepted candidates, main-clause targets rank above
       subordinate-clause targets; non-deictic, entity-light, well-length
       sentences rank above their opposites
-- [ ] The ranking is deterministic and stable across repeated exports
-- [ ] First-encounter card ordering is unchanged
-- [ ] A lemma with no acceptable sentence is omitted and remains eligible
-- [ ] The manifest records the winning sentence's score and reasons
+- [x] The ranking is deterministic and stable across repeated exports
+- [x] First-encounter card ordering is unchanged
+- [x] A lemma with no acceptable sentence is omitted and remains eligible
+- [x] The manifest records the winning sentence's score and reasons
 
 ## References
 

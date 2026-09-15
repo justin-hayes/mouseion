@@ -1,6 +1,6 @@
 # My Books Collection Browsing
 
-Status: Proposed · Date: 2026-09-02 · Updated: 2026-09-11
+Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-15
 
 ## Motivation
 

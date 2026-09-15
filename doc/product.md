@@ -89,7 +89,7 @@ amendments.
 ### Current decisions
 
 1. [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md) — keeps product logic in Go and isolates Python behind a coarse NLP boundary.
-2. [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md) — gives each learner an isolated account and learner-owned state.
+2. [ADR 0002: Multi-user accounts](adr/0002-multi-user-accounts.md) — gives each learner an isolated account and learner-owned state; its admin/global-resource clauses are superseded by ADR 0024.
 3. [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md) — uses PostgreSQL for concurrent multi-user persistence and job infrastructure.
 4. [ADR 0004: Web application as the sole v1 client](adr/0004-web-only-v1-client.md) — makes the web app the v1 interface while preserving shared core boundaries.
 5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; current selection is defined by ADR 0048.

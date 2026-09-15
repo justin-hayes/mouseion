@@ -1,8 +1,6 @@
 # Analysis Insights
 
-Status: Implemented; learner-facing simplification proposed in
-[ADR 0040](../adr/0040-one-current-analysis-per-book.md) · Date: 2026-08-24 ·
-Updated: 2026-09-14
+Status: Implemented · Date: 2026-08-24 · Updated: 2026-09-15
 
 ## Problem
 

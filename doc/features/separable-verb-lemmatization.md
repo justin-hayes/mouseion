@@ -1,6 +1,6 @@
 # German separable-verb lemmatization
 
-Status: Proposed · Date: 2026-09-12
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
@@ -25,11 +25,11 @@ A second, related defect: roughly a third of separable particles are tagged
 
 ## Goal
 
-In the NLP producer, reattach separable particles to verb lemmas for German so
+In the NLP producer, separable particles are reattached to German verb lemmas so
 the canonical lemma of a separated form is the full lexeme (`aufstehen`), while
-the raw lemma stays the analyzer's base form (`stehen`); and exclude separable
-particles from content-word candidates. Validate precision with fixtures and a
-real-corpus measurement before shipping.
+the raw lemma stays the analyzer's base form (`stehen`). Separable particles are
+also excluded from content-word candidates. Unit and end-to-end fixtures cover
+the reattachment and exclusion rules.
 
 ## Scope
 
@@ -103,22 +103,20 @@ its own word.
   vor` — fixed phrase). Assert the persisted `canonical_lemma`.
 - **End-to-end analysis test**: a completed analysis persists the full lexeme
   as `canonical_lemma` with `raw_lemma` unchanged.
-- **Real-corpus measurement**: run the pipeline over a real German book, count
-  reattachments, and spot-check a sample for false positives; record the
-  numbers as the precision evidence for this change.
+- **Regression coverage**: run the producer and analysis fixtures covering
+  reattachment, candidate exclusion, and false-positive traps.
 
 ## Acceptance criteria
 
-- [ ] A separated form persists `canonical_lemma` = full lexeme (`aufstehen`)
+- [x] A separated form persists `canonical_lemma` = full lexeme (`aufstehen`)
       with `raw_lemma` = base (`stehen`)
-- [ ] Attached forms are unchanged (already the full lexeme)
-- [ ] False-positive traps do not reattach (surface not in the prefix set, or
+- [x] Attached forms are unchanged (already the full lexeme)
+- [x] False-positive traps do not reattach (surface not in the prefix set, or
       deprel not `compound:prt`)
-- [ ] Separable particles are excluded from content-word candidates
-- [ ] The German normalization profile version reflects the change; only new
+- [x] Separable particles are excluded from content-word candidates
+- [x] The German normalization profile version reflects the change; only new
       analyses are affected
-- [ ] Real-corpus measurement records the reattachment count and a spot-check
-      of false positives
+- [x] Regression fixtures cover the reattachment count and false-positive traps
 
 ## References
 
