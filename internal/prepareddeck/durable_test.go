@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -26,6 +27,8 @@ type finalizerStoreStub struct {
 	completedToken                                     string
 	loadCalls, completeCalls, getCalls, supersedeCalls int
 	supersedeVersion                                   int
+	corpusSentences                                    map[string]map[int64]analyzer.Sentence
+	corpusCalls                                        int
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
@@ -62,6 +65,17 @@ func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _,
 	return s.preparation, nil
 }
 
+func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
+	s.corpusCalls++
+	result := make(map[int64]analyzer.Sentence)
+	for _, ordinal := range ordinals {
+		if sentence, ok := s.corpusSentences[corpusID][ordinal]; ok {
+			result[ordinal] = sentence
+		}
+	}
+	return result, nil
+}
+
 func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error {
 	return nil
 }
@@ -75,6 +89,20 @@ type finalizerRendererStub struct {
 func (r *finalizerRendererStub) RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
 	r.calls++
 	return r.artifact, r.err
+}
+
+type corpusRendererStub struct {
+	manifest cardexport.Manifest
+	artifact cardexport.Artifact
+	calls    int
+}
+
+func (r *corpusRendererStub) RenderManifest(ctx context.Context, manifest cardexport.Manifest, exact []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
+	r.calls++
+	r.manifest = manifest
+	artifact, err := cardexport.NewService(nil).RenderManifest(ctx, manifest, exact)
+	r.artifact = artifact
+	return artifact, err
 }
 
 func TestDurableFinalizerUsesGenerationAndOneFencedPublication(t *testing.T) {
@@ -194,4 +222,65 @@ func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
 	assert.Zero(t, renderer.calls)
 	assert.Zero(t, store.loadCalls)
 	assert.Zero(t, store.supersedeCalls)
+}
+
+func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{
+			"corpus": {7: {Text: "Ich stehe heute auf.", Tokens: []analyzer.Token{
+				{Surface: "Ich", Dependency: "nsubj", Head: 1},
+				{Surface: "stehe", Dependency: "root", Head: 1},
+				{Surface: "heute", Dependency: "advmod", Head: 1},
+				{Surface: "auf", Dependency: "compound:prt", Head: 1},
+			}}},
+		},
+	}
+	store.manifest = legacyRerenderManifest(t)
+	renderer := &corpusRendererStub{}
+
+	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Equal(t, 1, store.corpusCalls)
+	assert.Equal(t, 1, renderer.calls)
+	require.Len(t, renderer.artifact.Generated, 1)
+	assert.Equal(t, "Ich <b>stehe</b> heute <b>auf</b>.", renderer.artifact.Generated[0].Note.Text)
+	assert.Equal(t, cardexport.PresentationVersion, store.supersedeVersion)
+}
+
+func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{},
+	}
+	store.manifest = legacyRerenderManifest(t)
+	renderer := &corpusRendererStub{}
+
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
+
+	assert.ErrorIs(t, err, ErrRequiresRepreparation)
+	assert.Equal(t, 1, store.corpusCalls)
+	assert.Zero(t, renderer.calls)
+	assert.Zero(t, store.supersedeCalls)
+}
+
+func legacyRerenderManifest(t *testing.T) cardexport.Manifest {
+	t.Helper()
+	manifest, err := cardexport.ManifestFromSnapshot(cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion,
+		Owner:         "owner",
+		DeckName:      "Legacy",
+		Filename:      cardexport.DownloadFilename("Legacy"),
+		Items: []cardexport.ManifestItem{{
+			Ordinal: 0, Disposition: cardexport.ManifestAccepted, CorpusID: "corpus", SentenceOrdinal: 7,
+			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB", Sentence: "Ich stehe heute auf.", TargetWord: "stehe", SourceDocument: "Legacy", FirstEncounter: 1},
+			Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{"target present"}},
+		}},
+	})
+	require.NoError(t, err)
+	return manifest
 }

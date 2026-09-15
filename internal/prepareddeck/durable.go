@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -17,6 +18,8 @@ import (
 )
 
 const durableJobMaxAttempts = 5
+
+var ErrRequiresRepreparation = errors.New("prepared deck requires re-preparation")
 
 // BatchSubmitJobArgs deliberately contains only durable orchestration
 // identities; the provider transport worker never receives source content.
@@ -223,6 +226,10 @@ type durableRerenderStore interface {
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
 }
 
+type durableRerenderCorpusStore interface {
+	ListCorpusSentences(context.Context, string, string, []int64) (map[int64]analyzer.Sentence, error)
+}
+
 type DurableRerenderer struct {
 	Store    durableRerenderStore
 	Renderer durableManifestRenderer
@@ -258,11 +265,80 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
+	manifest, err = recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, manifest)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
 	artifact, err := r.Renderer.RenderManifest(ctx, manifest, exact)
 	if err != nil {
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
 	}
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
+}
+
+func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, manifest cardexport.Manifest) (cardexport.Manifest, error) {
+	if renderInputVersion >= cardexport.RenderInputVersion {
+		return manifest, nil
+	}
+
+	snapshot := manifest.Snapshot()
+	ordinalsByCorpus := make(map[string][]int64)
+	itemsByCorpus := make(map[string][]int)
+	for index, item := range snapshot.Items {
+		if item.Disposition != cardexport.ManifestAccepted || len(item.Entry.SentenceTokens) > 0 {
+			continue
+		}
+		if strings.TrimSpace(item.CorpusID) == "" || item.SentenceOrdinal < 0 {
+			return cardexport.Manifest{}, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
+		}
+		if _, ok := itemsByCorpus[item.CorpusID]; !ok {
+			ordinalsByCorpus[item.CorpusID] = nil
+		}
+		ordinalsByCorpus[item.CorpusID] = append(ordinalsByCorpus[item.CorpusID], item.SentenceOrdinal)
+		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], index)
+	}
+	if len(itemsByCorpus) == 0 {
+		return manifest, nil
+	}
+
+	corpusStore, ok := store.(durableRerenderCorpusStore)
+	if !ok {
+		return cardexport.Manifest{}, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
+	}
+	for corpusID, indexes := range itemsByCorpus {
+		sentences, err := corpusStore.ListCorpusSentences(ctx, owner, corpusID, ordinalsByCorpus[corpusID])
+		if err != nil {
+			return cardexport.Manifest{}, fmt.Errorf("recover corpus %s: %w", corpusID, err)
+		}
+		for _, index := range indexes {
+			item := snapshot.Items[index]
+			sentence, found := sentences[item.SentenceOrdinal]
+			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
+				return cardexport.Manifest{}, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
+			}
+			snapshot.Items[index].Entry.SentenceTokens = sentence.Tokens
+		}
+	}
+	recovered, err := cardexport.ManifestFromSnapshot(snapshot)
+	if err != nil {
+		return cardexport.Manifest{}, fmt.Errorf("rebuild recovered manifest: %w", err)
+	}
+	return recovered, nil
+}
+
+func hasDependencyParse(sentence analyzer.Sentence) bool {
+	if len(sentence.Tokens) == 0 {
+		return false
+	}
+	for index, token := range sentence.Tokens {
+		if strings.TrimSpace(token.Dependency) == "" || int(token.Head) >= len(sentence.Tokens) {
+			return false
+		}
+		if token.Dependency == "root" && int(token.Head) != index {
+			return false
+		}
+	}
+	return true
 }
 
 type RerenderWorker struct {
