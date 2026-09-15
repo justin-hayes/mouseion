@@ -986,13 +986,21 @@ func TestManifestFallbackGlossFillsMissingDictionaryMeaning(t *testing.T) {
 	require.NoError(t, err)
 	provenance := enrichment.Provenance{Provider: "llm", ProviderVersion: "model-1"}
 	artifact, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: key, Result: enrichment.Result{
-		Candidate:     candidate,
-		Translation:   enrichment.Field[string]{Value: "rare word", Available: true, Provenance: provenance},
-		FallbackGloss: enrichment.Field[string]{Value: "something uncommon", Available: true, Provenance: provenance},
+		Candidate:      candidate,
+		Translation:    enrichment.Field[string]{Value: "rare word", Available: true, Provenance: provenance},
+		SenseSelection: enrichment.Field[[]int]{Value: []int{}, Available: true, Provenance: provenance},
+		FallbackGloss:  enrichment.Field[string]{Value: "something uncommon", Available: true, Provenance: provenance},
 	}}})
 	require.NoError(t, err)
 	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
+	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
+
+	withoutExternal, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{CacheKey: key, Result: enrichment.Result{Candidate: candidate}}})
+	require.NoError(t, err)
+	require.Len(t, withoutExternal.Generated, 1)
+	assert.Empty(t, withoutExternal.Generated[0].Note.Gloss)
+	assert.Zero(t, withoutExternal.Completeness.CardsWithFallbackGloss)
 }
 
 func TestPreparedManifestPreservesSelectionOrderOmissionsAndGeneratedProvenance(t *testing.T) {
