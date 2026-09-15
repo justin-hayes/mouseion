@@ -84,6 +84,11 @@ type PreparedDeckRun struct {
 	TranslationCompletedAt, CompletedAt               *time.Time
 }
 
+type PreparedDeckRerenderCandidate struct {
+	OwnerID, PreparationID, RunID string
+	PresentationVersion           int
+}
+
 type PreparedDeckOutcomeState string
 
 const (
