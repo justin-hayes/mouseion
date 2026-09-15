@@ -1,6 +1,0 @@
-ALTER TABLE deck_preparations
- DROP CONSTRAINT deck_preparations_cards_with_fallback_gloss_nonnegative_check,
- DROP CONSTRAINT deck_preparations_cards_with_fallback_gloss_check;
-
-ALTER TABLE deck_preparations
- DROP COLUMN cards_with_fallback_gloss;

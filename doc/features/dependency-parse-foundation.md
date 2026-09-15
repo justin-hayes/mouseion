@@ -36,7 +36,8 @@ sentence-quality (GDEX) scoring work.
 - Boundary contract: extend proto `Token` with `dependency` and `head`;
   `schema_version` becomes `1.1.0` (additive minor).
 - Schema: `corpus_tokens` gains `dependency text NOT NULL` and `head bigint NOT
-  NULL`, plus an index on `(owner_id, language, dependency)`; migration 000070.
+  NULL`, plus an index on `(owner_id, language, dependency)`; this is part of the
+  current-state baseline.
 - Write path: extend the existing batched `corpus_tokens` insert.
 - Analysis gating: the analysis worker fails fast when the NLP service does not
   advertise `depparse`.

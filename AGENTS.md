@@ -47,12 +47,12 @@ Non-obvious setup:
 
 Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ), `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`.
 
-sqlc reads the schema from the migrations history (`sqlc.yaml`, ADR 0038) and the annotated queries from `sqlc/queries/*.sql`; `make sqlc` regenerates `gen/sqlc`.
+sqlc reads the schema from the baseline and successor migrations (`sqlc.yaml`, ADR 0070) and the annotated queries from `sqlc/queries/*.sql`; `make sqlc` regenerates `gen/sqlc`.
 
 ## Schema changes
 
-See ADR 0038. Rules an agent will otherwise get wrong:
-- Shipped `migrations/0000NN_*.sql` files are immutable history — never edit, delete, renumber, squash, or consolidate. Corrections are new migrations.
+See ADR 0038 and ADR 0070. Rules an agent will otherwise get wrong:
+- `migrations/000001_initialize.{up,down}.sql` is the immutable current-state baseline. Never edit, delete, renumber, squash, or consolidate it; future migrations resume at `000002` and are immutable after shipping. Pre-baseline history is preserved at the `migrations/pre-baseline` Git tag.
 - Settle consequential shape (new tables/columns, constraints, destructive changes, durable state machines) in an accepted issue/feature doc/ADR before writing SQL; low-risk additive fields are exempt only if non-breaking with one clear consumer.
 - Keep data-only backfills separate from structural DDL and document ownership, idempotency, retry safety, and rollback/recovery.
 - `down` migrations are not assumed safe for destructive production rollback.

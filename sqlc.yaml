@@ -1,5 +1,6 @@
 # sqlc generates the persistence query layer. The schema is the shipped
-# migration history itself (ADR 0038); hand-written annotated SQL lives in
+# current-state baseline and successor migrations (ADR 0070); hand-written
+# annotated SQL lives in
 # sqlc/queries and generated Go is committed under gen/sqlc. Regenerate with
 # `make sqlc` and never hand-edit the generated files.
 #
@@ -40,6 +41,8 @@ sql:
           # domain-facing Go types they always produce.
           - column: "my_books_evidence.source_id"
             go_type: "string"
+          - column: "my_books_evidence.book_language_tag"
+            go_type: "string"
           - column: "my_books_evidence.source_owner_id"
             go_type: "string"
           - column: "my_books_evidence.source_content_hash"
@@ -62,3 +65,30 @@ sql:
             go_type: "string"
           - column: "my_books_evidence.corpus_id"
             go_type: "string"
+          # source_material_evidence uses LEFT JOINs for optional current
+          # analysis evidence, but its projections are COALESCE'd to the
+          # concrete domain values consumed by the repositories.
+          - column: "source_material_evidence.book_id"
+            go_type: "string"
+          - column: "source_material_evidence.content_hash"
+            go_type: "string"
+          - column: "source_material_evidence.content_revision_id"
+            go_type: "string"
+          - column: "source_material_evidence.content_snapshot_id"
+            go_type: "string"
+          - column: "source_material_evidence.analysis_run_id"
+            go_type: "string"
+          - column: "source_material_evidence.corpus_id"
+            go_type: "string"
+          - column: "source_material_evidence.is_current_analysis"
+            go_type: "bool"
+          # pg_dump normalizes redundant casts in the concordance view. Keep
+          # the bigint offsets emitted by the original schema definition.
+          - column: "concordance_occurrences.sentence_start_offset"
+            go_type: "int64"
+          - column: "concordance_occurrences.sentence_end_offset"
+            go_type: "int64"
+          - column: "concordance_occurrences.book_start_offset"
+            go_type: "int64"
+          - column: "concordance_occurrences.book_end_offset"
+            go_type: "int64"

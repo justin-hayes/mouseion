@@ -9,7 +9,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,29 +38,6 @@ func integrationDatabase(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
 	return url
-}
-
-func TestRemoveAdminRoleMigrationPreservesAccounts(t *testing.T) {
-	ctx := context.Background()
-	url := integrationDatabase(t, ctx)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
-
-	var id string
-	err = store.Pool().QueryRow(ctx, `INSERT INTO users(username,password_hash,is_admin) VALUES('legacy-admin','hash',true) RETURNING id`).Scan(&id)
-	require.NoError(t, err)
-	migration, err := migrations.FS.ReadFile("000017_remove_admin_role.up.sql")
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, string(migration))
-	require.NoError(t, err)
-	var username, passwordHash string
-	var isAdmin bool
-	err = store.Pool().QueryRow(ctx, `SELECT username,password_hash,is_admin FROM users WHERE id=$1`, id).Scan(&username, &passwordHash, &isAdmin)
-	require.NoError(t, err)
-	assert.Equal(t, "legacy-admin", username)
-	assert.Equal(t, "hash", passwordHash)
-	assert.False(t, isAdmin)
 }
 
 func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
