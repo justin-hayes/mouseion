@@ -110,7 +110,10 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
 		return domain.DeckPreparation{}, ErrInvalidTransition
 	}
-	if run.PresentationVersion >= presentationVersion {
+	if run.PresentationVersion > presentationVersion {
+		presentationVersion = run.PresentationVersion
+	}
+	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
 		if err = tx.Commit(ctx); err != nil {
 			return domain.DeckPreparation{}, err
 		}
@@ -134,7 +137,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence,
 		CardsWithFallbackGloss:                  artifact.Completeness.CardsWithFallbackGloss,
 		QualityOmissions:                        artifact.Completeness.QualityOmitted,
-		RenderInputVersion:                      run.RenderInputVersion, PresentationVersion: presentationVersion,
+		RenderInputVersion:                      max(run.RenderInputVersion, cardexport.RenderInputVersion), PresentationVersion: presentationVersion,
 		Owner: owner, Preparation: preparationID, Run: runID,
 		ExpectedPresentationVersion: run.PresentationVersion,
 	})
@@ -573,6 +576,41 @@ func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id
 func (s *PostgresStore) GetDeckPreparation(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	model, err := s.queries().GetDeckPreparation(ctx, sqlcgen.GetDeckPreparationParams{Owner: owner, ID: id})
 	return deckPreparationFromModel(model), missing(err)
+}
+
+// ListStalePreparedDecks returns only the identities needed to enqueue a
+// presentation-only rerender. The current run is authoritative for the
+// version comparison; retired and already surfaced preparations are omitted.
+func (s *PostgresStore) ListStalePreparedDecks(ctx context.Context, presentationVersion, limit int) ([]domain.PreparedDeckRerenderWork, error) {
+	if presentationVersion < 1 || limit < 1 {
+		return nil, ErrInvalidTransition
+	}
+	rows, err := s.queries().ListStalePreparedDecks(ctx, sqlcgen.ListStalePreparedDecksParams{
+		PresentationVersion:        presentationVersion,
+		RenderInputVersion:         cardexport.RenderInputVersion,
+		RequiresRepreparationError: domain.DeckPreparationRequiresRepreparationError,
+		Limit:                      int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	work := make([]domain.PreparedDeckRerenderWork, 0, len(rows))
+	for _, row := range rows {
+		work = append(work, domain.PreparedDeckRerenderWork{
+			OwnerID: row.POwnerID, PreparationID: row.PreparationID, RunID: row.RunID,
+			PresentationVersion: presentationVersion,
+		})
+	}
+	return work, nil
+}
+
+// MarkPreparedDeckRequiresRepreparation leaves the ready artifact available
+// but records that its missing frozen inputs cannot be recovered safely.
+func (s *PostgresStore) MarkPreparedDeckRequiresRepreparation(ctx context.Context, owner, preparationID, runID string) error {
+	return s.queries().MarkPreparedDeckRequiresRepreparation(ctx, sqlcgen.MarkPreparedDeckRequiresRepreparationParams{
+		Owner: owner, Preparation: preparationID, Run: uuidArg(runID),
+		Error: domain.DeckPreparationRequiresRepreparationError,
+	})
 }
 
 // GetDeckPreparationForAnalysis returns the one owner-scoped preparation

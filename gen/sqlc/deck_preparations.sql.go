@@ -1152,6 +1152,65 @@ func (q *Queries) ListReservedDeckVocabulary(ctx context.Context, arg ListReserv
 	return items, nil
 }
 
+const listStalePreparedDecks = `-- name: ListStalePreparedDecks :many
+SELECT p.owner_id::text, p.id::text AS preparation_id, p.current_run_id::text AS run_id,
+       r.presentation_version
+FROM deck_preparations p
+JOIN deck_preparation_runs r
+  ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
+WHERE p.state = 'ready' AND p.retired_at IS NULL AND p.current_run_id IS NOT NULL
+  AND r.state = 'completed'
+  AND (r.presentation_version < $1
+       OR r.render_input_version < $2)
+  AND p.error <> $3
+ORDER BY p.updated_at, p.id
+LIMIT $4
+`
+
+type ListStalePreparedDecksParams struct {
+	PresentationVersion        int
+	RenderInputVersion         int
+	RequiresRepreparationError string
+	Limit                      int32
+}
+
+type ListStalePreparedDecksRow struct {
+	POwnerID            string
+	PreparationID       string
+	RunID               string
+	PresentationVersion int
+}
+
+func (q *Queries) ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error) {
+	rows, err := q.db.Query(ctx, listStalePreparedDecks,
+		arg.PresentationVersion,
+		arg.RenderInputVersion,
+		arg.RequiresRepreparationError,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStalePreparedDecksRow{}
+	for rows.Next() {
+		var i ListStalePreparedDecksRow
+		if err := rows.Scan(
+			&i.POwnerID,
+			&i.PreparationID,
+			&i.RunID,
+			&i.PresentationVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markDeckPreparationVocabularyGraduated = `-- name: MarkDeckPreparationVocabularyGraduated :exec
 UPDATE deck_preparation_vocabulary
 SET graduated_at = COALESCE(graduated_at, now())
@@ -1165,6 +1224,31 @@ type MarkDeckPreparationVocabularyGraduatedParams struct {
 
 func (q *Queries) MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error {
 	_, err := q.db.Exec(ctx, markDeckPreparationVocabularyGraduated, arg.Owner, arg.Preparation)
+	return err
+}
+
+const markPreparedDeckRequiresRepreparation = `-- name: MarkPreparedDeckRequiresRepreparation :exec
+UPDATE deck_preparations
+SET error = $1, updated_at = now()
+WHERE owner_id = $2 AND id = $3
+  AND current_run_id = $4 AND state = 'ready' AND retired_at IS NULL
+  AND (error = '' OR error = $1)
+`
+
+type MarkPreparedDeckRequiresRepreparationParams struct {
+	Error       string
+	Owner       string
+	Preparation string
+	Run         pgtype.UUID
+}
+
+func (q *Queries) MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error {
+	_, err := q.db.Exec(ctx, markPreparedDeckRequiresRepreparation,
+		arg.Error,
+		arg.Owner,
+		arg.Preparation,
+		arg.Run,
+	)
 	return err
 }
 

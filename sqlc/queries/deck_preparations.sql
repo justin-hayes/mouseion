@@ -238,6 +238,28 @@ RETURNING p.id, p.owner_id, p.source_material_id, p.state, p.artifact, p.filenam
           p.current_run_id, p.studying_at, p.reviewed_at, p.graduated_at, p.released_at,
           p.book_id, p.retired_at, p.cards_with_fallback_gloss, p.render_input_version,
           p.presentation_version, p.deck_revision;
+
+-- name: ListStalePreparedDecks :many
+SELECT p.owner_id::text, p.id::text AS preparation_id, p.current_run_id::text AS run_id,
+       r.presentation_version
+FROM deck_preparations p
+JOIN deck_preparation_runs r
+  ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
+WHERE p.state = 'ready' AND p.retired_at IS NULL AND p.current_run_id IS NOT NULL
+  AND r.state = 'completed'
+  AND (r.presentation_version < sqlc.arg('presentation_version')
+       OR r.render_input_version < sqlc.arg('render_input_version'))
+  AND p.error <> sqlc.arg('requires_repreparation_error')
+ORDER BY p.updated_at, p.id
+LIMIT sqlc.arg('limit');
+
+-- name: MarkPreparedDeckRequiresRepreparation :exec
+UPDATE deck_preparations
+SET error = sqlc.arg('error'), updated_at = now()
+WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation')
+  AND current_run_id = sqlc.arg('run') AND state = 'ready' AND retired_at IS NULL
+  AND (error = '' OR error = sqlc.arg('error'));
+
 -- name: DeckPreparationExists :one
 SELECT EXISTS(SELECT 1 FROM deck_preparations WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id'));
 

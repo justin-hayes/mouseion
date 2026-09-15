@@ -236,6 +236,7 @@ type Querier interface {
 	// view (migration 000067); this query only selects from it, so the status
 	// logic is not duplicated here.
 	ListSourceMaterials(ctx context.Context, owner string) ([]ListSourceMaterialsRow, error)
+	ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error)
 	ListStudyLanguageDependentsByGovernorLemma(ctx context.Context, arg ListStudyLanguageDependentsByGovernorLemmaParams) ([]ListStudyLanguageDependentsByGovernorLemmaRow, error)
 	ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaParams) ([]ListStudyLanguageOccurrencesByLemmaRow, error)
 	ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaAndDependencyParams) ([]ListStudyLanguageOccurrencesByLemmaAndDependencyRow, error)
@@ -249,6 +250,7 @@ type Querier interface {
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
 	MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error
+	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
 	NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error)

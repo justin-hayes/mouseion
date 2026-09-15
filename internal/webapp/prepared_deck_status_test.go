@@ -67,6 +67,16 @@ func TestQualityOmittedZeroCardPreparationExposesDownload(t *testing.T) {
 	assert.NotEmpty(t, response.DownloadURL, "quality-omitted zero-card preparation has no download URL")
 }
 
+func TestPreparationResponseSurfacesUnrecoverableRenderInputs(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		ID: "legacy", State: domain.DeckPreparationReady,
+		Error: domain.DeckPreparationRequiresRepreparationError, TotalCards: 1,
+	})
+
+	assert.Equal(t, domain.DeckPreparationRequiresRepreparationError, response.Error)
+	assert.Empty(t, response.DownloadURL)
+}
+
 func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
 	tests := []struct {
 		name   string

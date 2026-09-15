@@ -319,6 +319,14 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	assert.Equal(t, 2, again.DeckRevision)
 	assert.Equal(t, []byte("rerendered artifact"), again.Artifact)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET render_input_version=0 WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET render_input_version=0 WHERE owner_id=$1 AND id=$2`, owner.ID, result.Run.ID)
+	require.NoError(t, err)
+	updatedInput, err := store.SupersedePreparedDeckArtifact(ctx, owner.ID, preparation.ID, result.Run.ID, cardexport.PresentationVersion, rerendered)
+	require.NoError(t, err)
+	assert.Equal(t, 3, updatedInput.DeckRevision)
+	assert.Equal(t, cardexport.RenderInputVersion, updatedInput.RenderInputVersion)
 }
 
 func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *testing.T) {
