@@ -32,6 +32,8 @@ var ErrInvalidInput = errors.New("cardexport: invalid input")
 
 type Entry struct {
 	OwnerID, Language, CanonicalLemma, UPOS                                           string
+	CorpusID                                                                          string
+	SentenceOrdinal                                                                   int64
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
 	Morphology, SourceDocument, Notes                                                 string
@@ -111,7 +113,9 @@ type SentenceQuality struct {
 
 type SentenceEvidence struct {
 	Sentence, Target string
+	CorpusID         string
 	FirstEncounter   int64
+	SentenceOrdinal  int64
 	Quality          SentenceQuality
 	Tokens           []analyzer.Token
 }
@@ -638,7 +642,10 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		}
 		return ranked[i].evidence.Sentence < ranked[j].evidence.Sentence
 	})
-	return ranked[0].evidence, true
+	evidence := ranked[0].evidence
+	evidence.CorpusID = candidate.CorpusID
+	evidence.SentenceOrdinal = int64(ranked[0].sentence)
+	return evidence, true
 }
 
 func referenceStartOffset(raw json.RawMessage) (int64, bool) {
@@ -1256,9 +1263,11 @@ func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, pe
 		evidence, ok = BestSentenceEvidence(candidate)
 	}
 	if ok {
+		entry.CorpusID = evidence.CorpusID
 		entry.Sentence = evidence.Sentence
 		entry.TargetWord = evidence.Target
 		entry.FirstEncounter = evidence.FirstEncounter
+		entry.SentenceOrdinal = evidence.SentenceOrdinal
 		entry.SentenceTokens = evidence.Tokens
 	} else {
 		entry.TargetWord = targetWord(entry.Sentence, candidate)
@@ -1343,11 +1352,11 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})
-			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, Entry: decisionEntry, Quality: quality})
+			manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestQualityOmitted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
 			continue
 		}
 		manifest.accepted = append(manifest.accepted, renderInputFromEntry(entry))
-		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, Entry: decisionEntry, Quality: quality})
+		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
 			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
 			TargetWord:                entry.TargetWord,

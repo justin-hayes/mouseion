@@ -13,7 +13,7 @@ import (
 
 func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	entries := []Entry{
-		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
+		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: "corpus-1", SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: "Buch", FirstEncounter: 20},
 	}
 	manifest := NewManifest("owner-1", "Buch", entries)
@@ -36,6 +36,8 @@ func TestManifestSnapshotRoundTripAndDigestFixture(t *testing.T) {
 	assert.Equal(t, "Häuser", snapshot.Items[0].Entry.Plural, "snapshot lost canonical plural")
 	assert.Equal(t, "/haʊ̯s/", snapshot.Items[0].Entry.IPA, "snapshot lost canonical pronunciation")
 	assert.Equal(t, "geht · ging · gegangen", snapshot.Items[0].Entry.PrincipalParts, "snapshot lost canonical principal parts")
+	assert.Equal(t, "corpus-1", snapshot.Items[0].CorpusID)
+	assert.Equal(t, int64(7), snapshot.Items[0].SentenceOrdinal)
 	digest, err := snapshot.Digest()
 	require.NoError(t, err)
 	const wantDigest = "6ef322dea63a652c6e6216e4b03fe7d2ef543092d17c5ccc0a4e9132a7fc83fc"
@@ -108,6 +110,8 @@ func TestManifestSnapshotPreservesQualityDiagnosticsForAcceptedAndOmittedItems(t
 	assert.Equal(t, snapshot.Items[0].Entry.Plural, rebuilt.decisions[0].Entry.Plural)
 	assert.Equal(t, snapshot.Items[0].Entry.IPA, rebuilt.decisions[0].Entry.IPA)
 	assert.Equal(t, snapshot.Items[0].Entry.PrincipalParts, rebuilt.decisions[0].Entry.PrincipalParts)
+	assert.Equal(t, snapshot.Items[0].CorpusID, rebuilt.decisions[0].CorpusID)
+	assert.Equal(t, snapshot.Items[0].SentenceOrdinal, rebuilt.decisions[0].SentenceOrdinal)
 	assert.Equal(t, snapshot.Items[0].Entry.DictionaryProviderVersion, rebuilt.decisions[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, snapshot.Items[1].Quality, rebuilt.decisions[1].Quality)
 	require.Len(t, rebuilt.omitted, 1)

@@ -254,6 +254,8 @@ type DeckPreparation struct {
 	BookID                                  pgtype.UUID
 	RetiredAt                               pgtype.Timestamptz
 	CardsWithFallbackGloss                  int
+	RenderInputVersion                      int
+	PresentationVersion                     int
 }
 
 type DeckPreparationBatchChunk struct {
@@ -364,6 +366,8 @@ type DeckPreparationManifestItem struct {
 	// Frozen target language for this manifest item cache identity
 	TargetLanguage   string
 	QualityGdexScore float64
+	CorpusID         pgtype.UUID
+	SentenceOrdinal  pgtype.Int8
 }
 
 type DeckPreparationRun struct {
@@ -404,7 +408,9 @@ type DeckPreparationRun struct {
 	// Frozen prepared-deck executor mode: standard or batch
 	ExecutionMode string
 	// Frozen prepared-deck translation target language
-	TargetLanguage string
+	TargetLanguage      string
+	RenderInputVersion  int
+	PresentationVersion int
 }
 
 type DeckPreparationTranslationOutcome struct {

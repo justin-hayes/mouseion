@@ -47,6 +47,13 @@ func nullableUUIDArg(value string) pgtype.UUID {
 	return uuidArg(value)
 }
 
+func nullableInt8Arg(corpusID string, value int64) pgtype.Int8 {
+	if corpusID == "" {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{Int64: value, Valid: true}
+}
+
 func uuidString(value pgtype.UUID) string {
 	if !value.Valid {
 		return ""
@@ -169,6 +176,7 @@ func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparatio
 		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: row.TotalCards,
 		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: row.CardsWithFallbackGloss,
 		QualityOmissions: row.QualityOmissions, Error: row.Error, CreatedAt: row.CreatedAt,
+		RenderInputVersion: row.RenderInputVersion, PresentationVersion: row.PresentationVersion,
 		UpdatedAt: row.UpdatedAt, StartedAt: pgTimePtr(row.StartedAt), CompletedAt: pgTimePtr(row.CompletedAt),
 		AnalysisRunID: uuidString(row.AnalysisRunID), CurrentRunID: uuidString(row.CurrentRunID),
 		StudyingAt: pgTimePtr(row.StudyingAt), ReviewedAt: pgTimePtr(row.ReviewedAt),
@@ -387,7 +395,7 @@ func preparedDeckRunFromModel(m sqlcgen.DeckPreparationRun) domain.PreparedDeckR
 		m.ID, m.OwnerID, m.PreparationID, m.RunNumber, m.State, m.TranslationState,
 		m.ExecutionMode, m.TargetLanguage, m.ExternalTranslationConsent, m.ExternalTranslationConfigured,
 		m.ContextMode, m.Provider, m.ProviderVersion, m.Endpoint, m.Model,
-		m.ManifestSchemaVersion, m.RetryPolicyVersion, m.MaxProviderAttempts, m.MaxBatchGenerations,
+		m.ManifestSchemaVersion, m.RenderInputVersion, m.PresentationVersion, m.RetryPolicyVersion, m.MaxProviderAttempts, m.MaxBatchGenerations,
 		m.BatchMaxRequests, m.BatchMaxBytes, m.CandidateCount, m.CompletedCount, m.FailedCount,
 		m.FinalizationDispatchGeneration, m.FinalizationDispatchCount, m.FinalizationJobID,
 		m.FinalizationClaimToken, m.ErrorClass, m.ErrorCode, m.CreatedAt, m.UpdatedAt,
@@ -405,7 +413,7 @@ func preparedDeckRunFromFields(
 	state, translationState, executionMode, targetLanguage string,
 	externalTranslationConsent, externalTranslationConfigured bool,
 	contextMode, provider, providerVersion, endpoint, model pgtype.Text,
-	manifestSchemaVersion, retryPolicyVersion, maxProviderAttempts, maxBatchGenerations, batchMaxRequests int,
+	manifestSchemaVersion, renderInputVersion, presentationVersion, retryPolicyVersion, maxProviderAttempts, maxBatchGenerations, batchMaxRequests int,
 	batchMaxBytes int64,
 	candidateCount, completedCount, failedCount, finalizationDispatchGeneration, finalizationDispatchCount int,
 	finalizationJobID pgtype.Int8,
@@ -431,6 +439,8 @@ func preparedDeckRunFromFields(
 		Endpoint:                       pgText(endpoint),
 		Model:                          pgText(model),
 		ManifestSchemaVersion:          manifestSchemaVersion,
+		RenderInputVersion:             renderInputVersion,
+		PresentationVersion:            presentationVersion,
 		RetryPolicyVersion:             retryPolicyVersion,
 		MaxProviderAttempts:            maxProviderAttempts,
 		MaxBatchGenerations:            maxBatchGenerations,
