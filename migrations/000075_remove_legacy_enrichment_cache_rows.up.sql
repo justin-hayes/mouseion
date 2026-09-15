@@ -1,6 +1,10 @@
--- Data-only cleanup for the LLM fallback-gloss cache contract introduced by
--- 000073. Ownership: application startup runs this migration through
--- golang-migrate after the expanded cache identity is installed.
+-- Compensating data-only cleanup for the LLM fallback-gloss cache contract
+-- introduced by 000073. That migration is immutable shipped history and
+-- already performed this cleanup alongside its structural DDL. This standalone
+-- predicate is therefore normally a no-op on an ordered upgrade, but remains
+-- independently reviewable and safe for a database restored or repaired from
+-- the pre-000073 shape. Ownership: application startup runs this migration
+-- through golang-migrate after the expanded cache identity is installed.
 --
 -- The predicate makes the cleanup idempotent: a retry finds no rows already
 -- removed and does not duplicate any work. PostgreSQL executes this statement

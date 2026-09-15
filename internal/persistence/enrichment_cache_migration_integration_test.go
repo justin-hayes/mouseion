@@ -18,6 +18,9 @@ func TestLegacyEnrichmentCacheCleanupIsIdempotent(t *testing.T) {
 
 	contractDown, err := migrations.FS.ReadFile("000073_llm_fallback_gloss.down.sql")
 	require.NoError(t, err)
+	// 000073 is immutable shipped history. Rolling it back here models a
+	// repaired database whose data still has the legacy gloss-only shape; the
+	// normal ordered upgrade has already removed those rows in 000073.
 	_, err = pool.Exec(ctx, string(contractDown))
 	require.NoError(t, err, "restore the pre-000073 cache shape")
 	t.Cleanup(func() {
