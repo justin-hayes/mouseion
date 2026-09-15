@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -73,13 +74,16 @@ type postgresFallbackProvider struct {
 
 func (*postgresFallbackProvider) Name() string    { return "llm" }
 func (*postgresFallbackProvider) Version() string { return "model-1" }
-func (p *postgresFallbackProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+func (p *postgresFallbackProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.calls++
-	return enrichment.TranslationResponse{
+	response := enrichment.TranslationResponse{
 		Translation:         "rare word",
-		FallbackGloss:       "something uncommon",
 		SentenceTranslation: "The rare thing is important today.",
-	}, nil
+	}
+	if len(request.CandidateSenses) == 0 {
+		response.FallbackGloss = "something uncommon"
+	}
+	return response, nil
 }
 
 func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *testing.T) {
@@ -91,12 +95,13 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 
 	provider := &postgresFallbackProvider{}
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, provider, store)
-	candidate := enrichment.Candidate{
-		Identity:                  enrichment.Identity{Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN"},
-		TargetWord:                "Seltenes",
-		ExampleSentence:           "Das Seltene ist heute wichtig.",
-		DictionaryProviderVersion: "dictionary-v4",
+	entry := cardexport.Entry{
+		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", Sentence: "Das seltene Wort ist heute wirklich wichtig.", TargetWord: "seltene",
+		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
 	}
+	manifest := cardexport.NewManifest("owner-1", "Book", []cardexport.Entry{entry})
+	require.Len(t, manifest.EnrichmentCandidates(), 1)
+	candidate := manifest.EnrichmentCandidates()[0]
 
 	first, err := service.EnrichExternal(ctx, candidate)
 	require.NoError(t, err)
@@ -116,6 +121,14 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 	assert.Equal(t, "something uncommon", stored.FallbackGloss)
 	assert.Equal(t, "dictionary-v4", stored.CacheKey.DictionaryProviderVersion)
 	assert.Empty(t, stored.SenseSelection)
+
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	require.NoError(t, err)
+	artifact, err := cardexport.NewService(nil).RenderManifest(ctx, bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: first}})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
+	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
 
 	otherDictionary := candidate
 	otherDictionary.DictionaryProviderVersion = "dictionary-v5"
