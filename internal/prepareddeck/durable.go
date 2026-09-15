@@ -68,7 +68,7 @@ func (FinalizeJobArgs) Kind() string { return "prepared_deck_finalize" }
 type RerenderJobArgs struct {
 	OwnerID             string `json:"owner_id"`
 	PreparationID       string `json:"preparation_id"`
-	RunID               string `json:"run_id"`
+	RunID               string `json:"run_id" river:"unique"`
 	PresentationVersion int    `json:"presentation_version" river:"unique"`
 }
 

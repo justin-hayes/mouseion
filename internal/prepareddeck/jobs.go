@@ -331,24 +331,6 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 	return Handle{Preparation: p, JobID: jobID}, nil
 }
 
-// EnsureRerenderJobs is called at startup after a presentation version bump.
-// Unique River arguments make this safe to run on every process start.
-func (s *Service) EnsureRerenderJobs(ctx context.Context) error {
-	if s == nil || s.store == nil {
-		return ErrInvalidInput
-	}
-	candidates, err := s.store.ListPreparedDeckRerenderCandidates(ctx, cardexport.PresentationVersion)
-	if err != nil {
-		return err
-	}
-	for _, candidate := range candidates {
-		if _, err = s.Rerender(ctx, candidate.OwnerID, candidate.PreparationID); err != nil && !errors.Is(err, persistence.ErrInvalidTransition) {
-			return fmt.Errorf("enqueue rerender for preparation %s: %w", candidate.PreparationID, err)
-		}
-	}
-	return nil
-}
-
 func liveRerenderJobID(ctx context.Context, q queryRower, owner, preparationID, runID string, presentationVersion int) (int64, error) {
 	var id int64
 	err := q.QueryRow(ctx, `SELECT id FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'preparation_id'=$3 AND args->>'run_id'=$4 AND (args->>'presentation_version')::integer=$5 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id DESC LIMIT 1`, (RerenderJobArgs{}).Kind(), owner, preparationID, runID, presentationVersion).Scan(&id)
