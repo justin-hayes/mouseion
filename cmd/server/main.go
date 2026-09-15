@@ -225,6 +225,7 @@ func registerPreparedDeckWorkersWithStandard(workers *river.Workers, store *pers
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, provider, codec, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, Provider: provider, Codec: codec, PollInterval: pollInterval, Metrics: metrics})
 	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: export, Metrics: metrics})
+	prepareddeck.AddRerenderWorker(workers, &prepareddeck.DurableRerenderer{Store: store, Renderer: export})
 	prepareddeck.AddBatchCleanupWorker(workers, &prepareddeck.BatchCleanupWorker{Store: store, Provider: provider, Metrics: metrics})
 	prepareddeck.AddRecoveryWorkerWithMetrics(workers, store, client, pollInterval, metrics)
 }

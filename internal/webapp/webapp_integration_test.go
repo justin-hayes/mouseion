@@ -149,6 +149,13 @@ func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string, con
 	r.preparations[id] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 92}, nil
 }
+func (r *recordingPreparedDeck) Rerender(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
+	p, err := r.Get(ctx, owner, id)
+	if err != nil {
+		return prepareddeck.Handle{}, err
+	}
+	return prepareddeck.Handle{Preparation: p, JobID: 93}, nil
+}
 func (r *recordingPreparedDeck) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	p, err := r.Get(ctx, owner, id)
 	if err != nil {

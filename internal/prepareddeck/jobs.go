@@ -282,6 +282,61 @@ func (s *Service) Download(ctx context.Context, owner, id string) (domain.DeckPr
 	return s.store.DownloadDeckPreparation(ctx, owner, id)
 }
 
+// Rerender queues a presentation-only rebuild for a completed preparation. The
+// run identity is captured before enqueueing so a newer preparation cannot be
+// rendered into this artifact.
+func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error) {
+	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
+		return Handle{}, ErrInvalidInput
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Handle{}, err
+	}
+	defer tx.Rollback(ctx)
+	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Handle{}, persistence.ErrNotFound
+	}
+	if err != nil {
+		return Handle{}, err
+	}
+	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil || p.CurrentRunID == "" {
+		return Handle{}, persistence.ErrInvalidTransition
+	}
+	if p.PresentationVersion >= cardexport.PresentationVersion {
+		if err = tx.Commit(ctx); err != nil {
+			return Handle{}, err
+		}
+		return Handle{Preparation: p}, nil
+	}
+	args := RerenderJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, PresentationVersion: cardexport.PresentationVersion}
+	result, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+	if err != nil {
+		return Handle{}, err
+	}
+	jobID := int64(0)
+	if result != nil && result.Job != nil && isLivePreparationJobState(result.Job.State) {
+		jobID = result.Job.ID
+	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, id, p.CurrentRunID, cardexport.PresentationVersion); confirmErr == nil {
+		jobID = confirmed
+	} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
+		return Handle{}, confirmErr
+	} else {
+		return Handle{}, errors.New("River did not return a live rerender job")
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Handle{}, err
+	}
+	return Handle{Preparation: p, JobID: jobID}, nil
+}
+
+func liveRerenderJobID(ctx context.Context, q queryRower, owner, preparationID, runID string, presentationVersion int) (int64, error) {
+	var id int64
+	err := q.QueryRow(ctx, `SELECT id FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'preparation_id'=$3 AND args->>'run_id'=$4 AND (args->>'presentation_version')::integer=$5 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id DESC LIMIT 1`, (RerenderJobArgs{}).Kind(), owner, preparationID, runID, presentationVersion).Scan(&id)
+	return id, err
+}
+
 func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	p, err := s.store.CancelDeckPreparation(ctx, owner, id)
 	if err != nil {
@@ -439,12 +494,12 @@ func recordPreparationHistoryTx(ctx context.Context, tx pgx.Tx, owner, id, statu
 	return err
 }
 
-const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at,retired_at,cards_with_fallback_gloss,render_input_version,presentation_version`
+const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at,retired_at,cards_with_fallback_gloss,render_input_version,presentation_version,deck_revision`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion, &p.DeckRevision)
 	return p, err
 }

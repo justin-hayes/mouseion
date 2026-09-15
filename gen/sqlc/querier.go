@@ -308,6 +308,7 @@ type Querier interface {
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
+	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
 	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
 	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error

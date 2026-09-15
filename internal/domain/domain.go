@@ -39,7 +39,7 @@ type DeckPreparation struct {
 	Artifact                                                                                           []byte
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss      int
 	QualityOmissions                                                                                   int
-	RenderInputVersion, PresentationVersion                                                            int
+	RenderInputVersion, PresentationVersion, DeckRevision                                              int
 	VocabularyCount                                                                                    int
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the

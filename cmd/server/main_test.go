@@ -103,6 +103,7 @@ func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 		{name: "batch submit", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchSubmitWorker{}) }},
 		{name: "batch poll", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchPollWorker{}) }},
 		{name: "finalize", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.FinalizeWorker{}) }},
+		{name: "rerender", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.RerenderWorker{}) }},
 		{name: "batch cleanup", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchCleanupWorker{}) }},
 		{name: "recovery", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.RecoveryWorker{}) }},
 		{name: "standard translation", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.StandardTranslationWorker{}) }},

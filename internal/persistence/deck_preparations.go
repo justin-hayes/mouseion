@@ -84,6 +84,72 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 	return ready, nil
 }
 
+// SupersedePreparedDeckArtifact replaces one completed run's presentation in
+// place. The run-version predicate and preparation lock make concurrent or
+// repeated rerenders publish one revision at most.
+func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner, preparationID, runID string, presentationVersion int, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+	if presentationVersion < 1 {
+		return domain.DeckPreparation{}, ErrInvalidTransition
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := sqlcgen.New(tx)
+	preparationModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
+	if err != nil {
+		return domain.DeckPreparation{}, missing(err)
+	}
+	preparation := deckPreparationFromModel(preparationModel)
+	runModel, err := q.GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
+	if err != nil {
+		return domain.DeckPreparation{}, missing(err)
+	}
+	run := preparedDeckRunFromModel(runModel)
+	if preparation.CurrentRunID != runID || preparation.State != domain.DeckPreparationReady || preparation.RetiredAt != nil || run.State != domain.PreparedDeckRunCompleted {
+		return domain.DeckPreparation{}, ErrInvalidTransition
+	}
+	if run.PresentationVersion >= presentationVersion {
+		if err = tx.Commit(ctx); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		return preparation, nil
+	}
+	if artifact.Filename != preparation.Filename || artifact.DeckName != preparation.DeckName {
+		return domain.DeckPreparation{}, fmt.Errorf("%w: rerendered artifact identity changed", ErrPreparedDeckIdentity)
+	}
+	for _, item := range artifact.Generated {
+		deck, putErr := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: item.Input.Language, Name: item.Note.BookTitle})
+		if putErr != nil {
+			return domain.DeckPreparation{}, putErr
+		}
+		if putErr = q.PutPreparedDeckCard(ctx, sqlcgen.PutPreparedDeckCardParams{Owner: owner, Deck: deck.ID, DedupKey: item.Note.Key, CanonicalLemma: item.Input.CanonicalLemma, Upos: item.Input.UPOS, Front: item.Note.Text, Back: item.Note.BackExtra}); putErr != nil {
+			return domain.DeckPreparation{}, putErr
+		}
+	}
+	updatedModel, err := q.SupersedePreparedDeckArtifact(ctx, sqlcgen.SupersedePreparedDeckArtifactParams{
+		Artifact: artifact.APKG, TotalCards: artifact.Completeness.TotalCards,
+		CardsWithEnglish:                        artifact.Completeness.CardsWithEnglish,
+		CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence,
+		CardsWithFallbackGloss:                  artifact.Completeness.CardsWithFallbackGloss,
+		QualityOmissions:                        artifact.Completeness.QualityOmitted,
+		RenderInputVersion:                      run.RenderInputVersion, PresentationVersion: presentationVersion,
+		Owner: owner, Preparation: preparationID, Run: runID,
+		ExpectedPresentationVersion: run.PresentationVersion,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.DeckPreparation{}, ErrPreparedDeckClaimLost
+	}
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	updated := deckPreparationFromModel(updatedModel)
+	if err = tx.Commit(ctx); err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	return updated, nil
+}
 func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
 	q := sqlcgen.New(tx)
 	current, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: id})
