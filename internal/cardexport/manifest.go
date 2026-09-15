@@ -181,7 +181,7 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 				TargetWord:                item.Entry.TargetWord,
 				ExampleSentence:           strings.TrimSpace(item.Entry.Sentence),
 				DictionaryProviderVersion: item.Entry.DictionaryProviderVersion,
-				CandidateSenses:           cloneLexicalSenses(item.Entry.CandidateSenses),
+				CandidateSenses:           enrichment.CloneLexicalSenses(item.Entry.CandidateSenses),
 			})
 			if item.CacheKey == nil {
 				allAcceptedHaveCacheKeys = false
@@ -347,7 +347,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
 			return canonicalManifestItem{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
 		}
-		entryCanonical.CandidateSenses = cloneLexicalSenses(entry.CandidateSenses)
+		entryCanonical.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
 	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,
@@ -362,25 +362,11 @@ func cloneManifestItems(items []ManifestItem) []ManifestItem {
 	for i, item := range items {
 		result[i] = item
 		result[i].Quality.Reasons = append([]string(nil), item.Quality.Reasons...)
-		result[i].Entry.CandidateSenses = cloneLexicalSenses(item.Entry.CandidateSenses)
+		result[i].Entry.CandidateSenses = enrichment.CloneLexicalSenses(item.Entry.CandidateSenses)
 		if item.CacheKey != nil {
 			key := *item.CacheKey
 			result[i].CacheKey = &key
 		}
-	}
-	return result
-}
-
-func cloneLexicalSenses(senses []enrichment.LexicalSense) []enrichment.LexicalSense {
-	if senses == nil {
-		return nil
-	}
-	result := make([]enrichment.LexicalSense, len(senses))
-	for i, sense := range senses {
-		result[i] = sense
-		result[i].Examples = append([]string(nil), sense.Examples...)
-		result[i].Topics = append([]string(nil), sense.Topics...)
-		result[i].Tags = append([]string(nil), sense.Tags...)
 	}
 	return result
 }

@@ -1162,7 +1162,7 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	if len(senses) > enrichment.DefaultMaxCandidateSenses {
 		senses = senses[:enrichment.DefaultMaxCandidateSenses]
 	}
-	entry.CandidateSenses = cloneLexicalSenses(senses)
+	entry.CandidateSenses = enrichment.CloneLexicalSenses(senses)
 	entry.Plural = plural
 	entry.IPA = strings.TrimSpace(result.IPA)
 	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
@@ -1315,7 +1315,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
 		entry.TargetWord = testedTarget(entry)
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
-			entry.CandidateSenses = cloneLexicalSenses(entry.CandidateSenses[:enrichment.DefaultMaxCandidateSenses])
+			entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses[:enrichment.DefaultMaxCandidateSenses])
 		}
 		decisionEntry := entry
 		clearExternalFields(&decisionEntry)
@@ -1334,7 +1334,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 			TargetWord:                entry.TargetWord,
 			ExampleSentence:           strings.TrimSpace(entry.Sentence),
 			DictionaryProviderVersion: entry.DictionaryProviderVersion,
-			CandidateSenses:           cloneLexicalSenses(entry.CandidateSenses),
+			CandidateSenses:           enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		})
 	}
 	return manifest
@@ -1344,7 +1344,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 func (m Manifest) EnrichmentCandidates() []enrichment.Candidate {
 	result := append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
 	for i := range result {
-		result[i].CandidateSenses = cloneLexicalSenses(result[i].CandidateSenses)
+		result[i].CandidateSenses = enrichment.CloneLexicalSenses(result[i].CandidateSenses)
 	}
 	return result
 }
@@ -1483,7 +1483,7 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	if result.SenseSelection.Available {
 		selection := result.SenseSelection.Value
-		if len(selection) > enrichment.DefaultMaxSenses || !validSenseSelection(selection, len(entry.CandidateSenses)) {
+		if !enrichment.ValidateSenseSelection(selection, len(entry.CandidateSenses)) {
 			selectionMalformed = true
 			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
 		} else if len(selection) > 0 {
@@ -1499,26 +1499,12 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
-		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= 200 {
+		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= enrichment.MaxFallbackGlossRunes {
 			entry.Gloss = fallback
 			entry.fallbackGlossApplied = true
 		}
 	}
 	return nil
-}
-
-func validSenseSelection(selection []int, candidateCount int) bool {
-	seen := make(map[int]struct{}, len(selection))
-	for _, index := range selection {
-		if index < 0 || index >= candidateCount {
-			return false
-		}
-		if _, exists := seen[index]; exists {
-			return false
-		}
-		seen[index] = struct{}{}
-	}
-	return true
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {
@@ -1631,7 +1617,7 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 			TargetWord:                testedTarget(entry),
 			ExampleSentence:           strings.TrimSpace(entry.Sentence),
 			DictionaryProviderVersion: entry.DictionaryProviderVersion,
-			CandidateSenses:           cloneLexicalSenses(entry.CandidateSenses),
+			CandidateSenses:           enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		})
 	}
 	fallbackRate := 0.0

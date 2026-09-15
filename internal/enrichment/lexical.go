@@ -55,15 +55,35 @@ const (
 	DefaultMaxSenses          = 3
 	DefaultMaxTokens          = 10
 	DefaultMaxCandidateSenses = 8
+	MaxFallbackGlossRunes     = 200
 	glossSeparator            = " · "
 	minimumContextScore       = 2
 )
+
+// ValidateSenseSelection validates the ordered sense indices accepted by the
+// translation contract against the frozen candidate senses.
+func ValidateSenseSelection(selection []int, candidateCount int) bool {
+	if len(selection) > DefaultMaxSenses {
+		return false
+	}
+	seen := make(map[int]struct{}, len(selection))
+	for _, index := range selection {
+		if index < 0 || index >= candidateCount {
+			return false
+		}
+		if _, exists := seen[index]; exists {
+			return false
+		}
+		seen[index] = struct{}{}
+	}
+	return true
+}
 
 // OrderSenses applies a deterministic, small Lesk-style context score. The
 // original order is retained for ties, which makes the primary Wiktionary
 // sense the fallback when the sentence provides no useful signal.
 func OrderSenses(request LexicalLookupRequest, senses []LexicalSense) []LexicalSense {
-	ordered := cloneSenses(senses)
+	ordered := CloneLexicalSenses(senses)
 	if len(ordered) < 2 {
 		return ordered
 	}
@@ -280,7 +300,9 @@ func containsPhrase(sentence string, phrase []string) bool {
 	return false
 }
 
-func cloneSenses(senses []LexicalSense) []LexicalSense {
+// CloneLexicalSenses returns a deep copy of dictionary senses and their slice
+// metadata.
+func CloneLexicalSenses(senses []LexicalSense) []LexicalSense {
 	if senses == nil {
 		return nil
 	}
