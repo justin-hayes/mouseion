@@ -37,7 +37,7 @@ type DeckPreparation struct {
 	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, Filename, DeckName, ContentHash, Error string
 	State                                                                                              DeckPreparationState
 	Artifact                                                                                           []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations                              int
+	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss      int
 	QualityOmissions                                                                                   int
 	VocabularyCount                                                                                    int
 	// The fields below are a derived, owner-scoped status projection. They are

@@ -169,9 +169,10 @@ type glossCoverageEvent struct {
 }
 
 type fallbackGlossEvent struct {
-	Event        string `json:"event"`
-	Selected     int    `json:"selected"`
-	FallbackUsed int    `json:"fallback_used"`
+	Event        string  `json:"event"`
+	Selected     int     `json:"selected"`
+	FallbackUsed int     `json:"fallback_used"`
+	FallbackRate float64 `json:"fallback_rate"`
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -1633,7 +1634,11 @@ func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, en
 			CandidateSenses:           cloneLexicalSenses(entry.CandidateSenses),
 		})
 	}
-	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss})
+	fallbackRate := 0.0
+	if completeness.TotalCards > 0 {
+		fallbackRate = float64(completeness.CardsWithFallbackGloss) / float64(completeness.TotalCards)
+	}
+	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss, FallbackRate: fallbackRate})
 	if marshalErr == nil {
 		log.Printf("fallback_gloss_usage %s", fallbackEvent)
 	}

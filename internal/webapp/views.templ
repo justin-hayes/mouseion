@@ -760,7 +760,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if deckPreparationEmpty(preparation) {
 				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
 			} else {
-				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.QualityOmissions) }</p>
+				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d with fallback gloss · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.CardsWithFallbackGloss, preparation.QualityOmissions) }</p>
 				@ActionGroup() {
 					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 				}

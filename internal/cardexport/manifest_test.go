@@ -3,6 +3,7 @@ package cardexport
 import (
 	"bytes"
 	"context"
+	"log"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -197,4 +198,43 @@ func TestManifestIgnoresFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "run · walk", artifact.Generated[0].Note.Gloss)
 	assert.Zero(t, artifact.Completeness.CardsWithFallbackGloss)
+}
+
+func TestManifestLogsFallbackGlossRate(t *testing.T) {
+	entry := Entry{
+		Language: "de", CanonicalLemma: "laufen", UPOS: "VERB",
+		Sentence: "Die Maschine läuft heute überraschend schnell.", TargetWord: "läuft", Gloss: "run",
+		CandidateSenses: []enrichment.LexicalSense{{Gloss: "run"}},
+	}
+	second := entry
+	second.CanonicalLemma = "rennen"
+	second.TargetWord = "rennt"
+	second.Sentence = "Der Hund rennt heute überraschend schnell nach Hause."
+	manifest := NewManifest("owner-1", "Buch", []Entry{entry, second})
+	candidate := manifest.EnrichmentCandidates()[0]
+	secondCandidate := manifest.EnrichmentCandidates()[1]
+	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "llm", ProviderVersion: "model-v1", SentenceHash: enrichment.SentenceHash(entry.Sentence)}
+	secondKey := key
+	secondKey.CanonicalLemma = secondCandidate.CanonicalLemma
+	secondKey.SentenceHash = enrichment.SentenceHash(second.Sentence)
+	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key, secondKey})
+	require.NoError(t, err)
+	provenance := enrichment.Provenance{Provider: key.Provider, ProviderVersion: key.ProviderVersion}
+
+	var output bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	_, err = (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{
+		{CacheKey: key, Result: enrichment.Result{Candidate: candidate, SenseSelection: enrichment.Field[[]int]{Value: []int{}, Available: true, Provenance: provenance}, FallbackGloss: enrichment.Field[string]{Value: "operate", Available: true, Provenance: provenance}}},
+		{CacheKey: secondKey, Result: enrichment.Result{Candidate: secondCandidate, SenseSelection: enrichment.Field[[]int]{Value: []int{0}, Available: true, Provenance: provenance}}},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), `fallback_gloss_usage {"event":"fallback_gloss_usage","selected":2,"fallback_used":1,"fallback_rate":0.5}`)
 }

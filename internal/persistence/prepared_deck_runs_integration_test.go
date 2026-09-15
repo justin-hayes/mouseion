@@ -230,6 +230,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, domain.DeckPreparationReady, ready.State)
 	assert.Equal(t, result.Run.ID, ready.CurrentRunID)
 	assert.Equal(t, 2, ready.TotalCards)
+	assert.Equal(t, 1, ready.CardsWithFallbackGloss, "fallback gloss count was not durable")
 	assert.Equal(t, 1, ready.QualityOmissions)
 	completed, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)

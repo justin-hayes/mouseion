@@ -16,7 +16,7 @@ func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing
 	response := preparationResponse(domain.DeckPreparation{
 		ID: "preparation-1", State: domain.DeckPreparationPreparing, Phase: "waiting",
 		Error: "raw provider id file-secret and source sentence", FailureClass: "reconciliation", BatchAge: 2 * time.Hour,
-		TotalCards: 4, CardsWithEnglish: 2, CardsWithContextualSentenceTranslations: 1,
+		TotalCards: 4, CardsWithEnglish: 2, CardsWithContextualSentenceTranslations: 1, CardsWithFallbackGloss: 1,
 		TranslationEligible: 4, TranslationDone: 2, TranslationPending: 1, TranslationRetrying: 1, TranslationFailed: 1,
 		BatchChunkCount: 2, BatchPollingChunks: 1, BatchRequestCount: 4, BatchCompletedRequests: 2, BatchFailedRequests: 1, BatchExpiredRequests: 1,
 	})
@@ -30,6 +30,17 @@ func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing
 	assert.Equal(t, int64(7200), response.Batch.AgeSeconds)
 	assert.Equal(t, 1, response.Translation.Retrying)
 	assert.Equal(t, 1, response.Batch.Expired)
+	assert.Nil(t, response.Completeness.CardsWithFallbackGloss)
+	assert.NotContains(t, string(encoded), `"cards_with_fallback_gloss"`)
+}
+
+func TestReadyPreparationResponseExposesFallbackGlossCount(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationReady, CardsWithFallbackGloss: 1})
+
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	assert.Equal(t, 1, *response.Completeness.CardsWithFallbackGloss)
+	assert.Contains(t, string(encoded), `"cards_with_fallback_gloss":1`)
 }
 
 func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {

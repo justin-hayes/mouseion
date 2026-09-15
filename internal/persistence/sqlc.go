@@ -167,7 +167,7 @@ func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparatio
 		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,
 		State: domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
 		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: row.TotalCards,
-		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations,
+		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: row.CardsWithFallbackGloss,
 		QualityOmissions: row.QualityOmissions, Error: row.Error, CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt, StartedAt: pgTimePtr(row.StartedAt), CompletedAt: pgTimePtr(row.CompletedAt),
 		AnalysisRunID: uuidString(row.AnalysisRunID), CurrentRunID: uuidString(row.CurrentRunID),
