@@ -1,10 +1,10 @@
 # Dependency Parse Foundation
 
-Status: Proposed · Date: 2026-09-12
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
-The concordance foundation ([ADR 0059](adr/0059-persisted-normalized-corpus-for-concordance.md),
+The concordance foundation ([ADR 0059](../adr/0059-persisted-normalized-corpus-for-concordance.md),
 [concordance-foundation.md](concordance-foundation.md)) persists the normalized
 sentence/token stream at analysis time so a future concordancer can query
 occurrences without re-running NLP. That foundation stores no syntax: a token's
@@ -16,18 +16,18 @@ Two consumers need per-token dependency structure:
   concordance that answers "where does *laufen* appear as a subject?" or "what
   are the objects of *laufen*?" — questions that require each token's dependency
   relation and head.
-- **Deterministic sentence-quality scoring.** The planned next milestone — a
-  GDEX-style rubric for choosing representative example sentences — needs a
-  finite-verb-and-subject check and subtree/hypotaxis membership, both of which
-  are computed from dependency structure. Persisting the structure now means
-  that pass reads the persisted corpus instead of re-running NLP.
+- **Deterministic sentence-quality scoring.** The GDEX-style rubric for choosing
+  representative example sentences needs a finite-verb-and-subject check and
+  subtree/hypotaxis membership, both of which are computed from dependency
+  structure. Persisting the structure means the scorer reads the persisted
+  corpus instead of re-running NLP.
 
 ## Goal
 
-Add dependency parsing as an always-on analysis capability and persist each
-token's basic dependency relation and head at analysis time, then extend the
-concordance query layer with dependency-aware queries. This ships before any
-sentence-quality (GDEX) scoring work.
+Dependency parsing is an always-on analysis capability. Each token's basic
+dependency relation and head is persisted at analysis time, and the concordance
+query layer exposes dependency-aware queries. The persisted data also supports
+the separate sentence-quality (GDEX) scorer.
 
 ## Scope
 
@@ -50,10 +50,11 @@ sentence-quality (GDEX) scoring work.
 - Any learner-facing concordance or KWIC surface.
 - Enhanced (non-basic) dependencies.
 - Collocation queries.
-- Any sentence-quality (GDEX) scoring; this milestone only guarantees the data
-  is sufficient for it.
+- The sentence-quality (GDEX) scorer itself; the separate sentence-quality
+  feature consumes the persisted data.
 - Changes to `selection_candidates`, `example_sentences`, or card export.
-- Backfilling pre-depparse analyses (roll-forward; the database is dropped).
+- Backfilling analyses from before the current baseline; environments are
+  recreated from the baseline and no prior database is upgraded.
 
 ## Requirements
 

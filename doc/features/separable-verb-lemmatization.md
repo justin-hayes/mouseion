@@ -1,6 +1,6 @@
 # German separable-verb lemmatization
 
-Status: Proposed · Date: 2026-09-12
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
@@ -9,11 +9,11 @@ German separable verbs (trennbare Verben) surface in two forms: attached
 particle moves to clause-final position. The Stanza German lemmatizer emits
 only the base lemma for separated forms (`stehe` → `stehen`, particle `auf` as
 its own token) — a known gap ([stanza#1549](https://github.com/stanfordnlp/stanza/issues/1549)).
-Under [ADR 0005](adr/0005-vocabulary-identity-normalization-ranking.md)
+Under [ADR 0005](../adr/0005-vocabulary-identity-normalization-ranking.md)
 vocabulary identity is the canonical lemma, so the learning identity is wrong:
 the learner studies *stehen* (to stand) instead of *aufstehen* (to get up).
 
-Dependency parsing is now always-on ([ADR 0060](adr/0060-persist-dependency-parses.md)),
+Dependency parsing is now always-on ([ADR 0060](../adr/0060-persist-dependency-parses.md)),
 which makes the separated particle identifiable: it is a `compound:prt`
 dependent of the verb, and the full lemma is recoverable deterministically as
 **particle lemma + verb lemma**. This is also a known fix for the Stanza gap.
@@ -25,11 +25,13 @@ A second, related defect: roughly a third of separable particles are tagged
 
 ## Goal
 
-In the NLP producer, reattach separable particles to verb lemmas for German so
+In the NLP producer, separable particles are reattached to German verb lemmas so
 the canonical lemma of a separated form is the full lexeme (`aufstehen`), while
-the raw lemma stays the analyzer's base form (`stehen`); and exclude separable
-particles from content-word candidates. Validate precision with fixtures and a
-real-corpus measurement before shipping.
+the raw lemma stays the analyzer's base form (`stehen`). Separable particles are
+also excluded from content-word candidates. Unit and end-to-end fixtures cover
+the reattachment and exclusion rules. A committed real-corpus report records
+the observed reattachments and spot-check rows in
+[`doc/evidence/german-separable-verb-precision.md`](../evidence/german-separable-verb-precision.md).
 
 ## Scope
 
@@ -87,7 +89,8 @@ Reattachment happens as part of `canonical_lemma` derivation; the result passes
 through the existing German post-1996 profile (lowercase, explicit historical
 equivalences). The German normalization profile version bumps so the stored
 profile field distinguishes the rule set. Only new analyses are affected
-(roll-forward; the database is dropped).
+(environments are recreated from the current baseline rather than upgrading
+prior analysis data).
 
 ### Selection
 
@@ -103,22 +106,19 @@ its own word.
   vor` — fixed phrase). Assert the persisted `canonical_lemma`.
 - **End-to-end analysis test**: a completed analysis persists the full lexeme
   as `canonical_lemma` with `raw_lemma` unchanged.
-- **Real-corpus measurement**: run the pipeline over a real German book, count
-  reattachments, and spot-check a sample for false positives; record the
-  numbers as the precision evidence for this change.
 
 ## Acceptance criteria
 
-- [ ] A separated form persists `canonical_lemma` = full lexeme (`aufstehen`)
+- [x] A separated form persists `canonical_lemma` = full lexeme (`aufstehen`)
       with `raw_lemma` = base (`stehen`)
-- [ ] Attached forms are unchanged (already the full lexeme)
-- [ ] False-positive traps do not reattach (surface not in the prefix set, or
+- [x] Attached forms are unchanged (already the full lexeme)
+- [x] False-positive traps do not reattach (surface not in the prefix set, or
       deprel not `compound:prt`)
-- [ ] Separable particles are excluded from content-word candidates
-- [ ] The German normalization profile version reflects the change; only new
+- [x] Separable particles are excluded from content-word candidates
+- [x] The German normalization profile version reflects the change; only new
       analyses are affected
-- [ ] Real-corpus measurement records the reattachment count and a spot-check
-      of false positives
+- [x] The precision evidence report records the reattachment count and
+      spot-check rows for false-positive review
 
 ## References
 

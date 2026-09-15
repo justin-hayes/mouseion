@@ -1,6 +1,6 @@
 # ADR 0059: Persisted normalized corpus for future concordance
 
-Status: Proposed · Date: 2026-09-12
+Status: **Accepted** · Date: 2026-09-12
 
 ## Context
 

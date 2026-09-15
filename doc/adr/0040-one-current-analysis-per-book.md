@@ -1,6 +1,6 @@
 # ADR 0040: One current analysis per book
 
-Status: **Proposed** · Date: 2026-09-02 · Author: Justin + Codex · Learner lifecycle wording reconciled by [ADR 0054](0054-retire-standalone-analysis-action.md)
+Status: **Accepted** · Date: 2026-09-02 · Author: Justin + Codex · Learner lifecycle wording reconciled by [ADR 0054](0054-retire-standalone-analysis-action.md); route wording superseded by [ADR 0055](0055-retire-book-detail-route.md)
 
 ## Context
 

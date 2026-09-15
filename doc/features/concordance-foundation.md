@@ -1,19 +1,18 @@
 # Concordance Foundation
 
-Status: Proposed · Date: 2026-09-12
+Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
 A future KWIC (key-word-in-context) concordancer — at the scope of a Book or of
-a study language's analyzed library — needs per-occurrence context that the
-analysis pipeline currently discards. The NLP boundary produces the full
-normalized corpus (sentences plus tokens, each with surface, lemma, POS,
-morphology, and character offsets), but after analysis only lemma
-aggregates, corpus statistics, and a filtered content-word subset with embedded
-sentence refs survive ([ADR 0001](adr/0001-go-core-python-nlp-service.md) and
-[ADR 0003](adr/0003-postgresql-persistence.md) already name concordance as the
-future growth path). The data must be captured at analysis time or a future
-concordancer cannot exist without re-running NLP on demand.
+a study language's analyzed library — needs per-occurrence context. The analysis
+pipeline now persists the full normalized corpus (sentences plus tokens, each
+with surface, lemma, POS, morphology, and character offsets), alongside the
+existing lemma aggregates, corpus statistics, and filtered candidate subset.
+[ADR 0001](../adr/0001-go-core-python-nlp-service.md) and
+[ADR 0003](../adr/0003-postgresql-persistence.md) name concordance as the future
+growth path; this foundation preserves the data required to build it without
+re-running NLP on demand.
 
 This feature builds the foundation only: persist the normalized corpus so a
 concordancer is possible later. No learner-facing concordance surface is built
@@ -21,12 +20,12 @@ here.
 
 ## Goal
 
-Persist the normalized corpus (sentences and tokens, full fidelity, with
-offsets) in owner-scoped relational tables during analysis, and provide a Go
-query layer that returns occurrence rows for lemma and surface queries at both
-Book and study-language scope. The foundation is rolled forward: the database
-is dropped rather than backfilled, so concordance data exists only for analyses
-run after this ships.
+The normalized corpus (sentences and tokens, full fidelity, with offsets) is
+persisted in owner-scoped relational tables during analysis, and the Go query
+layer returns occurrence rows for lemma and surface queries at both Book and
+study-language scope. The foundation is rolled forward: the baseline cutover
+recreated the database rather than backfilling old analyses, so concordance data
+is available for analyses written after the current baseline.
 
 ## Scope
 
@@ -42,8 +41,8 @@ run after this ships.
 - Context-window derivation or a fixed window width; the token stream is
   persisted so windowing stays a future rendering concern.
 - Prefix, fuzzy, or full-text search (e.g. trigram, `tsvector`).
-- Backfilling existing analyses (the app is not in production; the database is
-  dropped and analysis rolls forward).
+- Backfilling analyses from before the current baseline; environments are
+  recreated from the baseline and no prior database is upgraded.
 - Changing the selection pipeline or retiring
   `selection_candidates.eligible_sentence_refs` / `example_sentences`; the new
   tables are purely additive.
@@ -99,8 +98,8 @@ run after this ships.
 - Occurrence queries by canonical lemma + UPOS and by surface return
   deterministic, owner-scoped results at Book and study-language scope with
   sentence text, target offsets, and structural provenance.
-- Analyses run before this feature shipped have no concordance data (roll
-  forward; the database is dropped).
+- Analyses from before the current baseline have no concordance data; the
+  baseline cutover recreates environments rather than backfilling old analyses.
 - `selection_candidates` and `example_sentences` are unchanged.
 
 ## References
