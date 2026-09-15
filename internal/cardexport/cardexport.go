@@ -1490,10 +1490,6 @@ func applyExactEnrichment(entry *Entry, outcome ExactEnrichment) error {
 	}
 	selectionValid := false
 	selectionMalformed := false
-	if len(entry.CandidateSenses) > 0 && !result.SenseSelection.Available {
-		selectionMalformed = true
-		log.Printf("prepared deck translation: missing sense selection; using deterministic order")
-	}
 	if result.SenseSelection.Available {
 		selection := result.SenseSelection.Value
 		if !enrichment.ValidateSenseSelection(selection, len(entry.CandidateSenses)) {

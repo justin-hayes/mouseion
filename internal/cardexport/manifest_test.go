@@ -137,6 +137,11 @@ func TestManifestAppliesValidatedSenseOrderAndDeterministicFallback(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, "house · building", selected.Generated[0].Note.Gloss)
 
+	var output bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
 	malformed, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{
 		CacheKey: key,
 		Result: enrichment.Result{
@@ -145,8 +150,11 @@ func TestManifestAppliesValidatedSenseOrderAndDeterministicFallback(t *testing.T
 			FallbackGloss:  enrichment.Field[string]{Value: "wrong", Available: true, Provenance: provenance},
 		},
 	}})
+	log.SetOutput(previousWriter)
+	log.SetFlags(previousFlags)
 	require.NoError(t, err)
 	assert.Equal(t, "building · house", malformed.Generated[0].Note.Gloss)
+	assert.Contains(t, output.String(), "invalid sense selection; using deterministic order")
 }
 
 func TestManifestUsesFallbackGlossForAnExplicitNoneFitSelection(t *testing.T) {
@@ -175,7 +183,7 @@ func TestManifestUsesFallbackGlossForAnExplicitNoneFitSelection(t *testing.T) {
 	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
 }
 
-func TestManifestIgnoresFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
+func TestManifestUsesFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
 	entry := Entry{
 		Language: "de", CanonicalLemma: "laufen", UPOS: "VERB",
 		Sentence: "Die Maschine läuft heute überraschend schnell.", TargetWord: "läuft", Gloss: "run · walk",
@@ -196,8 +204,16 @@ func TestManifestIgnoresFallbackGlossWhenSenseSelectionIsMissing(t *testing.T) {
 		},
 	}})
 	require.NoError(t, err)
-	assert.Equal(t, "run · walk", artifact.Generated[0].Note.Gloss)
-	assert.Zero(t, artifact.Completeness.CardsWithFallbackGloss)
+	assert.Equal(t, "operate", artifact.Generated[0].Note.Gloss)
+	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
+
+	deterministic, err := (&Service{}).RenderManifest(context.Background(), bound, []ExactEnrichment{{
+		CacheKey: key,
+		Result:   enrichment.Result{Candidate: candidate},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "run · walk", deterministic.Generated[0].Note.Gloss)
+	assert.Zero(t, deterministic.Completeness.CardsWithFallbackGloss)
 }
 
 func TestManifestRenderKeepsFallbackGlossCompletenessWithoutUsageSignal(t *testing.T) {

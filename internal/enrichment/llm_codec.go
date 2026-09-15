@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object with exactly these eight fields and no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct non-negative dictionary sense indices, in best-fit order), and fallback_gloss (an optional concise English gloss only when no supplied dictionary sense fits). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
+const llmSystemPrompt = "Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field."
 
 const maxTranslationResponseBytes = 1 << 20
 
@@ -290,8 +290,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) || hasMarkup(response.SentenceTranslationTarget) {
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
-	selectionInvalid := len(input.CandidateSenses) > 0 && response.SenseOrder == nil
-	selectionInvalid = selectionInvalid || !ValidateSenseSelection(response.SenseOrder, len(input.CandidateSenses))
+	selectionInvalid := !ValidateSenseSelection(response.SenseOrder, len(input.CandidateSenses))
 	for _, warning := range response.Warnings {
 		selectionInvalid = selectionInvalid || strings.HasPrefix(warning, "sense selection") || strings.HasPrefix(warning, "invalid sense selection")
 	}

@@ -141,13 +141,15 @@ func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(
 	assert.Contains(t, string(body), `candidate_senses`)
 	assert.Contains(t, string(body), `building`)
 	assert.Contains(t, string(body), `house`)
+	assert.Contains(t, string(body), `0-based`)
+	assert.Contains(t, string(body), `omit it, or return an empty array`)
 
 	content := struct {
 		ItemID         string `json:"item_id"`
 		SourceLanguage string `json:"source_language"`
 		TargetLanguage string `json:"target_language"`
 		TranslationResponse
-	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", SenseOrder: []int{2}}}
+	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", SenseOrder: []int{2}, FallbackGloss: "dwelling"}}
 	contentBytes, marshalErr := json.Marshal(content)
 	require.NoError(t, marshalErr)
 	responseBody, marshalErr := json.Marshal(struct {
@@ -167,10 +169,11 @@ func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(
 	response, err := codec.DecodeResponse(input, responseBody)
 	require.NoError(t, err)
 	assert.Empty(t, response.SenseOrder)
+	assert.Empty(t, response.FallbackGloss)
 	assert.Contains(t, response.Warnings, "invalid sense selection; using deterministic order")
 }
 
-func TestTranslationCodecRejectsFallbackWhenSelectionIsMissing(t *testing.T) {
+func TestTranslationCodecAcceptsFallbackWhenSenseSelectionIsOmitted(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	input := TranslationRequest{
@@ -181,6 +184,6 @@ func TestTranslationCodecRejectsFallbackWhenSelectionIsMissing(t *testing.T) {
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
-	assert.Empty(t, response.FallbackGloss)
-	assert.Contains(t, response.Warnings, "invalid sense selection; using deterministic order")
+	assert.Equal(t, "operate", response.FallbackGloss)
+	assert.NotContains(t, response.Warnings, "invalid sense selection; using deterministic order")
 }
