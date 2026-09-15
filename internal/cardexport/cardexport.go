@@ -1333,7 +1333,6 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 		decisionEntry := entry
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
-		decisionEntry.SentenceTokens = nil
 		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
 		if !quality.Accepted {
 			manifest.omitted = append(manifest.omitted, Omission{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, Score: quality.Score, Reasons: append([]string(nil), quality.Reasons...)})

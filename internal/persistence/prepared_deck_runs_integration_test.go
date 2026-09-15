@@ -459,29 +459,25 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	require.NoError(t, err)
 
 	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
-	snapshot := cardexport.ManifestSnapshot{
-		SchemaVersion: cardexport.ManifestSchemaVersion,
-		Owner:         owner.ID, DeckName: source.Title, Filename: cardexport.DownloadFilename(source.Title),
-		Items: []cardexport.ManifestItem{{
-			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
-			Entry: cardexport.Entry{
-				Language: "de", CanonicalLemma: "anstrahlen", UPOS: "VERB",
-				Sentence: sentence, TargetWord: "strahlten", SourceDocument: source.Title,
-				SentenceTokens: []analyzer.Token{
-					{Surface: "Im", UPOS: "ADP", Dependency: "case", Head: 1},
-					{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 4},
-					{Surface: "des", UPOS: "DET", Dependency: "det", Head: 3},
-					{Surface: "Erpressers", UPOS: "NOUN", Dependency: "nmod", Head: 1},
-					{Surface: "strahlten", UPOS: "VERB", Dependency: "root", Head: 4},
-					{Surface: "ihre", UPOS: "DET", Dependency: "det", Head: 6},
-					{Surface: "Schwestern", UPOS: "NOUN", Dependency: "nsubj", Head: 4},
-					{Surface: "sie", UPOS: "PRON", Dependency: "obj", Head: 4},
-					{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
-				},
-			},
-			Quality: cardexport.SentenceQuality{Accepted: true, Score: 94, Reasons: []string{"target present"}},
-		}},
+	entry := cardexport.Entry{
+		Language: "de", CanonicalLemma: "anstrahlen", UPOS: "VERB",
+		Sentence: sentence, TargetWord: "strahlten", SourceDocument: source.Title,
+		SentenceTokens: []analyzer.Token{
+			{Surface: "Im", UPOS: "ADP", Dependency: "case", Head: 1},
+			{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 4},
+			{Surface: "des", UPOS: "DET", Dependency: "det", Head: 3},
+			{Surface: "Erpressers", UPOS: "NOUN", Dependency: "nmod", Head: 1},
+			{Surface: "strahlten", UPOS: "VERB", Dependency: "root", Head: 4, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "ihre", UPOS: "DET", Dependency: "det", Head: 6},
+			{Surface: "Schwestern", UPOS: "NOUN", Dependency: "nsubj", Head: 4},
+			{Surface: "sie", UPOS: "PRON", Dependency: "obj", Head: 4},
+			{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
+		},
 	}
+	plan := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{entry})
+	snapshot := plan.Snapshot()
+	require.Len(t, snapshot.Items, 1)
+	require.True(t, snapshot.Items[0].Quality.Accepted, "sentence was quality-omitted: %+v", snapshot.Items[0].Quality)
 
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)

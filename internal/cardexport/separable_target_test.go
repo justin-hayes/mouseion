@@ -133,6 +133,38 @@ func TestExportCoverageBoldsSeparableVerbFromPersistedParse(t *testing.T) {
 	assert.NotContains(t, artifact.TSV, "stale text")
 }
 
+func TestNewManifestSnapshotPreservesFrozenParseForBolding(t *testing.T) {
+	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
+	tokens := []analyzer.Token{
+		{Surface: "Im", UPOS: "ADP", Dependency: "case", Head: 1},
+		{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 4},
+		{Surface: "des", UPOS: "DET", Dependency: "det", Head: 3},
+		{Surface: "Erpressers", UPOS: "NOUN", Dependency: "nmod", Head: 1},
+		{Surface: "strahlten", UPOS: "VERB", Dependency: "root", Head: 4, Morphology: map[string]string{"VerbForm": "Fin"}},
+		{Surface: "ihre", UPOS: "DET", Dependency: "det", Head: 6},
+		{Surface: "Schwestern", UPOS: "NOUN", Dependency: "nsubj", Head: 4},
+		{Surface: "sie", UPOS: "PRON", Dependency: "obj", Head: 4},
+		{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
+	}
+	entry := Entry{
+		Language: "de", CanonicalLemma: "anstrahlen", UPOS: "VERB",
+		Sentence: sentence, TargetWord: "strahlten", SourceDocument: "Book",
+		SentenceTokens: tokens,
+	}
+
+	manifest := NewManifest("owner", "Buch", []Entry{entry})
+	snapshot := manifest.Snapshot()
+	require.Len(t, snapshot.Items, 1)
+	require.True(t, snapshot.Items[0].Quality.Accepted, "representative sentence was quality-omitted: %+v", snapshot.Items[0].Quality)
+	require.Equal(t, tokens, snapshot.Items[0].Entry.SentenceTokens, "snapshot dropped the frozen parse")
+
+	rebuilt, err := ManifestFromSnapshot(snapshot)
+	require.NoError(t, err)
+	artifact, err := (&Service{}).RenderManifest(context.Background(), rebuilt, nil)
+	require.NoError(t, err)
+	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
+}
+
 func TestRenderManifestBoldsSeparableVerbFromFrozenParse(t *testing.T) {
 	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
 	snapshot := ManifestSnapshot{
