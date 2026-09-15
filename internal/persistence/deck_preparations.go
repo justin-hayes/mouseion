@@ -134,7 +134,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 		CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence,
 		CardsWithFallbackGloss:                  artifact.Completeness.CardsWithFallbackGloss,
 		QualityOmissions:                        artifact.Completeness.QualityOmitted,
-		RenderInputVersion:                      run.RenderInputVersion, PresentationVersion: presentationVersion,
+		RenderInputVersion:                      max(run.RenderInputVersion, cardexport.RenderInputVersion), PresentationVersion: presentationVersion,
 		Owner: owner, Preparation: preparationID, Run: runID,
 		ExpectedPresentationVersion: run.PresentationVersion,
 	})
@@ -584,6 +584,7 @@ func (s *PostgresStore) ListStalePreparedDecks(ctx context.Context, presentation
 	}
 	rows, err := s.queries().ListStalePreparedDecks(ctx, sqlcgen.ListStalePreparedDecksParams{
 		PresentationVersion:        presentationVersion,
+		RenderInputVersion:         cardexport.RenderInputVersion,
 		RequiresRepreparationError: domain.DeckPreparationRequiresRepreparationError,
 		Limit:                      int32(limit),
 	})

@@ -67,6 +67,7 @@ func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _,
 	s.supersedeCalls++
 	s.supersedeVersion = version
 	s.run.PresentationVersion = version
+	s.run.RenderInputVersion = cardexport.RenderInputVersion
 	s.preparation.PresentationVersion = version
 	s.preparation.DeckRevision++
 	return s.preparation, nil
@@ -260,7 +261,7 @@ func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
 
 func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.T) {
 	store := &finalizerStoreStub{
-		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 1},
 		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
 		corpusSentences: map[string]map[int64]analyzer.Sentence{},
 	}

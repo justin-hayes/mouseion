@@ -84,9 +84,9 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 	if err != nil {
 		return err
 	}
-	var runPresentationVersion int
-	err = tx.QueryRow(ctx, `SELECT presentation_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid AND state='completed'`, item.OwnerID, item.PreparationID, currentRunID).Scan(&runPresentationVersion)
-	if errors.Is(err, pgx.ErrNoRows) || runPresentationVersion >= item.PresentationVersion {
+	var runPresentationVersion, runRenderInputVersion int
+	err = tx.QueryRow(ctx, `SELECT presentation_version, render_input_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid AND state='completed'`, item.OwnerID, item.PreparationID, currentRunID).Scan(&runPresentationVersion, &runRenderInputVersion)
+	if errors.Is(err, pgx.ErrNoRows) || (runPresentationVersion >= item.PresentationVersion && runRenderInputVersion >= cardexport.RenderInputVersion) {
 		return tx.Commit(ctx)
 	}
 	if err != nil {

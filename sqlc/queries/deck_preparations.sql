@@ -247,7 +247,8 @@ JOIN deck_preparation_runs r
   ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
 WHERE p.state = 'ready' AND p.retired_at IS NULL AND p.current_run_id IS NOT NULL
   AND r.state = 'completed'
-  AND r.presentation_version < sqlc.arg('presentation_version')
+  AND (r.presentation_version < sqlc.arg('presentation_version')
+       OR r.render_input_version < sqlc.arg('render_input_version'))
   AND p.error <> sqlc.arg('requires_repreparation_error')
 ORDER BY p.updated_at, p.id
 LIMIT sqlc.arg('limit');

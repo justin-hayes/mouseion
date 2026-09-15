@@ -1160,14 +1160,16 @@ JOIN deck_preparation_runs r
   ON r.owner_id = p.owner_id AND r.preparation_id = p.id AND r.id = p.current_run_id
 WHERE p.state = 'ready' AND p.retired_at IS NULL AND p.current_run_id IS NOT NULL
   AND r.state = 'completed'
-  AND r.presentation_version < $1
-  AND p.error <> $2
+  AND (r.presentation_version < $1
+       OR r.render_input_version < $2)
+  AND p.error <> $3
 ORDER BY p.updated_at, p.id
-LIMIT $3
+LIMIT $4
 `
 
 type ListStalePreparedDecksParams struct {
 	PresentationVersion        int
+	RenderInputVersion         int
 	RequiresRepreparationError string
 	Limit                      int32
 }
@@ -1180,7 +1182,12 @@ type ListStalePreparedDecksRow struct {
 }
 
 func (q *Queries) ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error) {
-	rows, err := q.db.Query(ctx, listStalePreparedDecks, arg.PresentationVersion, arg.RequiresRepreparationError, arg.Limit)
+	rows, err := q.db.Query(ctx, listStalePreparedDecks,
+		arg.PresentationVersion,
+		arg.RenderInputVersion,
+		arg.RequiresRepreparationError,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

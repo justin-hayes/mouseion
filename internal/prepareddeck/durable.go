@@ -259,7 +259,10 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if preparation.State != domain.DeckPreparationReady || preparation.CurrentRunID != runID || preparation.RetiredAt != nil {
 		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
 	}
-	if run.PresentationVersion >= presentationVersion {
+	if run.PresentationVersion > presentationVersion {
+		presentationVersion = run.PresentationVersion
+	}
+	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
 		return preparation, nil
 	}
 	manifest, exact, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
