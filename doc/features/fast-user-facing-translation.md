@@ -268,7 +268,7 @@ current operational logging policy permits it.
 | Area | Current files | Planned change |
 |---|---|---|
 | Decision/docs | `doc/adr/0031-*`, `doc/features/openai-batch-translation.md`, `doc/archive/features/llm-translation-performance.md`, `doc/product.md` | Accept ADR 0032, then mark conflicting Batch-only statements superseded and update current operations after code lands. |
-| Schema/domain | `migrations/000033_*`, new migration; `internal/domain/prepared_deck_run.go`; `internal/enrichment/enrichment.go` | Add frozen execution mode and target language; extend exact cache identity and constraints. |
+| Schema/domain | `migrations/000001_initialize.up.sql`, successor migrations; `internal/domain/prepared_deck_run.go`; `internal/enrichment/enrichment.go` | Add frozen execution mode and target language; extend exact cache identity and constraints. |
 | Persistence | `internal/persistence/enrichment.go`, `prepared_deck_runs.go`, `prepared_deck_run_transitions.go`, `prepared_deck_status.go`, `prepared_deck_batch_reconciliation.go` | Read/write the expanded identity, enforce mode-specific transitions, atomically persist standard results, recover scalar jobs, and fail incomplete standard runs. |
 | Codec/provider | `internal/enrichment/llm_codec.go`, `llm.go`, `openai_batch_jsonl.go` and tests/fixtures | Add opaque item/language schema fields, strict validation, and a prompt/schema version bump shared by both transports. |
 | Planning/dispatch | `internal/prepareddeck/cutover.go`, `durable.go`, new mode/planner files | Select a frozen mode; retain Batch planner; create standard per-item jobs. |

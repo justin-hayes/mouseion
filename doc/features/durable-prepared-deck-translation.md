@@ -842,6 +842,4 @@ Acceptance criteria:
 - `internal/enrichmentjob/jobs.go`
 - `internal/cardexport/cardexport.go`
 - `internal/persistence/deck_preparations.go`
-- `migrations/000014_contextual_translation.up.sql`
-- `migrations/000015_deck_preparations.up.sql`
-- `migrations/000028_preparation_analysis_binding.up.sql`
+- `migrations/000001_initialize.up.sql`

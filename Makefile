@@ -72,7 +72,7 @@ templ:
 	templ generate
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
-# the migrations history. sqlc is pinned; CI installs the same version and
+# the current-state baseline/successor migrations. sqlc is pinned; CI installs the same version and
 # asserts `git diff --exit-code` after regeneration.
 sqlc: go-tmp
 	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)" || go install github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION)

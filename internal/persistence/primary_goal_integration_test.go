@@ -43,10 +43,6 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	// needs coverage for persisted language-scoped rows.
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, alice.ID, aliceBook.ID)
 	require.NoError(t, err)
-	legacyUnknownBook, err := store.CreateBook(ctx, domain.Book{OwnerID: erin.ID, Title: "Legacy unknown-language goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'und',$2)`, erin.ID, legacyUnknownBook.ID)
-	require.NoError(t, err)
 
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
