@@ -29,7 +29,9 @@ In the NLP producer, separable particles are reattached to German verb lemmas so
 the canonical lemma of a separated form is the full lexeme (`aufstehen`), while
 the raw lemma stays the analyzer's base form (`stehen`). Separable particles are
 also excluded from content-word candidates. Unit and end-to-end fixtures cover
-the reattachment and exclusion rules.
+the reattachment and exclusion rules. A committed real-corpus report records
+the observed reattachments and spot-check rows in
+[`doc/evidence/german-separable-verb-precision.md`](../evidence/german-separable-verb-precision.md).
 
 ## Scope
 
@@ -103,8 +105,6 @@ its own word.
   vor` — fixed phrase). Assert the persisted `canonical_lemma`.
 - **End-to-end analysis test**: a completed analysis persists the full lexeme
   as `canonical_lemma` with `raw_lemma` unchanged.
-- **Regression coverage**: run the producer and analysis fixtures covering
-  reattachment, candidate exclusion, and false-positive traps.
 
 ## Acceptance criteria
 
@@ -116,7 +116,8 @@ its own word.
 - [x] Separable particles are excluded from content-word candidates
 - [x] The German normalization profile version reflects the change; only new
       analyses are affected
-- [x] Regression fixtures cover the reattachment count and false-positive traps
+- [x] The precision evidence report records the reattachment count and
+      spot-check rows for false-positive review
 
 ## References
 

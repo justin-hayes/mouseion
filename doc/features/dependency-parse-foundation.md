@@ -50,8 +50,8 @@ the separate sentence-quality (GDEX) scorer.
 - Any learner-facing concordance or KWIC surface.
 - Enhanced (non-basic) dependencies.
 - Collocation queries.
-- Any sentence-quality (GDEX) scoring; this milestone only guarantees the data
-  is sufficient for it.
+- The sentence-quality (GDEX) scorer itself; the separate sentence-quality
+  feature consumes the persisted data.
 - Changes to `selection_candidates`, `example_sentences`, or card export.
 - Backfilling pre-depparse analyses (roll-forward; the database is dropped).
 

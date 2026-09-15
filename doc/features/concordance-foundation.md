@@ -23,9 +23,9 @@ here.
 The normalized corpus (sentences and tokens, full fidelity, with offsets) is
 persisted in owner-scoped relational tables during analysis, and the Go query
 layer returns occurrence rows for lemma and surface queries at both Book and
-study-language scope. The foundation is rolled forward: the database is dropped
-rather than backfilled, so concordance data exists only for analyses run after
-this shipped.
+study-language scope. The foundation is rolled forward: the baseline cutover
+recreated the database rather than backfilling old analyses, so concordance data
+is available for analyses written after the current baseline.
 
 ## Scope
 
