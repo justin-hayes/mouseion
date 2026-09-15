@@ -46,6 +46,9 @@ The full app is **three processes**: PostgreSQL, the Python NLP gRPC service
 
 ### Option A — Docker Compose (recommended for the home lab)
 
+The one-time database recreation required after the migration baseline is
+recorded in the [2026-09-15 cutover note](doc/cutover-2026-09-15.md).
+
 ```sh
 cp .env.example .env   # set a strong MOUSEION_DB_PASSWORD and MOUSEION_SECRET
 docker compose up -d --build
