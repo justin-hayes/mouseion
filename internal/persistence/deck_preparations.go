@@ -150,7 +150,6 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 	}
 	return updated, nil
 }
-
 func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, artifact cardexport.Artifact, renderInputVersion, presentationVersion int) (domain.DeckPreparation, error) {
 	q := sqlcgen.New(tx)
 	current, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: id})

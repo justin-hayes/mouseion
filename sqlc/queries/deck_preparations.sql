@@ -238,7 +238,6 @@ RETURNING p.id, p.owner_id, p.source_material_id, p.state, p.artifact, p.filenam
           p.current_run_id, p.studying_at, p.reviewed_at, p.graduated_at, p.released_at,
           p.book_id, p.retired_at, p.cards_with_fallback_gloss, p.render_input_version,
           p.presentation_version, p.deck_revision;
-
 -- name: DeckPreparationExists :one
 SELECT EXISTS(SELECT 1 FROM deck_preparations WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id'));
 
