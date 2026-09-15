@@ -46,6 +46,21 @@ type translationStub struct {
 	failures      int
 }
 
+type emptyCandidateFallbackStub struct {
+	requests []TranslationRequest
+}
+
+func (*emptyCandidateFallbackStub) Name() string    { return "llm" }
+func (*emptyCandidateFallbackStub) Version() string { return "model-1" }
+func (s *emptyCandidateFallbackStub) Translate(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
+	s.requests = append(s.requests, r)
+	response := TranslationResponse{Translation: "rare word", SentenceTranslation: "The rare thing is important today.", SentenceTranslationTarget: "rare"}
+	if len(r.CandidateSenses) == 0 {
+		response.FallbackGloss = "something uncommon"
+	}
+	return response, nil
+}
+
 func (s *translationStub) Name() string    { return s.name }
 func (s *translationStub) Version() string { return s.version }
 func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
@@ -126,6 +141,48 @@ func TestExternalFallbackGlossIsCachedAndUsesDictionaryIdentity(t *testing.T) {
 	_, err = service.EnrichExternal(context.Background(), otherDictionary)
 	require.NoError(t, err)
 	assert.Len(t, provider.requests, 2, "regenerated dictionary must not reuse the old selection")
+}
+
+func TestExternalEmptyCandidateFallbackIsCachedAndReused(t *testing.T) {
+	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
+	provider := &emptyCandidateFallbackStub{}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
+	candidate := Candidate{
+		Identity:                  Identity{"de", "seltenes-wort", "NOUN"},
+		TargetWord:                "Seltenes",
+		ExampleSentence:           "Das Seltene ist heute wichtig.",
+		DictionaryProviderVersion: "dictionary-v4",
+	}
+
+	first, err := service.EnrichExternal(context.Background(), candidate)
+	require.NoError(t, err)
+	require.Len(t, provider.requests, 1)
+	assert.Empty(t, provider.requests[0].CandidateSenses)
+	assert.Equal(t, "something uncommon", first.FallbackGloss.Value)
+
+	key, ok := service.ExternalCacheKey(candidate)
+	require.True(t, ok)
+	assert.Equal(t, "dictionary-v4", key.DictionaryProviderVersion)
+	assert.Equal(t, "something uncommon", cache.values[key].FallbackGloss)
+
+	second, err := service.EnrichExternal(context.Background(), candidate)
+	require.NoError(t, err)
+	assert.Equal(t, "something uncommon", second.FallbackGloss.Value)
+	assert.Len(t, provider.requests, 1, "cached empty-candidate fallback called provider again")
+
+	otherDictionary := candidate
+	otherDictionary.DictionaryProviderVersion = "dictionary-v5"
+	third, err := service.EnrichExternal(context.Background(), otherDictionary)
+	require.NoError(t, err)
+	assert.Equal(t, "something uncommon", third.FallbackGloss.Value)
+	assert.Len(t, provider.requests, 2, "regenerated dictionary must not reuse the old fallback")
+
+	withCandidates := candidate
+	withCandidates.CandidateSenses = []LexicalSense{{Gloss: "something uncommon"}}
+	withCandidates.DictionaryProviderVersion = "dictionary-v6"
+	result, err := service.EnrichExternal(context.Background(), withCandidates)
+	require.NoError(t, err)
+	assert.False(t, result.FallbackGloss.Available, "provider fallback was not limited to empty candidates")
 }
 
 func TestExternalObservationCountsCacheProviderRetriesAndBoundedErrors(t *testing.T) {

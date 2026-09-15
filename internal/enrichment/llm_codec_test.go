@@ -187,3 +187,25 @@ func TestTranslationCodecAcceptsFallbackWhenSenseSelectionIsOmitted(t *testing.T
 	assert.Equal(t, "operate", response.FallbackGloss)
 	assert.NotContains(t, response.Warnings, "invalid sense selection; using deterministic order")
 }
+
+func TestTranslationCodecRequestsFallbackWhenCandidateSensesAreEmpty(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", ExampleSentence: "Das Seltene ist heute wichtig."}
+	body, err := codec.EncodeRequest(input)
+	require.NoError(t, err)
+	var request chatRequest
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Len(t, request.Messages, 2)
+	assert.NotContains(t, request.Messages[1].Content, `candidate_senses`)
+	assert.Contains(t, string(body), "fallback_gloss")
+	assert.Contains(t, string(body), "candidate list is empty")
+
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"rare word","fallback_gloss":"something uncommon","sentence_translation":"The rare thing is important today.","sentence_translation_target":"rare"}`
+	responseBody := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+	response, err := codec.DecodeResponse(input, []byte(responseBody))
+	require.NoError(t, err)
+	assert.Equal(t, "something uncommon", response.FallbackGloss)
+	assert.Empty(t, response.SenseOrder)
+	assert.NotContains(t, response.Warnings, "invalid sense selection; using deterministic order")
+}
