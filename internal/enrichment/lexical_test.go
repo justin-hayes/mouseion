@@ -102,13 +102,13 @@ func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
 	assert.Equal(t, "one two three · second meaning", got)
 }
 
-func TestValidateSenseSelectionUsesDisplayLimitAndCandidateRange(t *testing.T) {
+func TestValidateSenseSelectionChecksCandidateRangeAndUniqueness(t *testing.T) {
 	valid := []int{1, 0}
 	assert.True(t, ValidateSenseSelection(valid, 2))
 	assert.False(t, ValidateSenseSelection([]int{0, 0}, 2))
 	assert.False(t, ValidateSenseSelection([]int{-1}, 2))
 	assert.False(t, ValidateSenseSelection([]int{2}, 2))
-	assert.False(t, ValidateSenseSelection([]int{0, 1, 2, 3}, 4))
+	assert.True(t, ValidateSenseSelection([]int{0, 1, 2, 3}, 4))
 }
 
 func TestCloneLexicalSensesDeepCopiesDictionaryMetadata(t *testing.T) {
