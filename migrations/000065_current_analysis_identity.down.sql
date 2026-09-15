@@ -1,1 +1,0 @@
-DROP VIEW IF EXISTS current_analysis_identity;

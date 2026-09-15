@@ -1,3 +1,0 @@
-ALTER TABLE language_profiles
- DROP CONSTRAINT language_profiles_supported_language_fkey;
-DROP TABLE supported_languages;

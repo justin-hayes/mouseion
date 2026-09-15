@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
+func TestPrimaryGoalPersistence(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
 	store, err := Open(ctx, url)
@@ -38,26 +38,15 @@ func TestPrimaryGoalBackfillAndPersistence(t *testing.T) {
 	goal, err := store.GetPrimaryGoal(ctx, carol.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, domain.PrimaryGoal{}, goal, "owner without a Goal")
-	_, err = pool.Exec(ctx, migrationSQL(t, "000057_primary_goals_language_constraint.down.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.down.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000055_primary_goals_language.down.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, alice.ID, aliceBook.ID)
+	// Model a legacy goal directly against the baseline. The historical
+	// migration that added language is retired, but current goal behavior still
+	// needs coverage for persisted language-scoped rows.
+	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, alice.ID, aliceBook.ID)
 	require.NoError(t, err)
 	legacyUnknownBook, err := store.CreateBook(ctx, domain.Book{OwnerID: erin.ID, Title: "Legacy unknown-language goal", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,book_id) VALUES($1,$2)`, erin.ID, legacyUnknownBook.ID)
+	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'und',$2)`, erin.ID, legacyUnknownBook.ID)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000055_primary_goals_language.up.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.up.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000057_primary_goals_language_constraint.up.sql"))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, migrationSQL(t, "000056_primary_goals_language_backfill.up.sql"))
-	require.NoError(t, err, "idempotent backfill")
 
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)

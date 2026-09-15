@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -327,13 +326,6 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	require.Len(t, languages, 2)
 	assert.Equal(t, domain.StudyLanguage{Language: "de", DisplayName: "German"}, languages[0])
 	assert.Equal(t, domain.StudyLanguage{Language: "pt", DisplayName: "pt"}, languages[1])
-}
-
-func migrationSQL(t *testing.T, name string) string {
-	t.Helper()
-	sql, err := migrations.FS.ReadFile(name)
-	require.NoError(t, err)
-	return string(sql)
 }
 
 func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language, identifier, title string, content []byte) string {

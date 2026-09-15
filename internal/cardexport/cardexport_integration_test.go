@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,30 +207,6 @@ func TestExportCoverageGeneratedAndKnownExclusionsEndToEnd(t *testing.T) {
 	assert.Equal(t, 1, improved.Count)
 	assert.Empty(t, improved.Omitted)
 	assert.Equal(t, 1, omittedGenerated)
-}
-
-func TestGeneratedVocabularyBackfillPreservesFirstDeckAndUnknownSource(t *testing.T) {
-	ctx := context.Background()
-	_, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-	var owner, firstDeck, secondDeck string
-	err := pool.QueryRow(ctx, `INSERT INTO users(username) VALUES('backfill-owner') RETURNING id::text`).Scan(&owner)
-	require.NoError(t, err)
-	err = pool.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name,created_at) VALUES($1,'de','first','2024-01-01') RETURNING id::text`, owner).Scan(&firstDeck)
-	require.NoError(t, err)
-	err = pool.QueryRow(ctx, `INSERT INTO decks(owner_id,language,name,created_at) VALUES($1,'de','second','2024-02-01') RETURNING id::text`, owner).Scan(&secondDeck)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO cards(owner_id,deck_id,dedup_key,canonical_lemma,upos,front,back,created_at) VALUES($1,$2,'older','Haus','NOUN','a','a','2024-01-02'),($1,$3,'newer','Haus','NOUN','b','b','2024-02-02')`, owner, firstDeck, secondDeck)
-	require.NoError(t, err)
-	migration, err := migrations.FS.ReadFile("000013_backfill_generated_vocabulary.up.sql")
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, string(migration))
-	require.NoError(t, err)
-	var gotDeck string
-	var sourceIsNull bool
-	err = pool.QueryRow(ctx, `SELECT first_deck_id::text, first_source_material_id IS NULL FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='Haus' AND upos='NOUN'`, owner).Scan(&gotDeck, &sourceIsNull)
-	require.NoError(t, err)
-	assert.Equal(t, firstDeck, gotDeck, "first deck=%s want=%s", gotDeck, firstDeck)
-	assert.True(t, sourceIsNull, "source null=%t", sourceIsNull)
 }
 
 func contains(s, sub string) bool {

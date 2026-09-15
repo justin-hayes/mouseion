@@ -1,1 +1,0 @@
-DROP VIEW IF EXISTS my_books_evidence;

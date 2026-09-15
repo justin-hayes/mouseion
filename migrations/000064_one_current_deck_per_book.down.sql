@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS deck_preparations_one_current_per_book;
