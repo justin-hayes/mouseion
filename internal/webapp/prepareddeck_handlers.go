@@ -149,7 +149,9 @@ type deckBatchResponse struct {
 
 func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	errorMessage := ""
-	if p.State == domain.DeckPreparationFailed {
+	if p.Error == domain.DeckPreparationRequiresRepreparationError {
+		errorMessage = domain.DeckPreparationRequiresRepreparationError
+	} else if p.State == domain.DeckPreparationFailed {
 		errorMessage = preparationFailureMessage(p.FailureClass)
 	}
 	var fallbackGlossCount *int
@@ -157,7 +159,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 		fallbackGlossCount = &p.CardsWithFallbackGloss
 	}
 	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
-	if response.Ready && !deckPreparationEmpty(p) {
+	if response.Ready && !deckPreparationEmpty(p) && p.Error != domain.DeckPreparationRequiresRepreparationError {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
 	return response

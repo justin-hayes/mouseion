@@ -12,6 +12,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +28,7 @@ type finalizerStoreStub struct {
 	completedToken                                     string
 	loadCalls, completeCalls, getCalls, supersedeCalls int
 	supersedeVersion                                   int
+	repreparationCalls                                 int
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
 }
@@ -54,6 +56,11 @@ func (s *finalizerStoreStub) GetDeckPreparation(context.Context, string, string)
 
 func (s *finalizerStoreStub) GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error) {
 	return s.run, nil
+}
+
+func (s *finalizerStoreStub) MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error {
+	s.repreparationCalls++
+	return nil
 }
 
 func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _, _, _ string, version int, _ cardexport.Artifact) (domain.DeckPreparation, error) {
@@ -266,6 +273,21 @@ func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.
 	assert.Equal(t, 1, store.corpusCalls)
 	assert.Zero(t, renderer.calls)
 	assert.Zero(t, store.supersedeCalls)
+}
+
+func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
+		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
+		corpusSentences: map[string]map[int64]analyzer.Sentence{},
+		manifest:        legacyRerenderManifest(t),
+	}
+	worker := &RerenderWorker{Rerenderer: &DurableRerenderer{Store: store, Renderer: &corpusRendererStub{}}}
+
+	err := worker.Work(context.Background(), &river.Job[RerenderJobArgs]{Args: RerenderJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", PresentationVersion: 1}})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, store.repreparationCalls)
 }
 
 func legacyRerenderManifest(t *testing.T) cardexport.Manifest {

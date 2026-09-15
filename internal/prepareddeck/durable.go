@@ -224,6 +224,7 @@ type durableRerenderStore interface {
 	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error)
 	SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error)
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
+	MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error
 }
 
 type durableRerenderCorpusStore interface {
@@ -351,6 +352,9 @@ func (w *RerenderWorker) Work(ctx context.Context, job *river.Job[RerenderJobArg
 		return ErrInvalidInput
 	}
 	_, err := w.Rerenderer.Rerender(ctx, job.Args.OwnerID, job.Args.PreparationID, job.Args.RunID, job.Args.PresentationVersion)
+	if errors.Is(err, ErrRequiresRepreparation) {
+		return w.Rerenderer.Store.MarkPreparedDeckRequiresRepreparation(ctx, job.Args.OwnerID, job.Args.PreparationID, job.Args.RunID)
+	}
 	if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
 		return nil
 	}

@@ -8,6 +8,8 @@ import (
 
 type DeckPreparationState string
 
+const DeckPreparationRequiresRepreparationError = "This deck requires re-preparation before its presentation can be updated."
+
 const (
 	DeckPreparationQueued    DeckPreparationState = "queued"
 	DeckPreparationPreparing DeckPreparationState = "preparing"
@@ -59,6 +61,13 @@ type DeckPreparation struct {
 	CreatedAt, UpdatedAt                                                                 time.Time
 	StartedAt, CompletedAt                                                               *time.Time
 	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
+}
+
+// PreparedDeckRerenderWork is the content-free identity needed to enqueue an
+// automatic presentation update after a process restart.
+type PreparedDeckRerenderWork struct {
+	OwnerID, PreparationID, RunID string
+	PresentationVersion           int
 }
 
 type VocabularyStudyStatus string

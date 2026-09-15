@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river"
@@ -53,11 +54,55 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 			return err
 		}
 	}
+	stale, err := w.Store.ListStalePreparedDecks(ctx, cardexport.PresentationVersion, limit)
+	if err != nil {
+		return err
+	}
+	for _, item := range stale {
+		if err = w.enqueueRerender(ctx, item); err != nil && !errors.Is(err, persistence.ErrPreparedDeckClaimLost) && !errors.Is(err, persistence.ErrInvalidTransition) {
+			return err
+		}
+	}
 	interval := w.Interval
 	if interval <= 0 {
 		interval = DefaultBatchPollInterval
 	}
 	return river.JobSnooze(interval)
+}
+
+func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.PreparedDeckRerenderWork) error {
+	tx, err := w.Store.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var currentRunID string
+	err = tx.QueryRow(ctx, `SELECT current_run_id::text FROM deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready' AND retired_at IS NULL AND current_run_id=$3::uuid FOR UPDATE`, item.OwnerID, item.PreparationID, item.RunID).Scan(&currentRunID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tx.Commit(ctx)
+	}
+	if err != nil {
+		return err
+	}
+	var runPresentationVersion int
+	err = tx.QueryRow(ctx, `SELECT presentation_version FROM deck_preparation_runs WHERE owner_id=$1 AND preparation_id=$2 AND id=$3::uuid AND state='completed'`, item.OwnerID, item.PreparationID, currentRunID).Scan(&runPresentationVersion)
+	if errors.Is(err, pgx.ErrNoRows) || runPresentationVersion >= item.PresentationVersion {
+		return tx.Commit(ctx)
+	}
+	if err != nil {
+		return err
+	}
+	args := RerenderJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: currentRunID, PresentationVersion: item.PresentationVersion}
+	inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOpts())
+	if err != nil {
+		return err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		if _, confirmErr := liveRerenderJobID(ctx, tx, item.OwnerID, item.PreparationID, currentRunID, item.PresentationVersion); confirmErr != nil {
+			return confirmErr
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
