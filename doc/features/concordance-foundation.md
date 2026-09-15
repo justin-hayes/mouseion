@@ -9,8 +9,8 @@ a study language's analyzed library — needs per-occurrence context. The analys
 pipeline now persists the full normalized corpus (sentences plus tokens, each
 with surface, lemma, POS, morphology, and character offsets), alongside the
 existing lemma aggregates, corpus statistics, and filtered candidate subset.
-[ADR 0001](adr/0001-go-core-python-nlp-service.md) and
-[ADR 0003](adr/0003-postgresql-persistence.md) name concordance as the future
+[ADR 0001](../adr/0001-go-core-python-nlp-service.md) and
+[ADR 0003](../adr/0003-postgresql-persistence.md) name concordance as the future
 growth path; this foundation preserves the data required to build it without
 re-running NLP on demand.
 
@@ -41,8 +41,8 @@ is available for analyses written after the current baseline.
 - Context-window derivation or a fixed window width; the token stream is
   persisted so windowing stays a future rendering concern.
 - Prefix, fuzzy, or full-text search (e.g. trigram, `tsvector`).
-- Backfilling existing analyses (the app is not in production; the database is
-  dropped and analysis rolls forward).
+- Backfilling analyses from before the current baseline; environments are
+  recreated from the baseline and no prior database is upgraded.
 - Changing the selection pipeline or retiring
   `selection_candidates.eligible_sentence_refs` / `example_sentences`; the new
   tables are purely additive.
@@ -98,8 +98,8 @@ is available for analyses written after the current baseline.
 - Occurrence queries by canonical lemma + UPOS and by surface return
   deterministic, owner-scoped results at Book and study-language scope with
   sentence text, target offsets, and structural provenance.
-- Analyses run before this feature shipped have no concordance data (roll
-  forward; the database is dropped).
+- Analyses from before the current baseline have no concordance data; the
+  baseline cutover recreates environments rather than backfilling old analyses.
 - `selection_candidates` and `example_sentences` are unchanged.
 
 ## References

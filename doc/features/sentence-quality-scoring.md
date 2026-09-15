@@ -15,8 +15,8 @@ The GDEX (Good Dictionary Examples) rubric
 addresses exactly this problem with a deterministic, rule-based scorer: knock-out
 criteria that gate a sentence outright, plus gradual criteria that score it.
 With the normalized corpus and dependency parses now persisted at analysis time
-([ADR 0059](adr/0059-persisted-normalized-corpus-for-concordance.md),
-[ADR 0060](adr/0060-persist-dependency-parses.md)), the two syntax-based checks
+([ADR 0059](../adr/0059-persisted-normalized-corpus-for-concordance.md),
+[ADR 0060](../adr/0060-persist-dependency-parses.md)), the two syntax-based checks
 are computable without re-running NLP — the GDEX-readiness criterion from the
 dependency-parse foundation.
 

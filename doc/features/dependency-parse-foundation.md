@@ -4,7 +4,7 @@ Status: Implemented · Date: 2026-09-12 · Updated: 2026-09-15
 
 ## Motivation
 
-The concordance foundation ([ADR 0059](adr/0059-persisted-normalized-corpus-for-concordance.md),
+The concordance foundation ([ADR 0059](../adr/0059-persisted-normalized-corpus-for-concordance.md),
 [concordance-foundation.md](concordance-foundation.md)) persists the normalized
 sentence/token stream at analysis time so a future concordancer can query
 occurrences without re-running NLP. That foundation stores no syntax: a token's
@@ -53,7 +53,8 @@ the separate sentence-quality (GDEX) scorer.
 - The sentence-quality (GDEX) scorer itself; the separate sentence-quality
   feature consumes the persisted data.
 - Changes to `selection_candidates`, `example_sentences`, or card export.
-- Backfilling pre-depparse analyses (roll-forward; the database is dropped).
+- Backfilling analyses from before the current baseline; environments are
+  recreated from the baseline and no prior database is upgraded.
 
 ## Requirements
 

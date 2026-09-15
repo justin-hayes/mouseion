@@ -9,11 +9,11 @@ German separable verbs (trennbare Verben) surface in two forms: attached
 particle moves to clause-final position. The Stanza German lemmatizer emits
 only the base lemma for separated forms (`stehe` → `stehen`, particle `auf` as
 its own token) — a known gap ([stanza#1549](https://github.com/stanfordnlp/stanza/issues/1549)).
-Under [ADR 0005](adr/0005-vocabulary-identity-normalization-ranking.md)
+Under [ADR 0005](../adr/0005-vocabulary-identity-normalization-ranking.md)
 vocabulary identity is the canonical lemma, so the learning identity is wrong:
 the learner studies *stehen* (to stand) instead of *aufstehen* (to get up).
 
-Dependency parsing is now always-on ([ADR 0060](adr/0060-persist-dependency-parses.md)),
+Dependency parsing is now always-on ([ADR 0060](../adr/0060-persist-dependency-parses.md)),
 which makes the separated particle identifiable: it is a `compound:prt`
 dependent of the verb, and the full lemma is recoverable deterministically as
 **particle lemma + verb lemma**. This is also a known fix for the Stanza gap.
@@ -89,7 +89,8 @@ Reattachment happens as part of `canonical_lemma` derivation; the result passes
 through the existing German post-1996 profile (lowercase, explicit historical
 equivalences). The German normalization profile version bumps so the stored
 profile field distinguishes the rule set. Only new analyses are affected
-(roll-forward; the database is dropped).
+(environments are recreated from the current baseline rather than upgrading
+prior analysis data).
 
 ### Selection
 
