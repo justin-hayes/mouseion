@@ -263,7 +263,7 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 }
 
 // rerenderDeckPreparation is an operational trigger for verification and
-// maintenance; the version bump/startup path does not require learner action.
+// maintenance.
 func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
