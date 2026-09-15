@@ -33,20 +33,6 @@ func renderInputFromEntry(entry Entry) RenderInput {
 	}
 }
 
-func (input RenderInput) entry() Entry {
-	return Entry{
-		Language: input.Language, CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS,
-		Sentence: input.Sentence, Translation: input.Translation,
-		SentenceTranslation: input.SentenceTranslation, SentenceTranslationTarget: input.SentenceTranslationTarget,
-		TargetWord: input.TargetWord, Gloss: input.Gloss, Plural: input.Plural, IPA: input.IPA,
-		PrincipalParts: input.PrincipalParts, DictionaryProviderVersion: input.DictionaryProviderVersion,
-		Morphology: input.Morphology, SourceDocument: input.SourceDocument, Notes: input.Notes,
-		CandidateSenses: enrichment.CloneLexicalSenses(input.CandidateSenses),
-		SentenceTokens:  cloneTokens(input.SentenceTokens), FirstEncounter: input.FirstEncounter,
-		fallbackGlossApplied: input.fallbackGlossApplied,
-	}
-}
-
 func cloneRenderInputs(inputs []RenderInput) []RenderInput {
 	if inputs == nil {
 		return nil

@@ -123,7 +123,7 @@ type Store interface {
 	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
 	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-	RecordGeneratedForBook(context.Context, string, string, string, Entry, Note) error
+	RecordGeneratedForBook(context.Context, string, string, string, RenderInput, Note) error
 }
 
 type analysisStore interface {
@@ -203,11 +203,7 @@ func DedupKey(language, lemma, upos, owner string) string {
 // sort and duplicate-detection field. It is deliberately separate from Key:
 // Key preserves the existing lemma-level note GUID and persistence semantics,
 // while Identity distinguishes the concrete target and source occurrence.
-func CardIdentity(owner string, entry Entry) string {
-	return renderCardIdentity(owner, renderInputFromEntry(entry))
-}
-
-func renderCardIdentity(owner string, input RenderInput) string {
+func CardIdentity(owner string, input RenderInput) string {
 	target := testedRenderTarget(input)
 	inputs := struct {
 		Version        int    `json:"version"`
@@ -799,17 +795,17 @@ func morphologyValue(morphology map[string]string, key string) string {
 }
 
 func testedEntryTarget(entry Entry) string {
-	target := textmatch.CleanLexicalSurface(entry.TargetWord)
-	if target == "" {
-		target = textmatch.CleanLexicalSurface(entry.CanonicalLemma)
-	}
-	return target
+	return testedTarget(entry.TargetWord, entry.CanonicalLemma)
 }
 
 func testedRenderTarget(input RenderInput) string {
-	target := textmatch.CleanLexicalSurface(input.TargetWord)
+	return testedTarget(input.TargetWord, input.CanonicalLemma)
+}
+
+func testedTarget(targetWord, canonicalLemma string) string {
+	target := textmatch.CleanLexicalSurface(targetWord)
 	if target == "" {
-		target = textmatch.CleanLexicalSurface(input.CanonicalLemma)
+		target = textmatch.CleanLexicalSurface(canonicalLemma)
 	}
 	return target
 }
@@ -824,7 +820,7 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 	displayLemma := lemmadisplay.Format(input.Language, input.CanonicalLemma, input.UPOS)
 	article := nounArticle(input.Language, input.UPOS, displayLemma, input.Morphology)
 	note := Note{
-		Key: DedupKey(input.Language, input.CanonicalLemma, input.UPOS, owner), Identity: renderCardIdentity(owner, input),
+		Key: DedupKey(input.Language, input.CanonicalLemma, input.UPOS, owner), Identity: CardIdentity(owner, input),
 		Text: front, Article: escapeField(article), Lemma: escapeField(displayLemma), POS: escapeField(input.UPOS),
 		Plural:         escapeField(nounPlural(input.UPOS, input.Plural)),
 		IPA:            escapeField(strings.TrimSpace(input.IPA)),
@@ -942,10 +938,8 @@ func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Art
 		return Artifact{}, err
 	}
 	for _, item := range artifact.Generated {
-		entry := item.Input.entry()
-		entry.OwnerID = owner
-		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, entry, item.Note); err != nil {
-			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", entry.Language, entry.CanonicalLemma, entry.UPOS, err)
+		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, item.Input, item.Note); err != nil {
+			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", item.Input.Language, item.Input.CanonicalLemma, item.Input.UPOS, err)
 		}
 	}
 	return artifact, nil

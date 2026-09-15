@@ -415,8 +415,8 @@ func (m *memoryStore) GetCoverageEntryForBook(_ context.Context, owner, _ string
 	return Entry{}, errors.New("missing entry")
 }
 
-func (m *memoryStore) RecordGeneratedForBook(_ context.Context, owner, bookID, _ string, e Entry, n Note) error {
-	if owner != e.OwnerID {
+func (m *memoryStore) RecordGeneratedForBook(_ context.Context, owner, bookID, _ string, e RenderInput, n Note) error {
+	if owner == "" || e.Language == "" {
 		return ErrInvalidInput
 	}
 	if bookID != m.bookID {
@@ -436,12 +436,12 @@ func TestDedupKeyStableAndOwnerScoped(t *testing.T) {
 
 func TestCardIdentityIsDeterministicCardSpecificAndOwnerScoped(t *testing.T) {
 	entry := Entry{Language: "de", CanonicalLemma: "gut", UPOS: "ADJ", TargetWord: "die Besten›", Sentence: "Heute sah sie ‹die Besten› und lächelte freundlich.", SourceDocument: "Book", FirstEncounter: 42}
-	identity := CardIdentity("alice", entry)
+	identity := CardIdentity("alice", renderInputFromEntry(entry))
 	cleanEntry := entry
 	cleanEntry.TargetWord = "die Besten"
 	assert.Len(t, identity, 64)
-	assert.Equal(t, identity, CardIdentity("alice", entry), "identity is unstable across equivalent legacy target forms")
-	assert.Equal(t, identity, CardIdentity("alice", cleanEntry), "identity is unstable across equivalent legacy target forms")
+	assert.Equal(t, identity, CardIdentity("alice", renderInputFromEntry(entry)), "identity is unstable across equivalent legacy target forms")
+	assert.Equal(t, identity, CardIdentity("alice", renderInputFromEntry(cleanEntry)), "identity is unstable across equivalent legacy target forms")
 	variants := []struct {
 		owner string
 		entry Entry
@@ -457,7 +457,7 @@ func TestCardIdentityIsDeterministicCardSpecificAndOwnerScoped(t *testing.T) {
 		{owner: "alice", entry: func() Entry { value := entry; value.FirstEncounter++; return value }()},
 	}
 	for _, variant := range variants {
-		assert.NotEqual(t, identity, CardIdentity(variant.owner, variant.entry), "distinct card inputs collided: %+v", variant)
+		assert.NotEqual(t, identity, CardIdentity(variant.owner, renderInputFromEntry(variant.entry)), "distinct card inputs collided: %+v", variant)
 	}
 }
 
