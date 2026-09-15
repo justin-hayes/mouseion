@@ -89,7 +89,7 @@ amendments.
 ### Current decisions
 
 1. [ADR 0001: Go core with shared libraries, Python as an ingest-time NLP producer](adr/0001-go-core-python-nlp-service.md) — keeps product logic in Go and isolates Python behind a coarse NLP boundary.
-2. [ADR 0002: Multi-user accounts](adr/0002-multi-user-accounts.md) — gives each learner an isolated account and learner-owned state.
+2. [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md) — gives each learner an isolated account and learner-owned state.
 3. [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md) — uses PostgreSQL for concurrent multi-user persistence and job infrastructure.
 4. [ADR 0004: Web application as the sole v1 client](adr/0004-web-only-v1-client.md) — makes the web app the v1 interface while preserving shared core boundaries.
 5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; current selection is defined by ADR 0048.
@@ -115,9 +115,9 @@ amendments.
 30. [ADR 0030: Durable prepared-deck translation runs](adr/0030-durable-prepared-deck-translation.md) — defines immutable preparation runs, resumable candidate outcomes, and idempotent atomic finalization.
 32. [ADR 0032: Standard-first prepared-deck translation](adr/0032-standard-first-prepared-deck-translation.md) — makes durable standard execution the interactive default while retaining Batch for explicit offline/economy work.
 33. [ADR 0033: Deterministic in-memory fixture server driven by Playwright for browser acceptance](adr/0033-browser-acceptance-harness.md) — adds a fixture-driven browser acceptance harness (Go in-memory fixture server + Playwright) as the Phase 6 quality-gate substrate.
-34. [ADR 0034: One implicit Reading Journey with learner-canonical ordering](adr/0034-reading-journey-identity-ordering.md) — makes Reading Journey the owner-scoped, freely reorderable candidate pool.
+34. [ADR 0034: One implicit Reading Journey with learner-canonical ordering and campaign-queue migration](adr/0034-reading-journey-identity-ordering.md) — makes Reading Journey the owner-scoped, freely reorderable candidate pool.
 35. [ADR 0035: Separate My Books membership from acquired source provenance](adr/0035-my-books-membership-and-source-provenance.md) — models owner-scoped bibliographic membership independently from immutable acquired EPUB evidence and its downstream history.
-36. [ADR 0036: Deck-independent Primary Goal and justified vocabulary graduation](adr/0036-primary-goal-justified-graduation.md) — defines the single justified graduation path and Primary Goal behavior.
+36. [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0036-primary-goal-justified-graduation.md) — defines the single justified graduation path and Primary Goal behavior.
 37. [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — defines the reproducible route-comparison objective (current known-token coverage) for the vocabulary-efficient alternative to the learner's canonical Reading Journey order, with deterministic ordering, current-vs-conditional projection, incomparable-book handling, and on-demand recalculation.
 38. [ADR 0038: Schema-change governance and migration review policy](adr/0038-schema-change-governance.md) — requires accepted product/architecture shape before consequential SQL and defines proportionate additive-field, backfill, staged-rollout, reversion-risk, and destructive-change review gates; its shipped-migration immutability clause is superseded by ADR 0070.
 39. [ADR 0039: Drop retired EPUB classifier schema](adr/0039-drop-retired-epub-classifier-schema.md) — removes dormant classifier tables and scope metadata while preserving reviewed-scope structure and history.
@@ -142,7 +142,7 @@ amendments.
 60. [ADR 0060: Persist dependency parses in the normalized corpus](adr/0060-persist-dependency-parses.md) — adds always-on dependency parsing to the NLP boundary and persists each token's basic dependency relation and head, enabling grammar-aware concordance queries and deterministic sentence-quality scoring; amends ADR 0059's no-protobuf-change line.
 61. [ADR 0061: German separable-verb lemmatization from dependency data](adr/0061-german-separable-verb-lemmatization.md) — reattaches separated German verb particles to the verb's canonical lemma in the NLP producer, making the full lexeme the vocabulary identity; amends ADR 0005's normalization and identity interpretation.
 62. [ADR 0062: Sentence-quality scoring derived from the persisted corpus](adr/0062-derived-sentence-quality-scoring.md) — derives a GDEX-informed sentence-quality rubric at export time over the persisted corpus (a finite-verb-and-subject knock-out plus gradual ranking); amends ADR 0029's representative-sentence selection mechanism.
-63. [ADR 0063: Stanza model provisioning on a Docker volume](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza processor bundle into a named volume instead of baking models into the NLP image.
+63. [ADR 0063: Stanza model provisioning on a Docker volume instead of the image](adr/0063-stanza-models-on-volume.md) — provisions the full Stanza processor bundle into a named volume instead of baking models into the NLP image.
 64. [ADR 0064: Built-in dictionary enrichment provider](adr/0064-dictionary-enrichment-provider.md) — makes gloss local, default-on enrichment from a build-time-derived SQLite index (Wiktextract/Kaikki) with deterministic sense ordering and dictionary morphology; amends ADR 0007's gloss classification and ADR 0029's card contract.
 65. [ADR 0065: Canonicalize pre-1996 German ß spellings](adr/0065-german-pre-1996-sharp-s-canonicalization.md) — maps explicitly documented pre-reform German spellings to post-1996 canonical lemmas, preserves modern ß and distinct lexemes, and defines the idempotent vocabulary backfill before profile activation.
 66. [ADR 0066: Identify a Book's main text for analysis from declared EPUB structure](adr/0066-main-text-selection-from-epub-structure.md) — derives a Book's main text from EPUB 3 landmark declarations, analyzes that run with a fail-safe whole-snapshot fallback, versions the selection in the configuration identity, and supersedes ADR 0047's always-complete-scope clause.
@@ -160,7 +160,7 @@ amendments.
 - [ADR 0027: Single-active learning campaigns and vocabulary graduation](adr/0027-learning-campaigns.md) — its learner-facing campaign model is superseded by ADRs 0034, 0036, and 0053-0056.
 - [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — its default dispatch path is superseded by ADR 0032; Batch remains available for explicit offline work.
 - [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — superseded by ADR 0057.
-- [ADR 0045: Book detail is addressed by owner-scoped Book ID](adr/0045-book-detail-book-id.md) — its learner-facing Book-detail route portions are superseded by ADR 0055; the Book identity remains in force.
+- [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — its learner-facing Book-detail route portions are superseded by ADR 0055; the Book identity remains in force.
 
 ## Deployment and operations
 
