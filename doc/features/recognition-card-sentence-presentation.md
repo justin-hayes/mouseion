@@ -40,9 +40,11 @@ card's meaning is the gloss.
 The bolded target is the full vocabulary identity, not only the finite surface.
 For a separable verb whose particle detaches (`rief … entgegen`, lemma
 `entgegenrufen`), every component is bolded: the observed verb form and each
-`compound:prt` particle whose head is that verb token, resolved from the
-persisted dependency parse. Attached forms are unchanged; when no parse is
-available, only the observed form is bolded.
+`compound:prt` particle whose head is that verb token, resolved at render from
+the dependency parse. The parse is a frozen render input carried on the
+prepared-deck manifest (`render_payload`), so a durable run resolves the same
+spans when it finalizes as it did when it was frozen. Attached forms are
+unchanged; when no parse is available, only the observed form is bolded.
 
 ## Morphology presentation
 

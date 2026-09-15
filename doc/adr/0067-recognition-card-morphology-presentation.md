@@ -5,6 +5,16 @@ Status: **Accepted** · Date: 2026-09-14 · Author: Justin + opencode
 Amends the card contract of **ADR 0029** and **ADR 0064**, and the
 "no learner-facing surface" non-goal of **ADR 0061**.
 
+> **Amendment (2026-09-15):** The durable prepared-deck manifest persists
+> `SentenceTokens` in its per-item `render_payload` (see
+> [ADR 0030](0030-durable-prepared-deck-translation.md)). §3's
+> "no new cardexport column" and the rejected "persist resolved bold spans
+> on the entry" alternative assumed the dependency parse was available at
+> render time; a durable run reloads the frozen manifest in its finalizer and
+> had no parse, so multi-span bolding silently degraded to the observed form
+> only. The frozen parse is now a durable render input, and resolution stays at
+> render time.
+
 ## Context
 
 Card-quality review of a German prepared deck surfaced four issues:
@@ -47,9 +57,10 @@ Card-quality review of a German prepared deck surfaced four issues:
    non-noun lemmas carry an empty plural and self-suppress. Back-of-card only.
 3. **Bold every component of the full lemma.** The exported `Text` bolds each
    span of the target: the observed verb form plus any `compound:prt` particle
-   token whose head is that verb token, resolved at freeze/render from the
-   persisted dependency parse (no new cardexport column). Attached forms are
-   unchanged; when no parse is available the observed form alone is bolded.
+   token whose head is that verb token, resolved at render from the dependency
+   parse (no new cardexport column; the durable manifest carries the parse as a
+   render input, per the 2026-09-15 amendment). Attached forms are unchanged;
+   when no parse is available the observed form alone is bolded.
 4. **Coverage is measured, not guessed.** Emit a structured `gloss_coverage`
    log line at deck freeze (per language/POS counts of selected lemmas with and
    without a gloss). Broadening dictionary sources or adding a consent-gated
@@ -71,6 +82,9 @@ Card-quality review of a German prepared deck surfaced four issues:
 - A malformed derived morphology value can no longer reach the card; the index
   fix removes the source of the defect and the guard contains its class.
 - Separable verbs are presented consistently with their full-lemma identity.
+- The frozen dependency parse is a durable manifest render input. The run is
+  immutable and roll-forward, so a deck frozen before the fix keeps the
+  observed-form-only bold until the deck is re-prepared.
 - The article defect in already-frozen decks persists until re-preparation;
   this is the established roll-forward posture for generated artifacts.
 - Dictionary source breadth and any LLM gloss fallback remain an explicit later

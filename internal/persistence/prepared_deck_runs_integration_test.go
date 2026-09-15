@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -441,4 +442,64 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 		foundFinalizer = foundFinalizer || (item.Kind == "finalizer" && item.RunID == frozen.Run.ID)
 	}
 	assert.True(t, foundFinalizer, "recovery work")
+}
+
+func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	defer store.Close()
+
+	owner, err := store.CreateUser(ctx, "durable-parse-owner", false)
+	require.NoError(t, err)
+	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "durable-parse-book", Title: "Durable Parse Book", MediaType: "text/plain", ContentHash: "durable-parse-hash", Content: []byte("Haus"), FullText: "Haus"}
+	err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id::text`, source.OwnerID, source.Language, source.SourceIdentifier, source.Title, source.MediaType, source.ContentHash, source.Content, source.FullText).Scan(&source.ID)
+	require.NoError(t, err)
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
+	require.NoError(t, err)
+
+	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
+	snapshot := cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion,
+		Owner:         owner.ID, DeckName: source.Title, Filename: cardexport.DownloadFilename(source.Title),
+		Items: []cardexport.ManifestItem{{
+			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+			Entry: cardexport.Entry{
+				Language: "de", CanonicalLemma: "anstrahlen", UPOS: "VERB",
+				Sentence: sentence, TargetWord: "strahlten", SourceDocument: source.Title,
+				SentenceTokens: []analyzer.Token{
+					{Surface: "Im", UPOS: "ADP", Dependency: "case", Head: 1},
+					{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 4},
+					{Surface: "des", UPOS: "DET", Dependency: "det", Head: 3},
+					{Surface: "Erpressers", UPOS: "NOUN", Dependency: "nmod", Head: 1},
+					{Surface: "strahlten", UPOS: "VERB", Dependency: "root", Head: 4},
+					{Surface: "ihre", UPOS: "DET", Dependency: "det", Head: 6},
+					{Surface: "Schwestern", UPOS: "NOUN", Dependency: "nsubj", Head: 4},
+					{Surface: "sie", UPOS: "PRON", Dependency: "obj", Head: 4},
+					{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
+				},
+			},
+			Quality: cardexport.SentenceQuality{Accepted: true, Score: 94, Reasons: []string{"target present"}},
+		}},
+	}
+
+	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	require.NoError(t, err)
+	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: snapshot, Config: PreparedDeckRunConfig{ExecutionMode: "batch"}})
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit(ctx))
+
+	loaded, _, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	require.NoError(t, err)
+	require.Len(t, loaded.Items, 1)
+	require.Equal(t, snapshot.Items[0].Entry.SentenceTokens, loaded.Items[0].Entry.SentenceTokens, "durable manifest lost the frozen parse")
+
+	manifest, err := cardexport.ManifestFromSnapshot(loaded)
+	require.NoError(t, err)
+	artifact, err := (&cardexport.Service{}).RenderManifest(ctx, manifest, nil)
+	require.NoError(t, err)
+	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }

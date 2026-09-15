@@ -378,7 +378,9 @@ later approved retention path and owner/preparation cascade cleanup.
 - language, canonical lemma, uppercase UPOS, source sentence, tested target,
   first encounter, quality score, bounded quality reason codes;
 - schema-versioned `render_payload jsonb` containing the remaining immutable
-  provider-independent `cardexport.Entry` fields;
+  provider-independent `cardexport.Entry` fields, including the sentence
+  dependency parse (`SentenceTokens`) used to resolve multi-span target bolding
+  at finalization;
 - nullable provider, provider version, and sentence hash, all present or all
   absent; and
 - `candidate_digest` over canonical immutable item data.
