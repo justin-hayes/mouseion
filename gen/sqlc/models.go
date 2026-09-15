@@ -256,6 +256,7 @@ type DeckPreparation struct {
 	CardsWithFallbackGloss                  int
 	RenderInputVersion                      int
 	PresentationVersion                     int
+	DeckRevision                            int
 }
 
 type DeckPreparationBatchChunk struct {

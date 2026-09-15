@@ -108,6 +108,7 @@ type PreparedDeck interface {
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
 	Retry(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }
 type PreparedDeckForAnalysis interface {
@@ -187,6 +188,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
 	h.mux.Handle("POST /deck-preparations/{id}/retry", h.user(http.HandlerFunc(h.retryDeckPreparation)))
+	h.mux.Handle("POST /deck-preparations/{id}/rerender", h.user(http.HandlerFunc(h.rerenderDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))
 	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.user(http.HandlerFunc(h.enrichmentJobStatus)))
 	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelEnrichmentJob)))

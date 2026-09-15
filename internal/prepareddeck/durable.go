@@ -65,6 +65,15 @@ type FinalizeJobArgs struct {
 
 func (FinalizeJobArgs) Kind() string { return "prepared_deck_finalize" }
 
+type RerenderJobArgs struct {
+	OwnerID             string `json:"owner_id"`
+	PreparationID       string `json:"preparation_id"`
+	RunID               string `json:"run_id"`
+	PresentationVersion int    `json:"presentation_version" river:"unique"`
+}
+
+func (RerenderJobArgs) Kind() string { return "prepared_deck_rerender" }
+
 // DurableRunPlanner performs every selection/cache-identity read through the
 // supplied repeatable-read transaction and returns the complete frozen plan.
 // Provider transport is intentionally outside this boundary.
@@ -205,6 +214,68 @@ type DurableFinalizer struct {
 	Now           func() time.Time
 	LeaseDuration time.Duration
 	Metrics       BatchMetrics
+}
+
+type durableRerenderStore interface {
+	GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error)
+	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error)
+	SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error)
+	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
+}
+
+type DurableRerenderer struct {
+	Store    durableRerenderStore
+	Renderer durableManifestRenderer
+}
+
+// Rerender replays a completed run's frozen specification and exact overlay.
+// It never enters the preparation or translation state machines.
+func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, runID string, presentationVersion int) (domain.DeckPreparation, error) {
+	if r == nil || r.Store == nil || r.Renderer == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(preparationID) == "" || strings.TrimSpace(runID) == "" {
+		return domain.DeckPreparation{}, ErrInvalidInput
+	}
+	if presentationVersion <= 0 {
+		presentationVersion = cardexport.PresentationVersion
+	}
+	run, err := r.Store.GetPreparedDeckRun(ctx, owner, preparationID, runID)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if run.State != domain.PreparedDeckRunCompleted {
+		return domain.DeckPreparation{}, persistence.ErrInvalidTransition
+	}
+	if run.PresentationVersion >= presentationVersion {
+		return r.Store.GetDeckPreparation(ctx, owner, preparationID)
+	}
+	manifest, exact, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	artifact, err := r.Renderer.RenderManifest(ctx, manifest, exact)
+	if err != nil {
+		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
+	}
+	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
+}
+
+type RerenderWorker struct {
+	river.WorkerDefaults[RerenderJobArgs]
+	Rerenderer *DurableRerenderer
+}
+
+func (w *RerenderWorker) Work(ctx context.Context, job *river.Job[RerenderJobArgs]) error {
+	if w == nil || w.Rerenderer == nil || job == nil {
+		return ErrInvalidInput
+	}
+	_, err := w.Rerenderer.Rerender(ctx, job.Args.OwnerID, job.Args.PreparationID, job.Args.RunID, job.Args.PresentationVersion)
+	if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+		return nil
+	}
+	return err
+}
+
+func AddRerenderWorker(workers *river.Workers, rerenderer *DurableRerenderer) {
+	river.AddWorker(workers, &RerenderWorker{Rerenderer: rerenderer})
 }
 
 // Finalize renders only the frozen manifest and publishes through the existing

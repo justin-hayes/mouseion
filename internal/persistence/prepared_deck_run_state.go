@@ -172,7 +172,7 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 	if err != nil {
 		return cardexport.Manifest{}, nil, err
 	}
-	if run.State != domain.PreparedDeckRunFinalizing || run.TranslationState != domain.PreparedDeckTranslationCompleted {
+	if (run.State != domain.PreparedDeckRunFinalizing && run.State != domain.PreparedDeckRunCompleted) || run.TranslationState != domain.PreparedDeckTranslationCompleted {
 		return cardexport.Manifest{}, nil, ErrInvalidTransition
 	}
 	snapshot, _, err := s.LoadPreparedDeckManifest(ctx, owner, preparationID, runID)

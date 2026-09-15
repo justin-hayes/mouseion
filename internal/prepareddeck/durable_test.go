@@ -15,15 +15,16 @@ import (
 )
 
 type finalizerStoreStub struct {
-	run                                domain.PreparedDeckRun
-	preparation                        domain.DeckPreparation
-	manifest                           cardexport.Manifest
-	exact                              []cardexport.ExactEnrichment
-	claimedGeneration                  int
-	claimedToken                       string
-	claimLeaseExpiresAt                time.Time
-	completedToken                     string
-	loadCalls, completeCalls, getCalls int
+	run                                                domain.PreparedDeckRun
+	preparation                                        domain.DeckPreparation
+	manifest                                           cardexport.Manifest
+	exact                                              []cardexport.ExactEnrichment
+	claimedGeneration                                  int
+	claimedToken                                       string
+	claimLeaseExpiresAt                                time.Time
+	completedToken                                     string
+	loadCalls, completeCalls, getCalls, supersedeCalls int
+	supersedeVersion                                   int
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
@@ -44,6 +45,19 @@ func (s *finalizerStoreStub) CompletePreparedDeckRun(_ context.Context, _, _, _,
 
 func (s *finalizerStoreStub) GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error) {
 	s.getCalls++
+	return s.preparation, nil
+}
+
+func (s *finalizerStoreStub) GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error) {
+	return s.run, nil
+}
+
+func (s *finalizerStoreStub) SupersedePreparedDeckArtifact(_ context.Context, _, _, _ string, version int, _ cardexport.Artifact) (domain.DeckPreparation, error) {
+	s.supersedeCalls++
+	s.supersedeVersion = version
+	s.run.PresentationVersion = version
+	s.preparation.PresentationVersion = version
+	s.preparation.DeckRevision++
 	return s.preparation, nil
 }
 
@@ -139,4 +153,28 @@ func TestDurableFinalizerLogsFallbackGlossUsageOnlyForConsentedRuns(t *testing.T
 			}
 		})
 	}
+}
+
+func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, DeckRevision: 1},
+	}
+	renderer := &finalizerRendererStub{artifact: cardexport.Artifact{APKG: []byte("rerendered")}}
+	rererenderer := &DurableRerenderer{Store: store, Renderer: renderer}
+
+	updated, err := rererenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.PresentationVersion)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Equal(t, 1, renderer.calls)
+	assert.Equal(t, 1, store.loadCalls)
+	assert.Equal(t, 1, store.supersedeCalls)
+	assert.Equal(t, 2, store.supersedeVersion)
+
+	updated, err = rererenderer.Rerender(context.Background(), "owner", "preparation", "run", 2)
+	require.NoError(t, err)
+	assert.Equal(t, 2, updated.DeckRevision)
+	assert.Equal(t, 1, renderer.calls, "same run and presentation version must not render twice")
+	assert.Equal(t, 1, store.supersedeCalls)
 }

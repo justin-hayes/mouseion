@@ -220,6 +220,7 @@ type Querier interface {
 	ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPreparedDeckLiveBatchIDsParams) ([]pgtype.Text, error)
 	ListPreparedDeckManifestItems(ctx context.Context, arg ListPreparedDeckManifestItemsParams) ([]DeckPreparationManifestItem, error)
 	ListPreparedDeckRecoveryWork(ctx context.Context, limit int32) ([]ListPreparedDeckRecoveryWorkRow, error)
+	ListPreparedDeckRerenderCandidates(ctx context.Context, presentationVersion int) ([]ListPreparedDeckRerenderCandidatesRow, error)
 	ListPreparedDeckStuckBatches(ctx context.Context, arg ListPreparedDeckStuckBatchesParams) ([]ListPreparedDeckStuckBatchesRow, error)
 	ListPreparedDeckTranslationOutcomes(ctx context.Context, arg ListPreparedDeckTranslationOutcomesParams) ([]DeckPreparationTranslationOutcome, error)
 	ListReadingJourneyMembers(ctx context.Context, arg ListReadingJourneyMembersParams) ([]ListReadingJourneyMembersRow, error)
@@ -308,6 +309,7 @@ type Querier interface {
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
+	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
 	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
 	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error

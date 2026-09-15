@@ -105,6 +105,7 @@ type deckPreparationResponse struct {
 	AnalysisRunID string                      `json:"analysis_run_id,omitempty"`
 	Filename      string                      `json:"filename"`
 	DeckName      string                      `json:"deck_name"`
+	DeckRevision  int                         `json:"deck_revision"`
 	DownloadURL   string                      `json:"download_url,omitempty"`
 	Completeness  deckCompletenessResponse    `json:"completeness"`
 	Translation   deckTranslationResponse     `json:"translation"`
@@ -112,11 +113,11 @@ type deckPreparationResponse struct {
 }
 
 type deckCompletenessResponse struct {
-	TotalCards               int `json:"total_cards"`
-	CardsWithEnglish         int `json:"cards_with_english"`
-	CardsWithEnglishSentence int `json:"cards_with_contextual_sentence_translations"`
+	TotalCards               int  `json:"total_cards"`
+	CardsWithEnglish         int  `json:"cards_with_english"`
+	CardsWithEnglishSentence int  `json:"cards_with_contextual_sentence_translations"`
 	CardsWithFallbackGloss   *int `json:"cards_with_fallback_gloss,omitempty"`
-	QualityOmissions         int `json:"quality_omissions"`
+	QualityOmissions         int  `json:"quality_omissions"`
 }
 
 type deckTranslationResponse struct {
@@ -155,7 +156,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	if p.State == domain.DeckPreparationReady {
 		fallbackGlossCount = &p.CardsWithFallbackGloss
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	if response.Ready && !deckPreparationEmpty(p) {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
@@ -250,6 +251,28 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handle, err := h.services.PreparedDeck.Retry(r.Context(), user(r).ID, r.PathValue("id"), r.FormValue("external_translation_consent") == "on")
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	if wantsPreparationJSON(r) {
+		writePreparationStatus(w, handle.Preparation)
+		return
+	}
+	h.redirectToPreparationStatus(w, r)
+}
+
+// rerenderDeckPreparation is an operational trigger for verification and
+// maintenance; the version bump/startup path does not require learner action.
+func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	handle, err := h.services.PreparedDeck.Rerender(r.Context(), user(r).ID, r.PathValue("id"))
 	if err != nil {
 		handlePreparationError(w, r, err)
 		return
