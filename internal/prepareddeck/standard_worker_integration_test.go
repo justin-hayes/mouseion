@@ -359,6 +359,31 @@ func TestRecoveryRedispatchesExpiredStandardClaimWithNewGeneration(t *testing.T)
 	assert.NotEqual(t, initialJobID, outcomes[0].RiverJobID)
 }
 
+func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	_, err := run.store.Put(ctx, enrichment.CacheEntry{
+		CacheKey:                  run.keys[0],
+		Translation:               "cached translation",
+		SentenceTranslation:       "The cached sentence.",
+		SentenceTranslationTarget: "cached",
+		CachedAt:                  time.Now().UTC(),
+	})
+	require.NoError(t, err)
+
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	assert.Equal(t, 1, outcomes[0].CacheHitCount)
+	calls, _ := provider.stats()
+	assert.Zero(t, calls)
+}
+
 func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
