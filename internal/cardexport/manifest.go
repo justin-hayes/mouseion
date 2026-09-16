@@ -75,8 +75,12 @@ type ManifestSnapshot struct {
 }
 
 func (m Manifest) Snapshot() ManifestSnapshot {
+	schemaVersion := m.schemaVersion
+	if schemaVersion == 0 {
+		schemaVersion = ManifestSchemaVersion
+	}
 	return ManifestSnapshot{
-		SchemaVersion: ManifestSchemaVersion,
+		SchemaVersion: schemaVersion,
 		Owner:         m.owner,
 		DeckName:      m.deckName,
 		Filename:      DownloadFilename(m.deckName),
@@ -170,7 +174,8 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 	}
 	manifest := Manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
-		accepted: make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
+		schemaVersion: snapshot.SchemaVersion,
+		accepted:      make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
 		enrichmentCandidates: make([]enrichment.Candidate, 0, len(snapshot.Items)),
 		decisions:            cloneManifestItems(snapshot.Items),
 	}
@@ -327,7 +332,7 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		if schemaVersion == LegacyManifestSchemaVersion {
 			targetOK = item.CacheKey.TargetLanguage == ""
 		}
-		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
+		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
 			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
 		}
 		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
@@ -391,4 +396,10 @@ func cloneTokens(tokens []analyzer.Token) []analyzer.Token {
 		}
 	}
 	return cloned
+}
+
+func cloneEntry(entry Entry) Entry {
+	entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
+	entry.SentenceTokens = cloneTokens(entry.SentenceTokens)
+	return entry
 }

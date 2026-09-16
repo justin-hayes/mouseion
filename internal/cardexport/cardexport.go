@@ -66,6 +66,7 @@ type Artifact struct {
 type Manifest struct {
 	owner                string
 	deckName             string
+	schemaVersion        int
 	accepted             []RenderInput
 	omitted              []Omission
 	enrichmentCandidates []enrichment.Candidate
@@ -1339,14 +1340,15 @@ func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
 
 // NewManifest quality-gates entries once and returns an immutable render plan.
 func NewManifest(owner, deckName string, entries []Entry) Manifest {
-	manifest := Manifest{owner: owner, deckName: deckName, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
+	manifest := Manifest{owner: owner, deckName: deckName, schemaVersion: ManifestSchemaVersion, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
 	for ordinal, entry := range entries {
+		entry = cloneEntry(entry)
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
 		entry.TargetWord = testedEntryTarget(entry)
 		if len(entry.CandidateSenses) > enrichment.DefaultMaxCandidateSenses {
 			entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses[:enrichment.DefaultMaxCandidateSenses])
 		}
-		decisionEntry := entry
+		decisionEntry := cloneEntry(entry)
 		clearExternalFields(&decisionEntry)
 		decisionEntry.OwnerID = ""
 		quality := scoreSentenceQuality(entry.Language, entry.Sentence, entry.TargetWord, entry.FirstEncounter, entry.SentenceTokens)
@@ -1436,6 +1438,9 @@ func (m Manifest) clone() Manifest {
 		m.omitted[i].Reasons = append([]string(nil), m.omitted[i].Reasons...)
 	}
 	m.enrichmentCandidates = append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
+	for i := range m.enrichmentCandidates {
+		m.enrichmentCandidates[i].CandidateSenses = enrichment.CloneLexicalSenses(m.enrichmentCandidates[i].CandidateSenses)
+	}
 	m.cacheKeys = append([]enrichment.CacheKey(nil), m.cacheKeys...)
 	m.decisions = cloneManifestItems(m.decisions)
 	return m
@@ -1485,8 +1490,8 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 			return fmt.Errorf("%w: enrichment provenance does not match cache identity", ErrInvalidInput)
 		}
 	}
-	if available {
-		candidate := result.Candidate
+	candidate := result.Candidate
+	if available || candidate.Language != "" || candidate.CanonicalLemma != "" || candidate.UPOS != "" || candidate.TargetWord != "" || candidate.ExampleSentence != "" || candidate.DictionaryProviderVersion != "" {
 		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*input) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
@@ -1523,7 +1528,7 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 	}
 	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
-		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= enrichment.MaxFallbackGlossRunes {
+		if fallbackGlossEligible(fallback) {
 			input.Gloss = fallback
 			input.fallbackGlossApplied = true
 		}
