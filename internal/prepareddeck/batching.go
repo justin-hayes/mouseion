@@ -59,7 +59,7 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		if item.CacheKey == (enrichment.CacheKey{}) {
 			return nil, fmt.Errorf("prepareddeck: Batch item %d has no frozen cache identity", item.Ordinal)
 		}
-		batchItem := enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request}
+		batchItem := batchTranslationItem(item)
 		var line bytes.Buffer
 		if _, err := codec.WriteBatchJSONL(&line, runID, generation, []enrichment.BatchTranslationItem{batchItem}); err != nil {
 			return nil, fmt.Errorf("encode Batch item %d: %w", item.Ordinal, err)
@@ -126,9 +126,13 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 func batchTranslationItems(work []cardexport.WorkItem) []enrichment.BatchTranslationItem {
 	items := make([]enrichment.BatchTranslationItem, 0, len(work))
 	for _, item := range work {
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request})
+		items = append(items, batchTranslationItem(item))
 	}
 	return items
+}
+
+func batchTranslationItem(work cardexport.WorkItem) enrichment.BatchTranslationItem {
+	return enrichment.BatchTranslationItem{Ordinal: work.Ordinal, Request: work.Request}
 }
 
 func normalizeBatchChunkLimits(limits BatchChunkLimits) BatchChunkLimits {
