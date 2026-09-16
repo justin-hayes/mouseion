@@ -113,18 +113,15 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
-	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
-		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
-			return nil
-		}
-		return err
-	}
 	for _, warning := range response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
 	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
-	stored, err := w.Store.Put(ctx, entry)
+	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil
+		}
 		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)
 	}
 	if !enrichment.HasRequiredTranslationFields(stored, request.ExampleSentence) {
