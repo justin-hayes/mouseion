@@ -93,6 +93,38 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 	}
 }
 
+func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {
+	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das Haus steht heute dort.")}
+	snapshot := cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.LegacyManifestSchemaVersion, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
+		Items: []cardexport.ManifestItem{{Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute dort.", TargetWord: "Haus", Gloss: "frozen gloss"},
+			Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}}, CacheKey: key}},
+	}
+	wantDigest, err := snapshot.Digest()
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	got := deck.StorageProjection()
+	gotDigest, err := got.Digest()
+	require.NoError(t, err)
+	assert.Equal(t, wantDigest, gotDigest)
+	work, ok := deck.WorkByOrdinal(0)
+	require.True(t, ok)
+	assert.Equal(t, "en", work.Request.TargetLanguage)
+}
+
+func TestPresentationLifecycleSelectsFrozenWorkByOrdinal(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+
+	work, ok := deck.WorkByOrdinal(0)
+	require.True(t, ok)
+	assert.Equal(t, deck.WorkProjection()[0], work)
+	_, ok = deck.WorkByOrdinal(1)
+	assert.False(t, ok)
+}
+
 func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)

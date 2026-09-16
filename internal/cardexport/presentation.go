@@ -174,20 +174,43 @@ func (d FrozenDeck) WorkProjection() []WorkItem {
 		return nil
 	}
 	items := make([]WorkItem, 0, len(d.manifest.accepted))
-	for i, entry := range d.manifest.accepted {
-		key := d.manifest.cacheKeys[i]
-		items = append(items, WorkItem{
-			Ordinal: d.manifest.decisionsOrdinalForAccepted(i),
-			Request: enrichment.TranslationRequest{
-				Language: entry.Language, TargetLanguage: key.TargetLanguage,
-				CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
-				TargetWord: testedRenderTarget(entry), ExampleSentence: entry.Sentence,
-				CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
-			},
-			CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
-		})
+	for i := range d.manifest.accepted {
+		items = append(items, d.workItem(i))
 	}
 	return items
+}
+
+// WorkByOrdinal selects one frozen external request without exposing the
+// manifest or requiring an adapter to reconstruct its identity.
+func (d FrozenDeck) WorkByOrdinal(ordinal int) (WorkItem, bool) {
+	if len(d.manifest.cacheKeys) != len(d.manifest.accepted) {
+		return WorkItem{}, false
+	}
+	for i := range d.manifest.accepted {
+		if d.manifest.decisionsOrdinalForAccepted(i) == ordinal {
+			return d.workItem(i), true
+		}
+	}
+	return WorkItem{}, false
+}
+
+func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
+	entry := d.manifest.accepted[acceptedIndex]
+	key := d.manifest.cacheKeys[acceptedIndex]
+	targetLanguage := key.TargetLanguage
+	if targetLanguage == "" {
+		targetLanguage = "en"
+	}
+	return WorkItem{
+		Ordinal: d.manifest.decisionsOrdinalForAccepted(acceptedIndex),
+		Request: enrichment.TranslationRequest{
+			Language: entry.Language, TargetLanguage: targetLanguage,
+			CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
+			TargetWord: testedRenderTarget(entry), ExampleSentence: entry.Sentence,
+			CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
+		},
+		CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
+	}
 }
 
 func (d FrozenDeck) Summary() Summary {

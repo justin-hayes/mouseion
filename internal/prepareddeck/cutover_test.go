@@ -38,7 +38,7 @@ func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
 			assert.False(t, plan.Config.ExternalTranslationConfigured)
 			assert.Equal(t, test.wantProvider, plan.Config.Provider)
 			assert.Len(t, plan.Chunks, 0)
-			assert.Nil(t, plan.Manifest.Items[0].CacheKey, "disabled/no-consent manifest has a cache identity")
+			assert.Nil(t, plan.Projection.Items[0].CacheKey, "disabled/no-consent projection has a cache identity")
 		})
 	}
 }
@@ -58,8 +58,8 @@ func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 	require.Len(t, plan.Chunks[0].Ordinals, 1)
 	assert.Equal(t, 1, plan.Chunks[0].Generation)
 	assert.Equal(t, "run", plan.Chunks[0].SplitReason)
-	require.NotNil(t, plan.Manifest.Items[0].CacheKey)
-	assert.Equal(t, enrichment.SentenceHash("Das alte Haus ist überraschend groß."), plan.Manifest.Items[0].CacheKey.SentenceHash)
+	require.NotNil(t, plan.Projection.Items[0].CacheKey)
+	assert.Equal(t, enrichment.SentenceHash("Das alte Haus ist überraschend groß."), plan.Projection.Items[0].CacheKey.SentenceHash)
 	assert.NotEmpty(t, plan.RunID)
 	assert.Equal(t, 1, plan.Config.BatchMaxRequests)
 	assert.Equal(t, persistence.DefaultBatchMaxBytes, plan.Config.BatchMaxBytes)

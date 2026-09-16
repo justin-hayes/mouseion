@@ -138,7 +138,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	config := persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ExecutionMode: string(domain.PreparedDeckExecutionStandard), TargetLanguage: "en", ContextMode: string(enrichment.SentenceContext), Provider: "integration-provider", ProviderVersion: "1", MaxProviderAttempts: maxAttempts}
 	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
 	config.Model = "integration-model"
-	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Manifest: manifest, Config: config}}
+	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: manifest, Config: config}}
 	coordinator := NewDurableCoordinator(store, client, planner)
 	result, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID, ExternalTranslationConsent: true})
 	require.NoError(t, err)

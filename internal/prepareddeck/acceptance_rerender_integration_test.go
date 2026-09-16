@@ -90,7 +90,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		ProviderVersion: key.ProviderVersion, Endpoint: enrichment.OpenAIChatCompletionsEndpoint, Model: "acceptance-model",
 	}
 	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{
-		RunID: uuid.NewString(), Manifest: manifest.Snapshot(), Config: config,
+		RunID: uuid.NewString(), Projection: manifest.Snapshot(), Config: config,
 	}}
 	result, err := NewDurableCoordinator(store, client, planner).Freeze(ctx, DurableFreezeRequest{
 		OwnerID: owner.ID, PreparationID: preparation.ID, ExternalTranslationConsent: true,

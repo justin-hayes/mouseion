@@ -111,7 +111,7 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	}
 	runID := uuid.NewString()
 	if !config.ExternalTranslationConfigured {
-		return persistence.FreezePreparedDeckRunParams{RunID: runID, Manifest: manifest.Snapshot(), Config: config}, nil
+		return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: manifest.Snapshot(), Config: config}, nil
 	}
 	if p.Codec == nil {
 		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible translation endpoint")
@@ -151,7 +151,7 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 			return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("plan prepared deck Batch chunks: %w", err)
 		}
 	}
-	return persistence.FreezePreparedDeckRunParams{RunID: runID, Manifest: manifest.Snapshot(), Config: config, Chunks: chunks}, nil
+	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: manifest.Snapshot(), Config: config, Chunks: chunks}, nil
 }
 
 func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnapshot) ([]enrichment.BatchTranslationItem, error) {
