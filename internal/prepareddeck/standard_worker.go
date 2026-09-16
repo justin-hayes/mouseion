@@ -73,6 +73,15 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
 		_ = entry
 	}
+	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil
+		}
+		return err
+	}
+	if w.Provider.Name() != key.Provider || w.Provider.Version() != key.ProviderVersion {
+		return w.fail(ctx, args, token, "identity", "provider", false, false)
+	}
 
 	request := work.Request
 	started := w.now()
@@ -168,7 +177,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 	if err != nil {
 		return err
 	}
-	if inserted == nil || inserted.Job == nil {
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return errors.New("River did not return a retry job")
 	}
 	if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {

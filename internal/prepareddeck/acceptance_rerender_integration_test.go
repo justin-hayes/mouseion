@@ -74,7 +74,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)
-	provider := &barrierTranslationProvider{}
+	provider := &barrierTranslationProvider{providerName: key.Provider, providerVersion: key.ProviderVersion}
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{
 		Queues:  map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}},
