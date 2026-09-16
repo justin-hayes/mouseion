@@ -45,6 +45,8 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 		SenseSelection:      enrichment.Field[[]int]{Value: []int{1, 0}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
 	}
 	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+// rebase conflict branch
+	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
 	assert.Equal(t, "building · house", artifact.Generated[0].Note.Gloss)
@@ -97,6 +99,7 @@ func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testin
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
 	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
