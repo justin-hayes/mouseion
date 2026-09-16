@@ -31,6 +31,7 @@ type finalizerStoreStub struct {
 	repreparationCalls                                 int
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
+	failCalls                                          int
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
@@ -85,6 +86,7 @@ func (s *finalizerStoreStub) ListCorpusSentences(_ context.Context, _, corpusID 
 }
 
 func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error {
+	s.failCalls++
 	return nil
 }
 
@@ -155,6 +157,15 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	renderer := &finalizerRendererStub{err: renderErr}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 	assert.ErrorIs(t, err, renderErr)
+	assert.Zero(t, store.completeCalls)
+}
+
+func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
+	renderer := &finalizerRendererStub{err: cardexport.ErrInvalidInput}
+	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	assert.Equal(t, 1, store.failCalls)
 	assert.Zero(t, store.completeCalls)
 }
 

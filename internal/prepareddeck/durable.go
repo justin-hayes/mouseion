@@ -433,6 +433,9 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	artifact, _, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
+		if errors.Is(err, cardexport.ErrInvalidInput) {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
+		}
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)
 	}

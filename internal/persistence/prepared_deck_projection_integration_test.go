@@ -91,6 +91,20 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 	}
 }
 
+func TestPostgresRejectsDuplicatePreparedDeckCandidateDigest(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(ctx, integrationDatabase(t, ctx))
+	require.NoError(t, err)
+	defer store.Close()
+
+	owner, preparationID, runID, snapshot := insertProjectionFixture(t, ctx, store, projectionSnapshot(t, "", cardexport.ManifestSchemaVersion), nil)
+	_, candidateDigests, err := snapshot.Digests()
+	require.NoError(t, err)
+	item := snapshot.Items[0]
+	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest) VALUES($1,$2,$3,1,$4,$5,'en',$6,$7,$8,$9,$10,$11,$12,$13,'{}',$14,$15,$16,$17)`, owner, preparationID, runID, item.Disposition, item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS, item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter, item.Quality.Score, item.Quality.GDEXScore, item.Quality.Reasons, item.CacheKey.Provider, item.CacheKey.ProviderVersion, item.CacheKey.SentenceHash, candidateDigests[0])
+	assert.Error(t, err)
+}
+
 func insertProjectionFixture(t *testing.T, ctx context.Context, store *PostgresStore, snapshot cardexport.ManifestSnapshot, override func(cardexport.ManifestSnapshot) (string, []string)) (string, string, string, cardexport.ManifestSnapshot) {
 	t.Helper()
 	owner, err := store.CreateUser(ctx, "projection-"+uuid.NewString(), false)
