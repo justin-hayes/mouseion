@@ -37,6 +37,25 @@ func TestClassifyStandardProviderError(t *testing.T) {
 	}
 }
 
+func TestShouldRetryStandardProviderAttempt(t *testing.T) {
+	tests := []struct {
+		name                string
+		retryable           bool
+		providerAttempts    int
+		maxProviderAttempts int
+		want                bool
+	}{
+		{name: "retry before budget", retryable: true, providerAttempts: 0, maxProviderAttempts: 2, want: true},
+		{name: "budget exhausted", retryable: true, providerAttempts: 1, maxProviderAttempts: 2, want: false},
+		{name: "terminal error", retryable: false, providerAttempts: 0, maxProviderAttempts: 2, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, shouldRetryStandardProviderAttempt(tt.retryable, tt.providerAttempts, tt.maxProviderAttempts))
+		})
+	}
+}
+
 func TestStandardRetryDelayIsBoundedAndJitterInjectable(t *testing.T) {
 	w := &StandardTranslationWorker{
 		Config: PreparedDeckConfig{StandardRetryBaseDelay: time.Second, StandardRetryMaxDelay: 3 * time.Second},

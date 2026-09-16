@@ -238,6 +238,7 @@ func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *
 	provider.onCall = func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 		return enrichment.TranslationResponse{}, nil
 	}
+	startedAt := time.Now().UTC()
 	require.NoError(t, client.Start(ctx))
 	defer client.Stop(context.Background())
 
@@ -249,6 +250,7 @@ func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *
 	assert.Equal(t, 2, outcomes[0].ProviderAttemptCount)
 	assert.Equal(t, 2, outcomes[0].DispatchCount)
 	assert.Equal(t, 1, outcomes[0].DispatchGeneration)
+	assert.True(t, outcomes[0].NextAttemptAt.After(startedAt), "retry backoff timestamp was not persisted")
 	calls, _ := provider.stats()
 	assert.Equal(t, 2, calls)
 
