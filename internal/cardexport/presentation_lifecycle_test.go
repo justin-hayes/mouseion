@@ -98,7 +98,6 @@ func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testin
 	require.NoError(t, err)
 	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
-	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
 	assert.Empty(t, diagnostics.DegradationCodes)
