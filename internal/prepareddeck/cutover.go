@@ -17,7 +17,6 @@ import (
 
 type builder interface {
 	PrepareCoverage(context.Context, string, string) (cardexport.Manifest, error)
-	RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error)
 }
 
 type scopedBuilder interface {
