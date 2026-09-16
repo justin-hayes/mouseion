@@ -131,7 +131,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		if getErr != nil {
 			return persistence.FreezePreparedDeckRunResult{}, getErr
 		}
-		_, digest, getErr := c.store.LoadPreparedDeckManifest(ctx, request.OwnerID, request.PreparationID, run.ID)
+		_, digest, getErr := c.store.LoadPreparedDeckStorageProjection(ctx, request.OwnerID, request.PreparationID, run.ID)
 		if getErr != nil {
 			return persistence.FreezePreparedDeckRunResult{}, getErr
 		}

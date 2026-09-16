@@ -104,7 +104,11 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	if run.State != domain.PreparedDeckRunTranslating || !run.ExternalTranslationConsent || !run.ExternalTranslationConfigured || run.Model != claimed.Model || run.Endpoint != claimed.Endpoint || run.BatchMaxRequests < claimed.RequestCount || run.BatchMaxBytes < claimed.InputBytes {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "configuration", "frozen_contract")
 	}
-	snapshot, _, err := w.Store.LoadPreparedDeckManifest(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	if err != nil {
+		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
+	}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 	if err != nil {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "manifest_load")
 	}
@@ -121,7 +125,7 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	// from provider results, while changing the member set here would contradict
 	// the persisted byte count and digest. An all-hit chunk returns above without
 	// crossing the provider boundary.
-	items, err := submissionBatchItems(snapshot, claimed.Ordinals, byOrdinal)
+	items, err := submissionBatchItems(deck, claimed.Ordinals, byOrdinal)
 	if err != nil {
 		return w.finishSubmissionFailure(ctx, args, claimToken, domain.PreparedDeckBatchFailed, "validation", "chunk_membership")
 	}
@@ -279,22 +283,18 @@ func (w *BatchSubmitWorker) findExistingBatch(ctx context.Context, metadata map[
 	return match, nil
 }
 
-func submissionBatchItems(snapshot cardexport.ManifestSnapshot, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {
-	byOrdinal := make(map[int]cardexport.ManifestItem, len(snapshot.Items))
-	for _, item := range snapshot.Items {
-		byOrdinal[item.Ordinal] = item
-	}
+func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {
 	items := make([]enrichment.BatchTranslationItem, 0, len(ordinals))
 	for _, ordinal := range ordinals {
-		item, ok := byOrdinal[ordinal]
+		item, ok := deck.WorkByOrdinal(ordinal)
 		outcome, outcomeOK := outcomes[ordinal]
-		if !ok || !outcomeOK || item.Disposition != cardexport.ManifestAccepted || item.CacheKey == nil {
+		if !ok || !outcomeOK {
 			return nil, errors.New("invalid durable Batch item")
 		}
 		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeCompleted {
 			return nil, errors.New("invalid durable Batch outcome state")
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: item.Request})
 	}
 	return items, nil
 }

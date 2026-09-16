@@ -49,26 +49,23 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	}
 	_ = claimed
 
-	snapshot, _, err := w.Store.LoadPreparedDeckManifest(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
 		return w.fail(ctx, args, token, "orchestration", "manifest", true, false)
 	}
-	var item cardexport.ManifestItem
-	var found bool
-	for _, candidate := range snapshot.Items {
-		if candidate.Ordinal == args.Ordinal {
-			item, found = candidate, true
-			break
-		}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	if err != nil {
+		return w.fail(ctx, args, token, "identity", "manifest_item", true, false)
 	}
-	if !found || item.CacheKey == nil {
+	work, found := deck.WorkByOrdinal(args.Ordinal)
+	if !found {
 		return w.fail(ctx, args, token, "identity", "manifest_item", true, false)
 	}
 	observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricTranslationUnits, Phase: "translating", State: "in_progress", Provider: "openai", Value: 1})
-	key := *item.CacheKey
+	key := work.CacheKey
 	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
 		return w.fail(ctx, args, token, "persistence", "cache_lookup", false, false)
-	} else if hit && enrichment.HasRequiredTranslationFields(entry, item.Entry.Sentence) {
+	} else if hit && enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
 		return finishErr
@@ -77,7 +74,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		_ = entry
 	}
 
-	request := enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: snapshotTarget(item), CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}
+	request := work.Request
 	started := w.now()
 	timeout := w.AttemptTimeout
 	if timeout <= 0 {
@@ -130,13 +127,6 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchProviderTransitions, Phase: "translating", State: "completed", Provider: "openai", Value: 1})
 	}
 	return err
-}
-
-func snapshotTarget(item cardexport.ManifestItem) string {
-	if item.CacheKey != nil && item.CacheKey.TargetLanguage != "" {
-		return item.CacheKey.TargetLanguage
-	}
-	return "en"
 }
 
 func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTranslationJobArgs, token string, attempt int, class, code string) error {

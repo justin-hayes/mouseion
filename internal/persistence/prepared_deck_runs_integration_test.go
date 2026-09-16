@@ -582,7 +582,7 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	}
 	require.NoError(t, tx.Commit(ctx))
 
-	loaded, _, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	loaded, _, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	require.Len(t, loaded.Items, 1)
 	require.Equal(t, snapshot.Items[0].Entry.SentenceTokens, loaded.Items[0].Entry.SentenceTokens, "durable manifest lost the frozen parse")

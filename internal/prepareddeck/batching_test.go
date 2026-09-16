@@ -107,7 +107,9 @@ func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing
 		{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}},
 		{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
 	}}
-	items, err := submissionBatchItems(snapshot, []int{0, 1}, map[int]domain.PreparedDeckTranslationOutcome{
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	items, err := submissionBatchItems(deck, []int{0, 1}, map[int]domain.PreparedDeckTranslationOutcome{
 		0: {Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted},
 		1: {Ordinal: 1, State: domain.PreparedDeckOutcomePending},
 	})
