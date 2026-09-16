@@ -2,8 +2,11 @@ package prepareddeck
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -18,6 +21,27 @@ import (
 )
 
 const durableJobMaxAttempts = 5
+
+type fallbackGlossEvent struct {
+	Event        string  `json:"event"`
+	Selected     int     `json:"selected"`
+	FallbackUsed int     `json:"fallback_used"`
+	FallbackRate float64 `json:"fallback_rate"`
+}
+
+func logFallbackGlossUsage(completeness cardexport.Completeness) {
+	fallbackRate := 0.0
+	if completeness.TotalCards > 0 {
+		fallbackRate = float64(completeness.CardsWithFallbackGloss) / float64(completeness.TotalCards)
+	}
+	if math.IsNaN(fallbackRate) || math.IsInf(fallbackRate, 0) {
+		return
+	}
+	payload, err := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss, FallbackRate: fallbackRate})
+	if err == nil {
+		log.Printf("fallback_gloss_usage %s", payload)
+	}
+}
 
 var ErrRequiresRepreparation = errors.New("prepared deck requires re-preparation")
 
@@ -448,7 +472,7 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 		return domain.DeckPreparation{}, err
 	}
 	if run.ExternalTranslationConsent && run.ExternalTranslationConfigured {
-		cardexport.LogFallbackGlossUsage(artifact.Completeness)
+		logFallbackGlossUsage(artifact.Completeness)
 	}
 	observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
 	return result, nil

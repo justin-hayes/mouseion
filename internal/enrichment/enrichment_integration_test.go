@@ -99,9 +99,9 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", Sentence: "Das seltene Wort ist heute wirklich wichtig.", TargetWord: "seltene",
 		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
 	}
-	manifest := cardexport.NewManifest("owner-1", "Book", []cardexport.Entry{entry})
-	require.Len(t, manifest.EnrichmentCandidates(), 1)
-	candidate := manifest.EnrichmentCandidates()[0]
+	manifest := cardexport.NewTestManifest("owner-1", "Book", []cardexport.Entry{entry})
+	require.Len(t, manifest.Candidates(), 1)
+	candidate := manifest.Candidates()[0]
 
 	first, err := service.EnrichExternal(ctx, candidate)
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 
 	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)
-	artifact, err := cardexport.NewService(nil).RenderManifest(ctx, bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: first}})
+	artifact, err := cardexport.RenderTestManifest(ctx, bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: first}})
 	require.NoError(t, err)
 	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)

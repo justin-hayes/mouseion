@@ -58,7 +58,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
-	AddBatchWorker(workers, store, cardexport.NewService(store), client, nil, BatchConfig{}, false)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
 	handle, err := service.Submit(ctx, owner.ID, analysisID, true)
@@ -165,7 +165,7 @@ func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
-	AddBatchWorker(workers, store, cardexport.NewService(store), client, nil, BatchConfig{}, false)
+	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := NewService(store, client)
 	queued, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "queued.apkg", DeckName: "queued", ContentHash: "queued-hash"})
 	require.NoError(t, err)

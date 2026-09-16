@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -100,39 +99,6 @@ func TestMakeNoteWithoutParseBoldsObservedFormOnly(t *testing.T) {
 	assert.Equal(t, "Karam <b>rief</b> dem jungen Scheich entgegen.", note.Text)
 }
 
-func TestExportCoverageBoldsSeparableVerbFromPersistedParse(t *testing.T) {
-	const owner, bookID = "alice", "book"
-	store := &persistedMemoryStore{
-		memoryStore: &memoryStore{bookID: bookID},
-		sentences: map[int64]analyzer.Sentence{
-			0: {
-				Text: "Karam rief dem jungen Scheich entgegen.",
-				Tokens: []analyzer.Token{
-					{Surface: "Karam", UPOS: "PROPN", Dependency: "nsubj", Head: 1},
-					{Surface: "rief", UPOS: "VERB", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
-					{Surface: "dem", UPOS: "DET", Dependency: "det", Head: 4},
-					{Surface: "jungen", UPOS: "ADJ", Dependency: "amod", Head: 4},
-					{Surface: "Scheich", UPOS: "NOUN", Dependency: "obl", Head: 1},
-					{Surface: "entgegen", UPOS: "ADV", Dependency: "compound:prt", Head: 1},
-				},
-			},
-		},
-	}
-	store.candidates = []domain.SelectionCandidate{
-		{OwnerID: owner, CorpusID: "corpus", Language: "de", CanonicalLemma: "entgegenrufen", UPOS: "VERB", OccurrenceCount: 3, FirstEncounter: 10, ObservedForms: []byte(`["rief"]`), SentenceReferences: []byte(`[{"sentence_index":0,"text":"stale text","location":{"start_offset":10}}]`)},
-	}
-	store.entries = []Entry{
-		{OwnerID: owner, Language: "de", CanonicalLemma: "entgegenrufen", UPOS: "VERB", SourceDocument: "Book"},
-	}
-
-	artifact, err := NewService(store).ExportCoverage(context.Background(), owner, bookID)
-
-	require.NoError(t, err)
-	require.Equal(t, 1, artifact.Count)
-	assert.Contains(t, artifact.TSV, "Karam <b>rief</b> dem jungen Scheich <b>entgegen</b>.")
-	assert.NotContains(t, artifact.TSV, "stale text")
-}
-
 func TestNewManifestSnapshotPreservesFrozenParseForBolding(t *testing.T) {
 	const sentence = "Im Haus des Erpressers strahlten ihre Schwestern sie an."
 	tokens := []analyzer.Token{
@@ -152,15 +118,15 @@ func TestNewManifestSnapshotPreservesFrozenParseForBolding(t *testing.T) {
 		SentenceTokens: tokens,
 	}
 
-	manifest := NewManifest("owner", "Buch", []Entry{entry})
+	manifest := newManifest("owner", "Buch", []Entry{entry})
 	snapshot := manifest.Snapshot()
 	require.Len(t, snapshot.Items, 1)
 	require.True(t, snapshot.Items[0].Quality.Accepted, "representative sentence was quality-omitted: %+v", snapshot.Items[0].Quality)
 	require.Equal(t, tokens, snapshot.Items[0].Entry.SentenceTokens, "snapshot dropped the frozen parse")
 
-	rebuilt, err := ManifestFromSnapshot(snapshot)
+	deck, err := NewPresentation(nil).Restore(snapshot)
 	require.NoError(t, err)
-	artifact, err := (&Service{}).RenderManifest(context.Background(), rebuilt, nil)
+	artifact, _, err := NewPresentation(nil).Finalize(context.Background(), deck, nil, RunFacts{})
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }
@@ -191,12 +157,9 @@ func TestRenderManifestBoldsSeparableVerbFromFrozenParse(t *testing.T) {
 		}},
 	}
 
-	rebuilt, err := ManifestFromSnapshot(snapshot)
+	deck, err := NewPresentation(nil).Restore(snapshot)
 	require.NoError(t, err)
-	require.Len(t, rebuilt.accepted, 1)
-	assert.Equal(t, snapshot.Items[0].Entry.SentenceTokens, rebuilt.accepted[0].SentenceTokens, "frozen parse lost in snapshot round trip")
-
-	artifact, err := (&Service{}).RenderManifest(context.Background(), rebuilt, nil)
+	artifact, _, err := NewPresentation(nil).Finalize(context.Background(), deck, nil, RunFacts{})
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }

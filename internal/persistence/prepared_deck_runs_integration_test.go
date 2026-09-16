@@ -39,12 +39,12 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		require.NoError(t, err)
 	}
 
-	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{
+	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: source.Title, FirstEncounter: 30},
 	})
-	candidates := manifest.EnrichmentCandidates()
+	candidates := manifest.Candidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", DictionaryProviderVersion: candidate.DictionaryProviderVersion, SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
@@ -156,7 +156,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	wantDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, loadedDigest)
-	_, err = cardexport.ManifestFromSnapshot(loaded)
+	_, err = cardexport.RestoreTestManifest(loaded)
 	require.NoError(t, err, "manifest round trip")
 	records, err := store.LoadPreparedDeckStoredRecords(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
+	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
 	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot()})
@@ -364,8 +364,8 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
-	candidate := manifest.EnrichmentCandidates()[0]
+	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
+	candidate := manifest.Candidates()[0]
 	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)
@@ -437,11 +437,11 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
 		require.NoError(t, err)
 	}
-	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{
+	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: source.Title, FirstEncounter: 2},
 	})
-	candidates := manifest.EnrichmentCandidates()
+	candidates := manifest.Candidates()
 	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
@@ -571,7 +571,7 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 			{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
 		},
 	}
-	plan := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{entry})
+	plan := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{entry})
 	snapshot := plan.Snapshot()
 	require.Len(t, snapshot.Items, 1)
 	require.True(t, snapshot.Items[0].Quality.Accepted, "sentence was quality-omitted: %+v", snapshot.Items[0].Quality)
@@ -590,9 +590,9 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	require.Len(t, loaded.Items, 1)
 	require.Equal(t, snapshot.Items[0].Entry.SentenceTokens, loaded.Items[0].Entry.SentenceTokens, "durable manifest lost the frozen parse")
 
-	manifest, err := cardexport.ManifestFromSnapshot(loaded)
+	manifest, err := cardexport.RestoreTestManifest(loaded)
 	require.NoError(t, err)
-	artifact, err := (&cardexport.Service{}).RenderManifest(ctx, manifest, nil)
+	artifact, err := cardexport.RenderTestManifest(ctx, manifest, nil)
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }

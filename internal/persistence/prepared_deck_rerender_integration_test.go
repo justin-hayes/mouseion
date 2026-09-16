@@ -33,7 +33,7 @@ func TestListStalePreparedDecksOnlyReturnsCurrentUnretiredReadyDecks(t *testing.
 			Filename: name + ".apkg", DeckName: name, ContentHash: source.ContentHash,
 		})
 		require.NoError(t, createErr)
-		manifest := cardexport.NewManifest(owner.ID, name, nil)
+		manifest := cardexport.NewTestManifest(owner.ID, name, nil)
 		tx, beginErr := store.Pool().Begin(ctx)
 		require.NoError(t, beginErr)
 		frozen, freezeErr := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{

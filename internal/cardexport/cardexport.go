@@ -60,11 +60,11 @@ type Artifact struct {
 	Generated               []GeneratedRecord
 }
 
-// Manifest freezes every selection and render decision made for one prepared
-// deck before optional external enrichment starts. Its fields are private and
-// all slice-returning methods copy their data so later learner state, database
-// rows, or caller mutation cannot change the final artifact.
-type Manifest struct {
+// The private manifest freezes every selection and render decision made for one
+// prepared deck before optional external enrichment starts. Its fields are
+// private and all slice-returning methods copy their data so later learner
+// state, database rows, or caller mutation cannot change the final artifact.
+type manifest struct {
 	owner                string
 	deckName             string
 	schemaVersion        int
@@ -122,92 +122,8 @@ type SentenceEvidence struct {
 	Tokens           []analyzer.Token
 }
 
-type Store interface {
-	ListSelectionCandidatesForBook(context.Context, string, string) ([]domain.SelectionCandidate, error)
-	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	ListGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
-	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
-	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
-	GetCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-	RecordGeneratedForBook(context.Context, string, string, string, RenderInput, Note) error
-}
-
-type analysisStore interface {
-	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
-	GetCorpusForAnalysis(context.Context, string, string) (domain.Corpus, error)
-	ListSelectionCandidatesForCorpus(context.Context, string, string) ([]domain.SelectionCandidate, error)
-	GetCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-}
-
-type corpusSentenceStore interface {
-	ListCorpusSentences(context.Context, string, string, []int64) (map[int64]analyzer.Sentence, error)
-}
-
-// preparedEntryStore avoids the legacy cache lookup performed by the direct
-// export path. Prepared decks receive enrichment only through exact results
-// returned by the configured enrichment service.
-type preparedEntryStore interface {
-	GetPreparedCoverageEntryForBook(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-	GetPreparedCoverageEntryForCorpus(context.Context, string, string, domain.SelectionCandidate) (Entry, error)
-}
-
-type Service struct {
-	store   Store
+type lexicalResolver struct {
 	lexical enrichment.LexicalProvider
-}
-
-type glossCoverageGroup struct {
-	Language     string `json:"language"`
-	POS          string `json:"pos"`
-	Selected     int    `json:"selected"`
-	WithGloss    int    `json:"with_gloss"`
-	WithoutGloss int    `json:"without_gloss"`
-}
-
-type glossCoverageKey struct {
-	language string
-	pos      string
-}
-
-type glossCoverageEvent struct {
-	Event  string               `json:"event"`
-	Groups []glossCoverageGroup `json:"groups"`
-}
-
-type fallbackGlossEvent struct {
-	Event        string  `json:"event"`
-	Selected     int     `json:"selected"`
-	FallbackUsed int     `json:"fallback_used"`
-	FallbackRate float64 `json:"fallback_rate"`
-}
-
-func NewService(store Store) *Service { return &Service{store: store} }
-
-// LogFallbackGlossUsage records fallback usage for a consented finalization.
-// Callers decide whether the render was eligible for this signal.
-func LogFallbackGlossUsage(completeness Completeness) {
-	fallbackRate := 0.0
-	if completeness.TotalCards > 0 {
-		fallbackRate = float64(completeness.CardsWithFallbackGloss) / float64(completeness.TotalCards)
-	}
-	fallbackEvent, marshalErr := json.Marshal(fallbackGlossEvent{Event: "fallback_gloss_usage", Selected: completeness.TotalCards, FallbackUsed: completeness.CardsWithFallbackGloss, FallbackRate: fallbackRate})
-	if marshalErr == nil {
-		log.Printf("fallback_gloss_usage %s", fallbackEvent)
-	}
-}
-
-func NewServiceWithLexicalProvider(store Store, provider enrichment.LexicalProvider) *Service {
-	return &Service{store: store, lexical: provider}
-}
-
-// Presentation returns the presentation module configured with this service's
-// local lexical provider. Prepared-deck planning uses it after assembling raw
-// persistence facts.
-func (s *Service) Presentation() *Presentation {
-	if s == nil {
-		return nil
-	}
-	return NewPresentation(s.lexical)
 }
 
 func DedupKey(language, lemma, upos, owner string) string {
@@ -950,241 +866,17 @@ func DownloadFilename(bookTitle string) string {
 	return name + ".apkg"
 }
 
-// ExportCoverage exports recurring unknown lemmas in reading order.
-func (s *Service) ExportCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
-	artifact, err := s.BuildCoverage(ctx, owner, bookID)
-	if err != nil {
-		return Artifact{}, err
-	}
-	for _, item := range artifact.Generated {
-		if err := s.store.RecordGeneratedForBook(ctx, owner, bookID, item.Note.BookTitle, item.Input, item.Note); err != nil {
-			return Artifact{}, fmt.Errorf("record generated %s/%s/%s: %w", item.Input.Language, item.Input.CanonicalLemma, item.Input.UPOS, err)
-		}
-	}
-	return artifact, nil
-}
-
-// BuildCoverage selects, quality-gates, and renders a deck without changing
-// vocabulary or card state. Callers can persist Generated with the artifact.
-func (s *Service) BuildCoverage(ctx context.Context, owner, bookID string) (Artifact, error) {
-	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
-		return Artifact{}, ErrInvalidInput
-	}
-	candidates, err := s.store.ListSelectionCandidatesForBook(ctx, owner, bookID)
-	if err != nil {
-		return Artifact{}, fmt.Errorf("list selection candidates: %w", err)
-	}
-	selected, err := s.coverageCandidates(ctx, owner, bookID, candidates)
-	if err != nil {
-		return Artifact{}, err
-	}
-	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
-	if err != nil {
-		return Artifact{}, err
-	}
-	sort.SliceStable(selected, func(i, j int) bool {
-		if selected[i].FirstEncounter != selected[j].FirstEncounter {
-			return selected[i].FirstEncounter < selected[j].FirstEncounter
-		}
-		return candidateKey(selected[i]) < candidateKey(selected[j])
-	})
-
-	entries := make([]Entry, 0, len(selected))
-	deckName := bookID
-	for _, candidate := range selected {
-		entry, err := s.store.GetCoverageEntryForBook(ctx, owner, bookID, candidate)
-		if err != nil {
-			return Artifact{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
-		}
-		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
-			return Artifact{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
-		}
-		entries = append(entries, entry)
-		if strings.TrimSpace(entry.SourceDocument) != "" {
-			deckName = entry.SourceDocument
-		}
-	}
-	return s.render(ctx, owner, deckName, entries)
-}
-
-// BuildCoverageForAnalysis selects and renders only the immutable corpus
-// produced by the completed scoped analysis. The analysis provenance is
-// resolved by the owner-scoped persistence implementation, rather than by a
-// mutable book-level "latest" projection.
-func (s *Service) BuildCoverageForAnalysis(ctx context.Context, owner, analysisRunID string) (Artifact, error) {
-	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisRunID) == "" {
-		return Artifact{}, ErrInvalidInput
-	}
-	store, ok := s.store.(analysisStore)
-	if !ok {
-		return Artifact{}, errors.New("cardexport: scoped analysis storage is unavailable")
-	}
-	corpus, err := store.GetCorpusForAnalysis(ctx, owner, analysisRunID)
-	if err != nil {
-		return Artifact{}, fmt.Errorf("load completed analysis corpus: %w", err)
-	}
-	candidates, err := store.ListSelectionCandidatesForCorpus(ctx, owner, corpus.ID)
-	if err != nil {
-		return Artifact{}, fmt.Errorf("list scoped selection candidates: %w", err)
-	}
-	selected, err := s.coverageCandidates(ctx, owner, corpus.SourceMaterialID, candidates)
-	if err != nil {
-		return Artifact{}, err
-	}
-	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
-	if err != nil {
-		return Artifact{}, err
-	}
-	sort.SliceStable(selected, func(i, j int) bool {
-		if selected[i].FirstEncounter != selected[j].FirstEncounter {
-			return selected[i].FirstEncounter < selected[j].FirstEncounter
-		}
-		return candidateKey(selected[i]) < candidateKey(selected[j])
-	})
-
-	entries := make([]Entry, 0, len(selected))
-	source, err := store.GetSourceMaterial(ctx, owner, corpus.SourceMaterialID)
-	if err != nil {
-		return Artifact{}, fmt.Errorf("load scoped analysis source: %w", err)
-	}
-	deckName := source.Title
-	for _, candidate := range selected {
-		entry, err := store.GetCoverageEntryForCorpus(ctx, owner, corpus.ID, candidate)
-		if err != nil {
-			return Artifact{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
-		}
-		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
-			return Artifact{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
-		}
-		entries = append(entries, entry)
-		if strings.TrimSpace(entry.SourceDocument) != "" {
-			deckName = entry.SourceDocument
-		}
-	}
-	return s.render(ctx, owner, deckName, entries)
-}
-
-// PrepareCoverage freezes the legacy book-scoped candidate and render inputs
-// without rendering an artifact or reading a non-exact enrichment cache row.
-func (s *Service) PrepareCoverage(ctx context.Context, owner, bookID string) (Manifest, error) {
-	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
-		return Manifest{}, ErrInvalidInput
-	}
-	candidates, err := s.store.ListSelectionCandidatesForBook(ctx, owner, bookID)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("list selection candidates: %w", err)
-	}
-	selected, err := s.coverageCandidates(ctx, owner, bookID, candidates)
-	if err != nil {
-		return Manifest{}, err
-	}
-	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
-	if err != nil {
-		return Manifest{}, err
-	}
-	sortCandidatesByEncounter(selected)
-	entries := make([]Entry, 0, len(selected))
-	deckName := bookID
-	for _, candidate := range selected {
-		entry, err := s.preparedEntryForBook(ctx, owner, bookID, candidate)
-		if err != nil {
-			return Manifest{}, fmt.Errorf("get coverage entry %s: %w", candidateKey(candidate), err)
-		}
-		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
-			return Manifest{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
-		}
-		entries = append(entries, entry)
-		if strings.TrimSpace(entry.SourceDocument) != "" {
-			deckName = entry.SourceDocument
-		}
-	}
-	logGlossCoverage(entries)
-	return NewManifest(owner, deckName, entries), nil
-}
-
-// PrepareCoverageForAnalysis freezes only the immutable corpus produced by a
-// completed scoped analysis, without rendering or assigning vocabulary state.
-func (s *Service) PrepareCoverageForAnalysis(ctx context.Context, owner, analysisRunID string) (Manifest, error) {
-	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisRunID) == "" {
-		return Manifest{}, ErrInvalidInput
-	}
-	store, ok := s.store.(analysisStore)
-	if !ok {
-		return Manifest{}, errors.New("cardexport: scoped analysis storage is unavailable")
-	}
-	corpus, err := store.GetCorpusForAnalysis(ctx, owner, analysisRunID)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("load completed analysis corpus: %w", err)
-	}
-	candidates, err := store.ListSelectionCandidatesForCorpus(ctx, owner, corpus.ID)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("list scoped selection candidates: %w", err)
-	}
-	selected, err := s.coverageCandidates(ctx, owner, corpus.SourceMaterialID, candidates)
-	if err != nil {
-		return Manifest{}, err
-	}
-	persistedSentences, err := s.loadCorpusSentences(ctx, owner, selected)
-	if err != nil {
-		return Manifest{}, err
-	}
-	sortCandidatesByEncounter(selected)
-	source, err := store.GetSourceMaterial(ctx, owner, corpus.SourceMaterialID)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("load scoped analysis source: %w", err)
-	}
-	entries := make([]Entry, 0, len(selected))
-	deckName := source.Title
-	for _, candidate := range selected {
-		entry, err := s.preparedEntryForCorpus(ctx, store, owner, corpus.ID, candidate)
-		if err != nil {
-			return Manifest{}, fmt.Errorf("get scoped coverage entry %s: %w", candidateKey(candidate), err)
-		}
-		applySentenceDecision(&entry, candidate, persistedSentences[candidate.CorpusID])
-		if err := s.resolveLexicalEntry(ctx, &entry); err != nil {
-			return Manifest{}, fmt.Errorf("resolve lexical entry %s: %w", candidateKey(candidate), err)
-		}
-		entries = append(entries, entry)
-		if strings.TrimSpace(entry.SourceDocument) != "" {
-			deckName = entry.SourceDocument
-		}
-	}
-	logGlossCoverage(entries)
-	return NewManifest(owner, deckName, entries), nil
-}
-
-func (s *Service) preparedEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (Entry, error) {
-	if store, ok := s.store.(preparedEntryStore); ok {
-		return store.GetPreparedCoverageEntryForBook(ctx, owner, bookID, candidate)
-	}
-	entry, err := s.store.GetCoverageEntryForBook(ctx, owner, bookID, candidate)
-	clearExternalFields(&entry)
-	return entry, err
-}
-
-func (s *Service) preparedEntryForCorpus(ctx context.Context, store analysisStore, owner, corpusID string, candidate domain.SelectionCandidate) (Entry, error) {
-	if prepared, ok := s.store.(preparedEntryStore); ok {
-		return prepared.GetPreparedCoverageEntryForCorpus(ctx, owner, corpusID, candidate)
-	}
-	entry, err := store.GetCoverageEntryForCorpus(ctx, owner, corpusID, candidate)
-	clearExternalFields(&entry)
-	return entry, err
-}
-
 func clearExternalFields(entry *Entry) {
 	entry.Translation = ""
 	entry.SentenceTranslation = ""
 	entry.SentenceTranslationTarget = ""
 }
 
-func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
-	if s == nil || s.lexical == nil || entry == nil {
+func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
+	if r == nil || r.lexical == nil || entry == nil {
 		return nil
 	}
-	result, found, err := s.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
+	result, found, err := r.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		TargetWord: testedEntryTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
 	})
@@ -1205,7 +897,7 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	entry.Plural = plural
 	entry.IPA = strings.TrimSpace(result.IPA)
 	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
-	entry.DictionaryProviderVersion = s.lexical.Version()
+	entry.DictionaryProviderVersion = r.lexical.Version()
 	if result.Gender == "" && result.Article == "" && plural == "" {
 		return nil
 	}
@@ -1228,42 +920,6 @@ func (s *Service) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	}
 	entry.Morphology = string(encoded)
 	return nil
-}
-
-func logGlossCoverage(entries []Entry) {
-	grouped := make(map[glossCoverageKey]*glossCoverageGroup)
-	for _, entry := range entries {
-		language := strings.ToLower(strings.TrimSpace(entry.Language))
-		pos := strings.ToUpper(strings.TrimSpace(entry.UPOS))
-		key := glossCoverageKey{language: language, pos: pos}
-		group := grouped[key]
-		if group == nil {
-			group = &glossCoverageGroup{Language: language, POS: pos}
-			grouped[key] = group
-		}
-		group.Selected++
-		if strings.TrimSpace(entry.Gloss) == "" {
-			group.WithoutGloss++
-		} else {
-			group.WithGloss++
-		}
-	}
-
-	groups := make([]glossCoverageGroup, 0, len(grouped))
-	for _, group := range grouped {
-		groups = append(groups, *group)
-	}
-	slices.SortFunc(groups, func(a, b glossCoverageGroup) int {
-		if a.Language != b.Language {
-			return strings.Compare(a.Language, b.Language)
-		}
-		return strings.Compare(a.POS, b.POS)
-	})
-	payload, err := json.Marshal(glossCoverageEvent{Event: "gloss_coverage", Groups: groups})
-	if err != nil {
-		return
-	}
-	log.Printf("gloss_coverage %s", payload)
 }
 
 func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, persisted map[int64]analyzer.Sentence) {
@@ -1290,68 +946,9 @@ func applySentenceDecision(entry *Entry, candidate domain.SelectionCandidate, pe
 	}
 }
 
-func (s *Service) loadCorpusSentences(ctx context.Context, owner string, candidates []domain.SelectionCandidate) (map[string]map[int64]analyzer.Sentence, error) {
-	store, ok := s.store.(corpusSentenceStore)
-	if !ok {
-		return nil, nil
-	}
-	ordinalsByCorpus := make(map[string]map[int64]struct{})
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate.CorpusID) == "" {
-			continue
-		}
-		var refs []sentenceReference
-		if json.Unmarshal(candidate.SentenceReferences, &refs) != nil {
-			continue
-		}
-		ordinals := ordinalsByCorpus[candidate.CorpusID]
-		if ordinals == nil {
-			ordinals = make(map[int64]struct{})
-			ordinalsByCorpus[candidate.CorpusID] = ordinals
-		}
-		for _, ref := range refs {
-			if ref.SentenceIndex >= 0 {
-				ordinals[int64(ref.SentenceIndex)] = struct{}{}
-			}
-		}
-	}
-	result := make(map[string]map[int64]analyzer.Sentence, len(ordinalsByCorpus))
-	for corpusID, ordinalSet := range ordinalsByCorpus {
-		ordinals := make([]int64, 0, len(ordinalSet))
-		for ordinal := range ordinalSet {
-			ordinals = append(ordinals, ordinal)
-		}
-		slices.Sort(ordinals)
-		sentences, err := store.ListCorpusSentences(ctx, owner, corpusID, ordinals)
-		if err != nil {
-			return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", corpusID, err)
-		}
-		if len(sentences) > 0 {
-			for ordinal := range ordinalSet {
-				if _, ok := sentences[ordinal]; !ok {
-					return nil, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", corpusID, ordinal)
-				}
-			}
-		}
-		if len(sentences) > 0 {
-			result[corpusID] = sentences
-		}
-	}
-	return result, nil
-}
-
-func sortCandidatesByEncounter(candidates []domain.SelectionCandidate) {
-	sort.SliceStable(candidates, func(i, j int) bool {
-		if candidates[i].FirstEncounter != candidates[j].FirstEncounter {
-			return candidates[i].FirstEncounter < candidates[j].FirstEncounter
-		}
-		return candidateKey(candidates[i]) < candidateKey(candidates[j])
-	})
-}
-
-// NewManifest quality-gates entries once and returns an immutable render plan.
-func NewManifest(owner, deckName string, entries []Entry) Manifest {
-	manifest := Manifest{owner: owner, deckName: deckName, schemaVersion: ManifestSchemaVersion, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
+// newManifest quality-gates entries once and returns an immutable render plan.
+func newManifest(owner, deckName string, entries []Entry) manifest {
+	manifest := manifest{owner: owner, deckName: deckName, schemaVersion: ManifestSchemaVersion, accepted: make([]RenderInput, 0, len(entries)), omitted: make([]Omission, 0), enrichmentCandidates: make([]enrichment.Candidate, 0, len(entries)), decisions: make([]ManifestItem, 0, len(entries))}
 	for ordinal, entry := range entries {
 		entry = cloneEntry(entry)
 		entry.UPOS = strings.ToUpper(strings.TrimSpace(entry.UPOS))
@@ -1382,7 +979,7 @@ func NewManifest(owner, deckName string, entries []Entry) Manifest {
 }
 
 // EnrichmentCandidates returns the frozen candidates in final render order.
-func (m Manifest) EnrichmentCandidates() []enrichment.Candidate {
+func (m manifest) enrichmentCandidatesProjection() []enrichment.Candidate {
 	result := append([]enrichment.Candidate(nil), m.enrichmentCandidates...)
 	for i := range result {
 		result[i].CandidateSenses = enrichment.CloneLexicalSenses(result[i].CandidateSenses)
@@ -1392,7 +989,7 @@ func (m Manifest) EnrichmentCandidates() []enrichment.Candidate {
 
 // Completeness reports the manifest's pre-enrichment accepted and omitted
 // counts. Final optional-field counts are calculated during the sole render.
-func (m Manifest) Completeness() Completeness {
+func (m manifest) completeness() Completeness {
 	result := Completeness{TotalCards: len(m.accepted), QualityOmitted: len(m.omitted)}
 	for _, entry := range m.accepted {
 		if strings.TrimSpace(entry.Translation) != "" {
@@ -1411,9 +1008,9 @@ func (m Manifest) Completeness() Completeness {
 // BindCacheKeys returns a new manifest bound to the exact provider/version and
 // sentence identities that enrichment will use. Existing external fields are
 // cleared so a legacy or mismatched cache row can never survive finalization.
-func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
+func (m manifest) bindCacheKeys(keys []enrichment.CacheKey) (manifest, error) {
 	if len(keys) != len(m.enrichmentCandidates) {
-		return Manifest{}, fmt.Errorf("%w: cache identity count does not match manifest candidates", ErrInvalidInput)
+		return manifest{}, fmt.Errorf("%w: cache identity count does not match manifest candidates", ErrInvalidInput)
 	}
 	bound := m.clone()
 	bound.cacheKeys = append([]enrichment.CacheKey(nil), keys...)
@@ -1426,14 +1023,14 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 		i := acceptedIndex
 		candidate := bound.enrichmentCandidates[i]
 		if key.Language != candidate.Language || key.CanonicalLemma != candidate.CanonicalLemma || key.UPOS != strings.ToUpper(candidate.UPOS) || strings.TrimSpace(key.Provider) == "" || strings.TrimSpace(key.ProviderVersion) == "" {
-			return Manifest{}, fmt.Errorf("%w: cache identity does not match manifest candidate %d", ErrInvalidInput, i)
+			return manifest{}, fmt.Errorf("%w: cache identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
 		if key.DictionaryProviderVersion != candidate.DictionaryProviderVersion {
-			return Manifest{}, fmt.Errorf("%w: dictionary identity does not match manifest candidate %d", ErrInvalidInput, i)
+			return manifest{}, fmt.Errorf("%w: dictionary identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
 		exactSentenceHash := enrichment.SentenceHash(candidate.ExampleSentence)
 		if key.SentenceHash != "" && key.SentenceHash != exactSentenceHash {
-			return Manifest{}, fmt.Errorf("%w: sentence cache identity does not match manifest candidate %d", ErrInvalidInput, i)
+			return manifest{}, fmt.Errorf("%w: sentence cache identity does not match manifest candidate %d", ErrInvalidInput, i)
 		}
 		clearExternalRenderInputFields(&bound.accepted[i])
 		bound.decisions[decisionIndex].CacheKey = &key
@@ -1442,7 +1039,7 @@ func (m Manifest) BindCacheKeys(keys []enrichment.CacheKey) (Manifest, error) {
 	return bound, nil
 }
 
-func (m Manifest) clone() Manifest {
+func (m manifest) clone() manifest {
 	m.accepted = cloneRenderInputs(m.accepted)
 	m.omitted = append([]Omission(nil), m.omitted...)
 	for i := range m.omitted {
@@ -1457,14 +1054,7 @@ func (m Manifest) clone() Manifest {
 	return m
 }
 
-// RenderManifest applies exact enrichment outcomes and renders the frozen plan
-// once. Outcomes are positional so duplicate or missing assignment is rejected.
-func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, error) {
-	artifact, _, err := s.renderManifest(ctx, manifest, outcomes)
-	return artifact, err
-}
-
-func (s *Service) renderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, []string, error) {
+func renderManifest(ctx context.Context, manifest manifest, outcomes []ExactEnrichment) (Artifact, []string, error) {
 	entries := cloneRenderInputs(manifest.accepted)
 	omitted := append([]Omission(nil), manifest.omitted...)
 	for i := range omitted {
@@ -1485,10 +1075,10 @@ func (s *Service) renderManifest(ctx context.Context, manifest Manifest, outcome
 			}
 			diagnostics = appendUniqueCodes(diagnostics, codes...)
 		}
-		artifact, err := s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+		artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
 		return artifact, diagnostics, err
 	}
-	artifact, err := s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+	artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
 	return artifact, nil, err
 }
 
@@ -1577,75 +1167,11 @@ func targetWord(sentence string, candidate domain.SelectionCandidate) string {
 	return textmatch.CleanLexicalSurface(candidate.CanonicalLemma)
 }
 
-const defaultDeckMinOccurrences = 3
-
-func selectRecurringCandidates(candidates []domain.SelectionCandidate, minOccurrences int) []domain.SelectionCandidate {
-	selected := slices.Clone(candidates)
-	if selected == nil {
-		selected = []domain.SelectionCandidate{}
-	}
-	return slices.DeleteFunc(selected, func(candidate domain.SelectionCandidate) bool {
-		return candidate.OccurrenceCount < minOccurrences
-	})
-}
-
-func (s *Service) coverageCandidates(ctx context.Context, owner, bookID string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
-	knownByLanguage := make(map[string]map[string]bool)
-	generatedByLanguage := make(map[string]map[string]bool)
-	unknown := make([]domain.SelectionCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		known, ok := knownByLanguage[candidate.Language]
-		if !ok {
-			words, err := s.store.ListKnownVocabulary(ctx, owner, candidate.Language)
-			if err != nil {
-				return nil, fmt.Errorf("list known vocabulary for %s: %w", candidate.Language, err)
-			}
-			known = make(map[string]bool, len(words))
-			for _, word := range words {
-				known[word.CanonicalLemma+"\x00"+word.UPOS] = true
-			}
-			knownByLanguage[candidate.Language] = known
-		}
-		generated, ok := generatedByLanguage[candidate.Language]
-		if !ok {
-			words, err := s.store.ListUnattachedGeneratedVocabulary(ctx, owner, candidate.Language)
-			if err != nil {
-				return nil, fmt.Errorf("list generated vocabulary for %s: %w", candidate.Language, err)
-			}
-			generated = make(map[string]bool, len(words))
-			for _, word := range words {
-				// Unknown provenance is excluded conservatively. Explicit provenance
-				// for this book remains eligible so repeating an export is idempotent.
-				if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != bookID {
-					generated[word.CanonicalLemma+"\x00"+word.UPOS] = true
-				}
-			}
-			reservedWords, err := s.store.ListReservedVocabulary(ctx, owner, candidate.Language)
-			if err != nil {
-				return nil, fmt.Errorf("list reserved vocabulary for %s: %w", candidate.Language, err)
-			}
-			for _, word := range reservedWords {
-				generated[word.CanonicalLemma+"\x00"+word.UPOS] = true
-			}
-			generatedByLanguage[candidate.Language] = generated
-		}
-		identity := candidate.CanonicalLemma + "\x00" + candidate.UPOS
-		if !known[identity] && !known[candidate.CanonicalLemma+"\x00"] && !generated[identity] {
-			unknown = append(unknown, candidate)
-		}
-	}
-	return selectRecurringCandidates(unknown, defaultDeckMinOccurrences), nil
-}
-
 func candidateKey(candidate domain.SelectionCandidate) string {
 	return candidate.Language + "\x00" + candidate.CanonicalLemma + "\x00" + candidate.UPOS
 }
 
-func (s *Service) render(ctx context.Context, owner, deckName string, entries []Entry) (Artifact, error) {
-	return s.RenderManifest(ctx, NewManifest(owner, deckName, entries), nil)
-}
-
-func (s *Service) renderAccepted(ctx context.Context, owner, deckName string, entries []RenderInput, omitted []Omission) (Artifact, error) {
+func renderAccepted(ctx context.Context, owner, deckName string, entries []RenderInput, omitted []Omission) (Artifact, error) {
 	type acceptedNote struct {
 		input RenderInput
 		note  Note

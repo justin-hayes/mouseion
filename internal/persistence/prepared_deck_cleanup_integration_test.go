@@ -31,7 +31,7 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: sourceID, Filename: "Cleanup.apkg", DeckName: "Cleanup", ContentHash: "cleanup-hash"})
 	require.NoError(t, err)
 	sentence := "Das Haus steht am Ende der stillen Straße."
-	manifest := cardexport.NewManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence, TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
+	manifest := cardexport.NewTestManifest(owner.ID, "Cleanup", []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence, TargetWord: "Haus", SourceDocument: "Cleanup", FirstEncounter: 1}})
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(sentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)

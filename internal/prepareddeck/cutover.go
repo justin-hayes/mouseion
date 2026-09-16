@@ -262,12 +262,7 @@ func (w *Worker) fail(ctx context.Context, args JobArgs, cause error) error {
 	return nil
 }
 
-func AddBatchWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, externalEnabled bool) {
-	planner := NewBatchPlanner(NewInputAssembler(store), export.Presentation(), codec, externalEnabled, batchConfig)
-	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
-}
-
-func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool) {
-	planner := NewPreparedDeckPlanner(NewInputAssembler(store), export.Presentation(), codec, externalEnabled, batchConfig, preparedConfig)
+func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresStore, presentation *cardexport.Presentation, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool) {
+	planner := NewPreparedDeckPlanner(NewInputAssembler(store), presentation, codec, externalEnabled, batchConfig, preparedConfig)
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
 }

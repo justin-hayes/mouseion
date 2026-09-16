@@ -164,22 +164,17 @@ func TestBatchResultFailureClassIsPrivacySafeAndConstrained(t *testing.T) {
 
 func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing.T) {
 	runID := "123e4567-e89b-12d3-a456-426614174000"
-	manifest := cardexport.NewManifest("owner", "Frozen Book", []cardexport.Entry{
-		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: "Frozen Book", FirstEncounter: 1},
-		{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: "Frozen Book", FirstEncounter: 2},
-	})
+	projections := []cardexport.CandidateProjection{
+		{OwnerID: "owner", DeckName: "Frozen Book", Provider: "openai", ProviderVersion: "v1", TargetLanguage: "en", Candidate: domain.SelectionCandidate{OwnerID: "owner", CorpusID: "corpus-1", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", FirstEncounter: 1}, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: "Frozen Book", FirstEncounter: 1}},
+		{OwnerID: "owner", DeckName: "Frozen Book", Provider: "openai", ProviderVersion: "v1", TargetLanguage: "en", Candidate: domain.SelectionCandidate{OwnerID: "owner", CorpusID: "corpus-1", Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", FirstEncounter: 2}, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: "Frozen Book", FirstEncounter: 2}},
+	}
 	responses := []enrichment.TranslationResponse{
 		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
 		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
 	}
-	candidates := manifest.EnrichmentCandidates()
-	keys := make([]enrichment.CacheKey, len(candidates))
-	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
-	}
-	bound, err := manifest.BindCacheKeys(keys)
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), projections)
 	require.NoError(t, err)
-	deck, err := cardexport.NewPresentation(nil).Restore(bound.Snapshot())
+	deck, err = cardexport.NewPresentation(nil).Restore(deck.StorageProjection())
 	require.NoError(t, err)
 	items, workByOrdinal, err := batchResultItems(deck, []int{0, 1})
 	require.NoError(t, err)
