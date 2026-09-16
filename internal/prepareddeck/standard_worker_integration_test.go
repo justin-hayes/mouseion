@@ -23,19 +23,31 @@ import (
 )
 
 type barrierTranslationProvider struct {
-	mu       sync.Mutex
-	calls    int
-	inFlight int
-	max      int
-	barrier  int
-	released chan struct{}
-	attempts map[string]int
-	onCall   func(int, enrichment.TranslationRequest) (enrichment.TranslationResponse, error)
-	once     sync.Once
+	mu              sync.Mutex
+	calls           int
+	inFlight        int
+	max             int
+	barrier         int
+	released        chan struct{}
+	attempts        map[string]int
+	onCall          func(int, enrichment.TranslationRequest) (enrichment.TranslationResponse, error)
+	once            sync.Once
+	providerName    string
+	providerVersion string
 }
 
-func (p *barrierTranslationProvider) Name() string    { return "integration-provider" }
-func (p *barrierTranslationProvider) Version() string { return "1" }
+func (p *barrierTranslationProvider) Name() string {
+	if p.providerName != "" {
+		return p.providerName
+	}
+	return "integration-provider"
+}
+func (p *barrierTranslationProvider) Version() string {
+	if p.providerVersion != "" {
+		return p.providerVersion
+	}
+	return "1"
+}
 
 func (p *barrierTranslationProvider) Translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.mu.Lock()
@@ -267,6 +279,24 @@ func TestStandardWorkerUsesRestoredFrozenRequestAndCacheKey(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, expected.CacheKey, stored.CacheKey)
+}
+
+func TestStandardWorkerRejectsProviderIdentityDrift(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	provider.providerName = "different-provider"
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+	assert.Equal(t, "identity", outcomes[0].ErrorClass)
+	assert.Equal(t, "provider", outcomes[0].ErrorCode)
+	calls, _ := provider.stats()
+	assert.Zero(t, calls)
 }
 
 func TestStandardWorkerDoesNotPersistAfterClaimLossDuringProviderCall(t *testing.T) {
