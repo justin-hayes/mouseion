@@ -505,3 +505,42 @@ func TestStandardWorkerRestartRestoresPendingProjection(t *testing.T) {
 		}
 	}
 }
+
+func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	require.NoError(t, client.Start(ctx))
+	waitStandardOutcomes(t, ctx, run, 1)
+	require.NoError(t, client.Stop(ctx))
+	callsBefore, _ := provider.stats()
+
+	workers := river.NewWorkers()
+	restarted, err := river.NewClient(riverpgxv5.New(run.store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	AddStandardTranslationWorkerWithDependencies(workers, run.store, restarted, provider, PreparedDeckConfig{}, time.Second)
+	river.AddWorker(workers, &integrationFinalizeWorker{})
+	tx, err := run.store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	inserted, err := restarted.InsertTx(ctx, tx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}, &river.InsertOpts{Queue: TranslationQueue})
+	require.NoError(t, err)
+	require.NotNil(t, inserted)
+	require.NotNil(t, inserted.Job)
+	require.NoError(t, tx.Commit(ctx))
+	require.NoError(t, restarted.Start(ctx))
+	defer restarted.Stop(context.Background())
+	for {
+		job, err := restarted.JobGet(ctx, inserted.Job.ID)
+		require.NoError(t, err)
+		if job.State == rivertype.JobStateCompleted {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "replayed River job did not complete", "state=%s", job.State)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	callsAfter, _ := provider.stats()
+	assert.Equal(t, callsBefore, callsAfter)
+}
