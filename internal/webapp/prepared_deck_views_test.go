@@ -97,6 +97,28 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	}
 }
 
+func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
+	updated := domain.DeckPreparation{
+		ID: "preparation-372", State: domain.DeckPreparationReady,
+		DeckRevision: 2, TotalCards: 1,
+	}
+	var output bytes.Buffer
+	require.NoError(t, DeckPreparationStatus("csrf", updated, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	assert.Contains(t, output.String(), "Updated version available")
+	assert.Contains(t, output.String(), "revision 2")
+}
+
+func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *testing.T) {
+	for _, preparation := range []domain.DeckPreparation{
+		{ID: "initial", State: domain.DeckPreparationReady, DeckRevision: 1, TotalCards: 1},
+		{ID: "unrecoverable", State: domain.DeckPreparationReady, DeckRevision: 2, TotalCards: 1, Error: domain.DeckPreparationRequiresRepreparationError},
+	} {
+		var output bytes.Buffer
+		require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+		assert.NotContains(t, output.String(), "Updated version available", preparation.ID)
+	}
+}
+
 func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
