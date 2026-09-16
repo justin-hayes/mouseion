@@ -126,7 +126,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	for i := range items {
 		lemma := "lemma-" + uuid.NewString()
 		keys[i] = enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: lemma, UPOS: "NOUN", Provider: "integration-provider", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Ein Satz.")}
-		items[i] = cardexport.ManifestItem{Ordinal: i, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein Satz.", TargetWord: lemma, SourceDocument: "Integration", FirstEncounter: int64(i + 1)}, Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{}}, CacheKey: &keys[i]}
+		items[i] = cardexport.ManifestItem{Ordinal: i, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein Satz.", TargetWord: "Ein", SourceDocument: "Integration", FirstEncounter: int64(i + 1)}, Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{}}, CacheKey: &keys[i]}
 	}
 	manifest := cardexport.ManifestSnapshot{SchemaVersion: cardexport.ManifestSchemaVersion, Owner: owner.ID, DeckName: "Integration", Filename: cardexport.DownloadFilename("Integration"), Items: items}
 	provider := &barrierTranslationProvider{}
@@ -193,8 +193,14 @@ func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
-	_, err := run.store.Put(ctx, enrichment.CacheEntry{
-		CacheKey:                  run.keys[0],
+	snapshot, _, err := run.store.LoadPreparedDeckStorageProjection(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	work, ok := deck.WorkByOrdinal(0)
+	require.True(t, ok)
+	_, err = run.store.Put(ctx, enrichment.CacheEntry{
+		CacheKey:                  work.CacheKey,
 		Translation:               "cached translation",
 		SentenceTranslation:       "The cached sentence.",
 		SentenceTranslationTarget: "cached",
@@ -210,6 +216,55 @@ func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing
 	require.Len(t, outcomes, 1)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
 	assert.Equal(t, 1, outcomes[0].CacheHitCount)
+	calls, _ := provider.stats()
+	assert.Zero(t, calls)
+
+	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	frozen, stored, err := run.store.LoadPreparedDeckFinalization(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	finalDeck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, finalDeck, stored, preparedDeckRunFacts(finalRun))
+	require.NoError(t, err)
+	assert.Len(t, artifact.Generated, 1)
+	assert.Contains(t, artifact.TSV, "The <b>cached</b> sentence.")
+}
+
+func TestStandardWorkerUsesRestoredFrozenRequestAndCacheKey(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	snapshot, _, err := run.store.LoadPreparedDeckStorageProjection(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	expected, ok := deck.WorkByOrdinal(0)
+	require.True(t, ok)
+	var received enrichment.TranslationRequest
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		received = request
+		return validTranslationResponse(request), nil
+	}
+
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	assert.Equal(t, expected.Request, received)
+	stored, found, err := run.store.Get(ctx, expected.CacheKey)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, expected.CacheKey, stored.CacheKey)
+}
+
+func TestStandardWorkerTreatsLostClaimAsNoop(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	_, err := run.store.ClaimPreparedDeckTranslationOutcome(ctx, run.owner, run.prep.ID, run.run.ID, 0, 0, uuid.NewString(), time.Now().UTC().Add(time.Minute))
+	require.NoError(t, err)
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
 	calls, _ := provider.stats()
 	assert.Zero(t, calls)
 }
