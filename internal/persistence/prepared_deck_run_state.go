@@ -167,81 +167,62 @@ func (s *PostgresStore) SetPreparedDeckFinalizationJobTx(ctx context.Context, tx
 	return err
 }
 
-func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID string) (cardexport.Manifest, []cardexport.ExactEnrichment, error) {
+func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
 	run, err := s.GetPreparedDeckRun(ctx, owner, preparationID, runID)
 	if err != nil {
-		return cardexport.Manifest{}, nil, err
+		return cardexport.StorageProjection{}, nil, err
 	}
 	if (run.State != domain.PreparedDeckRunFinalizing && run.State != domain.PreparedDeckRunCompleted) || run.TranslationState != domain.PreparedDeckTranslationCompleted {
-		return cardexport.Manifest{}, nil, ErrInvalidTransition
+		return cardexport.StorageProjection{}, nil, ErrInvalidTransition
 	}
-	snapshot, _, err := s.LoadPreparedDeckManifest(ctx, owner, preparationID, runID)
+	projection, _, err := s.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)
 	if err != nil {
-		return cardexport.Manifest{}, nil, err
-	}
-	manifest, err := cardexport.ManifestFromSnapshot(snapshot)
-	if err != nil {
-		return cardexport.Manifest{}, nil, err
+		return cardexport.StorageProjection{}, nil, err
 	}
 	outcomes, err := s.ListPreparedDeckTranslationOutcomes(ctx, owner, preparationID, runID)
 	if err != nil {
-		return cardexport.Manifest{}, nil, err
+		return cardexport.StorageProjection{}, nil, err
 	}
 	byOrdinal := make(map[int]domain.PreparedDeckTranslationOutcome, len(outcomes))
 	for _, outcome := range outcomes {
 		byOrdinal[outcome.Ordinal] = outcome
 	}
 	withCacheKeys := false
-	for _, item := range snapshot.Items {
+	for _, item := range projection.Items {
 		withCacheKeys = withCacheKeys || item.CacheKey != nil
 	}
 	if !withCacheKeys {
-		return manifest, nil, nil
+		return projection, nil, nil
 	}
-	exact := make([]cardexport.ExactEnrichment, 0, len(outcomes))
-	for _, item := range snapshot.Items {
+	records, err := s.loadPreparedDeckStoredRecords(ctx, projection)
+	if err != nil {
+		return cardexport.StorageProjection{}, nil, err
+	}
+	byStoredOrdinal := make(map[int]PreparedDeckStoredRecord, len(records))
+	for _, record := range records {
+		byStoredOrdinal[record.Ordinal] = record
+	}
+	stored := make([]cardexport.StoredResult, 0, len(outcomes))
+	for _, item := range projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
 		outcome, ok := byOrdinal[item.Ordinal]
 		if !ok || (outcome.State != domain.PreparedDeckOutcomeCompleted && outcome.State != domain.PreparedDeckOutcomeFailed) || item.CacheKey == nil {
-			return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
+			return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 		}
-		if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && outcome.State != domain.PreparedDeckOutcomeCompleted {
-			return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
-		}
-		result := enrichment.Result{Candidate: enrichment.Candidate{Identity: enrichment.Identity{Language: item.Entry.Language, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS}, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion}}
+		key := *item.CacheKey
+		entry := enrichment.CacheEntry{CacheKey: key}
 		if outcome.State == domain.PreparedDeckOutcomeCompleted {
-			entry, found, cacheErr := s.Get(ctx, *item.CacheKey)
-			if cacheErr != nil {
-				return cardexport.Manifest{}, nil, cacheErr
+			record, found := byStoredOrdinal[item.Ordinal]
+			if !found || !record.Found {
+				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 			}
-			if !found {
-				return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
-			}
-			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && !enrichment.HasRequiredTranslationFields(entry, item.Entry.Sentence) {
-				return cardexport.Manifest{}, nil, ErrPreparedDeckIdentity
-			}
-			provenance := enrichment.Provenance{Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, CachedAt: entry.CachedAt, External: true}
-			if entry.Translation != "" {
-				result.Translation = enrichment.Field[string]{Value: entry.Translation, Available: true, Provenance: provenance}
-			}
-			if entry.FallbackGloss != "" {
-				result.FallbackGloss = enrichment.Field[string]{Value: entry.FallbackGloss, Available: true, Provenance: provenance}
-			}
-			if entry.SentenceTranslation != "" {
-				result.SentenceTranslation = enrichment.Field[string]{Value: entry.SentenceTranslation, Available: true, Provenance: provenance}
-			}
-			if entry.SentenceTranslationTarget != "" {
-				result.SentenceTranslationTarget = enrichment.Field[string]{Value: entry.SentenceTranslationTarget, Available: true, Provenance: provenance}
-			}
-			if entry.SenseSelection != nil {
-				result.SenseSelection = enrichment.Field[[]int]{Value: append([]int(nil), entry.SenseSelection...), Available: true, Provenance: provenance}
-			}
+			entry = record.Entry
 		}
-		exact = append(exact, cardexport.ExactEnrichment{CacheKey: *item.CacheKey, Result: result})
+		stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
 	}
-	return manifest, exact, nil
+	return projection, stored, nil
 }
 
 func (s *PostgresStore) CancelCurrentPreparedDeckRun(ctx context.Context, owner, preparationID string) (domain.DeckPreparation, error) {

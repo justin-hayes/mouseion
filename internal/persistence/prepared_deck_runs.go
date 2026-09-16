@@ -49,7 +49,7 @@ type FreezePreparedDeckRunParams struct {
 	OwnerID, PreparationID string
 	RunID                  string
 	ExpectedManifestDigest string
-	Manifest               cardexport.ManifestSnapshot
+	Projection             cardexport.StorageProjection
 	Config                 PreparedDeckRunConfig
 	Chunks                 []PreparedDeckBatchChunkPlan
 }
@@ -97,7 +97,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	digest, err := params.Manifest.Digest()
+	digest, candidateDigests, err := params.Projection.Digests()
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -122,20 +122,20 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if preparationState != domain.DeckPreparationQueued && preparationState != domain.DeckPreparationPreparing {
 		return FreezePreparedDeckRunResult{}, ErrInvalidTransition
 	}
-	if params.Manifest.Owner != params.OwnerID || params.Manifest.SchemaVersion != cardexport.ManifestSchemaVersion {
+	if params.Projection.Owner != params.OwnerID || params.Projection.SchemaVersion != cardexport.ManifestSchemaVersion {
 		return FreezePreparedDeckRunResult{}, ErrImmutable
 	}
-	if params.Manifest.Filename != preparationFilename {
+	if params.Projection.Filename != preparationFilename {
 		return FreezePreparedDeckRunResult{}, fmt.Errorf("%w: manifest filename contradicts preparation", ErrPreparedDeckIdentity)
 	}
 	config, err := validatePreparedDeckRunConfig(params.Config)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	selectedCount, acceptedCount, omittedCount := params.Manifest.Counts()
+	selectedCount, acceptedCount, omittedCount := params.Projection.Counts()
 	pending := make(map[int]cardexport.ManifestItem)
 	completedCount := 0
-	for _, item := range params.Manifest.Items {
+	for _, item := range params.Projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
@@ -155,7 +155,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		}
 	}
 	requested := config.ExternalTranslationConsent && config.ExternalTranslationConfigured
-	for _, item := range params.Manifest.Items {
+	for _, item := range params.Projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
@@ -194,17 +194,14 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		completedAt := time.Now().UTC()
 		translationCompletedAt = &completedAt
 	}
-	if err = sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: runID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunNumber: runNumber, State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: params.Manifest.SchemaVersion, RetryPolicyVersion: config.RetryPolicyVersion, MaxProviderAttempts: config.MaxProviderAttempts, MaxBatchGenerations: config.MaxBatchGenerations, BatchMaxRequests: config.BatchMaxRequests, BatchMaxBytes: config.BatchMaxBytes, CandidateCount: acceptedCount, CompletedCount: completedCount, TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt), RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: cardexport.PresentationVersion}); err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckRun(ctx, sqlcgen.InsertPreparedDeckRunParams{ID: runID, OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunNumber: runNumber, State: string(runState), TranslationState: string(translationState), ExecutionMode: config.ExecutionMode, TargetLanguage: config.TargetLanguage, ExternalTranslationConsent: config.ExternalTranslationConsent, ExternalTranslationConfigured: config.ExternalTranslationConfigured, ContextMode: nullableTextArg(config.ContextMode), Provider: nullableTextArg(config.Provider), ProviderVersion: nullableTextArg(config.ProviderVersion), Endpoint: nullableTextArg(config.Endpoint), Model: nullableTextArg(config.Model), ManifestSchemaVersion: params.Projection.SchemaVersion, RetryPolicyVersion: config.RetryPolicyVersion, MaxProviderAttempts: config.MaxProviderAttempts, MaxBatchGenerations: config.MaxBatchGenerations, BatchMaxRequests: config.BatchMaxRequests, BatchMaxBytes: config.BatchMaxBytes, CandidateCount: acceptedCount, CompletedCount: completedCount, TranslationCompletedAt: pgTimeArgPtr(translationCompletedAt), RenderInputVersion: cardexport.RenderInputVersion, PresentationVersion: cardexport.PresentationVersion}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, SchemaVersion: params.Manifest.SchemaVersion, ManifestDigest: digest, DeckName: params.Manifest.DeckName, Filename: params.Manifest.Filename, SelectedCount: selectedCount, AcceptedCount: acceptedCount, OmittedCount: omittedCount}); err != nil {
+	if err = sqlcgen.New(tx).InsertPreparedDeckManifest(ctx, sqlcgen.InsertPreparedDeckManifestParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, SchemaVersion: params.Projection.SchemaVersion, ManifestDigest: digest, DeckName: params.Projection.DeckName, Filename: params.Projection.Filename, SelectedCount: selectedCount, AcceptedCount: acceptedCount, OmittedCount: omittedCount}); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	for _, item := range params.Manifest.Items {
-		candidateDigest, digestErr := cardexport.CandidateDigest(item)
-		if digestErr != nil {
-			return FreezePreparedDeckRunResult{}, digestErr
-		}
+	for index, item := range params.Projection.Items {
+		candidateDigest := candidateDigests[index]
 		renderPayload, marshalErr := json.Marshal(preparedDeckRenderPayload{Morphology: item.Entry.Morphology, Gloss: item.Entry.Gloss, Plural: item.Entry.Plural, IPA: item.Entry.IPA, PrincipalParts: item.Entry.PrincipalParts, DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, CandidateSenses: item.Entry.CandidateSenses, SentenceTokens: item.Entry.SentenceTokens, SourceDocument: item.Entry.SourceDocument, Notes: item.Entry.Notes})
 		if marshalErr != nil {
 			return FreezePreparedDeckRunResult{}, marshalErr
@@ -231,7 +228,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			}
 		}
 	}
-	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, config, runID, pending)
+	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, runID)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -240,7 +237,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
 	pendingOrdinals := make([]int, 0, len(pending))
-	for _, item := range params.Manifest.Items {
+	for _, item := range params.Projection.Items {
 		if _, ok := pending[item.Ordinal]; ok {
 			pendingOrdinals = append(pendingOrdinals, item.Ordinal)
 		}
@@ -248,7 +245,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
 }
 
-func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, _ PreparedDeckRunConfig, runID string, pending map[int]cardexport.ManifestItem) ([]domain.PreparedDeckBatchChunk, error) {
+func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, candidateDigests []string, runID string) ([]domain.PreparedDeckBatchChunk, error) {
 	chunks := make([]domain.PreparedDeckBatchChunk, 0, len(params.Chunks))
 	for _, plan := range params.Chunks {
 		chunkID := plan.ID
@@ -261,11 +258,7 @@ func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezeP
 			return nil, err
 		}
 		for position, ordinal := range plan.Ordinals {
-			candidateDigest, digestErr := cardexport.CandidateDigest(pending[ordinal])
-			if digestErr != nil {
-				return nil, digestErr
-			}
-			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkID: chunkID, Generation: plan.Generation, Position: position, Ordinal: ordinal, CandidateDigest: candidateDigest}); err != nil {
+			if err = sqlcgen.New(tx).InsertPreparedDeckBatchChunkItem(ctx, sqlcgen.InsertPreparedDeckBatchChunkItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, ChunkID: chunkID, Generation: plan.Generation, Position: position, Ordinal: ordinal, CandidateDigest: candidateDigests[ordinal]}); err != nil {
 				return nil, err
 			}
 		}
@@ -373,7 +366,9 @@ func (s *PostgresStore) GetCurrentPreparedDeckRun(ctx context.Context, owner, pr
 	return preparedDeckRunFromModel(model), nil
 }
 
-func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, preparationID, runID string) (cardexport.ManifestSnapshot, string, error) {
+// LoadPreparedDeckStorageProjection loads the normalized durable projection
+// without turning it into a presentation manifest or enrichment result.
+func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, owner, preparationID, runID string) (cardexport.StorageProjection, string, error) {
 	var snapshot cardexport.ManifestSnapshot
 	manifest, err := sqlcgen.New(s.pool).GetPreparedDeckManifest(ctx, sqlcgen.GetPreparedDeckManifestParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
 	if err != nil {
@@ -389,6 +384,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 	if err != nil {
 		return snapshot, "", err
 	}
+	candidateDigests := make([]string, 0, len(items))
 	for _, model := range items {
 		var item cardexport.ManifestItem
 		item.Ordinal = int(model.Ordinal)
@@ -399,7 +395,7 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
 		var render preparedDeckRenderPayload
 		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {
-			return snapshot, "", fmt.Errorf("decode durable manifest render payload: %w", err)
+			return snapshot, "", fmt.Errorf("%w: decode durable manifest render payload: %v", ErrPreparedDeckIdentity, err)
 		}
 		item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.Plural, render.IPA, render.PrincipalParts, render.DictionaryProviderVersion
 		item.Entry.CandidateSenses = render.CandidateSenses
@@ -413,18 +409,14 @@ func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, pre
 		if provider != "" {
 			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash)}
 		}
-		calculated, digestErr := cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
-		if digestErr != nil || calculated != model.CandidateDigest {
-			return snapshot, "", ErrPreparedDeckIdentity
-		}
+		candidateDigests = append(candidateDigests, model.CandidateDigest)
 		snapshot.Items = append(snapshot.Items, item)
 	}
 	selected, accepted, omitted := snapshot.Counts()
 	if selected != selectedCount || accepted != acceptedCount || omitted != omittedCount {
 		return snapshot, "", ErrPreparedDeckIdentity
 	}
-	calculated, err := snapshot.Digest()
-	if err != nil || calculated != storedDigest {
+	if err := snapshot.ValidateDigests(storedDigest, candidateDigests); err != nil {
 		return snapshot, "", ErrPreparedDeckIdentity
 	}
 	return snapshot, storedDigest, nil

@@ -37,7 +37,7 @@ func TestListStalePreparedDecksOnlyReturnsCurrentUnretiredReadyDecks(t *testing.
 		tx, beginErr := store.Pool().Begin(ctx)
 		require.NoError(t, beginErr)
 		frozen, freezeErr := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{
-			OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(),
+			OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(),
 		})
 		require.NoError(t, freezeErr)
 		require.NoError(t, tx.Commit(ctx))

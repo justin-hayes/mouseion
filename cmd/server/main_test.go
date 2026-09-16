@@ -94,7 +94,7 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 
 func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 	workers := river.NewWorkers()
-	registerPreparedDeckWorkers(workers, nil, nil, nil, nil, nil, 0, nil)
+	registerPreparedDeckWorkers(workers, nil, nil, nil, nil, 0, nil)
 
 	for _, test := range []struct {
 		name string

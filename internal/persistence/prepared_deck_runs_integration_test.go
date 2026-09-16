@@ -60,7 +60,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 
 	params := FreezePreparedDeckRunParams{
-		OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: snapshot,
+		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: snapshot,
 		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "prompt-v3", Endpoint: "/v1/chat/completions", Model: "gpt-test"},
 		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("a", 64), InputBytes: 128, EstimatedPromptTokens: 32, Ordinals: []int{1}}},
 	}
@@ -136,7 +136,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	_, getErr = store.GetPreparedDeckRun(ctx, other.ID, preparation.ID, result.Run.ID)
 	assert.ErrorIs(t, getErr, ErrNotFound)
 
-	loaded, loadedDigest, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	loaded, loadedDigest, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 94, loaded.Items[0].Quality.Score)
 	assert.Equal(t, 0.5, loaded.Items[0].Quality.GDEXScore)
@@ -156,6 +156,20 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, wantDigest, loadedDigest)
 	_, err = cardexport.ManifestFromSnapshot(loaded)
 	require.NoError(t, err, "manifest round trip")
+	records, err := store.LoadPreparedDeckStoredRecords(ctx, owner.ID, preparation.ID, result.Run.ID)
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	assert.Equal(t, 0, records[0].Ordinal)
+	assert.Equal(t, keys[0], records[0].CacheKey)
+	assert.True(t, records[0].Found)
+	assert.Equal(t, "house", records[0].Entry.Translation)
+	assert.Equal(t, 1, records[1].Ordinal)
+	assert.Equal(t, keys[1], records[1].CacheKey)
+	assert.False(t, records[1].Found)
+	_, _, err = store.LoadPreparedDeckStorageProjection(ctx, other.ID, preparation.ID, result.Run.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
+	_, err = store.LoadPreparedDeckStoredRecords(ctx, other.ID, preparation.ID, result.Run.ID)
+	assert.ErrorIs(t, err, ErrNotFound)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_manifests SET deck_name='mutated' WHERE run_id=$1`, result.Run.ID)
 	assert.Error(t, err, "immutable manifest update succeeded")
 	jobTx, err := store.Pool().Begin(ctx)
@@ -217,12 +231,14 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, 2, run.CompletedCount, "finish outcome")
 	assert.True(t, finalizerInserted, "finish outcome")
 
-	frozenManifest, exact, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
+	frozenProjection, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	require.Len(t, exact, 2, "finalization inputs")
-	assert.Equal(t, keys[0], exact[0].CacheKey, "finalization inputs")
-	assert.Equal(t, keys[1], exact[1].CacheKey, "finalization inputs")
-	artifact, err := cardexport.NewService(store).RenderManifest(ctx, frozenManifest, exact)
+	require.Len(t, stored, 2, "finalization inputs")
+	assert.Equal(t, keys[0], stored[0].CacheKey, "finalization inputs")
+	assert.Equal(t, keys[1], stored[1].CacheKey, "finalization inputs")
+	deck, err := cardexport.NewPresentation(nil).Restore(frozenProjection)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
 	assert.Equal(t, "operate", artifact.Generated[0].Note.Gloss, "cached none-fit selection was not applied")
 	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss, "cached fallback gloss was not counted")
@@ -280,15 +296,17 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
-	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot()})
+	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot()})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 	claimToken := uuid.NewString()
 	_, err = store.ClaimPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID, 0, claimToken, time.Now().UTC().Add(time.Minute))
 	require.NoError(t, err)
-	frozen, exact, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
+	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	artifact, err := cardexport.NewService(store).RenderManifest(ctx, frozen, exact)
+	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
 	_, err = store.CompletePreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID, claimToken, artifact)
 	require.NoError(t, err)
@@ -301,9 +319,11 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE cards SET front='stale projection' WHERE owner_id=$1`, owner.ID)
 	require.NoError(t, err)
-	frozen, exact, err = store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
+	frozen, stored, err = store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	rerendered, err := cardexport.NewService(store).RenderManifest(ctx, frozen, exact)
+	deck, err = cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	rerendered, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
 	rerendered.APKG = []byte("rerendered artifact")
 	updated, err := store.SupersedePreparedDeckArtifact(ctx, owner.ID, preparation.ID, result.Run.ID, cardexport.PresentationVersion, rerendered)
@@ -346,7 +366,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)
-	params := FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(), Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"}, Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("b", 64), InputBytes: 64, Ordinals: []int{0}}}}
+	params := FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(), Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"}, Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("b", 64), InputBytes: 64, Ordinals: []int{0}}}}
 	freeze := func() FreezePreparedDeckRunResult {
 		t.Helper()
 		tx, beginErr := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
@@ -426,7 +446,7 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	manifest, err = manifest.BindCacheKeys(keys)
 	require.NoError(t, err)
 	params := FreezePreparedDeckRunParams{
-		OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(),
+		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(),
 		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test", MaxBatchGenerations: 2, MaxProviderAttempts: 2},
 		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("c", 64), InputBytes: 128, Ordinals: []int{0, 1}}},
 	}
@@ -555,14 +575,14 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
-	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: snapshot, Config: PreparedDeckRunConfig{ExecutionMode: "batch"}})
+	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: snapshot, Config: PreparedDeckRunConfig{ExecutionMode: "batch"}})
 	if err != nil {
 		_ = tx.Rollback(ctx)
 		require.NoError(t, err)
 	}
 	require.NoError(t, tx.Commit(ctx))
 
-	loaded, _, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	loaded, _, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	require.Len(t, loaded.Items, 1)
 	require.Equal(t, snapshot.Items[0].Entry.SentenceTokens, loaded.Items[0].Entry.SentenceTokens, "durable manifest lost the frozen parse")

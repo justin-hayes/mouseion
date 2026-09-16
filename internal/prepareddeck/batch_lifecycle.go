@@ -124,11 +124,15 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 	if (batch.RequestCounts.Completed > 0 && batch.OutputFileID == "") || (batch.RequestCounts.Failed > 0 && batch.ErrorFileID == "") {
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "missing_result", "missing_provider_file")
 	}
-	snapshot, _, err := w.Store.LoadPreparedDeckManifest(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "manifest_load")
 	}
-	items, byOrdinal, err := batchResultItems(snapshot, chunk.Ordinals)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	if err != nil {
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "manifest_load")
+	}
+	items, byOrdinal, err := batchResultItems(deck, chunk.Ordinals)
 	if err != nil {
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "chunk_membership")
 	}
@@ -178,12 +182,12 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 	for _, item := range items {
 		providerOutcome, found := decoded[item.Ordinal]
 		if found && providerOutcome.Successful() {
-			manifestItem := byOrdinal[item.Ordinal]
+			workItem := byOrdinal[item.Ordinal]
 			response := providerOutcome.Response
 			for _, warning := range response.Warnings {
 				log.Printf("prepared deck translation: %s", warning)
 			}
-			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: *manifestItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
+			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
 			continue
 		}
 		class := enrichment.ProviderErrorExpired
@@ -395,20 +399,16 @@ func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
 	}
 }
 
-func batchResultItems(snapshot cardexport.ManifestSnapshot, ordinals []int) ([]enrichment.BatchTranslationItem, map[int]cardexport.ManifestItem, error) {
-	manifestItems := make(map[int]cardexport.ManifestItem, len(snapshot.Items))
-	for _, item := range snapshot.Items {
-		manifestItems[item.Ordinal] = item
-	}
+func batchResultItems(deck cardexport.FrozenDeck, ordinals []int) ([]enrichment.BatchTranslationItem, map[int]cardexport.WorkItem, error) {
 	items := make([]enrichment.BatchTranslationItem, 0, len(ordinals))
-	selected := make(map[int]cardexport.ManifestItem, len(ordinals))
+	selected := make(map[int]cardexport.WorkItem, len(ordinals))
 	for _, ordinal := range ordinals {
-		item, ok := manifestItems[ordinal]
-		if !ok || item.Disposition != cardexport.ManifestAccepted || item.CacheKey == nil {
+		item, ok := deck.WorkByOrdinal(ordinal)
+		if !ok || item.CacheKey == (enrichment.CacheKey{}) {
 			return nil, nil, errors.New("invalid Batch manifest item")
 		}
 		selected[ordinal] = item
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: enrichment.TranslationRequest{Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: item.Request})
 	}
 	return items, selected, nil
 }

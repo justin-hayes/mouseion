@@ -111,7 +111,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, analysisClient, translator, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, analysisClient, nil, nil, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: analysisClient, PollInterval: batchConfig.PollInterval, Metrics: metrics})
-	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: preparedExport, Metrics: metrics})
+	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: cardexport.NewPresentation(nil), Metrics: metrics})
 	prepareddeck.AddBatchCleanupWorker(workers, &prepareddeck.BatchCleanupWorker{Store: store, Metrics: metrics})
 	prepareddeck.AddRecoveryWorkerWithMetrics(workers, store, analysisClient, batchConfig.PollInterval, metrics)
 	require.NoError(t, prepareddeck.EnsureRecoveryJob(ctx, store, analysisClient))

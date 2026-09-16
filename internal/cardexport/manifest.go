@@ -129,6 +129,44 @@ func (s ManifestSnapshot) Digest() (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// Digests validates a storage projection and returns the manifest and item
+// identities that persistence stores alongside its normalized rows.
+func (s ManifestSnapshot) Digests() (string, []string, error) {
+	if _, err := s.canonical(); err != nil {
+		return "", nil, err
+	}
+	manifestDigest, err := s.Digest()
+	if err != nil {
+		return "", nil, err
+	}
+	candidateDigests := make([]string, len(s.Items))
+	for i, item := range s.Items {
+		candidateDigests[i], err = CandidateDigestVersion(item, s.SchemaVersion)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+	return manifestDigest, candidateDigests, nil
+}
+
+// ValidateDigests checks identities recovered from normalized persistence
+// without exposing the historical codec to the persistence adapter.
+func (s ManifestSnapshot) ValidateDigests(manifestDigest string, candidateDigests []string) error {
+	calculatedManifest, calculatedCandidates, err := s.Digests()
+	if err != nil {
+		return err
+	}
+	if calculatedManifest != manifestDigest || len(calculatedCandidates) != len(candidateDigests) {
+		return fmt.Errorf("%w: stored manifest identity does not match projection", ErrInvalidInput)
+	}
+	for i := range calculatedCandidates {
+		if calculatedCandidates[i] != candidateDigests[i] {
+			return fmt.Errorf("%w: stored candidate identity does not match projection", ErrInvalidInput)
+		}
+	}
+	return nil
+}
+
 // CandidateDigest returns the durable identity of one ordered decision.
 func CandidateDigest(item ManifestItem) (string, error) {
 	return CandidateDigestVersion(item, ManifestSchemaVersion)
@@ -326,11 +364,12 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 	var key *canonicalCacheKey
 	if item.CacheKey != nil {
 		// Legacy v1 manifests persisted cache keys with an empty target
-		// language (it was never part of the v1 digest). v2 requires an
-		// explicit target language.
+		// language (it was never part of the v1 digest). The normalized
+		// storage projection may carry the database default, which is also
+		// ignored by the v1 codec.
 		targetOK := item.CacheKey.TargetLanguage != ""
 		if schemaVersion == LegacyManifestSchemaVersion {
-			targetOK = item.CacheKey.TargetLanguage == ""
+			targetOK = true
 		}
 		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
 			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)

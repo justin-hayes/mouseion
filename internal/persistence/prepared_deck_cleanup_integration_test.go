@@ -38,7 +38,7 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	frozen, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{
-		OwnerID: owner.ID, PreparationID: preparation.ID, Manifest: manifest.Snapshot(),
+		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(),
 		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"},
 		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("a", 64), InputBytes: 64, Ordinals: []int{0}}},
 	})

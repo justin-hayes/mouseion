@@ -131,7 +131,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		if getErr != nil {
 			return persistence.FreezePreparedDeckRunResult{}, getErr
 		}
-		_, digest, getErr := c.store.LoadPreparedDeckManifest(ctx, request.OwnerID, request.PreparationID, run.ID)
+		_, digest, getErr := c.store.LoadPreparedDeckStorageProjection(ctx, request.OwnerID, request.PreparationID, run.ID)
 		if getErr != nil {
 			return persistence.FreezePreparedDeckRunResult{}, getErr
 		}
@@ -201,27 +201,36 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 
 type durableFinalizerStore interface {
 	ClaimPreparedDeckFinalization(context.Context, string, string, string, int, string, time.Time) (domain.PreparedDeckRun, error)
-	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error)
+	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error)
 	CompletePreparedDeckRun(context.Context, string, string, string, string, cardexport.Artifact) (domain.DeckPreparation, error)
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
 	FailPreparedDeckFinalization(context.Context, string, string, string, string, string, string) error
 }
 
-type durableManifestRenderer interface {
-	RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error)
+type durablePresentation interface {
+	Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error)
+	Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error)
 }
 
 type DurableFinalizer struct {
 	Store         durableFinalizerStore
-	Renderer      durableManifestRenderer
+	Renderer      durablePresentation
 	Now           func() time.Time
 	LeaseDuration time.Duration
 	Metrics       BatchMetrics
 }
 
+func preparedDeckRunFacts(run domain.PreparedDeckRun) cardexport.RunFacts {
+	return cardexport.RunFacts{
+		Consent: run.ExternalTranslationConsent, Configured: run.ExternalTranslationConfigured,
+		ExecutionMode: string(run.ExecutionMode), TargetLanguage: run.TargetLanguage,
+		Provider: run.Provider, ProviderVersion: run.ProviderVersion,
+	}
+}
+
 type durableRerenderStore interface {
 	GetPreparedDeckRun(context.Context, string, string, string) (domain.PreparedDeckRun, error)
-	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error)
+	LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error)
 	SupersedePreparedDeckArtifact(context.Context, string, string, string, int, cardexport.Artifact) (domain.DeckPreparation, error)
 	GetDeckPreparation(context.Context, string, string) (domain.DeckPreparation, error)
 	MarkPreparedDeckRequiresRepreparation(context.Context, string, string, string) error
@@ -233,7 +242,7 @@ type durableRerenderCorpusStore interface {
 
 type DurableRerenderer struct {
 	Store    durableRerenderStore
-	Renderer durableManifestRenderer
+	Renderer durablePresentation
 }
 
 // Rerender replays a completed run's frozen specification and exact overlay.
@@ -265,27 +274,31 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if run.PresentationVersion >= presentationVersion && run.RenderInputVersion >= cardexport.RenderInputVersion {
 		return preparation, nil
 	}
-	manifest, exact, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
+	projection, stored, err := r.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	manifest, err = recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, manifest)
+	projection, err = recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, projection)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	artifact, err := r.Renderer.RenderManifest(ctx, manifest, exact)
+	deck, err := r.Renderer.Restore(projection)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	artifact, _, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
 	}
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
 }
 
-func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, manifest cardexport.Manifest) (cardexport.Manifest, error) {
+func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, projection cardexport.StorageProjection) (cardexport.StorageProjection, error) {
 	if renderInputVersion >= cardexport.RenderInputVersion {
-		return manifest, nil
+		return projection, nil
 	}
 
-	snapshot := manifest.Snapshot()
+	snapshot := projection
 	ordinalsByCorpus := make(map[string][]int64)
 	itemsByCorpus := make(map[string][]int)
 	for index, item := range snapshot.Items {
@@ -293,7 +306,7 @@ func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, 
 			continue
 		}
 		if strings.TrimSpace(item.CorpusID) == "" || item.SentenceOrdinal < 0 {
-			return cardexport.Manifest{}, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
+			return cardexport.StorageProjection{}, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
 		}
 		if _, ok := itemsByCorpus[item.CorpusID]; !ok {
 			ordinalsByCorpus[item.CorpusID] = nil
@@ -302,32 +315,32 @@ func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, 
 		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], index)
 	}
 	if len(itemsByCorpus) == 0 {
-		return manifest, nil
+		return projection, nil
 	}
 
 	corpusStore, ok := store.(durableRerenderCorpusStore)
 	if !ok {
-		return cardexport.Manifest{}, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
+		return cardexport.StorageProjection{}, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
 	}
 	for corpusID, indexes := range itemsByCorpus {
 		sentences, err := corpusStore.ListCorpusSentences(ctx, owner, corpusID, ordinalsByCorpus[corpusID])
 		if err != nil {
-			return cardexport.Manifest{}, fmt.Errorf("recover corpus %s: %w", corpusID, err)
+			return cardexport.StorageProjection{}, fmt.Errorf("recover corpus %s: %w", corpusID, err)
 		}
 		for _, index := range indexes {
 			item := snapshot.Items[index]
 			sentence, found := sentences[item.SentenceOrdinal]
 			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
-				return cardexport.Manifest{}, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
+				return cardexport.StorageProjection{}, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
 			}
 			snapshot.Items[index].Entry.SentenceTokens = sentence.Tokens
 		}
 	}
-	recovered, err := cardexport.ManifestFromSnapshot(snapshot)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 	if err != nil {
-		return cardexport.Manifest{}, fmt.Errorf("rebuild recovered manifest: %w", err)
+		return cardexport.StorageProjection{}, fmt.Errorf("rebuild recovered projection: %w", err)
 	}
-	return recovered, nil
+	return deck.StorageProjection(), nil
 }
 
 func hasDependencyParse(sentence analyzer.Sentence) bool {
@@ -407,15 +420,22 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	if run.State == domain.PreparedDeckRunCompleted {
 		return f.Store.GetDeckPreparation(ctx, owner, preparationID)
 	}
-	manifest, exact, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
+	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckIdentity) {
 			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
 		}
 		return domain.DeckPreparation{}, err
 	}
-	artifact, err := f.Renderer.RenderManifest(ctx, manifest, exact)
+	deck, err := f.Renderer.Restore(projection)
 	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	artifact, _, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
+	if err != nil {
+		if errors.Is(err, cardexport.ErrInvalidInput) {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
+		}
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)
 	}

@@ -90,7 +90,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		ProviderVersion: key.ProviderVersion, Endpoint: enrichment.OpenAIChatCompletionsEndpoint, Model: "acceptance-model",
 	}
 	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{
-		RunID: uuid.NewString(), Manifest: manifest.Snapshot(), Config: config,
+		RunID: uuid.NewString(), Projection: manifest.Snapshot(), Config: config,
 	}}
 	result, err := NewDurableCoordinator(store, client, planner).Freeze(ctx, DurableFreezeRequest{
 		OwnerID: owner.ID, PreparationID: preparation.ID, ExternalTranslationConsent: true,
@@ -103,10 +103,11 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	assert.Equal(t, 1, calls, "initial provider calls")
 	require.NoError(t, client.Stop(ctx))
 
-	renderer := cardexport.NewService(store)
-	frozen, exact, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
+	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	artifact, err := renderer.RenderManifest(ctx, frozen, exact)
+	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
 	artifact.APKG = legacyPresentationArtifact(t, artifact.APKG)
 	claimToken := uuid.NewString()
@@ -147,13 +148,14 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET presentation_version=$4 WHERE owner_id=$1 AND preparation_id=$2 AND id=$3`, owner.ID, preparation.ID, result.Run.ID, oldPresentationVersion)
 	require.NoError(t, err)
-	manifestBefore, digestBefore, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	manifestBefore, digestBefore, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	var analysisRunsBefore, selectionCandidatesBefore, cacheEntriesBefore int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&analysisRunsBefore))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, owner.ID).Scan(&selectionCandidatesBefore))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM enrichment_cache WHERE language='de'`).Scan(&cacheEntriesBefore))
 
+	renderer := cardexport.NewPresentation(nil)
 	rerenderWorkers := river.NewWorkers()
 	rerenderClient, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: rerenderWorkers,
@@ -213,7 +215,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM enrichment_cache WHERE language='de'`).Scan(&cacheEntriesAfter))
 	assert.Equal(t, selectionCandidatesBefore, selectionCandidatesAfter)
 	assert.Equal(t, cacheEntriesBefore, cacheEntriesAfter)
-	manifestAfter, digestAfter, err := store.LoadPreparedDeckManifest(ctx, owner.ID, preparation.ID, result.Run.ID)
+	manifestAfter, digestAfter, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, manifestBefore, manifestAfter)
 	assert.Equal(t, digestBefore, digestAfter)
