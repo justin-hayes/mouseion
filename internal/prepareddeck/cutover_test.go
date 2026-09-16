@@ -150,6 +150,22 @@ func TestPreparedDeckPlannerLogsGlossCoverageAtFreezeSeam(t *testing.T) {
 	assert.Contains(t, output.String(), `gloss_coverage {"event":"gloss_coverage","groups":[{"language":"de","pos":"NOUN","selected":1,"with_gloss":0,"without_gloss":1}]}`)
 }
 
+func TestPreparedDeckPlannerPreservesEmptyGlossCoverageEvent(t *testing.T) {
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	assembler := &cutoverAssembler{deckName: "Book"}
+	_, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, false)
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), `gloss_coverage {"event":"gloss_coverage","groups":[]}`)
+}
+
 func TestInputAssemblerSelectsRecurringUnknownVocabularyFromFacts(t *testing.T) {
 	projection := cutoverProjection()
 	makeFact := func(lemma string, occurrences int) persistence.PreparedDeckCandidateFacts {

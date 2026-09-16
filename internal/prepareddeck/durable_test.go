@@ -267,6 +267,27 @@ func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 	assert.Equal(t, 1, store.supersedeCalls)
 }
 
+func TestDurableRerendererLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"},
+	}
+	renderer := &finalizerRendererStub{diagnostics: cardexport.FinalizeDiagnostics{DegradationCodes: []string{cardexport.DegradationInvalidSenseSelection}}}
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 2)
+
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), "prepared deck translation: invalid sense selection; using deterministic order")
+}
+
 func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
 	retiredAt := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
 	store := &finalizerStoreStub{

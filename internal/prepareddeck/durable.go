@@ -310,10 +310,11 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	artifact, _, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
+	artifact, diagnostics, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
 	}
+	logFinalizeDiagnostics(diagnostics)
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
 }
 

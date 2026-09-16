@@ -49,5 +49,8 @@ func glossCoverage(entries []Entry) []GlossCoverage {
 }
 
 func cloneGlossCoverage(groups []GlossCoverage) []GlossCoverage {
-	return append([]GlossCoverage(nil), groups...)
+	if groups == nil {
+		return nil
+	}
+	return append([]GlossCoverage{}, groups...)
 }
