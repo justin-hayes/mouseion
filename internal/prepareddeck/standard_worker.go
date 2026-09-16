@@ -118,12 +118,6 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
-	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
-		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
-			return nil
-		}
-		return err
-	}
 	for _, warning := range response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
