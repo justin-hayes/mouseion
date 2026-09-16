@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -187,6 +188,15 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 		assert.True(t, found, "cache %d", i)
 		assert.NotEmpty(t, entry.Translation, "cache %d", i)
 	}
+	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	frozen, stored, err := run.store.LoadPreparedDeckFinalization(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, preparedDeckRunFacts(finalRun))
+	require.NoError(t, err)
+	assert.Len(t, artifact.Generated, len(run.keys))
 }
 
 func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing.T) {
@@ -362,12 +372,25 @@ func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	tx, err := run.store.Pool().Begin(ctx)
 	require.NoError(t, err)
-	_, err = restarted.InsertTx(ctx, tx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}, &river.InsertOpts{Queue: TranslationQueue})
+	inserted, err := restarted.InsertTx(ctx, tx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}, &river.InsertOpts{Queue: TranslationQueue})
 	require.NoError(t, err)
+	require.NotNil(t, inserted)
+	require.NotNil(t, inserted.Job)
 	require.NoError(t, tx.Commit(ctx))
 	require.NoError(t, restarted.Start(ctx))
 	defer restarted.Stop(context.Background())
-	time.Sleep(300 * time.Millisecond)
+	for {
+		job, err := restarted.JobGet(ctx, inserted.Job.ID)
+		require.NoError(t, err)
+		if job.State == rivertype.JobStateCompleted {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "restarted River job did not complete", "state=%s", job.State)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 	callsAfter, _ := provider.stats()
 	assert.Equal(t, callsBefore, callsAfter, "completed outcome caused provider call after restart: before=%d after=%d", callsBefore, callsAfter)
 }
