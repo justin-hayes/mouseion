@@ -215,12 +215,16 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		}
 		return artifact, manifestDiagnostics(manifest), nil
 	}
-	if !facts.Consent || !facts.Configured {
-		return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: external run facts contradict manifest cache identity", ErrInvalidInput)
-	}
-	if facts.TargetLanguage != "" || facts.Provider != "" || facts.ProviderVersion != "" {
+	if facts.Consent && facts.Configured {
+		mode := strings.ToLower(strings.TrimSpace(facts.ExecutionMode))
+		if mode != "standard" && mode != "batch" {
+			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: invalid prepared deck execution mode", ErrInvalidInput)
+		}
+		if facts.TargetLanguage == "" || facts.Provider == "" || facts.ProviderVersion == "" {
+			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: incomplete external run facts", ErrInvalidInput)
+		}
 		for _, key := range keys {
-			if (facts.TargetLanguage != "" && key.TargetLanguage != facts.TargetLanguage) || (facts.Provider != "" && key.Provider != facts.Provider) || (facts.ProviderVersion != "" && key.ProviderVersion != facts.ProviderVersion) {
+			if key.TargetLanguage != facts.TargetLanguage || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
 				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
 			}
 		}
@@ -236,7 +240,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		}
 		byKey[result.CacheKey] = result
 	}
-	required := strings.EqualFold(strings.TrimSpace(facts.ExecutionMode), "standard")
+	required := facts.Consent && facts.Configured && strings.EqualFold(strings.TrimSpace(facts.ExecutionMode), "standard")
 	aligned := make([]StoredResult, len(keys))
 	degraded := make([]string, 0)
 	for i, key := range keys {

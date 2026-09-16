@@ -1490,8 +1490,8 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 			return fmt.Errorf("%w: enrichment provenance does not match cache identity", ErrInvalidInput)
 		}
 	}
-	if available {
-		candidate := result.Candidate
+	candidate := result.Candidate
+	if available || candidate.Language != "" || candidate.CanonicalLemma != "" || candidate.UPOS != "" || candidate.TargetWord != "" || candidate.ExampleSentence != "" || candidate.DictionaryProviderVersion != "" {
 		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*input) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
 			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
