@@ -38,8 +38,13 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	require.Len(t, work, 1)
 	assert.Equal(t, "en", work[0].CacheKey.TargetLanguage)
 	assert.Equal(t, "dictionary-v1", work[0].DictionaryProviderVersion)
-	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house is old today.", SenseSelection: []int{1, 0}}
-	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	result := enrichment.Result{
+		Candidate:           work[0].RequestCandidate(),
+		Translation:         enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+		SentenceTranslation: enrichment.Field[string]{Value: "The house is old today.", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+		SenseSelection:      enrichment.Field[[]int]{Value: []int{1, 0}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+	}
+	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
 	assert.Equal(t, "building · house", artifact.Generated[0].Note.Gloss)
