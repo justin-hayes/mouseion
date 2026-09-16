@@ -74,7 +74,7 @@ type ManifestSnapshot struct {
 	Items         []ManifestItem
 }
 
-func (m Manifest) Snapshot() ManifestSnapshot {
+func (m manifest) Snapshot() ManifestSnapshot {
 	schemaVersion := m.schemaVersion
 	if schemaVersion == 0 {
 		schemaVersion = ManifestSchemaVersion
@@ -204,13 +204,13 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// ManifestFromSnapshot validates a persisted snapshot and rebuilds the exact
+// manifestFromSnapshot validates a persisted snapshot and rebuilds the exact
 // in-memory render plan without re-running selection or the quality gate.
-func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
+func manifestFromSnapshot(snapshot ManifestSnapshot) (manifest, error) {
 	if _, err := snapshot.canonical(); err != nil {
-		return Manifest{}, err
+		return manifest{}, err
 	}
-	manifest := Manifest{
+	manifest := manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
 		schemaVersion: snapshot.SchemaVersion,
 		accepted:      make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),

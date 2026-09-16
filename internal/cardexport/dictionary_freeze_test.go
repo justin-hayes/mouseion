@@ -26,14 +26,14 @@ func (d lexicalStub) Lookup(context.Context, enrichment.LexicalLookupRequest) (e
 }
 
 func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
-	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
 		Gender:         "Neut",
 		Article:        "das",
 		Plural:         "Häuser",
 		IPA:            "/haʊ̯s/",
 		PrincipalParts: "geht · ging · gegangen",
 		Senses:         []enrichment.LexicalSense{{Gloss: "building"}},
-	}})
+	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	assert.Equal(t, "building", entry.Gloss)
@@ -42,7 +42,7 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	assert.Equal(t, "geht · ging · gegangen", entry.PrincipalParts)
 	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 
-	manifest := NewManifest("owner", "Book", []Entry{entry})
+	manifest := newManifest("owner", "Book", []Entry{entry})
 	snapshot := manifest.Snapshot()
 	assert.Equal(t, entry.Gloss, snapshot.Items[0].Entry.Gloss)
 	assert.Equal(t, entry.IPA, snapshot.Items[0].Entry.IPA)
@@ -61,10 +61,10 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 }
 
 func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
-	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
 		Gender: "Masc", Article: "der", Plural: "Gauner",
 		Senses: []enrichment.LexicalSense{{Gloss: "rogue"}},
-	}})
+	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "gauner", UPOS: "NOUN", Sentence: "Viele Gauner wurden gestern verhaftet.", TargetWord: "Gauner"}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	note, err := makeNote("owner", renderInputFromEntry(entry))
@@ -72,10 +72,10 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 	assert.Equal(t, "Gauner", note.Plural)
 	assert.Contains(t, note.BackExtra, "der Gauner (Pl. Gauner)")
 
-	service = NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+	service = &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
 		Gender: "", Article: "", Plural: "",
 		Senses: []enrichment.LexicalSense{{Gloss: "parents"}},
-	}})
+	}}}
 	entry = Entry{Language: "de", CanonicalLemma: "eltern", UPOS: "NOUN", Sentence: "Meine Eltern wohnen seit Jahren am See.", TargetWord: "Eltern"}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	note, err = makeNote("owner", renderInputFromEntry(entry))
@@ -85,7 +85,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 }
 
 func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
-	service := NewServiceWithLexicalProvider(nil, lexicalStub{})
+	service := &lexicalResolver{lexical: lexicalStub{}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: `{"Gender":"Neut"}`}
 	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
 	note, err := makeNote("owner", renderInputFromEntry(Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`}))
@@ -95,10 +95,10 @@ func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 }
 
 func TestNonNounPluralIsNotRenderedOnCard(t *testing.T) {
-	service := NewServiceWithLexicalProvider(nil, lexicalStub{found: true, result: enrichment.LexicalEntry{
+	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
 		Plural: "stehen auf",
 		Senses: []enrichment.LexicalSense{{Gloss: "to get up"}},
-	}})
+	}}}
 	for _, test := range []struct {
 		name string
 		upos string
@@ -128,7 +128,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	index, err := dictionary.OpenIndex(path)
 	require.NoError(t, err)
 	defer index.Close()
-	service := NewServiceWithLexicalProvider(nil, index)
+	service := &lexicalResolver{lexical: index}
 	entry := Entry{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus",
@@ -155,7 +155,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	assert.Equal(t, "street", sharpS.Gloss)
 	assert.Equal(t, "Straßen", sharpS.Plural)
 
-	manifest := NewManifest("owner", "Book", []Entry{sharpS})
+	manifest := newManifest("owner", "Book", []Entry{sharpS})
 	snapshot := manifest.Snapshot()
 	assert.Equal(t, sharpS.Gloss, snapshot.Items[0].Entry.Gloss)
 	note, err = makeNote("owner", renderInputFromEntry(snapshot.Items[0].Entry))
@@ -202,7 +202,7 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	index, err := dictionary.OpenIndex(path)
 	require.NoError(t, err)
 	defer index.Close()
-	service := NewServiceWithLexicalProvider(nil, index)
+	service := &lexicalResolver{lexical: index}
 	for _, test := range []struct {
 		lemma, target, sentence, article, plural, gloss string
 	}{

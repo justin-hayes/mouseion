@@ -52,7 +52,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, owner.ID)
 	require.NoError(t, err)
 
-	manifest := cardexport.NewManifest(owner.ID, source.Title, []cardexport.Entry{{
+	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus steht heute am ruhigen Fluss.", TargetWord: "Haus", SourceDocument: source.Title,
 		FirstEncounter: 1, SentenceTokens: []analyzer.Token{
@@ -66,7 +66,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 			{Surface: "Fluss", UPOS: "NOUN", Dependency: "obl", Head: 3},
 		},
 	}})
-	candidate := manifest.EnrichmentCandidates()[0]
+	candidate := manifest.Candidates()[0]
 	key := enrichment.CacheKey{
 		Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma,
 		UPOS: candidate.UPOS, Provider: "acceptance-provider", ProviderVersion: "1",

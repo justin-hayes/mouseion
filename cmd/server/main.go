@@ -120,12 +120,12 @@ func main() {
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
-	exportService := cardexport.NewServiceWithLexicalProvider(store, dictionaryIndex)
+	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
-	prepareddeck.AddPreparedDeckWorker(workers, store, exportService, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
+	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
 		log.Fatal(err)

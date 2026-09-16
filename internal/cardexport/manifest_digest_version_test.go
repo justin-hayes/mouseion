@@ -15,10 +15,10 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "haus", UPOS: "noun", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Translation: "stale", SentenceTranslation: "stale sentence", SentenceTranslationTarget: "stale target", Morphology: `{"Gender":"Neut"}`, SourceDocument: "Buch", Notes: "note", FirstEncounter: 10},
 		{OwnerID: "owner-1", Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: "Buch", FirstEncounter: 20},
 	}
-	manifest := NewManifest("owner-1", "Buch", entries)
-	candidate := manifest.EnrichmentCandidates()[0]
+	manifest := newManifest("owner-1", "Buch", entries)
+	candidate := manifest.enrichmentCandidatesProjection()[0]
 	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
-	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	bound, err := manifest.bindCacheKeys([]enrichment.CacheKey{key})
 	require.NoError(t, err)
 	snapshot := bound.Snapshot()
 
@@ -27,7 +27,7 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 	// with an empty target to verify the historical digest is preserved.
 	legacyKey := key
 	legacyKey.TargetLanguage = ""
-	legacyBound, err := manifest.BindCacheKeys([]enrichment.CacheKey{legacyKey})
+	legacyBound, err := manifest.bindCacheKeys([]enrichment.CacheKey{legacyKey})
 	require.NoError(t, err)
 	legacy := legacyBound.Snapshot()
 	legacy.SchemaVersion = LegacyManifestSchemaVersion
@@ -54,7 +54,7 @@ func TestLegacyAndV2ManifestDigestStability(t *testing.T) {
 }
 
 func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {
-	manifest := NewManifest("owner-1", "Buch", []Entry{{
+	manifest := newManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus",
 	}})
@@ -80,7 +80,7 @@ func TestQualityDiagnosticsAffectTheCurrentManifestDigest(t *testing.T) {
 }
 
 func TestPluralIsAV5ManifestDigestInput(t *testing.T) {
-	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+	snapshot := newManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Plural: "Häuser",
 	}}).Snapshot()
@@ -106,7 +106,7 @@ func TestPluralIsAV5ManifestDigestInput(t *testing.T) {
 }
 
 func TestPronunciationAndPrincipalPartsAreV5ManifestDigestInputs(t *testing.T) {
-	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+	snapshot := newManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "gehen", UPOS: "VERB",
 		Sentence: "Wir gehen heute gemeinsam zum Bahnhof.", TargetWord: "gehen",
 		IPA: "/ˈɡeːən/", PrincipalParts: "geht · ging · gegangen",
@@ -134,7 +134,7 @@ func TestPronunciationAndPrincipalPartsAreV5ManifestDigestInputs(t *testing.T) {
 }
 
 func TestCandidateSensesAreV6ManifestDigestInputs(t *testing.T) {
-	snapshot := NewManifest("owner-1", "Buch", []Entry{{
+	snapshot := newManifest("owner-1", "Buch", []Entry{{
 		Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "building",
 		CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}},

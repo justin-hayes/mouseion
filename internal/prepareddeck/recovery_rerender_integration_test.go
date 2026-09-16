@@ -61,7 +61,7 @@ func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persiste
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	result, err := store.FreezePreparedDeckRunTx(ctx, tx, persistence.FreezePreparedDeckRunParams{
-		OwnerID: owner, PreparationID: preparation.ID, Projection: cardexport.NewManifest(owner, name, nil).Snapshot(),
+		OwnerID: owner, PreparationID: preparation.ID, Projection: cardexport.NewTestManifest(owner, name, nil).Snapshot(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))

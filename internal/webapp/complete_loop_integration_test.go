@@ -105,7 +105,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	analysisClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), &analyzertest.Fake{AnalyzeFunc: completeLoopAnalysis}, analyzertest.ReadyDepparseCapabilityProvider(), selectionService, 1, workers)
 	require.NoError(t, err)
 	catalogueSyncService := cataloguesync.NewService(store, analysisClient, opdsService, capabilities)
-	preparedExport := cardexport.NewService(store)
+	preparedExport := cardexport.NewPresentation(nil)
 	metrics := prepareddeck.NewMetricsCollector()
 	prepareddeck.AddPreparedDeckWorker(workers, store, preparedExport, analysisClient, codec, batchConfig, preparedConfig, true)
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, analysisClient, translator, preparedConfig, time.Second, metrics)

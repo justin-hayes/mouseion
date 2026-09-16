@@ -128,9 +128,9 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	for _, candidate := range selected {
 		var entry cardexport.Entry
 		if corpusID != "" {
-			entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate, false, false)
+			entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate)
 		} else {
-			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate, false, false)
+			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)

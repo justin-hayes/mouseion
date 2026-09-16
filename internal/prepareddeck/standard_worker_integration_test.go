@@ -507,7 +507,7 @@ func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 		}
 		select {
 		case <-ctx.Done():
-			require.FailNow(t, "replayed River job did not complete", "state=%s", job.State)
+			require.FailNow(t, "restarted River job did not complete", "state=%s", job.State)
 		case <-time.After(10 * time.Millisecond):
 		}
 	}

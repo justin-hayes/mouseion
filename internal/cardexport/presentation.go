@@ -99,7 +99,7 @@ func NewPresentation(provider enrichment.LexicalProvider) *Presentation {
 
 // FrozenDeck is an opaque, immutable presentation plan.
 type FrozenDeck struct {
-	manifest Manifest
+	manifest manifest
 }
 
 // Freeze selects representative sentences, resolves local lexical facts,
@@ -150,23 +150,24 @@ func (p *Presentation) freeze(ctx context.Context, explicitOwner, explicitDeckNa
 		return candidateKey(ordered[i].Candidate) < candidateKey(ordered[j].Candidate)
 	})
 
-	service := &Service{lexical: p.lexical}
+	resolver := &lexicalResolver{lexical: p.lexical}
 	entries := make([]Entry, 0, len(ordered))
 	for _, projection := range ordered {
 		entry := cloneEntry(projection.Entry)
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
-		if err := service.resolveLexicalEntry(ctx, &entry); err != nil {
+		if err := resolver.resolveLexicalEntry(ctx, &entry); err != nil {
 			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: resolve lexical entry %s: %v", ErrInvalidInput, candidateKey(projection.Candidate), err)
 		}
 		entries = append(entries, entry)
 	}
-	manifest := NewManifest(owner, deckName, entries)
+	logGlossCoverage(entries)
+	manifest := newManifest(owner, deckName, entries)
 	if provider, version, target, err := projectionProvider(ordered); err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	} else if provider != "" {
-		keys := make([]enrichment.CacheKey, len(manifest.EnrichmentCandidates()))
-		for i, candidate := range manifest.EnrichmentCandidates() {
+		keys := make([]enrichment.CacheKey, len(manifest.enrichmentCandidatesProjection()))
+		for i, candidate := range manifest.enrichmentCandidatesProjection() {
 			keys[i] = enrichment.CacheKey{
 				Language: candidate.Language, TargetLanguage: target,
 				CanonicalLemma: candidate.CanonicalLemma, UPOS: strings.ToUpper(candidate.UPOS),
@@ -175,7 +176,7 @@ func (p *Presentation) freeze(ctx context.Context, explicitOwner, explicitDeckNa
 				SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
 			}
 		}
-		manifest, err = manifest.BindCacheKeys(keys)
+		manifest, err = manifest.bindCacheKeys(keys)
 		if err != nil {
 			return FrozenDeck{}, FreezeDiagnostics{}, err
 		}
@@ -189,7 +190,7 @@ func (p *Presentation) Restore(projection StorageProjection) (FrozenDeck, error)
 	if p == nil {
 		return FrozenDeck{}, ErrInvalidInput
 	}
-	manifest, err := ManifestFromSnapshot(projection)
+	manifest, err := manifestFromSnapshot(projection)
 	if err != nil {
 		return FrozenDeck{}, err
 	}
@@ -246,7 +247,7 @@ func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
 
 func (d FrozenDeck) Summary() Summary {
 	selected, accepted, omitted := d.manifest.Snapshot().Counts()
-	return Summary{Completeness: d.manifest.Completeness(), Selected: selected, Accepted: accepted, Omitted: omitted}
+	return Summary{Completeness: d.manifest.completeness(), Selected: selected, Accepted: accepted, Omitted: omitted}
 }
 
 func (d FrozenDeck) Diagnostics() Diagnostics {
@@ -264,7 +265,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if len(results) != 0 {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: external results supplied for a local deck", ErrInvalidInput)
 		}
-		artifact, err := (&Service{}).RenderManifest(ctx, manifest, nil)
+		artifact, _, err := renderManifest(ctx, manifest, nil)
 		if err != nil {
 			return Artifact{}, FinalizeDiagnostics{}, err
 		}
@@ -318,7 +319,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		}
 		aligned[i] = exactEnrichmentFromStoredResult(result, manifest, i)
 	}
-	artifact, renderDiagnostics, err := (&Service{}).renderManifest(ctx, manifest, aligned)
+	artifact, renderDiagnostics, err := renderManifest(ctx, manifest, aligned)
 	if err != nil {
 		return Artifact{}, FinalizeDiagnostics{}, err
 	}
@@ -383,7 +384,7 @@ func projectionProvider(projections []CandidateProjection) (string, string, stri
 	return provider, version, target, nil
 }
 
-func manifestDiagnostics(manifest Manifest) Diagnostics {
+func manifestDiagnostics(manifest manifest) Diagnostics {
 	return Diagnostics{QualityOmissions: cloneOmissions(manifest.omitted)}
 }
 
@@ -400,7 +401,7 @@ func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
 	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...)}
 }
 
-func (m Manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {
+func (m manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {
 	seen := 0
 	for _, decision := range m.decisions {
 		if decision.Disposition != ManifestAccepted {
@@ -427,7 +428,7 @@ func storedRecordHasRequiredFields(record enrichment.CacheEntry, entry RenderInp
 	return enrichment.HasRequiredTranslationFields(record, entry.Sentence)
 }
 
-func exactEnrichmentFromStoredResult(stored StoredResult, manifest Manifest, acceptedIndex int) ExactEnrichment {
+func exactEnrichmentFromStoredResult(stored StoredResult, manifest manifest, acceptedIndex int) ExactEnrichment {
 	record := stored.Record
 	provenance := enrichment.Provenance{Provider: stored.CacheKey.Provider, ProviderVersion: stored.CacheKey.ProviderVersion, CachedAt: record.CachedAt, External: true}
 	result := enrichment.Result{Candidate: manifest.enrichmentCandidates[acceptedIndex]}

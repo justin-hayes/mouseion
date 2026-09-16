@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,9 +94,16 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", Sentence: "Das seltene Wort ist heute wirklich wichtig.", TargetWord: "seltene",
 		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
 	}
-	manifest := cardexport.NewManifest("owner-1", "Book", []cardexport.Entry{entry})
-	require.Len(t, manifest.EnrichmentCandidates(), 1)
-	candidate := manifest.EnrichmentCandidates()[0]
+	presentation := cardexport.NewPresentation(nil)
+	deck, _, err := presentation.Freeze(context.Background(), []cardexport.CandidateProjection{{
+		OwnerID: "owner-1", DeckName: "Book", Provider: provider.Name(), ProviderVersion: provider.Version(), TargetLanguage: "en",
+		Candidate: domain.SelectionCandidate{OwnerID: "owner-1", CorpusID: "corpus-1", Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, ObservedForms: []byte(`["seltene"]`), FirstEncounter: entry.FirstEncounter},
+		Entry:     entry,
+	}})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	candidate := work[0].RequestCandidate()
 	result := service.Enrich(context.Background(), []enrichment.Candidate{candidate})[0]
 	assert.Nil(t, receivedUser.CandidateSenses)
 	require.True(t, result.FallbackGloss.Available)
@@ -104,9 +112,8 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 
 	key, ok := service.ExternalCacheKey(candidate)
 	require.True(t, ok)
-	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	require.NoError(t, err)
-	artifact, err := cardexport.NewService(nil).RenderManifest(context.Background(), bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: result}})
+	stored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: result.Translation.Value, FallbackGloss: result.FallbackGloss.Value, SentenceTranslation: result.SentenceTranslation.Value, SentenceTranslationTarget: result.SentenceTranslationTarget.Value, SenseSelection: result.SenseSelection.Value}}
+	artifact, _, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{stored}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: key.TargetLanguage, Provider: key.Provider, ProviderVersion: key.ProviderVersion})
 	require.NoError(t, err)
 	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
@@ -124,7 +131,8 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			gated := enrichment.NewService(test.config, nil, nil, nil, test.provider, nil)
 			gatedResult := gated.Enrich(context.Background(), []enrichment.Candidate{candidate})[0]
 			assert.False(t, gatedResult.FallbackGloss.Available)
-			noExternal, err := cardexport.NewService(nil).RenderManifest(context.Background(), bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: gatedResult}})
+			noExternalStored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: gatedResult.Translation.Value, FallbackGloss: gatedResult.FallbackGloss.Value, SentenceTranslation: gatedResult.SentenceTranslation.Value, SentenceTranslationTarget: gatedResult.SentenceTranslationTarget.Value, SenseSelection: gatedResult.SenseSelection.Value}}
+			noExternal, _, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{noExternalStored}, cardexport.RunFacts{})
 			require.NoError(t, err)
 			require.Len(t, noExternal.Generated, 1)
 			assert.Empty(t, noExternal.Generated[0].Note.Gloss)
