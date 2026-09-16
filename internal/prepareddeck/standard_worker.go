@@ -73,7 +73,12 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheMisses, Phase: "cache", State: "pending", Provider: "openai", Value: 1})
 		_ = entry
 	}
-
+	if err := w.Store.VerifyPreparedDeckTranslationClaim(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token); err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil
+		}
+		return err
+	}
 	request := work.Request
 	started := w.now()
 	timeout := w.AttemptTimeout
@@ -117,9 +122,15 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		log.Printf("prepared deck translation: %s", warning)
 	}
 	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
-	stored, err := w.Store.Put(ctx, entry)
+	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {
+		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
+			return nil
+		}
 		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)
+	}
+	if !enrichment.HasRequiredTranslationFields(stored, request.ExampleSentence) {
+		return w.failWithLatency(ctx, args, token, "cache", "incomplete_entry", true, providerLatency)
 	}
 	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency}, w.finalizer)
 	_ = stored
@@ -162,7 +173,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 	if err != nil {
 		return err
 	}
-	if inserted == nil || inserted.Job == nil {
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return errors.New("River did not return a retry job")
 	}
 	if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, updated.DispatchGeneration, inserted.Job.ID); err != nil {
@@ -229,7 +240,7 @@ func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, ru
 	if err != nil {
 		return err
 	}
-	if inserted == nil || inserted.Job == nil {
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return fmt.Errorf("River did not return a finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
