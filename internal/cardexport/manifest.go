@@ -75,8 +75,12 @@ type ManifestSnapshot struct {
 }
 
 func (m Manifest) Snapshot() ManifestSnapshot {
+	schemaVersion := m.schemaVersion
+	if schemaVersion == 0 {
+		schemaVersion = ManifestSchemaVersion
+	}
 	return ManifestSnapshot{
-		SchemaVersion: ManifestSchemaVersion,
+		SchemaVersion: schemaVersion,
 		Owner:         m.owner,
 		DeckName:      m.deckName,
 		Filename:      DownloadFilename(m.deckName),
@@ -170,7 +174,8 @@ func ManifestFromSnapshot(snapshot ManifestSnapshot) (Manifest, error) {
 	}
 	manifest := Manifest{
 		owner: snapshot.Owner, deckName: snapshot.DeckName,
-		accepted: make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
+		schemaVersion: snapshot.SchemaVersion,
+		accepted:      make([]RenderInput, 0, len(snapshot.Items)), omitted: make([]Omission, 0, len(snapshot.Items)),
 		enrichmentCandidates: make([]enrichment.Candidate, 0, len(snapshot.Items)),
 		decisions:            cloneManifestItems(snapshot.Items),
 	}
@@ -391,4 +396,10 @@ func cloneTokens(tokens []analyzer.Token) []analyzer.Token {
 		}
 	}
 	return cloned
+}
+
+func cloneEntry(entry Entry) Entry {
+	entry.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
+	entry.SentenceTokens = cloneTokens(entry.SentenceTokens)
+	return entry
 }
