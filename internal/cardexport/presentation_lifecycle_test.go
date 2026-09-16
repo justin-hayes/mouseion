@@ -103,6 +103,14 @@ func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testin
 	assert.Empty(t, diagnostics.DegradationCodes)
 }
 
+func TestPresentationLifecycleTreatsUnconfiguredExternalResultsAsOptional(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, nil, cardexport.RunFacts{ExecutionMode: "batch"})
+	require.NoError(t, err)
+	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
+}
+
 func TestPresentationLifecycleReportsQualityOmissionAndMalformedOptionalData(t *testing.T) {
 	projection := lifecycleProjection()
 	projection.Sentences[0] = analyzer.Sentence{Text: "Fragment."}
