@@ -183,13 +183,13 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}
 	work := deck.WorkProjection()
-	items, err := batchItems(ctx, tx, work)
+	work, err = pendingBatchWork(ctx, tx, work)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("find prepared deck cache misses: %w", err)
 	}
 	var chunks []persistence.PreparedDeckBatchChunkPlan
-	if mode == domain.PreparedDeckExecutionBatch && len(items) > 0 {
-		chunks, err = PlanBatchChunks(p.Codec, runID, 1, config.Model, config.Endpoint, items, BatchChunkLimits{MaxRequests: config.BatchMaxRequests, MaxBytes: config.BatchMaxBytes})
+	if mode == domain.PreparedDeckExecutionBatch && len(work) > 0 {
+		chunks, err = PlanBatchChunks(p.Codec, runID, 1, config.Model, config.Endpoint, work, BatchChunkLimits{MaxRequests: config.BatchMaxRequests, MaxBytes: config.BatchMaxBytes})
 		if err != nil {
 			return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("plan prepared deck Batch chunks: %w", err)
 		}
@@ -197,8 +197,8 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}, nil
 }
 
-func batchItems(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem) ([]enrichment.BatchTranslationItem, error) {
-	items := make([]enrichment.BatchTranslationItem, 0)
+func pendingBatchWork(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem) ([]cardexport.WorkItem, error) {
+	pending := make([]cardexport.WorkItem, 0, len(work))
 	for _, item := range work {
 		if tx != nil {
 			var found bool
@@ -210,9 +210,9 @@ func batchItems(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem) ([]e
 				continue
 			}
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request})
+		pending = append(pending, item)
 	}
-	return items, nil
+	return pending, nil
 }
 
 // Worker owns only the short freeze operation. Provider calls are performed

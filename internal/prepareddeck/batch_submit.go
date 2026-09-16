@@ -284,7 +284,7 @@ func (w *BatchSubmitWorker) findExistingBatch(ctx context.Context, metadata map[
 }
 
 func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes map[int]domain.PreparedDeckTranslationOutcome) ([]enrichment.BatchTranslationItem, error) {
-	items := make([]enrichment.BatchTranslationItem, 0, len(ordinals))
+	work := make([]cardexport.WorkItem, 0, len(ordinals))
 	for _, ordinal := range ordinals {
 		item, ok := deck.WorkByOrdinal(ordinal)
 		outcome, outcomeOK := outcomes[ordinal]
@@ -294,9 +294,9 @@ func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes m
 		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeCompleted {
 			return nil, errors.New("invalid durable Batch outcome state")
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: item.Request})
+		work = append(work, item)
 	}
-	return items, nil
+	return batchTranslationItems(work), nil
 }
 
 func batchMetadata(runID, chunkID string, generation int) map[string]string {

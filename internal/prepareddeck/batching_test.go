@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,10 +47,10 @@ func (p *batchListProviderStub) ListBatches(context.Context, enrichment.ListBatc
 func TestPlanBatchChunksUsesFrozenOrderAndExactIdentity(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)
-	items := []enrichment.BatchTranslationItem{
-		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}},
-		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}},
-		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", TargetWord: "casa", ExampleSentence: "La casa è grande."}},
+	items := []cardexport.WorkItem{
+		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN"}},
+		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB"}},
+		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "it", CanonicalLemma: "casa", UPOS: "NOUN", TargetWord: "casa", ExampleSentence: "La casa è grande."}, CacheKey: enrichment.CacheKey{Language: "it", TargetLanguage: "en", CanonicalLemma: "casa", UPOS: "NOUN"}},
 	}
 	plans, err := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 2, MaxPromptTokens: 100000})
 	require.NoError(t, err)
@@ -57,7 +59,7 @@ func TestPlanBatchChunksUsesFrozenOrderAndExactIdentity(t *testing.T) {
 	assert.Equal(t, "request_limit", plans[1].SplitReason)
 	assert.Equal(t, []int{0, 1}, plans[0].Ordinals)
 	var encoded bytes.Buffer
-	_, err = codec.WriteBatchJSONL(&encoded, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:2])
+	_, err = codec.WriteBatchJSONL(&encoded, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, batchTranslationItems(items[:2]))
 	require.NoError(t, err)
 	sum := sha256.Sum256(encoded.Bytes())
 	assert.Equal(t, int64(encoded.Len()), plans[0].InputBytes)
@@ -67,13 +69,13 @@ func TestPlanBatchChunksUsesFrozenOrderAndExactIdentity(t *testing.T) {
 func TestPlanBatchChunksSplitsBeforeBytesAndTokens(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)
-	items := []enrichment.BatchTranslationItem{
-		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "a", UPOS: "NOUN", ExampleSentence: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", ExampleSentence: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}},
-		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "c", UPOS: "NOUN", ExampleSentence: "cccccccccccccccccccccccccccccccc"}},
+	items := []cardexport.WorkItem{
+		{Ordinal: 0, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "a", UPOS: "NOUN", ExampleSentence: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "a", UPOS: "NOUN"}},
+		{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", ExampleSentence: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "b", UPOS: "NOUN"}},
+		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "c", UPOS: "NOUN", ExampleSentence: "cccccccccccccccccccccccccccccccc"}, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "c", UPOS: "NOUN"}},
 	}
 	var first bytes.Buffer
-	_, err = codec.WriteBatchJSONL(&first, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, items[:1])
+	_, err = codec.WriteBatchJSONL(&first, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, batchTranslationItems(items[:1]))
 	require.NoError(t, err)
 	plans, err := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, items, BatchChunkLimits{MaxRequests: 50, MaxBytes: int64(first.Len()) + 1, MaxPromptTokens: 100000})
 	require.NoError(t, err)
@@ -90,8 +92,68 @@ func TestPlanBatchChunksSplitsBeforeBytesAndTokens(t *testing.T) {
 func TestPlanBatchChunksRejectsReorderedItems(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)
-	_, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []enrichment.BatchTranslationItem{{Ordinal: 1}, {Ordinal: 0}}, BatchChunkLimits{})
+	_, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []cardexport.WorkItem{{Ordinal: 1, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "eins", UPOS: "NOUN"}}, {Ordinal: 0, CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "null", UPOS: "NOUN"}}}, BatchChunkLimits{})
 	assert.Error(t, err, "reordered items were accepted")
+}
+
+func TestPlanBatchChunksRejectsWorkWithoutFrozenIdentity(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	_, err = PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []cardexport.WorkItem{{Ordinal: 0}}, BatchChunkLimits{})
+	assert.Error(t, err, "work without a frozen cache identity was accepted")
+}
+
+func TestPlanBatchChunksUsesFrozenRequestFieldsAtCodecBoundary(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	work := cardexport.WorkItem{
+		Ordinal: 0,
+		Request: enrichment.TranslationRequest{
+			Language: "de", TargetLanguage: "en", CanonicalLemma: "aufstehen", UPOS: "VERB",
+			TargetWord: "steht auf", ExampleSentence: "Er steht heute auf.",
+			CandidateSenses: []enrichment.LexicalSense{{Gloss: "to get up"}},
+		},
+		CacheKey: enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "aufstehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"},
+	}
+	plans, err := PlanBatchChunks(codec, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, []cardexport.WorkItem{work}, BatchChunkLimits{})
+	require.NoError(t, err)
+	require.Len(t, plans, 1)
+	var encoded bytes.Buffer
+	_, err = codec.WriteBatchJSONL(&encoded, "018f64b6-5f2f-7e12-a7a7-832a50f68b7c", 1, []enrichment.BatchTranslationItem{{Ordinal: work.Ordinal, Request: work.Request}})
+	require.NoError(t, err)
+	assert.Equal(t, int64(encoded.Len()), plans[0].InputBytes)
+	assert.Equal(t, []int{work.Ordinal}, plans[0].Ordinals)
+}
+
+func TestPlanBatchChunksRoundTripsRestoredFrozenWorkThroughGoldenRequests(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	runID := "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
+	snapshot := cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion,
+		Owner:         "owner-1",
+		DeckName:      "Book",
+		Filename:      cardexport.DownloadFilename("Book"),
+		Items: []cardexport.ManifestItem{
+			{Ordinal: 0, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", Sentence: "Das Haus ist groß."}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", Provider: "openai", ProviderVersion: "v1"}},
+			{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", TargetWord: "gehen"}, Quality: cardexport.SentenceQuality{Accepted: true}, CacheKey: &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "gehen", UPOS: "VERB", Provider: "openai", ProviderVersion: "v1"}},
+		},
+	}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	plans, err := PlanBatchChunks(codec, runID, 3, "gpt-test", enrichment.OpenAIChatCompletionsEndpoint, work, BatchChunkLimits{})
+	require.NoError(t, err)
+	require.Len(t, plans, 1)
+	chunk := domain.PreparedDeckBatchChunk{InputBytes: plans[0].InputBytes, InputDigest: plans[0].InputDigest, RequestCount: len(work)}
+	reader, err := writeChunkJSONL(codec, runID, 3, batchTranslationItems(work), chunk)
+	require.NoError(t, err)
+	got, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	want, err := os.ReadFile("../enrichment/testdata/openai_batch_requests.golden.jsonl")
+	require.NoError(t, err)
+	want = []byte(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(want), ":2:3", ":0:3"), ":7:3", ":1:3"), `\"upos\":\"VERB\"}`, `\"upos\":\"VERB\",\"target_word\":\"gehen\"}`))
+	assert.Equal(t, want, got)
 }
 
 func TestBatchMetadataIsOpaqueAndSubmissionKeepsImmutableChunkMembers(t *testing.T) {
