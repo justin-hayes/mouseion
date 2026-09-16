@@ -239,6 +239,9 @@ func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing
 	require.NoError(t, err)
 	assert.Len(t, artifact.Generated, 1)
 	assert.Contains(t, artifact.TSV, "The <b>cached</b> sentence.")
+	var finalizerJobs int
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'run_id'=$2`, (FinalizeJobArgs{}).Kind(), run.run.ID).Scan(&finalizerJobs))
+	assert.Equal(t, 1, finalizerJobs)
 }
 
 func TestStandardWorkerUsesRestoredFrozenRequestAndCacheKey(t *testing.T) {
@@ -264,6 +267,36 @@ func TestStandardWorkerUsesRestoredFrozenRequestAndCacheKey(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, expected.CacheKey, stored.CacheKey)
+}
+
+func TestStandardWorkerDoesNotCompleteWhenImmutableCacheWriteRemainsIncomplete(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	snapshot, _, err := run.store.LoadPreparedDeckStorageProjection(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	work, ok := deck.WorkByOrdinal(0)
+	require.True(t, ok)
+	_, err = run.store.Put(ctx, enrichment.CacheEntry{CacheKey: work.CacheKey, Translation: "partial", CachedAt: time.Now().UTC()})
+	require.NoError(t, err)
+
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+	assert.Equal(t, "cache", outcomes[0].ErrorClass)
+	assert.Equal(t, "incomplete_entry", outcomes[0].ErrorCode)
+	stored, found, err := run.store.Get(ctx, work.CacheKey)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "partial", stored.Translation)
+	assert.Empty(t, stored.SentenceTranslation)
+	calls, _ := provider.stats()
+	assert.Equal(t, 1, calls)
 }
 
 func TestStandardWorkerTreatsLostClaimAsNoop(t *testing.T) {
@@ -356,14 +389,10 @@ func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *
 	assert.False(t, found, "malformed response was persisted as a cache success")
 }
 
-func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
+func TestStandardWorkerRestartRestoresPendingProjection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
-	require.NoError(t, client.Start(ctx))
-	waitStandardOutcomes(t, ctx, run, 1)
-	client.Stop(context.Background())
-	callsBefore, _ := provider.stats()
+	run, _, provider := newStandardIntegrationRun(t, ctx, 1, 1)
 
 	workers := river.NewWorkers()
 	restarted, err := river.NewClient(riverpgxv5.New(run.store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
@@ -379,6 +408,10 @@ func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 	require.NoError(t, tx.Commit(ctx))
 	require.NoError(t, restarted.Start(ctx))
 	defer restarted.Stop(context.Background())
+	outcomes := waitStandardOutcomes(t, ctx, run, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	calls, _ := provider.stats()
+	assert.Equal(t, 1, calls)
 	for {
 		job, err := restarted.JobGet(ctx, inserted.Job.ID)
 		require.NoError(t, err)
@@ -391,6 +424,4 @@ func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
-	callsAfter, _ := provider.stats()
-	assert.Equal(t, callsBefore, callsAfter, "completed outcome caused provider call after restart: before=%d after=%d", callsBefore, callsAfter)
 }

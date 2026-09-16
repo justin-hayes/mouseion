@@ -121,6 +121,9 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	if err != nil {
 		return w.failWithLatency(ctx, args, token, "persistence", "cache_write", false, providerLatency)
 	}
+	if !enrichment.HasRequiredTranslationFields(stored, request.ExampleSentence) {
+		return w.failWithLatency(ctx, args, token, "cache", "incomplete_entry", true, providerLatency)
+	}
 	_, _, err = w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency}, w.finalizer)
 	_ = stored
 	if err == nil {
