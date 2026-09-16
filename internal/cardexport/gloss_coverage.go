@@ -1,13 +1,11 @@
 package cardexport
 
 import (
-	"encoding/json"
-	"log"
 	"slices"
 	"strings"
 )
 
-type glossCoverageGroup struct {
+type GlossCoverage struct {
 	Language     string `json:"language"`
 	POS          string `json:"pos"`
 	Selected     int    `json:"selected"`
@@ -20,18 +18,13 @@ type glossCoverageKey struct {
 	pos      string
 }
 
-type glossCoverageEvent struct {
-	Event  string               `json:"event"`
-	Groups []glossCoverageGroup `json:"groups"`
-}
-
-func logGlossCoverage(entries []Entry) {
-	grouped := make(map[glossCoverageKey]*glossCoverageGroup)
+func glossCoverage(entries []Entry) []GlossCoverage {
+	grouped := make(map[glossCoverageKey]*GlossCoverage)
 	for _, entry := range entries {
 		key := glossCoverageKey{language: strings.ToLower(strings.TrimSpace(entry.Language)), pos: strings.ToUpper(strings.TrimSpace(entry.UPOS))}
 		group := grouped[key]
 		if group == nil {
-			group = &glossCoverageGroup{Language: key.language, POS: key.pos}
+			group = &GlossCoverage{Language: key.language, POS: key.pos}
 			grouped[key] = group
 		}
 		group.Selected++
@@ -42,18 +35,19 @@ func logGlossCoverage(entries []Entry) {
 		}
 	}
 
-	groups := make([]glossCoverageGroup, 0, len(grouped))
+	groups := make([]GlossCoverage, 0, len(grouped))
 	for _, group := range grouped {
 		groups = append(groups, *group)
 	}
-	slices.SortFunc(groups, func(a, b glossCoverageGroup) int {
+	slices.SortFunc(groups, func(a, b GlossCoverage) int {
 		if a.Language != b.Language {
 			return strings.Compare(a.Language, b.Language)
 		}
 		return strings.Compare(a.POS, b.POS)
 	})
-	payload, err := json.Marshal(glossCoverageEvent{Event: "gloss_coverage", Groups: groups})
-	if err == nil {
-		log.Printf("gloss_coverage %s", payload)
-	}
+	return groups
+}
+
+func cloneGlossCoverage(groups []GlossCoverage) []GlossCoverage {
+	return append([]GlossCoverage(nil), groups...)
 }

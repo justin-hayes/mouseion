@@ -60,6 +60,25 @@ func TestPresentationLifecycleFreezesEmptyLocalDeck(t *testing.T) {
 	assert.Empty(t, deck.WorkProjection())
 }
 
+func TestPresentationLifecycleReturnsDictionaryCoverageDiagnostics(t *testing.T) {
+	projections := []cardexport.CandidateProjection{
+		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "de", UPOS: "NOUN"}, Entry: cardexport.Entry{Language: "de", UPOS: "NOUN", Sentence: "Das Haus steht dort.", TargetWord: "Haus", Gloss: "house"}},
+		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "de", UPOS: "NOUN"}, Entry: cardexport.Entry{Language: "de", UPOS: "NOUN", Sentence: "Das Fragment steht dort.", TargetWord: "Fragment"}},
+		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "it", UPOS: "VERB"}, Entry: cardexport.Entry{Language: "it", UPOS: "VERB", Sentence: "La casa sta lì.", TargetWord: "sta", Gloss: "stands"}},
+	}
+	_, diagnostics, err := cardexport.NewPresentation(nil).Freeze(context.Background(), projections)
+	require.NoError(t, err)
+	assert.Equal(t, []cardexport.GlossCoverage{
+		{Language: "de", POS: "NOUN", Selected: 2, WithGloss: 1, WithoutGloss: 1},
+		{Language: "it", POS: "VERB", Selected: 1, WithGloss: 1, WithoutGloss: 0},
+	}, diagnostics.GlossCoverage)
+
+	diagnostics.GlossCoverage[0].Selected = 99
+	_, diagnostics, err = cardexport.NewPresentation(nil).Freeze(context.Background(), projections)
+	require.NoError(t, err)
+	assert.Equal(t, 2, diagnostics.GlossCoverage[0].Selected)
+}
+
 func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das Haus steht heute dort.")}
