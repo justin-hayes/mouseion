@@ -168,27 +168,23 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: "Frozen Book", FirstEncounter: 1},
 		{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: "Frozen Book", FirstEncounter: 2},
 	})
-	candidates := manifest.EnrichmentCandidates()
-	keys := make([]enrichment.CacheKey, len(candidates))
 	responses := []enrichment.TranslationResponse{
 		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
 		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
 	}
-	serial := make([]cardexport.ExactEnrichment, len(candidates))
+	candidates := manifest.EnrichmentCandidates()
+	keys := make([]enrichment.CacheKey, len(candidates))
 	for i, candidate := range candidates {
 		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
-		provenance := enrichment.Provenance{Provider: "openai", ProviderVersion: "v1", External: true}
-		serial[i] = cardexport.ExactEnrichment{CacheKey: keys[i], Result: enrichment.Result{Candidate: candidate,
-			Translation:               enrichment.Field[string]{Value: responses[i].Translation, Available: true, Provenance: provenance},
-			SentenceTranslation:       enrichment.Field[string]{Value: responses[i].SentenceTranslation, Available: true, Provenance: provenance},
-			SentenceTranslationTarget: enrichment.Field[string]{Value: responses[i].SentenceTranslationTarget, Available: true, Provenance: provenance},
-		}}
 	}
 	bound, err := manifest.BindCacheKeys(keys)
 	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(bound.Snapshot())
+	require.NoError(t, err)
+	items, workByOrdinal, err := batchResultItems(deck, []int{0, 1})
+	require.NoError(t, err)
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
 	require.NoError(t, err)
-	items := []enrichment.BatchTranslationItem{{Ordinal: 0, Request: enrichment.TranslationRequest{Language: candidates[0].Language, CanonicalLemma: candidates[0].CanonicalLemma, UPOS: candidates[0].UPOS, TargetWord: candidates[0].TargetWord, ExampleSentence: candidates[0].ExampleSentence}}, {Ordinal: 1, Request: enrichment.TranslationRequest{Language: candidates[1].Language, CanonicalLemma: candidates[1].CanonicalLemma, UPOS: candidates[1].UPOS, TargetWord: candidates[1].TargetWord, ExampleSentence: candidates[1].ExampleSentence}}}
 	var output strings.Builder
 	for _, ordinal := range []int{1, 0} {
 		customID, _ := enrichment.BatchCustomID(runID, ordinal, 1)
@@ -196,20 +192,18 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)
 	require.NoError(t, err)
-	batchExact := make([]cardexport.ExactEnrichment, len(items))
-	for i, item := range items {
-		response := decoded[item.Ordinal].Response
-		provenance := enrichment.Provenance{Provider: "openai", ProviderVersion: "v1", External: true}
-		batchExact[i] = cardexport.ExactEnrichment{CacheKey: keys[i], Result: enrichment.Result{Candidate: candidates[i],
-			Translation:               enrichment.Field[string]{Value: response.Translation, Available: true, Provenance: provenance},
-			SentenceTranslation:       enrichment.Field[string]{Value: response.SentenceTranslation, Available: true, Provenance: provenance},
-			SentenceTranslationTarget: enrichment.Field[string]{Value: response.SentenceTranslationTarget, Available: true, Provenance: provenance},
-		}}
+	makeStoredResults := func(ordinals []int, result func(int) enrichment.TranslationResponse) []cardexport.StoredResult {
+		stored := make([]cardexport.StoredResult, 0, len(ordinals))
+		for _, ordinal := range ordinals {
+			response := result(ordinal)
+			stored = append(stored, cardexport.StoredResult{CacheKey: workByOrdinal[ordinal].CacheKey, Record: enrichment.CacheEntry{CacheKey: workByOrdinal[ordinal].CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget}})
+		}
+		return stored
 	}
-	renderer := &cardexport.Service{}
-	serialArtifact, err := renderer.RenderManifest(context.Background(), bound, serial)
+	facts := cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "openai", ProviderVersion: "v1"}
+	serialArtifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, makeStoredResults([]int{0, 1}, func(ordinal int) enrichment.TranslationResponse { return responses[ordinal] }), facts)
 	require.NoError(t, err)
-	batchArtifact, err := renderer.RenderManifest(context.Background(), bound, batchExact)
+	batchArtifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, makeStoredResults([]int{1, 0}, func(ordinal int) enrichment.TranslationResponse { return decoded[ordinal].Response }), facts)
 	require.NoError(t, err)
 	assert.Equal(t, serialArtifact.APKG, batchArtifact.APKG)
 	assert.Equal(t, serialArtifact.TSV, batchArtifact.TSV)
