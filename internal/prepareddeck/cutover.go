@@ -15,36 +15,80 @@ import (
 	"github.com/riverqueue/river"
 )
 
-type builder interface {
-	PrepareCoverage(context.Context, string, string) (cardexport.Manifest, error)
+type inputAssembler interface {
+	AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error)
 }
 
-type scopedBuilder interface {
-	PrepareCoverageForAnalysis(context.Context, string, string) (cardexport.Manifest, error)
+type preparedDeckFactStore interface {
+	LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error)
 }
 
-// buildManifest freezes selection and rendering inputs before the durable run
-// is written. The durable persistence layer then stores this snapshot and all
-// subsequent work uses it rather than re-running selection.
-func buildManifest(ctx context.Context, b builder, owner, sourceID, analysisRunID string) (cardexport.Manifest, error) {
-	if b == nil {
-		return cardexport.Manifest{}, errors.New("prepareddeck: deck builder is unavailable")
+const defaultDeckMinOccurrences = 3
+
+// InputAssembler applies recurring-vocabulary selection to transaction-scoped
+// persistence facts and returns the projections consumed by Presentation.
+type InputAssembler struct {
+	Store preparedDeckFactStore
+}
+
+func NewInputAssembler(store preparedDeckFactStore) *InputAssembler {
+	return &InputAssembler{Store: store}
+}
+
+func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
+	if a == nil || a.Store == nil {
+		return nil, "", errors.New("prepareddeck: input fact store is unavailable")
 	}
-	if analysisRunID != "" {
-		scoped, ok := b.(scopedBuilder)
-		if !ok {
-			return cardexport.Manifest{}, errors.New("prepareddeck: scoped analysis deck builder is unavailable")
+	facts, err := a.Store.LoadPreparedDeckInputFactsTx(ctx, tx, preparation)
+	if err != nil {
+		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
+	}
+	selected := make([]persistence.PreparedDeckCandidateFacts, 0, len(facts.Candidates))
+	known := make(map[string]map[string]bool)
+	generated := make(map[string]map[string]bool)
+	reserved := make(map[string]map[string]bool)
+	for _, word := range facts.Known {
+		if known[word.Language] == nil {
+			known[word.Language] = make(map[string]bool)
 		}
-		return scoped.PrepareCoverageForAnalysis(ctx, owner, analysisRunID)
+		known[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
 	}
-	return b.PrepareCoverage(ctx, owner, sourceID)
+	for _, word := range facts.Generated {
+		if generated[word.Language] == nil {
+			generated[word.Language] = make(map[string]bool)
+		}
+		// Explicit provenance for this source remains eligible on a repeat.
+		if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != preparation.SourceMaterialID {
+			generated[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
+		}
+	}
+	for _, word := range facts.Reserved {
+		if reserved[word.Language] == nil {
+			reserved[word.Language] = make(map[string]bool)
+		}
+		reserved[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
+	}
+	for _, fact := range facts.Candidates {
+		identity := fact.Candidate.CanonicalLemma + "\x00" + fact.Candidate.UPOS
+		if known[fact.Candidate.Language][identity] || known[fact.Candidate.Language][fact.Candidate.CanonicalLemma+"\x00"] || generated[fact.Candidate.Language][identity] || reserved[fact.Candidate.Language][identity] || fact.Candidate.OccurrenceCount < defaultDeckMinOccurrences {
+			continue
+		}
+		selected = append(selected, fact)
+	}
+
+	projections := make([]cardexport.CandidateProjection, 0, len(selected))
+	for _, fact := range selected {
+		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences})
+	}
+	return projections, facts.DeckName, nil
 }
 
-// BatchPlanner turns the existing deterministic card-export manifest into a
-// durable Batch run. It never invokes a provider; the provider boundary is
-// crossed only by BatchSubmitWorker after the run and chunk identities commit.
+// BatchPlanner freezes transaction-scoped input facts into a durable run. It
+// never invokes an external provider; that boundary is crossed only after the
+// run and its chunk identities commit.
 type BatchPlanner struct {
-	Builder         builder
+	Assembler       inputAssembler
+	Presentation    *cardexport.Presentation
 	Codec           *enrichment.TranslationCodec
 	ExternalEnabled bool
 	BatchConfig     BatchConfig
@@ -57,24 +101,24 @@ type StandardPlanner struct {
 	StandardConfig PreparedDeckConfig
 }
 
-func NewStandardPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, standardConfig PreparedDeckConfig) *StandardPlanner {
+func NewStandardPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, standardConfig PreparedDeckConfig) *StandardPlanner {
 	if standardConfig.StandardMaxAttempts == 0 {
 		standardConfig.StandardMaxAttempts = DefaultStandardMaxAttempts
 	}
-	return &StandardPlanner{BatchPlanner: NewBatchPlanner(builder, codec, externalEnabled, batchConfig), StandardConfig: standardConfig}
+	return &StandardPlanner{BatchPlanner: NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig), StandardConfig: standardConfig}
 }
 
 // PreparedDeckPlanner selects the executor once, when a new run is frozen.
 // DurableCoordinator intentionally bypasses it for an existing run.
-func NewPreparedDeckPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, config PreparedDeckConfig) DurableRunPlanner {
+func NewPreparedDeckPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig, config PreparedDeckConfig) DurableRunPlanner {
 	if config.TranslationMode == "batch" {
-		return NewBatchPlanner(builder, codec, externalEnabled, batchConfig)
+		return NewBatchPlanner(assembler, presentation, codec, externalEnabled, batchConfig)
 	}
-	return NewStandardPlanner(builder, codec, externalEnabled, batchConfig, config)
+	return NewStandardPlanner(assembler, presentation, codec, externalEnabled, batchConfig, config)
 }
 
-func NewBatchPlanner(builder builder, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig) *BatchPlanner {
-	return &BatchPlanner{Builder: builder, Codec: codec, ExternalEnabled: externalEnabled, BatchConfig: batchConfig}
+func NewBatchPlanner(assembler inputAssembler, presentation *cardexport.Presentation, codec *enrichment.TranslationCodec, externalEnabled bool, batchConfig BatchConfig) *BatchPlanner {
+	return &BatchPlanner{Assembler: assembler, Presentation: presentation, Codec: codec, ExternalEnabled: externalEnabled, BatchConfig: batchConfig}
 }
 
 func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
@@ -89,12 +133,12 @@ func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, pr
 }
 
 func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
-	if p == nil || p.Builder == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
+	if p == nil || p.Assembler == nil || p.Presentation == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
 	}
-	manifest, err := buildManifest(ctx, p.Builder, preparation.OwnerID, preparation.SourceMaterialID, preparation.AnalysisRunID)
+	projections, deckName, err := p.Assembler.AssemblePreparedDeckInputs(ctx, tx, preparation)
 	if err != nil {
-		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("prepare deck manifest: %w", err)
+		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("assemble prepared deck inputs: %w", err)
 	}
 
 	config := persistence.PreparedDeckRunConfig{
@@ -109,37 +153,27 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		config.MaxProviderAttempts = standardAttempts
 	}
 	runID := uuid.NewString()
-	if !config.ExternalTranslationConfigured {
-		return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: manifest.Snapshot(), Config: config}, nil
-	}
-	if p.Codec == nil {
-		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible translation endpoint")
-	}
-	config.ContextMode = string(enrichment.SentenceContext)
-	config.Provider = p.Codec.ProviderName()
-	config.ProviderVersion = p.Codec.ProviderVersion()
-	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
-	config.Model = p.Codec.Model()
-
-	candidates := manifest.EnrichmentCandidates()
-	keys := make([]enrichment.CacheKey, len(candidates))
-	for i, candidate := range candidates {
-		keys[i] = enrichment.CacheKey{
-			Language:                  candidate.Language,
-			TargetLanguage:            config.TargetLanguage,
-			CanonicalLemma:            candidate.CanonicalLemma,
-			UPOS:                      strings.ToUpper(candidate.UPOS),
-			Provider:                  config.Provider,
-			ProviderVersion:           config.ProviderVersion,
-			DictionaryProviderVersion: candidate.DictionaryProviderVersion,
-			SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
+	if config.ExternalTranslationConfigured {
+		if p.Codec == nil {
+			return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible translation endpoint")
+		}
+		config.ContextMode = string(enrichment.SentenceContext)
+		config.Provider = p.Codec.ProviderName()
+		config.ProviderVersion = p.Codec.ProviderVersion()
+		config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
+		config.Model = p.Codec.Model()
+		for i := range projections {
+			projections[i].Provider = config.Provider
+			projections[i].ProviderVersion = config.ProviderVersion
+			projections[i].TargetLanguage = config.TargetLanguage
 		}
 	}
-	manifest, err = manifest.BindCacheKeys(keys)
+	deck, _, err := p.Presentation.FreezeForDeck(ctx, preparation.OwnerID, deckName, projections)
 	if err != nil {
-		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("bind prepared deck cache identity: %w", err)
+		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}
-	items, err := batchItems(ctx, tx, manifest.Snapshot())
+	work := deck.WorkProjection()
+	items, err := batchItems(ctx, tx, work)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("find prepared deck cache misses: %w", err)
 	}
@@ -150,15 +184,12 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 			return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("plan prepared deck Batch chunks: %w", err)
 		}
 	}
-	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: manifest.Snapshot(), Config: config, Chunks: chunks}, nil
+	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}, nil
 }
 
-func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnapshot) ([]enrichment.BatchTranslationItem, error) {
+func batchItems(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem) ([]enrichment.BatchTranslationItem, error) {
 	items := make([]enrichment.BatchTranslationItem, 0)
-	for _, item := range snapshot.Items {
-		if item.Disposition != cardexport.ManifestAccepted || item.CacheKey == nil {
-			continue
-		}
+	for _, item := range work {
 		if tx != nil {
 			var found bool
 			key := item.CacheKey
@@ -169,10 +200,7 @@ func batchItems(ctx context.Context, tx pgx.Tx, snapshot cardexport.ManifestSnap
 				continue
 			}
 		}
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: enrichment.TranslationRequest{
-			Language: item.Entry.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS,
-			TargetWord: item.Entry.TargetWord, ExampleSentence: item.Entry.Sentence, CandidateSenses: item.Entry.CandidateSenses,
-		}})
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request})
 	}
 	return items, nil
 }
@@ -225,11 +253,11 @@ func (w *Worker) fail(ctx context.Context, args JobArgs, cause error) error {
 }
 
 func AddBatchWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, externalEnabled bool) {
-	planner := NewBatchPlanner(export, codec, externalEnabled, batchConfig)
+	planner := NewBatchPlanner(NewInputAssembler(store), export.Presentation(), codec, externalEnabled, batchConfig)
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
 }
 
 func AddPreparedDeckWorker(workers *river.Workers, store *persistence.PostgresStore, export *cardexport.Service, client riverClient, codec *enrichment.TranslationCodec, batchConfig BatchConfig, preparedConfig PreparedDeckConfig, externalEnabled bool) {
-	planner := NewPreparedDeckPlanner(export, codec, externalEnabled, batchConfig, preparedConfig)
+	planner := NewPreparedDeckPlanner(NewInputAssembler(store), export.Presentation(), codec, externalEnabled, batchConfig, preparedConfig)
 	river.AddWorker(workers, &Worker{Coordinator: NewDurableCoordinator(store, client, planner), Store: store})
 }

@@ -105,16 +105,43 @@ type FrozenDeck struct {
 // Freeze selects representative sentences, resolves local lexical facts,
 // quality-gates each candidate, and constructs exact external identities.
 func (p *Presentation) Freeze(ctx context.Context, projections []CandidateProjection) (FrozenDeck, FreezeDiagnostics, error) {
+	return p.freeze(ctx, "", "", projections)
+}
+
+// FreezeForDeck freezes selected projections with the owner and deck identity
+// supplied by the fact adapter. It also represents an empty local deck without
+// inventing a candidate projection.
+func (p *Presentation) FreezeForDeck(ctx context.Context, owner, deckName string, projections []CandidateProjection) (FrozenDeck, FreezeDiagnostics, error) {
+	return p.freeze(ctx, owner, deckName, projections)
+}
+
+func (p *Presentation) freeze(ctx context.Context, explicitOwner, explicitDeckName string, projections []CandidateProjection) (FrozenDeck, FreezeDiagnostics, error) {
 	if p == nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, ErrInvalidInput
 	}
-	if len(projections) == 0 {
+	if len(projections) == 0 && (strings.TrimSpace(explicitOwner) == "" || strings.TrimSpace(explicitDeckName) == "") {
 		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: no candidate projections", ErrInvalidInput)
 	}
 	ordered := append([]CandidateProjection(nil), projections...)
-	owner, deckName, err := projectionHeader(ordered)
-	if err != nil {
-		return FrozenDeck{}, FreezeDiagnostics{}, err
+	owner, deckName := explicitOwner, explicitDeckName
+	if len(ordered) > 0 {
+		projectionOwner, projectionDeckName, err := projectionHeader(ordered)
+		if err != nil {
+			return FrozenDeck{}, FreezeDiagnostics{}, err
+		}
+		if owner == "" {
+			owner = projectionOwner
+		} else if projectionOwner != "" && owner != projectionOwner {
+			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: explicit owner contradicts candidate projections", ErrInvalidInput)
+		}
+		if deckName == "" {
+			deckName = projectionDeckName
+		} else if projectionDeckName != "" && deckName != projectionDeckName {
+			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: explicit deck name contradicts candidate projections", ErrInvalidInput)
+		}
+	}
+	if strings.TrimSpace(owner) == "" || strings.TrimSpace(deckName) == "" {
+		return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: freeze requires owner and deck name", ErrInvalidInput)
 	}
 	sort.SliceStable(ordered, func(i, j int) bool {
 		if ordered[i].Candidate.FirstEncounter != ordered[j].Candidate.FirstEncounter {

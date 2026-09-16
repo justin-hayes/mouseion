@@ -49,6 +49,16 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	assert.Len(t, artifact.Generated, 1)
 }
 
+func TestPresentationLifecycleFreezesEmptyLocalDeck(t *testing.T) {
+	deck, diagnostics, err := cardexport.NewPresentation(nil).FreezeForDeck(context.Background(), "owner-1", "Empty Book", nil)
+
+	require.NoError(t, err)
+	assert.Empty(t, diagnostics.QualityOmissions)
+	assert.Equal(t, cardexport.DownloadFilename("Empty Book"), deck.StorageProjection().Filename)
+	assert.Equal(t, 0, deck.Summary().Accepted)
+	assert.Empty(t, deck.WorkProjection())
+}
+
 func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das Haus steht heute dort.")}

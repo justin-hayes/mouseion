@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -12,18 +14,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type cutoverBuilder struct{ manifest cardexport.Manifest }
-
-func (b *cutoverBuilder) PrepareCoverage(context.Context, string, string) (cardexport.Manifest, error) {
-	return b.manifest, nil
+type cutoverAssembler struct {
+	projections []cardexport.CandidateProjection
+	deckName    string
 }
 
-func (b *cutoverBuilder) RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
-	return cardexport.Artifact{}, nil
+type inputFactsStore struct {
+	facts persistence.PreparedDeckInputFacts
+}
+
+type plannerDictionary struct{}
+
+func (plannerDictionary) Name() string    { return "dictionary" }
+func (plannerDictionary) Version() string { return "dictionary-v1" }
+func (plannerDictionary) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	return enrichment.LexicalEntry{Senses: []enrichment.LexicalSense{{Gloss: "house"}}}, true, nil
+}
+
+func (s inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error) {
+	return s.facts, nil
+}
+
+func (a *cutoverAssembler) AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
+	return a.projections, a.deckName, nil
+}
+
+func cutoverProjection() cardexport.CandidateProjection {
+	return cardexport.CandidateProjection{
+		OwnerID: "alice", DeckName: "Book",
+		Candidate: domain.SelectionCandidate{OwnerID: "alice", CorpusID: "corpus", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", ObservedForms: []byte(`["Haus"]`), SentenceReferences: []byte(`[{"sentence_index":0,"location":{"start_offset":8}}]`), FirstEncounter: 10, OccurrenceCount: 3},
+		Entry:     cardexport.Entry{OwnerID: "alice", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", SourceDocument: "Book"},
+		Sentences: map[int64]analyzer.Sentence{0: {Text: "Das alte Haus ist überraschend groß.", Tokens: []analyzer.Token{{Surface: "Das", UPOS: "DET", Dependency: "det", Head: 2}, {Surface: "alte", UPOS: "ADJ", Dependency: "amod", Head: 2}, {Surface: "Haus", UPOS: "NOUN", Dependency: "nsubj", Head: 3}, {Surface: "ist", UPOS: "VERB", Dependency: "root", Head: 3, Morphology: map[string]string{"VerbForm": "Fin"}}, {Surface: "überraschend", UPOS: "ADV", Dependency: "advmod", Head: 5}, {Surface: "groß", UPOS: "ADJ", Dependency: "xcomp", Head: 3}}}},
+	}
 }
 
 func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
-	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
 	cases := []struct {
 		name, wantProvider string
 		enabled, consent   bool
@@ -33,7 +59,7 @@ func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			plan, err := NewBatchPlanner(builder, nil, test.enabled, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, test.consent)
+			plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, test.enabled, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, test.consent)
 			require.NoError(t, err)
 			assert.False(t, plan.Config.ExternalTranslationConfigured)
 			assert.Equal(t, test.wantProvider, plan.Config.Provider)
@@ -43,11 +69,22 @@ func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
 	}
 }
 
+func TestBatchPlannerKeepsNoConsentDictionaryDeterministic(t *testing.T) {
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), nil, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, false)
+
+	require.NoError(t, err)
+	require.Len(t, plan.Projection.Items, 1)
+	assert.Equal(t, "house", plan.Projection.Items[0].Entry.Gloss)
+	assert.Nil(t, plan.Projection.Items[0].CacheKey)
+	assert.False(t, plan.Config.ExternalTranslationConfigured)
+}
+
 func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
-	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
-	plan, err := NewBatchPlanner(builder, codec, true, BatchConfig{MaxRequests: 1}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{MaxRequests: 1}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
 	require.NoError(t, err)
 	assert.True(t, plan.Config.ExternalTranslationConfigured)
 	assert.Equal(t, enrichment.OpenAIChatCompletionsEndpoint, plan.Config.Endpoint)
@@ -66,11 +103,41 @@ func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 }
 
 func TestPreparedDeckPlannerDefaultsToStandardWithoutBatchChunks(t *testing.T) {
-	builder := &cutoverBuilder{manifest: cardexport.NewManifest("alice", "Book", []cardexport.Entry{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", FirstEncounter: 10}})}
-	planner := NewPreparedDeckPlanner(builder, nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: DefaultTranslationMode})
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
+	planner := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: DefaultTranslationMode})
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
 	require.NoError(t, err)
 	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), plan.Config.ExecutionMode)
 	assert.Len(t, plan.Chunks, 0)
 	assert.False(t, plan.Config.ExternalTranslationConfigured)
+}
+
+func TestInputAssemblerSelectsRecurringUnknownVocabularyFromFacts(t *testing.T) {
+	projection := cutoverProjection()
+	makeFact := func(lemma string, occurrences int) persistence.PreparedDeckCandidateFacts {
+		candidate := projection.Candidate
+		candidate.CanonicalLemma = lemma
+		candidate.OccurrenceCount = occurrences
+		entry := projection.Entry
+		entry.CanonicalLemma = lemma
+		return persistence.PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: projection.Sentences}
+	}
+	book := "book"
+	facts := persistence.PreparedDeckInputFacts{
+		DeckName: "Book",
+		Candidates: []persistence.PreparedDeckCandidateFacts{
+			makeFact("keep", 3), makeFact("rare", 2), makeFact("known", 5), makeFact("generated", 5), makeFact("reserved", 5),
+		},
+		Known:     []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
+		Generated: []domain.GeneratedVocabulary{{Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", FirstSourceMaterialID: &book}},
+		Reserved:  []domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "reserved", UPOS: "NOUN"}},
+	}
+
+	projections, deckName, err := NewInputAssembler(inputFactsStore{facts: facts}).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: book})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Book", deckName)
+	require.Len(t, projections, 2)
+	assert.Equal(t, "keep", projections[0].Candidate.CanonicalLemma)
+	assert.Equal(t, "generated", projections[1].Candidate.CanonicalLemma)
 }
