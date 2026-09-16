@@ -116,12 +116,20 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		if run.ExecutionMode != domain.PreparedDeckExecutionStandard {
 			return nil
 		}
+		generation := item.Generation
+		if item.LeaseExpired {
+			redispatched, redispatchErr := w.Store.RedispatchPreparedDeckTranslationOutcome(ctx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, item.Generation)
+			if redispatchErr != nil {
+				return redispatchErr
+			}
+			generation = redispatched.DispatchGeneration
+		}
 		tx, err := w.Store.Pool().Begin(ctx)
 		if err != nil {
 			return err
 		}
 		defer tx.Rollback(ctx)
-		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: item.Generation}
+		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: generation}
 		inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
 		if err != nil {
 			return err
@@ -129,7 +137,7 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 			return errors.New("River did not return live standard translation recovery work")
 		}
-		if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, item.Generation, inserted.Job.ID); err != nil {
+		if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)

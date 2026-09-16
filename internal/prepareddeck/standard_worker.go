@@ -244,7 +244,7 @@ func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, ru
 	if err != nil {
 		return err
 	}
-	if inserted == nil || inserted.Job == nil {
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 		return fmt.Errorf("River did not return a finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)

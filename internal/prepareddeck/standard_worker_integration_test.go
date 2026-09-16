@@ -365,6 +365,30 @@ func TestStandardWorkerTreatsLostClaimAsNoop(t *testing.T) {
 	assert.Zero(t, calls)
 }
 
+func TestRecoveryRedispatchesExpiredStandardClaimWithNewGeneration(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, _ := newStandardIntegrationRun(t, ctx, 1, 1)
+	initial, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, initial, 1)
+	initialJobID := initial[0].RiverJobID
+	_, err = run.store.ClaimPreparedDeckTranslationOutcome(ctx, run.owner, run.prep.ID, run.run.ID, 0, 0, uuid.NewString(), time.Now().UTC().Add(time.Minute))
+	require.NoError(t, err)
+	_, err = run.store.Pool().Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET claimed_at=now() - interval '2 seconds', lease_expires_at=now() - interval '1 second' WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=0`, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+
+	recovery := &RecoveryWorker{Store: run.store, Client: client}
+	require.NoError(t, recovery.repair(ctx, domain.PreparedDeckRecoveryWork{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0, Kind: "outcome", LeaseExpired: true}))
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomePending, outcomes[0].State)
+	assert.Equal(t, 1, outcomes[0].DispatchGeneration)
+	assert.NotZero(t, outcomes[0].RiverJobID)
+	assert.NotEqual(t, initialJobID, outcomes[0].RiverJobID)
+}
+
 func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
