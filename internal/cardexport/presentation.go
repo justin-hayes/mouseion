@@ -54,6 +54,7 @@ type Summary struct {
 type Diagnostics struct {
 	QualityOmissions []Omission
 	DegradationCodes []string
+	GlossCoverage    []GlossCoverage
 }
 
 const (
@@ -161,7 +162,7 @@ func (p *Presentation) freeze(ctx context.Context, explicitOwner, explicitDeckNa
 		}
 		entries = append(entries, entry)
 	}
-	logGlossCoverage(entries)
+	coverage := glossCoverage(entries)
 	manifest := newManifest(owner, deckName, entries)
 	if provider, version, target, err := projectionProvider(ordered); err != nil {
 		return FrozenDeck{}, FreezeDiagnostics{}, err
@@ -181,7 +182,9 @@ func (p *Presentation) freeze(ctx context.Context, explicitOwner, explicitDeckNa
 			return FrozenDeck{}, FreezeDiagnostics{}, err
 		}
 	}
-	return FrozenDeck{manifest: manifest.clone()}, manifestDiagnostics(manifest), nil
+	diagnostics := manifestDiagnostics(manifest)
+	diagnostics.GlossCoverage = cloneGlossCoverage(coverage)
+	return FrozenDeck{manifest: manifest.clone()}, diagnostics, nil
 }
 
 // Restore validates a durable projection with its historical schema codec and
@@ -398,7 +401,7 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...)}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage)}
 }
 
 func (m manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {

@@ -92,10 +92,11 @@ func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, strin
 }
 
 type finalizerRendererStub struct {
-	artifact   cardexport.Artifact
-	err        error
-	restoreErr error
-	calls      int
+	artifact    cardexport.Artifact
+	diagnostics cardexport.FinalizeDiagnostics
+	err         error
+	restoreErr  error
+	calls       int
 }
 
 func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
@@ -104,7 +105,7 @@ func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexpor
 
 func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
-	return r.artifact, cardexport.FinalizeDiagnostics{}, r.err
+	return r.artifact, r.diagnostics, r.err
 }
 
 type corpusRendererStub struct {
@@ -184,6 +185,24 @@ func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 	assert.Zero(t, store.completeCalls)
 }
 
+func TestDurableFinalizerLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
+	renderer := &finalizerRendererStub{diagnostics: cardexport.FinalizeDiagnostics{DegradationCodes: []string{cardexport.DegradationInvalidSenseSelection}}}
+	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), "prepared deck translation: invalid sense selection; using deterministic order")
+}
+
 func TestDurableFinalizerLogsFallbackGlossUsageOnlyForConsentedRuns(t *testing.T) {
 	previousWriter := log.Writer()
 	previousFlags := log.Flags()
@@ -246,6 +265,27 @@ func TestDurableRerendererReplaysCompletedRunAndIsIdempotent(t *testing.T) {
 	assert.Equal(t, 2, updated.DeckRevision)
 	assert.Equal(t, 1, renderer.calls, "same run and presentation version must not render twice")
 	assert.Equal(t, 1, store.supersedeCalls)
+}
+
+func TestDurableRerendererLogsInvalidSenseSelectionFromDiagnostics(t *testing.T) {
+	var output bytes.Buffer
+	previousWriter, previousFlags := log.Writer(), log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	}()
+
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"},
+	}
+	renderer := &finalizerRendererStub{diagnostics: cardexport.FinalizeDiagnostics{DegradationCodes: []string{cardexport.DegradationInvalidSenseSelection}}}
+	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 2)
+
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), "prepared deck translation: invalid sense selection; using deterministic order")
 }
 
 func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {

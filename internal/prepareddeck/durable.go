@@ -310,10 +310,11 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	artifact, _, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
+	artifact, diagnostics, err := r.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		return domain.DeckPreparation{}, fmt.Errorf("render prepared deck revision: %w", err)
 	}
+	logFinalizeDiagnostics(diagnostics)
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
 }
 
@@ -458,7 +459,7 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 		}
 		return domain.DeckPreparation{}, err
 	}
-	artifact, _, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
+	artifact, diagnostics, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		if ctx.Err() == nil {
 			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed")
@@ -466,6 +467,7 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)
 	}
+	logFinalizeDiagnostics(diagnostics)
 	result, err := f.Store.CompletePreparedDeckRun(ctx, owner, preparationID, runID, token, artifact)
 	if err != nil {
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
@@ -476,4 +478,13 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "completed", Provider: "openai", Value: 1})
 	return result, nil
+}
+
+func logFinalizeDiagnostics(diagnostics cardexport.FinalizeDiagnostics) {
+	for _, code := range diagnostics.DegradationCodes {
+		if code == cardexport.DegradationInvalidSenseSelection {
+			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
+			return
+		}
+	}
 }

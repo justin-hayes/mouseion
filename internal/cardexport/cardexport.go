@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"log"
 	"math"
 	"slices"
 	"sort"
@@ -1128,7 +1127,6 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 		if !enrichment.ValidateSenseSelection(selection, len(input.CandidateSenses)) {
 			selectionMalformed = true
 			diagnostics = append(diagnostics, DegradationInvalidSenseSelection)
-			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
 		} else if len(selection) > 0 {
 			selected := make([]enrichment.LexicalSense, 0, len(selection))
 			for _, index := range selection {

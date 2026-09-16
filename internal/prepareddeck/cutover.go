@@ -2,8 +2,10 @@ package prepareddeck
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/google/uuid"
@@ -174,14 +176,16 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		}
 	}
 	var deck cardexport.FrozenDeck
+	var freezeDiagnostics cardexport.FreezeDiagnostics
 	if len(projections) == 0 {
-		deck, _, err = p.Presentation.FreezeForDeck(ctx, preparation.OwnerID, deckName, projections)
+		deck, freezeDiagnostics, err = p.Presentation.FreezeForDeck(ctx, preparation.OwnerID, deckName, projections)
 	} else {
-		deck, _, err = p.Presentation.Freeze(ctx, projections)
+		deck, freezeDiagnostics, err = p.Presentation.Freeze(ctx, projections)
 	}
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}
+	logGlossCoverage(freezeDiagnostics.GlossCoverage)
 	work := deck.WorkProjection()
 	work, err = pendingBatchWork(ctx, tx, work)
 	if err != nil {
@@ -195,6 +199,18 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		}
 	}
 	return persistence.FreezePreparedDeckRunParams{RunID: runID, Projection: deck.StorageProjection(), Config: config, Chunks: chunks}, nil
+}
+
+type glossCoverageEvent struct {
+	Event  string                     `json:"event"`
+	Groups []cardexport.GlossCoverage `json:"groups"`
+}
+
+func logGlossCoverage(groups []cardexport.GlossCoverage) {
+	payload, err := json.Marshal(glossCoverageEvent{Event: "gloss_coverage", Groups: groups})
+	if err == nil {
+		log.Printf("gloss_coverage %s", payload)
+	}
 }
 
 func pendingBatchWork(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem) ([]cardexport.WorkItem, error) {
