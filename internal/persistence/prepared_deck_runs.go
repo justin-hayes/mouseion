@@ -422,12 +422,6 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 	return snapshot, storedDigest, nil
 }
 
-// LoadPreparedDeckManifest is retained for orchestration paths that have not
-// yet migrated to the projection name. It returns the same durable facts.
-func (s *PostgresStore) LoadPreparedDeckManifest(ctx context.Context, owner, preparationID, runID string) (cardexport.ManifestSnapshot, string, error) {
-	return s.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)
-}
-
 func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, preparationID, runID string) (domain.PreparedDeckRunProgress, error) {
 	exists, err := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{Owner: owner, Preparation: preparationID, Run: runID})
 	if err != nil {
