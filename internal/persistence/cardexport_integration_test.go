@@ -69,6 +69,10 @@ func TestGetCoverageEntryForBookEncodesFirstEncounterAsBigint(t *testing.T) {
 		"text": exactSentence, "location": map[string]any{"start_offset": 59},
 	}})
 	candidate.ObservedForms = []byte(`["Haus"]`)
+	example, err := store.PutExampleSentence(ctx, owner.ID, corpus.ID, "prepared-sentence", exactSentence, []byte(`{"start_offset":59}`))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE example_sentences SET language='de', canonical_lemma='Haus', upos='NOUN', selection_rank=1, selection_score=1, selection_reasons='[]', is_chosen=true WHERE id=$1`, example.ID)
+	require.NoError(t, err)
 	when := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO enrichment_cache(language,canonical_lemma,upos,provider,provider_version,sentence_hash,translation,fallback_gloss,sentence_translation,cached_at) VALUES
 		('de','Haus','NOUN','test','1',$1,'home','dwelling','She has called this house her home for many years.',$3),

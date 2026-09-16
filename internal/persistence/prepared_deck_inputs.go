@@ -117,6 +117,13 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 			return PreparedDeckInputFacts{}, fmt.Errorf("list persisted corpus sentences for %s: %w", id, sentenceErr)
 		}
 		if len(sentences) > 0 {
+			for ordinal := range ordinalSet {
+				if _, ok := sentences[ordinal]; !ok {
+					return PreparedDeckInputFacts{}, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", id, ordinal)
+				}
+			}
+		}
+		if len(sentences) > 0 {
 			sentencesByCorpus[id] = sentences
 		}
 	}

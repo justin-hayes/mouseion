@@ -93,7 +93,7 @@ func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, book
 // GetPreparedCoverageEntryForBook loads only immutable render inputs. Exact
 // enrichment is applied later from the preparation manifest.
 func (s *PostgresStore) GetPreparedCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return getCoverageEntryForBook(ctx, s.pool, owner, bookID, candidate, false, true)
+	return getCoverageEntryForBook(ctx, s.pool, owner, bookID, candidate, false, false)
 }
 
 func getCoverageEntryForBook(ctx context.Context, q sqlcgen.DBTX, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment, applyCandidateEvidence bool) (cardexport.Entry, error) {
@@ -137,7 +137,7 @@ func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, co
 // GetPreparedCoverageEntryForCorpus loads only immutable render inputs. It
 // deliberately performs no broad provider/version cache lookup.
 func (s *PostgresStore) GetPreparedCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return getCoverageEntryForCorpus(ctx, s.pool, owner, corpusID, candidate, false, true)
+	return getCoverageEntryForCorpus(ctx, s.pool, owner, corpusID, candidate, false, false)
 }
 
 func getCoverageEntryForCorpus(ctx context.Context, q sqlcgen.DBTX, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment, applyCandidateEvidence bool) (cardexport.Entry, error) {
