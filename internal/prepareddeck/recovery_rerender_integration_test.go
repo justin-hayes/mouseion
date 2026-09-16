@@ -47,7 +47,7 @@ func TestRecoveryWorkerEnqueuesEachStaleDeckOnce(t *testing.T) {
 	assert.Equal(t, 2, jobs)
 }
 
-func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, name string) {
+func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, name string) domain.DeckPreparation {
 	t.Helper()
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{
 		OwnerID: owner, Language: "de", SourceIdentifier: name, Title: name,
@@ -55,7 +55,7 @@ func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persiste
 	})
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner, SourceMaterialID: source.ID, Filename: name + ".apkg", DeckName: name, ContentHash: source.ContentHash,
+		OwnerID: owner, SourceMaterialID: source.ID, Filename: name + ".apkg", DeckName: cardexport.DeckName("und", name), ContentHash: source.ContentHash,
 	})
 	require.NoError(t, err)
 	tx, err := store.Pool().Begin(ctx)
@@ -74,6 +74,7 @@ func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persiste
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET presentation_version=0 WHERE owner_id=$1 AND preparation_id=$2`, owner, preparation.ID)
 	require.NoError(t, err)
+	return preparation
 }
 
 func integrationDatabase(t *testing.T, ctx context.Context) string {

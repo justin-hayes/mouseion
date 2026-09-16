@@ -248,7 +248,7 @@ func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
 	store.manifest = legacyRerenderManifest(t)
 	renderer := &corpusRendererStub{}
 
-	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
+	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.DeckRevision)
