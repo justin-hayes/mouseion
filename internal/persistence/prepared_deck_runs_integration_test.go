@@ -58,6 +58,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	snapshot.Items[2].Quality.Reasons = []string{"too short or fragmented"}
 	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[0], Translation: "house", FallbackGloss: "operate", SenseSelection: []int{}, SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)
+	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: keys[1], Translation: "tree", CachedAt: time.Now().UTC()})
+	require.NoError(t, err)
 
 	params := FreezePreparedDeckRunParams{
 		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: snapshot,
@@ -165,7 +167,8 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, "house", records[0].Entry.Translation)
 	assert.Equal(t, 1, records[1].Ordinal)
 	assert.Equal(t, keys[1], records[1].CacheKey)
-	assert.False(t, records[1].Found)
+	assert.True(t, records[1].Found)
+	assert.Equal(t, "tree", records[1].Entry.Translation)
 	_, _, err = store.LoadPreparedDeckStorageProjection(ctx, other.ID, preparation.ID, result.Run.ID)
 	assert.ErrorIs(t, err, ErrNotFound)
 	_, err = store.LoadPreparedDeckStoredRecords(ctx, other.ID, preparation.ID, result.Run.ID)

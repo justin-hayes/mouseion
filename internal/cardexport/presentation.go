@@ -314,22 +314,13 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if required && !storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
-		selectionMalformed := result.Record.SenseSelection != nil && !enrichment.ValidateSenseSelection(result.Record.SenseSelection, len(manifest.accepted[i].CandidateSenses))
-		if selectionMalformed {
-			degraded = appendUniqueCode(degraded, DegradationInvalidSenseSelection)
-		}
-		if result.Record.FallbackGloss != "" && !selectionMalformed && !storedRecordHasValidSenseSelection(result.Record, manifest.accepted[i]) && !fallbackGlossEligible(result.Record.FallbackGloss) {
-			degraded = appendUniqueCode(degraded, DegradationFallbackGlossRejected)
-		}
 		aligned[i] = exactEnrichmentFromStoredResult(result, manifest, i)
 	}
-	artifact, err := (&Service{}).RenderManifest(ctx, manifest, aligned)
+	artifact, renderDiagnostics, err := (&Service{}).renderManifest(ctx, manifest, aligned)
 	if err != nil {
 		return Artifact{}, FinalizeDiagnostics{}, err
 	}
-	if artifact.Completeness.CardsWithFallbackGloss > 0 {
-		degraded = appendUniqueCode(degraded, DegradationFallbackGlossApplied)
-	}
+	degraded = appendUniqueCodes(degraded, renderDiagnostics...)
 	diagnostics := manifestDiagnostics(manifest)
 	diagnostics.DegradationCodes = append(diagnostics.DegradationCodes, degraded...)
 	return artifact, diagnostics, nil
@@ -429,10 +420,6 @@ func storedRecordHasRequiredFields(record enrichment.CacheEntry, entry RenderInp
 	return enrichment.HasRequiredTranslationFields(record, entry.Sentence)
 }
 
-func storedRecordHasValidSenseSelection(record enrichment.CacheEntry, entry RenderInput) bool {
-	return record.SenseSelection != nil && len(record.SenseSelection) > 0 && enrichment.ValidateSenseSelection(record.SenseSelection, len(entry.CandidateSenses))
-}
-
 func exactEnrichmentFromStoredResult(stored StoredResult, manifest Manifest, acceptedIndex int) ExactEnrichment {
 	record := stored.Record
 	provenance := enrichment.Provenance{Provider: stored.CacheKey.Provider, ProviderVersion: stored.CacheKey.ProviderVersion, CachedAt: record.CachedAt, External: true}
@@ -467,4 +454,11 @@ func appendUniqueCode(codes []string, code string) []string {
 		}
 	}
 	return append(codes, code)
+}
+
+func appendUniqueCodes(codes []string, additions ...string) []string {
+	for _, code := range additions {
+		codes = appendUniqueCode(codes, code)
+	}
+	return codes
 }

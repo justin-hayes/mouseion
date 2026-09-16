@@ -201,6 +201,31 @@ func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *te
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
+func TestPresentationLifecycleReportsRejectedFallbackGloss(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+		CacheKey: work[0].CacheKey,
+		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{}, FallbackGloss: "<unsafe>"},
+	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
+	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossRejected)
+}
+
+func TestPresentationLifecycleReportsRejectedFallbackEvenWhenSenseSelectionIsValid(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	_, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+		CacheKey: work[0].CacheKey,
+		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{0}, FallbackGloss: "<unsafe>"},
+	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossRejected)
+}
+
 func TestPresentationLifecycleProjectionsAreDefensive(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)

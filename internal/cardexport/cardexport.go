@@ -1459,6 +1459,11 @@ func (m Manifest) clone() Manifest {
 // RenderManifest applies exact enrichment outcomes and renders the frozen plan
 // once. Outcomes are positional so duplicate or missing assignment is rejected.
 func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, error) {
+	artifact, _, err := s.renderManifest(ctx, manifest, outcomes)
+	return artifact, err
+}
+
+func (s *Service) renderManifest(ctx context.Context, manifest Manifest, outcomes []ExactEnrichment) (Artifact, []string, error) {
 	entries := cloneRenderInputs(manifest.accepted)
 	omitted := append([]Omission(nil), manifest.omitted...)
 	for i := range omitted {
@@ -1466,21 +1471,27 @@ func (s *Service) RenderManifest(ctx context.Context, manifest Manifest, outcome
 	}
 	if len(outcomes) > 0 || len(manifest.cacheKeys) > 0 {
 		if len(outcomes) != len(entries) || len(manifest.cacheKeys) != len(entries) {
-			return Artifact{}, fmt.Errorf("%w: exact enrichment count does not match manifest", ErrInvalidInput)
+			return Artifact{}, nil, fmt.Errorf("%w: exact enrichment count does not match manifest", ErrInvalidInput)
 		}
+		var diagnostics []string
 		for i, outcome := range outcomes {
 			if outcome.CacheKey != manifest.cacheKeys[i] {
-				return Artifact{}, fmt.Errorf("%w: exact enrichment cache identity mismatch at candidate %d", ErrInvalidInput, i)
+				return Artifact{}, nil, fmt.Errorf("%w: exact enrichment cache identity mismatch at candidate %d", ErrInvalidInput, i)
 			}
-			if err := applyExactEnrichment(&entries[i], outcome); err != nil {
-				return Artifact{}, fmt.Errorf("candidate %d: %w", i, err)
+			codes, err := applyExactEnrichment(&entries[i], outcome)
+			if err != nil {
+				return Artifact{}, nil, fmt.Errorf("candidate %d: %w", i, err)
 			}
+			diagnostics = appendUniqueCodes(diagnostics, codes...)
 		}
+		artifact, err := s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+		return artifact, diagnostics, err
 	}
-	return s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+	artifact, err := s.renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+	return artifact, nil, err
 }
 
-func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
+func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string, error) {
 	input.fallbackGlossApplied = false
 	result := outcome.Result
 	fields := []struct {
@@ -1497,16 +1508,16 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 	for _, field := range fields {
 		available = available || field.available
 		if field.available && (field.provenance.Provider != outcome.CacheKey.Provider || field.provenance.ProviderVersion != outcome.CacheKey.ProviderVersion) {
-			return fmt.Errorf("%w: enrichment provenance does not match cache identity", ErrInvalidInput)
+			return nil, fmt.Errorf("%w: enrichment provenance does not match cache identity", ErrInvalidInput)
 		}
 	}
 	candidate := result.Candidate
 	if available || candidate.Language != "" || candidate.CanonicalLemma != "" || candidate.UPOS != "" || candidate.TargetWord != "" || candidate.ExampleSentence != "" || candidate.DictionaryProviderVersion != "" {
 		if candidate.Language != outcome.CacheKey.Language || candidate.CanonicalLemma != outcome.CacheKey.CanonicalLemma || strings.ToUpper(candidate.UPOS) != outcome.CacheKey.UPOS || candidate.DictionaryProviderVersion != outcome.CacheKey.DictionaryProviderVersion || testedRenderTarget(*input) != testedRenderTarget(RenderInput{CanonicalLemma: candidate.CanonicalLemma, TargetWord: candidate.TargetWord}) {
-			return fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
+			return nil, fmt.Errorf("%w: enrichment candidate does not match cache identity", ErrInvalidInput)
 		}
 		if outcome.CacheKey.SentenceHash != "" && enrichment.SentenceHash(candidate.ExampleSentence) != outcome.CacheKey.SentenceHash {
-			return fmt.Errorf("%w: enrichment sentence does not match cache identity", ErrInvalidInput)
+			return nil, fmt.Errorf("%w: enrichment sentence does not match cache identity", ErrInvalidInput)
 		}
 	}
 	if result.Translation.Available {
@@ -1520,10 +1531,12 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 	}
 	selectionValid := false
 	selectionMalformed := false
+	var diagnostics []string
 	if result.SenseSelection.Available {
 		selection := result.SenseSelection.Value
 		if !enrichment.ValidateSenseSelection(selection, len(input.CandidateSenses)) {
 			selectionMalformed = true
+			diagnostics = append(diagnostics, DegradationInvalidSenseSelection)
 			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
 		} else if len(selection) > 0 {
 			selected := make([]enrichment.LexicalSense, 0, len(selection))
@@ -1541,9 +1554,13 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 		if fallbackGlossEligible(fallback) {
 			input.Gloss = fallback
 			input.fallbackGlossApplied = true
+			diagnostics = append(diagnostics, DegradationFallbackGlossApplied)
 		}
 	}
-	return nil
+	if result.FallbackGloss.Available && strings.TrimSpace(result.FallbackGloss.Value) != "" && !fallbackGlossEligible(result.FallbackGloss.Value) {
+		diagnostics = append(diagnostics, DegradationFallbackGlossRejected)
+	}
+	return appendUniqueCodes(nil, diagnostics...), nil
 }
 
 func targetWord(sentence string, candidate domain.SelectionCandidate) string {

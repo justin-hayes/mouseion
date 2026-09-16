@@ -42,6 +42,7 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 		name      string
 		snapshot  func(string) cardexport.ManifestSnapshot
 		badSchema bool
+		identity  bool
 	}{
 		{name: "invalid ordinal", snapshot: func(owner string) cardexport.ManifestSnapshot {
 			return projectionSnapshotWithItems(owner, cardexport.ManifestSchemaVersion, cardexport.ManifestItem{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: projectionEntry(), Quality: projectionQuality(), CacheKey: projectionCacheKey()})
@@ -54,7 +55,7 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 				cardexport.ManifestItem{Ordinal: 1, Disposition: cardexport.ManifestAccepted, Entry: entry, Quality: projectionQuality()},
 			)
 		}},
-		{name: "manifest digest mismatch", snapshot: func(owner string) cardexport.ManifestSnapshot {
+		{name: "manifest digest mismatch", identity: true, snapshot: func(owner string) cardexport.ManifestSnapshot {
 			return projectionSnapshot(t, owner, cardexport.ManifestSchemaVersion)
 		}},
 		{name: "unsupported schema", badSchema: true, snapshot: func(owner string) cardexport.ManifestSnapshot {
@@ -86,7 +87,11 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 				return strings.Repeat("a", 64), candidateDigests
 			})
 			_, _, err := store.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, runID)
-			assert.ErrorIs(t, err, ErrPreparedDeckIdentity)
+			if test.identity {
+				assert.ErrorIs(t, err, ErrPreparedDeckIdentity)
+			} else {
+				assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+			}
 		})
 	}
 }

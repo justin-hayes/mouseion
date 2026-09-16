@@ -416,8 +416,17 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 	if selected != selectedCount || accepted != acceptedCount || omitted != omittedCount {
 		return snapshot, "", ErrPreparedDeckIdentity
 	}
-	if err := snapshot.ValidateDigests(storedDigest, candidateDigests); err != nil {
+	calculatedManifest, calculatedCandidates, err := snapshot.Digests()
+	if err != nil {
+		return snapshot, "", err
+	}
+	if calculatedManifest != storedDigest || len(calculatedCandidates) != len(candidateDigests) {
 		return snapshot, "", ErrPreparedDeckIdentity
+	}
+	for i := range calculatedCandidates {
+		if calculatedCandidates[i] != candidateDigests[i] {
+			return snapshot, "", ErrPreparedDeckIdentity
+		}
 	}
 	return snapshot, storedDigest, nil
 }

@@ -32,6 +32,7 @@ type finalizerStoreStub struct {
 	corpusSentences                                    map[string]map[int64]analyzer.Sentence
 	corpusCalls                                        int
 	failCalls                                          int
+	loadErr                                            error
 }
 
 func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _, _, _ string, generation int, token string, leaseExpiresAt time.Time) (domain.PreparedDeckRun, error) {
@@ -41,7 +42,7 @@ func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _,
 
 func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
 	s.loadCalls++
-	return s.projection, s.stored, nil
+	return s.projection, s.stored, s.loadErr
 }
 
 func (s *finalizerStoreStub) CompletePreparedDeckRun(_ context.Context, _, _, _, token string, _ cardexport.Artifact) (domain.DeckPreparation, error) {
@@ -91,13 +92,14 @@ func (s *finalizerStoreStub) FailPreparedDeckFinalization(context.Context, strin
 }
 
 type finalizerRendererStub struct {
-	artifact cardexport.Artifact
-	err      error
-	calls    int
+	artifact   cardexport.Artifact
+	err        error
+	restoreErr error
+	calls      int
 }
 
 func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
-	return cardexport.FrozenDeck{}, nil
+	return cardexport.FrozenDeck{}, r.restoreErr
 }
 
 func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
@@ -157,6 +159,19 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	renderer := &finalizerRendererStub{err: renderErr}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 	assert.ErrorIs(t, err, renderErr)
+	assert.Zero(t, store.completeCalls)
+	assert.Equal(t, 1, store.failCalls)
+}
+
+func TestDurableFinalizerFailsRestoreFailure(t *testing.T) {
+	restoreErr := errors.New("restore failed")
+	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
+	renderer := &finalizerRendererStub{restoreErr: restoreErr}
+
+	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
+
+	assert.ErrorIs(t, err, restoreErr)
+	assert.Equal(t, 1, store.failCalls)
 	assert.Zero(t, store.completeCalls)
 }
 
@@ -303,6 +318,20 @@ func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {
 	worker := &RerenderWorker{Rerenderer: &DurableRerenderer{Store: store, Renderer: &corpusRendererStub{}}}
 
 	err := worker.Work(context.Background(), &river.Job[RerenderJobArgs]{Args: RerenderJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", PresentationVersion: 1}})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, store.repreparationCalls)
+}
+
+func TestRerenderWorkerMarksIdentityCorruptionForRepreparation(t *testing.T) {
+	store := &finalizerStoreStub{
+		run:         domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 1, PresentationVersion: 1},
+		preparation: domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run"},
+		loadErr:     persistence.ErrPreparedDeckIdentity,
+	}
+	worker := &RerenderWorker{Rerenderer: &DurableRerenderer{Store: store, Renderer: &corpusRendererStub{}}}
+
+	err := worker.Work(context.Background(), &river.Job[RerenderJobArgs]{Args: RerenderJobArgs{OwnerID: "owner", PreparationID: "preparation", RunID: "run", PresentationVersion: 2}})
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, store.repreparationCalls)
