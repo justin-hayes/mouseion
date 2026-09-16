@@ -74,6 +74,20 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 	return outcome, err
 }
 
+// VerifyPreparedDeckTranslationClaim fences side effects that happen after a
+// provider call but before the terminal outcome transition.
+func (s *PostgresStore) VerifyPreparedDeckTranslationClaim(ctx context.Context, owner, preparationID, runID string, ordinal, generation int, token string) error {
+	var valid bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='running' AND claim_token=$6 AND lease_expires_at > now())`, owner, preparationID, runID, ordinal, generation, uuidArg(token)).Scan(&valid)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return ErrPreparedDeckClaimLost
+	}
+	return nil
+}
+
 // RetryPreparedDeckTranslationOutcome persists one failed provider attempt and
 // releases the item claim for a later, fenced dispatch.
 func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal, generation int, token string, nextAttemptAt time.Time, errorClass, errorCode string) (domain.PreparedDeckTranslationOutcome, error) {

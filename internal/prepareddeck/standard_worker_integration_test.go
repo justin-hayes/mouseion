@@ -269,6 +269,29 @@ func TestStandardWorkerUsesRestoredFrozenRequestAndCacheKey(t *testing.T) {
 	assert.Equal(t, expected.CacheKey, stored.CacheKey)
 }
 
+func TestStandardWorkerDoesNotPersistAfterClaimLossDuringProviderCall(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		_, err := run.store.Pool().Exec(ctx, `UPDATE deck_preparation_translation_outcomes SET claim_token=$1 WHERE owner_id=$2 AND preparation_id=$3 AND run_id=$4 AND ordinal=0 AND dispatch_generation=0`, uuid.NewString(), run.owner, run.prep.ID, run.run.ID)
+		if err != nil {
+			return enrichment.TranslationResponse{}, err
+		}
+		return validTranslationResponse(request), nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider}
+
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	_, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	assert.False(t, found)
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeRunning, outcomes[0].State)
+}
+
 func TestStandardWorkerDoesNotCompleteWhenImmutableCacheWriteRemainsIncomplete(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -392,28 +415,31 @@ func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *
 func TestStandardWorkerRestartRestoresPendingProjection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	run, _, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	riverJobID := outcomes[0].RiverJobID
+	_, err = run.store.Pool().Exec(ctx, `UPDATE river_job SET scheduled_at=now() + interval '1 hour' WHERE id=$1`, riverJobID)
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	require.NoError(t, client.Stop(ctx))
+	_, err = run.store.Pool().Exec(ctx, `UPDATE river_job SET scheduled_at=now() WHERE id=$1`, riverJobID)
+	require.NoError(t, err)
 
 	workers := river.NewWorkers()
 	restarted, err := river.NewClient(riverpgxv5.New(run.store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
 	AddStandardTranslationWorkerWithDependencies(workers, run.store, restarted, provider, PreparedDeckConfig{}, time.Second)
 	river.AddWorker(workers, &integrationFinalizeWorker{})
-	tx, err := run.store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	inserted, err := restarted.InsertTx(ctx, tx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}, &river.InsertOpts{Queue: TranslationQueue})
-	require.NoError(t, err)
-	require.NotNil(t, inserted)
-	require.NotNil(t, inserted.Job)
-	require.NoError(t, tx.Commit(ctx))
 	require.NoError(t, restarted.Start(ctx))
 	defer restarted.Stop(context.Background())
-	outcomes := waitStandardOutcomes(t, ctx, run, 1)
+	outcomes = waitStandardOutcomes(t, ctx, run, 1)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
 	calls, _ := provider.stats()
 	assert.Equal(t, 1, calls)
 	for {
-		job, err := restarted.JobGet(ctx, inserted.Job.ID)
+		job, err := restarted.JobGet(ctx, riverJobID)
 		require.NoError(t, err)
 		if job.State == rivertype.JobStateCompleted {
 			break
