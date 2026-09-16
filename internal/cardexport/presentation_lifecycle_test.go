@@ -49,6 +49,9 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
 	assert.Equal(t, "building · house", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, artifact.TSV, "The house is old today.")
+	assert.Contains(t, artifact.Generated[0].Note.Text, "<b>Haus</b>")
+	assert.NotEmpty(t, artifact.APKG)
+	assert.Len(t, artifact.Generated, 1)
 }
 
 func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
@@ -78,6 +81,15 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		assert.Equal(t, manifestDigest, gotManifestDigest, "schema %d", schema)
 		assert.Equal(t, candidateDigest, gotCandidateDigest, "schema %d", schema)
 		assert.Equal(t, "frozen gloss", stored.Items[0].Entry.Gloss)
+		if schema == cardexport.LegacyManifestSchemaVersion {
+			work := deck.WorkProjection()
+			_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: enrichment.Result{
+				Candidate:           work[0].RequestCandidate(),
+				Translation:         enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+				SentenceTranslation: enrichment.Field[string]{Value: "The house stands there today.", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+			}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+			require.NoError(t, err, "schema %d finalization", schema)
+		}
 	}
 }
 
@@ -89,6 +101,43 @@ func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testin
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
 	assert.Empty(t, diagnostics.DegradationCodes)
+}
+
+func TestPresentationLifecycleReportsQualityOmissionAndMalformedOptionalData(t *testing.T) {
+	projection := lifecycleProjection()
+	projection.Sentences[0] = analyzer.Sentence{Text: "Fragment."}
+	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(context.Background(), []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	assert.Len(t, diagnostics.QualityOmissions, 1)
+	assert.Equal(t, 0, deck.Summary().Accepted)
+
+	projection = lifecycleProjection()
+	deck, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	malformed := enrichment.Result{
+		Candidate:      work[0].RequestCandidate(),
+		SenseSelection: enrichment.Field[[]int]{Value: []int{9}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+		FallbackGloss:  enrichment.Field[string]{Value: "<unsafe>", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
+	}
+	artifact, finalDiagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: malformed}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
+	assert.Contains(t, finalDiagnostics.DegradationCodes, cardexport.DegradationInvalidSenseSelection)
+}
+
+func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	wrongKey := work[0].CacheKey
+	wrongKey.ProviderVersion = "other"
+	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+
+	result := enrichment.Result{Candidate: work[0].RequestCandidate(), Translation: enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "other", ProviderVersion: "prompt-v1"}}}
+	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
 func TestPresentationLifecycleRequiresCompleteStandardResults(t *testing.T) {

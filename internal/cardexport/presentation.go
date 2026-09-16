@@ -123,6 +123,7 @@ func (p *Presentation) Freeze(ctx context.Context, projections []CandidateProjec
 	entries := make([]Entry, 0, len(ordered))
 	for _, projection := range ordered {
 		entry := cloneEntry(projection.Entry)
+		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
 		if err := service.resolveLexicalEntry(ctx, &entry); err != nil {
 			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: resolve lexical entry %s: %v", ErrInvalidInput, candidateKey(projection.Candidate), err)
@@ -224,7 +225,8 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: incomplete external run facts", ErrInvalidInput)
 		}
 		for _, key := range keys {
-			if key.TargetLanguage != facts.TargetLanguage || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
+			historicalV1Target := manifest.schemaVersion == LegacyManifestSchemaVersion && key.TargetLanguage == ""
+			if (!historicalV1Target && key.TargetLanguage != facts.TargetLanguage) || key.Provider != facts.Provider || key.ProviderVersion != facts.ProviderVersion {
 				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: run facts contradict manifest cache identity", ErrInvalidInput)
 			}
 		}

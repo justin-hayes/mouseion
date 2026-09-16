@@ -1528,7 +1528,7 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) error {
 	}
 	if result.FallbackGloss.Available && !selectionValid && !selectionMalformed {
 		fallback := strings.TrimSpace(result.FallbackGloss.Value)
-		if fallback != "" && !strings.ContainsAny(fallback, "<>") && len([]rune(fallback)) <= enrichment.MaxFallbackGlossRunes {
+		if fallbackGlossEligible(fallback) {
 			input.Gloss = fallback
 			input.fallbackGlossApplied = true
 		}
