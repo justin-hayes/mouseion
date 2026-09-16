@@ -228,7 +228,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 			}
 		}
 	}
-	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, config, runID)
+	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, runID)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -245,11 +245,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
 }
 
-func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, _ PreparedDeckRunConfig, runID string) ([]domain.PreparedDeckBatchChunk, error) {
-	_, candidateDigests, err := params.Projection.Digests()
-	if err != nil {
-		return nil, err
-	}
+func insertPreparedDeckChunkPlans(ctx context.Context, tx pgx.Tx, params FreezePreparedDeckRunParams, candidateDigests []string, runID string) ([]domain.PreparedDeckBatchChunk, error) {
 	chunks := make([]domain.PreparedDeckBatchChunk, 0, len(params.Chunks))
 	for _, plan := range params.Chunks {
 		chunkID := plan.ID
