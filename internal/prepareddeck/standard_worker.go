@@ -111,6 +111,9 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
 	if callErr != nil {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
+		if claimed.ProviderAttemptCount+1 < claimed.MaxProviderAttempts {
+			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, "validation", "invalid_response")
+		}
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
 	for _, warning := range response.Warnings {
@@ -252,6 +255,12 @@ func classifyStandardProviderError(err error, parent context.Context) (string, s
 	var netErr net.Error
 	if errors.As(err, &netErr) || errors.Is(err, context.DeadlineExceeded) {
 		return "provider", "transport_timeout", true
+	}
+	// A malformed or identity/language-mismatched provider response is
+	// transient: it may be retried up to the caller's bounded attempt limit. It
+	// must never be persisted as success.
+	if errors.Is(err, enrichment.ErrInvalidTranslationResponse) {
+		return "validation", "invalid_response", true
 	}
 	return "validation", "invalid_response", false
 }

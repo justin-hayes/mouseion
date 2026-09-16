@@ -15,6 +15,13 @@ var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target 
 
 const maxTranslationResponseBytes = 1 << 20
 
+// ErrInvalidTranslationResponse marks a provider response that failed the
+// strict translation schema, identity, or language validation. Callers may
+// retry it up to their bounded provider-attempt limit because a malformed
+// response is transient provider behavior, unlike request encoding or
+// configuration failures.
+var ErrInvalidTranslationResponse = errors.New("enrichment: invalid translation response")
+
 // TranslationCodec owns the provider request and response semantics shared by
 // synchronous and Batch transports. It deliberately contains no credentials,
 // endpoint, HTTP client, or durable preparation identity.
@@ -179,7 +186,11 @@ func (c *TranslationCodec) DecodeResponse(input TranslationRequest, body []byte)
 // DecodeResponseWithUsage applies the same decoder and validator as
 // DecodeResponse while returning provider-reported usage for evaluation.
 func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, body []byte) (TranslationResponse, TranslationUsage, error) {
-	return c.decodeResponseWithItemID(input, body, TranslationItemID(input))
+	response, usage, err := c.decodeResponseWithItemID(input, body, TranslationItemID(input))
+	if err != nil {
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("%w: %v", ErrInvalidTranslationResponse, err)
+	}
+	return response, usage, nil
 }
 
 func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, body []byte, expectedItemID string) (TranslationResponse, TranslationUsage, error) {

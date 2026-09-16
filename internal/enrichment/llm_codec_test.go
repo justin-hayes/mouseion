@@ -114,9 +114,11 @@ func TestTranslationCodecRejectsIdentityAndLanguageDrift(t *testing.T) {
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
 	base := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","gloss":"dwelling","sentence_translation":"","sentence_translation_target":""}`
 	for name, content := range map[string]string{
+		"malformed JSON":    `{"item_id":`,
 		"missing":           strings.Replace(base, `"item_id":"`+TranslationItemID(input)+`",`, "", 1),
 		"duplicate":         strings.Replace(base, `,"source_language"`, `,"item_id":"other","source_language"`, 1),
 		"unexpected":        strings.Replace(base, `,"translation"`, `,"unexpected":"x","translation"`, 1),
+		"empty translation": strings.Replace(base, `"translation":"house"`, `"translation":""`, 1),
 		"mismatched item":   strings.Replace(base, TranslationItemID(input), "translation-item-other", 1),
 		"mismatched source": strings.Replace(base, `"source_language":"de"`, `"source_language":"fr"`, 1),
 		"mismatched target": strings.Replace(base, `"target_language":"en"`, `"target_language":"de"`, 1),
@@ -124,7 +126,8 @@ func TestTranslationCodecRejectsIdentityAndLanguageDrift(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 			_, err := codec.DecodeResponse(input, []byte(body))
-			assert.Error(t, err, "invalid correlated response accepted")
+			require.Error(t, err, "invalid correlated response accepted")
+			assert.ErrorIs(t, err, ErrInvalidTranslationResponse, "malformed response must be retryable by the caller")
 		})
 	}
 }
