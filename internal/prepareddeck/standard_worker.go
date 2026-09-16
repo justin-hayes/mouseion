@@ -103,7 +103,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	if callErr != nil {
 		class, code, retryable := classifyStandardProviderError(callErr, ctx)
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricProviderErrors, Phase: "provider", State: "failed", ErrorClass: standardMetricErrorClass(class, code), Provider: "openai", Value: 1})
-		if retryable && claimed.ProviderAttemptCount+1 < claimed.MaxProviderAttempts {
+		if shouldRetryStandardProviderAttempt(retryable, claimed.ProviderAttemptCount, claimed.MaxProviderAttempts) {
 			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, class, code)
 		}
 		return w.failWithLatency(ctx, args, token, class, code, true, providerLatency)
@@ -111,6 +111,9 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	response, callErr = enrichment.NormalizeTranslationResponse(request, response)
 	if callErr != nil {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricBatchValidationFailures, Phase: "provider", State: "failed", ErrorClass: "validation", Provider: "openai", Value: 1})
+		if shouldRetryStandardProviderAttempt(true, claimed.ProviderAttemptCount, claimed.MaxProviderAttempts) {
+			return w.retry(ctx, args, token, claimed.ProviderAttemptCount+1, "validation", "invalid_response")
+		}
 		return w.failWithLatency(ctx, args, token, "validation", "invalid_response", true, providerLatency)
 	}
 	for _, warning := range response.Warnings {
@@ -198,6 +201,10 @@ func standardRetryDelay(config PreparedDeckConfig, attempt int) time.Duration {
 	return delay
 }
 
+func shouldRetryStandardProviderAttempt(retryable bool, providerAttemptCount, maxProviderAttempts int) bool {
+	return retryable && providerAttemptCount+1 < maxProviderAttempts
+}
+
 func (w *StandardTranslationWorker) fail(ctx context.Context, args StandardTranslationJobArgs, token, class, code string, providerAttempt, providerCall bool) error {
 	return w.failWithLatency(ctx, args, token, class, code, providerAttempt, 0)
 }
@@ -252,6 +259,12 @@ func classifyStandardProviderError(err error, parent context.Context) (string, s
 	var netErr net.Error
 	if errors.As(err, &netErr) || errors.Is(err, context.DeadlineExceeded) {
 		return "provider", "transport_timeout", true
+	}
+	// A malformed or identity/language-mismatched provider response is
+	// transient: it may be retried up to the caller's bounded attempt limit. It
+	// must never be persisted as success.
+	if errors.Is(err, enrichment.ErrInvalidTranslationResponse) {
+		return "validation", "invalid_response", true
 	}
 	return "validation", "invalid_response", false
 }

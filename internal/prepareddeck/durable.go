@@ -35,11 +35,11 @@ type BatchSubmitJobArgs struct {
 // execution is intentionally a later issue; this job is the durable dispatch
 // boundary and its full argument set is the idempotency key.
 type StandardTranslationJobArgs struct {
-	OwnerID       string `json:"owner_id"`
-	PreparationID string `json:"preparation_id"`
-	RunID         string `json:"run_id"`
+	OwnerID       string `json:"owner_id" river:"unique"`
+	PreparationID string `json:"preparation_id" river:"unique"`
+	RunID         string `json:"run_id" river:"unique"`
 	Ordinal       int    `json:"ordinal" river:"unique"`
-	Generation    int    `json:"generation"`
+	Generation    int    `json:"generation" river:"unique"`
 }
 
 func (StandardTranslationJobArgs) Kind() string { return "prepared_deck_translation" }

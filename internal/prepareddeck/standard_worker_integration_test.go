@@ -210,7 +210,8 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	for i := range run.keys {
 		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: i, Generation: 0}), "initial ordinal %d", i)
 	}
-	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 1}), "retry ordinal")
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 1}), "retry ordinal 0")
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 1, Generation: 1}), "retry ordinal 1")
 	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
@@ -218,6 +219,8 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	assert.Equal(t, 2, outcomes[0].ProviderAttemptCount)
 	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[1].State)
 	assert.Equal(t, "invalid_response", outcomes[1].ErrorCode)
+	assert.Equal(t, 1, outcomes[1].DispatchGeneration)
+	assert.Equal(t, 2, outcomes[1].ProviderAttemptCount)
 	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[2].State)
 	assert.Equal(t, "http_401", outcomes[2].ErrorCode)
 	assert.Equal(t, 1, outcomes[2].ProviderAttemptCount)
@@ -225,7 +228,42 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	require.NoError(t, err)
 	assert.False(t, found, "malformed response cache")
 	calls, _ := provider.stats()
-	assert.Equal(t, 4, calls, "provider calls, want one retry plus two terminal calls")
+	assert.Equal(t, 5, calls, "provider calls, want one retry for the transient error and one bounded retry for the malformed response")
+}
+
+func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 2)
+	provider.onCall = func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{}, nil
+	}
+	startedAt := time.Now().UTC()
+	require.NoError(t, client.Start(ctx))
+	defer client.Stop(context.Background())
+
+	outcomes := waitStandardOutcomes(t, ctx, run, 1)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+	assert.Equal(t, "validation", outcomes[0].ErrorClass)
+	assert.Equal(t, "invalid_response", outcomes[0].ErrorCode)
+	assert.Equal(t, 2, outcomes[0].ProviderAttemptCount)
+	assert.Equal(t, 2, outcomes[0].DispatchCount)
+	assert.Equal(t, 1, outcomes[0].DispatchGeneration)
+	assert.True(t, outcomes[0].NextAttemptAt.After(startedAt), "retry backoff timestamp was not persisted")
+	calls, _ := provider.stats()
+	assert.Equal(t, 2, calls)
+
+	storedRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckRunFailed, storedRun.State)
+	preparation, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+	assert.Empty(t, preparation.Artifact)
+	_, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	assert.False(t, found, "malformed response was persisted as a cache success")
 }
 
 func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
