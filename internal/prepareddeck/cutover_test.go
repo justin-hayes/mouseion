@@ -20,7 +20,9 @@ type cutoverAssembler struct {
 }
 
 type inputFactsStore struct {
-	facts persistence.PreparedDeckInputFacts
+	facts          persistence.PreparedDeckInputFacts
+	candidateFacts []persistence.PreparedDeckCandidateFacts
+	requested      []domain.SelectionCandidate
 }
 
 type plannerDictionary struct{}
@@ -32,7 +34,25 @@ func (plannerDictionary) Lookup(context.Context, enrichment.LexicalLookupRequest
 }
 
 func (s inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error) {
-	return s.facts, nil
+	facts := s.facts
+	for _, fact := range s.candidateFacts {
+		facts.Candidates = append(facts.Candidates, fact.Candidate)
+	}
+	return facts, nil
+}
+
+func (s *inputFactsStore) LoadPreparedDeckCandidateFactsTx(_ context.Context, _ pgx.Tx, _ domain.DeckPreparation, selected []domain.SelectionCandidate) ([]persistence.PreparedDeckCandidateFacts, error) {
+	s.requested = selected
+	result := make([]persistence.PreparedDeckCandidateFacts, 0, len(selected))
+	for _, wanted := range selected {
+		for _, fact := range s.candidateFacts {
+			if fact.Candidate.CanonicalLemma == wanted.CanonicalLemma && fact.Candidate.UPOS == wanted.UPOS {
+				result = append(result, fact)
+				break
+			}
+		}
+	}
+	return result, nil
 }
 
 func (a *cutoverAssembler) AssemblePreparedDeckInputs(context.Context, pgx.Tx, domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
@@ -124,20 +144,22 @@ func TestInputAssemblerSelectsRecurringUnknownVocabularyFromFacts(t *testing.T) 
 	}
 	book := "book"
 	facts := persistence.PreparedDeckInputFacts{
-		DeckName: "Book",
-		Candidates: []persistence.PreparedDeckCandidateFacts{
-			makeFact("keep", 3), makeFact("rare", 2), makeFact("known", 5), makeFact("generated", 5), makeFact("reserved", 5),
-		},
+		DeckName:  "Book",
 		Known:     []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
 		Generated: []domain.GeneratedVocabulary{{Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", FirstSourceMaterialID: &book}},
 		Reserved:  []domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "reserved", UPOS: "NOUN"}},
 	}
 
-	projections, deckName, err := NewInputAssembler(inputFactsStore{facts: facts}).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: book})
+	candidateFacts := []persistence.PreparedDeckCandidateFacts{
+		makeFact("keep", 3), makeFact("rare", 2), makeFact("known", 5), makeFact("generated", 5), makeFact("reserved", 5),
+	}
+	store := inputFactsStore{facts: facts, candidateFacts: candidateFacts}
+	projections, deckName, err := NewInputAssembler(&store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: book})
 
 	require.NoError(t, err)
 	assert.Equal(t, "Book", deckName)
 	require.Len(t, projections, 2)
 	assert.Equal(t, "keep", projections[0].Candidate.CanonicalLemma)
 	assert.Equal(t, "generated", projections[1].Candidate.CanonicalLemma)
+	assert.Equal(t, []string{"keep", "generated"}, []string{store.requested[0].CanonicalLemma, store.requested[1].CanonicalLemma})
 }

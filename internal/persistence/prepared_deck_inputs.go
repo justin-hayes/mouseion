@@ -13,7 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// PreparedDeckCandidateFacts contains only persisted facts for one selection
+// PreparedDeckCandidateFacts contains only persisted facts for one selected
 // candidate. Selection and presentation policy remain outside persistence.
 type PreparedDeckCandidateFacts struct {
 	Candidate domain.SelectionCandidate
@@ -26,40 +26,21 @@ type PreparedDeckCandidateFacts struct {
 // the planner owns recurring-vocabulary selection and exclusion.
 type PreparedDeckInputFacts struct {
 	DeckName   string
-	Candidates []PreparedDeckCandidateFacts
+	Candidates []domain.SelectionCandidate
 	Known      []domain.KnownVocabulary
 	Generated  []domain.GeneratedVocabulary
 	Reserved   []domain.DeckPreparationVocabulary
 }
 
-// LoadPreparedDeckInputFactsTx reads all planner inputs through the supplied
-// transaction. It does not choose candidates, representative sentences, or
-// dictionary/presentation values.
+// LoadPreparedDeckInputFactsTx reads candidate and vocabulary facts through
+// the supplied transaction. Render and sentence facts are loaded only after
+// the planner has applied recurring-vocabulary selection.
 func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (PreparedDeckInputFacts, error) {
 	if s == nil || tx == nil || preparation.OwnerID == "" || preparation.SourceMaterialID == "" {
 		return PreparedDeckInputFacts{}, ErrInvalidTransition
 	}
 	q := sqlcgen.New(tx)
-	source, err := q.GetSourceMaterial(ctx, sqlcgen.GetSourceMaterialParams{OwnerID: preparation.OwnerID, ID: preparation.SourceMaterialID})
-	if err != nil {
-		return PreparedDeckInputFacts{}, missing(err)
-	}
-
-	var candidates []domain.SelectionCandidate
-	corpusID := ""
-	if preparation.AnalysisRunID != "" {
-		corpus, corpusErr := q.GetCorpusForAnalysis(ctx, sqlcgen.GetCorpusForAnalysisParams{OwnerID: preparation.OwnerID, ID: preparation.AnalysisRunID})
-		if corpusErr != nil {
-			return PreparedDeckInputFacts{}, missing(corpusErr)
-		}
-		if corpus.CSourceMaterialID != preparation.SourceMaterialID {
-			return PreparedDeckInputFacts{}, ErrNotFound
-		}
-		corpusID = corpus.CID
-		candidates, err = listSelectionCandidatesForCorpus(ctx, tx, preparation.OwnerID, corpusID)
-	} else {
-		candidates, err = listSelectionCandidatesForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID)
-	}
+	deckName, _, candidates, err := preparedDeckScopeTx(ctx, tx, q, preparation)
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
@@ -68,7 +49,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	for _, candidate := range candidates {
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
-	result := PreparedDeckInputFacts{DeckName: source.Title}
+	result := PreparedDeckInputFacts{DeckName: deckName, Candidates: candidates}
 	for language := range languages {
 		known, knownErr := listKnownVocabulary(ctx, tx, preparation.OwnerID, language)
 		if knownErr != nil {
@@ -86,9 +67,26 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		result.Generated = append(result.Generated, generated...)
 		result.Reserved = append(result.Reserved, reserved...)
 	}
+	return result, nil
+}
+
+// LoadPreparedDeckCandidateFactsTx loads render and sentence facts for the
+// selected candidates and rejects partially available persisted sentences.
+func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, selected []domain.SelectionCandidate) ([]PreparedDeckCandidateFacts, error) {
+	if s == nil || tx == nil || preparation.OwnerID == "" || preparation.SourceMaterialID == "" {
+		return nil, ErrInvalidTransition
+	}
+	if len(selected) == 0 {
+		return nil, nil
+	}
+	q := sqlcgen.New(tx)
+	_, corpusID, err := preparedDeckCoverageScopeTx(ctx, q, preparation)
+	if err != nil {
+		return nil, err
+	}
 
 	ordinalsByCorpus := make(map[string]map[int64]struct{})
-	for _, candidate := range candidates {
+	for _, candidate := range selected {
 		var refs []struct {
 			SentenceIndex int `json:"sentence_index"`
 		}
@@ -114,22 +112,20 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		}
 		sentences, sentenceErr := listCorpusSentences(ctx, tx, preparation.OwnerID, id, ordinals)
 		if sentenceErr != nil {
-			return PreparedDeckInputFacts{}, fmt.Errorf("list persisted corpus sentences for %s: %w", id, sentenceErr)
+			return nil, fmt.Errorf("list persisted corpus sentences for %s: %w", id, sentenceErr)
 		}
 		if len(sentences) > 0 {
 			for ordinal := range ordinalSet {
 				if _, ok := sentences[ordinal]; !ok {
-					return PreparedDeckInputFacts{}, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", id, ordinal)
+					return nil, fmt.Errorf("list persisted corpus sentences for %s: missing sentence ordinal %d", id, ordinal)
 				}
 			}
-		}
-		if len(sentences) > 0 {
 			sentencesByCorpus[id] = sentences
 		}
 	}
 
-	result.Candidates = make([]PreparedDeckCandidateFacts, 0, len(candidates))
-	for _, candidate := range candidates {
+	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
+	for _, candidate := range selected {
 		var entry cardexport.Entry
 		if corpusID != "" {
 			entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate, false, false)
@@ -137,11 +133,43 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate, false, false)
 		}
 		if err != nil {
-			return PreparedDeckInputFacts{}, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
+			return nil, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
 		}
-		result.Candidates = append(result.Candidates, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
+		result = append(result, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
 	}
 	return result, nil
+}
+
+func preparedDeckScopeTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation) (string, string, []domain.SelectionCandidate, error) {
+	deckName, corpusID, err := preparedDeckCoverageScopeTx(ctx, q, preparation)
+	if err != nil {
+		return "", "", nil, err
+	}
+	var candidates []domain.SelectionCandidate
+	if corpusID == "" {
+		candidates, err = listSelectionCandidatesForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID)
+	} else {
+		candidates, err = listSelectionCandidatesForCorpus(ctx, tx, preparation.OwnerID, corpusID)
+	}
+	return deckName, corpusID, candidates, err
+}
+
+func preparedDeckCoverageScopeTx(ctx context.Context, q *sqlcgen.Queries, preparation domain.DeckPreparation) (string, string, error) {
+	source, err := q.GetSourceMaterial(ctx, sqlcgen.GetSourceMaterialParams{OwnerID: preparation.OwnerID, ID: preparation.SourceMaterialID})
+	if err != nil {
+		return "", "", missing(err)
+	}
+	if preparation.AnalysisRunID == "" {
+		return source.Title, "", nil
+	}
+	corpus, err := q.GetCorpusForAnalysis(ctx, sqlcgen.GetCorpusForAnalysisParams{OwnerID: preparation.OwnerID, ID: preparation.AnalysisRunID})
+	if err != nil {
+		return "", "", missing(err)
+	}
+	if corpus.CSourceMaterialID != preparation.SourceMaterialID {
+		return "", "", ErrNotFound
+	}
+	return source.Title, corpus.CID, nil
 }
 
 func listKnownVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language string) ([]domain.KnownVocabulary, error) {

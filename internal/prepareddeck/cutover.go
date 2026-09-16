@@ -21,6 +21,7 @@ type inputAssembler interface {
 
 type preparedDeckFactStore interface {
 	LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error)
+	LoadPreparedDeckCandidateFactsTx(context.Context, pgx.Tx, domain.DeckPreparation, []domain.SelectionCandidate) ([]persistence.PreparedDeckCandidateFacts, error)
 }
 
 const defaultDeckMinOccurrences = 3
@@ -43,7 +44,7 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if err != nil {
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
-	selected := make([]persistence.PreparedDeckCandidateFacts, 0, len(facts.Candidates))
+	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
 	known := make(map[string]map[string]bool)
 	generated := make(map[string]map[string]bool)
 	reserved := make(map[string]map[string]bool)
@@ -68,16 +69,20 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		}
 		reserved[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
 	}
-	for _, fact := range facts.Candidates {
-		identity := fact.Candidate.CanonicalLemma + "\x00" + fact.Candidate.UPOS
-		if known[fact.Candidate.Language][identity] || known[fact.Candidate.Language][fact.Candidate.CanonicalLemma+"\x00"] || generated[fact.Candidate.Language][identity] || reserved[fact.Candidate.Language][identity] || fact.Candidate.OccurrenceCount < defaultDeckMinOccurrences {
+	for _, candidate := range facts.Candidates {
+		identity := candidate.CanonicalLemma + "\x00" + candidate.UPOS
+		if known[candidate.Language][identity] || known[candidate.Language][candidate.CanonicalLemma+"\x00"] || generated[candidate.Language][identity] || reserved[candidate.Language][identity] || candidate.OccurrenceCount < defaultDeckMinOccurrences {
 			continue
 		}
-		selected = append(selected, fact)
+		selected = append(selected, candidate)
+	}
+	selectedFacts, err := a.Store.LoadPreparedDeckCandidateFactsTx(ctx, tx, preparation, selected)
+	if err != nil {
+		return nil, "", fmt.Errorf("load selected prepared deck facts: %w", err)
 	}
 
-	projections := make([]cardexport.CandidateProjection, 0, len(selected))
-	for _, fact := range selected {
+	projections := make([]cardexport.CandidateProjection, 0, len(selectedFacts))
+	for _, fact := range selectedFacts {
 		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences})
 	}
 	return projections, facts.DeckName, nil
