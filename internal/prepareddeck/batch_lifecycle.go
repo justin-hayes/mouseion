@@ -178,7 +178,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "run_load")
 	}
 	updates := make([]persistence.PreparedDeckBatchItemReconciliation, 0, len(items))
-	retryItems := make([]enrichment.BatchTranslationItem, 0, missing+failures)
+	retryWork := make([]cardexport.WorkItem, 0, missing+failures)
 	for _, item := range items {
 		providerOutcome, found := decoded[item.Ordinal]
 		if found && providerOutcome.Successful() {
@@ -200,7 +200,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		state, errorClass := domain.PreparedDeckOutcomeFailed, outcomeErrorClass(class)
 		if retryable {
 			state = domain.PreparedDeckOutcomePending
-			retryItems = append(retryItems, item)
+			retryWork = append(retryWork, byOrdinal[item.Ordinal])
 		} else if retryableBatchFailure(class) {
 			errorClass = "retry_exhausted"
 		}
@@ -213,8 +213,8 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: state, ErrorClass: errorClass, ErrorCode: boundedProviderCode(errorCode)})
 	}
 	var retryPlans []persistence.PreparedDeckBatchChunkPlan
-	if len(retryItems) > 0 {
-		retryPlans, err = PlanBatchChunks(w.Codec, args.RunID, chunk.Generation+1, run.Model, run.Endpoint, retryItems, BatchChunkLimits{MaxRequests: run.BatchMaxRequests, MaxBytes: run.BatchMaxBytes})
+	if len(retryWork) > 0 {
+		retryPlans, err = PlanBatchChunks(w.Codec, args.RunID, chunk.Generation+1, run.Model, run.Endpoint, retryWork, BatchChunkLimits{MaxRequests: run.BatchMaxRequests, MaxBytes: run.BatchMaxBytes})
 		if err != nil {
 			return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "retry_plan")
 		}
@@ -400,17 +400,17 @@ func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
 }
 
 func batchResultItems(deck cardexport.FrozenDeck, ordinals []int) ([]enrichment.BatchTranslationItem, map[int]cardexport.WorkItem, error) {
-	items := make([]enrichment.BatchTranslationItem, 0, len(ordinals))
 	selected := make(map[int]cardexport.WorkItem, len(ordinals))
+	work := make([]cardexport.WorkItem, 0, len(ordinals))
 	for _, ordinal := range ordinals {
 		item, ok := deck.WorkByOrdinal(ordinal)
 		if !ok || item.CacheKey == (enrichment.CacheKey{}) {
 			return nil, nil, errors.New("invalid Batch manifest item")
 		}
 		selected[ordinal] = item
-		items = append(items, enrichment.BatchTranslationItem{Ordinal: ordinal, Request: item.Request})
+		work = append(work, item)
 	}
-	return items, selected, nil
+	return batchTranslationItems(work), selected, nil
 }
 
 func batchReconciliationUpdate(batch enrichment.Batch, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string, expired int) persistence.PreparedDeckBatchReconciliationUpdate {

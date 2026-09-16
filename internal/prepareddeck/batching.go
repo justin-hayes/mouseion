@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -33,8 +34,8 @@ type BatchChunkLimits struct {
 // PlanBatchChunks serializes each request once, then packs consecutive frozen
 // manifest items without crossing any configured/provider ceiling. The
 // resulting digest and byte count describe the exact JSONL sent to OpenAI.
-func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generation int, model, endpoint string, items []enrichment.BatchTranslationItem, limits BatchChunkLimits) ([]persistence.PreparedDeckBatchChunkPlan, error) {
-	if codec == nil || len(items) == 0 || generation < 1 || model == "" || endpoint != enrichment.OpenAIChatCompletionsEndpoint {
+func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generation int, model, endpoint string, work []cardexport.WorkItem, limits BatchChunkLimits) ([]persistence.PreparedDeckBatchChunkPlan, error) {
+	if codec == nil || len(work) == 0 || generation < 1 || model == "" || endpoint != enrichment.OpenAIChatCompletionsEndpoint {
 		return nil, errors.New("prepareddeck: invalid Batch chunk planning input")
 	}
 	if codec.Model() != model {
@@ -50,16 +51,20 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		line  []byte
 		token int64
 	}
-	encoded := make([]encodedItem, len(items))
-	for i, item := range items {
-		if i > 0 && item.Ordinal <= items[i-1].Ordinal {
+	encoded := make([]encodedItem, len(work))
+	for i, item := range work {
+		if i > 0 && item.Ordinal <= work[i-1].Ordinal {
 			return nil, errors.New("prepareddeck: Batch items are not in frozen manifest order")
 		}
+		if item.CacheKey == (enrichment.CacheKey{}) {
+			return nil, fmt.Errorf("prepareddeck: Batch item %d has no frozen cache identity", item.Ordinal)
+		}
+		batchItem := enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request}
 		var line bytes.Buffer
-		if _, err := codec.WriteBatchJSONL(&line, runID, generation, []enrichment.BatchTranslationItem{item}); err != nil {
+		if _, err := codec.WriteBatchJSONL(&line, runID, generation, []enrichment.BatchTranslationItem{batchItem}); err != nil {
 			return nil, fmt.Errorf("encode Batch item %d: %w", item.Ordinal, err)
 		}
-		body, err := codec.EncodeRequest(item.Request)
+		body, err := codec.EncodeRequest(batchItem.Request)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +72,7 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		if int64(line.Len()) > limits.MaxBytes || token > limits.MaxPromptTokens {
 			return nil, fmt.Errorf("prepareddeck: Batch item %d exceeds a configured limit", item.Ordinal)
 		}
-		encoded[i] = encodedItem{item: item, line: append([]byte(nil), line.Bytes()...), token: token}
+		encoded[i] = encodedItem{item: batchItem, line: append([]byte(nil), line.Bytes()...), token: token}
 	}
 
 	plans := make([]persistence.PreparedDeckBatchChunkPlan, 0, (len(encoded)+limits.MaxRequests-1)/limits.MaxRequests)
@@ -116,6 +121,14 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 		})
 	}
 	return plans, nil
+}
+
+func batchTranslationItems(work []cardexport.WorkItem) []enrichment.BatchTranslationItem {
+	items := make([]enrichment.BatchTranslationItem, 0, len(work))
+	for _, item := range work {
+		items = append(items, enrichment.BatchTranslationItem{Ordinal: item.Ordinal, Request: item.Request})
+	}
+	return items
 }
 
 func normalizeBatchChunkLimits(limits BatchChunkLimits) BatchChunkLimits {
