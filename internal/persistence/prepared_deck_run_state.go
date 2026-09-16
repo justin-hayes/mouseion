@@ -219,8 +219,8 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 			}
 			entry = record.Entry
+			stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
 		}
-		stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
 	}
 	return projection, stored, nil
 }

@@ -3399,6 +3399,8 @@ SELECT EXISTS(
   WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
     AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
     AND dictionary_provider_version = $8
+    AND translation <> ''
+    AND (sentence_hash = '' OR sentence_translation <> '')
 )
 `
 

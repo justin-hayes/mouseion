@@ -42,6 +42,7 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
+	assert.Equal(t, finalDiagnostics, artifact.Diagnostics)
 	assert.Equal(t, "building · house", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, artifact.TSV, "The house is old today.")
 	assert.Contains(t, artifact.Generated[0].Note.Text, "<b>Haus</b>")
@@ -194,11 +195,38 @@ func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *te
 	require.NoError(t, err)
 	assert.Equal(t, "a contextual house", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossApplied)
+	assert.Equal(t, diagnostics, artifact.Diagnostics)
 
 	wrongKey := work[0].CacheKey
 	wrongKey.CanonicalLemma = "other"
 	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+}
+
+func TestPresentationLifecycleReportsRejectedFallbackGloss(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+		CacheKey: work[0].CacheKey,
+		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{}, FallbackGloss: "<unsafe>"},
+	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
+	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossRejected)
+	assert.Equal(t, diagnostics, artifact.Diagnostics)
+}
+
+func TestPresentationLifecycleReportsRejectedFallbackEvenWhenSenseSelectionIsValid(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	_, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+		CacheKey: work[0].CacheKey,
+		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{0}, FallbackGloss: "<unsafe>"},
+	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossRejected)
 }
 
 func TestPresentationLifecycleProjectionsAreDefensive(t *testing.T) {

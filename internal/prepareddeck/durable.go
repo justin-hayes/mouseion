@@ -368,7 +368,7 @@ func (w *RerenderWorker) Work(ctx context.Context, job *river.Job[RerenderJobArg
 		return ErrInvalidInput
 	}
 	_, err := w.Rerenderer.Rerender(ctx, job.Args.OwnerID, job.Args.PreparationID, job.Args.RunID, job.Args.PresentationVersion)
-	if errors.Is(err, ErrRequiresRepreparation) {
+	if errors.Is(err, ErrRequiresRepreparation) || errors.Is(err, persistence.ErrPreparedDeckIdentity) {
 		return w.Rerenderer.Store.MarkPreparedDeckRequiresRepreparation(ctx, job.Args.OwnerID, job.Args.PreparationID, job.Args.RunID)
 	}
 	if errors.Is(err, persistence.ErrInvalidTransition) || errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
@@ -422,19 +422,22 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	}
 	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
-		if errors.Is(err, persistence.ErrPreparedDeckIdentity) {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
+		if ctx.Err() == nil && (errors.Is(err, persistence.ErrPreparedDeckIdentity) || errors.Is(err, cardexport.ErrInvalidInput)) {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
 		}
 		return domain.DeckPreparation{}, err
 	}
 	deck, err := f.Renderer.Restore(projection)
 	if err != nil {
+		if ctx.Err() == nil {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
+		}
 		return domain.DeckPreparation{}, err
 	}
 	artifact, _, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
-		if errors.Is(err, cardexport.ErrInvalidInput) {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "translation", "incomplete")
+		if ctx.Err() == nil {
+			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed")
 		}
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)

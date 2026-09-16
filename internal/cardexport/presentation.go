@@ -268,7 +268,9 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if err != nil {
 			return Artifact{}, FinalizeDiagnostics{}, err
 		}
-		return artifact, manifestDiagnostics(manifest), nil
+		diagnostics := manifestDiagnostics(manifest)
+		artifact.Diagnostics = cloneDiagnostics(diagnostics)
+		return artifact, diagnostics, nil
 	}
 	if facts.Consent && facts.Configured {
 		mode := strings.ToLower(strings.TrimSpace(facts.ExecutionMode))
@@ -314,24 +316,16 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if required && !storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
-		selectionMalformed := result.Record.SenseSelection != nil && !enrichment.ValidateSenseSelection(result.Record.SenseSelection, len(manifest.accepted[i].CandidateSenses))
-		if selectionMalformed {
-			degraded = appendUniqueCode(degraded, DegradationInvalidSenseSelection)
-		}
-		if result.Record.FallbackGloss != "" && !selectionMalformed && !storedRecordHasValidSenseSelection(result.Record, manifest.accepted[i]) && !fallbackGlossEligible(result.Record.FallbackGloss) {
-			degraded = appendUniqueCode(degraded, DegradationFallbackGlossRejected)
-		}
 		aligned[i] = exactEnrichmentFromStoredResult(result, manifest, i)
 	}
-	artifact, err := (&Service{}).RenderManifest(ctx, manifest, aligned)
+	artifact, renderDiagnostics, err := (&Service{}).renderManifest(ctx, manifest, aligned)
 	if err != nil {
 		return Artifact{}, FinalizeDiagnostics{}, err
 	}
-	if artifact.Completeness.CardsWithFallbackGloss > 0 {
-		degraded = appendUniqueCode(degraded, DegradationFallbackGlossApplied)
-	}
+	degraded = appendUniqueCodes(degraded, renderDiagnostics...)
 	diagnostics := manifestDiagnostics(manifest)
 	diagnostics.DegradationCodes = append(diagnostics.DegradationCodes, degraded...)
+	artifact.Diagnostics = cloneDiagnostics(diagnostics)
 	return artifact, diagnostics, nil
 }
 
@@ -402,6 +396,10 @@ func cloneOmissions(omissions []Omission) []Omission {
 	return result
 }
 
+func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...)}
+}
+
 func (m Manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {
 	seen := 0
 	for _, decision := range m.decisions {
@@ -427,10 +425,6 @@ func containsCacheKey(keys []enrichment.CacheKey, wanted enrichment.CacheKey) bo
 
 func storedRecordHasRequiredFields(record enrichment.CacheEntry, entry RenderInput) bool {
 	return enrichment.HasRequiredTranslationFields(record, entry.Sentence)
-}
-
-func storedRecordHasValidSenseSelection(record enrichment.CacheEntry, entry RenderInput) bool {
-	return record.SenseSelection != nil && len(record.SenseSelection) > 0 && enrichment.ValidateSenseSelection(record.SenseSelection, len(entry.CandidateSenses))
 }
 
 func exactEnrichmentFromStoredResult(stored StoredResult, manifest Manifest, acceptedIndex int) ExactEnrichment {
@@ -467,4 +461,11 @@ func appendUniqueCode(codes []string, code string) []string {
 		}
 	}
 	return append(codes, code)
+}
+
+func appendUniqueCodes(codes []string, additions ...string) []string {
+	for _, code := range additions {
+		codes = appendUniqueCode(codes, code)
+	}
+	return codes
 }
