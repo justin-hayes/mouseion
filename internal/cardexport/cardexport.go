@@ -199,6 +199,16 @@ func NewServiceWithLexicalProvider(store Store, provider enrichment.LexicalProvi
 	return &Service{store: store, lexical: provider}
 }
 
+// Presentation returns the presentation module configured with this service's
+// local lexical provider. Prepared-deck planning uses it after assembling raw
+// persistence facts.
+func (s *Service) Presentation() *Presentation {
+	if s == nil {
+		return nil
+	}
+	return NewPresentation(s.lexical)
+}
+
 func DedupKey(language, lemma, upos, owner string) string {
 	sum := sha256.Sum256([]byte(language + " | " + lemma + " | " + upos + " | " + owner))
 	return hex.EncodeToString(sum[:])

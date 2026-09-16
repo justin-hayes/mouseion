@@ -20,11 +20,15 @@ import (
 // The result is keyed by the sentence ordinal stored in selection references,
 // so callers can join candidate evidence to its complete dependency context.
 func (s *PostgresStore) ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
+	return listCorpusSentences(ctx, s.pool, owner, corpusID, ordinals)
+}
+
+func listCorpusSentences(ctx context.Context, q sqlcgen.DBTX, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
 	result := make(map[int64]analyzer.Sentence, len(ordinals))
 	if len(ordinals) == 0 {
 		return result, nil
 	}
-	rows, err := s.queries().ListCorpusSentences(ctx, sqlcgen.ListCorpusSentencesParams{
+	rows, err := sqlcgen.New(q).ListCorpusSentences(ctx, sqlcgen.ListCorpusSentencesParams{
 		Owner: owner, Corpus: corpusID, SentenceOrdinals: ordinals,
 	})
 	if err != nil {
@@ -51,9 +55,11 @@ func (s *PostgresStore) ListCorpusSentences(ctx context.Context, owner, corpusID
 }
 
 func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owner, bookID string) ([]domain.SelectionCandidate, error) {
-	rows, err := s.queries().ListSelectionCandidatesForBook(ctx, sqlcgen.ListSelectionCandidatesForBookParams{
-		Owner: owner, Book: bookID,
-	})
+	return listSelectionCandidatesForBook(ctx, s.pool, owner, bookID)
+}
+
+func listSelectionCandidatesForBook(ctx context.Context, q sqlcgen.DBTX, owner, bookID string) ([]domain.SelectionCandidate, error) {
+	rows, err := sqlcgen.New(q).ListSelectionCandidatesForBook(ctx, sqlcgen.ListSelectionCandidatesForBookParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +71,11 @@ func (s *PostgresStore) ListSelectionCandidatesForBook(ctx context.Context, owne
 }
 
 func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, owner, corpusID string) ([]domain.SelectionCandidate, error) {
-	rows, err := s.queries().ListSelectionCandidatesForCorpus(ctx, sqlcgen.ListSelectionCandidatesForCorpusParams{
-		Owner: owner, Corpus: corpusID,
-	})
+	return listSelectionCandidatesForCorpus(ctx, s.pool, owner, corpusID)
+}
+
+func listSelectionCandidatesForCorpus(ctx context.Context, q sqlcgen.DBTX, owner, corpusID string) ([]domain.SelectionCandidate, error) {
+	rows, err := sqlcgen.New(q).ListSelectionCandidatesForCorpus(ctx, sqlcgen.ListSelectionCandidatesForCorpusParams{Owner: owner, Corpus: corpusID})
 	if err != nil {
 		return nil, err
 	}
@@ -79,17 +87,17 @@ func (s *PostgresStore) ListSelectionCandidatesForCorpus(ctx context.Context, ow
 }
 
 func (s *PostgresStore) GetCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return s.getCoverageEntryForBook(ctx, owner, bookID, candidate, true)
+	return getCoverageEntryForBook(ctx, s.pool, owner, bookID, candidate, true, true)
 }
 
 // GetPreparedCoverageEntryForBook loads only immutable render inputs. Exact
 // enrichment is applied later from the preparation manifest.
 func (s *PostgresStore) GetPreparedCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return s.getCoverageEntryForBook(ctx, owner, bookID, candidate, false)
+	return getCoverageEntryForBook(ctx, s.pool, owner, bookID, candidate, false, false)
 }
 
-func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
-	row, err := s.queries().GetCoverageEntryForBook(ctx, sqlcgen.GetCoverageEntryForBookParams{
+func getCoverageEntryForBook(ctx context.Context, q sqlcgen.DBTX, owner, bookID string, candidate domain.SelectionCandidate, includeLegacyEnrichment, applyCandidateEvidence bool) (cardexport.Entry, error) {
+	row, err := sqlcgen.New(q).GetCoverageEntryForBook(ctx, sqlcgen.GetCoverageEntryForBookParams{
 		FirstEncounter: candidate.FirstEncounter, Owner: owner, Book: bookID,
 		Corpus: candidate.CorpusID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
@@ -97,15 +105,17 @@ func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, book
 		return cardexport.Entry{}, err
 	}
 	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
-	if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
-		entry.Sentence = evidence.Sentence
-		entry.TargetWord = evidence.Target
-		entry.FirstEncounter = evidence.FirstEncounter
+	if applyCandidateEvidence {
+		if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
+			entry.Sentence = evidence.Sentence
+			entry.TargetWord = evidence.Target
+			entry.FirstEncounter = evidence.FirstEncounter
+		}
 	}
 	if !includeLegacyEnrichment {
 		return entry, nil
 	}
-	enrichmentRow, err := s.queries().GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
+	enrichmentRow, err := sqlcgen.New(q).GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, SentenceHash: enrichment.SentenceHash(entry.Sentence),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -121,17 +131,17 @@ func (s *PostgresStore) getCoverageEntryForBook(ctx context.Context, owner, book
 }
 
 func (s *PostgresStore) GetCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return s.getCoverageEntryForCorpus(ctx, owner, corpusID, candidate, true)
+	return getCoverageEntryForCorpus(ctx, s.pool, owner, corpusID, candidate, true, true)
 }
 
 // GetPreparedCoverageEntryForCorpus loads only immutable render inputs. It
 // deliberately performs no broad provider/version cache lookup.
 func (s *PostgresStore) GetPreparedCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
-	return s.getCoverageEntryForCorpus(ctx, owner, corpusID, candidate, false)
+	return getCoverageEntryForCorpus(ctx, s.pool, owner, corpusID, candidate, false, false)
 }
 
-func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment bool) (cardexport.Entry, error) {
-	row, err := s.queries().GetCoverageEntryForCorpus(ctx, sqlcgen.GetCoverageEntryForCorpusParams{
+func getCoverageEntryForCorpus(ctx context.Context, q sqlcgen.DBTX, owner, corpusID string, candidate domain.SelectionCandidate, includeLegacyEnrichment, applyCandidateEvidence bool) (cardexport.Entry, error) {
+	row, err := sqlcgen.New(q).GetCoverageEntryForCorpus(ctx, sqlcgen.GetCoverageEntryForCorpusParams{
 		FirstEncounter: candidate.FirstEncounter, Owner: owner, Corpus: corpusID,
 		Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 	})
@@ -139,15 +149,17 @@ func (s *PostgresStore) getCoverageEntryForCorpus(ctx context.Context, owner, co
 		return cardexport.Entry{}, err
 	}
 	entry := cardexport.Entry{OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Sentence: row.Sentence, Translation: row.Translation, TargetWord: row.TargetWord, Morphology: row.Morphology, SourceDocument: row.SourceDocument, Notes: row.Notes, FirstEncounter: row.FirstEncounter}
-	if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
-		entry.Sentence = evidence.Sentence
-		entry.TargetWord = evidence.Target
-		entry.FirstEncounter = evidence.FirstEncounter
+	if applyCandidateEvidence {
+		if evidence, ok := cardexport.BestSentenceEvidence(candidate); ok {
+			entry.Sentence = evidence.Sentence
+			entry.TargetWord = evidence.Target
+			entry.FirstEncounter = evidence.FirstEncounter
+		}
 	}
 	if !includeLegacyEnrichment {
 		return entry, nil
 	}
-	enrichmentRow, err := s.queries().GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
+	enrichmentRow, err := sqlcgen.New(q).GetLegacyEnrichmentForSentence(ctx, sqlcgen.GetLegacyEnrichmentForSentenceParams{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, SentenceHash: enrichment.SentenceHash(entry.Sentence),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
