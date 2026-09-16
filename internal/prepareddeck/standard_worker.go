@@ -79,6 +79,10 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}
 		return err
 	}
+	if w.Provider.Name() != key.Provider || w.Provider.Version() != key.ProviderVersion {
+		return w.fail(ctx, args, token, "identity", "provider", false, false)
+	}
+
 	request := work.Request
 	started := w.now()
 	timeout := w.AttemptTimeout
