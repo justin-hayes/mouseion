@@ -54,6 +54,7 @@ type Artifact struct {
 	Filename, DeckName, TSV string
 	Count                   int
 	Completeness            Completeness
+	Diagnostics             Diagnostics
 	Omitted                 []Omission
 	EnrichmentCandidates    []enrichment.Candidate
 	Generated               []GeneratedRecord

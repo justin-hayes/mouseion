@@ -268,7 +268,9 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if err != nil {
 			return Artifact{}, FinalizeDiagnostics{}, err
 		}
-		return artifact, manifestDiagnostics(manifest), nil
+		diagnostics := manifestDiagnostics(manifest)
+		artifact.Diagnostics = cloneDiagnostics(diagnostics)
+		return artifact, diagnostics, nil
 	}
 	if facts.Consent && facts.Configured {
 		mode := strings.ToLower(strings.TrimSpace(facts.ExecutionMode))
@@ -323,6 +325,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 	degraded = appendUniqueCodes(degraded, renderDiagnostics...)
 	diagnostics := manifestDiagnostics(manifest)
 	diagnostics.DegradationCodes = append(diagnostics.DegradationCodes, degraded...)
+	artifact.Diagnostics = cloneDiagnostics(diagnostics)
 	return artifact, diagnostics, nil
 }
 
@@ -391,6 +394,10 @@ func cloneOmissions(omissions []Omission) []Omission {
 		result[i].Reasons = append([]string(nil), omission.Reasons...)
 	}
 	return result
+}
+
+func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...)}
 }
 
 func (m Manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {
