@@ -13,6 +13,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,8 +71,8 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	local := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: "standard"})
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "planner-model", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
-	standard := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "standard"})
-	batch := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "batch"})
+	standard := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "standard"})
+	batch := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "batch"})
 
 	localPlan := plannerPlan(t, ctx, store, local, preparation, false)
 	standardPlan := plannerPlan(t, ctx, store, standard, preparation, true)
@@ -89,11 +91,43 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	require.Len(t, localPlan.Projection.Items, 2)
 	require.Len(t, standardPlan.Projection.Items, 2)
 	assert.Nil(t, localPlan.Projection.Items[0].CacheKey)
-	assert.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
+	require.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
+	assert.Equal(t, "dictionary-v1", standardPlan.Projection.Items[0].Entry.DictionaryProviderVersion)
+	assert.Equal(t, int64(0), standardPlan.Projection.Items[0].SentenceOrdinal)
+	assert.Equal(t, enrichment.SentenceHash(standardPlan.Projection.Items[0].Entry.Sentence), standardPlan.Projection.Items[0].CacheKey.SentenceHash)
+	assert.Equal(t, standardPlan.Config.Provider, standardPlan.Projection.Items[0].CacheKey.Provider)
+	assert.Equal(t, standardPlan.Config.ProviderVersion, standardPlan.Projection.Items[0].CacheKey.ProviderVersion)
 	assert.Empty(t, standardPlan.Chunks)
 	assert.Len(t, batchPlan.Chunks, 2)
 	assert.Equal(t, []int{0}, batchPlan.Chunks[0].Ordinals)
 	assert.Equal(t, []int{1}, batchPlan.Chunks[1].Ordinals)
+
+	counted := &countingPlanner{planner: local}
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &integrationFinalizeWorker{})
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	coordinator := NewDurableCoordinator(store, client, counted)
+	frozen, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
+	require.NoError(t, err)
+	require.True(t, frozen.NeedsFinalizer)
+	repeated, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
+	require.NoError(t, err)
+	assert.True(t, repeated.Existing)
+	assert.Equal(t, 1, counted.calls, "existing-run freeze must not replan")
+	var finalizerJobs int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (FinalizeJobArgs{}).Kind(), preparation.ID).Scan(&finalizerJobs))
+	assert.Equal(t, 1, finalizerJobs)
+}
+
+type countingPlanner struct {
+	planner DurableRunPlanner
+	calls   int
+}
+
+func (p *countingPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
+	p.calls++
+	return p.planner.PlanPreparedDeckRun(ctx, tx, preparation, consent)
 }
 
 func plannerPlan(t *testing.T, ctx context.Context, store *persistence.PostgresStore, planner DurableRunPlanner, preparation domain.DeckPreparation, consent bool) persistence.FreezePreparedDeckRunParams {

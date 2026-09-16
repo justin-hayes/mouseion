@@ -168,7 +168,12 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 			projections[i].TargetLanguage = config.TargetLanguage
 		}
 	}
-	deck, _, err := p.Presentation.FreezeForDeck(ctx, preparation.OwnerID, deckName, projections)
+	var deck cardexport.FrozenDeck
+	if len(projections) == 0 {
+		deck, _, err = p.Presentation.FreezeForDeck(ctx, preparation.OwnerID, deckName, projections)
+	} else {
+		deck, _, err = p.Presentation.Freeze(ctx, projections)
+	}
 	if err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, fmt.Errorf("freeze prepared deck presentation: %w", err)
 	}
