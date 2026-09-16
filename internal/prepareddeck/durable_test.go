@@ -20,8 +20,8 @@ import (
 type finalizerStoreStub struct {
 	run                                                domain.PreparedDeckRun
 	preparation                                        domain.DeckPreparation
-	manifest                                           cardexport.Manifest
-	exact                                              []cardexport.ExactEnrichment
+	projection                                         cardexport.StorageProjection
+	stored                                             []cardexport.StoredResult
 	claimedGeneration                                  int
 	claimedToken                                       string
 	claimLeaseExpiresAt                                time.Time
@@ -38,9 +38,9 @@ func (s *finalizerStoreStub) ClaimPreparedDeckFinalization(_ context.Context, _,
 	return s.run, nil
 }
 
-func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.Manifest, []cardexport.ExactEnrichment, error) {
+func (s *finalizerStoreStub) LoadPreparedDeckFinalization(context.Context, string, string, string) (cardexport.StorageProjection, []cardexport.StoredResult, error) {
 	s.loadCalls++
-	return s.manifest, s.exact, nil
+	return s.projection, s.stored, nil
 }
 
 func (s *finalizerStoreStub) CompletePreparedDeckRun(_ context.Context, _, _, _, token string, _ cardexport.Artifact) (domain.DeckPreparation, error) {
@@ -94,23 +94,29 @@ type finalizerRendererStub struct {
 	calls    int
 }
 
-func (r *finalizerRendererStub) RenderManifest(context.Context, cardexport.Manifest, []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
+func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
+	return cardexport.FrozenDeck{}, nil
+}
+
+func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
-	return r.artifact, r.err
+	return r.artifact, cardexport.FinalizeDiagnostics{}, r.err
 }
 
 type corpusRendererStub struct {
-	manifest cardexport.Manifest
 	artifact cardexport.Artifact
 	calls    int
 }
 
-func (r *corpusRendererStub) RenderManifest(ctx context.Context, manifest cardexport.Manifest, exact []cardexport.ExactEnrichment) (cardexport.Artifact, error) {
+func (r *corpusRendererStub) Restore(projection cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
+	return cardexport.NewPresentation(nil).Restore(projection)
+}
+
+func (r *corpusRendererStub) Finalize(ctx context.Context, deck cardexport.FrozenDeck, stored []cardexport.StoredResult, facts cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
-	r.manifest = manifest
-	artifact, err := cardexport.NewService(nil).RenderManifest(ctx, manifest, exact)
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, facts)
 	r.artifact = artifact
-	return artifact, err
+	return artifact, diagnostics, err
 }
 
 func TestDurableFinalizerUsesGenerationAndOneFencedPublication(t *testing.T) {
@@ -245,7 +251,7 @@ func TestDurableRerendererRecoversLegacyParseFromCorpus(t *testing.T) {
 			}}},
 		},
 	}
-	store.manifest = legacyRerenderManifest(t)
+	store.projection = legacyRerenderManifest(t)
 	renderer := &corpusRendererStub{}
 
 	updated, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", cardexport.PresentationVersion)
@@ -265,7 +271,7 @@ func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.
 		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
 		corpusSentences: map[string]map[int64]analyzer.Sentence{},
 	}
-	store.manifest = legacyRerenderManifest(t)
+	store.projection = legacyRerenderManifest(t)
 	renderer := &corpusRendererStub{}
 
 	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
@@ -281,7 +287,7 @@ func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {
 		run:             domain.PreparedDeckRun{State: domain.PreparedDeckRunCompleted, RenderInputVersion: 0, PresentationVersion: 0},
 		preparation:     domain.DeckPreparation{State: domain.DeckPreparationReady, CurrentRunID: "run", DeckRevision: 1},
 		corpusSentences: map[string]map[int64]analyzer.Sentence{},
-		manifest:        legacyRerenderManifest(t),
+		projection:      legacyRerenderManifest(t),
 	}
 	worker := &RerenderWorker{Rerenderer: &DurableRerenderer{Store: store, Renderer: &corpusRendererStub{}}}
 
@@ -291,9 +297,9 @@ func TestRerenderWorkerSurfacesMissingLegacyInputWithoutRetrying(t *testing.T) {
 	assert.Equal(t, 1, store.repreparationCalls)
 }
 
-func legacyRerenderManifest(t *testing.T) cardexport.Manifest {
+func legacyRerenderManifest(t *testing.T) cardexport.StorageProjection {
 	t.Helper()
-	manifest, err := cardexport.ManifestFromSnapshot(cardexport.ManifestSnapshot{
+	return cardexport.StorageProjection{
 		SchemaVersion: cardexport.ManifestSchemaVersion,
 		Owner:         "owner",
 		DeckName:      "Legacy",
@@ -303,7 +309,5 @@ func legacyRerenderManifest(t *testing.T) cardexport.Manifest {
 			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB", Sentence: "Ich stehe heute auf.", TargetWord: "stehe", SourceDocument: "Legacy", FirstEncounter: 1},
 			Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{"target present"}},
 		}},
-	})
-	require.NoError(t, err)
-	return manifest
+	}
 }

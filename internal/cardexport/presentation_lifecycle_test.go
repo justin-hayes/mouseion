@@ -38,13 +38,8 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	require.Len(t, work, 1)
 	assert.Equal(t, "en", work[0].CacheKey.TargetLanguage)
 	assert.Equal(t, "dictionary-v1", work[0].DictionaryProviderVersion)
-	result := enrichment.Result{
-		Candidate:           work[0].RequestCandidate(),
-		Translation:         enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-		SentenceTranslation: enrichment.Field[string]{Value: "The house is old today.", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-		SenseSelection:      enrichment.Field[[]int]{Value: []int{1, 0}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-	}
-	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house is old today.", SenseSelection: []int{1, 0}}
+	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
 	assert.Equal(t, "building · house", artifact.Generated[0].Note.Gloss)
@@ -83,11 +78,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		assert.Equal(t, "frozen gloss", stored.Items[0].Entry.Gloss)
 		if schema == cardexport.LegacyManifestSchemaVersion {
 			work := deck.WorkProjection()
-			_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: enrichment.Result{
-				Candidate:           work[0].RequestCandidate(),
-				Translation:         enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-				SentenceTranslation: enrichment.Field[string]{Value: "The house stands there today.", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-			}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+			_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today."}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 			require.NoError(t, err, "schema %d finalization", schema)
 		}
 	}
@@ -155,12 +146,8 @@ func TestPresentationLifecycleReportsQualityOmissionAndMalformedOptionalData(t *
 	deck, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{projection})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
-	malformed := enrichment.Result{
-		Candidate:      work[0].RequestCandidate(),
-		SenseSelection: enrichment.Field[[]int]{Value: []int{9}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-		FallbackGloss:  enrichment.Field[string]{Value: "<unsafe>", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-	}
-	artifact, finalDiagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: malformed}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	malformed := enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{9}, FallbackGloss: "<unsafe>"}
+	artifact, finalDiagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: malformed}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, finalDiagnostics.DegradationCodes, cardexport.DegradationInvalidSenseSelection)
@@ -175,8 +162,9 @@ func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T)
 	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 
-	result := enrichment.Result{Candidate: work[0].RequestCandidate(), Translation: enrichment.Field[string]{Value: "house", Available: true, Provenance: enrichment.Provenance{Provider: "other", ProviderVersion: "prompt-v1"}}}
-	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	wrongRecordKey := work[0].CacheKey
+	wrongRecordKey.Provider = "other"
+	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: wrongRecordKey, Translation: "house"}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
@@ -191,19 +179,15 @@ func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *te
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
-	result := enrichment.Result{
-		Candidate:      work[0].RequestCandidate(),
-		SenseSelection: enrichment.Field[[]int]{Value: []int{}, Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-		FallbackGloss:  enrichment.Field[string]{Value: "a contextual house", Available: true, Provenance: enrichment.Provenance{Provider: "llm", ProviderVersion: "prompt-v1"}},
-	}
-	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: result}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{}, FallbackGloss: "a contextual house"}
+	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, "a contextual house", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossApplied)
 
-	wrong := work[0].RequestCandidate()
-	wrong.CanonicalLemma = "other"
-	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Result: enrichment.Result{Candidate: wrong}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	wrongKey := work[0].CacheKey
+	wrongKey.CanonicalLemma = "other"
+	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 

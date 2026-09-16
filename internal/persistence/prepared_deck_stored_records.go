@@ -26,6 +26,10 @@ func (s *PostgresStore) LoadPreparedDeckStoredRecords(ctx context.Context, owner
 	if err != nil {
 		return nil, err
 	}
+	return s.loadPreparedDeckStoredRecords(ctx, projection)
+}
+
+func (s *PostgresStore) loadPreparedDeckStoredRecords(ctx context.Context, projection cardexport.StorageProjection) ([]PreparedDeckStoredRecord, error) {
 	records := make([]PreparedDeckStoredRecord, 0)
 	for _, item := range projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted || item.CacheKey == nil {

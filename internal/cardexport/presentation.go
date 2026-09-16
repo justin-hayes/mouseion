@@ -74,8 +74,12 @@ type RunFacts struct {
 	Provider, ProviderVersion string
 }
 
-// StoredResult is the exact result loaded by a persistence adapter.
-type StoredResult = ExactEnrichment
+// StoredResult is one exact cache row loaded by a persistence adapter.
+// Presentation interprets the row during finalization.
+type StoredResult struct {
+	CacheKey enrichment.CacheKey
+	Record   enrichment.CacheEntry
+}
 
 // StorageProjection is the normalized durable representation of a deck.
 type StorageProjection = ManifestSnapshot
@@ -260,13 +264,16 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		if _, duplicate := byKey[result.CacheKey]; duplicate {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: duplicate stored enrichment result", ErrInvalidInput)
 		}
+		if result.Record.CacheKey != (enrichment.CacheKey{}) && result.Record.CacheKey != result.CacheKey {
+			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: stored enrichment record identity does not match key", ErrInvalidInput)
+		}
 		if !containsCacheKey(keys, result.CacheKey) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: stored enrichment identity is not frozen", ErrInvalidInput)
 		}
 		byKey[result.CacheKey] = result
 	}
 	required := facts.Consent && facts.Configured && strings.EqualFold(strings.TrimSpace(facts.ExecutionMode), "standard")
-	aligned := make([]StoredResult, len(keys))
+	aligned := make([]ExactEnrichment, len(keys))
 	degraded := make([]string, 0)
 	for i, key := range keys {
 		result, found := byKey[key]
@@ -274,20 +281,20 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 			if required {
 				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
 			}
-			aligned[i] = StoredResult{CacheKey: key}
+			aligned[i] = exactEnrichmentFromStoredResult(StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, manifest, i)
 			continue
 		}
-		if required && !resultHasRequiredFields(result.Result, manifest.accepted[i]) {
+		if required && !storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
-		selectionMalformed := result.Result.SenseSelection.Available && !enrichment.ValidateSenseSelection(result.Result.SenseSelection.Value, len(manifest.accepted[i].CandidateSenses))
+		selectionMalformed := result.Record.SenseSelection != nil && !enrichment.ValidateSenseSelection(result.Record.SenseSelection, len(manifest.accepted[i].CandidateSenses))
 		if selectionMalformed {
 			degraded = appendUniqueCode(degraded, DegradationInvalidSenseSelection)
 		}
-		if result.Result.FallbackGloss.Available && !selectionMalformed && !resultHasValidSenseSelection(result.Result, manifest.accepted[i]) && !fallbackGlossEligible(result.Result.FallbackGloss.Value) {
+		if result.Record.FallbackGloss != "" && !selectionMalformed && !storedRecordHasValidSenseSelection(result.Record, manifest.accepted[i]) && !fallbackGlossEligible(result.Record.FallbackGloss) {
 			degraded = appendUniqueCode(degraded, DegradationFallbackGlossRejected)
 		}
-		aligned[i] = result
+		aligned[i] = exactEnrichmentFromStoredResult(result, manifest, i)
 	}
 	artifact, err := (&Service{}).RenderManifest(ctx, manifest, aligned)
 	if err != nil {
@@ -391,19 +398,34 @@ func containsCacheKey(keys []enrichment.CacheKey, wanted enrichment.CacheKey) bo
 	return false
 }
 
-func resultHasRequiredFields(result enrichment.Result, entry RenderInput) bool {
-	cache := enrichment.CacheEntry{Translation: result.Translation.Value, SentenceTranslation: result.SentenceTranslation.Value}
-	if !result.Translation.Available {
-		return false
-	}
-	if strings.TrimSpace(entry.Sentence) != "" && !result.SentenceTranslation.Available {
-		return false
-	}
-	return enrichment.HasRequiredTranslationFields(cache, entry.Sentence)
+func storedRecordHasRequiredFields(record enrichment.CacheEntry, entry RenderInput) bool {
+	return enrichment.HasRequiredTranslationFields(record, entry.Sentence)
 }
 
-func resultHasValidSenseSelection(result enrichment.Result, entry RenderInput) bool {
-	return result.SenseSelection.Available && len(result.SenseSelection.Value) > 0 && enrichment.ValidateSenseSelection(result.SenseSelection.Value, len(entry.CandidateSenses))
+func storedRecordHasValidSenseSelection(record enrichment.CacheEntry, entry RenderInput) bool {
+	return record.SenseSelection != nil && len(record.SenseSelection) > 0 && enrichment.ValidateSenseSelection(record.SenseSelection, len(entry.CandidateSenses))
+}
+
+func exactEnrichmentFromStoredResult(stored StoredResult, manifest Manifest, acceptedIndex int) ExactEnrichment {
+	record := stored.Record
+	provenance := enrichment.Provenance{Provider: stored.CacheKey.Provider, ProviderVersion: stored.CacheKey.ProviderVersion, CachedAt: record.CachedAt, External: true}
+	result := enrichment.Result{Candidate: manifest.enrichmentCandidates[acceptedIndex]}
+	if record.Translation != "" {
+		result.Translation = enrichment.Field[string]{Value: record.Translation, Available: true, Provenance: provenance}
+	}
+	if record.FallbackGloss != "" {
+		result.FallbackGloss = enrichment.Field[string]{Value: record.FallbackGloss, Available: true, Provenance: provenance}
+	}
+	if record.SentenceTranslation != "" {
+		result.SentenceTranslation = enrichment.Field[string]{Value: record.SentenceTranslation, Available: true, Provenance: provenance}
+	}
+	if record.SentenceTranslationTarget != "" {
+		result.SentenceTranslationTarget = enrichment.Field[string]{Value: record.SentenceTranslationTarget, Available: true, Provenance: provenance}
+	}
+	if record.SenseSelection != nil {
+		result.SenseSelection = enrichment.Field[[]int]{Value: append([]int(nil), record.SenseSelection...), Available: true, Provenance: provenance}
+	}
+	return ExactEnrichment{CacheKey: stored.CacheKey, Result: result}
 }
 
 func fallbackGlossEligible(gloss string) bool {
