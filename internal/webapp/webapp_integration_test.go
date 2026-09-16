@@ -424,7 +424,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	decks.preparations[ready.ID] = ready
 	updatedPage := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, updatedPage.Code)
-	assert.Contains(t, updatedPage.Body.String(), "Updated version available")
+	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
 	assert.Contains(t, updatedPage.Body.String(), "revision 2")
 	for i := 0; i < 2; i++ {
 		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)

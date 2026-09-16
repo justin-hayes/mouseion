@@ -104,7 +104,7 @@ func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
 	}
 	var output bytes.Buffer
 	require.NoError(t, DeckPreparationStatus("csrf", updated, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
-	assert.Contains(t, output.String(), "Updated version available")
+	assert.Contains(t, output.String(), "Updated deck revision available")
 	assert.Contains(t, output.String(), "revision 2")
 }
 
@@ -115,7 +115,7 @@ func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *tes
 	} {
 		var output bytes.Buffer
 		require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
-		assert.NotContains(t, output.String(), "Updated version available", preparation.ID)
+		assert.NotContains(t, output.String(), "Updated deck revision available", preparation.ID)
 	}
 }
 

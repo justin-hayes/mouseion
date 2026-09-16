@@ -4087,8 +4087,8 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						return templ_7745c5c3_Err
 					}
 				} else {
-					if deckPreparationUpdatedVersionAvailable(preparation) {
-						templ_7745c5c3_Err = Feedback(FeedbackInfo, "Updated version available", fmt.Sprintf("Download revision %d to update your existing Anki notes in place.", preparation.DeckRevision)).Render(ctx, templ_7745c5c3_Buffer)
+					if deckPreparationHasNewerRevision(preparation) {
+						templ_7745c5c3_Err = Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision)).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
