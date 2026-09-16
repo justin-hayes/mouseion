@@ -339,6 +339,7 @@ func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request
 	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(p.CardsWithEnglish))
 	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(p.CardsWithContextualSentenceTranslations))
 	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(p.QualityOmissions))
+	w.Header().Set("X-Mouseion-Deck-Revision", strconv.Itoa(p.DeckRevision))
 	_, _ = w.Write(p.Artifact)
 }
 

@@ -762,6 +762,9 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			} else if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
 			} else {
+				if deckPreparationHasNewerRevision(preparation) {
+					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
+				}
 				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d with fallback gloss · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.CardsWithFallbackGloss, preparation.QualityOmissions) }</p>
 				@ActionGroup() {
 					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>

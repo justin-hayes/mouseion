@@ -113,7 +113,7 @@ func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID stri
 			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 		}
 	}
-	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "book-1", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
@@ -418,13 +418,18 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, got.Code)
 
 	ready := decks.preparations["prep-1"]
-	ready.State, ready.Artifact = domain.DeckPreparationReady, []byte("immutable-apkg")
+	ready.State, ready.Artifact = domain.DeckPreparationReady, []byte("newest-rendered-apkg")
+	ready.DeckRevision = 2
 	ready.TotalCards, ready.CardsWithEnglish, ready.CardsWithContextualSentenceTranslations, ready.QualityOmissions = 7, 6, 5, 2
 	decks.preparations[ready.ID] = ready
+	updatedPage := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, aliceCookies)
+	assert.Equal(t, http.StatusOK, updatedPage.Code)
+	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
+	assert.Contains(t, updatedPage.Body.String(), "revision 2")
 	for i := 0; i < 2; i++ {
 		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
 		assert.Equal(t, http.StatusOK, download.Code, "download %d", i)
-		assert.Equal(t, "immutable-apkg", download.Body.String(), "download %d", i)
+		assert.Equal(t, "newest-rendered-apkg", download.Body.String(), "download %d", i)
 		assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"), "download %d", i)
 		assert.True(t, strings.Contains(download.Header().Get("Content-Disposition"), `filename="Stored Book.apkg"`), "download %d content-disposition=%q", i, download.Header().Get("Content-Disposition"))
 		assert.Equal(t, "Mouseion::de::Stored Book", download.Header().Get("X-Mouseion-Deck-Name"), "download %d", i)
@@ -432,6 +437,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 		assert.Equal(t, "6", download.Header().Get("X-Mouseion-Cards-With-English"), "download %d", i)
 		assert.Equal(t, "5", download.Header().Get("X-Mouseion-Cards-With-English-Sentence"), "download %d", i)
 		assert.Equal(t, "2", download.Header().Get("X-Mouseion-Cards-Quality-Omitted"), "download %d", i)
+		assert.Equal(t, "2", download.Header().Get("X-Mouseion-Deck-Revision"), "download %d", i)
 	}
 	assert.Equal(t, 2, decks.downloads)
 	assert.Equal(t, domain.DeckPreparationReady, decks.preparations["prep-1"].State)

@@ -137,7 +137,9 @@ completed analysis, and do I consent to optional external sentence translation?
 
 Deck preparation is asynchronous, owner-scoped, and tied to one immutable
 completed analysis. The workflow reports durable progress, supports cancellation
-and actionable retry, and publishes an immutable APKG. Download is a pure read.
+and actionable retry, and publishes a ready APKG whose artifact may later be
+superseded in place by a newer deck revision. Download is a pure read and serves
+the current artifact.
 
 The interface must answer:
 
@@ -148,6 +150,7 @@ The interface must answer:
 - Are any cards incomplete, retried, or excluded?
 - Can I safely leave and return later?
 - When ready, can I download the artifact and return to the book or Primary Goal?
+- Is a newer deck revision available, and will download serve that current revision?
 
 ## Alternate and edge paths
 

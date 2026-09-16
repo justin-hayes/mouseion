@@ -505,6 +505,10 @@ func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
 	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0
 }
 
+func deckPreparationHasNewerRevision(preparation domain.DeckPreparation) bool {
+	return preparation.State == domain.DeckPreparationReady && preparation.DeckRevision > 1 && !deckPreparationEmpty(preparation) && preparation.Error != domain.DeckPreparationRequiresRepreparationError
+}
+
 func bookFeedbackKind(message string) FeedbackKind {
 	if strings.HasPrefix(message, "Study action blocked:") {
 		return FeedbackError
