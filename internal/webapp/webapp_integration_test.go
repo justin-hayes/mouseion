@@ -113,7 +113,7 @@ func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID stri
 			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 		}
 	}
-	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "book-1", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
