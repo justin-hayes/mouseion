@@ -135,6 +135,105 @@ func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {
 	assert.Equal(t, "en", work.Request.TargetLanguage)
 }
 
+func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*cardexport.ManifestSnapshot)
+	}{
+		{
+			name: "non-contiguous ordinals",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.Items[0].Ordinal = 1
+			},
+		},
+		{
+			name: "duplicate candidates",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				item := snapshot.Items[0]
+				item.Ordinal = 1
+				snapshot.Items = append(snapshot.Items, item)
+			},
+		},
+		{
+			name: "partial accepted cache identity",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				item := snapshot.Items[0]
+				item.Ordinal = 1
+				item.Entry.CanonicalLemma = "baum"
+				item.CacheKey = &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "baum", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash(item.Entry.Sentence)}
+				snapshot.Items = append(snapshot.Items, item)
+				snapshot.Items[1].CacheKey = nil
+			},
+		},
+		{
+			name: "unsupported schema version",
+			mutate: func(snapshot *cardexport.ManifestSnapshot) {
+				snapshot.SchemaVersion = cardexport.ManifestSchemaVersion + 1
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := lifecycleRestoreSnapshot()
+			test.mutate(&snapshot)
+			_, err := cardexport.NewPresentation(nil).Restore(snapshot)
+			assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+		})
+	}
+}
+
+func TestPresentationLifecycleRestorePreservesHistoricalDigests(t *testing.T) {
+	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
+		snapshot := lifecycleRestoreSnapshot()
+		snapshot.SchemaVersion = schema
+		if schema == cardexport.LegacyManifestSchemaVersion {
+			snapshot.Items[0].CacheKey.TargetLanguage = ""
+		}
+		manifestDigest, err := snapshot.Digest()
+		require.NoError(t, err, "schema %d", schema)
+		candidateDigest, err := cardexport.CandidateDigestVersion(snapshot.Items[0], schema)
+		require.NoError(t, err, "schema %d", schema)
+
+		deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+		require.NoError(t, err, "schema %d", schema)
+		stored := deck.StorageProjection()
+		gotManifestDigest, err := stored.Digest()
+		require.NoError(t, err, "schema %d", schema)
+		gotCandidateDigest, err := cardexport.CandidateDigestVersion(stored.Items[0], schema)
+		require.NoError(t, err, "schema %d", schema)
+		assert.Equal(t, manifestDigest, gotManifestDigest, "schema %d manifest", schema)
+		assert.Equal(t, candidateDigest, gotCandidateDigest, "schema %d candidate", schema)
+	}
+}
+
+func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
+	late := lifecycleProjection()
+	late.Candidate.CanonicalLemma = "spat"
+	late.Entry.CanonicalLemma = "spat"
+	late.Candidate.FirstEncounter = 200
+
+	early := lifecycleProjection()
+	early.Candidate.CanonicalLemma = "fruh"
+	early.Entry.CanonicalLemma = "fruh"
+	early.Candidate.FirstEncounter = 10
+
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), []cardexport.CandidateProjection{late, early})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 2)
+	assert.Equal(t, 0, work[0].Ordinal)
+	assert.Equal(t, 1, work[1].Ordinal)
+	assert.Equal(t, "fruh", work[0].Request.CanonicalLemma)
+	assert.Equal(t, "spat", work[1].Request.CanonicalLemma)
+	assert.Equal(t, "fruh", work[0].CacheKey.CanonicalLemma)
+	assert.Equal(t, "spat", work[1].CacheKey.CanonicalLemma)
+
+	items := deck.StorageProjection().Items
+	assert.Equal(t, "fruh", items[0].Entry.CanonicalLemma)
+	assert.Equal(t, "spat", items[1].Entry.CanonicalLemma)
+}
+
 func TestPresentationLifecycleSelectsFrozenWorkByOrdinal(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
@@ -285,5 +384,26 @@ func lifecycleProjection() cardexport.CandidateProjection {
 			{Surface: "dort", UPOS: "ADV", Dependency: "advmod", Head: 3},
 		}}},
 		Provider: "llm", ProviderVersion: "prompt-v1", TargetLanguage: "en",
+	}
+}
+
+func lifecycleRestoreSnapshot() cardexport.ManifestSnapshot {
+	sentence := "Das Haus steht heute dort."
+	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", DictionaryProviderVersion: "dictionary-v1", SentenceHash: enrichment.SentenceHash(sentence)}
+	return cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion,
+		Owner:         "owner-1",
+		DeckName:      "Book",
+		Filename:      cardexport.DownloadFilename("Book"),
+		Items: []cardexport.ManifestItem{{
+			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+			Entry: cardexport.Entry{
+				Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence,
+				TargetWord: "Haus", Gloss: "house", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen",
+				DictionaryProviderVersion: "dictionary-v1", CandidateSenses: []enrichment.LexicalSense{{Gloss: "house"}},
+			},
+			Quality:  cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}},
+			CacheKey: key,
+		}},
 	}
 }

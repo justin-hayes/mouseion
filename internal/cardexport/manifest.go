@@ -313,7 +313,12 @@ func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
 		if s.SchemaVersion == LegacyManifestSchemaVersion && canonical.CacheKey != nil {
 			canonical.CacheKey.TargetLanguage = ""
 		}
-		digest, err := CandidateDigestVersion(item, s.SchemaVersion)
+		// Candidate digests include the ordinal because the persisted identity is
+		// order-sensitive. Duplicate validation must ignore that position so a
+		// candidate cannot be repeated at a different ordinal.
+		identity := item
+		identity.Ordinal = 0
+		digest, err := CandidateDigestVersion(identity, s.SchemaVersion)
 		if err != nil {
 			return canonicalSnapshot{}, err
 		}
