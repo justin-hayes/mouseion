@@ -22,7 +22,7 @@ func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 	require.NotEmpty(t, matches, "no templ files found: %v", err)
 	hexColor := regexp.MustCompile(`#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b`)
 	for _, path := range matches {
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) //nolint:gosec // filepath.Glob only returns checked-in template paths.
 		require.NoError(t, err, "read %s", path)
 		for _, loc := range hexColor.FindAllIndex(data, -1) {
 			assert.Fail(t, "%s contains raw hex color %q; use documented CSS tokens", path, data[loc[0]:loc[1]])
@@ -62,6 +62,13 @@ func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
 	}
 }
 
+func TestRedirectRejectsExternalDestination(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	redirect(recorder, httptest.NewRequest(http.MethodGet, "/", nil), "https://evil.example/phishing")
+	assert.Equal(t, http.StatusSeeOther, recorder.Code)
+	assert.Equal(t, "/", recorder.Header().Get("Location"))
+}
+
 // TestReconciliation_NoTODOInTemplates blocks placeholder markers from being
 // reintroduced into the shipped templates as residual design debt.
 func TestReconciliation_NoTODOInTemplates(t *testing.T) {
@@ -70,7 +77,7 @@ func TestReconciliation_NoTODOInTemplates(t *testing.T) {
 	require.NotEmpty(t, matches, "no templ files found: %v", err)
 	todo := regexp.MustCompile(`(?i)\b(todo|fixme|xxx)\b`)
 	for _, path := range matches {
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) //nolint:gosec // filepath.Glob only returns checked-in template paths.
 		require.NoError(t, err, "read %s", path)
 		for _, loc := range todo.FindAllIndex(data, -1) {
 			assert.Fail(t, "%s contains placeholder marker %q", path, data[loc[0]:loc[1]])

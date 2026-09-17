@@ -49,6 +49,9 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	// The request body is capped before parsing, and the multipart memory budget
+	// prevents the parser from retaining an unbounded number of form values.
+	//nolint:gosec // MaxBytesReader above bounds the complete multipart request.
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
 		language := knownVocabImportLanguage(r)
 		h.renderKnownVocabResult(w, r, language, nil, nil, "The import is too large or could not be read.")

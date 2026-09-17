@@ -3,6 +3,7 @@ package cardexport
 import (
 	"archive/zip"
 	"bytes"
+	//nolint:gosec // Anki's legacy collection schema requires SHA-1 compatibility.
 	"crypto/sha1"
 	"database/sql"
 	_ "embed"
@@ -45,17 +46,13 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 		return nil, err
 	}
 	if err = writeCollection(db, deckName, notes, description); err != nil {
-		// The write error is already returned; closing the failed temporary DB has
-		// no recovery action.
-		//nolint:errcheck // Documented best-effort cleanup after a failed write.
-		db.Close()
-		return nil, err
+		return nil, errors.Join(err, db.Close())
 	}
 	if err = db.Close(); err != nil {
 		return nil, err
 	}
 
-	collection, err := os.Open(path)
+	collection, err := os.Open(path) //nolint:gosec // path is returned by os.CreateTemp above.
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +206,7 @@ func modelMetadata(modelID, deckID int64) map[string]any {
 }
 
 func stableID(value string) int64 {
-	sum := sha1.Sum([]byte(value))
+	sum := sha1.Sum([]byte(value)) //nolint:gosec // Anki's legacy collection schema requires SHA-1 IDs.
 	// Collection metadata stores IDs in JSON as well as SQLite. Keep them below
 	// 2^53 so every importer can represent them exactly before writing SQLite.
 	n, err := strconv.ParseInt(hex.EncodeToString(sum[:8])[:13], 16, 64)
@@ -220,7 +217,7 @@ func stableID(value string) int64 {
 }
 
 func fieldChecksum(value string) int64 {
-	sum := sha1.Sum([]byte(value))
+	sum := sha1.Sum([]byte(value)) //nolint:gosec // Anki's legacy collection schema requires SHA-1 checksums.
 	n, err := strconv.ParseInt(hex.EncodeToString(sum[:])[:8], 16, 64)
 	if err != nil {
 		panic(fmt.Sprintf("field checksum digest is not hexadecimal: %v", err))

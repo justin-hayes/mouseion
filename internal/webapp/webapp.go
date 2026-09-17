@@ -28,7 +28,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-const csrfCookie = "mouseion_csrf"
+const (
+	csrfCookie     = "mouseion_csrf"
+	maxRequestBody = 4 << 20
+)
 
 type Store interface {
 	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
@@ -216,7 +219,10 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /known-vocab", h.user(http.HandlerFunc(h.knownVocabPage)))
 	return h, nil
 }
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+	h.mux.ServeHTTP(w, r)
+}
 func (h *Handler) user(next http.Handler) http.Handler {
 	return h.services.WebAuth.RequireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := user(r)
@@ -257,6 +263,7 @@ func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 	token := base64.RawURLEncoding.EncodeToString(b)
+	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
 	return token
 }
@@ -270,13 +277,17 @@ func (h *Handler) checkCSRF(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 func (h *Handler) setSession(w http.ResponseWriter, token string) {
+	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
 	http.SetCookie(w, &http.Cookie{Name: webauth.CookieName, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
 }
 func (h *Handler) clearSession(w http.ResponseWriter) {
+	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
 	http.SetCookie(w, &http.Cookie{Name: webauth.CookieName, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
-	http.Redirect(w, r, path, http.StatusSeeOther)
+	// SafeReturnPath preserves local navigation while rejecting absolute and
+	// scheme-relative destinations supplied through request parameters.
+	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 func isHTMX(r *http.Request) bool      { return r.Header.Get("HX-Request") == "true" }

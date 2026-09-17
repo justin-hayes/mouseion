@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lexical"
@@ -698,7 +699,7 @@ func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revis
 		if err = json.Unmarshal(landmarkTypes, &unit.LandmarkTypes); err != nil {
 			return nil, fmt.Errorf("load extracted snapshot landmark provenance: %w", err)
 		}
-		if unit.UnitID == "" || unit.Order <= lastOrder || unit.EndOffset < unit.StartOffset {
+		if unit.UnitID == "" || unit.Order < 0 || unit.Order <= lastOrder || unit.EndOffset < unit.StartOffset {
 			return nil, errors.New("extracted snapshot is invalid")
 		}
 		lastOrder = unit.Order
@@ -716,7 +717,11 @@ func loadSnapshotUnits(ctx context.Context, q queryRower, owner, sourceID, revis
 func identifyMainText(units []snapshotUnit) epub.MainTextSelection {
 	provenance := make([]epub.ExtractedUnit, len(units))
 	for i, unit := range units {
-		provenance[i] = epub.ExtractedUnit{ID: unit.UnitID, Order: uint64(unit.Order), LandmarkTypes: unit.LandmarkTypes}
+		order, err := checked.Uint64FromInt(unit.Order)
+		if err != nil {
+			return epub.MainTextSelection{}
+		}
+		provenance[i] = epub.ExtractedUnit{ID: unit.UnitID, Order: order, LandmarkTypes: unit.LandmarkTypes}
 	}
 	return epub.IdentifyMainText(provenance)
 }
@@ -979,9 +984,17 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 				query.WriteString(",")
 			}
 			sentence := result.Sentences[ordinal]
+			startOffset, offsetErr := checked.Int64FromUint64(sentence.Location.StartOffset)
+			if offsetErr != nil {
+				return fmt.Errorf("persist normalized corpus sentence %d: start offset overflows bigint: %w", ordinal, offsetErr)
+			}
+			endOffset, offsetErr := checked.Int64FromUint64(sentence.Location.EndOffset)
+			if offsetErr != nil {
+				return fmt.Errorf("persist normalized corpus sentence %d: end offset overflows bigint: %w", ordinal, offsetErr)
+			}
 			arg := len(args) + 1
 			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7)
-			args = append(args, ownerID, runID, corpusID, sentence.Location.SourceDocumentID, int64(ordinal), sentence.Text, int64(sentence.Location.StartOffset), int64(sentence.Location.EndOffset))
+			args = append(args, ownerID, runID, corpusID, sentence.Location.SourceDocumentID, int64(ordinal), sentence.Text, startOffset, endOffset)
 		}
 		if _, err := tx.Exec(ctx, query.String(), args...); err != nil {
 			return err
@@ -1032,9 +1045,17 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 			if err != nil {
 				return err
 			}
+			startOffset, offsetErr := checked.Int64FromUint64(token.Location.StartOffset)
+			if offsetErr != nil {
+				return fmt.Errorf("persist normalized corpus token %d in sentence %d: start offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
+			}
+			endOffset, offsetErr := checked.Int64FromUint64(token.Location.EndOffset)
+			if offsetErr != nil {
+				return fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
+			}
 			arg := len(args) + 1
 			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7, arg+8, arg+9, arg+10, arg+11, arg+12, arg+13, arg+14)
-			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, int64(token.Location.StartOffset), int64(token.Location.EndOffset))
+			args = append(args, ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset)
 			tokenCount++
 		}
 	}

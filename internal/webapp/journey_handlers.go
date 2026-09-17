@@ -323,7 +323,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		return action, nil
 	}
 	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
-		log.Printf("mouseion: add book %s to Reading Journey failed: %v", bookID, err)
+		log.Print("mouseion: add book to Reading Journey failed")
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
 			return deckJourneyActionView{}, refreshErr

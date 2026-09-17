@@ -366,7 +366,7 @@ func assertJourneyEntries(t *testing.T, journey domain.ReadingJourney, owner str
 	require.Len(t, journey.Entries, len(bookIDs), "journey=%+v want owner=%q books=%v", journey, owner, bookIDs)
 	for i, entry := range journey.Entries {
 		assert.Equal(t, owner, entry.OwnerID, "journey entry[%d]", i)
-		assert.Equal(t, bookIDs[i], entry.BookID, "journey entry[%d]", i)
+		assert.Equal(t, bookIDs[i], entry.BookID, "journey entry[%d]", i) //nolint:gosec // require.Len above proves the parallel slices have equal length.
 		assert.Equal(t, i+1, entry.Position, "journey entry[%d]", i)
 	}
 }

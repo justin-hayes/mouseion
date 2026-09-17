@@ -27,6 +27,8 @@ func TestHealthcheckURL(t *testing.T) {
 		{name: "empty defaults to loopback 8080", addr: "", want: "http://127.0.0.1:8080/healthz"},
 		{name: "wildcard host", addr: "0.0.0.0:9090", want: "http://127.0.0.1:9090/healthz"},
 		{name: "explicit host", addr: "127.0.0.1:1234", want: "http://127.0.0.1:1234/healthz"},
+		{name: "non-loopback host", addr: "catalog.internal:1234", wantErr: true},
+		{name: "non-loopback address", addr: "192.0.2.1:1234", wantErr: true},
 		{name: "missing port", addr: "notaport", wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -39,6 +41,14 @@ func TestHealthcheckURL(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestNewHTTPServerHasTimeoutPolicy(t *testing.T) {
+	server := newHTTPServer(":8080", http.NotFoundHandler())
+	assert.Equal(t, serverReadHeaderTimeout, server.ReadHeaderTimeout)
+	assert.Equal(t, serverReadTimeout, server.ReadTimeout)
+	assert.Equal(t, serverWriteTimeout, server.WriteTimeout)
+	assert.Equal(t, serverIdleTimeout, server.IdleTimeout)
 }
 
 func TestProbeHealth(t *testing.T) {
@@ -54,6 +64,18 @@ func TestProbeHealth(t *testing.T) {
 	}))
 	defer server.Close()
 	require.NoError(t, probeHealth(server.URL+"/healthz", client))
+	var redirectFollowed bool
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" {
+			http.Redirect(w, r, "/should-not-follow", http.StatusFound)
+			return
+		}
+		redirectFollowed = true
+		http.Error(w, "redirect followed", http.StatusInternalServerError)
+	}))
+	defer redirecting.Close()
+	require.Error(t, probeHealth(redirecting.URL+"/healthz", client))
+	assert.False(t, redirectFollowed, "healthcheck followed a redirect")
 
 	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusInternalServerError)
@@ -62,6 +84,8 @@ func TestProbeHealth(t *testing.T) {
 	require.Error(t, probeHealth(failing.URL+"/healthz", client))
 
 	require.Error(t, probeHealth("http://127.0.0.1:1/healthz", client))
+	require.Error(t, probeHealth("http://192.0.2.1:1/healthz", client))
+	require.Error(t, probeHealth("http://127.0.0.1:1/not-healthz", client))
 }
 
 func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {

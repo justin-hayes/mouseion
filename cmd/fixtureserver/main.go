@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
@@ -46,6 +47,13 @@ func main() {
 	})
 	mux.Handle("/static/", webapp.StaticHandler())
 	mux.Handle("/", h)
-	log.Printf("mouseion fixture server listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Print("mouseion fixture server listening")
+	log.Fatal((&http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}).ListenAndServe())
 }

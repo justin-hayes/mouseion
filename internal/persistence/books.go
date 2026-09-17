@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -101,11 +103,19 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		limit = 0
 	}
 	escapedQuery := escapeLikePattern(query)
+	sqlOffset, err := checked.Int32FromInt(offset)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid browse offset: %w", err)
+	}
+	sqlLimit, err := checked.Int32FromInt(limit)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid browse limit: %w", err)
+	}
 
 	q := s.queries()
 	rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
 		Owner: owner, Query: escapedQuery, Language: language,
-		Offset: int32(offset), Limit: int32(limit),
+		Offset: sqlOffset, Limit: sqlLimit,
 	})
 	if err != nil {
 		return MyBooksBrowseResult{}, err

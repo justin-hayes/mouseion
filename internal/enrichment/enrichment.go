@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
@@ -361,6 +362,10 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 	}
 	req.ExampleSentence = sentence
 	metrics.ProviderCalls++
+	maxRetries, conversionErr := checked.Uint64FromInt(s.config.MaxAttempts - 1)
+	if conversionErr != nil {
+		return r, metrics, conversionErr
+	}
 	response, err := backoff.RetryWithData(func() (TranslationResponse, error) {
 		metrics.Attempts++
 		if metrics.Attempts > 1 {
@@ -386,7 +391,7 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 		backoff.WithRandomizationFactor(0),
 		backoff.WithMaxInterval(time.Duration(1<<63-1)),
 		backoff.WithMaxElapsedTime(0),
-	), uint64(s.config.MaxAttempts-1)), ctx))
+	), maxRetries), ctx))
 	if err != nil {
 		metrics.addError(ClassifyExternalError(err))
 		return r, metrics, err

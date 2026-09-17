@@ -28,7 +28,9 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
 			assert.Equal(t, int64(-1), r.ContentLength, "multipart upload was buffered: content length=%d", r.ContentLength)
-			require.NoError(t, r.ParseMultipartForm(1<<20))
+			r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+			parseErr := r.ParseMultipartForm(1 << 20) //nolint:gosec // MaxBytesReader above bounds the complete test request.
+			require.NoError(t, parseErr)
 			assert.Equal(t, "batch", r.FormValue("purpose"))
 			assert.Equal(t, "created_at", r.FormValue("expires_after[anchor]"))
 			assert.Equal(t, "604800", r.FormValue("expires_after[seconds]"))

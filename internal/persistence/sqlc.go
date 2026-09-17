@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -326,7 +327,11 @@ func nullableTextArg(value string) pgtype.Text {
 // intArg converts an int into the pgtype form sqlc binds for nullable integer
 // columns that are guaranteed non-null by the caller's domain rules.
 func intArg(value int) pgtype.Int4 {
-	return pgtype.Int4{Int32: int32(value), Valid: true}
+	converted, err := checked.Int32FromInt(value)
+	if err != nil {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: converted, Valid: true}
 }
 
 func pgTimeArgPtr(value *time.Time) pgtype.Timestamptz {

@@ -152,7 +152,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 	delay := standardRetryDelay(PreparedDeckConfig{StandardRetryBaseDelay: base, StandardRetryMaxDelay: max}, attempt)
 	jitter := w.Jitter
 	if jitter == nil {
-		jitter = func(d time.Duration) time.Duration { return time.Duration(float64(d) * (0.8 + rand.Float64()*0.4)) }
+		jitter = func(d time.Duration) time.Duration { return time.Duration(float64(d) * (0.8 + rand.Float64()*0.4)) } //nolint:gosec // retry jitter is not security-sensitive randomness.
 	}
 	next := w.now().Add(jitter(delay))
 	updated, err := w.Store.RetryPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, next, class, code)

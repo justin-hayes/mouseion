@@ -53,7 +53,7 @@ func PlanBatchChunks(codec *enrichment.TranslationCodec, runID string, generatio
 	}
 	encoded := make([]encodedItem, len(work))
 	for i, item := range work {
-		if i > 0 && item.Ordinal <= work[i-1].Ordinal {
+		if i > 0 && item.Ordinal <= work[i-1].Ordinal { //nolint:gosec // i>0 proves the prior manifest item exists.
 			return nil, errors.New("prepareddeck: Batch items are not in frozen manifest order")
 		}
 		if item.CacheKey == (enrichment.CacheKey{}) {
