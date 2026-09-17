@@ -64,6 +64,18 @@ func TestProbeHealth(t *testing.T) {
 	}))
 	defer server.Close()
 	require.NoError(t, probeHealth(server.URL+"/healthz", client))
+	var redirectFollowed bool
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" {
+			http.Redirect(w, r, "/should-not-follow", http.StatusFound)
+			return
+		}
+		redirectFollowed = true
+		http.Error(w, "redirect followed", http.StatusInternalServerError)
+	}))
+	defer redirecting.Close()
+	require.Error(t, probeHealth(redirecting.URL+"/healthz", client))
+	assert.False(t, redirectFollowed, "healthcheck followed a redirect")
 
 	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusInternalServerError)
