@@ -45,7 +45,7 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
 	}
@@ -60,7 +60,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer closeAtProcessBoundary("PostgreSQL store", store.Close)
+	defer closeIntoResult("PostgreSQL store", store.Close, &err)
 	addr := os.Getenv("MOUSEION_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"
@@ -79,7 +79,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer closeAtProcessBoundary("NLP analyzer", nlp.Close)
+	defer closeIntoResult("NLP analyzer", nlp.Close, &err)
 	selectionService := selection.NewService(store)
 	llmConfig, err := enrichment.LLMConfigFromEnv()
 	if err != nil {
@@ -93,7 +93,7 @@ func run() error {
 		}
 	}
 	if dictionaryIndex != nil {
-		defer closeAtProcessBoundary("dictionary index", dictionaryIndex.Close)
+		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
 	}
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
@@ -140,8 +140,13 @@ func run() error {
 		return err
 	}
 	defer func() {
-		if err := riverClient.Stop(context.Background()); err != nil {
-			log.Printf("stop analysis workers: %v", err)
+		if stopErr := riverClient.Stop(context.Background()); stopErr != nil {
+			stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
+			if err == nil {
+				err = stopErr
+			} else {
+				err = errors.Join(err, stopErr)
+			}
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
@@ -167,9 +172,14 @@ func run() error {
 	return http.ListenAndServe(addr, mux)
 }
 
-func closeAtProcessBoundary(name string, close func() error) {
-	if err := close(); err != nil {
-		log.Printf("close %s: %v", name, err)
+func closeIntoResult(name string, close func() error, result *error) {
+	if closeErr := close(); closeErr != nil {
+		closeErr = fmt.Errorf("close %s: %w", name, closeErr)
+		if *result == nil {
+			*result = closeErr
+		} else {
+			*result = errors.Join(*result, closeErr)
+		}
 	}
 }
 
