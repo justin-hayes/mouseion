@@ -172,7 +172,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
 		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
 	}
-	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), projections)
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner", "Frozen Book", projections)
 	require.NoError(t, err)
 	deck, err = cardexport.NewPresentation(nil).Restore(deck.StorageProjection())
 	require.NoError(t, err)

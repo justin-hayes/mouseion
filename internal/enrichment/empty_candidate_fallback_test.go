@@ -95,7 +95,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
 	}
 	presentation := cardexport.NewPresentation(nil)
-	deck, _, err := presentation.Freeze(context.Background(), []cardexport.CandidateProjection{{
+	deck, _, err := presentation.Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{{
 		OwnerID: "owner-1", DeckName: "Book", Provider: provider.Name(), ProviderVersion: provider.Version(), TargetLanguage: "en",
 		Candidate: domain.SelectionCandidate{OwnerID: "owner-1", CorpusID: "corpus-1", Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS, ObservedForms: []byte(`["seltene"]`), FirstEncounter: entry.FirstEncounter},
 		Entry:     entry,
