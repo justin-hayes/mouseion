@@ -103,6 +103,10 @@ func (r *finalizerRendererStub) Restore(cardexport.StorageProjection) (cardexpor
 	return cardexport.FrozenDeck{}, r.restoreErr
 }
 
+func (r *finalizerRendererStub) RestoreWithRecoveredRenderInputs(projection cardexport.StorageProjection, _ []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error) {
+	return r.Restore(projection)
+}
+
 func (r *finalizerRendererStub) Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
 	r.calls++
 	return r.artifact, r.diagnostics, r.err
@@ -115,6 +119,10 @@ type corpusRendererStub struct {
 
 func (r *corpusRendererStub) Restore(projection cardexport.StorageProjection) (cardexport.FrozenDeck, error) {
 	return cardexport.NewPresentation(nil).Restore(projection)
+}
+
+func (r *corpusRendererStub) RestoreWithRecoveredRenderInputs(projection cardexport.StorageProjection, recovered []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error) {
+	return cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(projection, recovered)
 }
 
 func (r *corpusRendererStub) Finalize(ctx context.Context, deck cardexport.FrozenDeck, stored []cardexport.StoredResult, facts cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error) {
