@@ -19,6 +19,7 @@ linters:
     - unused
     - ineffassign
     - gosec
+    - staticcheck
 
   settings:
     errcheck:
@@ -27,6 +28,9 @@ linters:
     nolintlint:
       require-explanation: true
       require-specific: true
+    staticcheck:
+      checks:
+        - SA*
 
   exclusions:
     generated: strict

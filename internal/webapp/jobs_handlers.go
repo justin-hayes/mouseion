@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +88,7 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 		Reconcile(context.Context, string, int64) (analysis.Status, error)
 	}); ok {
 		if _, reconcileErr := lifecycle.Reconcile(r.Context(), owner, id); reconcileErr != nil && !errors.Is(reconcileErr, analysis.ErrNotFound) {
-			// Status reads remain useful even if a best-effort reconciliation is unavailable.
+			log.Printf("mouseion: reconcile analysis job status: %v", reconcileErr)
 		}
 	}
 	status, err := h.services.Analysis.Get(r.Context(), owner, id)
@@ -240,7 +242,7 @@ func jobState(status analysis.Status) string {
 	case "running":
 		return "Running"
 	default:
-		return strings.Title(string(status.State))
+		return cases.Title(language.Und).String(string(status.State))
 	}
 }
 func analysisStatusSummary(status analysis.Status) string {
