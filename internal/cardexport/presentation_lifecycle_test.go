@@ -80,21 +80,34 @@ func TestPresentationLifecycleReturnsDictionaryCoverageDiagnostics(t *testing.T)
 }
 
 func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
+	wantManifestDigests := map[int]string{
+		1: "85cfe6352a1ae28d06519c4d94adfcbb9c01e1277ed7f24c7178e54b5f4edeba",
+		2: "cd1d97d3530526b88e3c5dcab590d639b80fe1170b693d57ab3f21c43a9ec20c",
+		3: "9d0ee64714e48bfaccda265690a53ce73e3ff73c7a9672a6219ef212c43b7cc7",
+		4: "9cbcdf53153d35561e67e6fc0c6047d4998f9c4f54e870e48ac85edeeae909d9",
+		5: "5e63d298cf4abd79295cad9e647d54bae78c8f5d9e9541c550d0efcd77b9952d",
+		6: "689341753a71cd9c14609d5337668cc7503f5233ca4396f35909d75e293ea6ca",
+	}
+	wantCandidateDigests := map[int]string{
+		1: "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
+		2: "8e145364594d48f70d70131efc6921655bc3cf7830347eb93ca09c4521d8908a",
+		3: "a6daea9cee8b8c3f8be0ef6d1d7fdb0c98b8fec3e04a2cf75fa7614d14aef71f",
+		4: "81ac05b57e64637efb78936bfa0352f821e6222d2feda13c6eb18862aa39014f",
+		5: "651de8c35431d328a63e6b6cd358dc3299ce0314c1fafb74302bbbbf28ba5698",
+		6: "7f94e44ed363cbbcad66e81060a234507d3c2cb1bd2814802ea05c01721f5dc5",
+	}
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
-		key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash("Das Haus steht heute dort.")}
+		snapshot := lifecycleRestoreSnapshot()
+		snapshot.SchemaVersion = schema
 		if schema == cardexport.LegacyManifestSchemaVersion {
-			key.TargetLanguage = ""
-		}
-		snapshot := cardexport.ManifestSnapshot{
-			SchemaVersion: schema, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book"),
-			Items: []cardexport.ManifestItem{{Ordinal: 0, Disposition: cardexport.ManifestAccepted,
-				Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute dort.", TargetWord: "Haus", Gloss: "frozen gloss"},
-				Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}}, CacheKey: key}},
+			snapshot.Items[0].CacheKey.TargetLanguage = ""
 		}
 		manifestDigest, err := snapshot.Digest()
 		require.NoError(t, err, "schema %d", schema)
 		candidateDigest, err := cardexport.CandidateDigestVersion(snapshot.Items[0], schema)
 		require.NoError(t, err, "schema %d", schema)
+		assert.Equal(t, wantManifestDigests[schema], manifestDigest, "schema %d manifest golden", schema)
+		assert.Equal(t, wantCandidateDigests[schema], candidateDigest, "schema %d candidate golden", schema)
 		deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
 		require.NoError(t, err, "schema %d", schema)
 		stored := deck.StorageProjection()
@@ -105,7 +118,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		assert.Equal(t, schema, stored.SchemaVersion)
 		assert.Equal(t, manifestDigest, gotManifestDigest, "schema %d", schema)
 		assert.Equal(t, candidateDigest, gotCandidateDigest, "schema %d", schema)
-		assert.Equal(t, "frozen gloss", stored.Items[0].Entry.Gloss)
+		assert.Equal(t, "house", stored.Items[0].Entry.Gloss)
 		if schema == cardexport.LegacyManifestSchemaVersion {
 			work := deck.WorkProjection()
 			_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today."}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
@@ -183,39 +196,15 @@ func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {
 	}
 }
 
-func TestPresentationLifecycleRestorePreservesHistoricalDigests(t *testing.T) {
-	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
-		snapshot := lifecycleRestoreSnapshot()
-		snapshot.SchemaVersion = schema
-		if schema == cardexport.LegacyManifestSchemaVersion {
-			snapshot.Items[0].CacheKey.TargetLanguage = ""
-		}
-		manifestDigest, err := snapshot.Digest()
-		require.NoError(t, err, "schema %d", schema)
-		candidateDigest, err := cardexport.CandidateDigestVersion(snapshot.Items[0], schema)
-		require.NoError(t, err, "schema %d", schema)
-
-		deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
-		require.NoError(t, err, "schema %d", schema)
-		stored := deck.StorageProjection()
-		gotManifestDigest, err := stored.Digest()
-		require.NoError(t, err, "schema %d", schema)
-		gotCandidateDigest, err := cardexport.CandidateDigestVersion(stored.Items[0], schema)
-		require.NoError(t, err, "schema %d", schema)
-		assert.Equal(t, manifestDigest, gotManifestDigest, "schema %d manifest", schema)
-		assert.Equal(t, candidateDigest, gotCandidateDigest, "schema %d candidate", schema)
-	}
-}
-
 func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
 	late := lifecycleProjection()
-	late.Candidate.CanonicalLemma = "spat"
-	late.Entry.CanonicalLemma = "spat"
+	late.Candidate.CanonicalLemma = "apple"
+	late.Entry.CanonicalLemma = "apple"
 	late.Candidate.FirstEncounter = 200
 
 	early := lifecycleProjection()
-	early.Candidate.CanonicalLemma = "fruh"
-	early.Entry.CanonicalLemma = "fruh"
+	early.Candidate.CanonicalLemma = "zebra"
+	early.Entry.CanonicalLemma = "zebra"
 	early.Candidate.FirstEncounter = 10
 
 	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), []cardexport.CandidateProjection{late, early})
@@ -224,14 +213,20 @@ func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
 	require.Len(t, work, 2)
 	assert.Equal(t, 0, work[0].Ordinal)
 	assert.Equal(t, 1, work[1].Ordinal)
-	assert.Equal(t, "fruh", work[0].Request.CanonicalLemma)
-	assert.Equal(t, "spat", work[1].Request.CanonicalLemma)
-	assert.Equal(t, "fruh", work[0].CacheKey.CanonicalLemma)
-	assert.Equal(t, "spat", work[1].CacheKey.CanonicalLemma)
+	assert.Equal(t, "zebra", work[0].Request.CanonicalLemma)
+	assert.Equal(t, "apple", work[1].Request.CanonicalLemma)
+	assert.Equal(t, enrichment.CacheKey{
+		Language: "de", TargetLanguage: "en", CanonicalLemma: "zebra", UPOS: "NOUN",
+		Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash(work[0].Request.ExampleSentence),
+	}, work[0].CacheKey)
+	assert.Equal(t, enrichment.CacheKey{
+		Language: "de", TargetLanguage: "en", CanonicalLemma: "apple", UPOS: "NOUN",
+		Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash(work[1].Request.ExampleSentence),
+	}, work[1].CacheKey)
 
 	items := deck.StorageProjection().Items
-	assert.Equal(t, "fruh", items[0].Entry.CanonicalLemma)
-	assert.Equal(t, "spat", items[1].Entry.CanonicalLemma)
+	assert.Equal(t, "zebra", items[0].Entry.CanonicalLemma)
+	assert.Equal(t, "apple", items[1].Entry.CanonicalLemma)
 }
 
 func TestPresentationLifecycleSelectsFrozenWorkByOrdinal(t *testing.T) {
